@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema } from "@shared/schema";
+import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -9,6 +9,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Finnhub API integration
   const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY || process.env.VITE_FINNHUB_API_KEY || "demo";
   const FINNHUB_BASE_URL = "https://finnhub.io/api/v1";
+  
+  // MF API integration
+  const MF_API_BASE = "https://api.mfapi.in";
+  
+  // Popular mutual fund scheme codes
+  const POPULAR_MF_SCHEMES = [
+    { code: '120503', name: 'SBI Bluechip Fund - Direct Growth' },
+    { code: '119551', name: 'ICICI Prudential Bluechip Fund - Direct Growth' },
+    { code: '118989', name: 'Axis Bluechip Fund - Direct Growth' },
+    { code: '120716', name: 'Mirae Asset Large Cap Fund - Direct Growth' },
+    { code: '146802', name: 'Parag Parikh Long Term Equity Fund - Direct Growth' },
+    { code: '119226', name: 'Kotak Small Cap Fund - Direct Growth' },
+    { code: '118834', name: 'DSP Tax Saver Fund - Direct Growth' },
+    { code: '119785', name: 'Axis Long Term Equity Fund - Direct Growth' },
+    { code: '118525', name: 'SBI Long Term Equity Fund - Direct Growth' }
+  ];
 
   // Helper function to fetch from Finnhub
   async function fetchFinnhub(endpoint: string) {
@@ -16,6 +32,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`Finnhub API error: ${response.status} ${response.statusText}`);
+    }
+    return response.json();
+  }
+
+  // Helper function to fetch from MF API
+  async function fetchMFAPI(endpoint: string) {
+    const url = `${MF_API_BASE}${endpoint}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`MFAPI error: ${response.status} ${response.statusText}`);
     }
     return response.json();
   }
@@ -271,6 +297,123 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         res.status(500).json({ error: "Failed to create watchlist" });
       }
+    }
+  });
+
+  // Mutual Fund API endpoints
+  app.get("/api/mutual-funds", async (req, res) => {
+    try {
+      // Check if we have cached data
+      const cachedFunds = await storage.getAllMutualFunds();
+      if (cachedFunds.length > 0) {
+        return res.json(cachedFunds);
+      }
+
+      // If no cached data, fetch popular funds
+      const fundPromises = POPULAR_MF_SCHEMES.map(async (scheme) => {
+        try {
+          const data = await fetchMFAPI(`/mf/${scheme.code}`);
+          const fundData = {
+            schemeCode: scheme.code,
+            schemeName: data.meta?.scheme_name || scheme.name,
+            category: data.meta?.scheme_category || "Equity",
+            fundHouse: data.meta?.fund_house || "Unknown AMC",
+            nav: data.data?.[0]?.nav || "0",
+            lastUpdated: new Date()
+          };
+          
+          // Store in database
+          await storage.upsertMutualFund(fundData);
+          return fundData;
+        } catch (error) {
+          console.error(`Error fetching MF ${scheme.code}:`, error);
+          return {
+            schemeCode: scheme.code,
+            schemeName: scheme.name,
+            category: "Equity",
+            fundHouse: "Unknown AMC",
+            nav: "0"
+          };
+        }
+      });
+
+      const funds = await Promise.all(fundPromises);
+      res.json(funds);
+    } catch (error) {
+      console.error("Error fetching mutual funds:", error);
+      res.status(500).json({ error: "Failed to fetch mutual funds" });
+    }
+  });
+
+  app.get("/api/mutual-funds/:schemeCode", async (req, res) => {
+    try {
+      const { schemeCode } = req.params;
+      const data = await fetchMFAPI(`/mf/${schemeCode}`);
+      
+      const fundData = {
+        schemeCode,
+        schemeName: data.meta?.scheme_name || "Unknown Fund",
+        category: data.meta?.scheme_category || "Unknown Category",
+        fundHouse: data.meta?.fund_house || "Unknown AMC",
+        nav: data.data?.[0]?.nav || "0",
+        date: data.data?.[0]?.date || new Date().toISOString().split('T')[0],
+        historicalData: data.data || []
+      };
+
+      // Store/update in database
+      await storage.upsertMutualFund(fundData);
+      
+      res.json(fundData);
+    } catch (error) {
+      console.error(`Error fetching mutual fund ${req.params.schemeCode}:`, error);
+      res.status(500).json({ error: "Failed to fetch mutual fund details" });
+    }
+  });
+
+  app.get("/api/mutual-funds/search/:query", async (req, res) => {
+    try {
+      const { query } = req.params;
+      const funds = await storage.searchMutualFunds(query);
+      res.json(funds);
+    } catch (error) {
+      console.error("Error searching mutual funds:", error);
+      res.status(500).json({ error: "Failed to search mutual funds" });
+    }
+  });
+
+  app.get("/api/mutual-funds/popular", async (req, res) => {
+    try {
+      const popularFunds = await Promise.all(
+        POPULAR_MF_SCHEMES.slice(0, 6).map(async (scheme) => {
+          const existing = await storage.getMutualFund(scheme.code);
+          if (existing) return existing;
+          
+          try {
+            const data = await fetchMFAPI(`/mf/${scheme.code}`);
+            const fundData = {
+              schemeCode: scheme.code,
+              schemeName: data.meta?.scheme_name || scheme.name,
+              category: data.meta?.scheme_category || "Equity",
+              fundHouse: data.meta?.fund_house || "Unknown AMC",
+              nav: data.data?.[0]?.nav || "0"
+            };
+            
+            return await storage.upsertMutualFund(fundData);
+          } catch (error) {
+            console.error(`Error fetching popular MF ${scheme.code}:`, error);
+            return {
+              schemeCode: scheme.code,
+              schemeName: scheme.name,
+              nav: "0"
+            };
+          }
+        })
+      );
+
+      res.json(popularFunds);
+    } catch (error) {
+      console.error("Error fetching popular mutual funds:", error);
+      res.status(500).json({ error: "Failed to fetch popular mutual funds" });
     }
   });
 

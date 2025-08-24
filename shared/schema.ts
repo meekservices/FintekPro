@@ -65,6 +65,24 @@ export const assetAllocation = pgTable("asset_allocation", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const mutualFunds = pgTable("mutual_funds", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  schemeCode: text("scheme_code").notNull().unique(),
+  schemeName: text("scheme_name").notNull(),
+  category: text("category"),
+  fundHouse: text("fund_house"),
+  nav: decimal("nav", { precision: 10, scale: 4 }),
+  change: decimal("change", { precision: 10, scale: 4 }),
+  changePercent: decimal("change_percent", { precision: 8, scale: 4 }),
+  expenseRatio: decimal("expense_ratio", { precision: 5, scale: 2 }),
+  aum: decimal("aum", { precision: 15, scale: 2 }),
+  riskLevel: text("risk_level"),
+  returns1y: decimal("returns_1y", { precision: 8, scale: 4 }),
+  returns3y: decimal("returns_3y", { precision: 8, scale: 4 }),
+  returns5y: decimal("returns_5y", { precision: 8, scale: 4 }),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -90,6 +108,11 @@ export const insertAssetAllocationSchema = createInsertSchema(assetAllocation).o
   updatedAt: true,
 });
 
+export const insertMutualFundSchema = createInsertSchema(mutualFunds).omit({
+  id: true,
+  lastUpdated: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertPortfolio = z.infer<typeof insertPortfolioSchema>;
@@ -101,3 +124,5 @@ export type Watchlist = typeof watchlists.$inferSelect;
 export type MarketData = typeof marketData.$inferSelect;
 export type AssetAllocation = typeof assetAllocation.$inferSelect;
 export type InsertAssetAllocation = z.infer<typeof insertAssetAllocationSchema>;
+export type MutualFund = typeof mutualFunds.$inferSelect;
+export type InsertMutualFund = z.infer<typeof insertMutualFundSchema>;
