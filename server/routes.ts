@@ -14,6 +14,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const MF_API_BASE = "https://api.mfapi.in";
   const MF_CENTRAL_API_BASE = "https://api.mfapi.in";
   
+  // NSDL API integration
+  const NSDL_API_BASE = "https://nsdl.co.in/api"; // Demo base URL
+  const NSDL_SANDBOX_BASE = "https://innovation-sandbox.in/api";
+  
   // Popular mutual fund scheme codes
   const POPULAR_MF_SCHEMES = [
     { code: '120503', name: 'SBI Bluechip Fund - Direct Growth' },
@@ -629,6 +633,418 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         status: "error",
         error: "Failed to generate portfolio analytics" 
+      });
+    }
+  });
+
+  // NSDL API endpoints
+  
+  // Helper function for NSDL API calls
+  async function fetchNSDL(endpoint: string, data?: any) {
+    // In production, this would use actual NSDL credentials and endpoints
+    // For demo purposes, we'll simulate NSDL responses
+    console.log(`NSDL API Call: ${endpoint}`, data);
+    
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    return { status: "success", data: data || {} };
+  }
+
+  // NSDL Demat Account Services
+  app.post("/api/nsdl/demat/account/open", async (req, res) => {
+    try {
+      const { clientName, pan, mobile, email, address, kycDocuments } = req.body;
+      
+      if (!clientName || !pan || !mobile) {
+        return res.status(400).json({
+          status: "error",
+          error: "Client name, PAN, and mobile number are required"
+        });
+      }
+
+      // Simulate NSDL Insta Demat Account Opening
+      const accountData = {
+        clientId: `CL${Date.now()}`,
+        demateAccountNumber: `${Math.random().toString().slice(2, 16)}`,
+        dpId: "IN300394",
+        dpName: "Demo Depository Participant",
+        clientName,
+        pan,
+        mobile,
+        email,
+        status: "ACTIVE",
+        accountType: "SINGLE_HOLDING",
+        openingDate: new Date().toISOString().split('T')[0],
+        kycStatus: "COMPLETED",
+        holdingNomination: "NOT_APPLICABLE"
+      };
+
+      await fetchNSDL("/account/open", accountData);
+
+      res.json({
+        status: "success",
+        message: "NSDL Demat account opened successfully",
+        data: accountData
+      });
+    } catch (error) {
+      console.error("Error opening NSDL demat account:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to open demat account"
+      });
+    }
+  });
+
+  app.get("/api/nsdl/demat/holdings/:accountNumber", async (req, res) => {
+    try {
+      const { accountNumber } = req.params;
+      
+      // Simulate NSDL holdings data
+      const holdingsData = {
+        accountNumber,
+        dpId: "IN300394",
+        clientName: "Demo Client",
+        asOfDate: new Date().toISOString().split('T')[0],
+        holdings: [
+          {
+            isin: "INE002A01018",
+            securityName: "Reliance Industries Ltd",
+            quantity: 100,
+            marketValue: "267500.00",
+            freeQuantity: 100,
+            lockedQuantity: 0,
+            pledgedQuantity: 0
+          },
+          {
+            isin: "INE009A01021", 
+            securityName: "Infosys Limited",
+            quantity: 50,
+            marketValue: "95000.00",
+            freeQuantity: 45,
+            lockedQuantity: 0,
+            pledgedQuantity: 5
+          },
+          {
+            isin: "INE467B01029",
+            securityName: "HDFC Bank Ltd",
+            quantity: 75,
+            marketValue: "127500.00", 
+            freeQuantity: 75,
+            lockedQuantity: 0,
+            pledgedQuantity: 0
+          }
+        ],
+        totalMarketValue: "490000.00"
+      };
+
+      await fetchNSDL("/holdings/fetch", { accountNumber });
+
+      res.json({
+        status: "success",
+        data: holdingsData
+      });
+    } catch (error) {
+      console.error("Error fetching NSDL holdings:", error);
+      res.status(500).json({
+        status: "error", 
+        error: "Failed to fetch holdings data"
+      });
+    }
+  });
+
+  // NSDL eDIS (Electronic Delivery Instruction Slip)
+  app.post("/api/nsdl/edis/instruction", async (req, res) => {
+    try {
+      const { accountNumber, isin, quantity, brokerCode, tradeDate, otp } = req.body;
+      
+      if (!accountNumber || !isin || !quantity || !brokerCode || !otp) {
+        return res.status(400).json({
+          status: "error",
+          error: "Account number, ISIN, quantity, broker code, and OTP are required"
+        });
+      }
+
+      // Simulate eDIS instruction processing
+      const edisInstruction = {
+        instructionId: `DIS${Date.now()}`,
+        accountNumber,
+        isin,
+        quantity,
+        brokerCode,
+        tradeDate,
+        status: "APPROVED",
+        processingDate: new Date().toISOString(),
+        remarks: "Electronic Delivery Instruction processed successfully"
+      };
+
+      await fetchNSDL("/edis/submit", edisInstruction);
+
+      res.json({
+        status: "success",
+        message: "eDIS instruction submitted successfully",
+        data: edisInstruction
+      });
+    } catch (error) {
+      console.error("Error processing eDIS instruction:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to process delivery instruction"
+      });
+    }
+  });
+
+  app.post("/api/nsdl/edis/otp/generate", async (req, res) => {
+    try {
+      const { accountNumber, mobile } = req.body;
+      
+      if (!accountNumber || !mobile) {
+        return res.status(400).json({
+          status: "error",
+          error: "Account number and mobile number are required"
+        });
+      }
+
+      // Simulate OTP generation
+      const otpData = {
+        referenceId: `OTP${Date.now()}`,
+        accountNumber,
+        mobile,
+        otp: Math.floor(100000 + Math.random() * 900000).toString(), // Demo OTP
+        validityMinutes: 10,
+        status: "SENT"
+      };
+
+      await fetchNSDL("/otp/generate", { accountNumber, mobile });
+
+      res.json({
+        status: "success",
+        message: "OTP sent successfully to registered mobile number",
+        data: {
+          referenceId: otpData.referenceId,
+          validityMinutes: otpData.validityMinutes
+        }
+      });
+    } catch (error) {
+      console.error("Error generating OTP:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to generate OTP"
+      });
+    }
+  });
+
+  // NSDL Margin Pledge API
+  app.post("/api/nsdl/margin/pledge/create", async (req, res) => {
+    try {
+      const { accountNumber, isin, quantity, pledgeeCode, purpose, otp } = req.body;
+      
+      if (!accountNumber || !isin || !quantity || !pledgeeCode || !otp) {
+        return res.status(400).json({
+          status: "error",
+          error: "All fields including OTP are required for margin pledge"
+        });
+      }
+
+      // Simulate margin pledge creation
+      const pledgeData = {
+        pledgeId: `PLG${Date.now()}`,
+        accountNumber,
+        isin,
+        quantity,
+        pledgeeCode,
+        purpose: purpose || "MARGIN",
+        status: "CONFIRMED",
+        pledgeDate: new Date().toISOString().split('T')[0],
+        collateralValue: (parseFloat(quantity) * 1500).toString(), // Simulated value
+        haircut: "15%",
+        eligibleValue: (parseFloat(quantity) * 1275).toString()
+      };
+
+      await fetchNSDL("/margin/pledge", pledgeData);
+
+      res.json({
+        status: "success",
+        message: "Margin pledge created successfully",
+        data: pledgeData
+      });
+    } catch (error) {
+      console.error("Error creating margin pledge:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to create margin pledge"
+      });
+    }
+  });
+
+  app.post("/api/nsdl/margin/pledge/close", async (req, res) => {
+    try {
+      const { pledgeId, otp } = req.body;
+      
+      if (!pledgeId || !otp) {
+        return res.status(400).json({
+          status: "error",
+          error: "Pledge ID and OTP are required"
+        });
+      }
+
+      // Simulate pledge closure
+      const closureData = {
+        pledgeId,
+        status: "CLOSED",
+        closureDate: new Date().toISOString().split('T')[0],
+        releasedQuantity: "100",
+        remarks: "Pledge closed successfully"
+      };
+
+      await fetchNSDL("/margin/pledge/close", closureData);
+
+      res.json({
+        status: "success",
+        message: "Margin pledge closed successfully",
+        data: closureData
+      });
+    } catch (error) {
+      console.error("Error closing margin pledge:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to close margin pledge"
+      });
+    }
+  });
+
+  // NSDL Digital LAS (Loan Against Securities)
+  app.post("/api/nsdl/las/loan/apply", async (req, res) => {
+    try {
+      const { accountNumber, loanAmount, collateralSecurities, purpose, bankCode } = req.body;
+      
+      if (!accountNumber || !loanAmount || !collateralSecurities || !bankCode) {
+        return res.status(400).json({
+          status: "error",
+          error: "Account number, loan amount, collateral securities, and bank code are required"
+        });
+      }
+
+      // Simulate LAS loan application
+      const loanApplication = {
+        applicationId: `LAS${Date.now()}`,
+        accountNumber,
+        loanAmount,
+        bankCode,
+        purpose: purpose || "PERSONAL",
+        status: "UNDER_PROCESSING",
+        applicationDate: new Date().toISOString().split('T')[0],
+        collateralSecurities,
+        interestRate: "12.5%",
+        tenure: "12 months",
+        eligibleLoanAmount: (parseFloat(loanAmount) * 0.7).toString()
+      };
+
+      await fetchNSDL("/las/apply", loanApplication);
+
+      res.json({
+        status: "success",
+        message: "LAS loan application submitted successfully",
+        data: loanApplication
+      });
+    } catch (error) {
+      console.error("Error applying for LAS loan:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to submit loan application"
+      });
+    }
+  });
+
+  app.get("/api/nsdl/las/loan/status/:applicationId", async (req, res) => {
+    try {
+      const { applicationId } = req.params;
+      
+      // Simulate loan status check
+      const loanStatus = {
+        applicationId,
+        status: "APPROVED",
+        approvedAmount: "500000.00",
+        disbursementDate: new Date().toISOString().split('T')[0],
+        interestRate: "12.5%",
+        repaymentSchedule: [
+          { dueDate: "2025-09-27", amount: "42708.33", status: "PENDING" },
+          { dueDate: "2025-10-27", amount: "42708.33", status: "PENDING" },
+          { dueDate: "2025-11-27", amount: "42708.33", status: "PENDING" }
+        ]
+      };
+
+      await fetchNSDL("/las/status", { applicationId });
+
+      res.json({
+        status: "success",
+        data: loanStatus
+      });
+    } catch (error) {
+      console.error("Error checking loan status:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch loan status"
+      });
+    }
+  });
+
+  // NSDL Account Statement and Transaction History
+  app.get("/api/nsdl/statement/:accountNumber", async (req, res) => {
+    try {
+      const { accountNumber } = req.params;
+      const { fromDate, toDate } = req.query;
+      
+      // Simulate transaction history
+      const statement = {
+        accountNumber,
+        dpId: "IN300394",
+        period: `${fromDate || '2025-01-01'} to ${toDate || new Date().toISOString().split('T')[0]}`,
+        transactions: [
+          {
+            date: "2025-08-25",
+            isin: "INE002A01018",
+            securityName: "Reliance Industries Ltd",
+            transactionType: "BUY",
+            quantity: 50,
+            rate: "2675.00",
+            amount: "133750.00",
+            balanceQuantity: 100
+          },
+          {
+            date: "2025-08-20", 
+            isin: "INE009A01021",
+            securityName: "Infosys Limited",
+            transactionType: "PLEDGE",
+            quantity: 5,
+            rate: "1900.00",
+            amount: "9500.00",
+            balanceQuantity: 50
+          },
+          {
+            date: "2025-08-15",
+            isin: "INE467B01029",
+            securityName: "HDFC Bank Ltd",
+            transactionType: "SELL",
+            quantity: -25,
+            rate: "1700.00",
+            amount: "-42500.00",
+            balanceQuantity: 75
+          }
+        ]
+      };
+
+      await fetchNSDL("/statement/fetch", { accountNumber, fromDate, toDate });
+
+      res.json({
+        status: "success",
+        data: statement
+      });
+    } catch (error) {
+      console.error("Error fetching account statement:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch account statement"
       });
     }
   });
