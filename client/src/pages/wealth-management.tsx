@@ -2324,13 +2324,13 @@ export default function WealthManagement() {
                       <Badge className="bg-purple-100 text-purple-800">Available</Badge>
                     </div>
                   </div>
-                  <div className="border rounded-lg p-3 bg-indigo-50">
+                  <div className="border rounded-lg p-3 bg-gradient-to-r from-indigo-50 to-purple-50">
                     <div className="flex items-center justify-between">
-                      <span className="font-medium">Minimum Investment</span>
-                      <span className="text-lg font-bold">₹1 Crore</span>
+                      <span className="font-medium">Total AIF Portfolio</span>
+                      <span className="text-lg font-bold text-indigo-600">₹10,000 Cr</span>
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      For qualified investors only
+                      Across 10 funds in 5 exchanges
                     </div>
                   </div>
                   <Button className="w-full" data-testid="button-explore-aif">
@@ -2389,22 +2389,32 @@ export default function WealthManagement() {
                 <CardContent className="space-y-4">
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="font-medium">Average IRR</span>
-                      <span className="text-lg font-bold text-green-600">18.5%</span>
+                      <span className="font-medium">Average 1Y Return</span>
+                      <span className="text-lg font-bold text-green-600">17.2%</span>
                     </div>
-                    <Progress value={75} className="h-2" />
+                    <Progress value={85} className="h-2" />
                     <div className="text-sm text-muted-foreground">
-                      Based on 3-year average returns
+                      Across 10 multi-exchange funds
                     </div>
                   </div>
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="font-medium">Fund Size</span>
-                      <span className="text-lg font-bold text-blue-600">₹2,456 Cr</span>
+                      <span className="font-medium">Total AUM</span>
+                      <span className="text-lg font-bold text-blue-600">₹10,000 Cr</span>
                     </div>
-                    <Progress value={60} className="h-2" />
+                    <Progress value={90} className="h-2" />
                     <div className="text-sm text-muted-foreground">
-                      Total AUM across all categories
+                      Combined portfolio across 5 exchanges
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">Top Performer</span>
+                      <span className="text-lg font-bold text-purple-600">25.8%</span>
+                    </div>
+                    <Progress value={95} className="h-2" />
+                    <div className="text-sm text-muted-foreground">
+                      BSE SME Growth Fund (1Y)
                     </div>
                   </div>
                   <div className="p-3 bg-yellow-50 rounded-lg">
@@ -2420,35 +2430,57 @@ export default function WealthManagement() {
               </Card>
             </div>
 
-            {/* Available AIF Funds */}
+            {/* Multi-Exchange AIF Funds */}
             <Card data-testid="card-available-aif-funds">
               <CardHeader>
-                <CardTitle>Available AIF Funds</CardTitle>
-                <CardDescription>Curated selection of top-performing Alternative Investment Funds</CardDescription>
+                <CardTitle>Multi-Exchange AIF Portfolio</CardTitle>
+                <CardDescription>Complete AIF coverage across NSE, BSE, MCX, NCDEX & MSEI exchanges</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
+                <div className="space-y-6">
+                  {/* Exchange & Category Filters */}
+                  <div className="flex flex-wrap gap-4 p-4 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-lg">
+                    <div className="flex flex-wrap gap-2">
+                      <Badge className="bg-blue-100 text-blue-800">NSE - Multi Sector & Infrastructure</Badge>
+                      <Badge className="bg-orange-100 text-orange-800">BSE - SME Growth & Debt</Badge>
+                      <Badge className="bg-yellow-100 text-yellow-800">MCX - Commodity & Energy</Badge>
+                      <Badge className="bg-green-100 text-green-800">NCDEX - AgriTech & Rural</Badge>
+                      <Badge className="bg-purple-100 text-purple-800">MSEI - Innovation & Healthcare</Badge>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      Total AUM: <span className="font-semibold">₹10,000 Cr</span> • Average Return: <span className="font-semibold text-green-600">17.2%</span>
+                    </div>
+                  </div>
+
+                  {/* Top Multi-Exchange AIF Funds Grid */}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* NSE Funds */}
                     <div className="border rounded-lg p-4 hover:bg-accent cursor-pointer">
                       <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-semibold">IndiaCorp Growth Fund</h3>
-                        <Badge className="bg-green-100 text-green-800">Cat II</Badge>
+                        <div>
+                          <h3 className="font-semibold">NSE Large Cap AIF</h3>
+                          <div className="text-xs text-muted-foreground">Private Equity Fund</div>
+                        </div>
+                        <div className="text-right">
+                          <Badge className="bg-blue-100 text-blue-800 mb-1">NSE</Badge>
+                          <div className="text-xs">Cat II</div>
+                        </div>
                       </div>
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
-                          <span>Fund Size:</span>
-                          <span className="font-medium">₹450 Cr</span>
+                          <span>NAV:</span>
+                          <span className="font-medium">₹125.45</span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Min Investment:</span>
-                          <span className="font-medium">₹1 Cr</span>
+                          <span>AUM:</span>
+                          <span className="font-medium">₹2,450 Cr</span>
                         </div>
                         <div className="flex justify-between">
-                          <span>3Y IRR:</span>
-                          <span className="font-medium text-green-600">22.4%</span>
+                          <span>1Y Return:</span>
+                          <span className="font-medium text-green-600">18.5%</span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Lock-in Period:</span>
+                          <span>Lock-in:</span>
                           <span className="font-medium">3 Years</span>
                         </div>
                       </div>
@@ -2457,24 +2489,193 @@ export default function WealthManagement() {
 
                     <div className="border rounded-lg p-4 hover:bg-accent cursor-pointer">
                       <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-semibold">Tech Innovation Fund</h3>
-                        <Badge className="bg-blue-100 text-blue-800">Cat II</Badge>
+                        <div>
+                          <h3 className="font-semibold">NSE Infrastructure</h3>
+                          <div className="text-xs text-muted-foreground">Infrastructure Fund</div>
+                        </div>
+                        <div className="text-right">
+                          <Badge className="bg-blue-100 text-blue-800 mb-1">NSE</Badge>
+                          <div className="text-xs">Cat I</div>
+                        </div>
                       </div>
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
-                          <span>Fund Size:</span>
-                          <span className="font-medium">₹275 Cr</span>
+                          <span>NAV:</span>
+                          <span className="font-medium">₹98.75</span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Min Investment:</span>
-                          <span className="font-medium">₹1 Cr</span>
+                          <span>AUM:</span>
+                          <span className="font-medium">₹1,850 Cr</span>
                         </div>
                         <div className="flex justify-between">
-                          <span>3Y IRR:</span>
-                          <span className="font-medium text-green-600">19.8%</span>
+                          <span>1Y Return:</span>
+                          <span className="font-medium text-green-600">15.2%</span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Lock-in Period:</span>
+                          <span>Lock-in:</span>
+                          <span className="font-medium">5 Years</span>
+                        </div>
+                      </div>
+                      <Button size="sm" className="w-full mt-3">View Details</Button>
+                    </div>
+
+                    {/* BSE Funds */}
+                    <div className="border rounded-lg p-4 hover:bg-accent cursor-pointer">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <h3 className="font-semibold">BSE SME Growth</h3>
+                          <div className="text-xs text-muted-foreground">Private Equity Fund</div>
+                        </div>
+                        <div className="text-right">
+                          <Badge className="bg-orange-100 text-orange-800 mb-1">BSE</Badge>
+                          <div className="text-xs">Cat II</div>
+                        </div>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span>NAV:</span>
+                          <span className="font-medium">₹142.30</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>AUM:</span>
+                          <span className="font-medium">₹1,650 Cr</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>1Y Return:</span>
+                          <span className="font-medium text-green-600">25.8%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Lock-in:</span>
+                          <span className="font-medium">4 Years</span>
+                        </div>
+                      </div>
+                      <Button size="sm" className="w-full mt-3">View Details</Button>
+                    </div>
+
+                    <div className="border rounded-lg p-4 hover:bg-accent cursor-pointer">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <h3 className="font-semibold">BSE Debt Plus</h3>
+                          <div className="text-xs text-muted-foreground">Hedge Fund</div>
+                        </div>
+                        <div className="text-right">
+                          <Badge className="bg-orange-100 text-orange-800 mb-1">BSE</Badge>
+                          <div className="text-xs">Cat III</div>
+                        </div>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span>NAV:</span>
+                          <span className="font-medium">₹111.85</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>AUM:</span>
+                          <span className="font-medium">₹980 Cr</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>1Y Return:</span>
+                          <span className="font-medium text-green-600">12.4%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Lock-in:</span>
+                          <span className="font-medium">1 Year</span>
+                        </div>
+                      </div>
+                      <Button size="sm" className="w-full mt-3">View Details</Button>
+                    </div>
+
+                    {/* MCX Funds */}
+                    <div className="border rounded-lg p-4 hover:bg-accent cursor-pointer">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <h3 className="font-semibold">MCX Commodity Alpha</h3>
+                          <div className="text-xs text-muted-foreground">Hedge Fund</div>
+                        </div>
+                        <div className="text-right">
+                          <Badge className="bg-yellow-100 text-yellow-800 mb-1">MCX</Badge>
+                          <div className="text-xs">Cat III</div>
+                        </div>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span>NAV:</span>
+                          <span className="font-medium">₹108.92</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>AUM:</span>
+                          <span className="font-medium">₹750 Cr</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>1Y Return:</span>
+                          <span className="font-medium text-green-600">16.8%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Lock-in:</span>
+                          <span className="font-medium">2 Years</span>
+                        </div>
+                      </div>
+                      <Button size="sm" className="w-full mt-3">View Details</Button>
+                    </div>
+
+                    <div className="border rounded-lg p-4 hover:bg-accent cursor-pointer">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <h3 className="font-semibold">MCX Energy Transition</h3>
+                          <div className="text-xs text-muted-foreground">Social Venture Fund</div>
+                        </div>
+                        <div className="text-right">
+                          <Badge className="bg-yellow-100 text-yellow-800 mb-1">MCX</Badge>
+                          <div className="text-xs">Cat I</div>
+                        </div>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span>NAV:</span>
+                          <span className="font-medium">₹95.67</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>AUM:</span>
+                          <span className="font-medium">₹420 Cr</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>1Y Return:</span>
+                          <span className="font-medium text-green-600">11.3%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Lock-in:</span>
+                          <span className="font-medium">7 Years</span>
+                        </div>
+                      </div>
+                      <Button size="sm" className="w-full mt-3">View Details</Button>
+                    </div>
+
+                    {/* NCDEX Funds */}
+                    <div className="border rounded-lg p-4 hover:bg-accent cursor-pointer">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <h3 className="font-semibold">NCDEX AgriTech</h3>
+                          <div className="text-xs text-muted-foreground">Venture Capital Fund</div>
+                        </div>
+                        <div className="text-right">
+                          <Badge className="bg-green-100 text-green-800 mb-1">NCDEX</Badge>
+                          <div className="text-xs">Cat I</div>
+                        </div>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span>NAV:</span>
+                          <span className="font-medium">₹118.45</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>AUM:</span>
+                          <span className="font-medium">₹580 Cr</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>1Y Return:</span>
+                          <span className="font-medium text-green-600">14.7%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Lock-in:</span>
                           <span className="font-medium">5 Years</span>
                         </div>
                       </div>
@@ -2483,25 +2684,96 @@ export default function WealthManagement() {
 
                     <div className="border rounded-lg p-4 hover:bg-accent cursor-pointer">
                       <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-semibold">Infrastructure Debt Fund</h3>
-                        <Badge className="bg-green-100 text-green-800">Cat I</Badge>
+                        <div>
+                          <h3 className="font-semibold">NCDEX Rural Dev</h3>
+                          <div className="text-xs text-muted-foreground">Social Venture Fund</div>
+                        </div>
+                        <div className="text-right">
+                          <Badge className="bg-green-100 text-green-800 mb-1">NCDEX</Badge>
+                          <div className="text-xs">Cat I</div>
+                        </div>
                       </div>
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
-                          <span>Fund Size:</span>
-                          <span className="font-medium">₹680 Cr</span>
+                          <span>NAV:</span>
+                          <span className="font-medium">₹106.23</span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Min Investment:</span>
-                          <span className="font-medium">₹1 Cr</span>
+                          <span>AUM:</span>
+                          <span className="font-medium">₹390 Cr</span>
                         </div>
                         <div className="flex justify-between">
-                          <span>3Y IRR:</span>
-                          <span className="font-medium text-green-600">16.2%</span>
+                          <span>1Y Return:</span>
+                          <span className="font-medium text-green-600">9.8%</span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Lock-in Period:</span>
-                          <span className="font-medium">7 Years</span>
+                          <span>Lock-in:</span>
+                          <span className="font-medium">6 Years</span>
+                        </div>
+                      </div>
+                      <Button size="sm" className="w-full mt-3">View Details</Button>
+                    </div>
+
+                    {/* MSEI Funds */}
+                    <div className="border rounded-lg p-4 hover:bg-accent cursor-pointer">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <h3 className="font-semibold">MSEI Startup</h3>
+                          <div className="text-xs text-muted-foreground">Venture Capital Fund</div>
+                        </div>
+                        <div className="text-right">
+                          <Badge className="bg-purple-100 text-purple-800 mb-1">MSEI</Badge>
+                          <div className="text-xs">Cat I</div>
+                        </div>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span>NAV:</span>
+                          <span className="font-medium">₹89.34</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>AUM:</span>
+                          <span className="font-medium">₹280 Cr</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>1Y Return:</span>
+                          <span className="font-medium text-green-600">8.2%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Lock-in:</span>
+                          <span className="font-medium">8 Years</span>
+                        </div>
+                      </div>
+                      <Button size="sm" className="w-full mt-3">View Details</Button>
+                    </div>
+
+                    <div className="border rounded-lg p-4 hover:bg-accent cursor-pointer">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <h3 className="font-semibold">MSEI Healthcare</h3>
+                          <div className="text-xs text-muted-foreground">Private Equity Fund</div>
+                        </div>
+                        <div className="text-right">
+                          <Badge className="bg-purple-100 text-purple-800 mb-1">MSEI</Badge>
+                          <div className="text-xs">Cat II</div>
+                        </div>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span>NAV:</span>
+                          <span className="font-medium">₹134.78</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>AUM:</span>
+                          <span className="font-medium">₹650 Cr</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>1Y Return:</span>
+                          <span className="font-medium text-green-600">22.1%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Lock-in:</span>
+                          <span className="font-medium">4 Years</span>
                         </div>
                       </div>
                       <Button size="sm" className="w-full mt-3">View Details</Button>
@@ -2511,13 +2783,21 @@ export default function WealthManagement() {
                   <div className="border-t pt-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h4 className="font-semibold">Ready to invest in AIF?</h4>
-                        <p className="text-sm text-muted-foreground">Schedule a consultation with our investment advisors</p>
+                        <h4 className="font-semibold">Multi-Exchange AIF Investment Platform</h4>
+                        <p className="text-sm text-muted-foreground">
+                          Complete coverage across NSE, BSE, MCX, NCDEX & MSEI with SEBI-regulated professional management
+                        </p>
                       </div>
-                      <Button data-testid="button-schedule-consultation">
-                        <Users className="w-4 h-4 mr-2" />
-                        Schedule Consultation
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button variant="outline" data-testid="button-export-aif">
+                          <Download className="w-4 h-4 mr-2" />
+                          Export Portfolio
+                        </Button>
+                        <Button data-testid="button-schedule-consultation">
+                          <Users className="w-4 h-4 mr-2" />
+                          Schedule Consultation
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>

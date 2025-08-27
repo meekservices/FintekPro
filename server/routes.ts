@@ -1876,6 +1876,558 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get NSE AIF funds data
+  app.get("/api/aif/nse-funds", async (req, res) => {
+    try {
+      const nseFunds = [
+        {
+          id: "nse-aif-1",
+          name: "NSE Large Cap AIF Fund",
+          category: "Category II",
+          subCategory: "Private Equity Fund",
+          exchange: "NSE",
+          fundManager: "NSE Investment Managers",
+          launchDate: "2022-01-15",
+          nav: 125.45,
+          aum: "₹2,450 Cr",
+          minimumInvestment: "₹1,00,00,000",
+          lockInPeriod: "3 years",
+          exitLoad: "2%",
+          managementFee: "2.5%",
+          performanceFee: "20%",
+          returns: {
+            "1Y": 18.5,
+            "2Y": 22.3,
+            "3Y": 19.8,
+            "5Y": 24.2,
+            "inception": 21.7
+          },
+          riskRating: "High",
+          benchmark: "NSE 500 TRI",
+          sector: "Multi-Sector",
+          status: "Open",
+          lastUpdated: "2025-01-27",
+          regulatoryInfo: {
+            sebiRegistration: "IN/AIF2/22-23/1045",
+            trustee: "NSE Trustee Services",
+            custodian: "HDFC Bank"
+          }
+        },
+        {
+          id: "nse-aif-2", 
+          name: "NSE Infrastructure Development Fund",
+          category: "Category I",
+          subCategory: "Infrastructure Fund",
+          exchange: "NSE",
+          fundManager: "NSE Infra Capital",
+          launchDate: "2021-06-20",
+          nav: 98.75,
+          aum: "₹1,850 Cr",
+          minimumInvestment: "₹1,00,00,000",
+          lockInPeriod: "5 years",
+          exitLoad: "1%",
+          managementFee: "1.8%",
+          performanceFee: "15%",
+          returns: {
+            "1Y": 15.2,
+            "2Y": 18.7,
+            "3Y": 16.4,
+            "5Y": 20.1,
+            "inception": 17.8
+          },
+          riskRating: "Medium-High",
+          benchmark: "NSE Infrastructure Index",
+          sector: "Infrastructure",
+          status: "Open",
+          lastUpdated: "2025-01-27",
+          regulatoryInfo: {
+            sebiRegistration: "IN/AIF1/21-22/0789",
+            trustee: "NSE Trustee Services",
+            custodian: "SBI Custodial Services"
+          }
+        }
+      ];
+
+      res.json({
+        status: "success",
+        data: nseFunds,
+        exchange: "NSE",
+        totalFunds: nseFunds.length,
+        totalAUM: "₹4,300 Cr",
+        lastUpdated: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error fetching NSE AIF data:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch NSE AIF data"
+      });
+    }
+  });
+
+  // Get BSE AIF funds data
+  app.get("/api/aif/bse-funds", async (req, res) => {
+    try {
+      const bseFunds = [
+        {
+          id: "bse-aif-1",
+          name: "BSE SME Growth Fund",
+          category: "Category II", 
+          subCategory: "Private Equity Fund",
+          exchange: "BSE",
+          fundManager: "BSE SME Capital",
+          launchDate: "2022-03-10",
+          nav: 142.30,
+          aum: "₹1,650 Cr",
+          minimumInvestment: "₹1,00,00,000",
+          lockInPeriod: "4 years",
+          exitLoad: "2.5%",
+          managementFee: "2.8%",
+          performanceFee: "25%",
+          returns: {
+            "1Y": 25.8,
+            "2Y": 28.4,
+            "3Y": 24.7,
+            "5Y": 0, // Not available
+            "inception": 26.1
+          },
+          riskRating: "Very High",
+          benchmark: "BSE SME IPO Index",
+          sector: "Small & Mid Cap",
+          status: "Open",
+          lastUpdated: "2025-01-27",
+          regulatoryInfo: {
+            sebiRegistration: "IN/AIF2/22-23/1156",
+            trustee: "BSE Trustee Company",
+            custodian: "ICICI Bank"
+          }
+        },
+        {
+          id: "bse-aif-3",
+          name: "BSE Debt Plus Fund",
+          category: "Category III",
+          subCategory: "Hedge Fund",
+          exchange: "BSE",
+          fundManager: "BSE Alternative Investments",
+          launchDate: "2021-09-15",
+          nav: 111.85,
+          aum: "₹980 Cr",
+          minimumInvestment: "₹1,00,00,000", 
+          lockInPeriod: "1 year",
+          exitLoad: "1.5%",
+          managementFee: "2.2%",
+          performanceFee: "20%",
+          returns: {
+            "1Y": 12.4,
+            "2Y": 14.8,
+            "3Y": 13.2,
+            "5Y": 15.6,
+            "inception": 14.1
+          },
+          riskRating: "Medium",
+          benchmark: "CRISIL Corporate Bond Composite Index",
+          sector: "Debt & Arbitrage",
+          status: "Open",
+          lastUpdated: "2025-01-27",
+          regulatoryInfo: {
+            sebiRegistration: "IN/AIF3/21-22/0923",
+            trustee: "BSE Trustee Company",
+            custodian: "Axis Bank"
+          }
+        }
+      ];
+
+      res.json({
+        status: "success",
+        data: bseFunds,
+        exchange: "BSE",
+        totalFunds: bseFunds.length,
+        totalAUM: "₹2,630 Cr",
+        lastUpdated: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error fetching BSE AIF data:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch BSE AIF data"
+      });
+    }
+  });
+
+  // Get MCX AIF funds data (commodity-focused)
+  app.get("/api/aif/mcx-funds", async (req, res) => {
+    try {
+      const mcxFunds = [
+        {
+          id: "mcx-aif-1",
+          name: "MCX Commodity Alpha Fund",
+          category: "Category III",
+          subCategory: "Hedge Fund", 
+          exchange: "MCX",
+          fundManager: "MCX Alternative Capital",
+          launchDate: "2022-05-01",
+          nav: 108.92,
+          aum: "₹750 Cr",
+          minimumInvestment: "₹1,00,00,000",
+          lockInPeriod: "2 years",
+          exitLoad: "2%",
+          managementFee: "2.3%",
+          performanceFee: "25%",
+          returns: {
+            "1Y": 16.8,
+            "2Y": 19.5,
+            "3Y": 17.2,
+            "5Y": 0, // Not available
+            "inception": 18.1
+          },
+          riskRating: "High",
+          benchmark: "MCX Composite Index",
+          sector: "Commodities",
+          status: "Open",
+          lastUpdated: "2025-01-27",
+          underlyingAssets: ["Gold", "Silver", "Crude Oil", "Natural Gas"],
+          regulatoryInfo: {
+            sebiRegistration: "IN/AIF3/22-23/1278",
+            trustee: "MCX Trust Services",
+            custodian: "Kotak Mahindra Bank"
+          }
+        },
+        {
+          id: "mcx-aif-2",
+          name: "MCX Energy Transition Fund",
+          category: "Category I",
+          subCategory: "Social Venture Fund",
+          exchange: "MCX",
+          fundManager: "MCX Green Capital",
+          launchDate: "2023-01-20",
+          nav: 95.67,
+          aum: "₹420 Cr",
+          minimumInvestment: "₹1,00,00,000",
+          lockInPeriod: "7 years",
+          exitLoad: "1%",
+          managementFee: "1.5%",
+          performanceFee: "12%",
+          returns: {
+            "1Y": 11.3,
+            "2Y": 13.7,
+            "3Y": 0, // Not available
+            "5Y": 0, // Not available
+            "inception": 12.8
+          },
+          riskRating: "Medium-High",
+          benchmark: "S&P Global Clean Energy Index",
+          sector: "Clean Energy",
+          status: "Open",
+          lastUpdated: "2025-01-27",
+          underlyingAssets: ["Solar Energy", "Wind Power", "Battery Storage", "Green Hydrogen"],
+          regulatoryInfo: {
+            sebiRegistration: "IN/AIF1/23-24/1456",
+            trustee: "MCX Trust Services", 
+            custodian: "YES Bank"
+          }
+        }
+      ];
+
+      res.json({
+        status: "success",
+        data: mcxFunds,
+        exchange: "MCX",
+        totalFunds: mcxFunds.length,
+        totalAUM: "₹1,170 Cr",
+        specialization: "Commodity & Energy Funds",
+        lastUpdated: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error fetching MCX AIF data:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch MCX AIF data"
+      });
+    }
+  });
+
+  // Get NCDEX AIF funds data (agricultural-focused)
+  app.get("/api/aif/ncdex-funds", async (req, res) => {
+    try {
+      const ncdexFunds = [
+        {
+          id: "ncdex-aif-1",
+          name: "NCDEX AgriTech Innovation Fund",
+          category: "Category I",
+          subCategory: "Venture Capital Fund",
+          exchange: "NCDEX",
+          fundManager: "NCDEX Venture Partners",
+          launchDate: "2022-08-15",
+          nav: 118.45,
+          aum: "₹580 Cr",
+          minimumInvestment: "₹1,00,00,000",
+          lockInPeriod: "5 years", 
+          exitLoad: "1.5%",
+          managementFee: "2.0%",
+          performanceFee: "20%",
+          returns: {
+            "1Y": 14.7,
+            "2Y": 17.8,
+            "3Y": 16.2,
+            "5Y": 0, // Not available
+            "inception": 16.9
+          },
+          riskRating: "High",
+          benchmark: "NCDEX Agricultural Index",
+          sector: "AgriTech & Food Processing",
+          status: "Open",
+          lastUpdated: "2025-01-27",
+          underlyingAssets: ["Agricultural Technology", "Food Processing", "Supply Chain", "Sustainable Farming"],
+          regulatoryInfo: {
+            sebiRegistration: "IN/AIF1/22-23/1234",
+            trustee: "NCDEX Trustee Services",
+            custodian: "Union Bank of India"
+          }
+        },
+        {
+          id: "ncdex-aif-2",
+          name: "NCDEX Rural Development Fund", 
+          category: "Category I",
+          subCategory: "Social Venture Fund",
+          exchange: "NCDEX",
+          fundManager: "NCDEX Social Impact",
+          launchDate: "2021-11-10",
+          nav: 106.23,
+          aum: "₹390 Cr",
+          minimumInvestment: "₹1,00,00,000",
+          lockInPeriod: "6 years",
+          exitLoad: "1%",
+          managementFee: "1.8%",
+          performanceFee: "15%",
+          returns: {
+            "1Y": 9.8,
+            "2Y": 12.4,
+            "3Y": 11.6,
+            "5Y": 0, // Not available
+            "inception": 11.2
+          },
+          riskRating: "Medium",
+          benchmark: "Rural Development Index",
+          sector: "Rural & Social Impact",
+          status: "Open",
+          lastUpdated: "2025-01-27",
+          underlyingAssets: ["Rural Infrastructure", "Microfinance", "Agricultural Equipment", "Rural Healthcare"],
+          regulatoryInfo: {
+            sebiRegistration: "IN/AIF1/21-22/0987",
+            trustee: "NCDEX Trustee Services",
+            custodian: "Bank of Baroda"
+          }
+        }
+      ];
+
+      res.json({
+        status: "success",
+        data: ncdexFunds,
+        exchange: "NCDEX",
+        totalFunds: ncdexFunds.length,
+        totalAUM: "₹970 Cr",
+        specialization: "Agricultural & Rural Development Funds",
+        lastUpdated: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error fetching NCDEX AIF data:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch NCDEX AIF data"
+      });
+    }
+  });
+
+  // Get MSEI AIF funds data (SME and specialized)
+  app.get("/api/aif/msei-funds", async (req, res) => {
+    try {
+      const mseiFunds = [
+        {
+          id: "msei-aif-1",
+          name: "MSEI Startup Accelerator Fund",
+          category: "Category I",
+          subCategory: "Venture Capital Fund",
+          exchange: "MSEI",
+          fundManager: "MSEI Ventures",
+          launchDate: "2023-02-28",
+          nav: 89.34,
+          aum: "₹280 Cr",
+          minimumInvestment: "₹1,00,00,000",
+          lockInPeriod: "8 years",
+          exitLoad: "2%",
+          managementFee: "2.5%",
+          performanceFee: "25%",
+          returns: {
+            "1Y": 8.2,
+            "2Y": 10.7,
+            "3Y": 0, // Not available
+            "5Y": 0, // Not available
+            "inception": 9.1
+          },
+          riskRating: "Very High",
+          benchmark: "MSEI Startup Index",
+          sector: "Technology Startups",
+          status: "Open",
+          lastUpdated: "2025-01-27",
+          underlyingAssets: ["Fintech", "Healthtech", "Edtech", "Deep Tech"],
+          regulatoryInfo: {
+            sebiRegistration: "IN/AIF1/23-24/1567",
+            trustee: "MSEI Trust Company",
+            custodian: "IndusInd Bank"
+          }
+        },
+        {
+          id: "msei-aif-2",
+          name: "MSEI Healthcare Innovation Fund",
+          category: "Category II",
+          subCategory: "Private Equity Fund",
+          exchange: "MSEI",
+          fundManager: "MSEI Healthcare Capital",
+          launchDate: "2022-07-05",
+          nav: 134.78,
+          aum: "₹650 Cr",
+          minimumInvestment: "₹1,00,00,000",
+          lockInPeriod: "4 years",
+          exitLoad: "2%",
+          managementFee: "2.3%",
+          performanceFee: "20%",
+          returns: {
+            "1Y": 22.1,
+            "2Y": 24.6,
+            "3Y": 23.4,
+            "5Y": 0, // Not available
+            "inception": 23.7
+          },
+          riskRating: "High",
+          benchmark: "MSEI Healthcare Index",
+          sector: "Healthcare & Pharmaceuticals",
+          status: "Open",
+          lastUpdated: "2025-01-27",
+          underlyingAssets: ["Pharmaceutical Manufacturing", "Medical Devices", "Digital Health", "Biotechnology"],
+          regulatoryInfo: {
+            sebiRegistration: "IN/AIF2/22-23/1345",
+            trustee: "MSEI Trust Company",
+            custodian: "HDFC Bank"
+          }
+        }
+      ];
+
+      res.json({
+        status: "success", 
+        data: mseiFunds,
+        exchange: "MSEI",
+        totalFunds: mseiFunds.length,
+        totalAUM: "₹930 Cr",
+        specialization: "SME & Innovation Funds",
+        lastUpdated: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error fetching MSEI AIF data:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch MSEI AIF data"
+      });
+    }
+  });
+
+  // Get comprehensive multi-exchange AIF data
+  app.get("/api/aif/all-exchanges", async (req, res) => {
+    try {
+      const exchange = req.query.exchange as string;
+      const category = req.query.category as string;
+
+      // Fetch from all exchanges
+      const [nseResponse, bseResponse, mcxResponse, ncdexResponse, mseiResponse] = await Promise.all([
+        fetch(`${req.protocol}://${req.get('host')}/api/aif/nse-funds`),
+        fetch(`${req.protocol}://${req.get('host')}/api/aif/bse-funds`),
+        fetch(`${req.protocol}://${req.get('host')}/api/aif/mcx-funds`),
+        fetch(`${req.protocol}://${req.get('host')}/api/aif/ncdex-funds`),
+        fetch(`${req.protocol}://${req.get('host')}/api/aif/msei-funds`)
+      ]);
+
+      const [nseData, bseData, mcxData, ncdexData, mseiData] = await Promise.all([
+        nseResponse.json(),
+        bseResponse.json(), 
+        mcxResponse.json(),
+        ncdexResponse.json(),
+        mseiResponse.json()
+      ]);
+
+      let allFunds = [
+        ...nseData.data,
+        ...bseData.data,
+        ...mcxData.data,
+        ...ncdexData.data,
+        ...mseiData.data
+      ];
+
+      // Filter by exchange if specified
+      if (exchange && exchange !== 'all') {
+        allFunds = allFunds.filter(fund => 
+          fund.exchange.toLowerCase() === exchange.toLowerCase()
+        );
+      }
+
+      // Filter by category if specified
+      if (category && category !== 'all') {
+        allFunds = allFunds.filter(fund => 
+          fund.category.toLowerCase().includes(category.toLowerCase()) ||
+          fund.subCategory.toLowerCase().includes(category.toLowerCase())
+        );
+      }
+
+      // Calculate comprehensive market statistics
+      const marketStats = {
+        totalFunds: allFunds.length,
+        exchangeBreakdown: {
+          NSE: nseData.data.length,
+          BSE: bseData.data.length,
+          MCX: mcxData.data.length,
+          NCDEX: ncdexData.data.length,
+          MSEI: mseiData.data.length
+        },
+        totalAUM: allFunds.reduce((sum, fund) => {
+          const aum = parseFloat(fund.aum.replace(/[₹,\sCr]/g, ''));
+          return sum + aum;
+        }, 0),
+        averageReturns: {
+          "1Y": (allFunds.reduce((sum, fund) => sum + fund.returns["1Y"], 0) / allFunds.length).toFixed(1),
+          "3Y": (allFunds.reduce((sum, fund) => sum + (fund.returns["3Y"] || 0), 0) / allFunds.filter(f => f.returns["3Y"]).length).toFixed(1),
+          "5Y": (allFunds.reduce((sum, fund) => sum + (fund.returns["5Y"] || 0), 0) / allFunds.filter(f => f.returns["5Y"]).length).toFixed(1)
+        },
+        categoryDistribution: {
+          "Category I": allFunds.filter(f => f.category === 'Category I').length,
+          "Category II": allFunds.filter(f => f.category === 'Category II').length,
+          "Category III": allFunds.filter(f => f.category === 'Category III').length
+        },
+        riskDistribution: {
+          "High": allFunds.filter(f => f.riskRating.includes('High')).length,
+          "Medium": allFunds.filter(f => f.riskRating.includes('Medium')).length,
+          "Low": allFunds.filter(f => f.riskRating.includes('Low')).length
+        },
+        topPerformer: allFunds.reduce((max, fund) => 
+          fund.returns["1Y"] > max.returns["1Y"] ? fund : max, allFunds[0]
+        )
+      };
+
+      res.json({
+        status: "success",
+        data: allFunds,
+        marketStats,
+        filters: { exchange: exchange || 'all', category: category || 'all' },
+        exchanges: ['NSE', 'BSE', 'MCX', 'NCDEX', 'MSEI'],
+        categories: ['Category I', 'Category II', 'Category III'],
+        lastUpdated: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error fetching all exchanges AIF data:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch AIF data from all exchanges"
+      });
+    }
+  });
+
   // MCX API endpoints
 
   // Get MCX commodity data
