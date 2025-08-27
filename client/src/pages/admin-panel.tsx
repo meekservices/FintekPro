@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertTriangle, Users, Activity, TrendingUp, MessageSquare, Settings, Search, Filter, Shield, FileText } from "lucide-react";
+import { AlertTriangle, Users, Activity, TrendingUp, MessageSquare, Settings, Search, Filter, Shield, FileText, Building2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -220,7 +220,7 @@ export default function AdminPanel() {
       </div>
 
       <Tabs defaultValue="dashboard" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="dashboard" data-testid="tab-dashboard">
             <TrendingUp className="w-4 h-4 mr-2" />
             Dashboard
@@ -248,6 +248,10 @@ export default function AdminPanel() {
           <TabsTrigger value="guidance" data-testid="tab-guidance">
             <MessageSquare className="w-4 h-4 mr-2" />
             Guidance
+          </TabsTrigger>
+          <TabsTrigger value="partners" data-testid="tab-partners">
+            <Building2 className="w-4 h-4 mr-2" />
+            Partners
           </TabsTrigger>
         </TabsList>
 
@@ -689,6 +693,292 @@ export default function AdminPanel() {
               <TransactionReportViewer />
             </TabsContent>
           </Tabs>
+        </TabsContent>
+
+        {/* Partners Tab */}
+        <TabsContent value="partners" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Partner Statistics */}
+            <Card data-testid="card-partner-stats">
+              <CardHeader>
+                <CardTitle>Partner Overview</CardTitle>
+                <CardDescription>Vendor partner statistics</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex justify-between">
+                  <span>Total Partners</span>
+                  <Badge className="bg-blue-100 text-blue-800" data-testid="badge-total-partners">125</Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span>Active Partners</span>
+                  <Badge className="bg-green-100 text-green-800" data-testid="badge-active-partners">98</Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span>Pending Approval</span>
+                  <Badge className="bg-yellow-100 text-yellow-800" data-testid="badge-pending-partners">12</Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span>Suspended</span>
+                  <Badge className="bg-red-100 text-red-800" data-testid="badge-suspended-partners">15</Badge>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Partner Actions */}
+            <Card data-testid="card-partner-actions">
+              <CardHeader>
+                <CardTitle>Quick Actions</CardTitle>
+                <CardDescription>Manage partner operations</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button className="w-full" data-testid="button-invite-partner">
+                  <Building2 className="w-4 h-4 mr-2" />
+                  Invite New Partner
+                </Button>
+                <Button variant="outline" className="w-full" data-testid="button-bulk-approve">
+                  <Shield className="w-4 h-4 mr-2" />
+                  Bulk Approve
+                </Button>
+                <Button variant="outline" className="w-full" data-testid="button-export-partners">
+                  <FileText className="w-4 h-4 mr-2" />
+                  Export Partner List
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Recent Partner Activity */}
+            <Card data-testid="card-partner-activity">
+              <CardHeader>
+                <CardTitle>Recent Activity</CardTitle>
+                <CardDescription>Latest partner actions</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 p-2 border rounded" data-testid="partner-activity-0">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <div className="flex-1">
+                      <div className="text-sm font-medium">TechCorp Solutions</div>
+                      <div className="text-xs text-muted-foreground">Status changed to Active</div>
+                    </div>
+                    <div className="text-xs text-muted-foreground">2 hours ago</div>
+                  </div>
+                  <div className="flex items-center gap-3 p-2 border rounded" data-testid="partner-activity-1">
+                    <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                    <div className="flex-1">
+                      <div className="text-sm font-medium">FinServe Partners</div>
+                      <div className="text-xs text-muted-foreground">Submitted application</div>
+                    </div>
+                    <div className="text-xs text-muted-foreground">1 day ago</div>
+                  </div>
+                  <div className="flex items-center gap-3 p-2 border rounded" data-testid="partner-activity-2">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    <div className="flex-1">
+                      <div className="text-sm font-medium">Global Investments</div>
+                      <div className="text-xs text-muted-foreground">Updated profile</div>
+                    </div>
+                    <div className="text-xs text-muted-foreground">3 days ago</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Partner Management Table */}
+          <Card data-testid="card-partner-management">
+            <CardHeader>
+              <CardTitle>Partner Management</CardTitle>
+              <CardDescription>Manage all vendor partners</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {/* Search and Filters */}
+              <div className="flex gap-4 mb-6">
+                <div className="flex-1">
+                  <Input
+                    placeholder="Search partners..."
+                    className="w-full"
+                    data-testid="input-search-partners"
+                  />
+                </div>
+                <Select defaultValue="all">
+                  <SelectTrigger className="w-48" data-testid="select-partner-status">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Partners</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="pending">Pending Approval</SelectItem>
+                    <SelectItem value="suspended">Suspended</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select defaultValue="all">
+                  <SelectTrigger className="w-48" data-testid="select-partner-type">
+                    <SelectValue placeholder="Filter by type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="broker">Broker</SelectItem>
+                    <SelectItem value="advisor">Financial Advisor</SelectItem>
+                    <SelectItem value="fintech">FinTech</SelectItem>
+                    <SelectItem value="bank">Bank</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Partners Table */}
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Partner Name</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Joined Date</TableHead>
+                    <TableHead>Revenue Share</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow data-testid="partner-row-1">
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                          TC
+                        </div>
+                        <div>
+                          <div className="font-medium" data-testid="text-partner-name-1">TechCorp Solutions</div>
+                          <div className="text-sm text-muted-foreground">contact@techcorp.com</div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" data-testid="badge-partner-type-1">FinTech</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className="bg-green-100 text-green-800" data-testid="badge-partner-status-1">Active</Badge>
+                    </TableCell>
+                    <TableCell data-testid="text-partner-joined-1">Dec 15, 2024</TableCell>
+                    <TableCell data-testid="text-partner-revenue-1">15%</TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" data-testid="button-view-partner-1">
+                          View
+                        </Button>
+                        <Button variant="outline" size="sm" data-testid="button-edit-partner-1">
+                          Edit
+                        </Button>
+                        <Button variant="destructive" size="sm" data-testid="button-suspend-partner-1">
+                          Suspend
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                  <TableRow data-testid="partner-row-2">
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                          FS
+                        </div>
+                        <div>
+                          <div className="font-medium" data-testid="text-partner-name-2">FinServe Partners</div>
+                          <div className="text-sm text-muted-foreground">admin@finserve.com</div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" data-testid="badge-partner-type-2">Advisor</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className="bg-yellow-100 text-yellow-800" data-testid="badge-partner-status-2">Pending</Badge>
+                    </TableCell>
+                    <TableCell data-testid="text-partner-joined-2">Jan 8, 2025</TableCell>
+                    <TableCell data-testid="text-partner-revenue-2">12%</TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" data-testid="button-view-partner-2">
+                          View
+                        </Button>
+                        <Button size="sm" data-testid="button-approve-partner-2">
+                          Approve
+                        </Button>
+                        <Button variant="destructive" size="sm" data-testid="button-reject-partner-2">
+                          Reject
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                  <TableRow data-testid="partner-row-3">
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                          GI
+                        </div>
+                        <div>
+                          <div className="font-medium" data-testid="text-partner-name-3">Global Investments</div>
+                          <div className="text-sm text-muted-foreground">info@globalinvest.com</div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" data-testid="badge-partner-type-3">Broker</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className="bg-green-100 text-green-800" data-testid="badge-partner-status-3">Active</Badge>
+                    </TableCell>
+                    <TableCell data-testid="text-partner-joined-3">Nov 22, 2024</TableCell>
+                    <TableCell data-testid="text-partner-revenue-3">18%</TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" data-testid="button-view-partner-3">
+                          View
+                        </Button>
+                        <Button variant="outline" size="sm" data-testid="button-edit-partner-3">
+                          Edit
+                        </Button>
+                        <Button variant="destructive" size="sm" data-testid="button-suspend-partner-3">
+                          Suspend
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                  <TableRow data-testid="partner-row-4">
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                          WM
+                        </div>
+                        <div>
+                          <div className="font-medium" data-testid="text-partner-name-4">Wealth Management Co</div>
+                          <div className="text-sm text-muted-foreground">contact@wealthmgmt.com</div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" data-testid="badge-partner-type-4">Bank</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className="bg-red-100 text-red-800" data-testid="badge-partner-status-4">Suspended</Badge>
+                    </TableCell>
+                    <TableCell data-testid="text-partner-joined-4">Oct 5, 2024</TableCell>
+                    <TableCell data-testid="text-partner-revenue-4">20%</TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" data-testid="button-view-partner-4">
+                          View
+                        </Button>
+                        <Button size="sm" data-testid="button-reactivate-partner-4">
+                          Reactivate
+                        </Button>
+                        <Button variant="destructive" size="sm" data-testid="button-terminate-partner-4">
+                          Terminate
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
