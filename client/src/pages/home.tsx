@@ -8,7 +8,7 @@ import { MarketNews } from "@/components/dashboard/market-news";
 import { ServicesGrid } from "@/components/dashboard/services-grid";
 import { AssetAllocation } from "@/components/dashboard/asset-allocation";
 import { RebalanceDashboard } from "@/components/dashboard/rebalance-dashboard";
-import { TutorialOverlay, TutorialTrigger, useTutorial } from "@/components/tutorial";
+import { TutorialOverlay, useTutorial } from "@/components/tutorial";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -72,21 +72,11 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-finance-light" data-testid="home-page">
-      <Header onStartTutorial={startTutorial} />
+      <Header />
       <MarketTicker />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
-        {/* Tutorial Section */}
-        {!isTutorialCompleted && (
-          <section className="mb-8" data-testid="tutorial-section">
-            <TutorialTrigger 
-              onStart={startTutorial} 
-              isCompleted={isTutorialCompleted} 
-            />
-          </section>
-        )}
-
         {/* Hero Section */}
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8" data-testid="hero-section">
           <MarketChart symbol="^NSEI" />
@@ -394,7 +384,10 @@ export default function Home() {
 
       </main>
 
-      <Footer />
+      <Footer 
+        onStartTutorial={startTutorial} 
+        isTutorialCompleted={isTutorialCompleted}
+      />
       
       {/* Tutorial Overlay */}
       <TutorialOverlay

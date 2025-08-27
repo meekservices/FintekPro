@@ -1,7 +1,13 @@
 import { Link } from "wouter";
 import { Facebook, Twitter, Linkedin, Instagram } from "lucide-react";
+import { TutorialTrigger } from "@/components/tutorial/tutorial-trigger";
 
-export function Footer() {
+interface FooterProps {
+  onStartTutorial?: () => void;
+  isTutorialCompleted?: boolean;
+}
+
+export function Footer({ onStartTutorial, isTutorialCompleted }: FooterProps = {}) {
   const investmentLinks = [
     { name: "Stocks", href: "/markets" },
     { name: "Mutual Funds", href: "/mutual-funds" },
@@ -87,7 +93,7 @@ export function Footer() {
             </ul>
           </div>
           
-          {/* Support */}
+          {/* Support & Tutorial */}
           <div>
             <h4 className="font-semibold mb-4" data-testid="footer-support-title">
               Support
@@ -108,6 +114,18 @@ export function Footer() {
             </ul>
           </div>
         </div>
+        
+        {/* Tutorial Section */}
+        {onStartTutorial && !isTutorialCompleted && (
+          <div className="border-t border-gray-600 mt-8 pt-8" data-testid="footer-tutorial-section">
+            <div className="max-w-2xl mx-auto">
+              <TutorialTrigger 
+                onStart={onStartTutorial} 
+                isCompleted={isTutorialCompleted || false} 
+              />
+            </div>
+          </div>
+        )}
         
         <div className="border-t border-gray-600 mt-8 pt-8 text-center text-gray-300">
           <p data-testid="footer-copyright">

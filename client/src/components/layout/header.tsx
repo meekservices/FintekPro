@@ -8,11 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { type User } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
-interface HeaderProps {
-  onStartTutorial?: () => void;
-}
-
-export function Header({ onStartTutorial }: HeaderProps = {}) {
+export function Header() {
   const [location] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -73,20 +69,6 @@ export function Header({ onStartTutorial }: HeaderProps = {}) {
           </div>
 
           <div className="flex items-center space-x-4">
-
-            {/* Tutorial Button */}
-            {onStartTutorial && (
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={onStartTutorial}
-                className="hidden md:inline-flex"
-                data-testid="header-tutorial-button"
-              >
-                <HelpCircle className="h-4 w-4 mr-2" />
-                Tutorial
-              </Button>
-            )}
 
             {/* Desktop Auth Button */}
             {isLoading ? (
