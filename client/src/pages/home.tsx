@@ -73,7 +73,7 @@ export default function Home() {
         {/* API Integration Status */}
         <section className="mb-8" data-testid="api-status-section">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Integrated Financial APIs</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <Card className="border-l-4 border-l-finance-blue">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center text-lg">
@@ -124,6 +124,24 @@ export default function Home() {
                   <p className="text-sm text-gray-600">✓ eDIS transactions</p>
                   <p className="text-sm text-gray-600">✓ Margin pledge facility</p>
                   <p className="text-sm text-gray-600">✓ Loan against securities</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-l-4 border-l-finance-red">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center text-lg">
+                  <Database className="h-5 w-5 mr-2 text-finance-red" />
+                  CDSL Services
+                  <Badge className="ml-2 bg-finance-green text-white">Connected</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-600">✓ BO account management</p>
+                  <p className="text-sm text-gray-600">✓ eDIS & e-voting</p>
+                  <p className="text-sm text-gray-600">✓ eLAS & margin pledge</p>
+                  <p className="text-sm text-gray-600">✓ Destat & early pay-in</p>
                 </div>
               </CardContent>
             </Card>

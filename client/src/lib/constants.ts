@@ -100,6 +100,15 @@ export const FINANCIAL_SERVICES = [
     cta: 'Access Services →'
   },
   {
+    id: 'cdsl-services',
+    name: 'CDSL Services',
+    description: 'Advanced depository services - BO accounts, eLAS, e-voting',
+    icon: 'fas fa-database',
+    color: 'red',
+    stats: ['6.5Cr+ accounts', '₹75L Cr custody', 'e-Voting platform'],
+    cta: 'Access CDSL →'
+  },
+  {
     id: 'ipo',
     name: 'IPO Center',
     description: 'Apply for upcoming IPOs and track live applications',

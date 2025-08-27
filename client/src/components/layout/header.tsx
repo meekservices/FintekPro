@@ -17,6 +17,7 @@ export function Header() {
     { name: "Bonds", href: "/bonds" },
     { name: "Loans", href: "/loans" },
     { name: "NSDL Services", href: "/nsdl-services" },
+    { name: "CDSL Services", href: "/cdsl-services" },
   ];
 
   return (

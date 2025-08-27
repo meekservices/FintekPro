@@ -11,6 +11,7 @@ import MutualFunds from "@/pages/mutual-funds";
 import Bonds from "@/pages/bonds";
 import Loans from "@/pages/loans";
 import NSDLServices from "@/pages/nsdl-services";
+import CDSLServices from "@/pages/cdsl-services";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -24,6 +25,7 @@ function Router() {
       <Route path="/bonds" component={Bonds} />
       <Route path="/loans" component={Loans} />
       <Route path="/nsdl-services" component={NSDLServices} />
+      <Route path="/cdsl-services" component={CDSLServices} />
       <Route component={NotFound} />
     </Switch>
   );
