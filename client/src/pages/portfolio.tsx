@@ -53,13 +53,50 @@ export default function Portfolio() {
           </Button>
         </div>
 
+        {/* Asset Class Summary */}
+        {performance && performance.assetBreakdown && (
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Asset Class Overview</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {performance.assetBreakdown.map((asset) => (
+                <Card key={asset.assetType} className="border-l-4" style={{ borderLeftColor: asset.color }}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">{asset.name}</p>
+                        <p className="text-xl font-bold text-gray-900">
+                          ₹{asset.value.toLocaleString()}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {asset.percentage}% of portfolio
+                        </p>
+                      </div>
+                      <div 
+                        className="w-3 h-3 rounded-full" 
+                        style={{ backgroundColor: asset.color }}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Portfolio Overview */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8" data-testid="portfolio-overview">
           <div className="lg:col-span-2">
             {/* Holdings Table */}
             <Card>
               <CardHeader>
-                <CardTitle>Portfolio Holdings</CardTitle>
+                <div className="flex justify-between items-center">
+                  <CardTitle>Portfolio Holdings by Asset Class</CardTitle>
+                  {enhancedHoldings && (
+                    <div className="text-sm text-gray-500">
+                      {enhancedHoldings.length} total holdings
+                    </div>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
                 {isLoading ? (
@@ -78,44 +115,88 @@ export default function Portfolio() {
                     ))}
                   </div>
                 ) : enhancedHoldings && enhancedHoldings.length > 0 ? (
-                  <div className="space-y-4" data-testid="holdings-list">
-                    {enhancedHoldings.map((holding) => {
-                      const gainLoss = parseFloat(holding.gainLoss);
-                      const gainLossPercent = parseFloat(holding.gainLossPercent);
-                      const dayChange = parseFloat(holding.dayChange);
-                      const dayChangePercent = parseFloat(holding.dayChangePercent);
-
+                  <div className="space-y-6" data-testid="holdings-list">
+                    {/* Group holdings by asset class */}
+                    {Object.entries(
+                      enhancedHoldings.reduce((groups, holding) => {
+                        const assetType = holding.assetType;
+                        if (!groups[assetType]) {
+                          groups[assetType] = [];
+                        }
+                        groups[assetType].push(holding);
+                        return groups;
+                      }, {} as Record<string, typeof enhancedHoldings>)
+                    ).map(([assetType, holdings]) => {
+                      // Calculate summary for this asset class
+                      const totalInvested = holdings.reduce((sum, h) => sum + parseFloat(h.investedValue), 0);
+                      const totalCurrent = holdings.reduce((sum, h) => sum + parseFloat(h.currentValue), 0);
+                      const totalGainLoss = totalCurrent - totalInvested;
+                      const totalGainLossPercent = (totalGainLoss / totalInvested) * 100;
+                      const assetTypeLabel = assetType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+                      
                       return (
-                        <div 
-                          key={holding.id} 
-                          className="flex justify-between items-center p-4 border-b hover:bg-gray-50 transition-colors"
-                          data-testid={`holding-${holding.symbol}`}
-                        >
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-2">
-                              <h4 className="font-semibold text-gray-900">{holding.symbol}</h4>
-                              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                                {holding.exchange}
-                              </span>
+                        <div key={assetType} className="bg-gray-50 rounded-lg p-4">
+                          {/* Asset Class Header */}
+                          <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-200">
+                            <div>
+                              <h3 className="text-lg font-semibold text-gray-900 capitalize">
+                                {assetTypeLabel}
+                              </h3>
+                              <p className="text-sm text-gray-600">
+                                {holdings.length} holding{holdings.length !== 1 ? 's' : ''}
+                              </p>
                             </div>
-                            <p className="text-sm text-gray-600">
-                              Qty: {holding.quantity} | Avg: ₹{holding.avgPrice} | Current: ₹{holding.currentPrice}
-                            </p>
-                            <p className="text-xs text-gray-500 capitalize">
-                              {holding.assetType.replace('_', ' ')}
-                            </p>
-                          </div>
-                          <div className="text-right space-y-1">
-                            <p className="font-bold text-gray-900">₹{parseFloat(holding.currentValue).toLocaleString()}</p>
-                            <div className={`text-sm flex items-center justify-end ${gainLoss >= 0 ? 'text-finance-green' : 'text-finance-red'}`}>
-                              {gainLoss >= 0 ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
-                              {gainLoss >= 0 ? '+' : ''}₹{gainLoss.toFixed(2)} ({gainLossPercent.toFixed(2)}%)
-                            </div>
-                            {Math.abs(dayChange) > 0 && (
-                              <div className={`text-xs flex items-center justify-end ${dayChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                Day: {dayChange >= 0 ? '+' : ''}₹{dayChange.toFixed(2)} ({dayChangePercent.toFixed(2)}%)
+                            <div className="text-right">
+                              <p className="text-lg font-bold text-gray-900">
+                                ₹{totalCurrent.toLocaleString()}
+                              </p>
+                              <div className={`text-sm flex items-center justify-end ${totalGainLoss >= 0 ? 'text-finance-green' : 'text-finance-red'}`}>
+                                {totalGainLoss >= 0 ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
+                                {totalGainLoss >= 0 ? '+' : ''}₹{totalGainLoss.toFixed(2)} ({totalGainLossPercent.toFixed(2)}%)
                               </div>
-                            )}
+                            </div>
+                          </div>
+
+                          {/* Holdings in this asset class */}
+                          <div className="space-y-3">
+                            {holdings.map((holding) => {
+                              const gainLoss = parseFloat(holding.gainLoss);
+                              const gainLossPercent = parseFloat(holding.gainLossPercent);
+                              const dayChange = parseFloat(holding.dayChange);
+                              const dayChangePercent = parseFloat(holding.dayChangePercent);
+
+                              return (
+                                <div 
+                                  key={holding.id} 
+                                  className="flex justify-between items-center p-3 bg-white rounded-md hover:bg-gray-50 transition-colors"
+                                  data-testid={`holding-${holding.symbol}`}
+                                >
+                                  <div className="flex-1">
+                                    <div className="flex items-center space-x-2">
+                                      <h4 className="font-semibold text-gray-900">{holding.symbol}</h4>
+                                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                                        {holding.exchange}
+                                      </span>
+                                    </div>
+                                    <p className="text-sm text-gray-600">
+                                      Qty: {holding.quantity} | Avg: ₹{holding.avgPrice} | Current: ₹{holding.currentPrice}
+                                    </p>
+                                  </div>
+                                  <div className="text-right space-y-1">
+                                    <p className="font-bold text-gray-900">₹{parseFloat(holding.currentValue).toLocaleString()}</p>
+                                    <div className={`text-sm flex items-center justify-end ${gainLoss >= 0 ? 'text-finance-green' : 'text-finance-red'}`}>
+                                      {gainLoss >= 0 ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
+                                      {gainLoss >= 0 ? '+' : ''}₹{gainLoss.toFixed(2)} ({gainLossPercent.toFixed(2)}%)
+                                    </div>
+                                    {Math.abs(dayChange) > 0 && (
+                                      <div className={`text-xs flex items-center justify-end ${dayChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                        Day: {dayChange >= 0 ? '+' : ''}₹{dayChange.toFixed(2)} ({dayChangePercent.toFixed(2)}%)
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       );
