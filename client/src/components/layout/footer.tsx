@@ -54,12 +54,12 @@ export function Footer() {
               {investmentLinks.map((link) => (
                 <li key={link.name}>
                   <Link href={link.href}>
-                    <a 
-                      className="hover:text-white transition-colors"
+                    <span 
+                      className="hover:text-white transition-colors cursor-pointer"
                       data-testid={`footer-investment-${link.name.toLowerCase().replace(" ", "-")}`}
                     >
                       {link.name}
-                    </a>
+                    </span>
                   </Link>
                 </li>
               ))}
@@ -75,12 +75,12 @@ export function Footer() {
               {loanLinks.map((link) => (
                 <li key={link.name}>
                   <Link href={link.href}>
-                    <a 
-                      className="hover:text-white transition-colors"
+                    <span 
+                      className="hover:text-white transition-colors cursor-pointer"
                       data-testid={`footer-loan-${link.name.toLowerCase().replace(" ", "-")}`}
                     >
                       {link.name}
-                    </a>
+                    </span>
                   </Link>
                 </li>
               ))}
@@ -96,12 +96,12 @@ export function Footer() {
               {supportLinks.map((link) => (
                 <li key={link.name}>
                   <Link href={link.href}>
-                    <a 
-                      className="hover:text-white transition-colors"
+                    <span 
+                      className="hover:text-white transition-colors cursor-pointer"
                       data-testid={`footer-support-${link.name.toLowerCase().replace(" ", "-")}`}
                     >
                       {link.name}
-                    </a>
+                    </span>
                   </Link>
                 </li>
               ))}

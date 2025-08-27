@@ -84,20 +84,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/market/indices", async (req, res) => {
     try {
-      const indices = [
-        "^GSPC", // S&P 500
-        "^IXIC", // NASDAQ
-        "^DJI",  // Dow Jones
-        "^NSEI", // Nifty 50
-        "^BSESN", // BSE Sensex
-        "^N225", // Nikkei
-        "^HSI",  // Hang Seng
-        "^FTSE", // FTSE 100
-        "^GDAXI", // DAX
-        "^FCHI"  // CAC 40
+      // Using popular stocks instead of indices for free API
+      const popularStocks = [
+        "AAPL", // Apple
+        "GOOGL", // Google
+        "MSFT", // Microsoft
+        "AMZN", // Amazon
+        "TSLA", // Tesla
+        "NVDA", // NVIDIA
+        "META", // Meta
+        "NFLX", // Netflix
+        "DIS",  // Disney
+        "PYPL"  // PayPal
       ];
 
-      const promises = indices.map(async (symbol) => {
+      const promises = popularStocks.map(async (symbol) => {
         try {
           const data = await fetchFinnhub(`/quote?symbol=${symbol}`);
           return {
@@ -114,7 +115,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             price: 0,
             change: 0,
             changePercent: 0,
-            error: "Failed to fetch"
+            error: "Data unavailable"
           };
         }
       });
