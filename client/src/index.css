@@ -8,20 +8,20 @@
   --foreground: hsl(217, 33%, 17%);
   --card: hsl(0, 0%, 100%);
   --card-foreground: hsl(217, 33%, 17%);
-  --popover: hsl(0, 0%, 100%);
+  --popover: hsl(0, 0%, 98%);
   --popover-foreground: hsl(217, 33%, 17%);
   --primary: hsl(214, 84%, 56%);
   --primary-foreground: hsl(0, 0%, 100%);
-  --secondary: hsl(210, 20%, 95%);
+  --secondary: hsl(210, 20%, 96%);
   --secondary-foreground: hsl(217, 33%, 17%);
-  --muted: hsl(210, 20%, 95%);
+  --muted: hsl(210, 20%, 96%);
   --muted-foreground: hsl(215, 16%, 46%);
-  --accent: hsl(210, 20%, 95%);
-  --accent-foreground: hsl(214, 84%, 56%);
+  --accent: hsl(210, 40%, 92%);
+  --accent-foreground: hsl(217, 33%, 17%);
   --destructive: hsl(0, 84%, 60%);
   --destructive-foreground: hsl(0, 0%, 100%);
-  --border: hsl(214, 32%, 91%);
-  --input: hsl(214, 32%, 91%);
+  --border: hsl(214, 32%, 85%);
+  --input: hsl(214, 32%, 94%);
   --ring: hsl(214, 84%, 56%);
   --chart-1: hsl(214, 84%, 56%);
   --chart-2: hsl(150, 80%, 40%);
@@ -45,22 +45,22 @@
 .dark {
   --background: hsl(217, 33%, 17%);
   --foreground: hsl(210, 20%, 98%);
-  --card: hsl(217, 33%, 17%);
+  --card: hsl(217, 33%, 20%);
   --card-foreground: hsl(210, 20%, 98%);
-  --popover: hsl(217, 33%, 17%);
+  --popover: hsl(217, 33%, 22%);
   --popover-foreground: hsl(210, 20%, 98%);
   --primary: hsl(214, 84%, 56%);
   --primary-foreground: hsl(0, 0%, 100%);
-  --secondary: hsl(217, 33%, 14%);
+  --secondary: hsl(217, 33%, 25%);
   --secondary-foreground: hsl(210, 20%, 98%);
-  --muted: hsl(217, 33%, 14%);
+  --muted: hsl(217, 33%, 25%);
   --muted-foreground: hsl(215, 20%, 65%);
-  --accent: hsl(217, 33%, 14%);
-  --accent-foreground: hsl(214, 84%, 56%);
+  --accent: hsl(217, 33%, 28%);
+  --accent-foreground: hsl(210, 20%, 98%);
   --destructive: hsl(0, 84%, 60%);
   --destructive-foreground: hsl(0, 0%, 100%);
-  --border: hsl(217, 33%, 14%);
-  --input: hsl(217, 33%, 14%);
+  --border: hsl(217, 33%, 30%);
+  --input: hsl(217, 33%, 25%);
   --ring: hsl(214, 84%, 56%);
   --chart-1: hsl(214, 84%, 56%);
   --chart-2: hsl(150, 80%, 40%);
@@ -123,6 +123,34 @@
 ::-webkit-scrollbar-thumb {
   background: hsl(var(--border));
   border-radius: 3px;
+}
+
+/* Enhanced dropdown styling */
+.dropdown-enhanced {
+  border: 2px solid hsl(var(--border)) !important;
+  background: hsl(var(--popover)) !important;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1) !important;
+}
+
+.dropdown-item-enhanced {
+  background: transparent !important;
+  color: hsl(var(--popover-foreground)) !important;
+}
+
+.dropdown-item-enhanced:hover {
+  background: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+}
+
+.select-trigger-enhanced {
+  border: 2px solid hsl(var(--border)) !important;
+  background: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+.select-trigger-enhanced:focus {
+  border-color: hsl(var(--primary)) !important;
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.2) !important;
 }
 
 ::-webkit-scrollbar-thumb:hover {
