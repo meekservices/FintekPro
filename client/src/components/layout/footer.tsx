@@ -33,7 +33,7 @@ export function Footer() {
           {/* Company Info */}
           <div>
             <h3 className="text-xl font-bold mb-4" data-testid="footer-company-name">
-              FinanceHub
+              FintekPro
             </h3>
             <p className="text-gray-300 mb-4" data-testid="footer-company-description">
               Your complete financial services platform for investments, loans, and wealth management.

@@ -125,7 +125,7 @@ export default function AuthPage() {
       queryClient.setQueryData(["/api/auth/user"], data);
       toast({
         title: "Registration successful",
-        description: "Welcome to FinanceHub!",
+        description: "Welcome to FintekPro!",
       });
       navigate("/");
     },
@@ -290,7 +290,7 @@ export default function AuthPage() {
           <div className="lg:pr-8">
             <div className="text-center lg:text-left">
               <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
-                Welcome to <span className="text-blue-600">FinanceHub</span>
+                Welcome to <span className="text-blue-600">FintekPro</span>
               </h1>
               <p className="text-xl text-gray-600 dark:text-gray-300 mb-8">
                 Your comprehensive financial services platform for portfolio management, 

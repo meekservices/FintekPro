@@ -49,7 +49,7 @@ export function Header() {
             <div className="flex-shrink-0">
               <Link href="/">
                 <h1 className="text-2xl font-bold text-finance-blue cursor-pointer" data-testid="logo">
-                  FinanceHub
+                  FintekPro
                 </h1>
               </Link>
             </div>
