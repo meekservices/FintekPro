@@ -20,6 +20,7 @@ import ProfilePage from "@/pages/profile";
 import AdminPanel from "@/pages/admin-panel";
 import PartnerPortal from "@/pages/partner-portal";
 import Support from "@/pages/support";
+import WealthManagement from "@/pages/wealth-management";
 
 function Router() {
   return (
@@ -40,6 +41,7 @@ function Router() {
       <Route path="/admin" component={AdminPanel} />
       <Route path="/partner" component={PartnerPortal} />
       <Route path="/support" component={Support} />
+      <Route path="/wealth" component={WealthManagement} />
       <Route component={NotFound} />
     </Switch>
   );
