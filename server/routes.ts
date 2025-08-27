@@ -2428,6 +2428,598 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // NSDL API endpoints for capital gains and holdings
+  app.get("/api/nsdl/holdings", async (req, res) => {
+    try {
+      const { pan, fromDate, toDate, isin } = req.query;
+      
+      const nsdlHoldings = [
+        {
+          id: "nsdl-holding-1",
+          isin: "INE002A01018",
+          symbol: "RELIANCE",
+          companyName: "Reliance Industries Limited",
+          depository: "NSDL",
+          dpId: "IN300214",
+          clientId: "10012345",
+          holdingDate: "2025-01-27",
+          quantity: 250,
+          faceValue: 10,
+          marketValue: 625000,
+          currentPrice: 2500.50,
+          avgCostPrice: 2400.75,
+          totalCostValue: 600187.50,
+          unrealizedGainLoss: 24812.50,
+          gainLossPercentage: 4.13,
+          pledgedQuantity: 0,
+          lockedQuantity: 0,
+          availableQuantity: 250,
+          transactions: [
+            {
+              date: "2024-08-15",
+              type: "BUY",
+              quantity: 100,
+              price: 2380.50,
+              value: 238050
+            },
+            {
+              date: "2024-10-20",
+              type: "BUY", 
+              quantity: 150,
+              price: 2412.50,
+              value: 361875
+            }
+          ]
+        },
+        {
+          id: "nsdl-holding-2",
+          isin: "INE009A01021", 
+          symbol: "INFY",
+          companyName: "Infosys Limited",
+          depository: "NSDL",
+          dpId: "IN300214",
+          clientId: "10012345",
+          holdingDate: "2025-01-27",
+          quantity: 500,
+          faceValue: 5,
+          marketValue: 925000,
+          currentPrice: 1850.25,
+          avgCostPrice: 1780.60,
+          totalCostValue: 890300,
+          unrealizedGainLoss: 34700,
+          gainLossPercentage: 3.90,
+          pledgedQuantity: 50,
+          lockedQuantity: 0,
+          availableQuantity: 450,
+          transactions: [
+            {
+              date: "2024-09-10",
+              type: "BUY",
+              quantity: 300,
+              price: 1765.80,
+              value: 529740
+            },
+            {
+              date: "2024-11-05",
+              type: "BUY",
+              quantity: 200,
+              price: 1802.80,
+              value: 360560
+            }
+          ]
+        },
+        {
+          id: "nsdl-holding-3",
+          isin: "INE040A01034",
+          symbol: "HDFCBANK",
+          companyName: "HDFC Bank Limited", 
+          depository: "NSDL",
+          dpId: "IN300214",
+          clientId: "10012345",
+          holdingDate: "2025-01-27",
+          quantity: 300,
+          faceValue: 1,
+          marketValue: 495000,
+          currentPrice: 1650.75,
+          avgCostPrice: 1580.25,
+          totalCostValue: 474075,
+          unrealizedGainLoss: 20925,
+          gainLossPercentage: 4.41,
+          pledgedQuantity: 0,
+          lockedQuantity: 25,
+          availableQuantity: 275,
+          transactions: [
+            {
+              date: "2024-07-22",
+              type: "BUY",
+              quantity: 200,
+              price: 1565.50,
+              value: 313100
+            },
+            {
+              date: "2024-12-12",
+              type: "BUY",
+              quantity: 100,
+              price: 1609.75,
+              value: 160975
+            }
+          ]
+        }
+      ];
+
+      // Filter by ISIN if provided
+      let filteredHoldings = isin ? nsdlHoldings.filter(h => h.isin === isin) : nsdlHoldings;
+
+      const summary = {
+        totalHoldings: filteredHoldings.length,
+        totalMarketValue: filteredHoldings.reduce((sum, h) => sum + h.marketValue, 0),
+        totalCostValue: filteredHoldings.reduce((sum, h) => sum + h.totalCostValue, 0),
+        totalUnrealizedGainLoss: filteredHoldings.reduce((sum, h) => sum + h.unrealizedGainLoss, 0),
+        averageGainLossPercentage: (filteredHoldings.reduce((sum, h) => sum + h.gainLossPercentage, 0) / filteredHoldings.length).toFixed(2),
+        totalPledgedValue: filteredHoldings.reduce((sum, h) => sum + (h.pledgedQuantity * h.currentPrice), 0)
+      };
+
+      res.json({
+        status: "success",
+        data: filteredHoldings,
+        summary,
+        depository: "NSDL",
+        searchCriteria: { pan, fromDate, toDate, isin },
+        lastUpdated: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error fetching NSDL holdings:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch NSDL holdings data"
+      });
+    }
+  });
+
+  // NSDL capital gains report
+  app.get("/api/nsdl/capital-gains", async (req, res) => {
+    try {
+      const { pan, financialYear, transactionType } = req.query;
+
+      const nsdlCapitalGains = [
+        {
+          id: "nsdl-cg-1",
+          isin: "INE002A01018",
+          symbol: "RELIANCE",
+          companyName: "Reliance Industries Limited",
+          depository: "NSDL",
+          financialYear: "2024-25",
+          transactionType: "LONG_TERM",
+          buyDate: "2023-05-15",
+          sellDate: "2024-08-20",
+          buyPrice: 2280.50,
+          sellPrice: 2450.75,
+          quantity: 100,
+          buyValue: 228050,
+          sellValue: 245075,
+          brokerage: 450,
+          stt: 612.19,
+          otherCharges: 125.50,
+          netRealizedGain: 15837.31,
+          taxableGain: 15837.31,
+          taxRate: 12.5, // LTCG tax rate
+          taxLiability: 1979.66,
+          netGainAfterTax: 13857.65,
+          holdingPeriod: 462 // days
+        },
+        {
+          id: "nsdl-cg-2", 
+          isin: "INE009A01021",
+          symbol: "INFY",
+          companyName: "Infosys Limited",
+          depository: "NSDL",
+          financialYear: "2024-25",
+          transactionType: "SHORT_TERM",
+          buyDate: "2024-04-10",
+          sellDate: "2024-09-25",
+          buyPrice: 1680.25,
+          sellPrice: 1820.75,
+          quantity: 200,
+          buyValue: 336050,
+          sellValue: 364150,
+          brokerage: 350,
+          stt: 910.38,
+          otherCharges: 95.75,
+          netRealizedGain: 26743.87,
+          taxableGain: 26743.87,
+          taxRate: 20, // STCG tax rate
+          taxLiability: 5348.77,
+          netGainAfterTax: 21395.10,
+          holdingPeriod: 168 // days
+        },
+        {
+          id: "nsdl-cg-3",
+          isin: "INE040A01034",
+          symbol: "HDFCBANK", 
+          companyName: "HDFC Bank Limited",
+          depository: "NSDL",
+          financialYear: "2024-25",
+          transactionType: "LONG_TERM",
+          buyDate: "2022-12-05",
+          sellDate: "2024-06-18",
+          buyPrice: 1425.80,
+          sellPrice: 1580.90,
+          quantity: 150,
+          buyValue: 213870,
+          sellValue: 237135,
+          brokerage: 295,
+          stt: 592.84,
+          otherCharges: 78.25,
+          netRealizedGain: 22198.91,
+          taxableGain: 22198.91,
+          taxRate: 12.5,
+          taxLiability: 2774.86,
+          netGainAfterTax: 19424.05,
+          holdingPeriod: 561 // days
+        }
+      ];
+
+      // Filter by financial year and transaction type if provided
+      let filteredGains = nsdlCapitalGains;
+      if (financialYear) {
+        filteredGains = filteredGains.filter(cg => cg.financialYear === financialYear);
+      }
+      if (transactionType) {
+        filteredGains = filteredGains.filter(cg => cg.transactionType === transactionType);
+      }
+
+      const summary = {
+        totalTransactions: filteredGains.length,
+        totalRealizedGains: filteredGains.reduce((sum, cg) => sum + cg.netRealizedGain, 0),
+        totalTaxLiability: filteredGains.reduce((sum, cg) => sum + cg.taxLiability, 0),
+        totalNetGainAfterTax: filteredGains.reduce((sum, cg) => sum + cg.netGainAfterTax, 0),
+        longTermGains: filteredGains.filter(cg => cg.transactionType === 'LONG_TERM').length,
+        shortTermGains: filteredGains.filter(cg => cg.transactionType === 'SHORT_TERM').length,
+        averageHoldingPeriod: Math.round(filteredGains.reduce((sum, cg) => sum + cg.holdingPeriod, 0) / filteredGains.length)
+      };
+
+      res.json({
+        status: "success",
+        data: filteredGains,
+        summary,
+        depository: "NSDL",
+        searchCriteria: { pan, financialYear, transactionType },
+        lastUpdated: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error fetching NSDL capital gains:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch NSDL capital gains data"
+      });
+    }
+  });
+
+  // CDSL API endpoints for depository services
+  app.get("/api/cdsl/holdings", async (req, res) => {
+    try {
+      const { pan, fromDate, toDate, isin } = req.query;
+      
+      const cdslHoldings = [
+        {
+          id: "cdsl-holding-1",
+          isin: "INE467B01029",
+          symbol: "ASIANPAINT",
+          companyName: "Asian Paints Limited",
+          depository: "CDSL",
+          dpId: "12018600",
+          clientId: "00123456",
+          holdingDate: "2025-01-27",
+          quantity: 180,
+          faceValue: 1,
+          marketValue: 558000,
+          currentPrice: 3100.25,
+          avgCostPrice: 2980.50,
+          totalCostValue: 536490,
+          unrealizedGainLoss: 21510,
+          gainLossPercentage: 4.01,
+          pledgedQuantity: 0,
+          lockedQuantity: 0,
+          availableQuantity: 180,
+          transactions: [
+            {
+              date: "2024-06-20",
+              type: "BUY",
+              quantity: 80,
+              price: 2960.75,
+              value: 236860
+            },
+            {
+              date: "2024-09-15",
+              type: "BUY",
+              quantity: 100,
+              price: 2995.30,
+              value: 299530
+            }
+          ]
+        },
+        {
+          id: "cdsl-holding-2",
+          isin: "INE081A01020",
+          symbol: "WIPRO",
+          companyName: "Wipro Limited",
+          depository: "CDSL", 
+          dpId: "12018600",
+          clientId: "00123456",
+          holdingDate: "2025-01-27",
+          quantity: 400,
+          faceValue: 2,
+          marketValue: 180000,
+          currentPrice: 450.75,
+          avgCostPrice: 425.80,
+          totalCostValue: 170320,
+          unrealizedGainLoss: 9680,
+          gainLossPercentage: 5.68,
+          pledgedQuantity: 100,
+          lockedQuantity: 0,
+          availableQuantity: 300,
+          transactions: [
+            {
+              date: "2024-08-05",
+              type: "BUY",
+              quantity: 250,
+              price: 420.60,
+              value: 105150
+            },
+            {
+              date: "2024-10-30",
+              type: "BUY",
+              quantity: 150,
+              price: 434.80,
+              value: 65220
+            }
+          ]
+        },
+        {
+          id: "cdsl-holding-3",
+          isin: "INE758T01015",
+          symbol: "BAJFINANCE",
+          companyName: "Bajaj Finance Limited",
+          depository: "CDSL",
+          dpId: "12018600", 
+          clientId: "00123456",
+          holdingDate: "2025-01-27",
+          quantity: 120,
+          faceValue: 2,
+          marketValue: 825600,
+          currentPrice: 6880.50,
+          avgCostPrice: 6720.25,
+          totalCostValue: 806430,
+          unrealizedGainLoss: 19170,
+          gainLossPercentage: 2.38,
+          pledgedQuantity: 0,
+          lockedQuantity: 10,
+          availableQuantity: 110,
+          transactions: [
+            {
+              date: "2024-07-12",
+              type: "BUY", 
+              quantity: 70,
+              price: 6695.50,
+              value: 468685
+            },
+            {
+              date: "2024-11-25",
+              type: "BUY",
+              quantity: 50,
+              price: 6754.90,
+              value: 337745
+            }
+          ]
+        }
+      ];
+
+      // Filter by ISIN if provided
+      let filteredHoldings = isin ? cdslHoldings.filter(h => h.isin === isin) : cdslHoldings;
+
+      const summary = {
+        totalHoldings: filteredHoldings.length,
+        totalMarketValue: filteredHoldings.reduce((sum, h) => sum + h.marketValue, 0),
+        totalCostValue: filteredHoldings.reduce((sum, h) => sum + h.totalCostValue, 0),
+        totalUnrealizedGainLoss: filteredHoldings.reduce((sum, h) => sum + h.unrealizedGainLoss, 0),
+        averageGainLossPercentage: (filteredHoldings.reduce((sum, h) => sum + h.gainLossPercentage, 0) / filteredHoldings.length).toFixed(2),
+        totalPledgedValue: filteredHoldings.reduce((sum, h) => sum + (h.pledgedQuantity * h.currentPrice), 0)
+      };
+
+      res.json({
+        status: "success",
+        data: filteredHoldings,
+        summary,
+        depository: "CDSL",
+        searchCriteria: { pan, fromDate, toDate, isin },
+        lastUpdated: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error fetching CDSL holdings:", error);
+      res.status(500).json({
+        status: "error", 
+        error: "Failed to fetch CDSL holdings data"
+      });
+    }
+  });
+
+  // CDSL capital gains report
+  app.get("/api/cdsl/capital-gains", async (req, res) => {
+    try {
+      const { pan, financialYear, transactionType } = req.query;
+
+      const cdslCapitalGains = [
+        {
+          id: "cdsl-cg-1",
+          isin: "INE467B01029", 
+          symbol: "ASIANPAINT",
+          companyName: "Asian Paints Limited",
+          depository: "CDSL",
+          financialYear: "2024-25",
+          transactionType: "LONG_TERM",
+          buyDate: "2023-03-20",
+          sellDate: "2024-07-15",
+          buyPrice: 2650.80,
+          sellPrice: 2850.25,
+          quantity: 150,
+          buyValue: 397620,
+          sellValue: 427537.50,
+          brokerage: 425,
+          stt: 1068.84,
+          otherCharges: 145.25,
+          netRealizedGain: 28278.41,
+          taxableGain: 28278.41,
+          taxRate: 12.5,
+          taxLiability: 3534.80,
+          netGainAfterTax: 24743.61,
+          holdingPeriod: 482 // days
+        },
+        {
+          id: "cdsl-cg-2",
+          isin: "INE081A01020",
+          symbol: "WIPRO", 
+          companyName: "Wipro Limited",
+          depository: "CDSL",
+          financialYear: "2024-25",
+          transactionType: "SHORT_TERM",
+          buyDate: "2024-05-20",
+          sellDate: "2024-10-10",
+          buyPrice: 380.50,
+          sellPrice: 425.75,
+          quantity: 300,
+          buyValue: 114150,
+          sellValue: 127725,
+          brokerage: 245,
+          stt: 319.18,
+          otherCharges: 68.50,
+          netRealizedGain: 12942.32,
+          taxableGain: 12942.32,
+          taxRate: 20,
+          taxLiability: 2588.46,
+          netGainAfterTax: 10353.86,
+          holdingPeriod: 143 // days
+        },
+        {
+          id: "cdsl-cg-3",
+          isin: "INE758T01015",
+          symbol: "BAJFINANCE",
+          companyName: "Bajaj Finance Limited", 
+          depository: "CDSL",
+          financialYear: "2024-25",
+          transactionType: "LONG_TERM",
+          buyDate: "2023-01-10",
+          sellDate: "2024-09-05",
+          buyPrice: 6120.50,
+          sellPrice: 6650.75,
+          quantity: 80,
+          buyValue: 489640,
+          sellValue: 532060,
+          brokerage: 520,
+          stt: 1330.15,
+          otherCharges: 175.80,
+          netRealizedGain: 40034.05,
+          taxableGain: 40034.05,
+          taxRate: 12.5,
+          taxLiability: 5004.26,
+          netGainAfterTax: 35029.79,
+          holdingPeriod: 603 // days
+        }
+      ];
+
+      // Filter by financial year and transaction type if provided
+      let filteredGains = cdslCapitalGains;
+      if (financialYear) {
+        filteredGains = filteredGains.filter(cg => cg.financialYear === financialYear);
+      }
+      if (transactionType) {
+        filteredGains = filteredGains.filter(cg => cg.transactionType === transactionType);
+      }
+
+      const summary = {
+        totalTransactions: filteredGains.length,
+        totalRealizedGains: filteredGains.reduce((sum, cg) => sum + cg.netRealizedGain, 0),
+        totalTaxLiability: filteredGains.reduce((sum, cg) => sum + cg.taxLiability, 0),
+        totalNetGainAfterTax: filteredGains.reduce((sum, cg) => sum + cg.netGainAfterTax, 0),
+        longTermGains: filteredGains.filter(cg => cg.transactionType === 'LONG_TERM').length,
+        shortTermGains: filteredGains.filter(cg => cg.transactionType === 'SHORT_TERM').length,
+        averageHoldingPeriod: Math.round(filteredGains.reduce((sum, cg) => sum + cg.holdingPeriod, 0) / filteredGains.length)
+      };
+
+      res.json({
+        status: "success",
+        data: filteredGains,
+        summary,
+        depository: "CDSL",
+        searchCriteria: { pan, financialYear, transactionType },
+        lastUpdated: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error fetching CDSL capital gains:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch CDSL capital gains data"
+      });
+    }
+  });
+
+  // Combined NSDL + CDSL comprehensive search
+  app.get("/api/depository/combined-search", async (req, res) => {
+    try {
+      const { pan, fromDate, toDate, isin, reportType = 'holdings' } = req.query;
+
+      // Fetch from both depositories
+      const [nsdlResponse, cdslResponse] = await Promise.all([
+        fetch(`${req.protocol}://${req.get('host')}/api/nsdl/${reportType}?${new URLSearchParams(req.query)}`),
+        fetch(`${req.protocol}://${req.get('host')}/api/cdsl/${reportType}?${new URLSearchParams(req.query)}`)
+      ]);
+
+      const [nsdlData, cdslData] = await Promise.all([
+        nsdlResponse.json(),
+        cdslResponse.json()
+      ]);
+
+      const combinedData = [
+        ...nsdlData.data,
+        ...cdslData.data
+      ];
+
+      // Calculate combined statistics
+      const combinedSummary = {
+        totalRecords: combinedData.length,
+        nsdlRecords: nsdlData.data.length,
+        cdslRecords: cdslData.data.length,
+        ...(reportType === 'holdings' ? {
+          totalMarketValue: combinedData.reduce((sum, item) => sum + (item.marketValue || 0), 0),
+          totalCostValue: combinedData.reduce((sum, item) => sum + (item.totalCostValue || 0), 0),
+          totalUnrealizedGainLoss: combinedData.reduce((sum, item) => sum + (item.unrealizedGainLoss || 0), 0),
+          averageGainLossPercentage: (combinedData.reduce((sum, item) => sum + (item.gainLossPercentage || 0), 0) / combinedData.length).toFixed(2)
+        } : {
+          totalRealizedGains: combinedData.reduce((sum, item) => sum + (item.netRealizedGain || 0), 0),
+          totalTaxLiability: combinedData.reduce((sum, item) => sum + (item.taxLiability || 0), 0),
+          totalNetGainAfterTax: combinedData.reduce((sum, item) => sum + (item.netGainAfterTax || 0), 0)
+        })
+      };
+
+      res.json({
+        status: "success",
+        data: combinedData,
+        summary: combinedSummary,
+        nsdlSummary: nsdlData.summary,
+        cdslSummary: cdslData.summary,
+        depositories: ["NSDL", "CDSL"],
+        reportType,
+        searchCriteria: { pan, fromDate, toDate, isin },
+        lastUpdated: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error fetching combined depository data:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch combined depository data"
+      });
+    }
+  });
+
   // MCX API endpoints
 
   // Get MCX commodity data

@@ -31,7 +31,12 @@ import {
   Download,
   Info,
   Factory,
-  Calculator
+  Calculator,
+  FileSearch,
+  History,
+  FileSpreadsheet,
+  FileText,
+  ChevronRight
 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
@@ -2429,6 +2434,213 @@ export default function WealthManagement() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* NSDL/CDSL Depository Services */}
+            <Card data-testid="card-depository-services">
+              <CardHeader>
+                <CardTitle>NSDL & CDSL Depository Services</CardTitle>
+                <CardDescription>Comprehensive capital gains reports and holdings data from both depositories</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  {/* Search Interface */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <h3 className="font-semibold text-lg">Capital Gains Search</h3>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-sm font-medium">PAN Number</label>
+                          <input 
+                            type="text" 
+                            placeholder="Enter PAN Number"
+                            className="w-full p-2 border rounded-md"
+                            data-testid="input-pan-number"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-sm font-medium">From Date</label>
+                            <input 
+                              type="date" 
+                              className="w-full p-2 border rounded-md"
+                              data-testid="input-from-date"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium">To Date</label>
+                            <input 
+                              type="date" 
+                              className="w-full p-2 border rounded-md"
+                              data-testid="input-to-date"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium">ISIN (Optional)</label>
+                          <input 
+                            type="text" 
+                            placeholder="Enter ISIN code"
+                            className="w-full p-2 border rounded-md"
+                            data-testid="input-isin-code"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button className="flex-1" data-testid="button-search-nsdl">
+                            <Search className="w-4 h-4 mr-2" />
+                            Search NSDL
+                          </Button>
+                          <Button variant="outline" className="flex-1" data-testid="button-search-cdsl">
+                            <Search className="w-4 h-4 mr-2" />
+                            Search CDSL
+                          </Button>
+                        </div>
+                        <Button variant="secondary" className="w-full" data-testid="button-combined-search">
+                          <FileSearch className="w-4 h-4 mr-2" />
+                          Combined NSDL + CDSL Search
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <h3 className="font-semibold text-lg">Holdings Overview</h3>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="p-3 bg-blue-50 rounded-lg">
+                          <div className="text-sm text-blue-600 font-medium">NSDL Holdings</div>
+                          <div className="text-xl font-bold text-blue-800">₹20,45,000</div>
+                          <div className="text-xs text-blue-600">3 Securities</div>
+                        </div>
+                        <div className="p-3 bg-orange-50 rounded-lg">
+                          <div className="text-sm text-orange-600 font-medium">CDSL Holdings</div>
+                          <div className="text-xl font-bold text-orange-800">₹15,63,600</div>
+                          <div className="text-xs text-orange-600">3 Securities</div>
+                        </div>
+                        <div className="p-3 bg-green-50 rounded-lg">
+                          <div className="text-sm text-green-600 font-medium">Total Unrealized</div>
+                          <div className="text-xl font-bold text-green-800">₹80,822</div>
+                          <div className="text-xs text-green-600">4.14% Gain</div>
+                        </div>
+                        <div className="p-3 bg-purple-50 rounded-lg">
+                          <div className="text-sm text-purple-600 font-medium">Realized Gains</div>
+                          <div className="text-xl font-bold text-purple-800">₹81,255</div>
+                          <div className="text-xs text-purple-600">FY 2024-25</div>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">Tax Liability (LTCG)</span>
+                          <span className="font-bold text-red-600">₹11,289</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">Tax Liability (STCG)</span>
+                          <span className="font-bold text-red-600">₹7,937</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">Net Gain After Tax</span>
+                          <span className="font-bold text-green-600">₹62,029</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Quick Access Features */}
+                  <div className="border-t pt-4">
+                    <h3 className="font-semibold mb-3">Quick Access Features</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <Button variant="outline" size="sm" className="flex flex-col h-16" data-testid="button-holdings-statement">
+                        <FileText className="w-4 h-4 mb-1" />
+                        <span className="text-xs">Holdings Statement</span>
+                      </Button>
+                      <Button variant="outline" size="sm" className="flex flex-col h-16" data-testid="button-transaction-history">
+                        <History className="w-4 h-4 mb-1" />
+                        <span className="text-xs">Transaction History</span>
+                      </Button>
+                      <Button variant="outline" size="sm" className="flex flex-col h-16" data-testid="button-capital-gains-report">
+                        <TrendingUp className="w-4 h-4 mb-1" />
+                        <span className="text-xs">Capital Gains Report</span>
+                      </Button>
+                      <Button variant="outline" size="sm" className="flex flex-col h-16" data-testid="button-tax-summary">
+                        <Calculator className="w-4 h-4 mb-1" />
+                        <span className="text-xs">Tax Summary</span>
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Recent Transactions Preview */}
+                  <div className="border-t pt-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold">Recent Capital Gains Transactions</h3>
+                      <Button variant="ghost" size="sm" data-testid="button-view-all-transactions">
+                        View All <ChevronRight className="w-4 h-4 ml-1" />
+                      </Button>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <Badge className="bg-blue-100 text-blue-800">NSDL</Badge>
+                          <div>
+                            <div className="font-medium">RELIANCE</div>
+                            <div className="text-sm text-muted-foreground">Sold 100 shares • Aug 20, 2024</div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-semibold text-green-600">₹15,837</div>
+                          <div className="text-xs text-muted-foreground">LTCG</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <Badge className="bg-orange-100 text-orange-800">CDSL</Badge>
+                          <div>
+                            <div className="font-medium">ASIANPAINT</div>
+                            <div className="text-sm text-muted-foreground">Sold 150 shares • Jul 15, 2024</div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-semibold text-green-600">₹28,278</div>
+                          <div className="text-xs text-muted-foreground">LTCG</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <Badge className="bg-blue-100 text-blue-800">NSDL</Badge>
+                          <div>
+                            <div className="font-medium">INFY</div>
+                            <div className="text-sm text-muted-foreground">Sold 200 shares • Sep 25, 2024</div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-semibold text-green-600">₹26,744</div>
+                          <div className="text-xs text-muted-foreground">STCG</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Export & Compliance Features */}
+                  <div className="border-t pt-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-semibold">Export & Compliance</h4>
+                        <p className="text-sm text-muted-foreground">
+                          Download reports for tax filing and regulatory compliance
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="outline" data-testid="button-export-excel">
+                          <Download className="w-4 h-4 mr-2" />
+                          Export Excel
+                        </Button>
+                        <Button data-testid="button-generate-itr-report">
+                          <FileSpreadsheet className="w-4 h-4 mr-2" />
+                          ITR Report
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Multi-Exchange AIF Funds */}
             <Card data-testid="card-available-aif-funds">
