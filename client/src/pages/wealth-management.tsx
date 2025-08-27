@@ -30,7 +30,8 @@ import {
   Filter,
   Download,
   Info,
-  Factory
+  Factory,
+  Calculator
 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
@@ -78,6 +79,7 @@ export default function WealthManagement() {
             <TabsTrigger value="pms" data-testid="tab-pms">PMS</TabsTrigger>
             <TabsTrigger value="pre-ipo" data-testid="tab-pre-ipo">Pre-IPO</TabsTrigger>
             <TabsTrigger value="aif" data-testid="tab-aif">AIF</TabsTrigger>
+            <TabsTrigger value="bonds" data-testid="tab-bonds">Bonds</TabsTrigger>
             <TabsTrigger value="debentures" data-testid="tab-debentures">Debentures</TabsTrigger>
             <TabsTrigger value="newsletter" data-testid="tab-newsletter">Newsletter</TabsTrigger>
           </TabsList>
@@ -990,6 +992,548 @@ export default function WealthManagement() {
                             </div>
                             <span className="font-medium text-green-600">+11.5%</span>
                           </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </TabsContent>
+
+          <TabsContent value="bonds" className="space-y-6">
+            {/* Bonds Market Overview */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+              <Card data-testid="card-bonds-market-size">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Market Size</p>
+                      <p className="text-2xl font-bold">₹45.68 L Cr</p>
+                    </div>
+                    <Building2 className="w-8 h-8 text-blue-600" />
+                  </div>
+                  <div className="flex items-center mt-2">
+                    <ArrowUpRight className="w-4 h-4 text-green-600 mr-1" />
+                    <span className="text-sm text-green-600">+8.5% YoY</span>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card data-testid="card-daily-turnover">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Daily Turnover</p>
+                      <p className="text-2xl font-bold">₹12,340 Cr</p>
+                    </div>
+                    <BarChart3 className="w-8 h-8 text-green-600" />
+                  </div>
+                  <div className="flex items-center mt-2">
+                    <TrendingUp className="w-4 h-4 text-green-600 mr-1" />
+                    <span className="text-sm text-green-600">Active trading</span>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card data-testid="card-average-yield">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Average Yield</p>
+                      <p className="text-2xl font-bold">7.25%</p>
+                    </div>
+                    <Target className="w-8 h-8 text-purple-600" />
+                  </div>
+                  <div className="flex items-center mt-2">
+                    <ArrowUpRight className="w-4 h-4 text-green-600 mr-1" />
+                    <span className="text-sm text-green-600">Attractive returns</span>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card data-testid="card-total-bonds">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Total Bonds</p>
+                      <p className="text-2xl font-bold">1,250</p>
+                    </div>
+                    <Star className="w-8 h-8 text-yellow-600" />
+                  </div>
+                  <div className="flex items-center mt-2">
+                    <Plus className="w-4 h-4 text-blue-600 mr-1" />
+                    <span className="text-sm text-blue-600">Growing market</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Bond Types Tabs */}
+            <Tabs defaultValue="government" className="space-y-6">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="government" data-testid="tab-govt-bonds">Government Bonds</TabsTrigger>
+                <TabsTrigger value="corporate" data-testid="tab-corp-bonds">Corporate Bonds</TabsTrigger>
+                <TabsTrigger value="tax-free" data-testid="tab-tax-free-bonds">Tax-Free Bonds</TabsTrigger>
+                <TabsTrigger value="analytics" data-testid="tab-bonds-analytics">Analytics</TabsTrigger>
+              </TabsList>
+
+              {/* Government Bonds */}
+              <TabsContent value="government" className="space-y-4">
+                <Card data-testid="card-government-bonds">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Shield className="w-5 h-5 text-blue-600" />
+                      Government Securities & Treasury Bills
+                    </CardTitle>
+                    <CardDescription>Risk-free government-backed bonds with guaranteed returns</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                        <div className="border rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <h3 className="font-semibold">7.17% GS 2028</h3>
+                            <Badge className="bg-blue-100 text-blue-800">AAA</Badge>
+                          </div>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span>Coupon Rate:</span>
+                              <span className="font-medium">7.17%</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Current Yield:</span>
+                              <span className="font-medium text-green-600">7.05%</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>YTM:</span>
+                              <span className="font-medium">7.12%</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Maturity:</span>
+                              <span className="font-medium">Jan 2028</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Min Investment:</span>
+                              <span className="font-medium">₹10,000</span>
+                            </div>
+                          </div>
+                          <Button size="sm" className="w-full mt-3">Invest Now</Button>
+                        </div>
+
+                        <div className="border rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <h3 className="font-semibold">6.54% GS 2032</h3>
+                            <Badge className="bg-blue-100 text-blue-800">AAA</Badge>
+                          </div>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span>Coupon Rate:</span>
+                              <span className="font-medium">6.54%</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Current Yield:</span>
+                              <span className="font-medium text-green-600">6.48%</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>YTM:</span>
+                              <span className="font-medium">6.52%</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Maturity:</span>
+                              <span className="font-medium">Jan 2032</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Min Investment:</span>
+                              <span className="font-medium">₹10,000</span>
+                            </div>
+                          </div>
+                          <Button size="sm" className="w-full mt-3">Invest Now</Button>
+                        </div>
+
+                        <div className="border rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <h3 className="font-semibold">91 Day T-Bill</h3>
+                            <Badge className="bg-green-100 text-green-800">Treasury</Badge>
+                          </div>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span>Discount Rate:</span>
+                              <span className="font-medium">6.95%</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Current Price:</span>
+                              <span className="font-medium">₹98.23</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Face Value:</span>
+                              <span className="font-medium">₹100</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Maturity:</span>
+                              <span className="font-medium">Apr 2025</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Min Investment:</span>
+                              <span className="font-medium">₹25,000</span>
+                            </div>
+                          </div>
+                          <Button size="sm" className="w-full mt-3">Invest Now</Button>
+                        </div>
+                      </div>
+                      
+                      <div className="border-t pt-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-semibold">Why Government Bonds?</h4>
+                            <p className="text-sm text-muted-foreground">Sovereign guarantee, zero credit risk, and stable returns</p>
+                          </div>
+                          <Button variant="outline">
+                            <Shield className="w-4 h-4 mr-2" />
+                            Learn More
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Corporate Bonds */}
+              <TabsContent value="corporate" className="space-y-4">
+                <Card data-testid="card-corporate-bonds">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Building2 className="w-5 h-5 text-purple-600" />
+                      Corporate Bonds & Debentures
+                    </CardTitle>
+                    <CardDescription>Higher yields from creditworthy corporations</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                        <div className="border rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <h3 className="font-semibold">HDFC Bank 8.25% 2027</h3>
+                            <Badge className="bg-purple-100 text-purple-800">AAA</Badge>
+                          </div>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span>Sector:</span>
+                              <span className="font-medium">Banking</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Coupon Rate:</span>
+                              <span className="font-medium">8.25%</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>YTM:</span>
+                              <span className="font-medium text-green-600">8.18%</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Duration:</span>
+                              <span className="font-medium">2.8 years</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Min Investment:</span>
+                              <span className="font-medium">₹1,00,000</span>
+                            </div>
+                          </div>
+                          <Button size="sm" className="w-full mt-3">Invest Now</Button>
+                        </div>
+
+                        <div className="border rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <h3 className="font-semibold">Reliance 7.95% 2030</h3>
+                            <Badge className="bg-purple-100 text-purple-800">AAA</Badge>
+                          </div>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span>Sector:</span>
+                              <span className="font-medium">Energy</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Coupon Rate:</span>
+                              <span className="font-medium">7.95%</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>YTM:</span>
+                              <span className="font-medium text-green-600">7.91%</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Duration:</span>
+                              <span className="font-medium">5.1 years</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Min Investment:</span>
+                              <span className="font-medium">₹1,00,000</span>
+                            </div>
+                          </div>
+                          <Button size="sm" className="w-full mt-3">Invest Now</Button>
+                        </div>
+
+                        <div className="border rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <h3 className="font-semibold">TCS 7.50% 2029</h3>
+                            <Badge className="bg-purple-100 text-purple-800">AAA</Badge>
+                          </div>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span>Sector:</span>
+                              <span className="font-medium">IT Services</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Coupon Rate:</span>
+                              <span className="font-medium">7.50%</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>YTM:</span>
+                              <span className="font-medium text-green-600">7.46%</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Duration:</span>
+                              <span className="font-medium">4.6 years</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Min Investment:</span>
+                              <span className="font-medium">₹1,00,000</span>
+                            </div>
+                          </div>
+                          <Button size="sm" className="w-full mt-3">Invest Now</Button>
+                        </div>
+                      </div>
+
+                      <div className="border-t pt-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-semibold">Corporate Bond Benefits</h4>
+                            <p className="text-sm text-muted-foreground">Higher yields, diversification, and quality credit ratings</p>
+                          </div>
+                          <Button variant="outline">
+                            <Building2 className="w-4 h-4 mr-2" />
+                            View All Bonds
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Tax-Free Bonds */}
+              <TabsContent value="tax-free" className="space-y-4">
+                <Card data-testid="card-tax-free-bonds">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Shield className="w-5 h-5 text-green-600" />
+                      Tax-Free Bonds
+                    </CardTitle>
+                    <CardDescription>Tax-exempt interest income with long-term stability</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Shield className="w-5 h-5 text-green-600" />
+                          <h4 className="font-semibold text-green-900">Tax Benefits</h4>
+                        </div>
+                        <p className="text-sm text-green-700">
+                          Interest earned from tax-free bonds is completely exempt from income tax under Section 10(15)(iv) of the Income Tax Act.
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div className="border rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <h3 className="font-semibold">NHAI 7.35% 2035</h3>
+                            <Badge className="bg-green-100 text-green-800">Tax-Free</Badge>
+                          </div>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span>Sector:</span>
+                              <span className="font-medium">Infrastructure</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Tax-Free Yield:</span>
+                              <span className="font-medium text-green-600">7.35%</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Equivalent Taxable:</span>
+                              <span className="font-medium">10.21%*</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Maturity:</span>
+                              <span className="font-medium">Feb 2035</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Min Investment:</span>
+                              <span className="font-medium">₹1,00,000</span>
+                            </div>
+                          </div>
+                          <Button size="sm" className="w-full mt-3">Invest Now</Button>
+                        </div>
+
+                        <div className="border rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <h3 className="font-semibold">IRFC 7.30% 2034</h3>
+                            <Badge className="bg-green-100 text-green-800">Tax-Free</Badge>
+                          </div>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span>Sector:</span>
+                              <span className="font-medium">Railways</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Tax-Free Yield:</span>
+                              <span className="font-medium text-green-600">7.30%</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Equivalent Taxable:</span>
+                              <span className="font-medium">10.14%*</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Maturity:</span>
+                              <span className="font-medium">Dec 2034</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Min Investment:</span>
+                              <span className="font-medium">₹1,00,000</span>
+                            </div>
+                          </div>
+                          <Button size="sm" className="w-full mt-3">Invest Now</Button>
+                        </div>
+                      </div>
+
+                      <div className="p-4 bg-blue-50 rounded-lg">
+                        <h4 className="font-semibold text-blue-900 mb-2">Tax-Free Bond Calculator</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <label className="text-sm font-medium">Investment Amount</label>
+                            <Input placeholder="₹1,00,000" className="mt-1" />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium">Tax Bracket</label>
+                            <Select>
+                              <SelectTrigger>
+                                <SelectValue placeholder="30%" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="5">5%</SelectItem>
+                                <SelectItem value="20">20%</SelectItem>
+                                <SelectItem value="30">30%</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium">Calculate</label>
+                            <Button className="w-full mt-1">
+                              <Calculator className="w-4 h-4 mr-2" />
+                              Calculate
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="text-xs text-blue-700 mt-2">
+                          * Equivalent taxable yield calculated at 28% tax bracket
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Bond Analytics */}
+              <TabsContent value="analytics" className="space-y-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <Card data-testid="card-yield-curve">
+                    <CardHeader>
+                      <CardTitle>Government Bond Yield Curve</CardTitle>
+                      <CardDescription>Interest rates across different maturities</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-6 gap-2 text-sm">
+                          <div className="text-center">
+                            <div className="font-medium">1Y</div>
+                            <div className="text-green-600">6.85%</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="font-medium">3Y</div>
+                            <div className="text-green-600">7.12%</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="font-medium">5Y</div>
+                            <div className="text-green-600">7.35%</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="font-medium">10Y</div>
+                            <div className="text-green-600">7.58%</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="font-medium">15Y</div>
+                            <div className="text-green-600">7.72%</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="font-medium">20Y</div>
+                            <div className="text-green-600">7.85%</div>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium">Curve Shape</span>
+                            <span className="text-green-600">Normal (Upward)</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium">Steepness</span>
+                            <span className="text-blue-600">Moderate</span>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card data-testid="card-sector-allocation">
+                    <CardHeader>
+                      <CardTitle>Bond Market Allocation</CardTitle>
+                      <CardDescription>Distribution by bond categories</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                              <span>Government</span>
+                            </div>
+                            <span className="font-medium">45% (₹20.56L Cr)</span>
+                          </div>
+                          <Progress value={45} className="h-2" />
+                          
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+                              <span>Banking</span>
+                            </div>
+                            <span className="font-medium">25% (₹11.42L Cr)</span>
+                          </div>
+                          <Progress value={25} className="h-2" />
+                          
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                              <span>Infrastructure</span>
+                            </div>
+                            <span className="font-medium">15% (₹6.85L Cr)</span>
+                          </div>
+                          <Progress value={15} className="h-2" />
+                          
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                              <span>Corporate</span>
+                            </div>
+                            <span className="font-medium">15% (₹6.85L Cr)</span>
+                          </div>
+                          <Progress value={15} className="h-2" />
                         </div>
                       </div>
                     </CardContent>

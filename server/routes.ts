@@ -922,6 +922,252 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Bonds API endpoints
+  
+  // Get government bonds data
+  app.get("/api/bonds/government", async (req, res) => {
+    try {
+      const governmentBonds = [
+        {
+          id: "gsec-1",
+          name: "7.17% GS 2028",
+          type: "Government Security",
+          issuer: "Government of India",
+          maturityDate: "2028-01-08",
+          couponRate: 7.17,
+          currentYield: 7.05,
+          ytm: 7.12,
+          rating: "AAA",
+          faceValue: 100,
+          currentPrice: 101.25,
+          minInvestment: 10000,
+          tradingVolume: "₹2,450 Cr",
+          duration: "4.2 years",
+          accrued: 1.25,
+          segment: "Government"
+        },
+        {
+          id: "gsec-2", 
+          name: "6.54% GS 2032",
+          type: "Government Security",
+          issuer: "Government of India",
+          maturityDate: "2032-01-01",
+          couponRate: 6.54,
+          currentYield: 6.48,
+          ytm: 6.52,
+          rating: "AAA",
+          faceValue: 100,
+          currentPrice: 100.85,
+          minInvestment: 10000,
+          tradingVolume: "₹1,890 Cr",
+          duration: "6.8 years",
+          accrued: 0.85,
+          segment: "Government"
+        },
+        {
+          id: "treasury-1",
+          name: "91 Day T-Bill",
+          type: "Treasury Bill",
+          issuer: "Government of India", 
+          maturityDate: "2025-04-15",
+          couponRate: 0,
+          currentYield: 6.95,
+          ytm: 6.95,
+          rating: "AAA",
+          faceValue: 100,
+          currentPrice: 98.23,
+          minInvestment: 25000,
+          tradingVolume: "₹8,750 Cr",
+          duration: "0.25 years",
+          accrued: 0,
+          segment: "Treasury"
+        }
+      ];
+
+      res.json({
+        status: "success",
+        data: governmentBonds
+      });
+    } catch (error) {
+      console.error("Error fetching government bonds:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch government bonds data"
+      });
+    }
+  });
+
+  // Get corporate bonds data
+  app.get("/api/bonds/corporate", async (req, res) => {
+    try {
+      const corporateBonds = [
+        {
+          id: "corp-1",
+          name: "HDFC Bank 8.25% 2027",
+          type: "Corporate Bond",
+          issuer: "HDFC Bank Ltd",
+          maturityDate: "2027-03-15",
+          couponRate: 8.25,
+          currentYield: 8.12,
+          ytm: 8.18,
+          rating: "AAA",
+          faceValue: 1000,
+          currentPrice: 1025.50,
+          minInvestment: 100000,
+          tradingVolume: "₹945 Cr",
+          duration: "2.8 years",
+          accrued: 12.50,
+          segment: "Banking"
+        },
+        {
+          id: "corp-2",
+          name: "Reliance Industries 7.95% 2030",
+          type: "Corporate Bond",
+          issuer: "Reliance Industries Ltd",
+          maturityDate: "2030-06-20",
+          couponRate: 7.95,
+          currentYield: 7.88,
+          ytm: 7.91,
+          rating: "AAA",
+          faceValue: 1000,
+          currentPrice: 1018.75,
+          minInvestment: 100000,
+          tradingVolume: "₹1,230 Cr",
+          duration: "5.1 years",
+          accrued: 8.75,
+          segment: "Energy"
+        },
+        {
+          id: "corp-3",
+          name: "TCS 7.50% 2029",
+          type: "Corporate Bond",
+          issuer: "Tata Consultancy Services",
+          maturityDate: "2029-09-10",
+          couponRate: 7.50,
+          currentYield: 7.42,
+          ytm: 7.46,
+          rating: "AAA",
+          faceValue: 1000,
+          currentPrice: 1012.25,
+          minInvestment: 100000,
+          tradingVolume: "₹675 Cr",
+          duration: "4.6 years",
+          accrued: 6.25,
+          segment: "IT Services"
+        }
+      ];
+
+      res.json({
+        status: "success",
+        data: corporateBonds
+      });
+    } catch (error) {
+      console.error("Error fetching corporate bonds:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch corporate bonds data"
+      });
+    }
+  });
+
+  // Get tax-free bonds data
+  app.get("/api/bonds/tax-free", async (req, res) => {
+    try {
+      const taxFreeBonds = [
+        {
+          id: "tax-1",
+          name: "NHAI 7.35% 2035",
+          type: "Tax Free Bond",
+          issuer: "National Highways Authority of India",
+          maturityDate: "2035-02-28",
+          couponRate: 7.35,
+          currentYield: 7.28,
+          ytm: 7.31,
+          rating: "AAA",
+          faceValue: 1000,
+          currentPrice: 1015.25,
+          minInvestment: 100000,
+          tradingVolume: "₹450 Cr",
+          duration: "9.8 years",
+          accrued: 15.25,
+          segment: "Infrastructure",
+          taxBenefit: "Tax-free interest"
+        },
+        {
+          id: "tax-2",
+          name: "IRFC 7.30% 2034",
+          type: "Tax Free Bond",
+          issuer: "Indian Railway Finance Corporation",
+          maturityDate: "2034-12-15",
+          couponRate: 7.30,
+          currentYield: 7.22,
+          ytm: 7.26,
+          rating: "AAA",
+          faceValue: 1000,
+          currentPrice: 1012.80,
+          minInvestment: 100000,
+          tradingVolume: "₹320 Cr",
+          duration: "9.2 years",
+          accrued: 12.80,
+          segment: "Railways",
+          taxBenefit: "Tax-free interest"
+        }
+      ];
+
+      res.json({
+        status: "success",
+        data: taxFreeBonds
+      });
+    } catch (error) {
+      console.error("Error fetching tax-free bonds:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch tax-free bonds data"
+      });
+    }
+  });
+
+  // Get bonds market overview
+  app.get("/api/bonds/market-overview", async (req, res) => {
+    try {
+      const marketOverview = {
+        totalMarketSize: "₹45,68,450 Cr",
+        dailyTurnover: "₹12,340 Cr",
+        averageYield: "7.25%",
+        topPerformer: "HDFC Bank 8.25% 2027",
+        bondCount: 1250,
+        governmentBonds: 450,
+        corporateBonds: 620,
+        taxFreeBonds: 180,
+        yieldCurve: [
+          { maturity: "1Y", yield: 6.85 },
+          { maturity: "3Y", yield: 7.12 },
+          { maturity: "5Y", yield: 7.35 },
+          { maturity: "10Y", yield: 7.58 },
+          { maturity: "15Y", yield: 7.72 },
+          { maturity: "20Y", yield: 7.85 }
+        ],
+        sectorAllocation: [
+          { sector: "Government", percentage: 45, amount: "₹20,55,803 Cr" },
+          { sector: "Banking", percentage: 25, amount: "₹11,42,113 Cr" },
+          { sector: "Infrastructure", percentage: 15, amount: "₹6,85,268 Cr" },
+          { sector: "Corporate", percentage: 15, amount: "₹6,85,268 Cr" }
+        ]
+      };
+
+      res.json({
+        status: "success",
+        data: marketOverview
+      });
+    } catch (error) {
+      console.error("Error fetching bonds market overview:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch bonds market overview"
+      });
+    }
+  });
+
   // MCX API endpoints
 
   // Get MCX commodity data
