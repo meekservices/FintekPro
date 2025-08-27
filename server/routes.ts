@@ -161,6 +161,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Advanced Finnhub Features
+
+  // Company Earnings
+  app.get("/api/market/earnings/:symbol", async (req, res) => {
+    try {
+      const { symbol } = req.params;
+      const data = await fetchFinnhub(`/stock/earnings?symbol=${symbol.toUpperCase()}`);
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching earnings:", error);
+      res.status(500).json({ error: "Failed to fetch earnings data" });
+    }
+  });
+
+  // Analyst Recommendations
+  app.get("/api/market/recommendations/:symbol", async (req, res) => {
+    try {
+      const { symbol } = req.params;
+      const data = await fetchFinnhub(`/stock/recommendation?symbol=${symbol.toUpperCase()}`);
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching recommendations:", error);
+      res.status(500).json({ error: "Failed to fetch analyst recommendations" });
+    }
+  });
+
+  // Financial Metrics
+  app.get("/api/market/metrics/:symbol", async (req, res) => {
+    try {
+      const { symbol } = req.params;
+      const data = await fetchFinnhub(`/stock/metric?symbol=${symbol.toUpperCase()}&metric=all`);
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching financial metrics:", error);
+      res.status(500).json({ error: "Failed to fetch financial metrics" });
+    }
+  });
+
+  // IPO Calendar
+  app.get("/api/market/ipo-calendar", async (req, res) => {
+    try {
+      const fromDate = new Date().toISOString().split('T')[0];
+      const toDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const data = await fetchFinnhub(`/calendar/ipo?from=${fromDate}&to=${toDate}`);
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching IPO calendar:", error);
+      res.status(500).json({ error: "Failed to fetch IPO calendar" });
+    }
+  });
+
+  // Economic Calendar
+  app.get("/api/market/economic-calendar", async (req, res) => {
+    try {
+      const data = await fetchFinnhub(`/calendar/economic`);
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching economic calendar:", error);
+      res.status(500).json({ error: "Failed to fetch economic calendar" });
+    }
+  });
+
+  // Sector Performance
+  app.get("/api/market/sector-performance", async (req, res) => {
+    try {
+      const data = await fetchFinnhub(`/stock/sector-performance?region=US`);
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching sector performance:", error);
+      res.status(500).json({ error: "Failed to fetch sector performance" });
+    }
+  });
+
   // Portfolio endpoints
   app.get("/api/portfolios/:userId", async (req, res) => {
     try {
@@ -590,6 +663,176 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: "error",
         error: "Failed to import mutual fund holdings" 
       });
+    }
+  });
+
+  // Advanced MF Central Features
+
+  // SIP Calculator
+  app.post("/api/mfcentral/sip-calculator", async (req, res) => {
+    try {
+      const { monthlyAmount, years, expectedReturn } = req.body;
+      
+      if (!monthlyAmount || !years || !expectedReturn) {
+        return res.status(400).json({
+          status: "error",
+          error: "Monthly amount, years, and expected return are required"
+        });
+      }
+
+      const monthlyRate = expectedReturn / 12 / 100;
+      const totalMonths = years * 12;
+      const maturityAmount = monthlyAmount * (((Math.pow(1 + monthlyRate, totalMonths) - 1) / monthlyRate) * (1 + monthlyRate));
+      const totalInvestment = monthlyAmount * totalMonths;
+      const totalReturns = maturityAmount - totalInvestment;
+
+      res.json({
+        status: "success",
+        data: {
+          monthlyInvestment: monthlyAmount,
+          investmentPeriod: years,
+          expectedReturn: expectedReturn,
+          totalInvestment: Math.round(totalInvestment),
+          estimatedReturns: Math.round(totalReturns),
+          maturityAmount: Math.round(maturityAmount)
+        }
+      });
+    } catch (error) {
+      console.error("Error calculating SIP:", error);
+      res.status(500).json({ error: "Failed to calculate SIP" });
+    }
+  });
+
+  // Lumpsum Calculator
+  app.post("/api/mfcentral/lumpsum-calculator", async (req, res) => {
+    try {
+      const { amount, years, expectedReturn } = req.body;
+      
+      if (!amount || !years || !expectedReturn) {
+        return res.status(400).json({
+          status: "error",
+          error: "Amount, years, and expected return are required"
+        });
+      }
+
+      const maturityAmount = amount * Math.pow(1 + expectedReturn / 100, years);
+      const totalReturns = maturityAmount - amount;
+
+      res.json({
+        status: "success",
+        data: {
+          investment: amount,
+          investmentPeriod: years,
+          expectedReturn: expectedReturn,
+          estimatedReturns: Math.round(totalReturns),
+          maturityAmount: Math.round(maturityAmount)
+        }
+      });
+    } catch (error) {
+      console.error("Error calculating lumpsum:", error);
+      res.status(500).json({ error: "Failed to calculate lumpsum investment" });
+    }
+  });
+
+  // Scheme Comparison
+  app.post("/api/mfcentral/compare", async (req, res) => {
+    try {
+      const { schemeCodes } = req.body;
+      
+      if (!schemeCodes || !Array.isArray(schemeCodes) || schemeCodes.length < 2) {
+        return res.status(400).json({
+          status: "error",
+          error: "At least 2 scheme codes are required for comparison"
+        });
+      }
+
+      const comparisons = await Promise.all(
+        schemeCodes.map(async (code) => {
+          try {
+            const data = await fetchMFAPI(`/mf/${code}`);
+            const navHistory = data.data || [];
+            const latest = navHistory[0];
+            const oneYearAgo = navHistory.find((item: any) => {
+              const date = new Date(item.date);
+              const oneYearBack = new Date();
+              oneYearBack.setFullYear(oneYearBack.getFullYear() - 1);
+              return date <= oneYearBack;
+            });
+
+            const oneYearReturn = oneYearAgo 
+              ? ((latest.nav - oneYearAgo.nav) / oneYearAgo.nav * 100).toFixed(2)
+              : 'N/A';
+
+            return {
+              schemeCode: code,
+              schemeName: data.meta?.scheme_name || 'Unknown Fund',
+              category: data.meta?.scheme_category || 'Unknown',
+              fundHouse: data.meta?.fund_house || 'Unknown AMC',
+              currentNav: latest?.nav || 'N/A',
+              oneYearReturn: oneYearReturn
+            };
+          } catch (error) {
+            console.error(`Error fetching scheme ${code}:`, error);
+            return {
+              schemeCode: code,
+              schemeName: 'Unknown Fund',
+              category: 'Unknown',
+              fundHouse: 'Unknown AMC',
+              currentNav: 'N/A',
+              oneYearReturn: 'N/A'
+            };
+          }
+        })
+      );
+
+      res.json({
+        status: "success",
+        data: comparisons
+      });
+    } catch (error) {
+      console.error("Error comparing schemes:", error);
+      res.status(500).json({ error: "Failed to compare schemes" });
+    }
+  });
+
+  // Goal Planning
+  app.post("/api/mfcentral/goal-planner", async (req, res) => {
+    try {
+      const { goalAmount, timeHorizon, currentSavings, expectedReturn, inflationRate } = req.body;
+      
+      if (!goalAmount || !timeHorizon || !expectedReturn) {
+        return res.status(400).json({
+          status: "error",
+          error: "Goal amount, time horizon, and expected return are required"
+        });
+      }
+
+      const inflation = inflationRate || 6; // Default inflation rate
+      const futureValue = goalAmount * Math.pow(1 + inflation / 100, timeHorizon);
+      const currentSavingsValue = currentSavings || 0;
+      const remainingAmount = futureValue - (currentSavingsValue * Math.pow(1 + expectedReturn / 100, timeHorizon));
+      
+      const monthlyRate = expectedReturn / 12 / 100;
+      const totalMonths = timeHorizon * 12;
+      const requiredMonthlySIP = remainingAmount > 0 
+        ? remainingAmount / (((Math.pow(1 + monthlyRate, totalMonths) - 1) / monthlyRate) * (1 + monthlyRate))
+        : 0;
+
+      res.json({
+        status: "success",
+        data: {
+          goalAmount: goalAmount,
+          timeHorizon: timeHorizon,
+          expectedReturn: expectedReturn,
+          inflationAdjustedGoal: Math.round(futureValue),
+          currentSavings: currentSavingsValue,
+          requiredMonthlySIP: Math.max(0, Math.round(requiredMonthlySIP)),
+          goalAchievable: remainingAmount <= 0
+        }
+      });
+    } catch (error) {
+      console.error("Error planning goal:", error);
+      res.status(500).json({ error: "Failed to plan investment goal" });
     }
   });
 
@@ -1049,6 +1292,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         status: "error",
         error: "Failed to fetch account statement"
+      });
+    }
+  });
+
+  // Advanced NSDL Features
+
+  // Corporate Actions
+  app.get("/api/nsdl/corporate-actions/:accountNumber", async (req, res) => {
+    try {
+      const { accountNumber } = req.params;
+      
+      // Simulate corporate actions data
+      const corporateActions = {
+        accountNumber,
+        actions: [
+          {
+            recordDate: "2025-08-15",
+            exDate: "2025-08-10",
+            isin: "INE002A01018",
+            securityName: "Reliance Industries Ltd",
+            actionType: "DIVIDEND",
+            rate: "8.00",
+            unit: "PER_SHARE",
+            status: "PROCESSED",
+            eligibleQuantity: 100,
+            totalAmount: "800.00"
+          },
+          {
+            recordDate: "2025-07-20",
+            exDate: "2025-07-18",
+            isin: "INE009A01021",
+            securityName: "Infosys Limited", 
+            actionType: "BONUS",
+            ratio: "1:2",
+            status: "PROCESSED",
+            eligibleQuantity: 50,
+            bonusQuantity: 25
+          }
+        ]
+      };
+
+      await fetchNSDL("/corporate-actions/fetch", { accountNumber });
+
+      res.json({
+        status: "success",
+        data: corporateActions
+      });
+    } catch (error) {
+      console.error("Error fetching corporate actions:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch corporate actions"
+      });
+    }
+  });
+
+  // Portfolio Analytics
+  app.get("/api/nsdl/analytics/:accountNumber", async (req, res) => {
+    try {
+      const { accountNumber } = req.params;
+      
+      // Simulate portfolio analytics
+      const analytics = {
+        accountNumber,
+        analysisDate: new Date().toISOString().split('T')[0],
+        totalPortfolioValue: "2500000.00",
+        gainLoss: "+150000.00",
+        gainLossPercent: "+6.25%",
+        sectorAllocation: [
+          { sector: "Technology", value: "750000.00", percentage: 30 },
+          { sector: "Financial Services", value: "625000.00", percentage: 25 },
+          { sector: "Healthcare", value: "500000.00", percentage: 20 },
+          { sector: "Consumer Goods", value: "375000.00", percentage: 15 },
+          { sector: "Energy", value: "250000.00", percentage: 10 }
+        ],
+        topHoldings: [
+          { isin: "INE002A01018", name: "Reliance Industries", value: "400000.00", percentage: 16 },
+          { isin: "INE009A01021", name: "Infosys Limited", value: "350000.00", percentage: 14 },
+          { isin: "INE040A01034", name: "TCS Limited", value: "300000.00", percentage: 12 }
+        ]
+      };
+
+      await fetchNSDL("/analytics/generate", { accountNumber });
+
+      res.json({
+        status: "success",
+        data: analytics
+      });
+    } catch (error) {
+      console.error("Error generating analytics:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to generate portfolio analytics"
       });
     }
   });
@@ -1641,6 +1977,181 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         status: "error",
         error: "Failed to fetch account statement"
+      });
+    }
+  });
+
+  // Advanced CDSL Features
+
+  // DESTAT (Demat Statement) Service
+  app.post("/api/cdsl/destat/generate", async (req, res) => {
+    try {
+      const { boId, asOnDate, statementType } = req.body;
+      
+      if (!boId || !asOnDate) {
+        return res.status(400).json({
+          status: "error",
+          error: "BO ID and as-on date are required"
+        });
+      }
+
+      const destatData = {
+        requestId: `DESTAT${Date.now()}`,
+        boId,
+        asOnDate,
+        statementType: statementType || "DETAILED",
+        generatedDate: new Date().toISOString().split('T')[0],
+        holdings: [
+          {
+            isin: "INE040A01034",
+            securityName: "Tata Consultancy Services Ltd",
+            quantity: 50,
+            lockedQuantity: 0,
+            pledgedQuantity: 10,
+            marketValue: "185000.00"
+          },
+          {
+            isin: "INE467B01029",
+            securityName: "Asian Paints Ltd",
+            quantity: 25,
+            lockedQuantity: 0,
+            pledgedQuantity: 0,
+            marketValue: "85000.00"
+          }
+        ],
+        totalValue: "270000.00",
+        status: "GENERATED"
+      };
+
+      await fetchCDSL("/destat/generate", destatData);
+
+      res.json({
+        status: "success",
+        message: "DESTAT generated successfully",
+        data: destatData
+      });
+    } catch (error) {
+      console.error("Error generating DESTAT:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to generate DESTAT"
+      });
+    }
+  });
+
+  // Repledge Services
+  app.post("/api/cdsl/repledge/create", async (req, res) => {
+    try {
+      const { boId, pledgeeId, isin, quantity, purpose } = req.body;
+      
+      if (!boId || !pledgeeId || !isin || !quantity) {
+        return res.status(400).json({
+          status: "error",
+          error: "BO ID, pledgee ID, ISIN, and quantity are required"
+        });
+      }
+
+      const repledgeData = {
+        repledgeId: `RPL${Date.now()}`,
+        boId,
+        pledgeeId,
+        isin,
+        quantity,
+        purpose: purpose || "LOAN_COLLATERAL",
+        creationDate: new Date().toISOString().split('T')[0],
+        status: "CREATED",
+        validTill: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      };
+
+      await fetchCDSL("/repledge/create", repledgeData);
+
+      res.json({
+        status: "success",
+        message: "Repledge created successfully",
+        data: repledgeData
+      });
+    } catch (error) {
+      console.error("Error creating repledge:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to create repledge"
+      });
+    }
+  });
+
+  // Unpledge Services
+  app.post("/api/cdsl/unpledge/request", async (req, res) => {
+    try {
+      const { boId, pledgeId, quantity, reason } = req.body;
+      
+      if (!boId || !pledgeId || !quantity) {
+        return res.status(400).json({
+          status: "error",
+          error: "BO ID, pledge ID, and quantity are required"
+        });
+      }
+
+      const unpledgeData = {
+        unpledgeId: `UPL${Date.now()}`,
+        boId,
+        pledgeId,
+        quantity,
+        reason: reason || "LOAN_CLOSURE",
+        requestDate: new Date().toISOString().split('T')[0],
+        status: "UNDER_PROCESS",
+        expectedCompletionDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      };
+
+      await fetchCDSL("/unpledge/request", unpledgeData);
+
+      res.json({
+        status: "success",
+        message: "Unpledge request submitted successfully",
+        data: unpledgeData
+      });
+    } catch (error) {
+      console.error("Error processing unpledge request:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to process unpledge request"
+      });
+    }
+  });
+
+  // Easiest (Online Services) Portal
+  app.post("/api/cdsl/easiest/service-request", async (req, res) => {
+    try {
+      const { boId, serviceType, requestData } = req.body;
+      
+      if (!boId || !serviceType) {
+        return res.status(400).json({
+          status: "error",
+          error: "BO ID and service type are required"
+        });
+      }
+
+      const serviceRequest = {
+        requestId: `EASIEST${Date.now()}`,
+        boId,
+        serviceType, // ADDRESS_CHANGE, MOBILE_UPDATE, EMAIL_UPDATE, etc.
+        requestData,
+        submissionDate: new Date().toISOString().split('T')[0],
+        status: "SUBMITTED",
+        trackingNumber: `TRK${Math.random().toString().slice(2, 10)}`
+      };
+
+      await fetchCDSL("/easiest/service-request", serviceRequest);
+
+      res.json({
+        status: "success",
+        message: "Service request submitted successfully via Easiest portal",
+        data: serviceRequest
+      });
+    } catch (error) {
+      console.error("Error submitting service request:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to submit service request"
       });
     }
   });
