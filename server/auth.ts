@@ -9,7 +9,19 @@ import { type User } from "@shared/schema";
 
 declare global {
   namespace Express {
-    interface User extends User {}
+    interface User {
+      id: string;
+      email?: string | null;
+      mobile?: string | null;
+      password: string;
+      firstName?: string | null;
+      middleName?: string | null;
+      lastName?: string | null;
+      isEmailVerified: boolean;
+      isMobileVerified: boolean;
+      createdAt: Date;
+      updatedAt: Date;
+    }
   }
 }
 
@@ -61,7 +73,13 @@ export function setupAuth(app: Express) {
           if (!user || !(await comparePasswords(password, user.password))) {
             return done(null, false, { message: "Invalid email or password" });
           }
-          return done(null, user);
+          // Normalize user data for Express
+          const normalizedUser = {
+            ...user,
+            isEmailVerified: user.isEmailVerified ?? false,
+            isMobileVerified: user.isMobileVerified ?? false
+          };
+          return done(null, normalizedUser);
         } catch (error) {
           return done(error);
         }
@@ -83,7 +101,13 @@ export function setupAuth(app: Express) {
           if (!user || !(await comparePasswords(password, user.password))) {
             return done(null, false, { message: "Invalid mobile number or password" });
           }
-          return done(null, user);
+          // Normalize user data for Express
+          const normalizedUser = {
+            ...user,
+            isEmailVerified: user.isEmailVerified ?? false,
+            isMobileVerified: user.isMobileVerified ?? false
+          };
+          return done(null, normalizedUser);
         } catch (error) {
           return done(error);
         }
@@ -95,7 +119,17 @@ export function setupAuth(app: Express) {
   passport.deserializeUser(async (id: string, done) => {
     try {
       const user = await storage.getUser(id);
-      done(null, user || false);
+      if (user) {
+        // Normalize user data for Express
+        const normalizedUser = {
+          ...user,
+          isEmailVerified: user.isEmailVerified ?? false,
+          isMobileVerified: user.isMobileVerified ?? false
+        };
+        done(null, normalizedUser);
+      } else {
+        done(null, false);
+      }
     } catch (error) {
       done(error);
     }

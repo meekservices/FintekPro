@@ -15,6 +15,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   setupAuth(app);
   
+  // Initialize user passwords with proper hashing
+  await storage.initializeUserPasswords();
+  
   // User Profile API endpoints
   app.get("/api/profile", async (req, res) => {
     try {

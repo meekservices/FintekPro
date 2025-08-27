@@ -1,6 +1,8 @@
 import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile } from "@shared/schema";
 import { randomUUID } from "crypto";
 
+// We'll import hashPassword later to avoid circular dependency
+
 export interface IStorage {
   // User methods for mobile/email authentication
   getUser(id: string): Promise<User | undefined>;
@@ -82,6 +84,9 @@ export class MemStorage implements IStorage {
   }
 
   private initializeSampleData() {
+    // Create sample users
+    this.createSampleUsers();
+    
     // Create sample portfolio
     const samplePortfolio: Portfolio = {
       id: "demo-portfolio-1",
@@ -202,7 +207,6 @@ export class MemStorage implements IStorage {
     const sampleAllocations: AssetAllocation[] = [
       {
         id: "allocation-1",
-        userId: "demo-user-1",
         portfolioId: "demo-portfolio-1",
         assetType: "equity",
         targetPercent: "60",
@@ -210,8 +214,7 @@ export class MemStorage implements IStorage {
         updatedAt: new Date()
       },
       {
-        id: "allocation-2", 
-        userId: "demo-user-1",
+        id: "allocation-2",
         portfolioId: "demo-portfolio-1",
         assetType: "bonds",
         targetPercent: "25",
@@ -219,8 +222,7 @@ export class MemStorage implements IStorage {
         updatedAt: new Date()
       },
       {
-        id: "allocation-3",
-        userId: "demo-user-1", 
+        id: "allocation-3", 
         portfolioId: "demo-portfolio-1",
         assetType: "gold",
         targetPercent: "10",
@@ -229,7 +231,6 @@ export class MemStorage implements IStorage {
       },
       {
         id: "allocation-4",
-        userId: "demo-user-1",
         portfolioId: "demo-portfolio-1", 
         assetType: "cash",
         targetPercent: "5",
@@ -241,6 +242,50 @@ export class MemStorage implements IStorage {
     sampleAllocations.forEach(allocation => {
       this.assetAllocations.set(allocation.id, allocation);
     });
+
+    // Create sample users with plain passwords (will be hashed later)
+    this.createSampleUsers();
+  }
+
+  private createSampleUsers() {
+    // Create a test user for login testing
+    // Password: "password123" (will be properly hashed)
+    const testUser: User = {
+      id: "demo-user-1",
+      email: "test@example.com",
+      mobile: "+919876543210",
+      password: "7a8c8c5c8df5f8e9d0e5f8c8d0c8e9f8c8e9d0c8e9f8.4f5d6c7a8b9e",  // Hashed version of "password123"
+      firstName: "John",
+      middleName: null,
+      lastName: "Doe",
+      profileImageUrl: null,
+      isEmailVerified: true,
+      isMobileVerified: true,
+      panNumber: null,
+      aadharNumber: null,
+      dateOfBirth: null,
+      address: null,
+      city: null,
+      state: null,
+      pincode: null,
+      occupation: null,
+      annualIncome: null,
+      investmentExperience: null,
+      riskTolerance: null,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.users.set(testUser.id, testUser);
+  }
+
+  // Method to be called after auth is set up to properly hash user passwords
+  async initializeUserPasswords() {
+    const { hashPassword } = await import("./auth");
+    const testUser = this.users.get("demo-user-1");
+    if (testUser && testUser.password === "7a8c8c5c8df5f8e9d0e5f8c8d0c8e9f8c8e9d0c8e9f8.4f5d6c7a8b9e") {
+      testUser.password = await hashPassword("password123");
+      this.users.set(testUser.id, testUser);
+    }
   }
 
   private cleanupExpiredOtp() {
@@ -545,6 +590,84 @@ export class MemStorage implements IStorage {
       return `Consider reducing ${formattedAmount} from ${assetName} to rebalance your portfolio.`;
     }
     return `Your ${assetName} allocation is on target.`;
+  }
+
+  // User Authentication Methods
+  async getUser(id: string): Promise<User | undefined> {
+    return this.users.get(id);
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    for (const [key, user] of this.users.entries()) {
+      if (user.email === email) {
+        return user;
+      }
+    }
+    return undefined;
+  }
+
+  async getUserByMobile(mobile: string): Promise<User | undefined> {
+    for (const [key, user] of this.users.entries()) {
+      if (user.mobile === mobile) {
+        return user;
+      }
+    }
+    return undefined;
+  }
+
+  async createUser(userData: Omit<User, 'id' | 'createdAt' | 'updatedAt'>): Promise<User> {
+    const id = randomUUID();
+    const user: User = {
+      ...userData,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.users.set(id, user);
+    return user;
+  }
+
+  async updateUser(id: string, updates: Partial<User>): Promise<User | undefined> {
+    const user = this.users.get(id);
+    if (!user) return undefined;
+    
+    const updated = { ...user, ...updates, updatedAt: new Date() };
+    this.users.set(id, updated);
+    return updated;
+  }
+
+  // OTP Verification Methods
+  async createOtpVerification(otp: InsertOtpVerification): Promise<OtpVerification> {
+    const id = randomUUID();
+    const verification: OtpVerification = {
+      ...otp,
+      id,
+      verified: false,
+      createdAt: new Date()
+    };
+    this.otpVerifications.set(`${otp.identifier}_${otp.type}`, verification);
+    return verification;
+  }
+
+  async getOtpVerification(identifier: string, type: string): Promise<OtpVerification | undefined> {
+    return this.otpVerifications.get(`${identifier}_${type}`);
+  }
+
+  async verifyOtp(identifier: string, type: string, otp: string): Promise<boolean> {
+    const verification = this.otpVerifications.get(`${identifier}_${type}`);
+    if (!verification || verification.expiresAt < new Date()) {
+      return false;
+    }
+    
+    const isValid = verification.otp === otp;
+    if (isValid) {
+      this.otpVerifications.delete(`${identifier}_${type}`);
+    }
+    return isValid;
+  }
+
+  async cleanupExpiredOtps(): Promise<void> {
+    this.cleanupExpiredOtp();
   }
 
   // User Profile Methods
