@@ -10256,6 +10256,22 @@ System Security Data:`;
 
   // ============ END ADMIN REPORTS EXPORT ROUTES ============
 
+  // AMFI Real Data API endpoint
+  app.get('/api/amfi/real-data', async (req, res) => {
+    try {
+      const amfiData = await comprehensiveAIFPMSAPI.getAMFIMutualFundData();
+      res.json({
+        status: 'success',
+        data: amfiData.slice(0, 100), // Limit to first 100 for demo
+        count: amfiData.length,
+        source: 'AMFI_OFFICIAL_API'
+      });
+    } catch (error) {
+      console.error('Error fetching AMFI real data:', error);
+      res.status(500).json({ error: 'Failed to fetch AMFI real data' });
+    }
+  });
+
   // Comprehensive AIF and PMS API endpoints with detailed data
   app.get('/api/comprehensive/aif', async (req, res) => {
     try {
