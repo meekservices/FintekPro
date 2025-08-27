@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, decimal, timestamp, jsonb, boolean, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, decimal, timestamp, jsonb, boolean, index, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -175,3 +175,122 @@ export type AssetAllocation = typeof assetAllocation.$inferSelect;
 export type InsertAssetAllocation = z.infer<typeof insertAssetAllocationSchema>;
 export type MutualFund = typeof mutualFunds.$inferSelect;
 export type InsertMutualFund = z.infer<typeof insertMutualFundSchema>;
+
+// Learning Modules and Lessons
+export const learningModules = pgTable("learning_modules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  description: text("description"),
+  difficulty: varchar("difficulty").notNull(), // 'beginner', 'intermediate', 'advanced'
+  category: varchar("category").notNull(), // 'basics', 'trading', 'risk-management', 'market-analysis'
+  orderIndex: integer("order_index").notNull().default(0),
+  estimatedMinutes: integer("estimated_minutes").default(30),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const learningLessons = pgTable("learning_lessons", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  moduleId: varchar("module_id").references(() => learningModules.id).notNull(),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  contentType: varchar("content_type").notNull(), // 'text', 'video', 'interactive'
+  orderIndex: integer("order_index").notNull().default(0),
+  estimatedMinutes: integer("estimated_minutes").default(10),
+  pointsReward: integer("points_reward").default(50),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const learningQuizzes = pgTable("learning_quizzes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  lessonId: varchar("lesson_id").references(() => learningLessons.id).notNull(),
+  question: text("question").notNull(),
+  options: text("options").array().notNull(),
+  correctAnswer: integer("correct_answer").notNull(),
+  explanation: text("explanation"),
+  pointsReward: integer("points_reward").default(25),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// User Progress and Achievements
+export const userProgress = pgTable("user_progress", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  moduleId: varchar("module_id").references(() => learningModules.id),
+  lessonId: varchar("lesson_id").references(() => learningLessons.id),
+  status: varchar("status").notNull(), // 'not_started', 'in_progress', 'completed'
+  score: integer("score").default(0),
+  completedAt: timestamp("completed_at"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const userAchievements = pgTable("user_achievements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  achievementType: varchar("achievement_type").notNull(), // 'module_complete', 'streak', 'score', 'badge'
+  achievementKey: varchar("achievement_key").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  iconUrl: text("icon_url"),
+  pointsEarned: integer("points_earned").default(0),
+  earnedAt: timestamp("earned_at").defaultNow(),
+});
+
+export const userStats = pgTable("user_stats", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  totalPoints: integer("total_points").default(0),
+  currentStreak: integer("current_streak").default(0),
+  maxStreak: integer("max_streak").default(0),
+  modulesCompleted: integer("modules_completed").default(0),
+  lessonsCompleted: integer("lessons_completed").default(0),
+  quizzesCompleted: integer("quizzes_completed").default(0),
+  averageScore: decimal("average_score", { precision: 5, scale: 2 }).default("0"),
+  lastActivityAt: timestamp("last_activity_at"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Learning system schemas and types
+export const insertLearningModuleSchema = createInsertSchema(learningModules).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertLearningLessonSchema = createInsertSchema(learningLessons).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertLearningQuizSchema = createInsertSchema(learningQuizzes).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertUserProgressSchema = createInsertSchema(userProgress).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export const insertUserAchievementSchema = createInsertSchema(userAchievements).omit({
+  id: true,
+  earnedAt: true,
+});
+
+export const insertUserStatsSchema = createInsertSchema(userStats).omit({
+  id: true,
+  updatedAt: true,
+});
+
+// Export types for learning system
+export type LearningModule = typeof learningModules.$inferSelect;
+export type InsertLearningModule = z.infer<typeof insertLearningModuleSchema>;
+export type LearningLesson = typeof learningLessons.$inferSelect;
+export type InsertLearningLesson = z.infer<typeof insertLearningLessonSchema>;
+export type LearningQuiz = typeof learningQuizzes.$inferSelect;
+export type InsertLearningQuiz = z.infer<typeof insertLearningQuizSchema>;
+export type UserProgress = typeof userProgress.$inferSelect;
+export type InsertUserProgress = z.infer<typeof insertUserProgressSchema>;
+export type UserAchievement = typeof userAchievements.$inferSelect;
+export type InsertUserAchievement = z.infer<typeof insertUserAchievementSchema>;
+export type UserStats = typeof userStats.$inferSelect;
+export type InsertUserStats = z.infer<typeof insertUserStatsSchema>;
