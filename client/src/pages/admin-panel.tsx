@@ -220,7 +220,7 @@ export default function AdminPanel() {
       </div>
 
       <Tabs defaultValue="dashboard" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="dashboard" data-testid="tab-dashboard">
             <TrendingUp className="w-4 h-4 mr-2" />
             Dashboard
@@ -252,6 +252,10 @@ export default function AdminPanel() {
           <TabsTrigger value="partners" data-testid="tab-partners">
             <Building2 className="w-4 h-4 mr-2" />
             Partners
+          </TabsTrigger>
+          <TabsTrigger value="agents" data-testid="tab-agents">
+            <Users className="w-4 h-4 mr-2" />
+            Care Agents
           </TabsTrigger>
         </TabsList>
 
@@ -971,6 +975,244 @@ export default function AdminPanel() {
                         </Button>
                         <Button variant="destructive" size="sm" data-testid="button-terminate-partner-4">
                           Terminate
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Customer Care Agents Tab */}
+        <TabsContent value="agents" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Agent Statistics */}
+            <Card data-testid="card-agent-stats">
+              <CardHeader>
+                <CardTitle>Agent Overview</CardTitle>
+                <CardDescription>Customer care agent statistics</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex justify-between">
+                  <span>Total Agents</span>
+                  <Badge className="bg-blue-100 text-blue-800" data-testid="badge-total-agents">15</Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span>Active Agents</span>
+                  <Badge className="bg-green-100 text-green-800" data-testid="badge-active-agents">12</Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span>On Leave</span>
+                  <Badge className="bg-yellow-100 text-yellow-800" data-testid="badge-leave-agents">3</Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span>Avg Resolution Time</span>
+                  <Badge className="bg-purple-100 text-purple-800" data-testid="badge-avg-resolution">2.5h</Badge>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Quick Actions */}
+            <Card data-testid="card-agent-actions">
+              <CardHeader>
+                <CardTitle>Quick Actions</CardTitle>
+                <CardDescription>Manage agents efficiently</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button className="w-full" data-testid="button-add-agent">
+                  <Users className="w-4 h-4 mr-2" />
+                  Add New Agent
+                </Button>
+                <Button variant="outline" className="w-full" data-testid="button-bulk-assign">
+                  <Building2 className="w-4 h-4 mr-2" />
+                  Bulk Partner Assignment
+                </Button>
+                <Button variant="outline" className="w-full" data-testid="button-performance-report">
+                  <FileText className="w-4 h-4 mr-2" />
+                  Performance Report
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Recent Performance */}
+            <Card data-testid="card-agent-performance">
+              <CardHeader>
+                <CardTitle>Top Performers</CardTitle>
+                <CardDescription>This month's best agents</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <div className="font-medium">Sarah Johnson</div>
+                    <div className="text-sm text-muted-foreground">125 tickets resolved</div>
+                  </div>
+                  <Badge className="bg-green-100 text-green-800">4.8★</Badge>
+                </div>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <div className="font-medium">Mike Chen</div>
+                    <div className="text-sm text-muted-foreground">98 tickets resolved</div>
+                  </div>
+                  <Badge className="bg-green-100 text-green-800">4.7★</Badge>
+                </div>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <div className="font-medium">Lisa Rodriguez</div>
+                    <div className="text-sm text-muted-foreground">87 tickets resolved</div>
+                  </div>
+                  <Badge className="bg-green-100 text-green-800">4.6★</Badge>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Agents Management Table */}
+          <Card data-testid="card-agents-table">
+            <CardHeader>
+              <CardTitle>Customer Care Agents</CardTitle>
+              <CardDescription>Manage support agents and their partner assignments</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Agent</TableHead>
+                    <TableHead>Employee ID</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Partners Assigned</TableHead>
+                    <TableHead>Current Tickets</TableHead>
+                    <TableHead>Specializations</TableHead>
+                    <TableHead>Performance</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow data-testid="agent-row-1">
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">Sarah Johnson</div>
+                        <div className="text-sm text-muted-foreground">sarah.johnson@fintekpro.com</div>
+                        <div className="text-xs text-muted-foreground">+1 (555) 0123</div>
+                      </div>
+                    </TableCell>
+                    <TableCell data-testid="text-employee-id-1">EMP001</TableCell>
+                    <TableCell>
+                      <Badge className="bg-green-100 text-green-800" data-testid="badge-status-1">Active</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <Badge variant="outline">TechCorp Solutions</Badge>
+                        <Badge variant="outline">InvestPro Partners</Badge>
+                        <Badge variant="outline">WealthMax Inc</Badge>
+                      </div>
+                    </TableCell>
+                    <TableCell data-testid="text-tickets-1">8/50</TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <Badge className="bg-blue-100 text-blue-800">Technical</Badge>
+                        <Badge className="bg-purple-100 text-purple-800">Billing</Badge>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        <div>Rating: <span className="font-medium">4.8★</span></div>
+                        <div>Avg. Resolution: <span className="font-medium">2.1h</span></div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex space-x-2">
+                        <Button variant="outline" size="sm" data-testid="button-manage-partners-1">
+                          Manage Partners
+                        </Button>
+                        <Button variant="outline" size="sm" data-testid="button-view-performance-1">
+                          Performance
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                  <TableRow data-testid="agent-row-2">
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">Mike Chen</div>
+                        <div className="text-sm text-muted-foreground">mike.chen@fintekpro.com</div>
+                        <div className="text-xs text-muted-foreground">+1 (555) 0124</div>
+                      </div>
+                    </TableCell>
+                    <TableCell data-testid="text-employee-id-2">EMP002</TableCell>
+                    <TableCell>
+                      <Badge className="bg-green-100 text-green-800" data-testid="badge-status-2">Active</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <Badge variant="outline">FinanceFirst LLC</Badge>
+                        <Badge variant="outline">Capital Advisors</Badge>
+                      </div>
+                    </TableCell>
+                    <TableCell data-testid="text-tickets-2">12/50</TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <Badge className="bg-green-100 text-green-800">Product Inquiry</Badge>
+                        <Badge className="bg-orange-100 text-orange-800">Complaints</Badge>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        <div>Rating: <span className="font-medium">4.7★</span></div>
+                        <div>Avg. Resolution: <span className="font-medium">2.8h</span></div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex space-x-2">
+                        <Button variant="outline" size="sm" data-testid="button-manage-partners-2">
+                          Manage Partners
+                        </Button>
+                        <Button variant="outline" size="sm" data-testid="button-view-performance-2">
+                          Performance
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                  <TableRow data-testid="agent-row-3">
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">Lisa Rodriguez</div>
+                        <div className="text-sm text-muted-foreground">lisa.rodriguez@fintekpro.com</div>
+                        <div className="text-xs text-muted-foreground">+1 (555) 0125</div>
+                      </div>
+                    </TableCell>
+                    <TableCell data-testid="text-employee-id-3">EMP003</TableCell>
+                    <TableCell>
+                      <Badge className="bg-yellow-100 text-yellow-800" data-testid="badge-status-3">On Leave</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <Badge variant="outline">SmartInvest Group</Badge>
+                        <Badge variant="outline">GlobalFunds Co</Badge>
+                        <Badge variant="outline">RetireEasy Partners</Badge>
+                      </div>
+                    </TableCell>
+                    <TableCell data-testid="text-tickets-3">0/50</TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <Badge className="bg-red-100 text-red-800">Technical</Badge>
+                        <Badge className="bg-blue-100 text-blue-800">Product Inquiry</Badge>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        <div>Rating: <span className="font-medium">4.6★</span></div>
+                        <div>Avg. Resolution: <span className="font-medium">3.2h</span></div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex space-x-2">
+                        <Button variant="outline" size="sm" disabled data-testid="button-manage-partners-3">
+                          Manage Partners
+                        </Button>
+                        <Button variant="outline" size="sm" data-testid="button-view-performance-3">
+                          Performance
                         </Button>
                       </div>
                     </TableCell>

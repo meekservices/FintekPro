@@ -1,4 +1,4 @@
-import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord } from "@shared/schema";
+import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 // We'll import hashPassword later to avoid circular dependency
@@ -93,6 +93,19 @@ export interface IStorage {
   createTransactionRecord(record: InsertTransactionRecord): Promise<TransactionRecord>;
   getTransactionRecords(reportId: string): Promise<TransactionRecord[]>;
   getTransactionRecordsByUser(userId: string, financialYear?: string): Promise<TransactionRecord[]>;
+  
+  // Customer Care Agent methods
+  createCustomerCareAgent(agent: InsertCustomerCareAgent): Promise<CustomerCareAgent>;
+  getAllCustomerCareAgents(): Promise<CustomerCareAgent[]>;
+  getCustomerCareAgent(id: string): Promise<CustomerCareAgent | undefined>;
+  updateCustomerCareAgent(id: string, updates: Partial<CustomerCareAgent>): Promise<CustomerCareAgent | undefined>;
+  deleteCustomerCareAgent(id: string): Promise<boolean>;
+  
+  // Agent-Partner mapping methods
+  createAgentPartnerMapping(mapping: InsertAgentPartnerMapping): Promise<AgentPartnerMapping>;
+  getAgentPartnerMappings(agentId?: string, partnerId?: string): Promise<AgentPartnerMapping[]>;
+  updateAgentPartnerMapping(id: string, updates: Partial<AgentPartnerMapping>): Promise<AgentPartnerMapping | undefined>;
+  deleteAgentPartnerMapping(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -113,6 +126,8 @@ export class MemStorage implements IStorage {
   private capitalGainsReports: Map<string, CapitalGainsReport>;
   private transactionReports: Map<string, TransactionReport>;
   private transactionRecords: Map<string, TransactionRecord>;
+  private customerCareAgents: Map<string, CustomerCareAgent>;
+  private agentPartnerMappings: Map<string, AgentPartnerMapping>;
 
   constructor() {
     this.users = new Map();
@@ -132,6 +147,8 @@ export class MemStorage implements IStorage {
     this.capitalGainsReports = new Map();
     this.transactionReports = new Map();
     this.transactionRecords = new Map();
+    this.customerCareAgents = new Map();
+    this.agentPartnerMappings = new Map();
     
     // Initialize with sample data
     this.initializeSampleData();
@@ -1393,6 +1410,98 @@ export class MemStorage implements IStorage {
     }
     
     return records.sort((a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime());
+  }
+
+  // Customer Care Agent methods
+  async createCustomerCareAgent(agent: InsertCustomerCareAgent): Promise<CustomerCareAgent> {
+    const id = randomUUID();
+    const newAgent: CustomerCareAgent = {
+      ...agent,
+      id,
+      status: agent.status || 'active',
+      maxTicketsPerDay: agent.maxTicketsPerDay || 50,
+      currentTicketCount: agent.currentTicketCount || 0,
+      totalTicketsHandled: agent.totalTicketsHandled || 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    
+    this.customerCareAgents.set(id, newAgent);
+    return newAgent;
+  }
+
+  async getAllCustomerCareAgents(): Promise<CustomerCareAgent[]> {
+    return Array.from(this.customerCareAgents.values())
+      .sort((a, b) => a.fullName.localeCompare(b.fullName));
+  }
+
+  async getCustomerCareAgent(id: string): Promise<CustomerCareAgent | undefined> {
+    return this.customerCareAgents.get(id);
+  }
+
+  async updateCustomerCareAgent(id: string, updates: Partial<CustomerCareAgent>): Promise<CustomerCareAgent | undefined> {
+    const existing = this.customerCareAgents.get(id);
+    if (existing) {
+      const updated = {
+        ...existing,
+        ...updates,
+        updatedAt: new Date()
+      };
+      this.customerCareAgents.set(id, updated);
+      return updated;
+    }
+    return undefined;
+  }
+
+  async deleteCustomerCareAgent(id: string): Promise<boolean> {
+    return this.customerCareAgents.delete(id);
+  }
+
+  // Agent-Partner mapping methods
+  async createAgentPartnerMapping(mapping: InsertAgentPartnerMapping): Promise<AgentPartnerMapping> {
+    const id = randomUUID();
+    const newMapping: AgentPartnerMapping = {
+      ...mapping,
+      id,
+      isActive: mapping.isActive ?? true,
+      priority: mapping.priority || 1,
+      assignedAt: mapping.assignedAt || new Date(),
+      createdAt: new Date(),
+    };
+    
+    this.agentPartnerMappings.set(id, newMapping);
+    return newMapping;
+  }
+
+  async getAgentPartnerMappings(agentId?: string, partnerId?: string): Promise<AgentPartnerMapping[]> {
+    let mappings = Array.from(this.agentPartnerMappings.values());
+    
+    if (agentId) {
+      mappings = mappings.filter(m => m.agentId === agentId);
+    }
+    
+    if (partnerId) {
+      mappings = mappings.filter(m => m.partnerId === partnerId);
+    }
+    
+    return mappings.sort((a, b) => a.priority - b.priority);
+  }
+
+  async updateAgentPartnerMapping(id: string, updates: Partial<AgentPartnerMapping>): Promise<AgentPartnerMapping | undefined> {
+    const existing = this.agentPartnerMappings.get(id);
+    if (existing) {
+      const updated = {
+        ...existing,
+        ...updates,
+      };
+      this.agentPartnerMappings.set(id, updated);
+      return updated;
+    }
+    return undefined;
+  }
+
+  async deleteAgentPartnerMapping(id: string): Promise<boolean> {
+    return this.agentPartnerMappings.delete(id);
   }
 }
 

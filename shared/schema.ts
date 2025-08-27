@@ -198,6 +198,45 @@ export const userNotifications = pgTable("user_notifications", {
 
 // Partner Portal Tables
 
+// Customer Care Agents table
+export const customerCareAgents = pgTable("customer_care_agents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // Agent details
+  fullName: varchar("full_name").notNull(),
+  email: varchar("email").unique().notNull(),
+  phone: varchar("phone"),
+  employeeId: varchar("employee_id").unique(),
+  // Authentication (if they need to log into system)
+  password: text("password"),
+  // Agent specialization
+  specializations: text("specializations").array().default([]), // ['technical', 'billing', 'product_inquiry']
+  languages: text("languages").array().default(["en"]), // Supported languages
+  // Status and availability
+  status: varchar("status").default("active"), // 'active', 'inactive', 'on_leave'
+  maxTicketsPerDay: integer("max_tickets_per_day").default(50),
+  currentTicketCount: integer("current_ticket_count").default(0),
+  // Performance metrics
+  totalTicketsHandled: integer("total_tickets_handled").default(0),
+  averageResolutionTime: decimal("average_resolution_time", { precision: 8, scale: 2 }), // in hours
+  customerSatisfactionRating: decimal("customer_satisfaction_rating", { precision: 3, scale: 2 }),
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Agent-Partner mapping table (one agent can support multiple partners)
+export const agentPartnerMappings = pgTable("agent_partner_mappings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").references(() => customerCareAgents.id).notNull(),
+  partnerId: varchar("partner_id").references(() => partners.id).notNull(),
+  // Mapping details
+  isActive: boolean("is_active").default(true),
+  priority: integer("priority").default(1), // 1 = primary, 2 = secondary, etc.
+  assignedAt: timestamp("assigned_at").defaultNow(),
+  assignedBy: varchar("assigned_by").references(() => users.id), // Admin who made the assignment
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Partners table for managing partner accounts
 export const partners = pgTable("partners", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -484,6 +523,21 @@ export const insertProductApplicationSchema = createInsertSchema(productApplicat
 });
 export type InsertProductApplication = z.infer<typeof insertProductApplicationSchema>;
 export type ProductApplication = typeof productApplications.$inferSelect;
+
+export const insertCustomerCareAgentSchema = createInsertSchema(customerCareAgents).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertCustomerCareAgent = z.infer<typeof insertCustomerCareAgentSchema>;
+export type CustomerCareAgent = typeof customerCareAgents.$inferSelect;
+
+export const insertAgentPartnerMappingSchema = createInsertSchema(agentPartnerMappings).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertAgentPartnerMapping = z.infer<typeof insertAgentPartnerMappingSchema>;
+export type AgentPartnerMapping = typeof agentPartnerMappings.$inferSelect;
 export type OtpVerification = typeof otpVerifications.$inferSelect;
 export type InsertOtpVerification = z.infer<typeof insertOtpVerificationSchema>;
 export type InsertPortfolio = z.infer<typeof insertPortfolioSchema>;

@@ -4535,6 +4535,138 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============ CUSTOMER CARE AGENT ROUTES ============
+  
+  // Get all customer care agents
+  app.get("/api/admin/agents", requireAdmin, async (req, res) => {
+    try {
+      const agents = await storage.getAllCustomerCareAgents();
+      
+      // Get partner mappings for each agent
+      const agentsWithMappings = await Promise.all(agents.map(async (agent) => {
+        const mappings = await storage.getAgentPartnerMappings(agent.id);
+        return {
+          ...agent,
+          partnerMappings: mappings
+        };
+      }));
+      
+      res.json(agentsWithMappings);
+    } catch (error) {
+      console.error("Error fetching customer care agents:", error);
+      res.status(500).json({ error: "Failed to fetch agents" });
+    }
+  });
+
+  // Create new customer care agent
+  app.post("/api/admin/agents", requireAdmin, async (req, res) => {
+    try {
+      const agent = await storage.createCustomerCareAgent(req.body);
+      res.status(201).json(agent);
+    } catch (error) {
+      console.error("Error creating customer care agent:", error);
+      res.status(500).json({ error: "Failed to create agent" });
+    }
+  });
+
+  // Update customer care agent
+  app.patch("/api/admin/agents/:agentId", requireAdmin, async (req, res) => {
+    try {
+      const { agentId } = req.params;
+      const updated = await storage.updateCustomerCareAgent(agentId, req.body);
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Agent not found" });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating customer care agent:", error);
+      res.status(500).json({ error: "Failed to update agent" });
+    }
+  });
+
+  // Delete customer care agent
+  app.delete("/api/admin/agents/:agentId", requireAdmin, async (req, res) => {
+    try {
+      const { agentId } = req.params;
+      const deleted = await storage.deleteCustomerCareAgent(agentId);
+      
+      if (!deleted) {
+        return res.status(404).json({ error: "Agent not found" });
+      }
+      
+      // Also delete all partner mappings for this agent
+      const mappings = await storage.getAgentPartnerMappings(agentId);
+      await Promise.all(mappings.map(m => storage.deleteAgentPartnerMapping(m.id)));
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting customer care agent:", error);
+      res.status(500).json({ error: "Failed to delete agent" });
+    }
+  });
+
+  // Get agent-partner mappings
+  app.get("/api/admin/agent-mappings", requireAdmin, async (req, res) => {
+    try {
+      const { agentId, partnerId } = req.query as any;
+      const mappings = await storage.getAgentPartnerMappings(agentId, partnerId);
+      res.json(mappings);
+    } catch (error) {
+      console.error("Error fetching agent-partner mappings:", error);
+      res.status(500).json({ error: "Failed to fetch mappings" });
+    }
+  });
+
+  // Create agent-partner mapping
+  app.post("/api/admin/agent-mappings", requireAdmin, async (req, res) => {
+    try {
+      const mapping = await storage.createAgentPartnerMapping({
+        ...req.body,
+        assignedBy: req.user.id
+      });
+      res.status(201).json(mapping);
+    } catch (error) {
+      console.error("Error creating agent-partner mapping:", error);
+      res.status(500).json({ error: "Failed to create mapping" });
+    }
+  });
+
+  // Update agent-partner mapping
+  app.patch("/api/admin/agent-mappings/:mappingId", requireAdmin, async (req, res) => {
+    try {
+      const { mappingId } = req.params;
+      const updated = await storage.updateAgentPartnerMapping(mappingId, req.body);
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Mapping not found" });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating agent-partner mapping:", error);
+      res.status(500).json({ error: "Failed to update mapping" });
+    }
+  });
+
+  // Delete agent-partner mapping
+  app.delete("/api/admin/agent-mappings/:mappingId", requireAdmin, async (req, res) => {
+    try {
+      const { mappingId } = req.params;
+      const deleted = await storage.deleteAgentPartnerMapping(mappingId);
+      
+      if (!deleted) {
+        return res.status(404).json({ error: "Mapping not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting agent-partner mapping:", error);
+      res.status(500).json({ error: "Failed to delete mapping" });
+    }
+  });
+
   // ============ END ADMIN PANEL ROUTES ============
 
   // ============ PARTNER PORTAL ROUTES ============
