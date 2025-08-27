@@ -13,6 +13,7 @@ import Loans from "@/pages/loans";
 import NSDLServices from "@/pages/nsdl-services";
 import CDSLServices from "@/pages/cdsl-services";
 import AgriculturalInsights from "@/pages/agricultural-insights";
+import FinancialCalculators from "@/pages/financial-calculators";
 import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/auth-page";
 import ProfilePage from "@/pages/profile";
@@ -33,6 +34,7 @@ function Router() {
       <Route path="/nsdl-services" component={NSDLServices} />
       <Route path="/cdsl-services" component={CDSLServices} />
       <Route path="/agricultural-insights" component={AgriculturalInsights} />
+      <Route path="/calculators" component={FinancialCalculators} />
       <Route path="/auth" component={AuthPage} />
       <Route path="/profile" component={ProfilePage} />
       <Route path="/admin" component={AdminPanel} />
