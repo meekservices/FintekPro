@@ -115,15 +115,17 @@ export function Footer({ onStartTutorial, isTutorialCompleted }: FooterProps = {
           </div>
         </div>
         
-        {/* Tutorial Section - Always show for testing */}
-        <div className="border-t border-gray-600 mt-8 pt-8" data-testid="footer-tutorial-section">
-          <div className="max-w-2xl mx-auto">
-            <TutorialTrigger 
-              onStart={onStartTutorial || (() => console.log('Tutorial started!'))} 
-              isCompleted={false} 
-            />
+        {/* Tutorial Section */}
+        {onStartTutorial && (
+          <div className="border-t border-gray-600 mt-8 pt-8" data-testid="footer-tutorial-section">
+            <div className="max-w-2xl mx-auto">
+              <TutorialTrigger 
+                onStart={onStartTutorial} 
+                isCompleted={isTutorialCompleted || false} 
+              />
+            </div>
           </div>
-        </div>
+        )}
         
         <div className="border-t border-gray-600 mt-8 pt-8 text-center text-gray-300">
           <p data-testid="footer-copyright">
