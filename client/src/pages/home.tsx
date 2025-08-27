@@ -12,7 +12,7 @@ import { TutorialOverlay, TutorialTrigger, useTutorial } from "@/components/tuto
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calculator, Home as HomeIcon, Percent, Umbrella, CheckCircle, Shield, Database, TrendingUp, Banknote, BarChart3, Coins } from "lucide-react";
+import { Calculator, Home as HomeIcon, Percent, Umbrella, CheckCircle, Shield, Database, TrendingUp, Banknote, BarChart3, Coins, Wheat } from "lucide-react";
 
 export default function Home() {
   // Mock user ID for demo purposes
@@ -97,9 +97,9 @@ export default function Home() {
         <section className="mb-8" data-testid="api-status-section">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold text-gray-900">Comprehensive Financial API Integration</h2>
-            <Badge className="bg-finance-green text-white text-base px-3 py-1">80+ Endpoints Active</Badge>
+            <Badge className="bg-finance-green text-white text-base px-3 py-1">90+ Endpoints Active</Badge>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-7 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <Card className="border-l-4 border-l-yellow-500">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center text-lg">
@@ -115,6 +115,25 @@ export default function Home() {
                   <p className="text-sm text-gray-600">✓ Base metals tracking</p>
                   <p className="text-sm text-gray-600">✓ Market status & timings</p>
                   <p className="text-sm text-gray-600">✓ Open interest data</p>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="border-l-4 border-l-green-600">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center text-lg">
+                  <Wheat className="h-5 w-5 mr-2 text-green-600" />
+                  NCDEX Agricultural
+                  <Badge className="ml-2 bg-finance-green text-white">Live</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-600">✓ Agricultural commodity prices</p>
+                  <p className="text-sm text-gray-600">✓ Spices, Pulses & Grains</p>
+                  <p className="text-sm text-gray-600">✓ Oilseeds & Cotton futures</p>
+                  <p className="text-sm text-gray-600">✓ Market timings & status</p>
+                  <p className="text-sm text-gray-600">✓ Volume & open interest</p>
                 </div>
               </CardContent>
             </Card>

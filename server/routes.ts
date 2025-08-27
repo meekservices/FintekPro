@@ -36,6 +36,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     { symbol: 'LEAD', name: 'Lead', unit: '5000 KG', expiry: 'DEC2025' }
   ];
 
+  // NCDEX API integration (agricultural commodities)
+  const NCDEX_COMMODITIES = [
+    { symbol: 'CHANA', name: 'Chana (Chickpeas)', unit: '10 MT', expiry: 'MAR2025', category: 'Pulses' },
+    { symbol: 'WHEAT', name: 'Wheat', unit: '10 MT', expiry: 'MAR2025', category: 'Grains' },
+    { symbol: 'GUAR_SEED', name: 'Guar Seed', unit: '10 MT', expiry: 'MAR2025', category: 'Oilseeds' },
+    { symbol: 'CORIANDER', name: 'Coriander', unit: '5 MT', expiry: 'APR2025', category: 'Spices' },
+    { symbol: 'TURMERIC', name: 'Turmeric', unit: '5 MT', expiry: 'APR2025', category: 'Spices' },
+    { symbol: 'CUMIN', name: 'Cumin', unit: '5 MT', expiry: 'APR2025', category: 'Spices' },
+    { symbol: 'SOYBEAN', name: 'Soybean', unit: '10 MT', expiry: 'MAR2025', category: 'Oilseeds' },
+    { symbol: 'COTTON', name: 'Cotton', unit: '10 BALES', expiry: 'MAR2025', category: 'Fibers' },
+    { symbol: 'SUGAR', name: 'Sugar', unit: '10 MT', expiry: 'MAR2025', category: 'Sweeteners' },
+    { symbol: 'JEERA', name: 'Jeera (Cumin)', unit: '5 MT', expiry: 'APR2025', category: 'Spices' }
+  ];
+
   // NSDL API integration
   const NSDL_API_BASE = "https://nsdl.co.in/api"; // Demo base URL
   const NSDL_SANDBOX_BASE = "https://innovation-sandbox.in/api";
@@ -474,6 +488,147 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         status: "error",
         error: "Failed to fetch MCX market status"
+      });
+    }
+  });
+
+  // NCDEX API endpoints
+
+  // Get NCDEX agricultural commodity data
+  app.get("/api/ncdex/commodities", async (req, res) => {
+    try {
+      const commoditiesData = NCDEX_COMMODITIES.map(commodity => {
+        const basePrice = Math.random() * 5000 + 2000; // Agricultural commodities price range
+        const change = (Math.random() - 0.5) * 300;
+        const pChange = (change / basePrice) * 100;
+        
+        return {
+          symbol: commodity.symbol,
+          name: commodity.name,
+          unit: commodity.unit,
+          expiry: commodity.expiry,
+          category: commodity.category,
+          ltp: basePrice,
+          change: change,
+          pchange: pChange,
+          high: basePrice + Math.abs(change) * 1.5,
+          low: basePrice - Math.abs(change) * 1.5,
+          volume: Math.floor(Math.random() * 50000),
+          openInterest: Math.floor(Math.random() * 25000),
+          lastUpdate: new Date().toISOString()
+        };
+      });
+
+      res.json({
+        status: "success",
+        data: commoditiesData
+      });
+    } catch (error) {
+      console.error("Error fetching NCDEX commodities:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch NCDEX commodities"
+      });
+    }
+  });
+
+  // Get NCDEX gainers
+  app.get("/api/ncdex/gainers", async (req, res) => {
+    try {
+      const gainersData = NCDEX_COMMODITIES.map(commodity => {
+        const basePrice = Math.random() * 4000 + 2500;
+        const change = Math.random() * 150 + 50; // Positive change for gainers
+        const pChange = (change / basePrice) * 100;
+        
+        return {
+          symbol: commodity.symbol,
+          name: commodity.name,
+          unit: commodity.unit,
+          expiry: commodity.expiry,
+          category: commodity.category,
+          ltp: basePrice,
+          change: change,
+          pchange: pChange,
+          volume: Math.floor(Math.random() * 40000),
+          openInterest: Math.floor(Math.random() * 20000)
+        };
+      }).sort((a, b) => b.pchange - a.pchange).slice(0, 5);
+
+      res.json({
+        status: "success",
+        data: gainersData
+      });
+    } catch (error) {
+      console.error("Error fetching NCDEX gainers:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch NCDEX gainers"
+      });
+    }
+  });
+
+  // Get NCDEX losers
+  app.get("/api/ncdex/losers", async (req, res) => {
+    try {
+      const losersData = NCDEX_COMMODITIES.map(commodity => {
+        const basePrice = Math.random() * 4000 + 2500;
+        const change = -(Math.random() * 120 + 30); // Negative change for losers
+        const pChange = (change / basePrice) * 100;
+        
+        return {
+          symbol: commodity.symbol,
+          name: commodity.name,
+          unit: commodity.unit,
+          expiry: commodity.expiry,
+          category: commodity.category,
+          ltp: basePrice,
+          change: change,
+          pchange: pChange,
+          volume: Math.floor(Math.random() * 30000),
+          openInterest: Math.floor(Math.random() * 15000)
+        };
+      }).sort((a, b) => a.pchange - b.pchange).slice(0, 5);
+
+      res.json({
+        status: "success",
+        data: losersData
+      });
+    } catch (error) {
+      console.error("Error fetching NCDEX losers:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch NCDEX losers"
+      });
+    }
+  });
+
+  // Get NCDEX market status
+  app.get("/api/ncdex/market-status", async (req, res) => {
+    try {
+      const currentHour = new Date().getHours();
+      const isMarketOpen = (currentHour >= 10 && currentHour <= 17); // NCDEX timings: 10 AM to 5 PM
+      
+      const status = {
+        marketState: isMarketOpen ? "OPEN" : "CLOSED",
+        lastUpdated: new Date().toISOString(),
+        nextSession: isMarketOpen ? "Current Session" : "Next Day 10:00 AM",
+        tradingSegments: [
+          { segment: "Spices", status: isMarketOpen ? "Open" : "Closed" },
+          { segment: "Pulses", status: isMarketOpen ? "Open" : "Closed" },
+          { segment: "Oilseeds", status: isMarketOpen ? "Open" : "Closed" },
+          { segment: "Grains", status: isMarketOpen ? "Open" : "Closed" }
+        ]
+      };
+
+      res.json({
+        status: "success",
+        data: status
+      });
+    } catch (error) {
+      console.error("Error fetching NCDEX market status:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch NCDEX market status"
       });
     }
   });
