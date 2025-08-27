@@ -89,7 +89,7 @@ export function CapitalGainsReportViewer() {
 
   const handleFetchFromMFCentral = () => {
     fetchFromMFCentralMutation.mutate({
-      userId: selectedUserId,
+      clientId: selectedClientId,
       financialYear: selectedFY,
       panNumber: 'ABCDE1234F' // Mock PAN number
     });
@@ -178,8 +178,8 @@ export function CapitalGainsReportViewer() {
             <div className="flex-1 min-w-[200px]">
               <label className="text-sm font-medium mb-2 block">Client ID</label>
               <Input
-                value={selectedUserId}
-                onChange={(e) => setSelectedUserId(e.target.value)}
+                value={selectedClientId}
+                onChange={(e) => setSelectedClientId(e.target.value)}
                 placeholder="Enter client ID"
                 data-testid="input-client-id"
               />
