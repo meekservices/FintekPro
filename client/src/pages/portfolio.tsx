@@ -15,7 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, TrendingUp, TrendingDown, RefreshCw, Bot, Coins } from "lucide-react";
 
 export default function Portfolio() {
-  const userId = "demo-user-1";
+  const clientId = "demo-user-1"; // Demo client ID
   const portfolioId = "demo-portfolio-1";
 
   const { data: enhancedHoldings, isLoading: holdingsLoading, refetch: refetchHoldings } = useEnhancedPortfolioHoldings(portfolioId);

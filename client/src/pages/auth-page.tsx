@@ -367,7 +367,7 @@ export default function AuthPage() {
                         <Input
                           id="identifier"
                           {...loginForm.register("identifier")}
-                          placeholder={loginForm.watch("loginType") === "email" ? "user@example.com" : "9876543210"}
+                          placeholder={loginForm.watch("loginType") === "email" ? "client@example.com" : "9876543210"}
                           type={loginForm.watch("loginType") === "email" ? "email" : "tel"}
                           data-testid="input-login-identifier"
                         />
@@ -458,7 +458,7 @@ export default function AuthPage() {
                           id="email"
                           {...registerForm.register("email")}
                           type="email"
-                          placeholder="user@example.com"
+                          placeholder="client@example.com"
                           data-testid="input-register-email"
                         />
                         {registerForm.formState.errors.email && (

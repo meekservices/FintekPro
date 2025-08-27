@@ -18,7 +18,7 @@ import { User, Settings, CreditCard, Target, TrendingUp, Building2 } from "lucid
 
 // Create a simplified form schema for the profile form
 const profileFormSchema = z.object({
-  userId: z.string(),
+  clientId: z.string(),
   fullName: z.string().min(2, "Full name must be at least 2 characters").optional(),
   email: z.string().email("Invalid email address").optional(),
   phone: z.string().min(10, "Phone number must be at least 10 digits").optional(),
@@ -57,7 +57,7 @@ export default function ProfilePage() {
   const form = useForm<ProfileFormData>({
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
-      userId: "demo-user-1", // Temporary demo user ID
+      clientId: "demo-user-1", // Temporary demo client ID
       fullName: profile?.fullName || "",
       email: profile?.email || "",
       phone: profile?.phone || "",
@@ -113,7 +113,7 @@ export default function ProfilePage() {
     <div className="container mx-auto py-8 max-w-6xl" data-testid="profile-page">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2" data-testid="profile-title">
-          User Profile
+          Client Profile
         </h1>
         <p className="text-gray-600 dark:text-gray-400" data-testid="profile-description">
           Manage your profile information and API integrations for personalized portfolio data

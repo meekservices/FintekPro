@@ -37,7 +37,7 @@ export function Header() {
     { name: "CDSL Services", href: "/cdsl-services" },
   ];
 
-  // Add admin navigation for admin users
+  // Add admin navigation for admin clients
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
   const adminNavigation = isAdmin ? [{ name: "Admin Panel", href: "/admin" }] : [];
 
@@ -103,7 +103,7 @@ export function Header() {
                     />
                   )}
                   <span className="text-sm font-medium text-gray-700">
-                    {user?.firstName || user?.email || 'User'}
+                    {user?.firstName || user?.email || 'Client'}
                   </span>
                 </div>
                 <Link href="/profile">
@@ -182,7 +182,7 @@ export function Header() {
                         )}
                         <div className="flex-1">
                           <p className="font-medium text-gray-900">
-                            {user?.firstName || 'User'}
+                            {user?.firstName || 'Client'}
                           </p>
                           <p className="text-sm text-gray-500">{user?.email}</p>
                         </div>

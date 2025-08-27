@@ -19,10 +19,10 @@ import { RiskAssessmentForm } from "@/components/risk-profiling/risk-assessment-
 import { CapitalGainsReportViewer } from "@/components/reports/capital-gains-report-viewer";
 import { TransactionReportViewer } from "@/components/reports/transaction-report-viewer";
 
-interface UserStats {
-  totalUsers: number;
-  activeUsers: number;
-  newUsersToday: number;
+interface ClientStats {
+  totalClients: number;
+  activeClients: number;
+  newClientsToday: number;
   totalLogins: number;
   avgSessionTime: number;
 }
@@ -36,12 +36,12 @@ interface ActivityMetrics {
 }
 
 interface PlatformInsights {
-  userGrowth: Array<{ date: string; count: number }>;
+  clientGrowth: Array<{ date: string; count: number }>;
   popularFeatures: Array<{ feature: string; usage: number }>;
-  userEngagement: {
-    dailyActiveUsers: number;
-    weeklyActiveUsers: number;
-    monthlyActiveUsers: number;
+  clientEngagement: {
+    dailyActiveClients: number;
+    weeklyActiveClients: number;
+    monthlyActiveClients: number;
   };
   systemHealth: {
     uptime: string;
@@ -50,7 +50,7 @@ interface PlatformInsights {
   };
 }
 
-interface User {
+interface Client {
   id: string;
   email: string;
   mobile: string;
@@ -63,9 +63,9 @@ interface User {
   createdAt: string;
 }
 
-interface UserActivity {
+interface ClientActivity {
   id: string;
-  userId: string;
+  clientId: string;
   action: string;
   resource: string;
   details: any;
@@ -76,7 +76,7 @@ interface UserActivity {
 
 export default function AdminPanel() {
   const { toast } = useToast();
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -95,8 +95,8 @@ export default function AdminPanel() {
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
-  // Fetch users with filtering
-  const { data: usersData, isLoading: usersLoading } = useQuery({
+  // Fetch clients with filtering
+  const { data: clientsData, isLoading: clientsLoading } = useQuery({
     queryKey: ["/api/admin/users", { searchTerm, role: roleFilter, isActive: statusFilter }],
     queryFn: () => {
       const params = new URLSearchParams();
@@ -120,17 +120,17 @@ export default function AdminPanel() {
     refetchInterval: 10000, // Refresh every 10 seconds
   });
 
-  // Update user role mutation
+  // Update client role mutation
   const updateRoleMutation = useMutation({
-    mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
-      const response = await apiRequest("PATCH", `/api/admin/users/${userId}/role`, { role });
+    mutationFn: async ({ clientId, role }: { clientId: string; role: string }) => {
+      const response = await apiRequest("PATCH", `/api/admin/users/${clientId}/role`, { role });
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
       toast({
         title: "Success",
-        description: "User role updated successfully",
+        description: "Client role updated successfully",
       });
     },
     onError: (error: Error) => {
@@ -142,17 +142,17 @@ export default function AdminPanel() {
     },
   });
 
-  // Update user status mutation
+  // Update client status mutation
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ userId, isActive }: { userId: string; isActive: boolean }) => {
-      const response = await apiRequest("PATCH", `/api/admin/users/${userId}/status`, { isActive });
+    mutationFn: async ({ clientId, isActive }: { clientId: string; isActive: boolean }) => {
+      const response = await apiRequest("PATCH", `/api/admin/users/${clientId}/status`, { isActive });
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
       toast({
         title: "Success",
-        description: "User status updated successfully",
+        description: "Client status updated successfully",
       });
     },
     onError: (error: Error) => {
@@ -166,8 +166,8 @@ export default function AdminPanel() {
 
   // Send guidance mutation
   const sendGuidanceMutation = useMutation({
-    mutationFn: async ({ userId, guidance }: { userId: string; guidance: any }) => {
-      const response = await apiRequest("POST", `/api/admin/users/${userId}/guidance`, guidance);
+    mutationFn: async ({ clientId, guidance }: { clientId: string; guidance: any }) => {
+      const response = await apiRequest("POST", `/api/admin/users/${clientId}/guidance`, guidance);
       return response.json();
     },
     onSuccess: () => {
@@ -201,8 +201,8 @@ export default function AdminPanel() {
     );
   }
 
-  const { userStats, activityMetrics, platformInsights: dashboardInsights } = dashboardData || {
-    userStats: { totalUsers: 0, activeUsers: 0, newUsersToday: 0, totalLogins: 0, avgSessionTime: 0 },
+  const { clientStats, activityMetrics, platformInsights: dashboardInsights } = dashboardData || {
+    clientStats: { totalClients: 0, activeClients: 0, newClientsToday: 0, totalLogins: 0, avgSessionTime: 0 },
     activityMetrics: { pageViews: 0, apiCalls: 0, trades: 0, portfolioViews: 0, topActions: [] },
     platformInsights: { systemHealth: { uptime: "0h 0m", errorRate: 0, responseTime: 0 } }
   };
@@ -225,9 +225,9 @@ export default function AdminPanel() {
             <TrendingUp className="w-4 h-4 mr-2" />
             Dashboard
           </TabsTrigger>
-          <TabsTrigger value="users" data-testid="tab-users">
+          <TabsTrigger value="clients" data-testid="tab-clients">
             <Users className="w-4 h-4 mr-2" />
-            Users
+            Clients
           </TabsTrigger>
           <TabsTrigger value="activity" data-testid="tab-activity">
             <Activity className="w-4 h-4 mr-2" />
@@ -260,27 +260,27 @@ export default function AdminPanel() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card data-testid="card-total-users">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+                <CardTitle className="text-sm font-medium">Total Clients</CardTitle>
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold" data-testid="text-total-users">
-                  {userStats?.totalUsers || 0}
+                <div className="text-2xl font-bold" data-testid="text-total-clients">
+                  {clientStats?.totalClients || 0}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  +{userStats?.newUsersToday || 0} new today
+                  +{clientStats?.newClientsToday || 0} new today
                 </p>
               </CardContent>
             </Card>
 
             <Card data-testid="card-active-users">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Active Users</CardTitle>
+                <CardTitle className="text-sm font-medium">Active Clients</CardTitle>
                 <Activity className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold" data-testid="text-active-users">
-                  {userStats?.activeUsers || 0}
+                <div className="text-2xl font-bold" data-testid="text-active-clients">
+                  {clientStats?.activeClients || 0}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Last 7 days
@@ -295,7 +295,7 @@ export default function AdminPanel() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold" data-testid="text-total-logins">
-                  {userStats?.totalLogins || 0}
+                  {clientStats?.totalLogins || 0}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   All time
@@ -310,7 +310,7 @@ export default function AdminPanel() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold" data-testid="text-avg-session">
-                  {userStats?.avgSessionTime || 0}m
+                  {clientStats?.avgSessionTime || 0}m
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Average duration
@@ -389,16 +389,16 @@ export default function AdminPanel() {
         </TabsContent>
 
         {/* Users Tab */}
-        <TabsContent value="users" className="space-y-6">
+        <TabsContent value="clients" className="space-y-6">
           <div className="flex items-center gap-4">
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search users..."
+                placeholder="Search clients..."
                 className="pl-10"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                data-testid="input-search-users"
+                data-testid="input-search-clients"
               />
             </div>
             <Select value={roleFilter} onValueChange={setRoleFilter}>
@@ -426,13 +426,13 @@ export default function AdminPanel() {
 
           <Card data-testid="card-users-table">
             <CardHeader>
-              <CardTitle>Users Management</CardTitle>
+              <CardTitle>Clients Management</CardTitle>
               <CardDescription>
-                Manage user roles and status
+                Manage client roles and status
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {usersLoading ? (
+              {clientsLoading ? (
                 <div className="flex justify-center p-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
                 </div>
@@ -440,7 +440,7 @@ export default function AdminPanel() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>User</TableHead>
+                      <TableHead>Client</TableHead>
                       <TableHead>Role</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Last Login</TableHead>
@@ -448,42 +448,42 @@ export default function AdminPanel() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {usersData?.users?.map((user: User) => (
-                      <TableRow key={user.id} data-testid={`row-user-${user.id}`}>
+                    {clientsData?.users?.map((client: Client) => (
+                      <TableRow key={client.id} data-testid={`row-client-${client.id}`}>
                         <TableCell>
                           <div>
-                            <div className="font-medium" data-testid={`text-username-${user.id}`}>
-                              {user.firstName} {user.lastName}
+                            <div className="font-medium" data-testid={`text-clientname-${client.id}`}>
+                              {client.firstName} {client.lastName}
                             </div>
-                            <div className="text-sm text-muted-foreground" data-testid={`text-email-${user.id}`}>
-                              {user.email}
+                            <div className="text-sm text-muted-foreground" data-testid={`text-email-${client.id}`}>
+                              {client.email}
                             </div>
                           </div>
                         </TableCell>
                         <TableCell>
                           <Select
-                            value={user.role}
-                            onValueChange={(role) => updateRoleMutation.mutate({ userId: user.id, role })}
-                            data-testid={`select-role-${user.id}`}
+                            value={client.role}
+                            onValueChange={(role) => updateRoleMutation.mutate({ clientId: client.id, role })}
+                            data-testid={`select-role-${client.id}`}
                           >
                             <SelectTrigger className="w-32">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="user">User</SelectItem>
+                              <SelectItem value="user">Client</SelectItem>
                               <SelectItem value="admin">Admin</SelectItem>
                               <SelectItem value="super_admin">Super Admin</SelectItem>
                             </SelectContent>
                           </Select>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={user.isActive ? "secondary" : "destructive"} data-testid={`badge-status-${user.id}`}>
-                            {user.isActive ? "Active" : "Inactive"}
+                          <Badge variant={client.isActive ? "secondary" : "destructive"} data-testid={`badge-status-${client.id}`}>
+                            {client.isActive ? "Active" : "Inactive"}
                           </Badge>
                         </TableCell>
-                        <TableCell data-testid={`text-last-login-${user.id}`}>
-                          {user.lastLoginAt 
-                            ? format(new Date(user.lastLoginAt), "MMM d, yyyy")
+                        <TableCell data-testid={`text-last-login-${client.id}`}>
+                          {client.lastLoginAt 
+                            ? format(new Date(client.lastLoginAt), "MMM d, yyyy")
                             : "Never"
                           }
                         </TableCell>
@@ -491,23 +491,23 @@ export default function AdminPanel() {
                           <div className="flex gap-2">
                             <Button
                               size="sm"
-                              variant={user.isActive ? "destructive" : "secondary"}
+                              variant={client.isActive ? "destructive" : "secondary"}
                               onClick={() => updateStatusMutation.mutate({ 
-                                userId: user.id, 
-                                isActive: !user.isActive 
+                                clientId: client.id, 
+                                isActive: !client.isActive 
                               })}
-                              data-testid={`button-toggle-status-${user.id}`}
+                              data-testid={`button-toggle-status-${client.id}`}
                             >
-                              {user.isActive ? "Deactivate" : "Activate"}
+                              {client.isActive ? "Deactivate" : "Activate"}
                             </Button>
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={() => {
-                                setSelectedUser(user);
+                                setSelectedClient(client);
                                 setGuidanceDialog(true);
                               }}
-                              data-testid={`button-send-guidance-${user.id}`}
+                              data-testid={`button-send-guidance-${client.id}`}
                             >
                               <MessageSquare className="w-4 h-4" />
                             </Button>
@@ -988,7 +988,7 @@ export default function AdminPanel() {
           <DialogHeader>
             <DialogTitle>Send Guidance</DialogTitle>
             <DialogDescription>
-              Send personalized guidance to {selectedUser?.firstName} {selectedUser?.lastName}
+              Send personalized guidance to {selectedClient?.firstName} {selectedClient?.lastName}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -1066,9 +1066,9 @@ export default function AdminPanel() {
             </Button>
             <Button
               onClick={() => {
-                if (selectedUser && guidanceForm.title && guidanceForm.message) {
+                if (selectedClient && guidanceForm.title && guidanceForm.message) {
                   sendGuidanceMutation.mutate({
-                    userId: selectedUser.id,
+                    clientId: selectedClient.id,
                     guidance: guidanceForm
                   });
                 }

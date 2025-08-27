@@ -31,7 +31,7 @@ import { apiRequest } from "@/lib/queryClient";
 
 interface RiskProfile {
   id: string;
-  userId: string;
+  clientId: string;
   riskTolerance: string;
   investmentHorizon: string;
   investmentExperience: string;

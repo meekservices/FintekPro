@@ -8,7 +8,7 @@ export function useAuth() {
   });
 
   return {
-    user,
+    user, // current authenticated client
     isLoading,
     isAuthenticated: !!user,
   };

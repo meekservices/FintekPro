@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 
 interface CapitalGainsReport {
   id: string;
-  userId: string;
+  clientId: string;
   financialYear: string;
   reportType: string;
   source: string;
@@ -29,17 +29,17 @@ interface CapitalGainsReport {
 }
 
 export function CapitalGainsReportViewer() {
-  const [selectedUserId, setSelectedUserId] = useState('demo-user-1');
+  const [selectedClientId, setSelectedClientId] = useState('demo-user-1');
   const [selectedFY, setSelectedFY] = useState('2023-24');
   const [selectedSource, setSelectedSource] = useState('all');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const { data: reports, isLoading, error } = useQuery({
-    queryKey: ['/api/capital-gains-reports', selectedUserId, selectedFY],
+    queryKey: ['/api/capital-gains-reports', selectedClientId, selectedFY],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (selectedUserId !== 'all') params.append('userId', selectedUserId);
+      if (selectedClientId !== 'all') params.append('userId', selectedClientId);
       if (selectedFY !== 'all') params.append('financialYear', selectedFY);
       
       const response = await fetch(`/api/capital-gains-reports?${params}`);
@@ -49,7 +49,7 @@ export function CapitalGainsReportViewer() {
   });
 
   const fetchFromMFCentralMutation = useMutation({
-    mutationFn: async (params: { userId: string; financialYear: string; panNumber: string }) => {
+    mutationFn: async (params: { clientId: string; financialYear: string; panNumber: string }) => {
       const response = await fetch('/api/reports/fetch-from-mf-central', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
