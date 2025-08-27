@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
-import { Loader2, Mail, Phone, Eye, EyeOff, Shield } from "lucide-react";
+import { Loader2, Mail, Phone, Eye, EyeOff, Shield, MessageSquare } from "lucide-react";
 
 const loginSchema = z.object({
   identifier: z.string().min(1, "Email or mobile number is required"),
@@ -547,6 +547,23 @@ export default function AuthPage() {
                     </form>
                   </TabsContent>
                 </Tabs>
+                
+                <div className="mt-6 pt-6 border-t">
+                  <div className="text-center space-y-4">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Or try our new authentication method
+                    </p>
+                    <Link href="/whatsapp-login" data-testid="link-whatsapp-login">
+                      <Button variant="outline" className="w-full bg-green-50 hover:bg-green-100 border-green-200 text-green-700 dark:bg-green-900/20 dark:hover:bg-green-900/30 dark:border-green-800 dark:text-green-400">
+                        <MessageSquare className="w-4 h-4 mr-2" />
+                        Login with WhatsApp
+                      </Button>
+                    </Link>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Quick, secure, and password-free authentication
+                    </p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </div>

@@ -23,6 +23,7 @@ import Support from "@/pages/support";
 import WealthManagement from "@/pages/wealth-management";
 import Achievements from "@/pages/achievements";
 import CapitalGainsReports from "@/pages/capital-gains-reports";
+import WhatsAppAuthPage from "@/pages/whatsapp-auth-page";
 
 function Router() {
   return (
@@ -40,6 +41,7 @@ function Router() {
       <Route path="/agricultural-insights" component={AgriculturalInsights} />
       <Route path="/calculators" component={FinancialCalculators} />
       <Route path="/auth" component={AuthPage} />
+      <Route path="/whatsapp-login" component={WhatsAppAuthPage} />
       <Route path="/profile" component={ProfilePage} />
       <Route path="/admin" component={AdminPanel} />
       <Route path="/partner" component={PartnerPortal} />

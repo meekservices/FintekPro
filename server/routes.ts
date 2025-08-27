@@ -56,6 +56,119 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     next();
   };
+
+  // WhatsApp Authentication API endpoints
+  app.post("/api/whatsapp/auth/initiate", async (req, res) => {
+    try {
+      const { phoneNumber } = req.body;
+      
+      if (!phoneNumber) {
+        return res.status(400).json({ error: "Phone number is required" });
+      }
+
+      // Create authentication session
+      const sessionId = await whatsappService.createAuthSession(phoneNumber);
+      
+      res.json({ 
+        success: true, 
+        sessionId,
+        message: "Verification code sent to your WhatsApp" 
+      });
+    } catch (error) {
+      console.error("Error initiating WhatsApp auth:", error);
+      res.status(500).json({ error: "Failed to initiate WhatsApp authentication" });
+    }
+  });
+
+  app.post("/api/whatsapp/auth/verify", async (req, res) => {
+    try {
+      const { sessionId, code } = req.body;
+      
+      if (!sessionId || !code) {
+        return res.status(400).json({ error: "Session ID and verification code are required" });
+      }
+
+      const result = await whatsappService.verifyCode(sessionId, code);
+      
+      if (!result.success) {
+        return res.status(400).json({ error: "Invalid or expired verification code" });
+      }
+
+      if (result.userId) {
+        // Get user data for login
+        const user = await storage.getUser(result.userId);
+        if (user) {
+          // Simulate login session (you may need to integrate with your session management)
+          res.json({ 
+            success: true, 
+            user: {
+              id: user.id,
+              email: user.email,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              role: user.role
+            },
+            message: "Authentication successful" 
+          });
+        } else {
+          res.status(404).json({ error: "User not found" });
+        }
+      } else {
+        res.status(400).json({ error: "Authentication failed" });
+      }
+    } catch (error) {
+      console.error("Error verifying WhatsApp auth:", error);
+      res.status(500).json({ error: "Failed to verify authentication" });
+    }
+  });
+
+  app.get("/api/whatsapp/status", async (req, res) => {
+    try {
+      const isReady = whatsappService.isClientReady();
+      const qrCode = await whatsappService.getQRCode();
+      
+      res.json({ 
+        isReady,
+        qrCode: isReady ? null : qrCode,
+        message: isReady ? "WhatsApp client is ready" : "WhatsApp client is initializing" 
+      });
+    } catch (error) {
+      console.error("Error getting WhatsApp status:", error);
+      res.status(500).json({ error: "Failed to get WhatsApp status" });
+    }
+  });
+
+  app.post("/api/whatsapp/auth/phone-login", async (req, res) => {
+    try {
+      const { phoneNumber } = req.body;
+      
+      if (!phoneNumber) {
+        return res.status(400).json({ error: "Phone number is required" });
+      }
+
+      // Check if user exists with this phone number
+      const users = await storage.getAllUsers();
+      const user = users.find(u => u.phoneNumber === phoneNumber || u.mobile === phoneNumber);
+      
+      if (!user) {
+        return res.status(404).json({ 
+          error: "No account found with this phone number. Please register first." 
+        });
+      }
+
+      // Create authentication session
+      const sessionId = await whatsappService.createAuthSession(phoneNumber);
+      
+      res.json({ 
+        success: true, 
+        sessionId,
+        message: "Verification code sent to your WhatsApp. Please check your messages." 
+      });
+    } catch (error) {
+      console.error("Error initiating phone login:", error);
+      res.status(500).json({ error: "Failed to initiate phone login" });
+    }
+  });
   
   // User Profile API endpoints
   app.get("/api/profile", async (req, res) => {
