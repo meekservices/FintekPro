@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertTriangle, Users, Activity, TrendingUp, MessageSquare, Settings, Search, Filter, Shield, FileText, Building2, Plus, Edit3, Trash2, Server } from "lucide-react";
+import { AlertTriangle, Users, Activity, TrendingUp, MessageSquare, Settings, Search, Filter, Shield, FileText, Building2, Plus, Edit3, Trash2, Server, Brain, Zap, Lock } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -164,6 +164,243 @@ function ApiStatusPanel() {
   );
 }
 
+// AI Analysis Panel Component for Super Admins
+function AIAnalysisPanel() {
+  const { toast } = useToast();
+  const [analysisType, setAnalysisType] = useState('error_analysis');
+  const [timeRange, setTimeRange] = useState('24h');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<any>(null);
+
+  const performAnalysis = async () => {
+    setIsAnalyzing(true);
+    try {
+      const response = await apiRequest('POST', '/api/admin/ai-analysis', {
+        analysisType,
+        timeRange
+      });
+      const result = await response.json();
+      setAnalysisResult(result);
+      toast({
+        title: "AI Analysis Complete",
+        description: `${analysisType.replace('_', ' ')} analysis completed successfully.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Analysis Failed",
+        description: "Failed to perform AI analysis. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority?.toLowerCase()) {
+      case 'critical': return 'text-red-600 bg-red-50';
+      case 'high': return 'text-orange-600 bg-orange-50';
+      case 'medium': return 'text-yellow-600 bg-yellow-50';
+      case 'low': return 'text-blue-600 bg-blue-50';
+      default: return 'text-gray-600 bg-gray-50';
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* AI Analysis Controls */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Brain className="w-5 h-5" />
+            Gemini AI System Analysis
+          </CardTitle>
+          <CardDescription>
+            Use AI to analyze system errors, performance, and security for actionable insights
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div>
+              <Label>Analysis Type</Label>
+              <Select value={analysisType} onValueChange={setAnalysisType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="error_analysis">Error Analysis</SelectItem>
+                  <SelectItem value="performance_analysis">Performance Analysis</SelectItem>
+                  <SelectItem value="security_analysis">Security Analysis</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Time Range</Label>
+              <Select value={timeRange} onValueChange={setTimeRange}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1h">Last Hour</SelectItem>
+                  <SelectItem value="24h">Last 24 Hours</SelectItem>
+                  <SelectItem value="7d">Last 7 Days</SelectItem>
+                  <SelectItem value="30d">Last 30 Days</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-end">
+              <Button 
+                onClick={performAnalysis} 
+                disabled={isAnalyzing}
+                className="w-full"
+              >
+                {isAnalyzing ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Analyzing...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-4 h-4 mr-2" />
+                    Run Analysis
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Analysis Results */}
+      {analysisResult && (
+        <div className="space-y-4">
+          {/* Summary Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Brain className="w-5 h-5" />
+                Analysis Summary
+                <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(analysisResult.analysis?.priority)}`}>
+                  {analysisResult.analysis?.priority} Priority
+                </div>
+              </CardTitle>
+              <CardDescription>
+                Analysis completed on {new Date(analysisResult.timestamp).toLocaleString()}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <h4 className="font-medium mb-2">Executive Summary</h4>
+                  <p className="text-muted-foreground">{analysisResult.analysis?.summary}</p>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-muted rounded-lg">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">{analysisResult.dataPoints?.errorsAnalyzed || 0}</div>
+                    <p className="text-sm text-muted-foreground">Errors Analyzed</p>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">{analysisResult.dataPoints?.apisChecked || 0}</div>
+                    <p className="text-sm text-muted-foreground">APIs Checked</p>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">{analysisResult.dataPoints?.timeframe}</div>
+                    <p className="text-sm text-muted-foreground">Time Range</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Recommendations */}
+          <Card>
+            <CardHeader>
+              <CardTitle>AI Recommendations</CardTitle>
+              <CardDescription>Actionable insights and suggestions</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {analysisResult.analysis?.recommendations?.map((rec: string, index: number) => (
+                  <div key={index} className="flex items-start gap-3 p-3 border rounded-lg">
+                    <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs font-bold flex items-center justify-center mt-0.5">
+                      {index + 1}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm">{rec}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Detailed Analysis */}
+          {analysisResult.analysis?.detailedAnalysis && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Detailed Analysis</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {analysisResult.analysis.detailedAnalysis.errorPatterns && (
+                    <div>
+                      <h4 className="font-medium mb-2">Error Patterns</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {analysisResult.analysis.detailedAnalysis.errorPatterns.map((pattern: string, index: number) => (
+                          <span key={index} className="px-2 py-1 bg-red-50 text-red-700 rounded-md text-xs">
+                            {pattern}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {analysisResult.analysis.detailedAnalysis.performanceMetrics && (
+                    <div>
+                      <h4 className="font-medium mb-2">Performance Metrics</h4>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Avg Response Time:</span>
+                          <span className="ml-2 font-medium">{analysisResult.analysis.detailedAnalysis.performanceMetrics.avgResponseTime}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Success Rate:</span>
+                          <span className="ml-2 font-medium">{analysisResult.analysis.detailedAnalysis.performanceMetrics.successRate}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {analysisResult.analysis.detailedAnalysis.securityStatus && (
+                    <div>
+                      <h4 className="font-medium mb-2">Security Status</h4>
+                      <div className="p-3 bg-green-50 text-green-800 rounded-lg">
+                        <Lock className="w-4 h-4 inline mr-2" />
+                        {analysisResult.analysis.detailedAnalysis.securityStatus}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* Warning for Super Admin Only */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex items-center gap-2 text-sm text-amber-600">
+            <AlertTriangle className="w-4 h-4" />
+            This AI analysis feature is only available to Super Administrators and uses sensitive system data.
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 interface ClientStats {
   totalClients: number;
   activeClients: number;
@@ -221,6 +458,12 @@ interface ClientActivity {
 
 export default function AdminPanel() {
   const { toast } = useToast();
+  
+  // Get current user to check if super admin
+  const { data: currentUser } = useQuery({
+    queryKey: ['/api/user'],
+    retry: false,
+  });
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
@@ -456,7 +699,7 @@ export default function AdminPanel() {
       </div>
 
       <Tabs defaultValue="dashboard" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-9">
+        <TabsList className={`grid w-full ${currentUser?.role === 'super_admin' ? 'grid-cols-10' : 'grid-cols-9'}`}>
           <TabsTrigger value="dashboard" data-testid="tab-dashboard">
             <TrendingUp className="w-4 h-4 mr-2" />
             Dashboard
@@ -497,6 +740,12 @@ export default function AdminPanel() {
             <Users className="w-4 h-4 mr-2" />
             Care Agents
           </TabsTrigger>
+          {currentUser?.role === 'super_admin' && (
+            <TabsTrigger value="ai-analysis" data-testid="tab-ai-analysis">
+              <Brain className="w-4 h-4 mr-2" />
+              AI Analysis
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* Dashboard Tab */}
@@ -1845,6 +2094,13 @@ export default function AdminPanel() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* AI Analysis Tab - Super Admin Only */}
+      {currentUser?.role === 'super_admin' && (
+        <TabsContent value="ai-analysis" className="space-y-6">
+          <AIAnalysisPanel />
+        </TabsContent>
+      )}
     </div>
   );
 }
