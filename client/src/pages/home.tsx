@@ -8,9 +8,10 @@ import { MarketNews } from "@/components/dashboard/market-news";
 import { ServicesGrid } from "@/components/dashboard/services-grid";
 import { AssetAllocation } from "@/components/dashboard/asset-allocation";
 import { RebalanceDashboard } from "@/components/dashboard/rebalance-dashboard";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calculator, Home as HomeIcon, Percent, Umbrella } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Calculator, Home as HomeIcon, Percent, Umbrella, CheckCircle, Shield, Database, TrendingUp, Banknote } from "lucide-react";
 
 export default function Home() {
   // Mock user ID for demo purposes
@@ -67,6 +68,66 @@ export default function Home() {
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8" data-testid="hero-section">
           <MarketChart symbol="^NSEI" />
           <PortfolioSummary userId={userId} />
+        </section>
+
+        {/* API Integration Status */}
+        <section className="mb-8" data-testid="api-status-section">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Integrated Financial APIs</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <Card className="border-l-4 border-l-finance-blue">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center text-lg">
+                  <Database className="h-5 w-5 mr-2 text-finance-blue" />
+                  Finnhub Market Data
+                  <Badge className="ml-2 bg-finance-green text-white">Live</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-600">✓ Real-time stock prices</p>
+                  <p className="text-sm text-gray-600">✓ Global market indices</p>
+                  <p className="text-sm text-gray-600">✓ Financial news feed</p>
+                  <p className="text-sm text-gray-600">✓ Historical price data</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-l-4 border-l-finance-purple">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center text-lg">
+                  <TrendingUp className="h-5 w-5 mr-2 text-finance-purple" />
+                  MF Central API
+                  <Badge className="ml-2 bg-finance-green text-white">Active</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-600">✓ NAV history tracking</p>
+                  <p className="text-sm text-gray-600">✓ Portfolio analytics</p>
+                  <p className="text-sm text-gray-600">✓ Holdings import</p>
+                  <p className="text-sm text-gray-600">✓ Scheme information</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-l-4 border-l-finance-red">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center text-lg">
+                  <Shield className="h-5 w-5 mr-2 text-finance-red" />
+                  NSDL Services
+                  <Badge className="ml-2 bg-finance-green text-white">Connected</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-600">✓ Demat account services</p>
+                  <p className="text-sm text-gray-600">✓ eDIS transactions</p>
+                  <p className="text-sm text-gray-600">✓ Margin pledge facility</p>
+                  <p className="text-sm text-gray-600">✓ Loan against securities</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </section>
 
         {/* Services Grid */}

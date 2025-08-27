@@ -10,6 +10,7 @@ import IPO from "@/pages/ipo";
 import MutualFunds from "@/pages/mutual-funds";
 import Bonds from "@/pages/bonds";
 import Loans from "@/pages/loans";
+import NSDLServices from "@/pages/nsdl-services";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -22,6 +23,7 @@ function Router() {
       <Route path="/mutual-funds" component={MutualFunds} />
       <Route path="/bonds" component={Bonds} />
       <Route path="/loans" component={Loans} />
+      <Route path="/nsdl-services" component={NSDLServices} />
       <Route component={NotFound} />
     </Switch>
   );

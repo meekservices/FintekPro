@@ -16,6 +16,7 @@ export function Header() {
     { name: "Mutual Funds", href: "/mutual-funds" },
     { name: "Bonds", href: "/bonds" },
     { name: "Loans", href: "/loans" },
+    { name: "NSDL Services", href: "/nsdl-services" },
   ];
 
   return (

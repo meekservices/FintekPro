@@ -64,31 +64,49 @@ export const RISK_PROFILES = {
 
 export const FINANCIAL_SERVICES = [
   {
-    id: 'unlisted-shares',
-    name: 'Unlisted Shares',
-    description: 'Invest in pre-IPO companies and high-growth startups',
+    id: 'markets',
+    name: 'Live Market Data',
+    description: 'Real-time stock prices, global indices powered by Finnhub API',
     icon: 'fas fa-chart-line',
     color: 'blue',
-    stats: ['Available: 245+ companies', 'Min Investment: ₹50,000'],
-    cta: 'Explore →'
+    stats: ['Global stocks', 'Real-time quotes', 'Market news'],
+    cta: 'View Markets →'
   },
   {
-    id: 'ipo',
-    name: 'IPO',
-    description: 'Apply for upcoming IPOs and track live applications',
-    icon: 'fas fa-bullhorn',
-    color: 'green',
-    stats: ['Upcoming: 8 IPOs', 'This Month: ₹15,000Cr'],
-    cta: 'View IPOs →'
+    id: 'portfolio',
+    name: 'Portfolio Manager',
+    description: 'Track, analyze, and optimize your investment portfolio',
+    icon: 'fas fa-briefcase',
+    color: 'green', 
+    stats: ['Asset allocation', 'Performance tracking', 'Rebalancing'],
+    cta: 'Manage Portfolio →'
   },
   {
     id: 'mutual-funds',
     name: 'Mutual Funds',
-    description: 'Direct mutual funds with zero commission',
+    description: 'Complete MF Central integration with NAV history and analytics',
     icon: 'fas fa-coins',
     color: 'purple',
-    stats: ['Funds: 2000+', 'SIP from: ₹500'],
+    stats: ['Portfolio import', 'NAV tracking', 'SIP calculator'],
     cta: 'Start SIP →'
+  },
+  {
+    id: 'nsdl-services',
+    name: 'NSDL Securities',
+    description: 'Complete depository services - demat accounts, eDIS, margin pledge',
+    icon: 'fas fa-shield-alt',
+    color: 'red',
+    stats: ['410M+ accounts', '₹503L Cr custody', 'Digital LAS'],
+    cta: 'Access Services →'
+  },
+  {
+    id: 'ipo',
+    name: 'IPO Center',
+    description: 'Apply for upcoming IPOs and track live applications',
+    icon: 'fas fa-bullhorn',
+    color: 'orange',
+    stats: ['Upcoming IPOs', 'Application tracking', 'Market insights'],
+    cta: 'View IPOs →'
   },
   {
     id: 'bonds',
@@ -96,43 +114,25 @@ export const FINANCIAL_SERVICES = [
     description: 'Fixed income investments with guaranteed returns',
     icon: 'fas fa-certificate',
     color: 'yellow',
-    stats: ['Yield: 7-12% p.a.', 'Min: ₹10,000'],
-    cta: 'Browse →'
-  },
-  {
-    id: 'pms',
-    name: 'PMS',
-    description: 'Portfolio Management Services by experts',
-    icon: 'fas fa-user-tie',
-    color: 'indigo',
-    stats: ['Min: ₹50 Lakhs', 'Managers: 25+'],
-    cta: 'Learn More →'
-  },
-  {
-    id: 'aif',
-    name: 'AIF',
-    description: 'Alternative Investment Funds for HNI clients',
-    icon: 'fas fa-landmark',
-    color: 'red',
-    stats: ['Min: ₹1 Crore', 'Funds: 150+'],
-    cta: 'Explore →'
+    stats: ['Yield: 7-12% p.a.', 'Min: ₹10,000', 'Government bonds'],
+    cta: 'Browse Bonds →'
   },
   {
     id: 'loans',
-    name: 'Personal Loans',
-    description: 'Quick personal loans at competitive rates',
+    name: 'Loans & LAS',
+    description: 'Personal loans and Loan Against Securities facility',
     icon: 'fas fa-hand-holding-usd',
     color: 'teal',
-    stats: ['Rate: 10.5% onwards', 'Up to: ₹40 Lakhs'],
-    cta: 'Apply →'
+    stats: ['LAS facility', 'Digital processing', 'Instant approval'],
+    cta: 'Apply Loan →'
   },
   {
     id: 'sme-funding',
     name: 'SME Funding',
     description: 'Business loans and project funding solutions',
     icon: 'fas fa-building',
-    color: 'orange',
-    stats: ['Up to: ₹50 Crores', 'Rate: 9.5% onwards'],
+    color: 'indigo',
+    stats: ['Up to: ₹50 Crores', 'Rate: 9.5% onwards', 'Quick disbursement'],
     cta: 'Get Quote →'
   }
 ] as const;
