@@ -59,6 +59,8 @@ export interface IStorage {
 
 export class MemStorage implements IStorage {
   private users: Map<string, User>;
+  private usersByEmail: Map<string, User>;
+  private usersByMobile: Map<string, User>;
   private otpVerifications: Map<string, OtpVerification>;
   private portfolios: Map<string, Portfolio>;
   private portfolioHoldings: Map<string, PortfolioHolding>;
@@ -70,6 +72,8 @@ export class MemStorage implements IStorage {
 
   constructor() {
     this.users = new Map();
+    this.usersByEmail = new Map();
+    this.usersByMobile = new Map();
     this.otpVerifications = new Map();
     this.portfolios = new Map();
     this.portfolioHoldings = new Map();
@@ -254,7 +258,7 @@ export class MemStorage implements IStorage {
       id: "demo-user-1",
       email: "test@example.com",
       mobile: "+919876543210",
-      password: "7a8c8c5c8df5f8e9d0e5f8c8d0c8e9f8c8e9d0c8e9f8.4f5d6c7a8b9e",  // Hashed version of "password123"
+      password: "7a8c8c5c8df5f8e9d0e5f8c8d0c8e9f8c8e9d0c8e9f8.4f5d6c7a8b9e",  // Placeholder - will be properly hashed
       firstName: "John",
       middleName: null,
       lastName: "Doe",
@@ -276,15 +280,25 @@ export class MemStorage implements IStorage {
       updatedAt: new Date()
     };
     this.users.set(testUser.id, testUser);
+    this.usersByEmail.set(testUser.email!, testUser);
+    this.usersByMobile.set(testUser.mobile!, testUser);
   }
 
   // Method to be called after auth is set up to properly hash user passwords
   async initializeUserPasswords() {
-    const { hashPassword } = await import("./auth");
-    const testUser = this.users.get("demo-user-1");
-    if (testUser && testUser.password === "7a8c8c5c8df5f8e9d0e5f8c8d0c8e9f8c8e9d0c8e9f8.4f5d6c7a8b9e") {
-      testUser.password = await hashPassword("password123");
-      this.users.set(testUser.id, testUser);
+    try {
+      const { hashPassword } = await import("./auth");
+      const testUser = this.users.get("demo-user-1");
+      if (testUser && testUser.password === "7a8c8c5c8df5f8e9d0e5f8c8d0c8e9f8c8e9d0c8e9f8.4f5d6c7a8b9e") {
+        const hashedPassword = await hashPassword("password123");
+        testUser.password = hashedPassword;
+        this.users.set(testUser.id, testUser);
+        this.usersByEmail.set(testUser.email!, testUser);
+        this.usersByMobile.set(testUser.mobile!, testUser);
+        console.log("✅ Test user password initialized successfully");
+      }
+    } catch (error) {
+      console.error("❌ Error initializing user passwords:", error);
     }
   }
 
