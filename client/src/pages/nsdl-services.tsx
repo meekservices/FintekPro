@@ -317,7 +317,7 @@ export default function NSDLServices() {
                       <Card>
                         <CardContent className="p-4">
                           <p className="text-sm text-gray-600">Total Securities</p>
-                          <p className="text-2xl font-bold">{holdings.holdings.length}</p>
+                          <p className="text-2xl font-bold">{holdings.holdings?.length || 0}</p>
                         </CardContent>
                       </Card>
                       <Card>
@@ -329,7 +329,7 @@ export default function NSDLServices() {
                     </div>
 
                     <div className="space-y-3">
-                      {holdings.holdings.map((holding) => (
+                      {holdings.holdings?.map((holding) => (
                         <Card key={holding.isin} data-testid={`holding-${holding.isin}`}>
                           <CardContent className="p-4">
                             <div className="flex justify-between items-start">
