@@ -85,6 +85,7 @@ export default function WealthManagement() {
             <TabsTrigger value="pre-ipo" data-testid="tab-pre-ipo">Pre-IPO</TabsTrigger>
             <TabsTrigger value="aif" data-testid="tab-aif">AIF</TabsTrigger>
             <TabsTrigger value="bonds" data-testid="tab-bonds">Bonds</TabsTrigger>
+            <TabsTrigger value="mutual-funds" data-testid="tab-mutual-funds">Mutual Funds</TabsTrigger>
             <TabsTrigger value="debentures" data-testid="tab-debentures">Debentures</TabsTrigger>
             <TabsTrigger value="newsletter" data-testid="tab-newsletter">Newsletter</TabsTrigger>
           </TabsList>
@@ -3015,6 +3016,428 @@ export default function WealthManagement() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Mutual Funds Tab */}
+          <TabsContent value="mutual-funds" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+              {/* Overview Cards */}
+              <div className="lg:col-span-3 space-y-6">
+                {/* Top Performing Funds */}
+                <Card data-testid="card-top-mutual-funds">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <PieChart className="w-5 h-5 text-primary" />
+                      Top Performing Mutual Funds
+                    </CardTitle>
+                    <CardDescription>AMFI-integrated mutual fund platform with real-time NAV tracking</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                      {/* Axis Small Cap Fund */}
+                      <div className="border rounded-lg p-4 hover:bg-accent cursor-pointer" data-testid="fund-axis-small-cap">
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <h3 className="font-semibold">Axis Small Cap Fund</h3>
+                            <div className="text-xs text-muted-foreground">Small Cap - Equity</div>
+                          </div>
+                          <div className="text-right">
+                            <Badge className="bg-green-100 text-green-800 mb-1">5★</Badge>
+                            <div className="text-xs">High Risk</div>
+                          </div>
+                        </div>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span>NAV:</span>
+                            <span className="font-medium">₹68.45</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>1Y Return:</span>
+                            <span className="font-medium text-green-600">+35.78%</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>AUM:</span>
+                            <span className="font-medium">₹28,456 Cr</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Expense Ratio:</span>
+                            <span className="font-medium">1.25%</span>
+                          </div>
+                        </div>
+                        <Button size="sm" className="w-full mt-3" data-testid="button-invest-axis">
+                          <Plus className="w-4 h-4 mr-2" />
+                          Start SIP
+                        </Button>
+                      </div>
+
+                      {/* DSP Mid Cap Fund */}
+                      <div className="border rounded-lg p-4 hover:bg-accent cursor-pointer" data-testid="fund-dsp-mid-cap">
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <h3 className="font-semibold">DSP Mid Cap Fund</h3>
+                            <div className="text-xs text-muted-foreground">Mid Cap - Equity</div>
+                          </div>
+                          <div className="text-right">
+                            <Badge className="bg-blue-100 text-blue-800 mb-1">4★</Badge>
+                            <div className="text-xs">High Risk</div>
+                          </div>
+                        </div>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span>NAV:</span>
+                            <span className="font-medium">₹89.23</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>1Y Return:</span>
+                            <span className="font-medium text-green-600">+31.23%</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>AUM:</span>
+                            <span className="font-medium">₹19,832 Cr</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Expense Ratio:</span>
+                            <span className="font-medium">1.15%</span>
+                          </div>
+                        </div>
+                        <Button size="sm" className="w-full mt-3" data-testid="button-invest-dsp">
+                          <Plus className="w-4 h-4 mr-2" />
+                          Start SIP
+                        </Button>
+                      </div>
+
+                      {/* ICICI Technology Fund */}
+                      <div className="border rounded-lg p-4 hover:bg-accent cursor-pointer" data-testid="fund-icici-tech">
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <h3 className="font-semibold">ICICI Tech Fund</h3>
+                            <div className="text-xs text-muted-foreground">Sectoral - Technology</div>
+                          </div>
+                          <div className="text-right">
+                            <Badge className="bg-purple-100 text-purple-800 mb-1">4★</Badge>
+                            <div className="text-xs">Very High Risk</div>
+                          </div>
+                        </div>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span>NAV:</span>
+                            <span className="font-medium">₹145.67</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>1Y Return:</span>
+                            <span className="font-medium text-green-600">+28.92%</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>AUM:</span>
+                            <span className="font-medium">₹15,234 Cr</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Expense Ratio:</span>
+                            <span className="font-medium">1.35%</span>
+                          </div>
+                        </div>
+                        <Button size="sm" className="w-full mt-3" data-testid="button-invest-icici">
+                          <Plus className="w-4 h-4 mr-2" />
+                          Start SIP
+                        </Button>
+                      </div>
+
+                      {/* Mirae Large Cap Fund */}
+                      <div className="border rounded-lg p-4 hover:bg-accent cursor-pointer" data-testid="fund-mirae-large-cap">
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <h3 className="font-semibold">Mirae Large Cap Fund</h3>
+                            <div className="text-xs text-muted-foreground">Large Cap - Equity</div>
+                          </div>
+                          <div className="text-right">
+                            <Badge className="bg-green-100 text-green-800 mb-1">5★</Badge>
+                            <div className="text-xs">Moderate Risk</div>
+                          </div>
+                        </div>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span>NAV:</span>
+                            <span className="font-medium">₹78.91</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>1Y Return:</span>
+                            <span className="font-medium text-green-600">+21.67%</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>AUM:</span>
+                            <span className="font-medium">₹32,145 Cr</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Expense Ratio:</span>
+                            <span className="font-medium">0.95%</span>
+                          </div>
+                        </div>
+                        <Button size="sm" className="w-full mt-3" data-testid="button-invest-mirae">
+                          <Plus className="w-4 h-4 mr-2" />
+                          Start SIP
+                        </Button>
+                      </div>
+
+                      {/* HDFC Top 100 Fund */}
+                      <div className="border rounded-lg p-4 hover:bg-accent cursor-pointer" data-testid="fund-hdfc-top-100">
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <h3 className="font-semibold">HDFC Top 100 Fund</h3>
+                            <div className="text-xs text-muted-foreground">Large Cap - Equity</div>
+                          </div>
+                          <div className="text-right">
+                            <Badge className="bg-blue-100 text-blue-800 mb-1">4★</Badge>
+                            <div className="text-xs">Moderate Risk</div>
+                          </div>
+                        </div>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span>NAV:</span>
+                            <span className="font-medium">₹567.34</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>1Y Return:</span>
+                            <span className="font-medium text-green-600">+19.56%</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>AUM:</span>
+                            <span className="font-medium">₹45,678 Cr</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Expense Ratio:</span>
+                            <span className="font-medium">1.05%</span>
+                          </div>
+                        </div>
+                        <Button size="sm" className="w-full mt-3" data-testid="button-invest-hdfc">
+                          <Plus className="w-4 h-4 mr-2" />
+                          Start SIP
+                        </Button>
+                      </div>
+
+                      {/* SBI Bluechip Fund */}
+                      <div className="border rounded-lg p-4 hover:bg-accent cursor-pointer" data-testid="fund-sbi-bluechip">
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <h3 className="font-semibold">SBI Bluechip Fund</h3>
+                            <div className="text-xs text-muted-foreground">Large Cap - Equity</div>
+                          </div>
+                          <div className="text-right">
+                            <Badge className="bg-blue-100 text-blue-800 mb-1">4★</Badge>
+                            <div className="text-xs">Moderate Risk</div>
+                          </div>
+                        </div>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span>NAV:</span>
+                            <span className="font-medium">₹62.78</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>1Y Return:</span>
+                            <span className="font-medium text-green-600">+18.45%</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>AUM:</span>
+                            <span className="font-medium">₹38,234 Cr</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Expense Ratio:</span>
+                            <span className="font-medium">0.89%</span>
+                          </div>
+                        </div>
+                        <Button size="sm" className="w-full mt-3" data-testid="button-invest-sbi">
+                          <Plus className="w-4 h-4 mr-2" />
+                          Start SIP
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Fund Categories */}
+                    <div className="border-t pt-4 space-y-4">
+                      <h4 className="font-semibold">Fund Categories</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="text-center p-3 border rounded-lg hover:bg-accent cursor-pointer" data-testid="category-large-cap">
+                          <PieChart className="w-6 h-6 mx-auto mb-2 text-blue-600" />
+                          <div className="font-medium text-sm">Large Cap</div>
+                          <div className="text-xs text-muted-foreground">45 funds</div>
+                        </div>
+                        <div className="text-center p-3 border rounded-lg hover:bg-accent cursor-pointer" data-testid="category-mid-cap">
+                          <BarChart3 className="w-6 h-6 mx-auto mb-2 text-green-600" />
+                          <div className="font-medium text-sm">Mid Cap</div>
+                          <div className="text-xs text-muted-foreground">32 funds</div>
+                        </div>
+                        <div className="text-center p-3 border rounded-lg hover:bg-accent cursor-pointer" data-testid="category-small-cap">
+                          <TrendingUp className="w-6 h-6 mx-auto mb-2 text-purple-600" />
+                          <div className="font-medium text-sm">Small Cap</div>
+                          <div className="text-xs text-muted-foreground">28 funds</div>
+                        </div>
+                        <div className="text-center p-3 border rounded-lg hover:bg-accent cursor-pointer" data-testid="category-sectoral">
+                          <Factory className="w-6 h-6 mx-auto mb-2 text-orange-600" />
+                          <div className="font-medium text-sm">Sectoral</div>
+                          <div className="text-xs text-muted-foreground">24 funds</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Search and Filters */}
+                    <div className="border-t pt-4">
+                      <div className="flex gap-4 mb-4">
+                        <Input 
+                          placeholder="Search mutual funds..." 
+                          className="flex-1" 
+                          data-testid="input-search-mutual-funds" 
+                        />
+                        <Select>
+                          <SelectTrigger className="w-40" data-testid="select-fund-category">
+                            <SelectValue placeholder="Category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="large-cap">Large Cap</SelectItem>
+                            <SelectItem value="mid-cap">Mid Cap</SelectItem>
+                            <SelectItem value="small-cap">Small Cap</SelectItem>
+                            <SelectItem value="hybrid">Hybrid</SelectItem>
+                            <SelectItem value="debt">Debt</SelectItem>
+                            <SelectItem value="sectoral">Sectoral</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Select>
+                          <SelectTrigger className="w-32" data-testid="select-fund-amc">
+                            <SelectValue placeholder="AMC" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="sbi">SBI MF</SelectItem>
+                            <SelectItem value="hdfc">HDFC MF</SelectItem>
+                            <SelectItem value="icici">ICICI MF</SelectItem>
+                            <SelectItem value="axis">Axis MF</SelectItem>
+                            <SelectItem value="mirae">Mirae Asset</SelectItem>
+                            <SelectItem value="dsp">DSP MF</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button variant="outline" data-testid="button-search-funds">
+                          <Search className="w-4 h-4 mr-2" />
+                          Search
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* SIP Calculator & Quick Actions */}
+              <div className="space-y-6">
+                {/* SIP Calculator */}
+                <Card data-testid="card-sip-calculator">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Calculator className="w-5 h-5 text-primary" />
+                      SIP Calculator
+                    </CardTitle>
+                    <CardDescription>Plan your investments</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Monthly Investment</label>
+                      <Input 
+                        type="number" 
+                        placeholder="₹5,000" 
+                        defaultValue="5000"
+                        data-testid="input-sip-amount" 
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Investment Period</label>
+                      <Select>
+                        <SelectTrigger data-testid="select-sip-period">
+                          <SelectValue placeholder="Select period" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">1 Year</SelectItem>
+                          <SelectItem value="3">3 Years</SelectItem>
+                          <SelectItem value="5">5 Years</SelectItem>
+                          <SelectItem value="10">10 Years</SelectItem>
+                          <SelectItem value="15">15 Years</SelectItem>
+                          <SelectItem value="20">20 Years</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Expected Return (%)</label>
+                      <Input 
+                        type="number" 
+                        placeholder="12" 
+                        defaultValue="12"
+                        data-testid="input-expected-return" 
+                      />
+                    </div>
+                    <Button className="w-full" data-testid="button-calculate-sip">
+                      <Calculator className="w-4 h-4 mr-2" />
+                      Calculate
+                    </Button>
+                    <div className="border rounded-lg p-3 bg-accent/50">
+                      <div className="text-sm text-muted-foreground">Expected Maturity Value</div>
+                      <div className="text-xl font-bold text-green-600" data-testid="text-maturity-value">₹11,61,695</div>
+                      <div className="text-xs text-muted-foreground">Total Investment: ₹6,00,000</div>
+                      <div className="text-xs text-muted-foreground">Capital Gain: ₹5,61,695</div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Quick Actions */}
+                <Card data-testid="card-mutual-fund-actions">
+                  <CardHeader>
+                    <CardTitle>Quick Actions</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <Button className="w-full" variant="outline" data-testid="button-portfolio-xray">
+                      <FileSearch className="w-4 h-4 mr-2" />
+                      Portfolio X-Ray
+                    </Button>
+                    <Button className="w-full" variant="outline" data-testid="button-compare-funds">
+                      <BarChart3 className="w-4 h-4 mr-2" />
+                      Compare Funds
+                    </Button>
+                    <Button className="w-full" variant="outline" data-testid="button-tax-planning">
+                      <FileText className="w-4 h-4 mr-2" />
+                      Tax Planning
+                    </Button>
+                    <Button className="w-full" variant="outline" data-testid="button-view-holdings">
+                      <History className="w-4 h-4 mr-2" />
+                      View Holdings
+                    </Button>
+                    <Button className="w-full" data-testid="button-explore-all-funds">
+                      <ChevronRight className="w-4 h-4 mr-2" />
+                      Explore All Funds
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                {/* AMFI Integration Info */}
+                <Card data-testid="card-amfi-integration">
+                  <CardHeader>
+                    <CardTitle className="text-sm">AMFI Integration</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2 text-xs">
+                      <div className="flex justify-between">
+                        <span>Total Funds:</span>
+                        <span className="font-medium">6 flagship funds</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Avg. 1Y Returns:</span>
+                        <span className="font-medium text-green-600">+22.32%</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Combined AUM:</span>
+                        <span className="font-medium">₹1,87,979 Cr</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Last Updated:</span>
+                        <span className="font-medium">Jan 27, 2025</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
           </TabsContent>
 
           {/* Newsletter Tab */}
