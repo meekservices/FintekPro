@@ -10,10 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertTriangle, Users, Activity, TrendingUp, MessageSquare, Settings, Search, Filter } from "lucide-react";
+import { AlertTriangle, Users, Activity, TrendingUp, MessageSquare, Settings, Search, Filter, Shield } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { RiskProfileViewer } from "@/components/risk-profiling/risk-profile-viewer";
+import { RiskAssessmentForm } from "@/components/risk-profiling/risk-assessment-form";
 
 interface UserStats {
   totalUsers: number;
@@ -216,7 +218,7 @@ export default function AdminPanel() {
       </div>
 
       <Tabs defaultValue="dashboard" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="dashboard" data-testid="tab-dashboard">
             <TrendingUp className="w-4 h-4 mr-2" />
             Dashboard
@@ -232,6 +234,10 @@ export default function AdminPanel() {
           <TabsTrigger value="insights" data-testid="tab-insights">
             <Settings className="w-4 h-4 mr-2" />
             Insights
+          </TabsTrigger>
+          <TabsTrigger value="risk-profiling" data-testid="tab-risk-profiling">
+            <Shield className="w-4 h-4 mr-2" />
+            Risk Profiles
           </TabsTrigger>
           <TabsTrigger value="guidance" data-testid="tab-guidance">
             <MessageSquare className="w-4 h-4 mr-2" />
@@ -618,6 +624,47 @@ export default function AdminPanel() {
               </p>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Risk Profiling Tab */}
+        <TabsContent value="risk-profiling" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Risk Profile Viewer */}
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Shield className="h-5 w-5" />
+                    Customer Risk Profiles
+                  </CardTitle>
+                  <CardDescription>
+                    View and manage customer investment risk assessments
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <RiskProfileViewer />
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Risk Assessment Form */}
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="h-5 w-5" />
+                    New Risk Assessment
+                  </CardTitle>
+                  <CardDescription>
+                    Conduct risk assessment for new or existing customers
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <RiskAssessmentForm />
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
 

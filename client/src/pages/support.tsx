@@ -11,8 +11,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { MessageCircle, Phone, Mail, Clock } from 'lucide-react';
+import { MessageCircle, Phone, Mail, Clock, Shield, User } from 'lucide-react';
 import { Header } from '@/components/layout/header';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { RiskProfileViewer } from '@/components/risk-profiling/risk-profile-viewer';
+import { RiskAssessmentForm } from '@/components/risk-profiling/risk-assessment-form';
 
 const supportTicketSchema = z.object({
   clientName: z.string().min(1, 'Name is required'),
@@ -82,14 +85,32 @@ export default function Support() {
           {/* Header */}
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-gray-900" data-testid="support-page-title">
-              Get Support
+              Customer Support Portal
             </h1>
             <p className="text-lg text-gray-600 mt-2">
-              Need help? Create a support ticket and our team will assist you.
+              Help customers with tickets, account issues, and risk assessments.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <Tabs defaultValue="tickets" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="tickets" data-testid="tab-support-tickets">
+                <MessageCircle className="w-4 h-4 mr-2" />
+                Support Tickets
+              </TabsTrigger>
+              <TabsTrigger value="risk-viewer" data-testid="tab-risk-viewer">
+                <User className="w-4 h-4 mr-2" />
+                Customer Risk Profiles
+              </TabsTrigger>
+              <TabsTrigger value="risk-assessment" data-testid="tab-risk-assessment">
+                <Shield className="w-4 h-4 mr-2" />
+                Risk Assessment
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Support Tickets Tab */}
+            <TabsContent value="tickets" className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Support Form */}
             <div className="lg:col-span-2">
               <Card>
@@ -322,6 +343,38 @@ export default function Support() {
               </Card>
             </div>
           </div>
+            </TabsContent>
+
+            {/* Customer Risk Profile Viewer Tab */}
+            <TabsContent value="risk-viewer" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <User className="h-5 w-5" />
+                    Customer Risk Profile Viewer
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <RiskProfileViewer />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Risk Assessment Tab */}
+            <TabsContent value="risk-assessment" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Shield className="h-5 w-5" />
+                    Customer Risk Assessment
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <RiskAssessmentForm />
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </>

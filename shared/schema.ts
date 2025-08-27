@@ -334,6 +334,41 @@ export const mutualFunds = pgTable("mutual_funds", {
   lastUpdated: timestamp("last_updated").defaultNow(),
 });
 
+// Risk Profiling Schema
+export const riskProfiles = pgTable("risk_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  riskTolerance: varchar("risk_tolerance").notNull(), // 'conservative', 'moderate', 'aggressive', 'very_aggressive'
+  investmentHorizon: varchar("investment_horizon").notNull(), // 'short', 'medium', 'long', 'very_long'
+  investmentExperience: varchar("investment_experience").notNull(), // 'beginner', 'intermediate', 'advanced', 'expert'
+  incomeStability: varchar("income_stability").notNull(), // 'stable', 'variable', 'irregular'
+  liquidityNeeds: varchar("liquidity_needs").notNull(), // 'high', 'medium', 'low'
+  age: integer("age"),
+  dependents: integer("dependents").default(0),
+  monthlyIncome: decimal("monthly_income", { precision: 15, scale: 2 }),
+  monthlyExpenses: decimal("monthly_expenses", { precision: 15, scale: 2 }),
+  existingAssets: decimal("existing_assets", { precision: 15, scale: 2 }),
+  existingLiabilities: decimal("existing_liabilities", { precision: 15, scale: 2 }),
+  questionnaire: jsonb("questionnaire"), // Store questionnaire responses
+  riskScore: integer("risk_score"), // Calculated risk score (1-100)
+  assessedBy: varchar("assessed_by").references(() => users.id), // Admin/support user who assessed
+  assessmentDate: timestamp("assessment_date").defaultNow().notNull(),
+  reviewDate: timestamp("review_date"), // Next review date
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const riskAssessmentQuestions = pgTable("risk_assessment_questions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  category: varchar("category").notNull(), // 'risk_tolerance', 'investment_goals', 'financial_situation'
+  question: text("question").notNull(),
+  questionType: varchar("question_type").notNull(), // 'multiple_choice', 'scale', 'yes_no'
+  options: jsonb("options"), // For multiple choice questions
+  weightage: integer("weightage").default(1), // Question importance weight
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -370,9 +405,24 @@ export const insertOtpVerificationSchema = createInsertSchema(otpVerifications).
   createdAt: true,
 });
 
+export const insertRiskProfileSchema = createInsertSchema(riskProfiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertRiskAssessmentQuestionSchema = createInsertSchema(riskAssessmentQuestions).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+export type RiskProfile = typeof riskProfiles.$inferSelect;
+export type InsertRiskProfile = z.infer<typeof insertRiskProfileSchema>;
+export type RiskAssessmentQuestion = typeof riskAssessmentQuestions.$inferSelect;
+export type InsertRiskAssessmentQuestion = z.infer<typeof insertRiskAssessmentQuestionSchema>;
 
 // User Activity schemas
 export const insertUserActivitySchema = createInsertSchema(userActivities, {

@@ -1707,6 +1707,126 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Risk Profiling API endpoints
+  
+  // Get all risk profiles (Admin/Support only)
+  app.get("/api/risk-profiles", async (req, res) => {
+    try {
+      const profiles = await storage.getAllRiskProfiles();
+      res.json(profiles);
+    } catch (error) {
+      console.error("Error fetching risk profiles:", error);
+      res.status(500).json({ error: "Failed to fetch risk profiles" });
+    }
+  });
+
+  // Get risk profile for a specific user
+  app.get("/api/risk-profiles/user/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const profile = await storage.getRiskProfile(userId);
+      if (profile) {
+        res.json(profile);
+      } else {
+        res.status(404).json({ error: "Risk profile not found" });
+      }
+    } catch (error) {
+      console.error("Error fetching risk profile:", error);
+      res.status(500).json({ error: "Failed to fetch risk profile" });
+    }
+  });
+
+  // Create new risk profile
+  app.post("/api/risk-profiles", async (req, res) => {
+    try {
+      const profile = await storage.createRiskProfile(req.body);
+      res.status(201).json(profile);
+    } catch (error) {
+      console.error("Error creating risk profile:", error);
+      res.status(500).json({ error: "Failed to create risk profile" });
+    }
+  });
+
+  // Update risk profile
+  app.put("/api/risk-profiles/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const profile = await storage.updateRiskProfile(id, req.body);
+      if (profile) {
+        res.json(profile);
+      } else {
+        res.status(404).json({ error: "Risk profile not found" });
+      }
+    } catch (error) {
+      console.error("Error updating risk profile:", error);
+      res.status(500).json({ error: "Failed to update risk profile" });
+    }
+  });
+
+  // Delete risk profile
+  app.delete("/api/risk-profiles/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteRiskProfile(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting risk profile:", error);
+      res.status(500).json({ error: "Failed to delete risk profile" });
+    }
+  });
+
+  // Risk Assessment Questions API
+
+  // Get all assessment questions
+  app.get("/api/risk-assessment-questions", async (req, res) => {
+    try {
+      const questions = await storage.getRiskAssessmentQuestions();
+      res.json(questions);
+    } catch (error) {
+      console.error("Error fetching risk assessment questions:", error);
+      res.status(500).json({ error: "Failed to fetch risk assessment questions" });
+    }
+  });
+
+  // Create new assessment question
+  app.post("/api/risk-assessment-questions", async (req, res) => {
+    try {
+      const question = await storage.createRiskAssessmentQuestion(req.body);
+      res.status(201).json(question);
+    } catch (error) {
+      console.error("Error creating risk assessment question:", error);
+      res.status(500).json({ error: "Failed to create risk assessment question" });
+    }
+  });
+
+  // Update assessment question
+  app.put("/api/risk-assessment-questions/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const question = await storage.updateRiskAssessmentQuestion(id, req.body);
+      if (question) {
+        res.json(question);
+      } else {
+        res.status(404).json({ error: "Risk assessment question not found" });
+      }
+    } catch (error) {
+      console.error("Error updating risk assessment question:", error);
+      res.status(500).json({ error: "Failed to update risk assessment question" });
+    }
+  });
+
+  // Delete assessment question
+  app.delete("/api/risk-assessment-questions/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteRiskAssessmentQuestion(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting risk assessment question:", error);
+      res.status(500).json({ error: "Failed to delete risk assessment question" });
+    }
+  });
+
   // Watchlist endpoints
   app.get("/api/watchlists/:userId", async (req, res) => {
     try {

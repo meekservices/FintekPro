@@ -60,6 +60,24 @@ export interface IStorage {
   getAllUsers(): Promise<User[]>;
   updateUserRole(userId: string, role: string): Promise<void>;
   updateUserStatus(userId: string, isActive: boolean): Promise<void>;
+  
+  // Enhanced portfolio analytics
+  getPortfolioPerformance(portfolioId: string): Promise<any>;
+  getPiChatSummaries(portfolioId: string): Promise<any[]>;
+  getCommodityPrices(): Promise<any[]>;
+  
+  // Risk profiling methods
+  createRiskProfile(profile: any): Promise<any>;
+  updateRiskProfile(id: string, profile: any): Promise<any>;
+  getRiskProfile(userId: string): Promise<any | undefined>;
+  getAllRiskProfiles(): Promise<any[]>;
+  deleteRiskProfile(id: string): Promise<void>;
+  
+  // Risk assessment questions
+  createRiskAssessmentQuestion(question: any): Promise<any>;
+  updateRiskAssessmentQuestion(id: string, question: any): Promise<any>;
+  getRiskAssessmentQuestions(): Promise<any[]>;
+  deleteRiskAssessmentQuestion(id: string): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -74,6 +92,9 @@ export class MemStorage implements IStorage {
   private assetAllocations: Map<string, AssetAllocation>;
   private mutualFunds: Map<string, MutualFund>;
   private userProfiles: Map<string, UserProfile>;
+  private riskProfiles: Map<string, any>;
+  private riskProfilesByUserId: Map<string, any>;
+  private riskAssessmentQuestions: Map<string, any>;
 
   constructor() {
     this.users = new Map();
@@ -87,9 +108,13 @@ export class MemStorage implements IStorage {
     this.assetAllocations = new Map();
     this.mutualFunds = new Map();
     this.userProfiles = new Map();
+    this.riskProfiles = new Map();
+    this.riskProfilesByUserId = new Map();
+    this.riskAssessmentQuestions = new Map();
     
     // Initialize with sample data
     this.initializeSampleData();
+    this.initializeRiskAssessmentQuestions();
   }
 
   private initializeSampleData() {
@@ -923,6 +948,202 @@ export class MemStorage implements IStorage {
         lastUpdated: new Date().toISOString()
       }
     ];
+  }
+
+  // Initialize risk assessment questions
+  private initializeRiskAssessmentQuestions() {
+    const questions = [
+      {
+        id: "risk-q1",
+        category: "risk_tolerance",
+        question: "How would you react if your investment lost 20% of its value in a month?",
+        questionType: "multiple_choice",
+        options: [
+          { value: "sell_immediately", label: "Sell immediately to prevent further losses", score: 10 },
+          { value: "worry_but_hold", label: "Be very concerned but hold on", score: 30 },
+          { value: "monitor_closely", label: "Monitor closely but stay invested", score: 60 },
+          { value: "buy_more", label: "See it as a buying opportunity", score: 90 }
+        ],
+        weightage: 3,
+        isActive: true,
+        createdAt: new Date()
+      },
+      {
+        id: "risk-q2",
+        category: "investment_goals",
+        question: "What is your primary investment goal?",
+        questionType: "multiple_choice",
+        options: [
+          { value: "capital_preservation", label: "Preserve capital with minimal risk", score: 20 },
+          { value: "steady_income", label: "Generate steady income", score: 40 },
+          { value: "balanced_growth", label: "Balanced growth and income", score: 60 },
+          { value: "aggressive_growth", label: "Aggressive growth", score: 90 }
+        ],
+        weightage: 3,
+        isActive: true,
+        createdAt: new Date()
+      },
+      {
+        id: "risk-q3",
+        category: "financial_situation",
+        question: "What is your investment time horizon?",
+        questionType: "multiple_choice",
+        options: [
+          { value: "less_1_year", label: "Less than 1 year", score: 20 },
+          { value: "1_3_years", label: "1-3 years", score: 40 },
+          { value: "3_7_years", label: "3-7 years", score: 60 },
+          { value: "more_7_years", label: "More than 7 years", score: 90 }
+        ],
+        weightage: 2,
+        isActive: true,
+        createdAt: new Date()
+      },
+      {
+        id: "risk-q4",
+        category: "risk_tolerance",
+        question: "How much investment experience do you have?",
+        questionType: "multiple_choice",
+        options: [
+          { value: "none", label: "No investment experience", score: 20 },
+          { value: "limited", label: "Limited experience (1-2 years)", score: 40 },
+          { value: "moderate", label: "Moderate experience (3-5 years)", score: 60 },
+          { value: "extensive", label: "Extensive experience (5+ years)", score: 80 }
+        ],
+        weightage: 2,
+        isActive: true,
+        createdAt: new Date()
+      },
+      {
+        id: "risk-q5",
+        category: "financial_situation",
+        question: "What percentage of your total savings are you planning to invest?",
+        questionType: "multiple_choice",
+        options: [
+          { value: "less_10", label: "Less than 10%", score: 30 },
+          { value: "10_25", label: "10-25%", score: 50 },
+          { value: "25_50", label: "25-50%", score: 70 },
+          { value: "more_50", label: "More than 50%", score: 90 }
+        ],
+        weightage: 2,
+        isActive: true,
+        createdAt: new Date()
+      }
+    ];
+
+    questions.forEach(q => this.riskAssessmentQuestions.set(q.id, q));
+    
+    // Create sample risk profile
+    const sampleRiskProfile = {
+      id: "risk-profile-1",
+      userId: "demo-user-1",
+      riskTolerance: "moderate",
+      investmentHorizon: "long",
+      investmentExperience: "intermediate", 
+      incomeStability: "stable",
+      liquidityNeeds: "medium",
+      age: 35,
+      dependents: 2,
+      monthlyIncome: "85000.00",
+      monthlyExpenses: "55000.00",
+      existingAssets: "1200000.00",
+      existingLiabilities: "450000.00",
+      questionnaire: {
+        "risk-q1": "monitor_closely",
+        "risk-q2": "balanced_growth",
+        "risk-q3": "3_7_years",
+        "risk-q4": "moderate",
+        "risk-q5": "25_50"
+      },
+      riskScore: 65,
+      assessedBy: "admin-user",
+      assessmentDate: new Date(),
+      reviewDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    this.riskProfiles.set(sampleRiskProfile.id, sampleRiskProfile);
+    this.riskProfilesByUserId.set(sampleRiskProfile.userId, sampleRiskProfile);
+  }
+
+  // Risk profiling methods implementation
+  async createRiskProfile(profile: any) {
+    const id = `risk-profile-${Date.now()}`;
+    const newProfile = {
+      ...profile,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    this.riskProfiles.set(id, newProfile);
+    this.riskProfilesByUserId.set(profile.userId, newProfile);
+    return newProfile;
+  }
+
+  async updateRiskProfile(id: string, profile: any) {
+    const existing = this.riskProfiles.get(id);
+    if (existing) {
+      const updated = {
+        ...existing,
+        ...profile,
+        updatedAt: new Date()
+      };
+      this.riskProfiles.set(id, updated);
+      this.riskProfilesByUserId.set(existing.userId, updated);
+      return updated;
+    }
+    return undefined;
+  }
+
+  async getRiskProfile(userId: string) {
+    return this.riskProfilesByUserId.get(userId);
+  }
+
+  async getAllRiskProfiles() {
+    return Array.from(this.riskProfiles.values());
+  }
+
+  async deleteRiskProfile(id: string) {
+    const profile = this.riskProfiles.get(id);
+    if (profile) {
+      this.riskProfiles.delete(id);
+      this.riskProfilesByUserId.delete(profile.userId);
+    }
+  }
+
+  // Risk assessment questions methods
+  async createRiskAssessmentQuestion(question: any) {
+    const id = `risk-question-${Date.now()}`;
+    const newQuestion = {
+      ...question,
+      id,
+      createdAt: new Date()
+    };
+    
+    this.riskAssessmentQuestions.set(id, newQuestion);
+    return newQuestion;
+  }
+
+  async updateRiskAssessmentQuestion(id: string, question: any) {
+    const existing = this.riskAssessmentQuestions.get(id);
+    if (existing) {
+      const updated = {
+        ...existing,
+        ...question
+      };
+      this.riskAssessmentQuestions.set(id, updated);
+      return updated;
+    }
+    return undefined;
+  }
+
+  async getRiskAssessmentQuestions() {
+    return Array.from(this.riskAssessmentQuestions.values()).filter(q => q.isActive);
+  }
+
+  async deleteRiskAssessmentQuestion(id: string) {
+    this.riskAssessmentQuestions.delete(id);
   }
 }
 
