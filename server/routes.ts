@@ -50,6 +50,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     { symbol: 'JEERA', name: 'Jeera (Cumin)', unit: '5 MT', expiry: 'APR2025', category: 'Spices' }
   ];
 
+  // MSEI API integration (Metropolitan Stock Exchange)
+  const MSEI_EQUITIES = [
+    { symbol: 'MSEI_TECH', name: 'MSEI Tech Solutions', segment: 'Equity', price: 450.25, sector: 'Technology' },
+    { symbol: 'MSEI_PHARMA', name: 'MSEI Pharmaceuticals', segment: 'Equity', price: 1250.80, sector: 'Healthcare' },
+    { symbol: 'MSEI_AUTO', name: 'MSEI Automotive', segment: 'Equity', price: 675.40, sector: 'Automotive' },
+    { symbol: 'MSEI_FINANCE', name: 'MSEI Financial Services', segment: 'Equity', price: 890.15, sector: 'Financial Services' },
+    { symbol: 'MSEI_ENERGY', name: 'MSEI Energy Corp', segment: 'Equity', price: 320.60, sector: 'Energy' },
+    { symbol: 'MSEI_INFRA', name: 'MSEI Infrastructure', segment: 'Equity', price: 185.90, sector: 'Infrastructure' }
+  ];
+
+  const MSEI_CURRENCIES = [
+    { symbol: 'USD_INR', name: 'US Dollar / Indian Rupee', segment: 'Currency', rate: 83.15 },
+    { symbol: 'EUR_INR', name: 'Euro / Indian Rupee', segment: 'Currency', rate: 90.25 },
+    { symbol: 'GBP_INR', name: 'British Pound / Indian Rupee', segment: 'Currency', rate: 105.80 },
+    { symbol: 'JPY_INR', name: 'Japanese Yen / Indian Rupee', segment: 'Currency', rate: 0.56 }
+  ];
+
+  const MSEI_DERIVATIVES = [
+    { symbol: 'MSEI_NIFTY_FUT', name: 'NIFTY Future', segment: 'Derivatives', expiry: 'MAR2025', type: 'Future' },
+    { symbol: 'MSEI_BANK_FUT', name: 'BANKNIFTY Future', segment: 'Derivatives', expiry: 'MAR2025', type: 'Future' },
+    { symbol: 'MSEI_CALL_OPT', name: 'NIFTY Call Option', segment: 'Derivatives', expiry: 'FEB2025', type: 'Option', strike: 22500 },
+    { symbol: 'MSEI_PUT_OPT', name: 'NIFTY Put Option', segment: 'Derivatives', expiry: 'FEB2025', type: 'Option', strike: 22000 }
+  ];
+
   // NSDL API integration
   const NSDL_API_BASE = "https://nsdl.co.in/api"; // Demo base URL
   const NSDL_SANDBOX_BASE = "https://innovation-sandbox.in/api";
@@ -629,6 +653,216 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         status: "error",
         error: "Failed to fetch NCDEX market status"
+      });
+    }
+  });
+
+  // MSEI API endpoints
+
+  // Get MSEI equity data
+  app.get("/api/msei/equities", async (req, res) => {
+    try {
+      const equitiesData = MSEI_EQUITIES.map(equity => {
+        const basePrice = equity.price;
+        const change = (Math.random() - 0.5) * 50; // Price change
+        const pChange = (change / basePrice) * 100;
+        
+        return {
+          symbol: equity.symbol,
+          name: equity.name,
+          segment: equity.segment,
+          sector: equity.sector,
+          ltp: basePrice + change,
+          change: change,
+          pchange: pChange,
+          high: basePrice + Math.abs(change) * 1.2,
+          low: basePrice - Math.abs(change) * 1.2,
+          volume: Math.floor(Math.random() * 100000) + 10000,
+          value: Math.floor(Math.random() * 10000000) + 1000000,
+          lastUpdate: new Date().toISOString()
+        };
+      });
+
+      res.json({
+        status: "success",
+        data: equitiesData
+      });
+    } catch (error) {
+      console.error("Error fetching MSEI equities:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch MSEI equities"
+      });
+    }
+  });
+
+  // Get MSEI currency data
+  app.get("/api/msei/currencies", async (req, res) => {
+    try {
+      const currencyData = MSEI_CURRENCIES.map(currency => {
+        const baseRate = currency.rate;
+        const change = (Math.random() - 0.5) * 2; // Rate change
+        const pChange = (change / baseRate) * 100;
+        
+        return {
+          symbol: currency.symbol,
+          name: currency.name,
+          segment: currency.segment,
+          rate: baseRate + change,
+          change: change,
+          pchange: pChange,
+          high: baseRate + Math.abs(change) * 1.5,
+          low: baseRate - Math.abs(change) * 1.5,
+          volume: Math.floor(Math.random() * 500000) + 100000,
+          lastUpdate: new Date().toISOString()
+        };
+      });
+
+      res.json({
+        status: "success",
+        data: currencyData
+      });
+    } catch (error) {
+      console.error("Error fetching MSEI currencies:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch MSEI currencies"
+      });
+    }
+  });
+
+  // Get MSEI derivatives data
+  app.get("/api/msei/derivatives", async (req, res) => {
+    try {
+      const derivativesData = MSEI_DERIVATIVES.map(derivative => {
+        const basePrice = Math.random() * 1000 + 100; // Random base price for derivatives
+        const change = (Math.random() - 0.5) * 100;
+        const pChange = (change / basePrice) * 100;
+        
+        return {
+          symbol: derivative.symbol,
+          name: derivative.name,
+          segment: derivative.segment,
+          type: derivative.type,
+          expiry: derivative.expiry,
+          strike: derivative.strike || null,
+          ltp: basePrice + change,
+          change: change,
+          pchange: pChange,
+          high: basePrice + Math.abs(change) * 1.3,
+          low: basePrice - Math.abs(change) * 1.3,
+          volume: Math.floor(Math.random() * 50000) + 5000,
+          openInterest: Math.floor(Math.random() * 25000) + 2500,
+          lastUpdate: new Date().toISOString()
+        };
+      });
+
+      res.json({
+        status: "success",
+        data: derivativesData
+      });
+    } catch (error) {
+      console.error("Error fetching MSEI derivatives:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch MSEI derivatives"
+      });
+    }
+  });
+
+  // Get MSEI gainers
+  app.get("/api/msei/gainers", async (req, res) => {
+    try {
+      const gainersData = MSEI_EQUITIES.map(equity => {
+        const basePrice = equity.price;
+        const change = Math.random() * 30 + 10; // Positive change for gainers
+        const pChange = (change / basePrice) * 100;
+        
+        return {
+          symbol: equity.symbol,
+          name: equity.name,
+          segment: equity.segment,
+          sector: equity.sector,
+          ltp: basePrice + change,
+          change: change,
+          pchange: pChange,
+          volume: Math.floor(Math.random() * 80000) + 20000
+        };
+      }).sort((a, b) => b.pchange - a.pchange).slice(0, 3);
+
+      res.json({
+        status: "success",
+        data: gainersData
+      });
+    } catch (error) {
+      console.error("Error fetching MSEI gainers:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch MSEI gainers"
+      });
+    }
+  });
+
+  // Get MSEI losers
+  app.get("/api/msei/losers", async (req, res) => {
+    try {
+      const losersData = MSEI_EQUITIES.map(equity => {
+        const basePrice = equity.price;
+        const change = -(Math.random() * 25 + 5); // Negative change for losers
+        const pChange = (change / basePrice) * 100;
+        
+        return {
+          symbol: equity.symbol,
+          name: equity.name,
+          segment: equity.segment,
+          sector: equity.sector,
+          ltp: basePrice + change,
+          change: change,
+          pchange: pChange,
+          volume: Math.floor(Math.random() * 60000) + 15000
+        };
+      }).sort((a, b) => a.pchange - b.pchange).slice(0, 3);
+
+      res.json({
+        status: "success",
+        data: losersData
+      });
+    } catch (error) {
+      console.error("Error fetching MSEI losers:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch MSEI losers"
+      });
+    }
+  });
+
+  // Get MSEI market status
+  app.get("/api/msei/market-status", async (req, res) => {
+    try {
+      const currentHour = new Date().getHours();
+      const isMarketOpen = (currentHour >= 9 && currentHour <= 15); // MSEI timings: 9 AM to 3:30 PM
+      
+      const status = {
+        marketState: isMarketOpen ? "OPEN" : "CLOSED",
+        lastUpdated: new Date().toISOString(),
+        nextSession: isMarketOpen ? "Current Session" : "Next Day 9:00 AM",
+        tradingSegments: [
+          { segment: "Equity", status: isMarketOpen ? "Open" : "Closed" },
+          { segment: "Currency", status: isMarketOpen ? "Open" : "Closed" },
+          { segment: "Derivatives", status: isMarketOpen ? "Open" : "Closed" },
+          { segment: "Debt", status: "Suspended" } // MSEI debt trading suspended
+        ]
+      };
+
+      res.json({
+        status: "success",
+        data: status
+      });
+    } catch (error) {
+      console.error("Error fetching MSEI market status:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch MSEI market status"
       });
     }
   });

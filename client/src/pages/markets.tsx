@@ -8,6 +8,7 @@ import { NSEData } from "@/components/dashboard/nse-data";
 import { BSEData } from "@/components/dashboard/bse-data";
 import { MCXData } from "@/components/dashboard/mcx-data";
 import { NCDEXData } from "@/components/dashboard/ncdex-data";
+import { MSEIData } from "@/components/dashboard/msei-data";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,7 +40,7 @@ export default function Markets() {
         
         {/* Page Header */}
         <div className="mb-8" data-testid="markets-header">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">Global, NSE, BSE, MCX & NCDEX Markets</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">Global, NSE, BSE, MCX, NCDEX & MSEI Markets</h1>
           
           {/* Search Bar */}
           <form onSubmit={handleSearch} className="flex gap-4 max-w-md">
@@ -200,6 +201,12 @@ export default function Markets() {
         <section className="mb-8" data-testid="ncdex-data-section">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">NCDEX Agricultural Commodities Live Data</h2>
           <NCDEXData />
+        </section>
+
+        {/* MSEI Metropolitan Stock Exchange Data Section */}
+        <section className="mb-8" data-testid="msei-data-section">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">MSEI Metropolitan Stock Exchange Live Data</h2>
+          <MSEIData />
         </section>
 
         {/* Market Data */}

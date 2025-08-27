@@ -82,9 +82,16 @@ export function NSEData() {
               NSE Market Status
             </CardTitle>
             <Badge 
-              className={marketStatus.marketState === "OPEN" ? "bg-finance-green" : "bg-finance-red"}
+              className={
+                Array.isArray(marketStatus.marketState) 
+                  ? (marketStatus.marketState.some((m: any) => m.marketStatus === "Open") ? "bg-finance-green" : "bg-finance-red")
+                  : (marketStatus.marketState === "OPEN" ? "bg-finance-green" : "bg-finance-red")
+              }
             >
-              {marketStatus.marketState || "UNKNOWN"}
+              {Array.isArray(marketStatus.marketState) 
+                ? (marketStatus.marketState.some((m: any) => m.marketStatus === "Open") ? "OPEN" : "CLOSED")
+                : (marketStatus.marketState || "UNKNOWN")
+              }
             </Badge>
           </CardHeader>
           <CardContent>
