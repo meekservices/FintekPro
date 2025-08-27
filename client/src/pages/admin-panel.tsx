@@ -65,7 +65,7 @@ interface Client {
 
 interface ClientActivity {
   id: string;
-  clientId: string;
+  userId: string;
   action: string;
   resource: string;
   details: any;
@@ -292,7 +292,7 @@ export default function AdminPanel() {
     );
   }
 
-  const { clientStats, activityMetrics, platformInsights: dashboardInsights } = dashboardData || {
+  const { clientStats, activityMetrics, platformInsights: dashboardInsights } = (dashboardData as any) || {
     clientStats: { totalClients: 0, activeClients: 0, newClientsToday: 0, totalLogins: 0, avgSessionTime: 0 },
     activityMetrics: { pageViews: 0, apiCalls: 0, trades: 0, portfolioViews: 0, topActions: [] },
     platformInsights: { systemHealth: { uptime: "0h 0m", errorRate: 0, responseTime: 0 } }
@@ -668,7 +668,7 @@ export default function AdminPanel() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {(activities || []).slice(0, 20).map((activity: UserActivity, index: number) => (
+                {((activities as any) || []).slice(0, 20).map((activity: ClientActivity, index: number) => (
                   <div key={activity.id || index} className="flex items-start gap-3 p-3 border rounded-lg" data-testid={`activity-${index}`}>
                     <Activity className="w-4 h-4 mt-1 text-muted-foreground" />
                     <div className="flex-1">

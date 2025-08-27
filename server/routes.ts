@@ -4528,11 +4528,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         isActive,
         password: 'TempPassword123!', // User will need to change on first login
         loginCount: 0,
-        lastLoginAt: null
+        lastLoginAt: null,
+        middleName: null,
+        profileImageUrl: null,
+        isEmailVerified: false,
+        isMobileVerified: false,
+        panNumber: null,
+        aadharNumber: null,
+        dateOfBirth: null,
+        address: null,
+        city: null,
+        state: null,
+        pincode: null,
+        occupation: null,
+        annualIncome: null,
+        investmentExperience: null,
+        riskTolerance: null
       });
       
       await adminService.logActivity({
-        userId: req.user.id,
+        userId: req.user?.id || 'unknown',
         action: 'admin_user_created',
         resource: `user:${newUser.id}`,
         details: { email, role },
@@ -4559,7 +4574,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       await adminService.logActivity({
-        userId: req.user.id,
+        userId: req.user?.id || 'unknown',
         action: 'admin_user_updated',
         resource: `user:${userId}`,
         details: { updatedFields: Object.keys(updates) },
@@ -4585,7 +4600,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Prevent deletion of admin users by non-super-admin
-      if (user.role === 'super_admin' || (user.role === 'admin' && req.user.role !== 'super_admin')) {
+      if (user.role === 'super_admin' || (user.role === 'admin' && req.user?.role !== 'super_admin')) {
         return res.status(403).json({ error: "Insufficient permissions to delete this user" });
       }
       
@@ -4596,7 +4611,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       await adminService.logActivity({
-        userId: req.user.id,
+        userId: req.user?.id || 'unknown',
         action: 'admin_user_deleted',
         resource: `user:${userId}`,
         details: { email: user.email, role: user.role },
