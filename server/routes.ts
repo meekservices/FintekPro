@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema } from "@shared/schema";
 import { marketStoryService, type MarketData as StoryMarketData } from "./market-story-service";
+import { generateMarketInsight, analyzePortfolio, generateInvestmentStory, explainFinancialConcept } from "./gemini";
 import { z } from "zod";
 import { NseIndia } from 'stock-nse-india';
 import { createRequire } from 'module';
@@ -3515,6 +3516,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
         error: "Failed to fetch market story",
         details: error instanceof Error ? error.message : "Unknown error"
       });
+    }
+  });
+
+  // Gemini AI API endpoints
+  app.post("/api/ai/market-insight", async (req, res) => {
+    try {
+      const marketData = req.body;
+      const insight = await generateMarketInsight(marketData);
+      res.json({ insight });
+    } catch (error) {
+      console.error("Error generating market insight:", error);
+      res.status(500).json({ error: "Failed to generate market insight" });
+    }
+  });
+
+  app.post("/api/ai/portfolio-analysis", async (req, res) => {
+    try {
+      const portfolioData = req.body;
+      const analysis = await analyzePortfolio(portfolioData);
+      res.json(analysis);
+    } catch (error) {
+      console.error("Error analyzing portfolio:", error);
+      res.status(500).json({ error: "Failed to analyze portfolio" });
+    }
+  });
+
+  app.post("/api/ai/investment-story/:symbol", async (req, res) => {
+    try {
+      const { symbol } = req.params;
+      const priceData = req.body;
+      const story = await generateInvestmentStory(symbol, priceData);
+      res.json({ story });
+    } catch (error) {
+      console.error("Error generating investment story:", error);
+      res.status(500).json({ error: "Failed to generate investment story" });
+    }
+  });
+
+  app.post("/api/ai/explain", async (req, res) => {
+    try {
+      const { concept } = req.body;
+      if (!concept) {
+        return res.status(400).json({ error: "Concept is required" });
+      }
+      const explanation = await explainFinancialConcept(concept);
+      res.json({ explanation });
+    } catch (error) {
+      console.error("Error explaining concept:", error);
+      res.status(500).json({ error: "Failed to explain concept" });
     }
   });
 
