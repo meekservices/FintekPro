@@ -233,7 +233,7 @@ export default function Portfolio() {
             </Card>
           </div>
           
-          <PortfolioSummary userId={userId} />
+          <PortfolioSummary userId={clientId} />
         </div>
 
           </TabsContent>
