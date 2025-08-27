@@ -22,6 +22,7 @@ import PartnerPortal from "@/pages/partner-portal";
 import Support from "@/pages/support";
 import WealthManagement from "@/pages/wealth-management";
 import Achievements from "@/pages/achievements";
+import CapitalGainsReports from "@/pages/capital-gains-reports";
 
 function Router() {
   return (
@@ -45,6 +46,7 @@ function Router() {
       <Route path="/support" component={Support} />
       <Route path="/wealth" component={WealthManagement} />
       <Route path="/achievements" component={Achievements} />
+      <Route path="/capital-gains" component={CapitalGainsReports} />
       <Route component={NotFound} />
     </Switch>
   );
