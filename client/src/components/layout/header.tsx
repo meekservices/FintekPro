@@ -3,9 +3,13 @@ import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Search, Menu, User } from "lucide-react";
+import { Search, Menu, User, HelpCircle } from "lucide-react";
 
-export function Header() {
+interface HeaderProps {
+  onStartTutorial?: () => void;
+}
+
+export function Header({ onStartTutorial }: HeaderProps = {}) {
   const [location] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -63,6 +67,20 @@ export function Header() {
               />
               <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
             </div>
+
+            {/* Tutorial Button */}
+            {onStartTutorial && (
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={onStartTutorial}
+                className="hidden md:inline-flex"
+                data-testid="header-tutorial-button"
+              >
+                <HelpCircle className="h-4 w-4 mr-2" />
+                Tutorial
+              </Button>
+            )}
 
             {/* Desktop Login Button */}
             <Button className="hidden md:inline-flex" data-testid="login-button">

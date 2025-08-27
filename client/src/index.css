@@ -141,3 +141,43 @@
     display: none !important;
   }
 }
+
+/* Tutorial Styles */
+.tutorial-highlight {
+  position: relative !important;
+  z-index: 45 !important;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.5), 0 0 20px rgba(59, 130, 246, 0.3) !important;
+  border-radius: 8px !important;
+  animation: tutorial-pulse 2s infinite;
+}
+
+@keyframes tutorial-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.5), 0 0 20px rgba(59, 130, 246, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(59, 130, 246, 0.3), 0 0 25px rgba(59, 130, 246, 0.4);
+  }
+}
+
+.tutorial-overlay {
+  pointer-events: none;
+}
+
+.tutorial-overlay + * {
+  pointer-events: none;
+}
+
+.tutorial-highlight {
+  pointer-events: auto !important;
+}
+
+[data-testid="tutorial-tooltip"] {
+  pointer-events: auto !important;
+}
+
+/* Ensure tutorial elements are always on top */
+.tutorial-overlay,
+[data-testid="tutorial-tooltip"] {
+  z-index: 9999 !important;
+}

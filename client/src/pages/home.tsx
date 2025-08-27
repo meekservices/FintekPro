@@ -8,6 +8,7 @@ import { MarketNews } from "@/components/dashboard/market-news";
 import { ServicesGrid } from "@/components/dashboard/services-grid";
 import { AssetAllocation } from "@/components/dashboard/asset-allocation";
 import { RebalanceDashboard } from "@/components/dashboard/rebalance-dashboard";
+import { TutorialOverlay, TutorialTrigger, useTutorial } from "@/components/tutorial";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +19,18 @@ export default function Home() {
   const userId = "demo-user-1";
   const portfolioId = "demo-portfolio-1";
   const totalValue = 1250000; // ₹12.5 Lakhs
+  
+  // Tutorial management
+  const {
+    isActive: isTutorialActive,
+    currentStep,
+    isCompleted: isTutorialCompleted,
+    steps: tutorialSteps,
+    startTutorial,
+    closeTutorial,
+    completeTutorial,
+    goToStep
+  } = useTutorial();
 
   const calculators = [
     {
@@ -59,11 +72,21 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-finance-light" data-testid="home-page">
-      <Header />
+      <Header onStartTutorial={startTutorial} />
       <MarketTicker />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
+        {/* Tutorial Section */}
+        {!isTutorialCompleted && (
+          <section className="mb-8" data-testid="tutorial-section">
+            <TutorialTrigger 
+              onStart={startTutorial} 
+              isCompleted={isTutorialCompleted} 
+            />
+          </section>
+        )}
+
         {/* Hero Section */}
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8" data-testid="hero-section">
           <MarketChart symbol="^NSEI" />
@@ -280,6 +303,16 @@ export default function Home() {
       </main>
 
       <Footer />
+      
+      {/* Tutorial Overlay */}
+      <TutorialOverlay
+        isActive={isTutorialActive}
+        onClose={closeTutorial}
+        onComplete={completeTutorial}
+        steps={tutorialSteps}
+        currentStep={currentStep}
+        onStepChange={goToStep}
+      />
     </div>
   );
 }
