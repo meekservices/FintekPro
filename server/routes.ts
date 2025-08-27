@@ -4,6 +4,9 @@ import { storage } from "./storage";
 import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema } from "@shared/schema";
 import { z } from "zod";
 import { NseIndia } from 'stock-nse-india';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const API = require('indian-stock-exchange');
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -17,6 +20,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // NSE API integration  
   const nseIndia = new NseIndia();
+  
+  // BSE API integration
+  const BSEAPI = API.BSE;
 
   // NSDL API integration
   const NSDL_API_BASE = "https://nsdl.co.in/api"; // Demo base URL
@@ -231,6 +237,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         status: "error",
         error: "Failed to fetch NSE market status"
+      });
+    }
+  });
+
+  // BSE API endpoints
+  
+  // Get BSE indices
+  app.get("/api/bse/indices", async (req, res) => {
+    try {
+      const indices = await BSEAPI.getIndices();
+      res.json({
+        status: "success", 
+        data: indices.data || indices
+      });
+    } catch (error) {
+      console.error("Error fetching BSE indices:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch BSE indices"
+      });
+    }
+  });
+
+  // Get BSE top turnovers
+  app.get("/api/bse/top-turnovers", async (req, res) => {
+    try {
+      const turnovers = await BSEAPI.getTopTurnOvers();
+      res.json({
+        status: "success",
+        data: turnovers.data || turnovers
+      });
+    } catch (error) {
+      console.error("Error fetching BSE top turnovers:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch BSE top turnovers"
+      });
+    }
+  });
+
+  // Get BSE gainers
+  app.get("/api/bse/gainers", async (req, res) => {
+    try {
+      const gainers = await BSEAPI.getGainers();
+      res.json({
+        status: "success",
+        data: gainers.data || gainers
+      });
+    } catch (error) {
+      console.error("Error fetching BSE gainers:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch BSE gainers"
+      });
+    }
+  });
+
+  // Get BSE losers  
+  app.get("/api/bse/losers", async (req, res) => {
+    try {
+      const losers = await BSEAPI.getLosers();
+      res.json({
+        status: "success",
+        data: losers.data || losers
+      });
+    } catch (error) {
+      console.error("Error fetching BSE losers:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch BSE losers"
+      });
+    }
+  });
+
+  // Get BSE quote for specific stock
+  app.get("/api/bse/quote/:symbol", async (req, res) => {
+    try {
+      const { symbol } = req.params;
+      const quote = await BSEAPI.getQuote(symbol.toUpperCase());
+      res.json({
+        status: "success",
+        data: quote.data || quote
+      });
+    } catch (error) {
+      console.error("Error fetching BSE quote:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch BSE quote"
       });
     }
   });

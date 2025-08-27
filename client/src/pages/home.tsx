@@ -12,7 +12,7 @@ import { TutorialOverlay, TutorialTrigger, useTutorial } from "@/components/tuto
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calculator, Home as HomeIcon, Percent, Umbrella, CheckCircle, Shield, Database, TrendingUp, Banknote } from "lucide-react";
+import { Calculator, Home as HomeIcon, Percent, Umbrella, CheckCircle, Shield, Database, TrendingUp, Banknote, BarChart3 } from "lucide-react";
 
 export default function Home() {
   // Mock user ID for demo purposes
@@ -97,9 +97,9 @@ export default function Home() {
         <section className="mb-8" data-testid="api-status-section">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold text-gray-900">Comprehensive Financial API Integration</h2>
-            <Badge className="bg-finance-green text-white text-base px-3 py-1">60+ Endpoints Active</Badge>
+            <Badge className="bg-finance-green text-white text-base px-3 py-1">70+ Endpoints Active</Badge>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-6 mb-8">
             <Card className="border-l-4 border-l-green-500">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center text-lg">
@@ -115,6 +115,24 @@ export default function Home() {
                   <p className="text-sm text-gray-600">✓ Gainers & losers</p>
                   <p className="text-sm text-gray-600">✓ Historical price data</p>
                   <p className="text-sm text-gray-600">✓ Market status updates</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-l-4 border-l-orange-500">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center text-lg">
+                  <BarChart3 className="h-5 w-5 mr-2 text-orange-500" />
+                  BSE India API
+                  <Badge className="ml-2 bg-finance-green text-white">Live</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-600">✓ Real-time BSE quotes</p>
+                  <p className="text-sm text-gray-600">✓ Live indices data</p>
+                  <p className="text-sm text-gray-600">✓ Top gainers & losers</p>
+                  <p className="text-sm text-gray-600">✓ Top turnovers</p>
+                  <p className="text-sm text-gray-600">✓ Stock search & details</p>
                 </div>
               </CardContent>
             </Card>

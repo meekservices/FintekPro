@@ -5,6 +5,7 @@ import { MarketChart } from "@/components/dashboard/market-chart";
 import { MarketMovers } from "@/components/dashboard/market-movers";
 import { MarketNews } from "@/components/dashboard/market-news";
 import { NSEData } from "@/components/dashboard/nse-data";
+import { BSEData } from "@/components/dashboard/bse-data";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,7 +37,7 @@ export default function Markets() {
         
         {/* Page Header */}
         <div className="mb-8" data-testid="markets-header">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">Global & NSE Markets</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">Global, NSE & BSE Markets</h1>
           
           {/* Search Bar */}
           <form onSubmit={handleSearch} className="flex gap-4 max-w-md">
@@ -172,10 +173,19 @@ export default function Markets() {
           </Card>
         </section>
 
-        {/* NSE Live Data Section */}
-        <section className="mb-8" data-testid="nse-data-section">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">NSE India Live Data</h2>
-          <NSEData />
+        {/* Indian Stock Exchanges Data Section */}
+        <section className="mb-8" data-testid="indian-exchanges-section">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Indian Stock Exchanges Live Data</h2>
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+            <div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">NSE (National Stock Exchange)</h3>
+              <NSEData />
+            </div>
+            <div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">BSE (Bombay Stock Exchange)</h3>
+              <BSEData />
+            </div>
+          </div>
         </section>
 
         {/* Market Data */}
