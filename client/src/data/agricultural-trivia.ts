@@ -18,6 +18,30 @@ export const agriculturalTrivia: AgriculturalTrivia[] = [
     funFact: 'A single wheat futures contract represents 5,000 bushels of wheat!'
   },
   {
+    id: 'turmeric-trading',
+    category: 'commodity',
+    title: 'Turmeric: The Golden Spice',
+    content: 'India produces about 80% of the world\'s turmeric and consumes 90% of its own production. Turmeric futures on NCDEX are highly volatile due to weather dependency and strong domestic demand from both food and pharmaceutical industries.',
+    relatedTerms: ['turmeric', 'spice', 'India', 'pharmaceutical'],
+    funFact: 'Turmeric prices can swing 50% in a single season based on monsoon patterns!'
+  },
+  {
+    id: 'chana-pulses',
+    category: 'commodity',
+    title: 'Chana: India\'s Protein Powerhouse',
+    content: 'Chickpea (Chana) is India\'s largest pulse crop, accounting for about 40% of total pulse production. NCDEX chana futures are influenced by monsoon patterns, government policies, and import decisions from countries like Australia and Canada.',
+    relatedTerms: ['chana', 'pulse', 'protein', 'monsoon'],
+    funFact: 'India imports more chickpeas than it produces, making it the world\'s largest importer!'
+  },
+  {
+    id: 'cardamom-queen',
+    category: 'commodity',
+    title: 'Cardamom: Queen of Spices',
+    content: 'Cardamom is one of the world\'s most expensive spices by weight, often called the "Queen of Spices." India produces about 75% of global cardamom, primarily in Kerala and Karnataka. Weather in the Western Ghats directly impacts global prices.',
+    relatedTerms: ['cardamom', 'spice', 'Kerala', 'expensive'],
+    funFact: 'Cardamom can cost more than $30 per kilogram, making it worth more than silver!'
+  },
+  {
     id: 'corn-ethanol',
     category: 'commodity',
     title: 'Corn and Ethanol Markets',
@@ -104,6 +128,94 @@ export const agriculturalTrivia: AgriculturalTrivia[] = [
     content: 'Agricultural commodities often exhibit seasonal patterns in their futures curves. Contango (higher future prices) typically occurs before harvest, while backwardation (lower future prices) often happens during storage periods.',
     relatedTerms: ['contango', 'backwardation', 'futures curve', 'seasonal'],
     funFact: 'Storage costs for grains can add 6-12 cents per bushel per month.'
+  },
+  {
+    id: 'guar-gum-fracking',
+    category: 'commodity',
+    title: 'Guar Gum: From Fields to Oil Wells',
+    content: 'Guar gum, derived from guar beans grown mainly in Rajasthan, is essential for hydraulic fracturing (fracking) in oil extraction. About 80% of global guar production comes from India, making it a geopolitically sensitive commodity.',
+    relatedTerms: ['guar', 'fracking', 'Rajasthan', 'oil'],
+    funFact: 'The US shale boom made guar prices jump from $1,000 to $10,000 per ton!'
+  },
+  {
+    id: 'cotton-weather',
+    category: 'weather',
+    title: 'Cotton and Climate Sensitivity',
+    content: 'Cotton is extremely weather-sensitive, requiring specific temperature and rainfall patterns. A single hailstorm can destroy entire fields, while drought stress affects fiber quality. Global cotton prices react instantly to weather reports from major producing regions.',
+    relatedTerms: ['cotton', 'weather', 'fiber', 'drought'],
+    funFact: 'It takes about 2,700 liters of water to produce enough cotton for one t-shirt!'
+  },
+  {
+    id: 'rubber-tapping',
+    category: 'commodity',
+    title: 'Natural Rubber: Tree to Tire',
+    content: 'Natural rubber comes from latex tapped from Hevea brasiliensis trees. Thailand and Indonesia dominate global production. Rubber tapping can only be done in early morning hours, and trees must be at least 6 years old before tapping begins.',
+    relatedTerms: ['rubber', 'latex', 'Thailand', 'tapping'],
+    funFact: 'A single rubber tree produces only 30ml of latex per day, enough for about one surgical glove!'
+  },
+  {
+    id: 'cocoa-child-labor',
+    category: 'commodity',
+    title: 'Cocoa: Sweet Commodity, Bitter Reality',
+    content: 'West Africa produces 70% of the world\'s cocoa, primarily from Côte d\'Ivoire and Ghana. Cocoa farming faces challenges including aging trees, climate change, and social issues. Sustainable cocoa certification is becoming increasingly important for traders.',
+    relatedTerms: ['cocoa', 'West Africa', 'sustainable', 'certification'],
+    funFact: 'It takes about 400 cocoa beans to make 1 pound of chocolate!'
+  },
+  {
+    id: 'seasonal-spreads',
+    category: 'trading',
+    title: 'Seasonal Trading Strategies',
+    content: 'Agricultural commodities follow predictable seasonal patterns. Grain traders often use calendar spreads, buying harvest-time contracts and selling pre-harvest contracts to profit from seasonal price variations and storage economics.',
+    relatedTerms: ['seasonal', 'spread', 'calendar', 'harvest'],
+    funFact: 'Corn prices typically bottom out during October harvest and peak in July before new crop.'
+  },
+  {
+    id: 'black-pepper-king',
+    category: 'commodity',
+    title: 'Black Pepper: King of Spices',
+    content: 'Black pepper was once so valuable it was used as currency and called "black gold." Vietnam is now the largest producer, followed by India and Indonesia. Pepper prices are highly volatile due to weather dependency and quality variations.',
+    relatedTerms: ['pepper', 'Vietnam', 'currency', 'volatile'],
+    funFact: 'In medieval Europe, pepper was worth more than its weight in gold!'
+  },
+  {
+    id: 'tea-auction-system',
+    category: 'trading',
+    title: 'Tea Auction Markets',
+    content: 'Tea trading follows a unique auction system. The Colombo Tea Auction in Sri Lanka and auctions in Kolkata and Kochi set global prices. Tea quality varies dramatically based on elevation, plucking standards, and processing methods.',
+    relatedTerms: ['tea', 'auction', 'Colombo', 'quality'],
+    funFact: 'The highest quality tea can sell for over $400 per kilogram at auction!'
+  },
+  {
+    id: 'onion-storage',
+    category: 'commodity',
+    title: 'Onion Market Volatility',
+    content: 'Onions are one of the most volatile agricultural commodities due to their perishable nature and storage limitations. In India, onion prices can fluctuate by 500% within months, leading to political implications and export bans.',
+    relatedTerms: ['onion', 'volatile', 'storage', 'perishable'],
+    funFact: 'Onion price spikes have toppled governments in India - they call it "onion politics"!'
+  },
+  {
+    id: 'basis-trading',
+    category: 'trading',
+    title: 'Basis Trading in Agriculture',
+    content: 'Basis is the difference between local cash prices and futures prices. It reflects transportation costs, local supply/demand, and storage capacity. Farmers and elevators use basis trading to hedge price risks while maintaining flexibility.',
+    relatedTerms: ['basis', 'cash', 'hedge', 'transportation'],
+    funFact: 'Basis can turn negative during harvest gluts when local storage is full!'
+  },
+  {
+    id: 'vanilla-madagascar',
+    category: 'commodity',
+    title: 'Vanilla: World\'s Second Most Expensive Spice',
+    content: 'Madagascar produces 80% of global vanilla beans. Vanilla orchids must be hand-pollinated and beans hand-harvested. The curing process takes 6 months. Cyclones in Madagascar can affect global vanilla prices for years.',
+    relatedTerms: ['vanilla', 'Madagascar', 'orchid', 'cyclone'],
+    funFact: 'Real vanilla extract requires 13.35 oz of vanilla beans per gallon of extract!'
+  },
+  {
+    id: 'jute-golden-fiber',
+    category: 'commodity',
+    title: 'Jute: The Golden Fiber',
+    content: 'Jute, known as the "golden fiber," is primarily grown in the Ganges Delta region of Bangladesh and India. As eco-consciousness grows, jute demand is increasing as a sustainable alternative to synthetic materials.',
+    relatedTerms: ['jute', 'Bangladesh', 'sustainable', 'eco-friendly'],
+    funFact: 'Jute plants can grow up to 4 meters tall in just 4-6 months!'
   }
 ];
 
