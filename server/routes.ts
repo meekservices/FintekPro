@@ -1533,6 +1533,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get rebalancing suggestions for a portfolio
+  app.get("/api/portfolios/:portfolioId/rebalancing-suggestions", async (req, res) => {
+    try {
+      const { portfolioId } = req.params;
+      const suggestions = await storage.getRebalancingSuggestions(portfolioId);
+      res.json(suggestions);
+    } catch (error) {
+      console.error("Error getting rebalancing suggestions:", error);
+      res.status(500).json({ error: "Failed to get rebalancing suggestions" });
+    }
+  });
+
   // Watchlist endpoints
   app.get("/api/watchlists/:userId", async (req, res) => {
     try {

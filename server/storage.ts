@@ -33,6 +33,9 @@ export interface IStorage {
   getAssetAllocation(portfolioId: string): Promise<AssetAllocation[]>;
   upsertAssetAllocation(allocation: InsertAssetAllocation): Promise<AssetAllocation>;
   
+  // Portfolio Rebalancing methods
+  getRebalancingSuggestions(portfolioId: string): Promise<any>;
+  
   // Mutual Fund methods
   getAllMutualFunds(): Promise<MutualFund[]>;
   getMutualFund(schemeCode: string): Promise<MutualFund | undefined>;
@@ -374,6 +377,124 @@ export class MemStorage implements IStorage {
       fund.fundHouse?.toLowerCase().includes(searchTerm) ||
       fund.category?.toLowerCase().includes(searchTerm)
     );
+  }
+
+  async getRebalancingSuggestions(portfolioId: string): Promise<any> {
+    // Get portfolio holdings and calculate current allocation
+    const holdings = await this.getPortfolioHoldings(portfolioId);
+    const portfolio = await this.getPortfolio(portfolioId);
+    
+    if (!portfolio || holdings.length === 0) {
+      return {
+        suggestions: [],
+        summary: {
+          totalValue: 0,
+          rebalanceNeeded: false
+        }
+      };
+    }
+
+    // Define target allocations (can be customized per user)
+    const targetAllocations = {
+      equity: 60,      // 60% equities
+      commodity: 15,   // 15% commodities
+      currency: 10,    // 10% currencies
+      etf: 10,         // 10% ETFs
+      debt: 5          // 5% debt instruments
+    };
+
+    // Calculate current allocations
+    const totalInvested = holdings.reduce((sum, h) => sum + (parseFloat(h.quantity) * parseFloat(h.avgPrice)), 0);
+    
+    const currentAllocations = holdings.reduce((acc, holding) => {
+      const value = parseFloat(holding.quantity) * parseFloat(holding.avgPrice);
+      const assetType = holding.assetType;
+      if (!acc[assetType]) acc[assetType] = 0;
+      acc[assetType] += value;
+      return acc;
+    }, {} as Record<string, number>);
+
+    // Convert to percentages
+    const currentPercentages = Object.entries(currentAllocations).reduce((acc, [type, value]) => {
+      acc[type] = (value / totalInvested) * 100;
+      return acc;
+    }, {} as Record<string, number>);
+
+    // Generate rebalancing suggestions
+    const suggestions = Object.entries(targetAllocations).map(([assetType, targetPercent]) => {
+      const currentPercent = currentPercentages[assetType] || 0;
+      const currentValue = currentAllocations[assetType] || 0;
+      const targetValue = (targetPercent / 100) * totalInvested;
+      const difference = targetValue - currentValue;
+      const differencePercent = targetPercent - currentPercent;
+
+      let action: string;
+      let priority: 'high' | 'medium' | 'low';
+      
+      if (Math.abs(differencePercent) < 2) {
+        action = 'maintain';
+        priority = 'low';
+      } else if (difference > 0) {
+        action = 'buy';
+        priority = Math.abs(differencePercent) > 10 ? 'high' : 'medium';
+      } else {
+        action = 'sell';
+        priority = Math.abs(differencePercent) > 10 ? 'high' : 'medium';
+      }
+
+      return {
+        assetType,
+        assetName: assetType.charAt(0).toUpperCase() + assetType.slice(1).replace('_', ' '),
+        currentPercent: Math.round(currentPercent * 100) / 100,
+        targetPercent,
+        currentValue: Math.round(currentValue),
+        targetValue: Math.round(targetValue),
+        difference: Math.round(difference),
+        differencePercent: Math.round(differencePercent * 100) / 100,
+        action,
+        priority,
+        recommendation: this.generateRecommendation(assetType, action, Math.abs(difference))
+      };
+    });
+
+    // Sort by priority and difference amount
+    suggestions.sort((a, b) => {
+      const priorityOrder = { high: 3, medium: 2, low: 1 };
+      if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
+        return priorityOrder[b.priority] - priorityOrder[a.priority];
+      }
+      return Math.abs(b.difference) - Math.abs(a.difference);
+    });
+
+    const totalRebalanceAmount = suggestions.reduce((sum, s) => sum + Math.abs(s.difference), 0);
+    const rebalanceNeeded = suggestions.some(s => s.priority === 'high');
+
+    return {
+      suggestions: suggestions.filter(s => s.action !== 'maintain' || s.priority === 'high'),
+      summary: {
+        totalValue: Math.round(totalInvested),
+        totalRebalanceAmount: Math.round(totalRebalanceAmount),
+        rebalanceNeeded,
+        highPrioritySuggestions: suggestions.filter(s => s.priority === 'high').length,
+        lastUpdated: new Date()
+      }
+    };
+  }
+
+  private generateRecommendation(assetType: string, action: string, amount: number): string {
+    const assetName = assetType.charAt(0).toUpperCase() + assetType.slice(1).replace('_', ' ');
+    const formattedAmount = new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0
+    }).format(amount);
+
+    if (action === 'buy') {
+      return `Consider adding ${formattedAmount} more in ${assetName} to reach your target allocation.`;
+    } else if (action === 'sell') {
+      return `Consider reducing ${formattedAmount} from ${assetName} to rebalance your portfolio.`;
+    }
+    return `Your ${assetName} allocation is on target.`;
   }
 }
 

@@ -3,6 +3,7 @@ import { Footer } from "@/components/layout/footer";
 import { PortfolioSummary } from "@/components/dashboard/portfolio-summary";
 import { AssetAllocation } from "@/components/dashboard/asset-allocation";
 import { RebalanceDashboard } from "@/components/dashboard/rebalance-dashboard";
+import { RebalancingSuggestions } from "@/components/rebalancing-suggestions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useEnhancedPortfolioHoldings, usePortfolioPerformance } from "@/hooks/use-portfolio";
@@ -217,6 +218,11 @@ export default function Portfolio() {
 
         {/* Asset Allocation */}
         <AssetAllocation portfolioId={portfolioId} />
+
+        {/* Rebalancing Suggestions */}
+        <div className="mb-8">
+          <RebalancingSuggestions portfolioId={portfolioId} />
+        </div>
 
         {/* Rebalance Dashboard */}
         <RebalanceDashboard portfolioId={portfolioId} totalValue={totalValue} />
