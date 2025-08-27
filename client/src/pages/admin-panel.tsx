@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertTriangle, Users, Activity, TrendingUp, MessageSquare, Settings, Search, Filter, Shield, FileText, Building2, Plus, Edit3, Trash2 } from "lucide-react";
+import { AlertTriangle, Users, Activity, TrendingUp, MessageSquare, Settings, Search, Filter, Shield, FileText, Building2, Plus, Edit3, Trash2, Server } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -18,6 +18,151 @@ import { RiskProfileViewer } from "@/components/risk-profiling/risk-profile-view
 import { RiskAssessmentForm } from "@/components/risk-profiling/risk-assessment-form";
 import { CapitalGainsReportViewer } from "@/components/reports/capital-gains-report-viewer";
 import { TransactionReportViewer } from "@/components/reports/transaction-report-viewer";
+
+// API Status Panel Component
+function ApiStatusPanel() {
+  const { data: apiStatus, isLoading, error } = useQuery({
+    queryKey: ['/api/admin/api-status'],
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'healthy':
+        return 'text-green-600 bg-green-50';
+      case 'degraded':
+        return 'text-yellow-600 bg-yellow-50';
+      case 'unhealthy':
+      case 'error':
+        return 'text-red-600 bg-red-50';
+      default:
+        return 'text-gray-600 bg-gray-50';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'healthy':
+        return '🟢';
+      case 'degraded':
+        return '🟡';
+      case 'unhealthy':
+      case 'error':
+        return '🔴';
+      default:
+        return '⚪';
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Server className="w-5 h-5" />
+            API Status Monitor
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8 text-red-600">
+            <AlertTriangle className="w-8 h-8 mx-auto mb-2" />
+            Failed to fetch API status
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Overall Health Summary */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Server className="w-5 h-5" />
+            System Health Overview
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="text-center">
+              <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(apiStatus?.overall?.status || 'unknown')}`}>
+                {getStatusIcon(apiStatus?.overall?.status || 'unknown')} {apiStatus?.overall?.status || 'Unknown'}
+              </div>
+              <p className="text-sm text-muted-foreground mt-1">Overall Status</p>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold">{apiStatus?.overall?.healthScore || 0}%</div>
+              <p className="text-sm text-muted-foreground">Health Score</p>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">{apiStatus?.overall?.healthyEndpoints || 0}</div>
+              <p className="text-sm text-muted-foreground">Healthy APIs</p>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold">{apiStatus?.overall?.totalEndpoints || 0}</div>
+              <p className="text-sm text-muted-foreground">Total APIs</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* API Endpoints by Category */}
+      {apiStatus?.categories && Object.entries(apiStatus.categories).map(([category, endpoints]: [string, any]) => (
+        <Card key={category}>
+          <CardHeader>
+            <CardTitle>{category}</CardTitle>
+            <CardDescription>
+              {(endpoints as any[]).filter(ep => ep.status === 'healthy').length} of {(endpoints as any[]).length} services operational
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {(endpoints as any[]).map((endpoint: any, index: number) => (
+                <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(endpoint.status)}`}>
+                      {getStatusIcon(endpoint.status)} {endpoint.status}
+                    </div>
+                    <div>
+                      <div className="font-medium">{endpoint.name}</div>
+                      <div className="text-sm text-muted-foreground">{endpoint.message}</div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm font-medium">{endpoint.responseTime}ms</div>
+                    <div className="text-xs text-muted-foreground">
+                      {new Date(endpoint.lastChecked).toLocaleTimeString()}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+
+      {/* Last Updated */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="text-center text-sm text-muted-foreground">
+            Last updated: {apiStatus?.overall?.lastUpdated ? new Date(apiStatus.overall.lastUpdated).toLocaleString() : 'Never'}
+            <br />
+            <span className="text-xs">Auto-refreshes every 30 seconds</span>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
 interface ClientStats {
   totalClients: number;
@@ -311,7 +456,7 @@ export default function AdminPanel() {
       </div>
 
       <Tabs defaultValue="dashboard" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-8">
+        <TabsList className="grid w-full grid-cols-9">
           <TabsTrigger value="dashboard" data-testid="tab-dashboard">
             <TrendingUp className="w-4 h-4 mr-2" />
             Dashboard
@@ -323,6 +468,10 @@ export default function AdminPanel() {
           <TabsTrigger value="activity" data-testid="tab-activity">
             <Activity className="w-4 h-4 mr-2" />
             Activity
+          </TabsTrigger>
+          <TabsTrigger value="api-status" data-testid="tab-api-status">
+            <Server className="w-4 h-4 mr-2" />
+            API Status
           </TabsTrigger>
           <TabsTrigger value="insights" data-testid="tab-insights">
             <Settings className="w-4 h-4 mr-2" />
@@ -691,6 +840,11 @@ export default function AdminPanel() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* API Status Tab */}
+        <TabsContent value="api-status" className="space-y-6">
+          <ApiStatusPanel />
         </TabsContent>
 
         {/* Insights Tab */}
