@@ -35,6 +35,10 @@ export function Header() {
     { name: "CDSL Services", href: "/cdsl-services" },
   ];
 
+  // Add admin navigation for admin users
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+  const adminNavigation = isAdmin ? [{ name: "Admin Panel", href: "/admin" }] : [];
+
   return (
     <header className="bg-white shadow-sm border-b border-gray-200 fixed top-0 w-full z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -57,6 +61,20 @@ export function Header() {
                       location === item.href
                         ? "text-finance-blue"
                         : "text-gray-700 hover:text-finance-blue"
+                    }`}
+                    data-testid={`nav-${item.name.toLowerCase().replace(" ", "-")}`}
+                  >
+                    {item.name}
+                  </span>
+                </Link>
+              ))}
+              {adminNavigation.map((item) => (
+                <Link key={item.name} href={item.href}>
+                  <span
+                    className={`font-medium transition-colors cursor-pointer ${
+                      location === item.href
+                        ? "text-red-600"
+                        : "text-red-500 hover:text-red-600"
                     }`}
                     data-testid={`nav-${item.name.toLowerCase().replace(" ", "-")}`}
                   >

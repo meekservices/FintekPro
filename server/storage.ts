@@ -55,6 +55,11 @@ export interface IStorage {
   // User Profile methods
   getUserProfile(userId: string): Promise<UserProfile | undefined>;
   upsertUserProfile(profile: InsertUserProfile): Promise<UserProfile>;
+  
+  // Admin methods
+  getAllUsers(): Promise<User[]>;
+  updateUserRole(userId: string, role: string): Promise<void>;
+  updateUserStatus(userId: string, isActive: boolean): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -276,6 +281,10 @@ export class MemStorage implements IStorage {
       annualIncome: null,
       investmentExperience: null,
       riskTolerance: null,
+      role: "user",
+      isActive: true,
+      lastLoginAt: null,
+      loginCount: 0,
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -299,6 +308,53 @@ export class MemStorage implements IStorage {
       }
     } catch (error) {
       console.error("❌ Error initializing user passwords:", error);
+    }
+    
+    // Create admin user
+    this.createAdminUser();
+  }
+  
+  private async createAdminUser() {
+    try {
+      const { hashPassword } = await import("./auth");
+      const hashedPassword = await hashPassword("admin123");
+      
+      const adminUser: User = {
+        id: "admin-user-1",
+        email: "admin@financehub.com",
+        mobile: "+919999999999",
+        password: hashedPassword,
+        firstName: "Admin",
+        middleName: null,
+        lastName: "User",
+        profileImageUrl: null,
+        isEmailVerified: true,
+        isMobileVerified: true,
+        panNumber: null,
+        aadharNumber: null,
+        dateOfBirth: null,
+        address: null,
+        city: null,
+        state: null,
+        pincode: null,
+        occupation: "System Administrator",
+        annualIncome: null,
+        investmentExperience: null,
+        riskTolerance: null,
+        role: "super_admin",
+        isActive: true,
+        lastLoginAt: null,
+        loginCount: 0,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      this.users.set(adminUser.id, adminUser);
+      this.usersByEmail.set(adminUser.email!, adminUser);
+      this.usersByMobile.set(adminUser.mobile!, adminUser);
+      console.log("✅ Admin user created successfully");
+    } catch (error) {
+      console.error("❌ Error creating admin user:", error);
     }
   }
 
@@ -699,6 +755,35 @@ export class MemStorage implements IStorage {
     };
     this.userProfiles.set(profile.userId, userProfile);
     return userProfile;
+  }
+
+  // Admin methods implementation
+  async getAllUsers(): Promise<User[]> {
+    return Array.from(this.users.values());
+  }
+
+  async updateUserRole(userId: string, role: string): Promise<void> {
+    const user = this.users.get(userId);
+    if (user) {
+      user.role = role;
+      user.updatedAt = new Date();
+      this.users.set(userId, user);
+      // Update in lookup maps
+      if (user.email) this.usersByEmail.set(user.email, user);
+      if (user.mobile) this.usersByMobile.set(user.mobile, user);
+    }
+  }
+
+  async updateUserStatus(userId: string, isActive: boolean): Promise<void> {
+    const user = this.users.get(userId);
+    if (user) {
+      user.isActive = isActive;
+      user.updatedAt = new Date();
+      this.users.set(userId, user);
+      // Update in lookup maps
+      if (user.email) this.usersByEmail.set(user.email, user);
+      if (user.mobile) this.usersByMobile.set(user.mobile, user);
+    }
   }
 }
 

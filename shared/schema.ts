@@ -38,6 +38,11 @@ export const users = pgTable("users", {
   annualIncome: varchar("annual_income"),
   investmentExperience: varchar("investment_experience"),
   riskTolerance: varchar("risk_tolerance"),
+  // Admin and system fields
+  role: varchar("role").default("user"), // 'user', 'admin', 'super_admin'
+  isActive: boolean("is_active").default(true),
+  lastLoginAt: timestamp("last_login_at"),
+  loginCount: integer("login_count").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -105,6 +110,43 @@ export const assetAllocation = pgTable("asset_allocation", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// User Activity Tracking
+export const userActivities = pgTable("user_activities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  action: varchar("action").notNull(), // 'login', 'portfolio_view', 'trade', 'api_call', etc.
+  resource: varchar("resource"), // what was accessed/modified
+  details: jsonb("details"), // additional activity data
+  ipAddress: varchar("ip_address"),
+  userAgent: varchar("user_agent"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Admin Panel Settings
+export const adminSettings = pgTable("admin_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: varchar("key").notNull().unique(),
+  value: jsonb("value"),
+  description: text("description"),
+  updatedBy: varchar("updated_by").references(() => users.id),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// User Notifications/Guidance
+export const userNotifications = pgTable("user_notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  type: varchar("type").notNull(), // 'info', 'warning', 'guidance', 'alert'
+  title: varchar("title").notNull(),
+  message: text("message").notNull(),
+  actionUrl: varchar("action_url"), // where to navigate when clicked
+  isRead: boolean("is_read").default(false),
+  priority: varchar("priority").default("medium"), // 'low', 'medium', 'high', 'critical'
+  expiresAt: timestamp("expires_at"),
+  createdBy: varchar("created_by").references(() => users.id), // admin who created it
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const mutualFunds = pgTable("mutual_funds", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   schemeCode: text("scheme_code").notNull().unique(),
@@ -162,6 +204,27 @@ export const insertOtpVerificationSchema = createInsertSchema(otpVerifications).
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+
+// User Activity schemas
+export const insertUserActivitySchema = createInsertSchema(userActivities, {
+  createdAt: true,
+});
+export type InsertUserActivity = z.infer<typeof insertUserActivitySchema>;
+export type UserActivity = typeof userActivities.$inferSelect;
+
+// Admin Settings schemas
+export const insertAdminSettingSchema = createInsertSchema(adminSettings, {
+  updatedAt: true,
+});
+export type InsertAdminSetting = z.infer<typeof insertAdminSettingSchema>;
+export type AdminSetting = typeof adminSettings.$inferSelect;
+
+// User Notifications schemas
+export const insertUserNotificationSchema = createInsertSchema(userNotifications, {
+  createdAt: true,
+});
+export type InsertUserNotification = z.infer<typeof insertUserNotificationSchema>;
+export type UserNotification = typeof userNotifications.$inferSelect;
 export type OtpVerification = typeof otpVerifications.$inferSelect;
 export type InsertOtpVerification = z.infer<typeof insertOtpVerificationSchema>;
 export type InsertPortfolio = z.infer<typeof insertPortfolioSchema>;

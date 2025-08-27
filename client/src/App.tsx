@@ -16,6 +16,7 @@ import AgriculturalInsights from "@/pages/agricultural-insights";
 import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/auth-page";
 import ProfilePage from "@/pages/profile";
+import AdminPanel from "@/pages/admin-panel";
 
 function Router() {
   return (
@@ -32,6 +33,7 @@ function Router() {
       <Route path="/agricultural-insights" component={AgriculturalInsights} />
       <Route path="/auth" component={AuthPage} />
       <Route path="/profile" component={ProfilePage} />
+      <Route path="/admin" component={AdminPanel} />
       <Route component={NotFound} />
     </Switch>
   );

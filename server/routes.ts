@@ -8,6 +8,7 @@ import { generateMarketInsight, analyzePortfolio, generateInvestmentStory, expla
 import { whatsappService } from "./whatsapp";
 import { marketingService } from "./marketing-automation";
 import { portfolioIntelligence } from "./portfolio-intelligence";
+import { adminService } from "./admin-service";
 import { z } from "zod";
 import { NseIndia } from 'stock-nse-india';
 import { createRequire } from 'module';
@@ -24,6 +25,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Initialize WhatsApp service
   whatsappService.initialize().catch(console.error);
+  
+  // Activity tracking middleware
+  app.use((req: any, res: any, next: any) => {
+    // Track API calls for authenticated users
+    if (req.user && req.url.startsWith('/api/') && !req.url.includes('/admin/activities')) {
+      adminService.logActivity({
+        userId: req.user.id,
+        action: 'api_call',
+        resource: req.url,
+        ipAddress: req.ip || req.connection.remoteAddress,
+        userAgent: req.get('User-Agent'),
+        details: { method: req.method }
+      }).catch(console.error);
+    }
+    next();
+  });
+
+  // Admin middleware to check admin role
+  const requireAdmin = async (req: any, res: any, next: any) => {
+    if (!req.user) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    
+    const isAdmin = await adminService.isAdmin(req.user.id);
+    if (!isAdmin) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    
+    next();
+  };
   
   // User Profile API endpoints
   app.get("/api/profile", async (req, res) => {
@@ -3827,6 +3858,181 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to send daily insights" });
     }
   });
+
+  // ============ ADMIN PANEL ROUTES ============
+  
+  // Admin Dashboard - Overview statistics
+  app.get("/api/admin/dashboard", requireAdmin, async (req, res) => {
+    try {
+      const userStats = await adminService.getUserStats();
+      const activityMetrics = await adminService.getActivityMetrics();
+      const platformInsights = await adminService.getPlatformInsights();
+
+      res.json({
+        userStats,
+        activityMetrics,
+        platformInsights
+      });
+    } catch (error) {
+      console.error("Error fetching admin dashboard:", error);
+      res.status(500).json({ error: "Failed to fetch dashboard data" });
+    }
+  });
+
+  // Admin Users Management - List users with filtering
+  app.get("/api/admin/users", requireAdmin, async (req, res) => {
+    try {
+      const {
+        page = "1",
+        limit = "50",
+        sortBy = "createdAt",
+        sortOrder = "desc",
+        role,
+        isActive,
+        searchTerm
+      } = req.query as any;
+
+      const filter: any = {};
+      if (role) filter.role = role;
+      if (isActive !== undefined) filter.isActive = isActive === 'true';
+      if (searchTerm) filter.searchTerm = searchTerm;
+
+      const result = await adminService.getUsers(
+        parseInt(page),
+        parseInt(limit),
+        sortBy as 'createdAt' | 'loginCount' | 'lastLoginAt',
+        sortOrder as 'asc' | 'desc',
+        filter
+      );
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
+
+  // Admin User Management - Update user role
+  app.patch("/api/admin/users/:userId/role", requireAdmin, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { role } = req.body;
+
+      if (!['user', 'admin', 'super_admin'].includes(role)) {
+        return res.status(400).json({ error: "Invalid role" });
+      }
+
+      await storage.updateUserRole(userId, role);
+      await adminService.logActivity({
+        userId: req.user.id,
+        action: 'admin_role_update',
+        resource: `user:${userId}`,
+        details: { newRole: role },
+        ipAddress: req.ip
+      });
+
+      res.json({ success: true, message: "User role updated successfully" });
+    } catch (error) {
+      console.error("Error updating user role:", error);
+      res.status(500).json({ error: "Failed to update user role" });
+    }
+  });
+
+  // Admin User Management - Update user status
+  app.patch("/api/admin/users/:userId/status", requireAdmin, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { isActive } = req.body;
+
+      await storage.updateUserStatus(userId, isActive);
+      await adminService.logActivity({
+        userId: req.user.id,
+        action: 'admin_status_update',
+        resource: `user:${userId}`,
+        details: { newStatus: isActive ? 'active' : 'inactive' },
+        ipAddress: req.ip
+      });
+
+      res.json({ success: true, message: "User status updated successfully" });
+    } catch (error) {
+      console.error("Error updating user status:", error);
+      res.status(500).json({ error: "Failed to update user status" });
+    }
+  });
+
+  // Admin Activity Monitoring - Get user activity
+  app.get("/api/admin/users/:userId/activity", requireAdmin, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { limit = "50" } = req.query as any;
+
+      const activities = await adminService.getUserActivityHistory(userId, parseInt(limit));
+      res.json(activities);
+    } catch (error) {
+      console.error("Error fetching user activity:", error);
+      res.status(500).json({ error: "Failed to fetch user activity" });
+    }
+  });
+
+  // Admin User Guidance - Send guidance message
+  app.post("/api/admin/users/:userId/guidance", requireAdmin, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { title, message, type = 'guidance', actionUrl, priority = 'medium' } = req.body;
+
+      if (!title || !message) {
+        return res.status(400).json({ error: "Title and message are required" });
+      }
+
+      await adminService.sendUserGuidance(userId, title, message, type, actionUrl, priority);
+      await adminService.logActivity({
+        userId: req.user.id,
+        action: 'admin_guidance_sent',
+        resource: `user:${userId}`,
+        details: { title, type, priority },
+        ipAddress: req.ip
+      });
+
+      res.json({ success: true, message: "Guidance sent successfully" });
+    } catch (error) {
+      console.error("Error sending user guidance:", error);
+      res.status(500).json({ error: "Failed to send guidance" });
+    }
+  });
+
+  // Admin System Monitoring - Get platform insights
+  app.get("/api/admin/insights", requireAdmin, async (req, res) => {
+    try {
+      const insights = await adminService.getPlatformInsights();
+      res.json(insights);
+    } catch (error) {
+      console.error("Error fetching platform insights:", error);
+      res.status(500).json({ error: "Failed to fetch platform insights" });
+    }
+  });
+
+  // Admin Activity Feed - Recent system activities
+  app.get("/api/admin/activities", requireAdmin, async (req, res) => {
+    try {
+      const { limit = "100" } = req.query as any;
+      const activities = await adminService.getUserActivityHistory('', parseInt(limit));
+      
+      // Filter out sensitive activities and format for admin view
+      const adminActivities = activities
+        .filter(activity => !activity.action.includes('password'))
+        .map(activity => ({
+          ...activity,
+          details: typeof activity.details === 'object' ? activity.details : {}
+        }));
+
+      res.json(adminActivities);
+    } catch (error) {
+      console.error("Error fetching admin activities:", error);
+      res.status(500).json({ error: "Failed to fetch activities" });
+    }
+  });
+
+  // ============ END ADMIN PANEL ROUTES ============
 
   const httpServer = createServer(app);
   return httpServer;
