@@ -10,6 +10,8 @@ export interface IStorage {
   getUserByMobile(mobile: string): Promise<User | undefined>;
   createUser(user: Omit<User, 'id' | 'createdAt' | 'updatedAt'>): Promise<User>;
   updateUser(id: string, updates: Partial<User>): Promise<User | undefined>;
+  deleteUser(id: string): Promise<boolean>;
+  updateUserStatus(id: string, isActive: boolean): Promise<User | undefined>;
   
   // OTP verification methods
   createOtpVerification(otp: InsertOtpVerification): Promise<OtpVerification>;
@@ -758,6 +760,15 @@ export class MemStorage implements IStorage {
       updatedAt: new Date()
     };
     this.users.set(id, user);
+    
+    // Update email and mobile indices
+    if (user.email) {
+      this.usersByEmail.set(user.email, user);
+    }
+    if (user.mobile) {
+      this.usersByMobile.set(user.mobile, user);
+    }
+    
     return user;
   }
 
@@ -765,9 +776,21 @@ export class MemStorage implements IStorage {
     const user = this.users.get(id);
     if (!user) return undefined;
     
-    const updated = { ...user, ...updates, updatedAt: new Date() };
-    this.users.set(id, updated);
-    return updated;
+    const updatedUser = { ...user, ...updates, updatedAt: new Date() };
+    this.users.set(id, updatedUser);
+    
+    // Update email/mobile indices if they were updated
+    if (updates.email && updates.email !== user.email) {
+      if (user.email) this.usersByEmail.delete(user.email);
+      this.usersByEmail.set(updates.email, updatedUser);
+    }
+    
+    if (updates.mobile && updates.mobile !== user.mobile) {
+      if (user.mobile) this.usersByMobile.delete(user.mobile);
+      this.usersByMobile.set(updates.mobile, updatedUser);
+    }
+    
+    return updatedUser;
   }
 
   // OTP Verification Methods
@@ -1410,6 +1433,23 @@ export class MemStorage implements IStorage {
     }
     
     return records.sort((a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime());
+  }
+
+  // Additional User Management methods
+
+  async deleteUser(id: string): Promise<boolean> {
+    const user = this.users.get(id);
+    if (user) {
+      this.users.delete(id);
+      if (user.email) this.usersByEmail.delete(user.email);
+      if (user.mobile) this.usersByMobile.delete(user.mobile);
+      return true;
+    }
+    return false;
+  }
+
+  async updateUserStatus(id: string, isActive: boolean): Promise<User | undefined> {
+    return this.updateUser(id, { isActive });
   }
 
   // Customer Care Agent methods

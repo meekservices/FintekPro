@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertTriangle, Users, Activity, TrendingUp, MessageSquare, Settings, Search, Filter, Shield, FileText, Building2 } from "lucide-react";
+import { AlertTriangle, Users, Activity, TrendingUp, MessageSquare, Settings, Search, Filter, Shield, FileText, Building2, Plus, Edit3, Trash2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -87,6 +87,18 @@ export default function AdminPanel() {
     type: "guidance",
     priority: "medium",
     actionUrl: ""
+  });
+  const [createClientDialog, setCreateClientDialog] = useState(false);
+  const [editClientDialog, setEditClientDialog] = useState(false);
+  const [deleteClientDialog, setDeleteClientDialog] = useState(false);
+  const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
+  const [clientForm, setClientForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    mobile: "",
+    role: "user",
+    isActive: true
   });
 
   // Fetch dashboard data
@@ -182,6 +194,85 @@ export default function AdminPanel() {
       toast({
         title: "Success",
         description: "Guidance sent successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Create client mutation
+  const createClientMutation = useMutation({
+    mutationFn: async (clientData: any) => {
+      const response = await apiRequest("POST", "/api/admin/users", clientData);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      setCreateClientDialog(false);
+      setClientForm({
+        firstName: "",
+        lastName: "",
+        email: "",
+        mobile: "",
+        role: "user",
+        isActive: true
+      });
+      toast({
+        title: "Success",
+        description: "Client created successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Update client mutation
+  const updateClientMutation = useMutation({
+    mutationFn: async ({ clientId, clientData }: { clientId: string; clientData: any }) => {
+      const response = await apiRequest("PATCH", `/api/admin/users/${clientId}`, clientData);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      setEditClientDialog(false);
+      setSelectedClient(null);
+      toast({
+        title: "Success",
+        description: "Client updated successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete client mutation
+  const deleteClientMutation = useMutation({
+    mutationFn: async (clientId: string) => {
+      const response = await apiRequest("DELETE", `/api/admin/users/${clientId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      setDeleteClientDialog(false);
+      setClientToDelete(null);
+      toast({
+        title: "Success",
+        description: "Client deleted successfully",
       });
     },
     onError: (error: Error) => {
@@ -394,7 +485,8 @@ export default function AdminPanel() {
 
         {/* Users Tab */}
         <TabsContent value="clients" className="space-y-6">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
@@ -426,6 +518,17 @@ export default function AdminPanel() {
                 <SelectItem value="false">Inactive</SelectItem>
               </SelectContent>
             </Select>
+            </div>
+            
+            {/* Add Client Button */}
+            <Dialog open={createClientDialog} onOpenChange={setCreateClientDialog}>
+              <DialogTrigger asChild>
+                <Button className="bg-blue-600 hover:bg-blue-700" data-testid="button-add-client">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Client
+                </Button>
+              </DialogTrigger>
+            </Dialog>
           </div>
 
           <Card data-testid="card-users-table">
@@ -509,11 +612,41 @@ export default function AdminPanel() {
                               variant="outline"
                               onClick={() => {
                                 setSelectedClient(client);
+                                setClientForm({
+                                  firstName: client.firstName,
+                                  lastName: client.lastName,
+                                  email: client.email,
+                                  mobile: client.mobile,
+                                  role: client.role,
+                                  isActive: client.isActive
+                                });
+                                setEditClientDialog(true);
+                              }}
+                              data-testid={`button-edit-client-${client.id}`}
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedClient(client);
                                 setGuidanceDialog(true);
                               }}
                               data-testid={`button-send-guidance-${client.id}`}
                             >
                               <MessageSquare className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => {
+                                setClientToDelete(client);
+                                setDeleteClientDialog(true);
+                              }}
+                              data-testid={`button-delete-client-${client.id}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
                             </Button>
                           </div>
                         </TableCell>
@@ -1319,6 +1452,241 @@ export default function AdminPanel() {
               data-testid="button-send-guidance"
             >
               {sendGuidanceMutation.isPending ? "Sending..." : "Send Guidance"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Client Dialog */}
+      <Dialog open={createClientDialog} onOpenChange={setCreateClientDialog}>
+        <DialogContent data-testid="dialog-create-client">
+        <DialogHeader>
+          <DialogTitle>Add New Client</DialogTitle>
+          <DialogDescription>
+            Create a new client account with basic information
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="firstName">First Name</Label>
+              <Input
+                id="firstName"
+                value={clientForm.firstName}
+                onChange={(e) => setClientForm({ ...clientForm, firstName: e.target.value })}
+                placeholder="John"
+                data-testid="input-first-name"
+              />
+            </div>
+            <div>
+              <Label htmlFor="lastName">Last Name</Label>
+              <Input
+                id="lastName"
+                value={clientForm.lastName}
+                onChange={(e) => setClientForm({ ...clientForm, lastName: e.target.value })}
+                placeholder="Doe"
+                data-testid="input-last-name"
+              />
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              value={clientForm.email}
+              onChange={(e) => setClientForm({ ...clientForm, email: e.target.value })}
+              placeholder="john.doe@example.com"
+              data-testid="input-email"
+            />
+          </div>
+          <div>
+            <Label htmlFor="mobile">Mobile Number</Label>
+            <Input
+              id="mobile"
+              value={clientForm.mobile}
+              onChange={(e) => setClientForm({ ...clientForm, mobile: e.target.value })}
+              placeholder="+1 (555) 123-4567"
+              data-testid="input-mobile"
+            />
+          </div>
+          <div>
+            <Label htmlFor="role">Role</Label>
+            <Select value={clientForm.role} onValueChange={(value) => setClientForm({ ...clientForm, role: value })}>
+              <SelectTrigger data-testid="select-role">
+                <SelectValue placeholder="Select a role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="user">Client</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="super_admin">Super Admin</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="isActive"
+              checked={clientForm.isActive}
+              onChange={(e) => setClientForm({ ...clientForm, isActive: e.target.checked })}
+              data-testid="checkbox-active"
+            />
+            <Label htmlFor="isActive">Active Account</Label>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setCreateClientDialog(false)} data-testid="button-cancel-create">
+            Cancel
+          </Button>
+          <Button
+            onClick={() => {
+              if (clientForm.firstName && clientForm.lastName && clientForm.email) {
+                createClientMutation.mutate(clientForm);
+              }
+            }}
+            disabled={!clientForm.firstName || !clientForm.lastName || !clientForm.email || createClientMutation.isPending}
+            data-testid="button-create-client"
+          >
+            {createClientMutation.isPending ? "Creating..." : "Create Client"}
+          </Button>
+        </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Client Dialog */}
+      <Dialog open={editClientDialog} onOpenChange={setEditClientDialog}>
+        <DialogContent data-testid="dialog-edit-client">
+          <DialogHeader>
+            <DialogTitle>Edit Client</DialogTitle>
+            <DialogDescription>
+              Update client information for {selectedClient?.firstName} {selectedClient?.lastName}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="editFirstName">First Name</Label>
+                <Input
+                  id="editFirstName"
+                  value={clientForm.firstName}
+                  onChange={(e) => setClientForm({ ...clientForm, firstName: e.target.value })}
+                  placeholder="John"
+                  data-testid="input-edit-first-name"
+                />
+              </div>
+              <div>
+                <Label htmlFor="editLastName">Last Name</Label>
+                <Input
+                  id="editLastName"
+                  value={clientForm.lastName}
+                  onChange={(e) => setClientForm({ ...clientForm, lastName: e.target.value })}
+                  placeholder="Doe"
+                  data-testid="input-edit-last-name"
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="editEmail">Email</Label>
+              <Input
+                id="editEmail"
+                type="email"
+                value={clientForm.email}
+                onChange={(e) => setClientForm({ ...clientForm, email: e.target.value })}
+                placeholder="john.doe@example.com"
+                data-testid="input-edit-email"
+              />
+            </div>
+            <div>
+              <Label htmlFor="editMobile">Mobile Number</Label>
+              <Input
+                id="editMobile"
+                value={clientForm.mobile}
+                onChange={(e) => setClientForm({ ...clientForm, mobile: e.target.value })}
+                placeholder="+1 (555) 123-4567"
+                data-testid="input-edit-mobile"
+              />
+            </div>
+            <div>
+              <Label htmlFor="editRole">Role</Label>
+              <Select value={clientForm.role} onValueChange={(value) => setClientForm({ ...clientForm, role: value })}>
+                <SelectTrigger data-testid="select-edit-role">
+                  <SelectValue placeholder="Select a role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user">Client</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="super_admin">Super Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="editIsActive"
+                checked={clientForm.isActive}
+                onChange={(e) => setClientForm({ ...clientForm, isActive: e.target.checked })}
+                data-testid="checkbox-edit-active"
+              />
+              <Label htmlFor="editIsActive">Active Account</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditClientDialog(false)} data-testid="button-cancel-edit">
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (selectedClient && clientForm.firstName && clientForm.lastName && clientForm.email) {
+                  updateClientMutation.mutate({
+                    clientId: selectedClient.id,
+                    clientData: clientForm
+                  });
+                }
+              }}
+              disabled={!clientForm.firstName || !clientForm.lastName || !clientForm.email || updateClientMutation.isPending}
+              data-testid="button-update-client"
+            >
+              {updateClientMutation.isPending ? "Updating..." : "Update Client"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Client Dialog */}
+      <Dialog open={deleteClientDialog} onOpenChange={setDeleteClientDialog}>
+        <DialogContent data-testid="dialog-delete-client">
+          <DialogHeader>
+            <DialogTitle>Delete Client</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete {clientToDelete?.firstName} {clientToDelete?.lastName}? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="p-4 bg-red-50 border border-red-200 rounded-md">
+            <div className="flex items-center">
+              <AlertTriangle className="h-5 w-5 text-red-500 mr-2" />
+              <span className="text-sm font-medium text-red-800">Warning: This will permanently delete the client account</span>
+            </div>
+            <div className="mt-2 text-sm text-red-700">
+              • All client data will be permanently removed
+              • Portfolio and transaction history will be lost
+              • This action cannot be undone
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteClientDialog(false)} data-testid="button-cancel-delete">
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (clientToDelete) {
+                  deleteClientMutation.mutate(clientToDelete.id);
+                }
+              }}
+              disabled={deleteClientMutation.isPending}
+              data-testid="button-confirm-delete"
+            >
+              {deleteClientMutation.isPending ? "Deleting..." : "Delete Client"}
             </Button>
           </DialogFooter>
         </DialogContent>

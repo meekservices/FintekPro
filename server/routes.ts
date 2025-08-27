@@ -4503,6 +4503,113 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin User Management - Create new user
+  app.post("/api/admin/users", requireAdmin, async (req, res) => {
+    try {
+      const { firstName, lastName, email, mobile, role = 'user', isActive = true } = req.body;
+      
+      if (!firstName || !lastName || !email) {
+        return res.status(400).json({ error: "First name, last name, and email are required" });
+      }
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(409).json({ error: "User with this email already exists" });
+      }
+      
+      // Create new user with a temporary password
+      const newUser = await storage.createUser({
+        firstName,
+        lastName,
+        email,
+        mobile: mobile || '',
+        role,
+        isActive,
+        password: 'TempPassword123!', // User will need to change on first login
+        loginCount: 0,
+        lastLoginAt: null
+      });
+      
+      await adminService.logActivity({
+        userId: req.user.id,
+        action: 'admin_user_created',
+        resource: `user:${newUser.id}`,
+        details: { email, role },
+        ipAddress: req.ip
+      });
+      
+      res.status(201).json(newUser);
+    } catch (error) {
+      console.error("Error creating user:", error);
+      res.status(500).json({ error: "Failed to create user" });
+    }
+  });
+
+  // Admin User Management - Update user details
+  app.patch("/api/admin/users/:userId", requireAdmin, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const updates = req.body;
+      
+      const updatedUser = await storage.updateUser(userId, updates);
+      
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      await adminService.logActivity({
+        userId: req.user.id,
+        action: 'admin_user_updated',
+        resource: `user:${userId}`,
+        details: { updatedFields: Object.keys(updates) },
+        ipAddress: req.ip
+      });
+      
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error updating user:", error);
+      res.status(500).json({ error: "Failed to update user" });
+    }
+  });
+
+  // Admin User Management - Delete user
+  app.delete("/api/admin/users/:userId", requireAdmin, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      
+      // Get user info before deletion for logging
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Prevent deletion of admin users by non-super-admin
+      if (user.role === 'super_admin' || (user.role === 'admin' && req.user.role !== 'super_admin')) {
+        return res.status(403).json({ error: "Insufficient permissions to delete this user" });
+      }
+      
+      const deleted = await storage.deleteUser(userId);
+      
+      if (!deleted) {
+        return res.status(404).json({ error: "User not found or could not be deleted" });
+      }
+      
+      await adminService.logActivity({
+        userId: req.user.id,
+        action: 'admin_user_deleted',
+        resource: `user:${userId}`,
+        details: { email: user.email, role: user.role },
+        ipAddress: req.ip
+      });
+      
+      res.json({ success: true, message: "User deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({ error: "Failed to delete user" });
+    }
+  });
+
   // Admin System Monitoring - Get platform insights
   app.get("/api/admin/insights", requireAdmin, async (req, res) => {
     try {
