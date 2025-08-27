@@ -37,7 +37,8 @@ import {
   History,
   FileSpreadsheet,
   FileText,
-  ChevronRight
+  ChevronRight,
+  CheckCircle
 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";

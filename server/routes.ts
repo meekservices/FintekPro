@@ -13,6 +13,7 @@ import { partnerService } from "./partner-service";
 import { z } from "zod";
 import { NseIndia } from 'stock-nse-india';
 import { sebiAPI } from "./sebi-api";
+import { comprehensiveAIFPMSAPI } from "./comprehensive-aif-pms-api";
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const API = require('indian-stock-exchange');
@@ -10254,6 +10255,113 @@ System Security Data:`;
   });
 
   // ============ END ADMIN REPORTS EXPORT ROUTES ============
+
+  // Comprehensive AIF and PMS API endpoints with detailed data
+  app.get('/api/comprehensive/aif', async (req, res) => {
+    try {
+      const category = req.query.category as string;
+      const aifData = await comprehensiveAIFPMSAPI.getComprehensiveAIFData(undefined, category);
+      res.json({
+        status: 'success',
+        data: aifData,
+        count: aifData.length
+      });
+    } catch (error) {
+      console.error('Error fetching comprehensive AIF data:', error);
+      res.status(500).json({ error: 'Failed to fetch comprehensive AIF data' });
+    }
+  });
+
+  app.get('/api/comprehensive/aif/:aifId', async (req, res) => {
+    try {
+      const aifData = await comprehensiveAIFPMSAPI.getComprehensiveAIFData(req.params.aifId);
+      res.json({
+        status: 'success',
+        data: aifData[0] || null
+      });
+    } catch (error) {
+      console.error('Error fetching specific AIF data:', error);
+      res.status(500).json({ error: 'Failed to fetch AIF details' });
+    }
+  });
+
+  app.get('/api/comprehensive/aif/filter', async (req, res) => {
+    try {
+      const filters = {
+        category: req.query.category as string,
+        subCategory: req.query.subCategory as string,
+        fundManager: req.query.fundManager as string,
+        minAUM: req.query.minAUM ? parseInt(req.query.minAUM as string) : undefined,
+        maxAUM: req.query.maxAUM ? parseInt(req.query.maxAUM as string) : undefined,
+        minReturns1Y: req.query.minReturns1Y ? parseFloat(req.query.minReturns1Y as string) : undefined,
+        riskRating: req.query.riskRating as string
+      };
+      
+      const aifData = await comprehensiveAIFPMSAPI.getAIFByFilters(filters);
+      res.json({
+        status: 'success',
+        data: aifData,
+        count: aifData.length,
+        filters: filters
+      });
+    } catch (error) {
+      console.error('Error filtering AIF data:', error);
+      res.status(500).json({ error: 'Failed to filter AIF data' });
+    }
+  });
+
+  app.get('/api/comprehensive/pms', async (req, res) => {
+    try {
+      const category = req.query.category as string;
+      const pmsData = await comprehensiveAIFPMSAPI.getComprehensivePMSData(undefined, category);
+      res.json({
+        status: 'success',
+        data: pmsData,
+        count: pmsData.length
+      });
+    } catch (error) {
+      console.error('Error fetching comprehensive PMS data:', error);
+      res.status(500).json({ error: 'Failed to fetch comprehensive PMS data' });
+    }
+  });
+
+  app.get('/api/comprehensive/pms/:pmsId', async (req, res) => {
+    try {
+      const pmsData = await comprehensiveAIFPMSAPI.getComprehensivePMSData(req.params.pmsId);
+      res.json({
+        status: 'success',
+        data: pmsData[0] || null
+      });
+    } catch (error) {
+      console.error('Error fetching specific PMS data:', error);
+      res.status(500).json({ error: 'Failed to fetch PMS details' });
+    }
+  });
+
+  app.get('/api/comprehensive/pms/filter', async (req, res) => {
+    try {
+      const filters = {
+        category: req.query.category as string,
+        subCategory: req.query.subCategory as string,
+        fundManager: req.query.fundManager as string,
+        minAUM: req.query.minAUM ? parseInt(req.query.minAUM as string) : undefined,
+        maxAUM: req.query.maxAUM ? parseInt(req.query.maxAUM as string) : undefined,
+        minReturns1Y: req.query.minReturns1Y ? parseFloat(req.query.minReturns1Y as string) : undefined,
+        investmentStyle: req.query.investmentStyle as string
+      };
+      
+      const pmsData = await comprehensiveAIFPMSAPI.getPMSByFilters(filters);
+      res.json({
+        status: 'success',
+        data: pmsData,
+        count: pmsData.length,
+        filters: filters
+      });
+    } catch (error) {
+      console.error('Error filtering PMS data:', error);
+      res.status(500).json({ error: 'Failed to filter PMS data' });
+    }
+  });
 
   // SEBI API endpoints
   app.get('/api/sebi/companies/:companyId', async (req, res) => {
