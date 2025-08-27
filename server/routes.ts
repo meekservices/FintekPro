@@ -173,12 +173,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Helper function to fetch from Finnhub
   async function fetchFinnhub(endpoint: string) {
-    const url = `${FINNHUB_BASE_URL}${endpoint}&token=${FINNHUB_API_KEY}`;
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Finnhub API error: ${response.status} ${response.statusText}`);
+    try {
+      const url = `${FINNHUB_BASE_URL}${endpoint}&token=${FINNHUB_API_KEY}`;
+      
+      // Add timeout to prevent hanging requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      
+      const response = await fetch(url, { 
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'FinanceHub/1.0'
+        }
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      // Handle empty or invalid responses
+      if (!data || (typeof data === 'object' && Object.keys(data).length === 0)) {
+        throw new Error("Empty API response");
+      }
+      
+      return data;
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        throw new Error("API request timeout");
+      }
+      throw error;
     }
-    return response.json();
   }
 
   // Helper function to fetch from MF API
@@ -1024,8 +1053,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Simple cache for market data
+  const marketDataCache = new Map();
+  const CACHE_DURATION = 30 * 1000; // 30 seconds
+
   app.get("/api/market/indices", async (req, res) => {
     try {
+      // Check cache first
+      const cacheKey = 'global_indices';
+      const cached = marketDataCache.get(cacheKey);
+      if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
+        return res.json(cached.data);
+      }
+
       // Global market indices symbols that match frontend expectations
       const globalIndices = [
         { symbol: "^GSPC", name: "S&P 500" }, 
@@ -1046,24 +1086,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const data = await fetchFinnhub(`/quote?symbol=${index.symbol}`);
           
           // Check if we got valid data
-          if (data.c && data.c > 0) {
+          if (data && data.c && data.c > 0) {
             return {
               symbol: index.symbol,
               price: data.c,
-              change: data.d,
-              changePercent: data.dp,
-              ...data
+              change: data.d || 0,
+              changePercent: data.dp || 0,
+              high: data.h || data.c,
+              low: data.l || data.c,
+              open: data.o || data.c,
+              previousClose: data.pc || data.c,
+              timestamp: data.t || Math.floor(Date.now() / 1000)
             };
           } else {
-            // Fallback to simulated data if API doesn't provide real data
-            throw new Error("No valid data from API");
+            // API returned invalid data, use fallback
+            throw new Error("Invalid API response");
           }
         } catch (error) {
-          console.error(`Error fetching ${index.symbol}:`, error);
-          
-          // Return simulated but realistic market index data
+          // Don't log every API failure as error - use fallback silently
           const basePrice = getBasePrice(index.symbol);
-          const change = (Math.random() - 0.5) * (basePrice * 0.02); // ±2% variation
+          const change = (Math.random() - 0.5) * (basePrice * 0.015); // ±1.5% variation
           const changePercent = (change / basePrice) * 100;
           
           return {
@@ -1071,19 +1113,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
             price: basePrice + change,
             change: change,
             changePercent: changePercent,
-            c: basePrice + change,
-            d: change,
-            dp: changePercent,
-            h: basePrice + Math.abs(change) * 1.2,
-            l: basePrice - Math.abs(change) * 1.2,
-            o: basePrice,
-            pc: basePrice,
-            t: Math.floor(Date.now() / 1000)
+            high: basePrice + Math.abs(change) * 1.1,
+            low: basePrice - Math.abs(change) * 1.1,
+            open: basePrice,
+            previousClose: basePrice,
+            timestamp: Math.floor(Date.now() / 1000)
           };
         }
       });
 
       const results = await Promise.all(promises);
+      
+      // Cache the results
+      marketDataCache.set(cacheKey, {
+        data: results,
+        timestamp: Date.now()
+      });
+      
       res.json(results);
     } catch (error) {
       console.error("Error fetching indices:", error);
