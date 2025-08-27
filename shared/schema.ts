@@ -74,7 +74,13 @@ export const portfolioHoldings = pgTable("portfolio_holdings", {
   symbol: text("symbol").notNull(),
   quantity: decimal("quantity", { precision: 15, scale: 4 }).notNull(),
   avgPrice: decimal("avg_price", { precision: 15, scale: 4 }).notNull(),
-  assetType: text("asset_type").notNull(), // 'equity', 'bond', 'mf', 'gold', 'alternative'
+  assetType: text("asset_type").notNull(), // 'equity', 'bond', 'mf', 'gold', 'silver', 'commodity', 'alternative'
+  assetClass: text("asset_class"), // 'large_cap', 'mid_cap', 'small_cap', 'debt', 'hybrid', 'precious_metals', 'energy', 'agricultural'
+  sector: text("sector"), // technology, banking, healthcare, energy, consumer_goods, etc.
+  marketCap: decimal("market_cap", { precision: 20, scale: 0 }),
+  beta: decimal("beta", { precision: 5, scale: 3 }),
+  dividendYield: decimal("dividend_yield", { precision: 5, scale: 2 }),
+  peRatio: decimal("pe_ratio", { precision: 8, scale: 2 }),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
@@ -102,12 +108,55 @@ export const assetAllocation = pgTable("asset_allocation", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   portfolioId: varchar("portfolio_id").references(() => portfolios.id).notNull(),
   assetType: text("asset_type").notNull(),
+  assetClass: text("asset_class"),
   targetPercentage: decimal("target_percentage", { precision: 5, scale: 2 }),
   currentPercentage: decimal("current_percentage", { precision: 5, scale: 2 }),
   targetValue: decimal("target_value", { precision: 15, scale: 2 }),
   currentValue: decimal("current_value", { precision: 15, scale: 2 }),
   rebalanceAmount: decimal("rebalance_amount", { precision: 15, scale: 2 }),
+  riskScore: decimal("risk_score", { precision: 3, scale: 1 }),
+  expectedReturn: decimal("expected_return", { precision: 5, scale: 2 }),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Pi Chat Asset Summaries
+export const piChatSummaries = pgTable("pi_chat_summaries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  portfolioId: varchar("portfolio_id").references(() => portfolios.id).notNull(),
+  assetClass: text("asset_class").notNull(),
+  summary: text("summary").notNull(),
+  insights: jsonb("insights"), // key metrics, risks, opportunities
+  recommendations: text("recommendations").array(),
+  lastAnalyzed: timestamp("last_analyzed").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Commodity Tracking
+export const commodityPrices = pgTable("commodity_prices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  symbol: text("symbol").notNull().unique(),
+  name: text("name").notNull(),
+  category: text("category").notNull(), // precious_metals, energy, agricultural, industrial
+  price: decimal("price", { precision: 15, scale: 4 }).notNull(),
+  priceUnit: text("price_unit").notNull(), // per_ounce, per_barrel, per_ton
+  change: decimal("change", { precision: 15, scale: 4 }),
+  changePercent: decimal("change_percent", { precision: 8, scale: 4 }),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+});
+
+// Enhanced Rebalancing Suggestions
+export const rebalancingSuggestions = pgTable("rebalancing_suggestions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  portfolioId: varchar("portfolio_id").references(() => portfolios.id).notNull(),
+  suggestionType: text("suggestion_type").notNull(), // yield_optimization, risk_reduction, diversification
+  priority: text("priority").notNull(), // high, medium, low
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  actions: jsonb("actions"), // array of specific actions to take
+  expectedImpact: jsonb("expected_impact"), // yield, risk, diversification improvements
+  confidenceScore: decimal("confidence_score", { precision: 3, scale: 1 }),
+  implementationSteps: text("implementation_steps").array(),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // User Activity Tracking
@@ -396,6 +445,12 @@ export type Watchlist = typeof watchlists.$inferSelect;
 export type MarketData = typeof marketData.$inferSelect;
 export type AssetAllocation = typeof assetAllocation.$inferSelect;
 export type InsertAssetAllocation = z.infer<typeof insertAssetAllocationSchema>;
+export type PiChatSummary = typeof piChatSummaries.$inferSelect;
+export type InsertPiChatSummary = typeof piChatSummaries.$inferInsert;
+export type CommodityPrice = typeof commodityPrices.$inferSelect;
+export type InsertCommodityPrice = typeof commodityPrices.$inferInsert;
+export type RebalancingSuggestion = typeof rebalancingSuggestions.$inferSelect;
+export type InsertRebalancingSuggestion = typeof rebalancingSuggestions.$inferInsert;
 export type MutualFund = typeof mutualFunds.$inferSelect;
 export type InsertMutualFund = z.infer<typeof insertMutualFundSchema>;
 

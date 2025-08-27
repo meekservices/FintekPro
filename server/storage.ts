@@ -785,6 +785,145 @@ export class MemStorage implements IStorage {
       if (user.mobile) this.usersByMobile.set(user.mobile, user);
     }
   }
+
+  // Enhanced portfolio analytics with commodity focus
+  async getPortfolioPerformance(portfolioId: string) {
+    const mockPerformance = {
+      portfolioId,
+      totalCurrentValue: "1,347,850.00",
+      totalInvestment: "1,200,000.00", 
+      totalGainLoss: "147,850.00",
+      totalGainLossPercentage: "12.32",
+      dayChange: "-5,420.00",
+      dayChangePercentage: "-0.40",
+      assetBreakdown: [
+        {
+          assetType: "equity",
+          name: "Equity",
+          value: 808820,
+          percentage: "60.0",
+          change: 8850,
+          changePercentage: "1.11",
+          color: "#3B82F6"
+        },
+        {
+          assetType: "debt", 
+          name: "Debt/Bonds",
+          value: 269570,
+          percentage: "20.0", 
+          change: 1420,
+          changePercentage: "0.53",
+          color: "#10B981"
+        },
+        {
+          assetType: "commodity",
+          name: "Commodities", 
+          value: 134785,
+          percentage: "10.0",
+          change: 2320,
+          changePercentage: "1.75",
+          color: "#F59E0B"
+        },
+        {
+          assetType: "alternative",
+          name: "Alternative Investments",
+          value: 134675,
+          percentage: "10.0",
+          change: -1170, 
+          changePercentage: "-0.86",
+          color: "#8B5CF6"
+        }
+      ],
+      lastUpdated: new Date().toISOString()
+    };
+    
+    return mockPerformance;
+  }
+
+  // Pi Chat Asset Class Summaries
+  async getPiChatSummaries(portfolioId: string) {
+    return [
+      {
+        id: "pi-chat-equity",
+        portfolioId,
+        assetClass: "equity",
+        summary: "Your equity portfolio is performing well with strong technology and healthcare positions. Large-cap stocks are providing stability while mid-cap holdings offer growth potential. Consider rebalancing toward value stocks given current market conditions.",
+        insights: {
+          totalValue: 808820,
+          allocation: "60%",
+          topSectors: ["Technology", "Healthcare", "Finance"],
+          riskLevel: "Moderate-High", 
+          expectedReturn: "12-15%"
+        },
+        recommendations: [
+          "Consider adding more defensive sectors like consumer staples",
+          "Rebalance from growth to value stocks for better yield",
+          "Take profits on technology positions above 25% allocation"
+        ],
+        lastAnalyzed: new Date().toISOString(),
+        createdAt: new Date().toISOString()
+      },
+      {
+        id: "pi-chat-commodity",
+        portfolioId,
+        assetClass: "commodity", 
+        summary: "Your commodity exposure provides excellent inflation hedge. Gold holdings are performing well amid market uncertainty. Consider diversifying into agricultural commodities and energy futures for better portfolio balance.",
+        insights: {
+          totalValue: 134785,
+          allocation: "10%",
+          topCommodities: ["Gold", "Silver", "Crude Oil"],
+          riskLevel: "High",
+          expectedReturn: "8-12%"
+        },
+        recommendations: [
+          "Add agricultural commodities for diversification",
+          "Consider precious metals ETFs for easier management", 
+          "Monitor energy sector correlation with oil prices"
+        ],
+        lastAnalyzed: new Date().toISOString(),
+        createdAt: new Date().toISOString()
+      }
+    ];
+  }
+
+  // Commodity prices
+  async getCommodityPrices() {
+    return [
+      {
+        id: "gold-spot",
+        symbol: "XAUUSD", 
+        name: "Gold",
+        category: "precious_metals",
+        price: 2034.50,
+        priceUnit: "per_ounce",
+        change: 12.30,
+        changePercent: 0.61,
+        lastUpdated: new Date().toISOString()
+      },
+      {
+        id: "silver-spot", 
+        symbol: "XAGUSD",
+        name: "Silver",
+        category: "precious_metals",
+        price: 24.85,
+        priceUnit: "per_ounce",
+        change: 0.45,
+        changePercent: 1.84,
+        lastUpdated: new Date().toISOString()
+      },
+      {
+        id: "crude-oil-wti",
+        symbol: "WTIUSD", 
+        name: "Crude Oil (WTI)",
+        category: "energy", 
+        price: 82.45,
+        priceUnit: "per_barrel",
+        change: -1.25,
+        changePercent: -1.49,
+        lastUpdated: new Date().toISOString()
+      }
+    ];
+  }
 }
 
 export const storage = new MemStorage();

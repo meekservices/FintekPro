@@ -1672,6 +1672,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Portfolio performance analytics
+  app.get("/api/portfolios/:portfolioId/performance", async (req, res) => {
+    try {
+      const { portfolioId } = req.params;
+      const performance = await storage.getPortfolioPerformance(portfolioId);
+      res.json(performance);
+    } catch (error) {
+      console.error("Error fetching portfolio performance:", error);
+      res.status(500).json({ error: "Failed to fetch portfolio performance" });
+    }
+  });
+
+  // Pi Chat asset class summaries
+  app.get("/api/portfolios/:portfolioId/pi-chat-summaries", async (req, res) => {
+    try {
+      const { portfolioId } = req.params;
+      const summaries = await storage.getPiChatSummaries(portfolioId);
+      res.json(summaries);
+    } catch (error) {
+      console.error("Error fetching Pi Chat summaries:", error);
+      res.status(500).json({ error: "Failed to fetch Pi Chat summaries" });
+    }
+  });
+
+  // Commodity prices
+  app.get("/api/commodities/prices", async (req, res) => {
+    try {
+      const prices = await storage.getCommodityPrices();
+      res.json(prices);
+    } catch (error) {
+      console.error("Error fetching commodity prices:", error);
+      res.status(500).json({ error: "Failed to fetch commodity prices" });
+    }
+  });
+
   // Watchlist endpoints
   app.get("/api/watchlists/:userId", async (req, res) => {
     try {

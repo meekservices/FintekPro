@@ -4,11 +4,15 @@ import { PortfolioSummary } from "@/components/dashboard/portfolio-summary";
 import { AssetAllocation } from "@/components/dashboard/asset-allocation";
 import { RebalanceDashboard } from "@/components/dashboard/rebalance-dashboard";
 import { RebalancingSuggestions } from "@/components/rebalancing-suggestions";
+import { PiChatSummaries } from "@/components/portfolio/pi-chat-summaries";
+import { CommodityTracker } from "@/components/portfolio/commodity-tracker";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEnhancedPortfolioHoldings, usePortfolioPerformance } from "@/hooks/use-portfolio";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, TrendingUp, TrendingDown, RefreshCw } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, RefreshCw, Bot, Coins } from "lucide-react";
 
 export default function Portfolio() {
   const userId = "demo-user-1";
@@ -54,35 +58,51 @@ export default function Portfolio() {
           </Button>
         </div>
 
-        {/* Asset Class Summary */}
-        {performance && performance.assetBreakdown && (
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Asset Class Overview</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {performance.assetBreakdown.map((asset) => (
-                <Card key={asset.assetType} className="border-l-4" style={{ borderLeftColor: asset.color }}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-gray-600">{asset.name}</p>
-                        <p className="text-xl font-bold text-gray-900">
-                          ₹{asset.value.toLocaleString()}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {asset.percentage}% of portfolio
-                        </p>
-                      </div>
-                      <div 
-                        className="w-3 h-3 rounded-full" 
-                        style={{ backgroundColor: asset.color }}
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Enhanced Portfolio with Tabs */}
+        <Tabs defaultValue="overview" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="overview">Portfolio Overview</TabsTrigger>
+            <TabsTrigger value="pi-chat" className="flex items-center space-x-1">
+              <Bot className="h-4 w-4" />
+              <span>Pi Chat Insights</span>
+            </TabsTrigger>
+            <TabsTrigger value="commodities" className="flex items-center space-x-1">
+              <Coins className="h-4 w-4" />
+              <span>Commodities</span>
+            </TabsTrigger>
+            <TabsTrigger value="rebalance">AI Rebalancing</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="space-y-8">
+            {/* Asset Class Summary */}
+            {performance && performance.assetBreakdown && (
+              <div className="mb-8">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">Asset Class Overview</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {performance.assetBreakdown.map((asset) => (
+                    <Card key={asset.assetType} className="border-l-4" style={{ borderLeftColor: asset.color }}>
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-gray-600">{asset.name}</p>
+                            <p className="text-xl font-bold text-gray-900">
+                              ₹{asset.value.toLocaleString()}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {asset.percentage}% of portfolio
+                            </p>
+                          </div>
+                          <div 
+                            className="w-3 h-3 rounded-full" 
+                            style={{ backgroundColor: asset.color }}
+                          />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
 
         {/* Portfolio Overview */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8" data-testid="portfolio-overview">
@@ -216,16 +236,98 @@ export default function Portfolio() {
           <PortfolioSummary userId={userId} />
         </div>
 
-        {/* Asset Allocation */}
-        <AssetAllocation portfolioId={portfolioId} />
+          </TabsContent>
 
-        {/* Rebalancing Suggestions */}
-        <div className="mb-8">
-          <RebalancingSuggestions portfolioId={portfolioId} />
-        </div>
+          <TabsContent value="pi-chat" className="space-y-8">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+              <PiChatSummaries portfolioId={portfolioId} />
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <Bot className="h-5 w-5 text-blue-600" />
+                      <span>AI Portfolio Analysis</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="p-4 bg-blue-50 rounded-lg">
+                        <div className="font-medium text-blue-900 mb-2">Overall Portfolio Health</div>
+                        <div className="text-sm text-blue-700">
+                          Your portfolio shows strong diversification with good risk-adjusted returns. 
+                          Consider the commodity allocation recommendations for better inflation protection.
+                        </div>
+                      </div>
+                      <div className="p-4 bg-green-50 rounded-lg">
+                        <div className="font-medium text-green-900 mb-2">Performance Score</div>
+                        <div className="text-sm text-green-700">
+                          <span className="text-2xl font-bold">8.2/10</span> - Excellent performance 
+                          with balanced risk exposure across asset classes.
+                        </div>
+                      </div>
+                      <div className="p-4 bg-yellow-50 rounded-lg">
+                        <div className="font-medium text-yellow-900 mb-2">Next Actions</div>
+                        <div className="text-sm text-yellow-700">
+                          Review commodity exposure and consider rebalancing equity allocation 
+                          for optimal yield generation.
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                <RebalancingSuggestions portfolioId={portfolioId} />
+              </div>
+            </div>
+          </TabsContent>
 
-        {/* Rebalance Dashboard */}
-        <RebalanceDashboard portfolioId={portfolioId} totalValue={totalValue} />
+          <TabsContent value="commodities" className="space-y-8">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+              <CommodityTracker className="xl:col-span-1" />
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <Coins className="h-5 w-5 text-yellow-600" />
+                      <span>Commodity Portfolio Impact</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="p-4 bg-yellow-50 rounded-lg">
+                        <div className="font-medium text-yellow-900 mb-2">Current Allocation</div>
+                        <div className="text-sm text-yellow-700">
+                          10% of your portfolio (₹1,34,785) is allocated to commodities, 
+                          providing good inflation protection.
+                        </div>
+                      </div>
+                      <div className="p-4 bg-orange-50 rounded-lg">
+                        <div className="font-medium text-orange-900 mb-2">Diversification Benefits</div>
+                        <div className="text-sm text-orange-700">
+                          Commodity exposure reduces portfolio correlation and provides 
+                          hedge against economic uncertainty.
+                        </div>
+                      </div>
+                      <div className="p-4 bg-green-50 rounded-lg">
+                        <div className="font-medium text-green-900 mb-2">Performance</div>
+                        <div className="text-sm text-green-700">
+                          +1.75% today • Outperforming broader market with gold and silver gains.
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                <AssetAllocation portfolioId={portfolioId} />
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="rebalance" className="space-y-8">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+              <RebalancingSuggestions portfolioId={portfolioId} />
+              <RebalanceDashboard portfolioId={portfolioId} totalValue={totalValue} />
+            </div>
+          </TabsContent>
+        </Tabs>
 
       </main>
 
