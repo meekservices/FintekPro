@@ -35,8 +35,8 @@ export function Header() {
             <nav className="hidden md:flex space-x-6">
               {navigation.map((item) => (
                 <Link key={item.name} href={item.href}>
-                  <a
-                    className={`font-medium transition-colors ${
+                  <span
+                    className={`font-medium transition-colors cursor-pointer ${
                       location === item.href
                         ? "text-finance-blue"
                         : "text-gray-700 hover:text-finance-blue"
@@ -44,7 +44,7 @@ export function Header() {
                     data-testid={`nav-${item.name.toLowerCase().replace(" ", "-")}`}
                   >
                     {item.name}
-                  </a>
+                  </span>
                 </Link>
               ))}
             </nav>
@@ -92,8 +92,8 @@ export function Header() {
                   <nav className="flex flex-col space-y-2">
                     {navigation.map((item) => (
                       <Link key={item.name} href={item.href}>
-                        <a
-                          className={`block px-3 py-2 rounded-md font-medium transition-colors ${
+                        <div
+                          className={`block px-3 py-2 rounded-md font-medium transition-colors cursor-pointer ${
                             location === item.href
                               ? "bg-finance-blue text-white"
                               : "text-gray-700 hover:bg-gray-100"
@@ -102,7 +102,7 @@ export function Header() {
                           data-testid={`mobile-nav-${item.name.toLowerCase().replace(" ", "-")}`}
                         >
                           {item.name}
-                        </a>
+                        </div>
                       </Link>
                     ))}
                   </nav>
