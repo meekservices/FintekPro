@@ -1,4 +1,4 @@
-import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type LearningModule, type InsertLearningModule, type LearningLesson, type InsertLearningLesson, type LearningQuiz, type InsertLearningQuiz, type UserProgress, type InsertUserProgress, type UserAchievement, type InsertUserAchievement, type UserStats, type InsertUserStats } from "@shared/schema";
+import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type LearningModule, type InsertLearningModule, type LearningLesson, type InsertLearningLesson, type LearningQuiz, type InsertLearningQuiz, type UserProgress, type InsertUserProgress, type UserAchievement, type InsertUserAchievement, type UserStats, type InsertUserStats, type UserProfile, type InsertUserProfile } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -62,6 +62,10 @@ export interface IStorage {
   upsertUserStats(stats: InsertUserStats): Promise<UserStats>;
   addUserAchievement(achievement: InsertUserAchievement): Promise<UserAchievement>;
   getUserAchievements(userId: string): Promise<UserAchievement[]>;
+  
+  // User Profile methods
+  getUserProfile(userId: string): Promise<UserProfile | undefined>;
+  upsertUserProfile(profile: InsertUserProfile): Promise<UserProfile>;
 }
 
 export class MemStorage implements IStorage {
@@ -79,6 +83,7 @@ export class MemStorage implements IStorage {
   private userProgress: Map<string, UserProgress>;
   private userAchievements: Map<string, UserAchievement>;
   private userStats: Map<string, UserStats>;
+  private userProfiles: Map<string, UserProfile>;
 
   constructor() {
     this.users = new Map();
@@ -95,6 +100,7 @@ export class MemStorage implements IStorage {
     this.userProgress = new Map();
     this.userAchievements = new Map();
     this.userStats = new Map();
+    this.userProfiles = new Map();
     
     // Initialize with sample data
     this.initializeSampleData();
@@ -847,6 +853,26 @@ export class MemStorage implements IStorage {
     return Array.from(this.userAchievements.values())
       .filter(achievement => achievement.userId === userId)
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  // User Profile methods
+  async getUserProfile(userId: string): Promise<UserProfile | undefined> {
+    return this.userProfiles.get(userId);
+  }
+
+  async upsertUserProfile(insertProfile: InsertUserProfile): Promise<UserProfile> {
+    const existing = this.userProfiles.get(insertProfile.userId);
+    const id = existing?.id || randomUUID();
+    
+    const profile: UserProfile = {
+      ...insertProfile,
+      id,
+      createdAt: existing?.createdAt || new Date(),
+      updatedAt: new Date()
+    };
+    
+    this.userProfiles.set(insertProfile.userId, profile);
+    return profile;
   }
 }
 

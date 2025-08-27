@@ -15,6 +15,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   setupAuth(app);
   
+  // User Profile API endpoints
+  app.get("/api/profile", async (req, res) => {
+    try {
+      const userId = "demo-user-1"; // Replace with actual user ID from auth
+      const profile = await storage.getUserProfile(userId);
+      
+      if (!profile) {
+        return res.status(404).json({ error: "Profile not found" });
+      }
+      
+      res.json(profile);
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+      res.status(500).json({ error: "Failed to fetch profile" });
+    }
+  });
+
+  app.post("/api/profile", async (req, res) => {
+    try {
+      const profileData = req.body;
+      
+      // Validate required fields
+      if (!profileData.userId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+
+      const profile = await storage.upsertUserProfile(profileData);
+      res.json(profile);
+    } catch (error) {
+      console.error("Error updating user profile:", error);
+      res.status(500).json({ error: "Failed to update profile" });
+    }
+  });
+  
   // Finnhub API integration
   const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY || process.env.VITE_FINNHUB_API_KEY || "demo";
   const FINNHUB_BASE_URL = "https://finnhub.io/api/v1";

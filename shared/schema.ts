@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, decimal, timestamp, jsonb, boolean, index, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, decimal, timestamp, jsonb, boolean, index, integer, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -295,6 +295,34 @@ export type InsertUserAchievement = z.infer<typeof insertUserAchievementSchema>;
 export type UserStats = typeof userStats.$inferSelect;
 export type InsertUserStats = z.infer<typeof insertUserStatsSchema>;
 
+// User Profile table for API integration data
+export const userProfiles = pgTable("user_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  // Personal Information
+  fullName: varchar("full_name", { length: 255 }),
+  email: varchar("email", { length: 255 }),
+  phone: varchar("phone", { length: 20 }),
+  dateOfBirth: date("date_of_birth"),
+  // Investment Profile
+  riskTolerance: varchar("risk_tolerance", { length: 20 }), // conservative, moderate, aggressive
+  investmentExperience: varchar("investment_experience", { length: 20 }), // beginner, intermediate, experienced
+  annualIncome: decimal("annual_income", { precision: 12, scale: 2 }),
+  investmentGoals: text("investment_goals").array(),
+  investmentHorizon: varchar("investment_horizon", { length: 20 }), // short, medium, long
+  // API Integration Data
+  panNumber: varchar("pan_number", { length: 10 }),
+  dematerializedAccounts: jsonb("demat_accounts"), // Array of demat account details
+  mutualFundDistributor: varchar("mf_distributor_code", { length: 50 }),
+  bankDetails: jsonb("bank_details"), // Primary bank account details
+  // Platform Preferences
+  preferredCurrency: varchar("preferred_currency", { length: 10 }).default("INR"),
+  notificationPreferences: jsonb("notification_preferences"),
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull()
+});
+
 // Market Stories table for AI-generated content
 export const marketStories = pgTable("market_stories", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -309,11 +337,19 @@ export const marketStories = pgTable("market_stories", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertMarketStorySchema = createInsertSchema(marketStories).omit({
   id: true,
   generatedAt: true,
   createdAt: true,
 });
 
+export type UserProfile = typeof userProfiles.$inferSelect;
+export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
 export type MarketStory = typeof marketStories.$inferSelect;
 export type InsertMarketStory = z.infer<typeof insertMarketStorySchema>;

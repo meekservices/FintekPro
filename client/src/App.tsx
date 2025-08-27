@@ -16,7 +16,7 @@ import AgriculturalInsights from "@/pages/agricultural-insights";
 import LearningPath from "@/pages/learning-path";
 import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/auth-page";
-import ProfilePage from "@/pages/profile-page";
+import ProfilePage from "@/pages/profile";
 
 function Router() {
   return (
