@@ -294,3 +294,26 @@ export type UserAchievement = typeof userAchievements.$inferSelect;
 export type InsertUserAchievement = z.infer<typeof insertUserAchievementSchema>;
 export type UserStats = typeof userStats.$inferSelect;
 export type InsertUserStats = z.infer<typeof insertUserStatsSchema>;
+
+// Market Stories table for AI-generated content
+export const marketStories = pgTable("market_stories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: varchar("title", { length: 255 }).notNull(),
+  content: text("content").notNull(),
+  summary: text("summary").notNull(),
+  sentiment: varchar("sentiment", { length: 20 }).notNull(),
+  confidence: decimal("confidence", { precision: 3, scale: 2 }).notNull(),
+  keyPoints: text("key_points").array().default([]),
+  marketData: jsonb("market_data"),
+  generatedAt: timestamp("generated_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertMarketStorySchema = createInsertSchema(marketStories).omit({
+  id: true,
+  generatedAt: true,
+  createdAt: true,
+});
+
+export type MarketStory = typeof marketStories.$inferSelect;
+export type InsertMarketStory = z.infer<typeof insertMarketStorySchema>;

@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema } from "@shared/schema";
+import { marketStoryService, type MarketData as StoryMarketData } from "./market-story-service";
 import { z } from "zod";
 import { NseIndia } from 'stock-nse-india';
 import { createRequire } from 'module';
@@ -3505,10 +3506,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId,
         moduleId: lesson.moduleId,
         lessonId: lesson.id,
-        isCompleted: true,
+        status: 'completed',
         completedAt: new Date(),
-        score: 100,
-        timeSpent: lesson.estimatedMinutes
+        score: 100
       };
 
       await storage.upsertUserProgress(progressData);
@@ -3518,8 +3518,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (currentStats) {
         const updatedStats = {
           ...currentStats,
-          totalPoints: currentStats.totalPoints + lesson.pointsReward,
-          lessonsCompleted: currentStats.lessonsCompleted + 1,
+          totalPoints: (currentStats.totalPoints || 0) + (lesson.pointsReward || 0),
+          lessonsCompleted: (currentStats.lessonsCompleted || 0) + 1,
           lastActivityDate: new Date(),
           updatedAt: new Date()
         };
@@ -3528,7 +3528,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({
         success: true,
-        pointsEarned: lesson.pointsReward,
+        pointsEarned: lesson.pointsReward || 0,
         score: 100
       });
     } catch (error) {
@@ -3560,6 +3560,137 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching achievements:", error);
       res.status(500).json({ error: "Failed to fetch achievements" });
+    }
+  });
+
+  // Market Story Generation API Routes
+  
+  // Generate a new market story using AI
+  app.post("/api/market/story/generate", async (req, res) => {
+    try {
+      const { symbols, useCurrentData = true } = req.body;
+      
+      let marketData: StoryMarketData[] = [];
+      
+      if (useCurrentData && symbols && Array.isArray(symbols)) {
+        // Fetch current market data for selected symbols
+        for (const symbol of symbols.slice(0, 10)) { // Limit to 10 symbols
+          try {
+            const response = await fetch(
+              `${FINNHUB_BASE_URL}/quote?symbol=${encodeURIComponent(symbol)}&token=${FINNHUB_API_KEY}`
+            );
+            const data = await response.json();
+            
+            if (data.c && data.dp !== undefined) {
+              marketData.push({
+                symbol,
+                price: data.c,
+                change: data.d || 0,
+                changePercent: data.dp || 0,
+                volume: data.v || undefined,
+                high: data.h || undefined,
+                low: data.l || undefined,
+                open: data.o || undefined
+              });
+            }
+          } catch (error) {
+            console.error(`Error fetching data for ${symbol}:`, error);
+          }
+        }
+      } else {
+        // Use major indices as default
+        const majorIndices = ['^GSPC', '^DJI', '^IXIC', '^NSEI', '^BSESN'];
+        
+        for (const symbol of majorIndices) {
+          try {
+            const response = await fetch(
+              `${FINNHUB_BASE_URL}/quote?symbol=${encodeURIComponent(symbol)}&token=${FINNHUB_API_KEY}`
+            );
+            const data = await response.json();
+            
+            if (data.c && data.dp !== undefined) {
+              marketData.push({
+                symbol,
+                price: data.c,
+                change: data.d || 0,
+                changePercent: data.dp || 0,
+                volume: data.v || undefined,
+                high: data.h || undefined,
+                low: data.l || undefined,
+                open: data.o || undefined
+              });
+            }
+          } catch (error) {
+            console.error(`Error fetching data for ${symbol}:`, error);
+          }
+        }
+      }
+      
+      if (marketData.length === 0) {
+        // Create mock data if no real data available
+        marketData = [
+          { symbol: '^GSPC', price: 5620.45, change: 15.23, changePercent: 0.27 },
+          { symbol: '^DJI', price: 44156.73, change: -89.12, changePercent: -0.20 },
+          { symbol: '^IXIC', price: 17765.66, change: 45.67, changePercent: 0.26 },
+          { symbol: '^NSEI', price: 23145.60, change: 78.45, changePercent: 0.34 },
+          { symbol: '^BSESN', price: 76543.21, change: -23.45, changePercent: -0.03 }
+        ];
+      }
+      
+      // Generate the story using AI
+      const story = await marketStoryService.generateStory(marketData);
+      
+      res.json(story);
+    } catch (error) {
+      console.error("Error generating market story:", error);
+      res.status(500).json({ 
+        error: "Failed to generate market story",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+  
+  // Analyze sentiment of custom text
+  app.post("/api/market/story/sentiment", async (req, res) => {
+    try {
+      const { text } = req.body;
+      
+      if (!text || typeof text !== 'string') {
+        return res.status(400).json({ error: "Text is required for sentiment analysis" });
+      }
+      
+      if (text.length > 5000) {
+        return res.status(400).json({ error: "Text is too long (max 5000 characters)" });
+      }
+      
+      const result = await marketStoryService.analyzeSentiment(text);
+      res.json(result);
+    } catch (error) {
+      console.error("Error analyzing sentiment:", error);
+      res.status(500).json({ 
+        error: "Failed to analyze sentiment",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+  
+  // Get market story by ID (if we implement storage later)
+  app.get("/api/market/story/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // For now, return a not implemented response
+      // This can be extended when we add story persistence
+      res.status(404).json({ 
+        error: "Story not found",
+        message: "Story persistence not yet implemented" 
+      });
+    } catch (error) {
+      console.error("Error fetching market story:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch market story",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 

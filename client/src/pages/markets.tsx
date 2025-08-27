@@ -15,14 +15,52 @@ import { Input } from "@/components/ui/input";
 import { useMarketQuote, useMarketIndices } from "@/hooks/use-market-data";
 import { GLOBAL_INDICES } from "@/lib/constants";
 import { useState } from "react";
-import { Search, TrendingUp, TrendingDown, Activity } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { StoryViewer, type MarketStoryData } from "@/components/market/story-viewer";
+import { useToast } from "@/hooks/use-toast";
+import { Search, TrendingUp, TrendingDown, Activity, Sparkles, Zap } from "lucide-react";
 
 export default function Markets() {
   const [searchSymbol, setSearchSymbol] = useState("");
   const [selectedSymbol, setSelectedSymbol] = useState("^NSEI");
+  const [currentStory, setCurrentStory] = useState<MarketStoryData | null>(null);
   
   const { data: indices } = useMarketIndices();
   const { data: symbolQuote } = useMarketQuote(searchSymbol.toUpperCase());
+  const { toast } = useToast();
+
+  // Mutation for generating AI market stories
+  const generateStoryMutation = useMutation({
+    mutationFn: async ({ symbols, useCurrentData = true }: { symbols?: string[], useCurrentData?: boolean }) => {
+      const response = await apiRequest("POST", "/api/market/story/generate", {
+        symbols: symbols || GLOBAL_INDICES.map(idx => idx.symbol),
+        useCurrentData
+      });
+      return response.json();
+    },
+    onSuccess: (storyData: MarketStoryData) => {
+      setCurrentStory(storyData);
+      toast({
+        title: "Market Story Generated!",
+        description: "AI has analyzed the market trends and created your story."
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Story Generation Failed",
+        description: error.message || "Failed to generate market story. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const handleGenerateStory = () => {
+    generateStoryMutation.mutate({ 
+      symbols: GLOBAL_INDICES.map(idx => idx.symbol),
+      useCurrentData: true 
+    });
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,7 +78,29 @@ export default function Markets() {
         
         {/* Page Header */}
         <div className="mb-8" data-testid="markets-header">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">Global, NSE, BSE, MCX, NCDEX & MSEI Markets</h1>
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+            <h1 className="text-3xl font-bold text-gray-900">Global, NSE, BSE, MCX, NCDEX & MSEI Markets</h1>
+            
+            {/* AI Story Generation Button */}
+            <Button
+              onClick={handleGenerateStory}
+              disabled={generateStoryMutation.isPending}
+              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg"
+              data-testid="generate-story-button"
+            >
+              {generateStoryMutation.isPending ? (
+                <>
+                  <Zap className="h-4 w-4 mr-2 animate-spin" />
+                  Generating Story...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  AI Market Story
+                </>
+              )}
+            </Button>
+          </div>
           
           {/* Search Bar */}
           <form onSubmit={handleSearch} className="flex gap-4 max-w-md">
@@ -112,6 +172,16 @@ export default function Markets() {
             })}
           </div>
         </section>
+
+        {/* AI Generated Market Story */}
+        {currentStory && (
+          <section className="mb-8" data-testid="ai-story-section">
+            <StoryViewer 
+              story={currentStory} 
+              onClose={() => setCurrentStory(null)} 
+            />
+          </section>
+        )}
 
         {/* Market Overview */}
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8" data-testid="market-overview">
