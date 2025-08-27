@@ -1,4 +1,5 @@
-import { Client, LocalAuth, Message } from 'whatsapp-web.js';
+import pkg from 'whatsapp-web.js';
+const { Client, LocalAuth, Message } = pkg;
 import qrcode from 'qrcode-terminal';
 
 let whatsappClient: Client | null = null;

@@ -6,6 +6,8 @@ import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSch
 import { marketStoryService, type MarketData as StoryMarketData } from "./market-story-service";
 import { generateMarketInsight, analyzePortfolio, generateInvestmentStory, explainFinancialConcept } from "./gemini";
 import { whatsappService } from "./whatsapp";
+import { marketingService } from "./marketing-automation";
+import { portfolioIntelligence } from "./portfolio-intelligence";
 import { z } from "zod";
 import { NseIndia } from 'stock-nse-india';
 import { createRequire } from 'module';
@@ -3656,6 +3658,127 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error getting WhatsApp chats:", error);
       res.status(500).json({ error: "Failed to get WhatsApp chats" });
+    }
+  });
+
+  // Marketing Automation API endpoints
+  app.post("/api/marketing/campaign", async (req, res) => {
+    try {
+      const { targetAudience } = req.body;
+      const campaign = await marketingService.generateMarketingCampaign(targetAudience || "general");
+      res.json(campaign);
+    } catch (error) {
+      console.error("Error generating marketing campaign:", error);
+      res.status(500).json({ error: "Failed to generate marketing campaign" });
+    }
+  });
+
+  app.post("/api/marketing/send-campaigns", async (req, res) => {
+    try {
+      const { userSegment } = req.body;
+      await marketingService.sendPortfolioMarketingMessages(userSegment || "new_users");
+      res.json({ success: true, message: "Marketing campaigns sent successfully" });
+    } catch (error) {
+      console.error("Error sending marketing campaigns:", error);
+      res.status(500).json({ error: "Failed to send marketing campaigns" });
+    }
+  });
+
+  app.post("/api/marketing/onboarding", async (req, res) => {
+    try {
+      const { phoneNumber, userName } = req.body;
+      if (!phoneNumber || !userName) {
+        return res.status(400).json({ error: "Phone number and user name are required" });
+      }
+      await marketingService.sendOnboardingSequence(phoneNumber, userName);
+      res.json({ success: true, message: "Onboarding sequence initiated" });
+    } catch (error) {
+      console.error("Error sending onboarding sequence:", error);
+      res.status(500).json({ error: "Failed to send onboarding sequence" });
+    }
+  });
+
+  app.post("/api/marketing/market-alerts", async (req, res) => {
+    try {
+      await marketingService.sendMarketAlerts();
+      res.json({ success: true, message: "Market alerts sent successfully" });
+    } catch (error) {
+      console.error("Error sending market alerts:", error);
+      res.status(500).json({ error: "Failed to send market alerts" });
+    }
+  });
+
+  // Portfolio Intelligence API endpoints
+  app.get("/api/portfolio/:userId/optimize", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const optimization = await portfolioIntelligence.optimizePortfolio(userId);
+      res.json(optimization);
+    } catch (error) {
+      console.error("Error optimizing portfolio:", error);
+      res.status(500).json({ error: "Failed to optimize portfolio" });
+    }
+  });
+
+  app.get("/api/portfolio/:userId/report", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const report = await portfolioIntelligence.generatePortfolioReport(userId);
+      res.json({ report });
+    } catch (error) {
+      console.error("Error generating portfolio report:", error);
+      res.status(500).json({ error: "Failed to generate portfolio report" });
+    }
+  });
+
+  app.post("/api/portfolio/:userId/send-update", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { phoneNumber } = req.body;
+      if (!phoneNumber) {
+        return res.status(400).json({ error: "Phone number is required" });
+      }
+      await portfolioIntelligence.sendPortfolioUpdates(userId, phoneNumber);
+      res.json({ success: true, message: "Portfolio update sent successfully" });
+    } catch (error) {
+      console.error("Error sending portfolio update:", error);
+      res.status(500).json({ error: "Failed to send portfolio update" });
+    }
+  });
+
+  app.get("/api/portfolio/:userId/opportunities", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const opportunities = await portfolioIntelligence.findInvestmentOpportunities(userId);
+      res.json(opportunities);
+    } catch (error) {
+      console.error("Error finding investment opportunities:", error);
+      res.status(500).json({ error: "Failed to find investment opportunities" });
+    }
+  });
+
+  app.get("/api/portfolio/:userId/rebalance", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const recommendations = await portfolioIntelligence.getRebalancingRecommendations(userId);
+      res.json(recommendations);
+    } catch (error) {
+      console.error("Error getting rebalancing recommendations:", error);
+      res.status(500).json({ error: "Failed to get rebalancing recommendations" });
+    }
+  });
+
+  app.post("/api/portfolio/daily-insights", async (req, res) => {
+    try {
+      const { subscribers } = req.body;
+      if (!subscribers || !Array.isArray(subscribers)) {
+        return res.status(400).json({ error: "Subscribers array is required" });
+      }
+      await portfolioIntelligence.sendDailyMarketInsights(subscribers);
+      res.json({ success: true, message: "Daily insights sent successfully" });
+    } catch (error) {
+      console.error("Error sending daily insights:", error);
+      res.status(500).json({ error: "Failed to send daily insights" });
     }
   });
 
