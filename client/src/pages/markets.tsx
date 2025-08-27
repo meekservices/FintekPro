@@ -204,7 +204,7 @@ export default function Markets() {
                   <div>
                     <h3 className="font-bold text-xl text-gray-900">{searchSymbol.toUpperCase()}</h3>
                     <p className="text-2xl font-bold text-finance-blue">
-                      ${symbolQuote.c?.toFixed(2)}
+                      ₹{symbolQuote.c?.toFixed(2)}
                     </p>
                   </div>
                   
@@ -212,7 +212,7 @@ export default function Markets() {
                     <div>
                       <p className="text-gray-600">Change</p>
                       <p className={`font-semibold ${symbolQuote.d >= 0 ? 'text-finance-green' : 'text-finance-red'}`}>
-                        {symbolQuote.d >= 0 ? '+' : ''}${symbolQuote.d?.toFixed(2)}
+                        {symbolQuote.d >= 0 ? '+' : ''}₹{symbolQuote.d?.toFixed(2)}
                       </p>
                     </div>
                     <div>
@@ -223,19 +223,19 @@ export default function Markets() {
                     </div>
                     <div>
                       <p className="text-gray-600">High</p>
-                      <p className="font-semibold">${symbolQuote.h?.toFixed(2)}</p>
+                      <p className="font-semibold">₹{symbolQuote.h?.toFixed(2)}</p>
                     </div>
                     <div>
                       <p className="text-gray-600">Low</p>
-                      <p className="font-semibold">${symbolQuote.l?.toFixed(2)}</p>
+                      <p className="font-semibold">₹{symbolQuote.l?.toFixed(2)}</p>
                     </div>
                     <div>
                       <p className="text-gray-600">Open</p>
-                      <p className="font-semibold">${symbolQuote.o?.toFixed(2)}</p>
+                      <p className="font-semibold">₹{symbolQuote.o?.toFixed(2)}</p>
                     </div>
                     <div>
                       <p className="text-gray-600">Prev Close</p>
-                      <p className="font-semibold">${symbolQuote.pc?.toFixed(2)}</p>
+                      <p className="font-semibold">₹{symbolQuote.pc?.toFixed(2)}</p>
                     </div>
                   </div>
                 </div>

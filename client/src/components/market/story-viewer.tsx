@@ -222,7 +222,7 @@ export function StoryViewer({ story, onRefresh, isRefreshing = false }: StoryVie
                     </span>
                   </div>
                   <div className="text-lg font-bold text-gray-900 dark:text-white">
-                    ${data.price.toFixed(2)}
+                    ₹{data.price.toFixed(2)}
                   </div>
                   {data.volume && (
                     <div className="text-xs text-gray-500 mt-1">

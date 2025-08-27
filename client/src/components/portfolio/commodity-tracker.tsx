@@ -131,7 +131,7 @@ export function CommodityTracker({ className }: CommodityTrackerProps) {
                 </div>
                 <div className="text-right">
                   <div className="font-semibold text-gray-900">
-                    ${commodity.price.toFixed(2)}
+                    ₹{commodity.price.toFixed(2)}
                   </div>
                   <div className="flex items-center space-x-1">
                     {commodity.changePercent >= 0 ? (
@@ -146,7 +146,7 @@ export function CommodityTracker({ className }: CommodityTrackerProps) {
                     </span>
                   </div>
                   <div className="text-xs text-gray-500">
-                    {commodity.changePercent >= 0 ? '+' : ''}${commodity.change.toFixed(2)}
+                    {commodity.changePercent >= 0 ? '+' : ''}₹{commodity.change.toFixed(2)}
                   </div>
                 </div>
               </div>

@@ -39,7 +39,7 @@ export const agriculturalTrivia: AgriculturalTrivia[] = [
     title: 'Cardamom: Queen of Spices',
     content: 'Cardamom is one of the world\'s most expensive spices by weight, often called the "Queen of Spices." India produces about 75% of global cardamom, primarily in Kerala and Karnataka. Weather in the Western Ghats directly impacts global prices.',
     relatedTerms: ['cardamom', 'spice', 'Kerala', 'expensive'],
-    funFact: 'Cardamom can cost more than $30 per kilogram, making it worth more than silver!'
+    funFact: 'Cardamom can cost more than ₹2,500 per kilogram, making it worth more than silver!'
   },
   {
     id: 'corn-ethanol',
@@ -135,7 +135,7 @@ export const agriculturalTrivia: AgriculturalTrivia[] = [
     title: 'Guar Gum: From Fields to Oil Wells',
     content: 'Guar gum, derived from guar beans grown mainly in Rajasthan, is essential for hydraulic fracturing (fracking) in oil extraction. About 80% of global guar production comes from India, making it a geopolitically sensitive commodity.',
     relatedTerms: ['guar', 'fracking', 'Rajasthan', 'oil'],
-    funFact: 'The US shale boom made guar prices jump from $1,000 to $10,000 per ton!'
+    funFact: 'The US shale boom made guar prices jump from ₹83,000 to ₹8,30,000 per ton!'
   },
   {
     id: 'cotton-weather',
@@ -183,7 +183,7 @@ export const agriculturalTrivia: AgriculturalTrivia[] = [
     title: 'Tea Auction Markets',
     content: 'Tea trading follows a unique auction system. The Colombo Tea Auction in Sri Lanka and auctions in Kolkata and Kochi set global prices. Tea quality varies dramatically based on elevation, plucking standards, and processing methods.',
     relatedTerms: ['tea', 'auction', 'Colombo', 'quality'],
-    funFact: 'The highest quality tea can sell for over $400 per kilogram at auction!'
+    funFact: 'The highest quality tea can sell for over ₹33,000 per kilogram at auction!'
   },
   {
     id: 'onion-storage',
