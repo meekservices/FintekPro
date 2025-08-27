@@ -11,9 +11,10 @@ import { RebalanceDashboard } from "@/components/dashboard/rebalance-dashboard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calculator, Home as HomeIcon, Percent, Umbrella, CheckCircle, Shield, Database, TrendingUp, Banknote, BarChart3, Coins, Wheat, Building2 } from "lucide-react";
+import { Calculator, Home as HomeIcon, Percent, Umbrella, CheckCircle, Shield, Database, TrendingUp, Banknote, BarChart3, Coins, Wheat, Building2, CreditCard, PiggyBank, FileText, Building, Briefcase, Target, PieChart, Landmark, Receipt, BookOpen } from "lucide-react";
 import { AgriculturalTooltip } from "@/components/agricultural-tooltip";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 
 export default function Home() {
   // Get authenticated user data
@@ -337,6 +338,136 @@ export default function Home() {
                 </ul>
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* Quick Access Services Navigation */}
+        <section className="mb-8" data-testid="services-navigation">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-gray-900">Financial Services</h2>
+            <Badge className="bg-finance-blue text-white text-base px-3 py-1">All Services</Badge>
+          </div>
+          
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+            <Link href="/mutual-funds">
+              <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer group border-l-4 border-l-blue-500">
+                <CardContent className="p-4 text-center">
+                  <PieChart className="h-8 w-8 mx-auto mb-3 text-blue-500 group-hover:scale-110 transition-transform" />
+                  <h3 className="font-semibold text-sm text-gray-900 mb-1">Mutual Funds</h3>
+                  <p className="text-xs text-gray-600">AMFI integrated</p>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link href="/bonds">
+              <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer group border-l-4 border-l-green-500">
+                <CardContent className="p-4 text-center">
+                  <Receipt className="h-8 w-8 mx-auto mb-3 text-green-500 group-hover:scale-110 transition-transform" />
+                  <h3 className="font-semibold text-sm text-gray-900 mb-1">Bonds Trading</h3>
+                  <p className="text-xs text-gray-600">Multi-exchange</p>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link href="/ipo">
+              <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer group border-l-4 border-l-purple-500">
+                <CardContent className="p-4 text-center">
+                  <Building className="h-8 w-8 mx-auto mb-3 text-purple-500 group-hover:scale-110 transition-transform" />
+                  <h3 className="font-semibold text-sm text-gray-900 mb-1">IPO Center</h3>
+                  <p className="text-xs text-gray-600">NSE/BSE IPOs</p>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link href="/loans">
+              <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer group border-l-4 border-l-orange-500">
+                <CardContent className="p-4 text-center">
+                  <CreditCard className="h-8 w-8 mx-auto mb-3 text-orange-500 group-hover:scale-110 transition-transform" />
+                  <h3 className="font-semibold text-sm text-gray-900 mb-1">Loans</h3>
+                  <p className="text-xs text-gray-600">Personal & Home</p>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link href="/nsdl-services">
+              <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer group border-l-4 border-l-red-500">
+                <CardContent className="p-4 text-center">
+                  <Shield className="h-8 w-8 mx-auto mb-3 text-red-500 group-hover:scale-110 transition-transform" />
+                  <h3 className="font-semibold text-sm text-gray-900 mb-1">NSDL Services</h3>
+                  <p className="text-xs text-gray-600">Demat & holdings</p>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link href="/cdsl-services">
+              <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer group border-l-4 border-l-yellow-500">
+                <CardContent className="p-4 text-center">
+                  <Database className="h-8 w-8 mx-auto mb-3 text-yellow-500 group-hover:scale-110 transition-transform" />
+                  <h3 className="font-semibold text-sm text-gray-900 mb-1">CDSL Services</h3>
+                  <p className="text-xs text-gray-600">BO management</p>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link href="/calculators">
+              <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer group border-l-4 border-l-indigo-500">
+                <CardContent className="p-4 text-center">
+                  <Calculator className="h-8 w-8 mx-auto mb-3 text-indigo-500 group-hover:scale-110 transition-transform" />
+                  <h3 className="font-semibold text-sm text-gray-900 mb-1">Calculators</h3>
+                  <p className="text-xs text-gray-600">SIP, EMI, Tax</p>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link href="/agricultural-insights">
+              <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer group border-l-4 border-l-emerald-500">
+                <CardContent className="p-4 text-center">
+                  <Wheat className="h-8 w-8 mx-auto mb-3 text-emerald-500 group-hover:scale-110 transition-transform" />
+                  <h3 className="font-semibold text-sm text-gray-900 mb-1">Agricultural</h3>
+                  <p className="text-xs text-gray-600">NCDEX insights</p>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link href="/capital-gains">
+              <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer group border-l-4 border-l-teal-500">
+                <CardContent className="p-4 text-center">
+                  <FileText className="h-8 w-8 mx-auto mb-3 text-teal-500 group-hover:scale-110 transition-transform" />
+                  <h3 className="font-semibold text-sm text-gray-900 mb-1">Capital Gains</h3>
+                  <p className="text-xs text-gray-600">Tax reports</p>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link href="/achievements">
+              <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer group border-l-4 border-l-pink-500">
+                <CardContent className="p-4 text-center">
+                  <Target className="h-8 w-8 mx-auto mb-3 text-pink-500 group-hover:scale-110 transition-transform" />
+                  <h3 className="font-semibold text-sm text-gray-900 mb-1">Achievements</h3>
+                  <p className="text-xs text-gray-600">Learning goals</p>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link href="/partner">
+              <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer group border-l-4 border-l-cyan-500">
+                <CardContent className="p-4 text-center">
+                  <Briefcase className="h-8 w-8 mx-auto mb-3 text-cyan-500 group-hover:scale-110 transition-transform" />
+                  <h3 className="font-semibold text-sm text-gray-900 mb-1">Partner Portal</h3>
+                  <p className="text-xs text-gray-600">Business tools</p>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link href="/whatsapp-login">
+              <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer group border-l-4 border-l-lime-500">
+                <CardContent className="p-4 text-center">
+                  <BookOpen className="h-8 w-8 mx-auto mb-3 text-lime-500 group-hover:scale-110 transition-transform" />
+                  <h3 className="font-semibold text-sm text-gray-900 mb-1">WhatsApp Auth</h3>
+                  <p className="text-xs text-gray-600">Phone login</p>
+                </CardContent>
+              </Card>
+            </Link>
           </div>
         </section>
 

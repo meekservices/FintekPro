@@ -26,15 +26,8 @@ export function Header() {
   const navigation = [
     { name: "Markets", href: "/markets" },
     { name: "Portfolio", href: "/portfolio" },
-    { name: "Wealth Management", href: "/wealth" },
-    { name: "Calculators", href: "/calculators" },
-    { name: "Agricultural Insights", href: "/agricultural-insights" },
-    { name: "IPO", href: "/ipo" },
-    { name: "Mutual Funds", href: "/mutual-funds" },
-    { name: "Bonds", href: "/bonds" },
-    { name: "Loans", href: "/loans" },
-    { name: "NSDL Services", href: "/nsdl-services" },
-    { name: "CDSL Services", href: "/cdsl-services" },
+    { name: "Investments", href: "/wealth" },
+    { name: "Support", href: "/support" },
   ];
 
   // Add admin navigation for admin clients
