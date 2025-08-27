@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Search, Menu, User, HelpCircle } from "lucide-react";
+import { Menu, User, HelpCircle } from "lucide-react";
 
 interface HeaderProps {
   onStartTutorial?: () => void;
@@ -58,16 +58,6 @@ export function Header({ onStartTutorial }: HeaderProps = {}) {
           </div>
 
           <div className="flex items-center space-x-4">
-            {/* Search */}
-            <div className="relative hidden md:block">
-              <Input
-                type="text"
-                placeholder="Search stocks, MF, news..."
-                className="w-64 pl-10"
-                data-testid="search-input"
-              />
-              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-            </div>
 
             {/* Tutorial Button */}
             {onStartTutorial && (
@@ -98,16 +88,6 @@ export function Header({ onStartTutorial }: HeaderProps = {}) {
               </SheetTrigger>
               <SheetContent side="right" className="w-80">
                 <div className="flex flex-col space-y-4 pt-6">
-                  {/* Mobile Search */}
-                  <div className="relative">
-                    <Input
-                      type="text"
-                      placeholder="Search stocks, MF, news..."
-                      className="pl-10"
-                      data-testid="mobile-search-input"
-                    />
-                    <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                  </div>
 
                   {/* Mobile Navigation */}
                   <nav className="flex flex-col space-y-2">
