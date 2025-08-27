@@ -1070,13 +1070,341 @@ export default function WealthManagement() {
             </div>
 
             {/* Bond Types Tabs */}
-            <Tabs defaultValue="government" className="space-y-6">
-              <TabsList className="grid w-full grid-cols-4">
+            <Tabs defaultValue="listed-bonds" className="space-y-6">
+              <TabsList className="grid w-full grid-cols-5">
+                <TabsTrigger value="listed-bonds" data-testid="tab-listed-bonds">Listed Bonds</TabsTrigger>
                 <TabsTrigger value="government" data-testid="tab-govt-bonds">Government Bonds</TabsTrigger>
                 <TabsTrigger value="corporate" data-testid="tab-corp-bonds">Corporate Bonds</TabsTrigger>
                 <TabsTrigger value="tax-free" data-testid="tab-tax-free-bonds">Tax-Free Bonds</TabsTrigger>
                 <TabsTrigger value="analytics" data-testid="tab-bonds-analytics">Analytics</TabsTrigger>
               </TabsList>
+
+              {/* Listed Bonds from NSE & BSE */}
+              <TabsContent value="listed-bonds" className="space-y-4">
+                <Card data-testid="card-listed-bonds">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="flex items-center gap-2">
+                          <Building2 className="w-5 h-5 text-blue-600" />
+                          NSE & BSE Listed Bonds
+                        </CardTitle>
+                        <CardDescription>Real-time bond data from National Stock Exchange and Bombay Stock Exchange</CardDescription>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Select defaultValue="all">
+                          <SelectTrigger className="w-32">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Exchanges</SelectItem>
+                            <SelectItem value="nse">NSE</SelectItem>
+                            <SelectItem value="bse">BSE</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Select defaultValue="all">
+                          <SelectTrigger className="w-40">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Categories</SelectItem>
+                            <SelectItem value="government">Government</SelectItem>
+                            <SelectItem value="corporate">Corporate</SelectItem>
+                            <SelectItem value="banking">Banking</SelectItem>
+                            <SelectItem value="infrastructure">Infrastructure</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {/* Exchange Summary */}
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-blue-600">8</div>
+                          <div className="text-sm text-muted-foreground">Total Listed</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-green-600">₹7,675 Cr</div>
+                          <div className="text-sm text-muted-foreground">Total Volume</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-purple-600">7.68%</div>
+                          <div className="text-sm text-muted-foreground">Avg Yield</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-orange-600">0.42%</div>
+                          <div className="text-sm text-muted-foreground">Top Gainer</div>
+                        </div>
+                      </div>
+
+                      {/* NSE Listed Bonds */}
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-blue-100 text-blue-800">NSE</Badge>
+                          <h4 className="font-semibold">National Stock Exchange Bonds</h4>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                          {/* NSE Government Security */}
+                          <div className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                            <div className="flex items-center justify-between mb-3">
+                              <div>
+                                <h3 className="font-semibold">7.17% GoI 2028</h3>
+                                <p className="text-sm text-muted-foreground">IN0020240200 • NSE</p>
+                              </div>
+                              <div className="text-right">
+                                <Badge className="bg-blue-100 text-blue-800">SOV</Badge>
+                                <div className="text-sm text-green-600 mt-1">+0.20%</div>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                              <div className="flex justify-between">
+                                <span>Current Price:</span>
+                                <span className="font-medium">₹101.45</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>YTM:</span>
+                                <span className="font-medium text-green-600">7.12%</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Volume:</span>
+                                <span className="font-medium">₹2,850 Cr</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Last Trade:</span>
+                                <span className="font-medium">15:30:00</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between mt-3 pt-3 border-t">
+                              <div className="text-xs text-muted-foreground">
+                                Bid: ₹101.42 | Ask: ₹101.48
+                              </div>
+                              <Button size="sm">Trade Now</Button>
+                            </div>
+                          </div>
+
+                          {/* NSE Corporate Bond */}
+                          <div className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                            <div className="flex items-center justify-between mb-3">
+                              <div>
+                                <h3 className="font-semibold">HDFC Bank 8.25% NCD</h3>
+                                <p className="text-sm text-muted-foreground">INE040A08469 • NSE</p>
+                              </div>
+                              <div className="text-right">
+                                <Badge className="bg-purple-100 text-purple-800">AAA</Badge>
+                                <div className="text-sm text-green-600 mt-1">+0.32%</div>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                              <div className="flex justify-between">
+                                <span>Current Price:</span>
+                                <span className="font-medium">₹1,028.75</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>YTM:</span>
+                                <span className="font-medium text-green-600">8.15%</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Volume:</span>
+                                <span className="font-medium">₹1,245 Cr</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Duration:</span>
+                                <span className="font-medium">2.8 years</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between mt-3 pt-3 border-t">
+                              <div className="text-xs text-muted-foreground">
+                                Bid: ₹1,028.50 | Ask: ₹1,029.00
+                              </div>
+                              <Button size="sm">Trade Now</Button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* BSE Listed Bonds */}
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-orange-100 text-orange-800">BSE</Badge>
+                          <h4 className="font-semibold">Bombay Stock Exchange Bonds</h4>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                          {/* BSE Government Security */}
+                          <div className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                            <div className="flex items-center justify-between mb-3">
+                              <div>
+                                <h3 className="font-semibold">7.17% GoI Security</h3>
+                                <p className="text-sm text-muted-foreground">970GS2028 • BSE</p>
+                              </div>
+                              <div className="text-right">
+                                <Badge className="bg-blue-100 text-blue-800">SOV</Badge>
+                                <div className="text-sm text-green-600 mt-1">+0.13%</div>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                              <div className="flex justify-between">
+                                <span>Current Price:</span>
+                                <span className="font-medium">₹101.38</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>YTM:</span>
+                                <span className="font-medium text-green-600">7.14%</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Volume:</span>
+                                <span className="font-medium">₹1,850 Cr</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Last Trade:</span>
+                                <span className="font-medium">15:29:00</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between mt-3 pt-3 border-t">
+                              <div className="text-xs text-muted-foreground">
+                                Bid: ₹101.35 | Ask: ₹101.41
+                              </div>
+                              <Button size="sm">Trade Now</Button>
+                            </div>
+                          </div>
+
+                          {/* BSE Tax-Free Bond */}
+                          <div className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                            <div className="flex items-center justify-between mb-3">
+                              <div>
+                                <h3 className="font-semibold">NHAI 7.35% Tax-Free</h3>
+                                <p className="text-sm text-muted-foreground">973612 • BSE</p>
+                              </div>
+                              <div className="text-right">
+                                <Badge className="bg-green-100 text-green-800">Tax-Free</Badge>
+                                <div className="text-sm text-green-600 mt-1">+0.32%</div>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                              <div className="flex justify-between">
+                                <span>Current Price:</span>
+                                <span className="font-medium">₹1,018.45</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>YTM:</span>
+                                <span className="font-medium text-green-600">7.28%</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Volume:</span>
+                                <span className="font-medium">₹480 Cr</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Duration:</span>
+                                <span className="font-medium">9.8 years</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between mt-3 pt-3 border-t">
+                              <div className="text-xs text-muted-foreground">
+                                Bid: ₹1,018.00 | Ask: ₹1,019.00
+                              </div>
+                              <Button size="sm">Trade Now</Button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Market Activity Table */}
+                      <div className="border rounded-lg">
+                        <div className="p-4 border-b">
+                          <h4 className="font-semibold">Live Bond Market Activity</h4>
+                          <p className="text-sm text-muted-foreground">Real-time trading data from NSE & BSE</p>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Symbol</TableHead>
+                                <TableHead>Exchange</TableHead>
+                                <TableHead>Price</TableHead>
+                                <TableHead>Change</TableHead>
+                                <TableHead>YTM</TableHead>
+                                <TableHead>Volume</TableHead>
+                                <TableHead>Rating</TableHead>
+                                <TableHead>Action</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              <TableRow>
+                                <TableCell>
+                                  <div>
+                                    <div className="font-medium">7.17% GoI 2028</div>
+                                    <div className="text-xs text-muted-foreground">IN0020240200</div>
+                                  </div>
+                                </TableCell>
+                                <TableCell><Badge className="bg-blue-100 text-blue-800">NSE</Badge></TableCell>
+                                <TableCell className="font-medium">₹101.45</TableCell>
+                                <TableCell className="text-green-600">+0.20%</TableCell>
+                                <TableCell>7.12%</TableCell>
+                                <TableCell>₹2,850 Cr</TableCell>
+                                <TableCell><Badge>SOV</Badge></TableCell>
+                                <TableCell><Button size="sm">Trade</Button></TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>
+                                  <div>
+                                    <div className="font-medium">HDFC 8.25% NCD</div>
+                                    <div className="text-xs text-muted-foreground">INE040A08469</div>
+                                  </div>
+                                </TableCell>
+                                <TableCell><Badge className="bg-blue-100 text-blue-800">NSE</Badge></TableCell>
+                                <TableCell className="font-medium">₹1,028.75</TableCell>
+                                <TableCell className="text-green-600">+0.32%</TableCell>
+                                <TableCell>8.15%</TableCell>
+                                <TableCell>₹1,245 Cr</TableCell>
+                                <TableCell><Badge>AAA</Badge></TableCell>
+                                <TableCell><Button size="sm">Trade</Button></TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>
+                                  <div>
+                                    <div className="font-medium">NHAI Tax-Free</div>
+                                    <div className="text-xs text-muted-foreground">973612</div>
+                                  </div>
+                                </TableCell>
+                                <TableCell><Badge className="bg-orange-100 text-orange-800">BSE</Badge></TableCell>
+                                <TableCell className="font-medium">₹1,018.45</TableCell>
+                                <TableCell className="text-green-600">+0.32%</TableCell>
+                                <TableCell>7.28%</TableCell>
+                                <TableCell>₹480 Cr</TableCell>
+                                <TableCell><Badge>AAA</Badge></TableCell>
+                                <TableCell><Button size="sm">Trade</Button></TableCell>
+                              </TableRow>
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </div>
+
+                      {/* Additional Features */}
+                      <div className="border-t pt-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-semibold">Exchange Bond Features</h4>
+                            <p className="text-sm text-muted-foreground">Live pricing, real-time trades, and institutional-grade bonds</p>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button variant="outline">
+                              <Download className="w-4 h-4 mr-2" />
+                              Export Data
+                            </Button>
+                            <Button>
+                              <Eye className="w-4 h-4 mr-2" />
+                              View All Listed
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
               {/* Government Bonds */}
               <TabsContent value="government" className="space-y-4">
