@@ -5450,6 +5450,221 @@ System Security Data:`;
 
   // ============ END PARTNER PORTAL ROUTES ============
 
+  // ============ ACHIEVEMENT SYSTEM ROUTES ============
+
+  // Get user achievements with their progress
+  app.get("/api/achievements/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      
+      // Mock achievement data for demo purposes
+      const achievements = [
+        {
+          id: '1',
+          achievementId: 'first-portfolio',
+          userId: userId,
+          earnedAt: new Date().toISOString(),
+          progress: '100',
+          isCompleted: true,
+          sharedCount: 2,
+          achievement: {
+            id: 'first-portfolio',
+            name: 'Portfolio Pioneer',
+            description: 'Created your first investment portfolio',
+            points: 100,
+            difficulty: 'beginner',
+            category: 'Portfolio Management',
+            shareTemplate: '🎯 Just created my first investment portfolio on FintekPro!'
+          }
+        },
+        {
+          id: '2',
+          achievementId: 'portfolio-diversifier',
+          userId: userId,
+          earnedAt: new Date().toISOString(),
+          progress: '75',
+          isCompleted: false,
+          sharedCount: 0,
+          achievement: {
+            id: 'portfolio-diversifier',
+            name: 'Diversification Master',
+            description: 'Diversify your portfolio across 5 different asset classes',
+            points: 250,
+            difficulty: 'intermediate',
+            category: 'Portfolio Management'
+          }
+        },
+        {
+          id: '3',
+          achievementId: 'learning-streak',
+          userId: userId,
+          earnedAt: new Date().toISOString(),
+          progress: '100',
+          isCompleted: true,
+          sharedCount: 1,
+          achievement: {
+            id: 'learning-streak',
+            name: 'Knowledge Seeker',
+            description: 'Completed 10 financial learning modules',
+            points: 200,
+            difficulty: 'intermediate',
+            category: 'Learning & Education'
+          }
+        }
+      ];
+      
+      res.json(achievements);
+    } catch (error) {
+      console.error("Error fetching user achievements:", error);
+      res.status(500).json({ error: "Failed to fetch achievements" });
+    }
+  });
+
+  // Get user achievement statistics
+  app.get("/api/achievements/stats/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      
+      // Mock stats for demo
+      const stats = {
+        totalPoints: 300,
+        completedAchievements: 2,
+        categories: {
+          'Portfolio Management': 1,
+          'Learning & Education': 1
+        }
+      };
+      
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching achievement stats:", error);
+      res.status(500).json({ error: "Failed to fetch achievement stats" });
+    }
+  });
+
+  // Get achievement leaderboard
+  app.get("/api/achievements/leaderboard", async (req, res) => {
+    try {
+      const { limit = 10 } = req.query;
+      
+      // Mock leaderboard data
+      const leaderboard = [
+        {
+          userId: 'user-1',
+          totalPoints: 1250,
+          completedAchievements: 8,
+          user: { id: 'user-1', firstName: 'Alex', lastName: 'Johnson', email: 'alex@example.com' }
+        },
+        {
+          userId: 'demo-user-1',
+          totalPoints: 300,
+          completedAchievements: 2,
+          user: { id: 'demo-user-1', firstName: 'Demo', lastName: 'User', email: 'demo@example.com' }
+        },
+        {
+          userId: 'user-3',
+          totalPoints: 180,
+          completedAchievements: 3,
+          user: { id: 'user-3', firstName: 'Sarah', lastName: 'Wilson', email: 'sarah@example.com' }
+        }
+      ].slice(0, Number(limit));
+      
+      res.json(leaderboard);
+    } catch (error) {
+      console.error("Error fetching leaderboard:", error);
+      res.status(500).json({ error: "Failed to fetch leaderboard" });
+    }
+  });
+
+  // Create social share record
+  app.post("/api/achievements/share", async (req, res) => {
+    try {
+      const { achievementId, userId, platform, shareUrl, shareContent } = req.body;
+      
+      // Mock social share creation
+      const share = {
+        id: Date.now().toString(),
+        achievementId,
+        userId,
+        platform,
+        shareUrl,
+        shareContent,
+        createdAt: new Date().toISOString(),
+        engagementData: {}
+      };
+      
+      res.status(201).json(share);
+    } catch (error) {
+      console.error("Error creating social share:", error);
+      res.status(500).json({ error: "Failed to create social share" });
+    }
+  });
+
+  // Record learning progress
+  app.post("/api/achievements/progress", async (req, res) => {
+    try {
+      const { userId, action, category, metadata } = req.body;
+      
+      // Mock progress recording
+      const progress = {
+        id: Date.now().toString(),
+        userId,
+        action,
+        category,
+        metadata,
+        createdAt: new Date().toISOString()
+      };
+      
+      // Check for any achievements that should be triggered
+      // This would be implemented based on business logic
+      
+      res.status(201).json(progress);
+    } catch (error) {
+      console.error("Error recording progress:", error);
+      res.status(500).json({ error: "Failed to record progress" });
+    }
+  });
+
+  // Get all achievement categories
+  app.get("/api/achievements/categories", async (req, res) => {
+    try {
+      // Mock categories
+      const categories = [
+        {
+          id: 'portfolio',
+          name: 'Portfolio Management',
+          description: 'Master the art of portfolio construction and management',
+          color: '#3B82F6'
+        },
+        {
+          id: 'learning',
+          name: 'Learning & Education',
+          description: 'Expand your financial knowledge and expertise',
+          color: '#10B981'
+        },
+        {
+          id: 'trading',
+          name: 'Trading',
+          description: 'Develop trading skills and market understanding',
+          color: '#F59E0B'
+        },
+        {
+          id: 'risk',
+          name: 'Risk Management',
+          description: 'Learn to assess and manage investment risks',
+          color: '#EF4444'
+        }
+      ];
+      
+      res.json(categories);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+      res.status(500).json({ error: "Failed to fetch categories" });
+    }
+  });
+
+  // ============ END ACHIEVEMENT SYSTEM ROUTES ============
+
   const httpServer = createServer(app);
   return httpServer;
 }

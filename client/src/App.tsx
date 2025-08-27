@@ -21,6 +21,7 @@ import AdminPanel from "@/pages/admin-panel";
 import PartnerPortal from "@/pages/partner-portal";
 import Support from "@/pages/support";
 import WealthManagement from "@/pages/wealth-management";
+import Achievements from "@/pages/achievements";
 
 function Router() {
   return (
@@ -43,6 +44,7 @@ function Router() {
       <Route path="/partner" component={PartnerPortal} />
       <Route path="/support" component={Support} />
       <Route path="/wealth" component={WealthManagement} />
+      <Route path="/achievements" component={Achievements} />
       <Route component={NotFound} />
     </Switch>
   );

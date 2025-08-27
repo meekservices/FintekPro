@@ -532,6 +532,106 @@ export const insertCustomerCareAgentSchema = createInsertSchema(customerCareAgen
 export type InsertCustomerCareAgent = z.infer<typeof insertCustomerCareAgentSchema>;
 export type CustomerCareAgent = typeof customerCareAgents.$inferSelect;
 
+// Achievement Categories Table
+export const achievementCategories = pgTable("achievement_categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description"),
+  icon: varchar("icon", { length: 50 }),
+  color: varchar("color", { length: 20 }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Achievements Table
+export const achievements = pgTable("achievements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  categoryId: varchar("category_id").references(() => achievementCategories.id),
+  name: varchar("name", { length: 200 }).notNull(),
+  description: text("description").notNull(),
+  icon: varchar("icon", { length: 50 }),
+  badgeImage: varchar("badge_image", { length: 255 }),
+  points: integer("points").default(0),
+  difficulty: varchar("difficulty", { length: 20 }).default('beginner'), // beginner, intermediate, advanced, expert
+  requirements: jsonb("requirements"), // JSON object defining achievement criteria
+  shareTemplate: text("share_template"), // Template for social sharing
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// User Achievements Table (comprehensive)
+export const userAchievements = pgTable("user_achievements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  achievementId: varchar("achievement_id").references(() => achievements.id),
+  earnedAt: timestamp("earned_at").defaultNow(),
+  progress: decimal("progress", { precision: 5, scale: 2 }).default('0'), // 0-100%
+  isCompleted: boolean("is_completed").default(false),
+  sharedCount: integer("shared_count").default(0),
+  lastSharedAt: timestamp("last_shared_at"),
+  metadata: jsonb("metadata"), // Additional data like specific values achieved
+});
+
+// Learning Progress Table
+export const learningProgress = pgTable("learning_progress", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  category: varchar("category", { length: 100 }).notNull(), // portfolio, trading, analysis, etc.
+  action: varchar("action", { length: 100 }).notNull(), // specific action taken
+  value: decimal("value", { precision: 15, scale: 2 }), // numerical value if applicable
+  metadata: jsonb("metadata"), // additional context
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Social Shares Table
+export const socialShares = pgTable("social_shares", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  achievementId: varchar("achievement_id").references(() => achievements.id),
+  platform: varchar("platform", { length: 50 }).notNull(), // twitter, linkedin, facebook, whatsapp
+  shareUrl: text("share_url"),
+  shareContent: text("share_content"),
+  engagementData: jsonb("engagement_data"), // likes, shares, comments if available
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Export types for achievements
+export type AchievementCategory = typeof achievementCategories.$inferSelect;
+export type InsertAchievementCategory = typeof achievementCategories.$inferInsert;
+
+export type Achievement = typeof achievements.$inferSelect;
+export type InsertAchievement = typeof achievements.$inferInsert;
+
+export type UserAchievement = typeof userAchievements.$inferSelect;
+export type InsertUserAchievement = typeof userAchievements.$inferInsert;
+
+export type LearningProgress = typeof learningProgress.$inferSelect;
+export type InsertLearningProgress = typeof learningProgress.$inferInsert;
+
+export type SocialShare = typeof socialShares.$inferSelect;
+export type InsertSocialShare = typeof socialShares.$inferInsert;
+
+// Zod schemas for validation
+export const insertAchievementCategorySchema = createInsertSchema(achievementCategories).omit({
+  id: true,
+  createdAt: true,
+});
+export const insertAchievementSchema = createInsertSchema(achievements).omit({
+  id: true,
+  createdAt: true,
+});
+export const insertUserAchievementSchema = createInsertSchema(userAchievements).omit({
+  id: true,
+  earnedAt: true,
+});
+export const insertLearningProgressSchema = createInsertSchema(learningProgress).omit({
+  id: true,
+  createdAt: true,
+});
+export const insertSocialShareSchema = createInsertSchema(socialShares).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertAgentPartnerMappingSchema = createInsertSchema(agentPartnerMappings).omit({
   id: true,
   createdAt: true,
@@ -606,17 +706,7 @@ export const userProgress = pgTable("user_progress", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const userAchievements = pgTable("user_achievements", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  achievementType: varchar("achievement_type").notNull(), // 'module_complete', 'streak', 'score', 'badge'
-  achievementKey: varchar("achievement_key").notNull(),
-  title: text("title").notNull(),
-  description: text("description"),
-  iconUrl: text("icon_url"),
-  pointsEarned: integer("points_earned").default(0),
-  earnedAt: timestamp("earned_at").defaultNow(),
-});
+// Removed duplicate userAchievements table - using the comprehensive version above
 
 export const userStats = pgTable("user_stats", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -653,10 +743,7 @@ export const insertUserProgressSchema = createInsertSchema(userProgress).omit({
   updatedAt: true,
 });
 
-export const insertUserAchievementSchema = createInsertSchema(userAchievements).omit({
-  id: true,
-  earnedAt: true,
-});
+// Removed duplicate insertUserAchievementSchema - using the comprehensive version above
 
 export const insertUserStatsSchema = createInsertSchema(userStats).omit({
   id: true,
@@ -672,8 +759,7 @@ export type LearningQuiz = typeof learningQuizzes.$inferSelect;
 export type InsertLearningQuiz = z.infer<typeof insertLearningQuizSchema>;
 export type UserProgress = typeof userProgress.$inferSelect;
 export type InsertUserProgress = z.infer<typeof insertUserProgressSchema>;
-export type UserAchievement = typeof userAchievements.$inferSelect;
-export type InsertUserAchievement = z.infer<typeof insertUserAchievementSchema>;
+// Removed duplicate UserAchievement type - using the comprehensive version above
 export type UserStats = typeof userStats.$inferSelect;
 export type InsertUserStats = z.infer<typeof insertUserStatsSchema>;
 

@@ -108,6 +108,37 @@ export interface IStorage {
   getAgentPartnerMappings(agentId?: string, partnerId?: string): Promise<AgentPartnerMapping[]>;
   updateAgentPartnerMapping(id: string, updates: Partial<AgentPartnerMapping>): Promise<AgentPartnerMapping | undefined>;
   deleteAgentPartnerMapping(id: string): Promise<boolean>;
+
+  // Achievement System Methods
+  // Achievement Categories
+  getAllAchievementCategories(): Promise<AchievementCategory[]>;
+  createAchievementCategory(category: InsertAchievementCategory): Promise<AchievementCategory>;
+  
+  // Achievements
+  getAllAchievements(): Promise<Achievement[]>;
+  getAchievementsByCategory(categoryId: string): Promise<Achievement[]>;
+  createAchievement(achievement: InsertAchievement): Promise<Achievement>;
+  updateAchievement(id: string, updates: Partial<Achievement>): Promise<Achievement | undefined>;
+  
+  // User Achievements
+  getUserAchievements(userId: string): Promise<UserAchievement[]>;
+  getUserAchievement(userId: string, achievementId: string): Promise<UserAchievement | undefined>;
+  createUserAchievement(userAchievement: InsertUserAchievement): Promise<UserAchievement>;
+  updateUserAchievementProgress(id: string, progress: number, metadata?: any): Promise<UserAchievement | undefined>;
+  markAchievementCompleted(id: string): Promise<UserAchievement | undefined>;
+  
+  // Learning Progress Tracking
+  recordLearningProgress(progress: InsertLearningProgress): Promise<LearningProgress>;
+  getUserLearningProgress(userId: string, category?: string): Promise<LearningProgress[]>;
+  
+  // Social Sharing
+  createSocialShare(share: InsertSocialShare): Promise<SocialShare>;
+  getUserSocialShares(userId: string): Promise<SocialShare[]>;
+  updateShareEngagement(id: string, engagementData: any): Promise<SocialShare | undefined>;
+  
+  // Achievement Analytics
+  getUserAchievementStats(userId: string): Promise<{ totalPoints: number; completedAchievements: number; categories: Record<string, number> }>;
+  getAchievementLeaderboard(limit?: number): Promise<Array<{ userId: string; totalPoints: number; completedAchievements: number; user?: User }>>;
 }
 
 export class MemStorage implements IStorage {
