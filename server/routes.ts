@@ -12,6 +12,7 @@ import { adminService } from "./admin-service";
 import { partnerService } from "./partner-service";
 import { z } from "zod";
 import { NseIndia } from 'stock-nse-india';
+import { sebiAPI } from "./sebi-api";
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const API = require('indian-stock-exchange');
@@ -10253,6 +10254,165 @@ System Security Data:`;
   });
 
   // ============ END ADMIN REPORTS EXPORT ROUTES ============
+
+  // SEBI API endpoints
+  app.get('/api/sebi/companies/:companyId', async (req, res) => {
+    try {
+      const companyDetails = await sebiAPI.getCompanyDetails(req.params.companyId);
+      res.json(companyDetails);
+    } catch (error) {
+      console.error('Error fetching SEBI company details:', error);
+      res.status(500).json({ error: 'Failed to fetch company details from SEBI' });
+    }
+  });
+
+  app.get('/api/sebi/companies/search/:query', async (req, res) => {
+    try {
+      const companies = await sebiAPI.searchCompanies(req.params.query);
+      res.json(companies);
+    } catch (error) {
+      console.error('Error searching SEBI companies:', error);
+      res.status(500).json({ error: 'Failed to search companies in SEBI database' });
+    }
+  });
+
+  app.get('/api/sebi/mutual-funds', async (req, res) => {
+    try {
+      const mutualFunds = await sebiAPI.getAllMutualFunds();
+      res.json(mutualFunds);
+    } catch (error) {
+      console.error('Error fetching SEBI mutual funds:', error);
+      res.status(500).json({ error: 'Failed to fetch mutual funds from SEBI' });
+    }
+  });
+
+  app.get('/api/sebi/mutual-funds/:amcId', async (req, res) => {
+    try {
+      const fundDetails = await sebiAPI.getMutualFundDetails(req.params.amcId);
+      res.json(fundDetails);
+    } catch (error) {
+      console.error('Error fetching SEBI mutual fund details:', error);
+      res.status(500).json({ error: 'Failed to fetch mutual fund details from SEBI' });
+    }
+  });
+
+  app.get('/api/sebi/aif', async (req, res) => {
+    try {
+      const category = req.query.category as string;
+      const aifs = category ? await sebiAPI.getAIFsByCategory(category) : await sebiAPI.getAllAIFs();
+      res.json(aifs);
+    } catch (error) {
+      console.error('Error fetching SEBI AIFs:', error);
+      res.status(500).json({ error: 'Failed to fetch AIFs from SEBI' });
+    }
+  });
+
+  app.get('/api/sebi/aif/:aifId', async (req, res) => {
+    try {
+      const aifDetails = await sebiAPI.getAIFDetails(req.params.aifId);
+      res.json(aifDetails);
+    } catch (error) {
+      console.error('Error fetching SEBI AIF details:', error);
+      res.status(500).json({ error: 'Failed to fetch AIF details from SEBI' });
+    }
+  });
+
+  app.get('/api/sebi/portfolio-managers', async (req, res) => {
+    try {
+      const portfolioManagers = await sebiAPI.getAllPortfolioManagers();
+      res.json(portfolioManagers);
+    } catch (error) {
+      console.error('Error fetching SEBI portfolio managers:', error);
+      res.status(500).json({ error: 'Failed to fetch portfolio managers from SEBI' });
+    }
+  });
+
+  app.get('/api/sebi/portfolio-managers/:pmId', async (req, res) => {
+    try {
+      const pmDetails = await sebiAPI.getPortfolioManagerDetails(req.params.pmId);
+      res.json(pmDetails);
+    } catch (error) {
+      console.error('Error fetching SEBI portfolio manager details:', error);
+      res.status(500).json({ error: 'Failed to fetch portfolio manager details from SEBI' });
+    }
+  });
+
+  app.get('/api/sebi/enforcement-actions', async (req, res) => {
+    try {
+      const fromDate = req.query.fromDate as string;
+      const toDate = req.query.toDate as string;
+      const actions = await sebiAPI.getEnforcementActions(fromDate, toDate);
+      res.json(actions);
+    } catch (error) {
+      console.error('Error fetching SEBI enforcement actions:', error);
+      res.status(500).json({ error: 'Failed to fetch enforcement actions from SEBI' });
+    }
+  });
+
+  app.get('/api/sebi/companies/:companyId/filings', async (req, res) => {
+    try {
+      const type = req.query.type as string;
+      const filings = await sebiAPI.getCompanyFilings(req.params.companyId, type);
+      res.json(filings);
+    } catch (error) {
+      console.error('Error fetching SEBI company filings:', error);
+      res.status(500).json({ error: 'Failed to fetch company filings from SEBI' });
+    }
+  });
+
+  app.get('/api/sebi/companies/:companyId/insider-trading', async (req, res) => {
+    try {
+      const fromDate = req.query.fromDate as string;
+      const toDate = req.query.toDate as string;
+      const insiderData = await sebiAPI.getInsiderTradingData(req.params.companyId, fromDate, toDate);
+      res.json(insiderData);
+    } catch (error) {
+      console.error('Error fetching SEBI insider trading data:', error);
+      res.status(500).json({ error: 'Failed to fetch insider trading data from SEBI' });
+    }
+  });
+
+  app.get('/api/sebi/companies/:companyId/shareholding', async (req, res) => {
+    try {
+      const quarter = req.query.quarter as string;
+      const year = req.query.year as string;
+      const shareholding = await sebiAPI.getShareholdingPattern(req.params.companyId, quarter, year);
+      res.json(shareholding);
+    } catch (error) {
+      console.error('Error fetching SEBI shareholding pattern:', error);
+      res.status(500).json({ error: 'Failed to fetch shareholding pattern from SEBI' });
+    }
+  });
+
+  app.get('/api/sebi/research-analysts', async (req, res) => {
+    try {
+      const analysts = await sebiAPI.getResearchAnalysts();
+      res.json(analysts);
+    } catch (error) {
+      console.error('Error fetching SEBI research analysts:', error);
+      res.status(500).json({ error: 'Failed to fetch research analysts from SEBI' });
+    }
+  });
+
+  app.get('/api/sebi/investment-advisers', async (req, res) => {
+    try {
+      const advisers = await sebiAPI.getInvestmentAdvisers();
+      res.json(advisers);
+    } catch (error) {
+      console.error('Error fetching SEBI investment advisers:', error);
+      res.status(500).json({ error: 'Failed to fetch investment advisers from SEBI' });
+    }
+  });
+
+  app.get('/api/sebi/exchanges', async (req, res) => {
+    try {
+      const exchanges = await sebiAPI.getStockExchanges();
+      res.json(exchanges);
+    } catch (error) {
+      console.error('Error fetching SEBI exchanges:', error);
+      res.status(500).json({ error: 'Failed to fetch exchanges from SEBI' });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;
