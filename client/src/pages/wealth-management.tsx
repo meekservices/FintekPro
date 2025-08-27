@@ -75,6 +75,7 @@ export default function WealthManagement() {
             <TabsTrigger value="family" data-testid="tab-family">Family Account</TabsTrigger>
             <TabsTrigger value="pms" data-testid="tab-pms">PMS</TabsTrigger>
             <TabsTrigger value="pre-ipo" data-testid="tab-pre-ipo">Pre-IPO</TabsTrigger>
+            <TabsTrigger value="aif" data-testid="tab-aif">AIF</TabsTrigger>
             <TabsTrigger value="debentures" data-testid="tab-debentures">Debentures</TabsTrigger>
             <TabsTrigger value="newsletter" data-testid="tab-newsletter">Newsletter</TabsTrigger>
           </TabsList>
@@ -249,6 +250,10 @@ export default function WealthManagement() {
                   <div className="text-center p-4 border rounded-lg hover:bg-accent cursor-pointer" data-testid="product-pre-ipo">
                     <Star className="w-8 h-8 mx-auto mb-2 text-yellow-600" />
                     <h3 className="font-medium text-sm">Pre-IPO</h3>
+                  </div>
+                  <div className="text-center p-4 border rounded-lg hover:bg-accent cursor-pointer" data-testid="product-aif">
+                    <Target className="w-8 h-8 mx-auto mb-2 text-indigo-600" />
+                    <h3 className="font-medium text-sm">AIF</h3>
                   </div>
                 </div>
               </CardContent>
@@ -502,6 +507,233 @@ export default function WealthManagement() {
                 <CreditCard className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
                 <h3 className="text-lg font-semibold mb-2">Market Linked Debentures</h3>
                 <p className="text-muted-foreground">Debenture investments coming soon...</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="aif" className="space-y-6">
+            {/* AIF Overview */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <Card data-testid="card-aif-overview">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Target className="w-5 h-5 text-indigo-600" />
+                    Alternative Investment Funds
+                  </CardTitle>
+                  <CardDescription>SEBI regulated high-return investment vehicles</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">Category I AIF</span>
+                      <Badge className="bg-green-100 text-green-800">Available</Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">Category II AIF</span>
+                      <Badge className="bg-blue-100 text-blue-800">Available</Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">Category III AIF</span>
+                      <Badge className="bg-purple-100 text-purple-800">Available</Badge>
+                    </div>
+                  </div>
+                  <div className="border rounded-lg p-3 bg-indigo-50">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">Minimum Investment</span>
+                      <span className="text-lg font-bold">₹1 Crore</span>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      For qualified investors only
+                    </div>
+                  </div>
+                  <Button className="w-full" data-testid="button-explore-aif">
+                    <Target className="w-4 h-4 mr-2" />
+                    Explore AIF Options
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* AIF Categories */}
+              <Card data-testid="card-aif-categories">
+                <CardHeader>
+                  <CardTitle>AIF Categories</CardTitle>
+                  <CardDescription>Different types for diverse strategies</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="p-3 border rounded-lg hover:bg-accent cursor-pointer">
+                    <div className="font-medium flex items-center gap-2">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      Category I - Social Venture
+                    </div>
+                    <div className="text-sm text-muted-foreground mt-1">
+                      Infrastructure, SME, social venture funds
+                    </div>
+                    <div className="text-xs text-green-600 mt-1">Tax benefits available</div>
+                  </div>
+                  <div className="p-3 border rounded-lg hover:bg-accent cursor-pointer">
+                    <div className="font-medium flex items-center gap-2">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                      Category II - Private Equity
+                    </div>
+                    <div className="text-sm text-muted-foreground mt-1">
+                      PE, VC, debt funds, funds of funds
+                    </div>
+                    <div className="text-xs text-blue-600 mt-1">No specific incentives</div>
+                  </div>
+                  <div className="p-3 border rounded-lg hover:bg-accent cursor-pointer">
+                    <div className="font-medium flex items-center gap-2">
+                      <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                      Category III - Hedge Funds
+                    </div>
+                    <div className="text-sm text-muted-foreground mt-1">
+                      Complex strategies, derivatives trading
+                    </div>
+                    <div className="text-xs text-purple-600 mt-1">Higher risk, higher returns</div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Investment Performance */}
+              <Card data-testid="card-aif-performance">
+                <CardHeader>
+                  <CardTitle>Performance Highlights</CardTitle>
+                  <CardDescription>Track record of AIF investments</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">Average IRR</span>
+                      <span className="text-lg font-bold text-green-600">18.5%</span>
+                    </div>
+                    <Progress value={75} className="h-2" />
+                    <div className="text-sm text-muted-foreground">
+                      Based on 3-year average returns
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">Fund Size</span>
+                      <span className="text-lg font-bold text-blue-600">₹2,456 Cr</span>
+                    </div>
+                    <Progress value={60} className="h-2" />
+                    <div className="text-sm text-muted-foreground">
+                      Total AUM across all categories
+                    </div>
+                  </div>
+                  <div className="p-3 bg-yellow-50 rounded-lg">
+                    <div className="font-medium text-yellow-900">Key Benefits</div>
+                    <div className="text-sm text-yellow-700 mt-1">
+                      • Portfolio diversification<br/>
+                      • Professional fund management<br/>
+                      • Access to unique strategies<br/>
+                      • Potential for higher returns
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Available AIF Funds */}
+            <Card data-testid="card-available-aif-funds">
+              <CardHeader>
+                <CardTitle>Available AIF Funds</CardTitle>
+                <CardDescription>Curated selection of top-performing Alternative Investment Funds</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="border rounded-lg p-4 hover:bg-accent cursor-pointer">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-semibold">IndiaCorp Growth Fund</h3>
+                        <Badge className="bg-green-100 text-green-800">Cat II</Badge>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span>Fund Size:</span>
+                          <span className="font-medium">₹450 Cr</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Min Investment:</span>
+                          <span className="font-medium">₹1 Cr</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>3Y IRR:</span>
+                          <span className="font-medium text-green-600">22.4%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Lock-in Period:</span>
+                          <span className="font-medium">3 Years</span>
+                        </div>
+                      </div>
+                      <Button size="sm" className="w-full mt-3">View Details</Button>
+                    </div>
+
+                    <div className="border rounded-lg p-4 hover:bg-accent cursor-pointer">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-semibold">Tech Innovation Fund</h3>
+                        <Badge className="bg-blue-100 text-blue-800">Cat II</Badge>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span>Fund Size:</span>
+                          <span className="font-medium">₹275 Cr</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Min Investment:</span>
+                          <span className="font-medium">₹1 Cr</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>3Y IRR:</span>
+                          <span className="font-medium text-green-600">19.8%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Lock-in Period:</span>
+                          <span className="font-medium">5 Years</span>
+                        </div>
+                      </div>
+                      <Button size="sm" className="w-full mt-3">View Details</Button>
+                    </div>
+
+                    <div className="border rounded-lg p-4 hover:bg-accent cursor-pointer">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-semibold">Infrastructure Debt Fund</h3>
+                        <Badge className="bg-green-100 text-green-800">Cat I</Badge>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span>Fund Size:</span>
+                          <span className="font-medium">₹680 Cr</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Min Investment:</span>
+                          <span className="font-medium">₹1 Cr</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>3Y IRR:</span>
+                          <span className="font-medium text-green-600">16.2%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Lock-in Period:</span>
+                          <span className="font-medium">7 Years</span>
+                        </div>
+                      </div>
+                      <Button size="sm" className="w-full mt-3">View Details</Button>
+                    </div>
+                  </div>
+                  
+                  <div className="border-t pt-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-semibold">Ready to invest in AIF?</h4>
+                        <p className="text-sm text-muted-foreground">Schedule a consultation with our investment advisors</p>
+                      </div>
+                      <Button data-testid="button-schedule-consultation">
+                        <Users className="w-4 h-4 mr-2" />
+                        Schedule Consultation
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
