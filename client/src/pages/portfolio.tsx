@@ -13,10 +13,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEnhancedPortfolioHoldings, usePortfolioPerformance } from "@/hooks/use-portfolio";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, TrendingUp, TrendingDown, RefreshCw, Bot, Coins } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
 export default function Portfolio() {
-  const clientId = "demo-user-1"; // Demo client ID
-  const portfolioId = "demo-portfolio-1";
+  // Get authenticated user data
+  const { data: user } = useQuery({ queryKey: ["/api/user"], retry: false });
+  const clientId = user?.id || "demo-user-1";
+  const portfolioId = `portfolio-${clientId}`;
 
   const { data: enhancedHoldings, isLoading: holdingsLoading, refetch: refetchHoldings } = useEnhancedPortfolioHoldings(portfolioId);
   const { data: performance, isLoading: performanceLoading } = usePortfolioPerformance(portfolioId);

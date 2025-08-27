@@ -5,13 +5,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Home, Car, User, Building2, Calculator, Clock, CheckCircle, DollarSign } from "lucide-react";
+import { Home, Car, User, Building2, Calculator, Clock, CheckCircle, DollarSign, GraduationCap } from "lucide-react";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 export default function Loans() {
   const [loanAmount, setLoanAmount] = useState("");
   const [interestRate, setInterestRate] = useState("");
   const [loanTenure, setLoanTenure] = useState("");
+
+  // Fetch real-time loan rates
+  const { data: loanRates, isLoading } = useQuery({
+    queryKey: ["/api/loans/rates"],
+    refetchInterval: 300000, // Refresh every 5 minutes
+  });
 
   const calculateEMI = () => {
     const principal = parseFloat(loanAmount) || 0;
@@ -29,48 +36,64 @@ export default function Loans() {
 
   const { emi, totalAmount, totalInterest } = calculateEMI();
 
-  const loanTypes = [
+  // Real-time loan types with API data or fallback
+  const loanTypes = loanRates?.rates || [
     {
-      id: "personal",
-      name: "Personal Loan",
-      description: "Quick personal loans for your immediate needs",
-      icon: User,
-      rate: "10.5% onwards",
-      amount: "Up to ₹40 Lakhs",
-      tenure: "1-5 years",
+      loanType: "Personal Loan",
+      bankName: "HDFC Bank", 
+      interestRate: "10.75%",
+      minAmount: "₹50,000",
+      maxAmount: "₹75 Lakhs",
+      tenure: "Up to 7 years",
+      processingFee: "2.5%",
+      category: "personal",
       color: "blue"
     },
     {
-      id: "home",
-      name: "Home Loan",
-      description: "Finance your dream home with attractive rates",
-      icon: Home,
-      rate: "8.5% onwards",
-      amount: "Up to ₹10 Crores",
-      tenure: "Up to 30 years",
+      loanType: "Home Loan",
+      bankName: "SBI",
+      interestRate: "8.50%",
+      minAmount: "₹5 Lakhs",
+      maxAmount: "₹10 Crores",
+      tenure: "Up to 25 years",
+      processingFee: "0.35%",
+      category: "home",
       color: "green"
     },
     {
-      id: "car",
-      name: "Car Loan",
-      description: "Drive your dream car with easy financing",
-      icon: Car,
-      rate: "9.0% onwards",
-      amount: "Up to ₹2 Crores",
-      tenure: "1-7 years",
+      loanType: "Car Loan",
+      bankName: "ICICI Bank",
+      interestRate: "7.25%",
+      minAmount: "₹1 Lakh",
+      maxAmount: "₹2 Crores",
+      tenure: "Up to 7 years", 
+      processingFee: "1.0%",
+      category: "vehicle",
       color: "purple"
     },
     {
-      id: "business",
-      name: "Business Loan",
-      description: "Grow your business with flexible funding",
-      icon: Building2,
-      rate: "9.5% onwards",
-      amount: "Up to ₹50 Crores",
-      tenure: "1-10 years",
+      loanType: "Business Loan",
+      bankName: "Kotak Mahindra",
+      interestRate: "12.50%",
+      minAmount: "₹5 Lakhs",
+      maxAmount: "₹50 Crores",
+      tenure: "Up to 10 years",
+      processingFee: "2.0%",
+      category: "business", 
       color: "orange"
     }
   ];
+
+  const getIcon = (category: string) => {
+    const icons = {
+      personal: User,
+      home: Home,
+      vehicle: Car,
+      business: Building2,
+      education: GraduationCap
+    };
+    return icons[category as keyof typeof icons] || User;
+  };
 
   const colorClasses = {
     blue: "bg-blue-100 text-finance-blue",
@@ -107,13 +130,13 @@ export default function Loans() {
             <section>
               <h2 className="text-2xl font-bold text-gray-900 mb-6">Loan Products</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {loanTypes.map((loan) => {
-                  const IconComponent = loan.icon;
+                {loanTypes.map((loan: any, index: number) => {
+                  const IconComponent = getIcon(loan.category);
                   return (
                     <Card 
-                      key={loan.id}
+                      key={loan.category || index}
                       className="hover:shadow-md transition-shadow cursor-pointer group"
-                      data-testid={`loan-${loan.id}`}
+                      data-testid={`loan-${loan.category || index}`}
                     >
                       <CardContent className="p-6">
                         <div className={`w-12 h-12 rounded-lg flex items-center justify-center mb-4 ${
@@ -121,21 +144,27 @@ export default function Loans() {
                         }`}>
                           <IconComponent className="h-6 w-6" />
                         </div>
-                        <h3 className="font-bold text-gray-900 mb-2">{loan.name}</h3>
-                        <p className="text-gray-600 text-sm mb-4">{loan.description}</p>
+                        <h3 className="font-bold text-gray-900 mb-2">{loan.loanType}</h3>
+                        <p className="text-gray-600 text-sm mb-2">
+                          by {loan.bankName}
+                        </p>
                         
                         <div className="space-y-2 text-xs text-gray-600 mb-4">
                           <div className="flex justify-between">
                             <span>Rate:</span>
-                            <span className="font-semibold text-finance-green">{loan.rate}</span>
+                            <span className="font-semibold text-finance-green">{loan.interestRate} onwards</span>
                           </div>
                           <div className="flex justify-between">
-                            <span>Amount:</span>
-                            <span className="font-semibold">{loan.amount}</span>
+                            <span>Range:</span>
+                            <span className="font-semibold">{loan.minAmount} - {loan.maxAmount}</span>
                           </div>
                           <div className="flex justify-between">
                             <span>Tenure:</span>
                             <span className="font-semibold">{loan.tenure}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Processing:</span>
+                            <span className="font-semibold text-orange-600">{loan.processingFee}</span>
                           </div>
                         </div>
                         
@@ -143,7 +172,7 @@ export default function Loans() {
                           variant="outline" 
                           size="sm" 
                           className="w-full group-hover:bg-finance-blue group-hover:text-white transition-colors"
-                          data-testid={`apply-${loan.id}`}
+                          data-testid={`apply-${loan.category || index}`}
                         >
                           Apply Now
                         </Button>

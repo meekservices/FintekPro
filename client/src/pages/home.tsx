@@ -13,12 +13,29 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calculator, Home as HomeIcon, Percent, Umbrella, CheckCircle, Shield, Database, TrendingUp, Banknote, BarChart3, Coins, Wheat, Building2 } from "lucide-react";
 import { AgriculturalTooltip } from "@/components/agricultural-tooltip";
+import { useQuery } from "@tanstack/react-query";
 
 export default function Home() {
-  // Mock user ID for demo purposes
-  const userId = "demo-user-1";
-  const portfolioId = "demo-portfolio-1";
-  const totalValue = 1250000; // ₹12.5 Lakhs
+  // Get authenticated user data
+  const { data: user } = useQuery({ queryKey: ["/api/user"], retry: false });
+  const userId = user?.id || "demo-user-1";
+  const portfolioId = `portfolio-${userId}`;
+  
+  // Fetch real-time portfolio value
+  const { data: portfolios } = useQuery({
+    queryKey: ["/api/portfolios", userId],
+    enabled: !!userId,
+  });
+  
+  const { data: holdings } = useQuery({
+    queryKey: ["/api/portfolios", portfolioId, "holdings"],
+    enabled: !!portfolioId,
+  });
+  
+  // Calculate total value from actual holdings
+  const totalValue = holdings?.reduce((sum: number, holding: any) => {
+    return sum + (holding.currentValue || 0);
+  }, 0) || 1250000; // Default fallback
   
 
   const calculators = [

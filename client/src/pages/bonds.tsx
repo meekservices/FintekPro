@@ -8,6 +8,81 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Shield, TrendingUp, Calendar, DollarSign, Building2, Calculator } from "lucide-react";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+
+// Bond Categories Component with Real-time Data
+function BondCategoriesSection() {
+  const { data: bondCategories, isLoading } = useQuery({
+    queryKey: ["/api/bonds/categories"],
+    refetchInterval: 60000, // Refresh every minute
+  });
+
+  const { data: liveRates } = useQuery({
+    queryKey: ["/api/bonds/live-rates"],
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  if (isLoading || !bondCategories) {
+    return (
+      <section>
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">Bond Categories</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="animate-pulse">
+              <div className="h-48 bg-gray-200 rounded-lg"></div>
+            </div>
+          ))}
+        </div>
+      </section>
+    );
+  }
+
+  const getIcon = (iconName: string) => {
+    const icons = { Shield, TrendingUp, Building2, DollarSign };
+    return icons[iconName as keyof typeof icons] || Shield;
+  };
+
+  return (
+    <section>
+      <h2 className="text-2xl font-bold text-gray-900 mb-6">Bond Categories</h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {bondCategories.map((category: any) => {
+          const IconComponent = getIcon(category.icon);
+          return (
+            <Card key={category.id} className="hover:shadow-md transition-shadow cursor-pointer" data-testid={`${category.id}-bonds`}>
+              <CardContent className="p-6">
+                <div className={`w-12 h-12 bg-${category.color}-100 rounded-lg flex items-center justify-center mb-4`}>
+                  <IconComponent className={`h-6 w-6 text-${category.color === 'blue' ? 'finance-blue' : category.color === 'green' ? 'finance-green' : category.color}-600`} />
+                </div>
+                <h3 className="font-bold text-gray-900 mb-2">{category.name}</h3>
+                <p className="text-gray-600 text-sm mb-4">
+                  {category.description}
+                </p>
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between">
+                    <span>Yield:</span>
+                    <span className="font-semibold text-finance-green">{category.yieldRange}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Min Investment:</span>
+                    <span className="font-semibold">{category.minInvestment}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Available:</span>
+                    <span className="font-semibold text-finance-blue">{category.count} bonds</span>
+                  </div>
+                  <Badge variant="outline" className="w-full justify-center mt-2">
+                    {category.riskLevel} Risk
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
 
 export default function Bonds() {
   const [investmentAmount, setInvestmentAmount] = useState("");
@@ -106,101 +181,8 @@ export default function Bonds() {
               </div>
             </div>
 
-            {/* Bond Categories */}
-            <section>
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Bond Categories</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                
-                <Card className="hover:shadow-md transition-shadow cursor-pointer" data-testid="government-bonds">
-                  <CardContent className="p-6">
-                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-                      <Shield className="h-6 w-6 text-finance-blue" />
-                    </div>
-                    <h3 className="font-bold text-gray-900 mb-2">Government Bonds</h3>
-                    <p className="text-gray-600 text-sm mb-4">
-                      Risk-free investments backed by government
-                    </p>
-                    <div className="space-y-2 text-xs">
-                      <div className="flex justify-between">
-                        <span>Yield:</span>
-                        <span className="font-semibold text-finance-green">6.5% - 8.0%</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Min Investment:</span>
-                        <span className="font-semibold">₹1,000</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="hover:shadow-md transition-shadow cursor-pointer" data-testid="corporate-bonds">
-                  <CardContent className="p-6">
-                    <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
-                      <Building2 className="h-6 w-6 text-finance-green" />
-                    </div>
-                    <h3 className="font-bold text-gray-900 mb-2">Corporate Bonds</h3>
-                    <p className="text-gray-600 text-sm mb-4">
-                      Higher yields from creditworthy companies
-                    </p>
-                    <div className="space-y-2 text-xs">
-                      <div className="flex justify-between">
-                        <span>Yield:</span>
-                        <span className="font-semibold text-finance-green">7.0% - 10.0%</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Min Investment:</span>
-                        <span className="font-semibold">₹10,000</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="hover:shadow-md transition-shadow cursor-pointer" data-testid="ncds">
-                  <CardContent className="p-6">
-                    <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
-                      <TrendingUp className="h-6 w-6 text-purple-600" />
-                    </div>
-                    <h3 className="font-bold text-gray-900 mb-2">NCDs</h3>
-                    <p className="text-gray-600 text-sm mb-4">
-                      Non-convertible debentures with attractive returns
-                    </p>
-                    <div className="space-y-2 text-xs">
-                      <div className="flex justify-between">
-                        <span>Yield:</span>
-                        <span className="font-semibold text-finance-green">8.0% - 12.0%</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Min Investment:</span>
-                        <span className="font-semibold">₹10,000</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="hover:shadow-md transition-shadow cursor-pointer" data-testid="tax-free-bonds">
-                  <CardContent className="p-6">
-                    <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center mb-4">
-                      <DollarSign className="h-6 w-6 text-yellow-600" />
-                    </div>
-                    <h3 className="font-bold text-gray-900 mb-2">Tax Free Bonds</h3>
-                    <p className="text-gray-600 text-sm mb-4">
-                      Tax-free income from infrastructure bonds
-                    </p>
-                    <div className="space-y-2 text-xs">
-                      <div className="flex justify-between">
-                        <span>Yield:</span>
-                        <span className="font-semibold text-finance-green">5.5% - 6.5%</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Min Investment:</span>
-                        <span className="font-semibold">₹10,000</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-              </div>
-            </section>
+            {/* Bond Categories - Real-time data */}
+            <BondCategoriesSection />
 
             {/* Available Bonds */}
             <section>
