@@ -69,9 +69,9 @@ export default function WealthManagement() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="mb-8">
             <TabsTrigger value="overview" data-testid="tab-overview">Dashboard</TabsTrigger>
-            <TabsTrigger value="broking" data-testid="tab-broking">Wealthy Broking</TabsTrigger>
-            <TabsTrigger value="portfolios" data-testid="tab-portfolios">Wealthy Portfolios</TabsTrigger>
-            <TabsTrigger value="ideas" data-testid="tab-ideas">Wealthy Ideas</TabsTrigger>
+            <TabsTrigger value="broking" data-testid="tab-broking">FintekPro Broking</TabsTrigger>
+            <TabsTrigger value="portfolios" data-testid="tab-portfolios">FintekPro Portfolios</TabsTrigger>
+            <TabsTrigger value="ideas" data-testid="tab-ideas">FintekPro Ideas</TabsTrigger>
             <TabsTrigger value="family" data-testid="tab-family">Family Account</TabsTrigger>
             <TabsTrigger value="pms" data-testid="tab-pms">PMS</TabsTrigger>
             <TabsTrigger value="pre-ipo" data-testid="tab-pre-ipo">Pre-IPO</TabsTrigger>
@@ -119,7 +119,7 @@ export default function WealthManagement() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Wealth Partners</p>
+                      <p className="text-sm font-medium text-muted-foreground">FintekPro Partners</p>
                       <p className="text-2xl font-bold" data-testid="text-wealth-partners">545+</p>
                       <p className="text-xs text-purple-600 flex items-center mt-1">
                         <Users className="w-3 h-3 mr-1" />
@@ -155,7 +155,7 @@ export default function WealthManagement() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <LineChart className="w-5 h-5 text-primary" />
-                    Wealthy Broking
+                    FintekPro Broking
                   </CardTitle>
                   <CardDescription>India's minimal broking charges platform</CardDescription>
                 </CardHeader>
@@ -184,7 +184,7 @@ export default function WealthManagement() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <PieChart className="w-5 h-5 text-primary" />
-                    Wealthy Portfolios
+                    FintekPro Portfolios
                   </CardTitle>
                   <CardDescription>Curated portfolios by investment experts</CardDescription>
                 </CardHeader>
@@ -255,7 +255,7 @@ export default function WealthManagement() {
             </Card>
           </TabsContent>
 
-          {/* Wealthy Broking Tab */}
+          {/* FintekPro Broking Tab */}
           <TabsContent value="broking" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Trading Features */}
@@ -450,7 +450,7 @@ export default function WealthManagement() {
             <Card>
               <CardContent className="p-12 text-center">
                 <Building2 className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-lg font-semibold mb-2">Wealthy Portfolios</h3>
+                <h3 className="text-lg font-semibold mb-2">FintekPro Portfolios</h3>
                 <p className="text-muted-foreground">Curated portfolios feature coming soon...</p>
               </CardContent>
             </Card>
@@ -460,7 +460,7 @@ export default function WealthManagement() {
             <Card>
               <CardContent className="p-12 text-center">
                 <TrendingUp className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-lg font-semibold mb-2">Wealthy Ideas</h3>
+                <h3 className="text-lg font-semibold mb-2">FintekPro Ideas</h3>
                 <p className="text-muted-foreground">Investment ideas and recommendations coming soon...</p>
               </CardContent>
             </Card>
