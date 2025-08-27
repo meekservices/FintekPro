@@ -88,7 +88,7 @@ export function Footer() {
             </ul>
           </div>
           
-          {/* Support & Tutorial */}
+          {/* Support */}
           <div>
             <h4 className="font-semibold mb-4" data-testid="footer-support-title">
               Support

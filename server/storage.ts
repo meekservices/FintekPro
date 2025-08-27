@@ -1,4 +1,4 @@
-import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type LearningModule, type InsertLearningModule, type LearningLesson, type InsertLearningLesson, type LearningQuiz, type InsertLearningQuiz, type UserProgress, type InsertUserProgress, type UserAchievement, type InsertUserAchievement, type UserStats, type InsertUserStats, type UserProfile, type InsertUserProfile } from "@shared/schema";
+import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -49,19 +49,6 @@ export interface IStorage {
   upsertMutualFund(fund: InsertMutualFund): Promise<MutualFund>;
   searchMutualFunds(query: string): Promise<MutualFund[]>;
   
-  // Learning System methods
-  getAllLearningModules(): Promise<LearningModule[]>;
-  getLearningModule(moduleId: string): Promise<LearningModule | undefined>;
-  getLearningLessons(moduleId: string): Promise<LearningLesson[]>;
-  getLearningLesson(lessonId: string): Promise<LearningLesson | undefined>;
-  getLearningQuiz(lessonId: string): Promise<LearningQuiz | undefined>;
-  getUserProgress(userId: string): Promise<UserProgress[]>;
-  getUserProgressForModule(userId: string, moduleId: string): Promise<UserProgress[]>;
-  getUserStats(userId: string): Promise<UserStats | undefined>;
-  upsertUserProgress(progress: InsertUserProgress): Promise<UserProgress>;
-  upsertUserStats(stats: InsertUserStats): Promise<UserStats>;
-  addUserAchievement(achievement: InsertUserAchievement): Promise<UserAchievement>;
-  getUserAchievements(userId: string): Promise<UserAchievement[]>;
   
   // User Profile methods
   getUserProfile(userId: string): Promise<UserProfile | undefined>;
@@ -77,12 +64,6 @@ export class MemStorage implements IStorage {
   private marketData: Map<string, MarketData>;
   private assetAllocations: Map<string, AssetAllocation>;
   private mutualFunds: Map<string, MutualFund>;
-  private learningModules: Map<string, LearningModule>;
-  private learningLessons: Map<string, LearningLesson>;
-  private learningQuizzes: Map<string, LearningQuiz>;
-  private userProgress: Map<string, UserProgress>;
-  private userAchievements: Map<string, UserAchievement>;
-  private userStats: Map<string, UserStats>;
   private userProfiles: Map<string, UserProfile>;
 
   constructor() {
@@ -94,12 +75,6 @@ export class MemStorage implements IStorage {
     this.marketData = new Map();
     this.assetAllocations = new Map();
     this.mutualFunds = new Map();
-    this.learningModules = new Map();
-    this.learningLessons = new Map();
-    this.learningQuizzes = new Map();
-    this.userProgress = new Map();
-    this.userAchievements = new Map();
-    this.userStats = new Map();
     this.userProfiles = new Map();
     
     // Initialize with sample data
@@ -223,240 +198,52 @@ export class MemStorage implements IStorage {
       this.portfolioHoldings.set(holding.id, holding);
     });
 
-    // Initialize learning system sample data
-    this.initializeLearningData();
-  }
-
-  private initializeLearningData() {
-    // Sample Learning Modules
-    const modules: LearningModule[] = [
+    // Sample asset allocations
+    const sampleAllocations: AssetAllocation[] = [
       {
-        id: "module-1",
-        title: "Introduction to Agricultural Commodity Trading",
-        description: "Learn the fundamentals of agricultural commodities, market dynamics, and basic trading concepts.",
-        difficulty: "beginner",
-        category: "basics",
-        orderIndex: 1,
-        estimatedMinutes: 45,
-        isActive: true,
-        createdAt: new Date(),
+        id: "allocation-1",
+        userId: "demo-user-1",
+        portfolioId: "demo-portfolio-1",
+        assetType: "equity",
+        targetPercent: "60",
+        currentPercent: "65",
         updatedAt: new Date()
       },
       {
-        id: "module-2", 
-        title: "Understanding Market Cycles and Seasonality",
-        description: "Discover how seasonal patterns, weather, and crop cycles affect agricultural commodity prices.",
-        difficulty: "beginner",
-        category: "basics",
-        orderIndex: 2,
-        estimatedMinutes: 60,
-        isActive: true,
-        createdAt: new Date(),
+        id: "allocation-2", 
+        userId: "demo-user-1",
+        portfolioId: "demo-portfolio-1",
+        assetType: "bonds",
+        targetPercent: "25",
+        currentPercent: "20",
         updatedAt: new Date()
       },
       {
-        id: "module-3",
-        title: "Risk Management Strategies",
-        description: "Master hedging techniques, position sizing, and risk assessment in agricultural markets.",
-        difficulty: "intermediate",
-        category: "risk-management",
-        orderIndex: 3,
-        estimatedMinutes: 75,
-        isActive: true,
-        createdAt: new Date(),
+        id: "allocation-3",
+        userId: "demo-user-1", 
+        portfolioId: "demo-portfolio-1",
+        assetType: "gold",
+        targetPercent: "10",
+        currentPercent: "10",
         updatedAt: new Date()
       },
       {
-        id: "module-4",
-        title: "Technical Analysis for Commodities",
-        description: "Learn chart patterns, technical indicators, and price action strategies for commodity trading.",
-        difficulty: "intermediate",
-        category: "trading",
-        orderIndex: 4,
-        estimatedMinutes: 90,
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      },
-      {
-        id: "module-5",
-        title: "Advanced Trading Strategies",
-        description: "Explore complex trading strategies, spread trading, and arbitrage opportunities.",
-        difficulty: "advanced",
-        category: "trading",
-        orderIndex: 5,
-        estimatedMinutes: 120,
-        isActive: true,
-        createdAt: new Date(),
+        id: "allocation-4",
+        userId: "demo-user-1",
+        portfolioId: "demo-portfolio-1", 
+        assetType: "cash",
+        targetPercent: "5",
+        currentPercent: "5",
         updatedAt: new Date()
       }
     ];
 
-    // Sample Learning Lessons
-    const lessons: LearningLesson[] = [
-      // Module 1 Lessons
-      {
-        id: "lesson-1-1",
-        moduleId: "module-1",
-        title: "What are Agricultural Commodities?",
-        content: "<h3>Agricultural Commodities Overview</h3><p>Agricultural commodities are raw agricultural products that can be bought, sold, and traded on various exchanges. These include grains (wheat, corn, rice), oilseeds (soybeans, canola), livestock (cattle, pork), and soft commodities (coffee, sugar, cotton).</p><h4>Key Characteristics:</h4><ul><li>Standardized quality and quantity</li><li>Interchangeable with other units</li><li>Traded on regulated exchanges</li><li>Subject to seasonal patterns</li></ul><p>Understanding these basics is crucial for successful commodity trading.</p>",
-        contentType: "text",
-        orderIndex: 1,
-        estimatedMinutes: 15,
-        pointsReward: 100,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      },
-      {
-        id: "lesson-1-2",
-        moduleId: "module-1",
-        title: "Major Agricultural Exchanges",
-        content: "<h3>Global Commodity Exchanges</h3><p>Agricultural commodities are traded on various exchanges worldwide:</p><h4>Major Exchanges:</h4><ul><li><strong>Chicago Board of Trade (CBOT)</strong> - Corn, soybeans, wheat</li><li><strong>Chicago Mercantile Exchange (CME)</strong> - Livestock, dairy</li><li><strong>Intercontinental Exchange (ICE)</strong> - Sugar, coffee, cotton</li><li><strong>Multi Commodity Exchange (MCX)</strong> - Indian agricultural commodities</li></ul><p>Each exchange has its own trading hours, contract specifications, and margin requirements.</p>",
-        contentType: "text",
-        orderIndex: 2,
-        estimatedMinutes: 15,
-        pointsReward: 100,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      },
-      {
-        id: "lesson-1-3",
-        moduleId: "module-1",
-        title: "Supply and Demand Factors",
-        content: "<h3>Market Fundamentals</h3><p>Agricultural commodity prices are primarily driven by supply and demand dynamics:</p><h4>Supply Factors:</h4><ul><li>Weather conditions and climate</li><li>Planted acreage and yield estimates</li><li>Government policies and subsidies</li><li>Production costs and technology</li></ul><h4>Demand Factors:</h4><ul><li>Population growth and demographics</li><li>Economic development in emerging markets</li><li>Dietary changes and consumer preferences</li><li>Biofuel production and alternative uses</li></ul><p>Successful traders must monitor these factors continuously.</p>",
-        contentType: "text",
-        orderIndex: 3,
-        estimatedMinutes: 15,
-        pointsReward: 100,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }
-    ];
-
-    // Sample Quizzes
-    const quizzes: LearningQuiz[] = [
-      {
-        id: "quiz-1-1",
-        lessonId: "lesson-1-1",
-        question: "Which of the following is NOT a characteristic of agricultural commodities?",
-        options: [
-          "Standardized quality and quantity",
-          "Unique and customized for each buyer",
-          "Interchangeable with other units",
-          "Traded on regulated exchanges"
-        ],
-        correctAnswer: 1,
-        explanation: "Agricultural commodities are standardized and interchangeable, not unique or customized for individual buyers.",
-        pointsReward: 50,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      },
-      {
-        id: "quiz-1-2",
-        lessonId: "lesson-1-2",
-        question: "Which exchange is known for trading corn, soybeans, and wheat?",
-        options: [
-          "Chicago Mercantile Exchange (CME)",
-          "Chicago Board of Trade (CBOT)",
-          "Intercontinental Exchange (ICE)",
-          "New York Stock Exchange (NYSE)"
-        ],
-        correctAnswer: 1,
-        explanation: "The Chicago Board of Trade (CBOT) is the primary exchange for grains including corn, soybeans, and wheat.",
-        pointsReward: 50,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }
-    ];
-
-    // Store sample data
-    modules.forEach(module => this.learningModules.set(module.id, module));
-    lessons.forEach(lesson => this.learningLessons.set(lesson.id, lesson));
-    quizzes.forEach(quiz => this.learningQuizzes.set(quiz.id, quiz));
-
-    // Sample user stats (for demo purposes)
-    const demoUserStats: UserStats = {
-      id: "stats-demo-user-1",
-      userId: "demo-user-1",
-      totalPoints: 850,
-      currentStreak: 5,
-      maxStreak: 12,
-      modulesCompleted: 1,
-      lessonsCompleted: 8,
-      averageScore: "87.5",
-      lastActivityDate: new Date(),
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    this.userStats.set("demo-user-1", demoUserStats);
+    sampleAllocations.forEach(allocation => {
+      this.assetAllocations.set(allocation.id, allocation);
+    });
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
-  }
-
-  async getUserByEmail(email: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(user => user.email === email);
-  }
-
-  async getUserByMobile(mobile: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(user => user.mobile === mobile);
-  }
-
-  async createUser(userData: Omit<User, 'id' | 'createdAt' | 'updatedAt'>): Promise<User> {
-    const id = randomUUID();
-    const user: User = {
-      ...userData,
-      id,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    this.users.set(id, user);
-    return user;
-  }
-
-  async updateUser(id: string, updates: Partial<User>): Promise<User | undefined> {
-    const user = this.users.get(id);
-    if (!user) return undefined;
-    
-    const updated: User = {
-      ...user,
-      ...updates,
-      updatedAt: new Date()
-    };
-    this.users.set(id, updated);
-    return updated;
-  }
-
-  async createOtpVerification(otpData: InsertOtpVerification): Promise<OtpVerification> {
-    const id = randomUUID();
-    const otp: OtpVerification = {
-      ...otpData,
-      id,
-      verified: otpData.verified ?? false,
-      createdAt: new Date()
-    };
-    this.otpVerifications.set(`${otpData.identifier}_${otpData.type}`, otp);
-    return otp;
-  }
-
-  async getOtpVerification(identifier: string, type: string): Promise<OtpVerification | undefined> {
-    return this.otpVerifications.get(`${identifier}_${type}`);
-  }
-
-  async verifyOtp(identifier: string, type: string, otp: string): Promise<boolean> {
-    const verification = await this.getOtpVerification(identifier, type);
-    if (!verification) return false;
-    if (verification.verified) return false;
-    if (verification.expiresAt < new Date()) return false;
-    if (verification.otp !== otp) return false;
-
-    verification.verified = true;
-    this.otpVerifications.set(`${identifier}_${type}`, verification);
-    return true;
-  }
-
-  async cleanupExpiredOtps(): Promise<void> {
+  private cleanupExpiredOtp() {
     const now = new Date();
     const expiredKeys: string[] = [];
     
@@ -760,119 +547,21 @@ export class MemStorage implements IStorage {
     return `Your ${assetName} allocation is on target.`;
   }
 
-  // Learning System Methods
-  async getAllLearningModules(): Promise<LearningModule[]> {
-    return Array.from(this.learningModules.values()).sort((a, b) => a.orderIndex - b.orderIndex);
-  }
-
-  async getLearningModule(moduleId: string): Promise<LearningModule | undefined> {
-    return this.learningModules.get(moduleId);
-  }
-
-  async getLearningLessons(moduleId: string): Promise<LearningLesson[]> {
-    return Array.from(this.learningLessons.values())
-      .filter(lesson => lesson.moduleId === moduleId)
-      .sort((a, b) => a.orderIndex - b.orderIndex);
-  }
-
-  async getLearningLesson(lessonId: string): Promise<LearningLesson | undefined> {
-    return this.learningLessons.get(lessonId);
-  }
-
-  async getLearningQuiz(lessonId: string): Promise<LearningQuiz | undefined> {
-    return Array.from(this.learningQuizzes.values()).find(quiz => quiz.lessonId === lessonId);
-  }
-
-  async getUserProgress(userId: string): Promise<UserProgress[]> {
-    return Array.from(this.userProgress.values()).filter(progress => progress.userId === userId);
-  }
-
-  async getUserProgressForModule(userId: string, moduleId: string): Promise<UserProgress[]> {
-    return Array.from(this.userProgress.values()).filter(
-      progress => progress.userId === userId && progress.moduleId === moduleId
-    );
-  }
-
-  async getUserStats(userId: string): Promise<UserStats | undefined> {
-    return this.userStats.get(userId);
-  }
-
-  async upsertUserProgress(insertProgress: InsertUserProgress): Promise<UserProgress> {
-    const existing = Array.from(this.userProgress.values()).find(
-      progress => progress.userId === insertProgress.userId && 
-                 progress.moduleId === insertProgress.moduleId &&
-                 progress.lessonId === insertProgress.lessonId
-    );
-    
-    const id = existing?.id || randomUUID();
-    const progress: UserProgress = {
-      ...insertProgress,
-      id,
-      completedAt: insertProgress.completedAt ?? null,
-      score: insertProgress.score ?? null,
-      timeSpent: insertProgress.timeSpent ?? null,
-      createdAt: existing?.createdAt || new Date(),
-      updatedAt: new Date()
-    };
-    
-    // Store with a composite key for easier lookup
-    const key = `${progress.userId}_${progress.moduleId}_${progress.lessonId}`;
-    this.userProgress.set(key, progress);
-    return progress;
-  }
-
-  async upsertUserStats(insertStats: InsertUserStats): Promise<UserStats> {
-    const existing = this.userStats.get(insertStats.userId);
-    const id = existing?.id || randomUUID();
-    
-    const stats: UserStats = {
-      ...insertStats,
-      id,
-      createdAt: existing?.createdAt || new Date(),
-      updatedAt: new Date()
-    };
-    
-    this.userStats.set(insertStats.userId, stats);
-    return stats;
-  }
-
-  async addUserAchievement(insertAchievement: InsertUserAchievement): Promise<UserAchievement> {
-    const id = randomUUID();
-    const achievement: UserAchievement = {
-      ...insertAchievement,
-      id,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    
-    this.userAchievements.set(id, achievement);
-    return achievement;
-  }
-
-  async getUserAchievements(userId: string): Promise<UserAchievement[]> {
-    return Array.from(this.userAchievements.values())
-      .filter(achievement => achievement.userId === userId)
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-  }
-
-  // User Profile methods
+  // User Profile Methods
   async getUserProfile(userId: string): Promise<UserProfile | undefined> {
     return this.userProfiles.get(userId);
   }
 
-  async upsertUserProfile(insertProfile: InsertUserProfile): Promise<UserProfile> {
-    const existing = this.userProfiles.get(insertProfile.userId);
-    const id = existing?.id || randomUUID();
-    
-    const profile: UserProfile = {
-      ...insertProfile,
-      id,
+  async upsertUserProfile(profile: InsertUserProfile): Promise<UserProfile> {
+    const existing = this.userProfiles.get(profile.userId);
+    const userProfile: UserProfile = {
+      ...profile,
+      id: existing?.id || randomUUID(),
       createdAt: existing?.createdAt || new Date(),
       updatedAt: new Date()
     };
-    
-    this.userProfiles.set(insertProfile.userId, profile);
-    return profile;
+    this.userProfiles.set(profile.userId, userProfile);
+    return userProfile;
   }
 }
 

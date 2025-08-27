@@ -19,7 +19,6 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { StoryViewer, type MarketStoryData } from "@/components/market/story-viewer";
 import { useToast } from "@/hooks/use-toast";
-import { useTutorial } from "@/components/tutorial";
 import { Search, TrendingUp, TrendingDown, Activity, Sparkles, Zap } from "lucide-react";
 
 export default function Markets() {
@@ -31,11 +30,6 @@ export default function Markets() {
   const { data: symbolQuote } = useMarketQuote(searchSymbol.toUpperCase());
   const { toast } = useToast();
   
-  // Tutorial management for footer
-  const {
-    isCompleted: isTutorialCompleted,
-    startTutorial
-  } = useTutorial();
 
   // Mutation for generating AI market stories
   const generateStoryMutation = useMutation({
@@ -295,10 +289,7 @@ export default function Markets() {
 
       </main>
 
-      <Footer 
-        onStartTutorial={startTutorial}
-        isTutorialCompleted={isTutorialCompleted}
-      />
+      <Footer />
     </div>
   );
 }
