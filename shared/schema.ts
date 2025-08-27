@@ -26,6 +26,18 @@ export const users = pgTable("users", {
   profileImageUrl: varchar("profile_image_url"),
   isEmailVerified: boolean("is_email_verified").default(false),
   isMobileVerified: boolean("is_mobile_verified").default(false),
+  // Profile/KYC Information
+  panNumber: varchar("pan_number"),
+  aadharNumber: varchar("aadhar_number"),
+  dateOfBirth: varchar("date_of_birth"),
+  address: text("address"),
+  city: varchar("city"),
+  state: varchar("state"),
+  pincode: varchar("pincode"),
+  occupation: varchar("occupation"),
+  annualIncome: varchar("annual_income"),
+  investmentExperience: varchar("investment_experience"),
+  riskTolerance: varchar("risk_tolerance"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

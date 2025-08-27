@@ -104,6 +104,16 @@ export function Header({ onStartTutorial }: HeaderProps = {}) {
                     {user?.firstName || user?.email || 'User'}
                   </span>
                 </div>
+                <Link href="/profile">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    data-testid="profile-button"
+                  >
+                    <UserIcon className="h-4 w-4 mr-2" />
+                    Profile
+                  </Button>
+                </Link>
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -175,6 +185,17 @@ export function Header({ onStartTutorial }: HeaderProps = {}) {
                           <p className="text-sm text-gray-500">{user?.email}</p>
                         </div>
                       </div>
+                      <Link href="/profile">
+                        <Button 
+                          className="w-full" 
+                          variant="outline"
+                          onClick={() => setIsOpen(false)}
+                          data-testid="mobile-profile-button"
+                        >
+                          <UserIcon className="h-4 w-4 mr-2" />
+                          Profile
+                        </Button>
+                      </Link>
                       <Button 
                         className="w-full" 
                         variant="outline"

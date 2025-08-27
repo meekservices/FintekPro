@@ -140,6 +140,17 @@ export function setupAuth(app: Express) {
         profileImageUrl: null,
         isEmailVerified: false,
         isMobileVerified: false,
+        panNumber: null,
+        aadharNumber: null,
+        dateOfBirth: null,
+        address: null,
+        city: null,
+        state: null,
+        pincode: null,
+        occupation: null,
+        annualIncome: null,
+        investmentExperience: null,
+        riskTolerance: null,
       });
 
       req.login(user, (err) => {
@@ -318,6 +329,83 @@ export function setupAuth(app: Express) {
       isEmailVerified: req.user.isEmailVerified,
       isMobileVerified: req.user.isMobileVerified,
     });
+  });
+
+  // Profile routes
+  app.get("/api/profile", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || !req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = await storage.getUser(req.user.id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      res.json({
+        panNumber: user.panNumber,
+        aadharNumber: user.aadharNumber,
+        dateOfBirth: user.dateOfBirth,
+        address: user.address,
+        city: user.city,
+        state: user.state,
+        pincode: user.pincode,
+        occupation: user.occupation,
+        annualIncome: user.annualIncome,
+        investmentExperience: user.investmentExperience,
+        riskTolerance: user.riskTolerance,
+      });
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.put("/api/profile", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || !req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { panNumber, aadharNumber, dateOfBirth, address, city, state, pincode, occupation, annualIncome, investmentExperience, riskTolerance } = req.body;
+
+      const updatedUser = await storage.updateUser(req.user.id, {
+        panNumber: panNumber || null,
+        aadharNumber: aadharNumber || null,
+        dateOfBirth: dateOfBirth || null,
+        address: address || null,
+        city: city || null,
+        state: state || null,
+        pincode: pincode || null,
+        occupation: occupation || null,
+        annualIncome: annualIncome || null,
+        investmentExperience: investmentExperience || null,
+        riskTolerance: riskTolerance || null,
+        updatedAt: new Date(),
+      });
+
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      res.json({
+        panNumber: updatedUser.panNumber,
+        aadharNumber: updatedUser.aadharNumber,
+        dateOfBirth: updatedUser.dateOfBirth,
+        address: updatedUser.address,
+        city: updatedUser.city,
+        state: updatedUser.state,
+        pincode: updatedUser.pincode,
+        occupation: updatedUser.occupation,
+        annualIncome: updatedUser.annualIncome,
+        investmentExperience: updatedUser.investmentExperience,
+        riskTolerance: updatedUser.riskTolerance,
+      });
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
   });
 
   // Cleanup expired OTPs periodically
