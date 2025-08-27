@@ -8,7 +8,6 @@ import { MarketNews } from "@/components/dashboard/market-news";
 import { ServicesGrid } from "@/components/dashboard/services-grid";
 import { AssetAllocation } from "@/components/dashboard/asset-allocation";
 import { RebalanceDashboard } from "@/components/dashboard/rebalance-dashboard";
-import { TutorialOverlay, useTutorial } from "@/components/tutorial";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,17 +19,6 @@ export default function Home() {
   const portfolioId = "demo-portfolio-1";
   const totalValue = 1250000; // ₹12.5 Lakhs
   
-  // Tutorial management
-  const {
-    isActive: isTutorialActive,
-    currentStep,
-    isCompleted: isTutorialCompleted,
-    steps: tutorialSteps,
-    startTutorial,
-    closeTutorial,
-    completeTutorial,
-    goToStep
-  } = useTutorial();
 
   const calculators = [
     {
@@ -384,20 +372,7 @@ export default function Home() {
 
       </main>
 
-      <Footer 
-        onStartTutorial={startTutorial} 
-        isTutorialCompleted={isTutorialCompleted}
-      />
-      
-      {/* Tutorial Overlay */}
-      <TutorialOverlay
-        isActive={isTutorialActive}
-        onClose={closeTutorial}
-        onComplete={completeTutorial}
-        steps={tutorialSteps}
-        currentStep={currentStep}
-        onStepChange={goToStep}
-      />
+      <Footer />
     </div>
   );
 }
