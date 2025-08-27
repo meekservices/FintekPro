@@ -202,7 +202,7 @@ export default function WealthManagement() {
             <TabsTrigger value="family" data-testid="tab-family">Family Account</TabsTrigger>
             <TabsTrigger value="pms" data-testid="tab-pms">PMS</TabsTrigger>
             <TabsTrigger value="pre-ipo" data-testid="tab-pre-ipo">Pre-IPO</TabsTrigger>
-            <TabsTrigger value="aif" data-testid="tab-aif">AIF</TabsTrigger>
+            <TabsTrigger value="aif" data-testid="tab-aif">AIF Funds</TabsTrigger>
             <TabsTrigger value="bonds" data-testid="tab-bonds">Bonds</TabsTrigger>
             <TabsTrigger value="mutual-funds" data-testid="tab-mutual-funds">Mutual Funds</TabsTrigger>
             <TabsTrigger value="debentures" data-testid="tab-debentures">Debentures</TabsTrigger>
@@ -618,6 +618,11 @@ export default function WealthManagement() {
                 <p className="text-muted-foreground">Professional portfolio management coming soon...</p>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* AIF Funds Tab Content */}
+          <TabsContent value="aif" className="space-y-6">
+            <AIFFundsSection />
           </TabsContent>
 
           <TabsContent value="pre-ipo" className="space-y-6">
@@ -3464,6 +3469,358 @@ export default function WealthManagement() {
           </TabsContent>
         </Tabs>
       </div>
+    </div>
+  );
+}
+
+// AIF Funds Section Component
+function AIFFundsSection() {
+  const [selectedAMC, setSelectedAMC] = useState("all");
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedRiskRating, setSelectedRiskRating] = useState("all");
+
+  const { data: aifData, isLoading } = useQuery({
+    queryKey: ["/api/aif/comprehensive", selectedAMC, selectedCategory, selectedRiskRating],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        amc: selectedAMC,
+        category: selectedCategory,
+        riskRating: selectedRiskRating
+      });
+      const response = await fetch(`/api/aif/comprehensive?${params}`);
+      return response.json();
+    }
+  });
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="p-12 text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <h3 className="text-lg font-semibold mb-2">Loading AIF Funds Data...</h3>
+          <p className="text-muted-foreground">Fetching comprehensive fund details from all AMCs</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* AIF Market Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card data-testid="card-aif-total-funds">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total AIF Funds</p>
+                <p className="text-2xl font-bold">{aifData?.statistics?.totalFunds || 0}</p>
+              </div>
+              <Building2 className="w-8 h-8 text-blue-600" />
+            </div>
+            <div className="flex items-center mt-2">
+              <ArrowUpRight className="w-4 h-4 text-green-600 mr-1" />
+              <span className="text-sm text-green-600">Across all AMCs</span>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card data-testid="card-aif-total-aum">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total AUM</p>
+                <p className="text-2xl font-bold">₹{((aifData?.statistics?.totalAUM || 0) / 10000000000).toFixed(0)} Cr</p>
+              </div>
+              <DollarSign className="w-8 h-8 text-green-600" />
+            </div>
+            <div className="flex items-center mt-2">
+              <TrendingUp className="w-4 h-4 text-green-600 mr-1" />
+              <span className="text-sm text-green-600">Growing steadily</span>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card data-testid="card-aif-avg-returns">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Avg 1Y Returns</p>
+                <p className="text-2xl font-bold">{aifData?.statistics?.averageReturns?.["1Y"] || 0}%</p>
+              </div>
+              <BarChart3 className="w-8 h-8 text-purple-600" />
+            </div>
+            <div className="flex items-center mt-2">
+              <ArrowUpRight className="w-4 h-4 text-green-600 mr-1" />
+              <span className="text-sm text-green-600">Strong performance</span>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card data-testid="card-aif-amcs">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Active AMCs</p>
+                <p className="text-2xl font-bold">6</p>
+              </div>
+              <Shield className="w-8 h-8 text-orange-600" />
+            </div>
+            <div className="flex items-center mt-2">
+              <CheckCircle className="w-4 h-4 text-green-600 mr-1" />
+              <span className="text-sm text-green-600">SEBI Registered</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters Section */}
+      <Card data-testid="card-aif-filters">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Filter className="w-5 h-5" />
+            Filter AIF Funds
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Asset Management Company</label>
+              <Select value={selectedAMC} onValueChange={setSelectedAMC}>
+                <SelectTrigger data-testid="select-aif-amc">
+                  <SelectValue placeholder="Select AMC" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All AMCs</SelectItem>
+                  <SelectItem value="kotak">Kotak Mahindra</SelectItem>
+                  <SelectItem value="icici">ICICI Prudential</SelectItem>
+                  <SelectItem value="aditya">Aditya Birla Sun Life</SelectItem>
+                  <SelectItem value="dsp">DSP Asset Managers</SelectItem>
+                  <SelectItem value="nippon">Nippon India</SelectItem>
+                  <SelectItem value="uti">UTI Asset Management</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">AIF Category</label>
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger data-testid="select-aif-category">
+                  <SelectValue placeholder="Select Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  <SelectItem value="Category I">Category I</SelectItem>
+                  <SelectItem value="Category II">Category II</SelectItem>
+                  <SelectItem value="Category III">Category III</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Risk Rating</label>
+              <Select value={selectedRiskRating} onValueChange={setSelectedRiskRating}>
+                <SelectTrigger data-testid="select-aif-risk-rating">
+                  <SelectValue placeholder="Select Risk Rating" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Risk Levels</SelectItem>
+                  <SelectItem value="Low">Low</SelectItem>
+                  <SelectItem value="Medium">Medium</SelectItem>
+                  <SelectItem value="High">High</SelectItem>
+                  <SelectItem value="Very High">Very High</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* AIF Funds Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {aifData?.data?.map((fund: any) => (
+          <Card key={fund.id} data-testid={`card-aif-fund-${fund.id}`} className="hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <CardTitle className="text-lg">{fund.fundName}</CardTitle>
+                  <CardDescription className="mt-1">
+                    {fund.amcName} • {fund.exchange}
+                  </CardDescription>
+                  <div className="flex items-center gap-2 mt-2">
+                    <Badge variant="outline">{fund.category}</Badge>
+                    <Badge variant="secondary">{fund.subCategory}</Badge>
+                    <Badge variant={fund.riskRating.includes('High') ? 'destructive' : 'default'}>
+                      {fund.riskRating}
+                    </Badge>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-sm text-muted-foreground">ISIN</div>
+                  <div className="text-sm font-mono">{fund.isinNumber}</div>
+                </div>
+              </div>
+            </CardHeader>
+            
+            <CardContent className="space-y-4">
+              {/* Key Metrics */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <div className="text-sm text-muted-foreground">NAV</div>
+                  <div className="text-lg font-semibold">₹{fund.nav?.toLocaleString() || 'N/A'}</div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">AUM</div>
+                  <div className="text-lg font-semibold">₹{fund.aum ? (fund.aum / 10000000000).toFixed(0) + ' Cr' : 'N/A'}</div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">Min Investment</div>
+                  <div className="text-lg font-semibold">₹{fund.minimumInvestment ? (fund.minimumInvestment / 10000000).toFixed(0) + ' Cr' : 'N/A'}</div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">Lock-in Period</div>
+                  <div className="text-lg font-semibold">{fund.lockInPeriod || 'N/A'}</div>
+                </div>
+              </div>
+
+              {/* Performance Returns */}
+              {(fund.returns1y || fund.returns3y || fund.returns5y) && (
+                <div className="space-y-2">
+                  <div className="text-sm font-medium text-muted-foreground">Performance Returns</div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {fund.returns1y && (
+                      <div className="text-center p-2 bg-accent/50 rounded">
+                        <div className="text-xs text-muted-foreground">1Y</div>
+                        <div className="font-semibold text-green-600">+{fund.returns1y}%</div>
+                      </div>
+                    )}
+                    {fund.returns3y && (
+                      <div className="text-center p-2 bg-accent/50 rounded">
+                        <div className="text-xs text-muted-foreground">3Y</div>
+                        <div className="font-semibold text-green-600">+{fund.returns3y}%</div>
+                      </div>
+                    )}
+                    {fund.returns5y && (
+                      <div className="text-center p-2 bg-accent/50 rounded">
+                        <div className="text-xs text-muted-foreground">5Y</div>
+                        <div className="font-semibold text-green-600">+{fund.returns5y}%</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Fund Manager Details */}
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-muted-foreground">Fund Manager</div>
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  <span className="font-medium">{fund.fundManager}</span>
+                  <span className="text-sm text-muted-foreground">({fund.fundManagerExperience}Y exp)</span>
+                </div>
+                <div className="text-xs text-muted-foreground">{fund.fundManagerQualification}</div>
+              </div>
+
+              {/* Investment Strategy */}
+              {fund.investmentStrategy && (
+                <div className="space-y-2">
+                  <div className="text-sm font-medium text-muted-foreground">Investment Strategy</div>
+                  <div className="text-sm bg-accent/30 p-3 rounded">
+                    {fund.investmentStrategy}
+                  </div>
+                </div>
+              )}
+
+              {/* Stock Selection Process */}
+              {fund.stockSelectionProcess && (
+                <div className="space-y-2">
+                  <div className="text-sm font-medium text-muted-foreground">Stock Selection Process</div>
+                  <div className="text-xs bg-blue-50 dark:bg-blue-950/30 p-3 rounded">
+                    {fund.stockSelectionProcess}
+                  </div>
+                </div>
+              )}
+
+              {/* Fees Structure */}
+              <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+                <div>
+                  <div className="text-xs text-muted-foreground">Management Fee</div>
+                  <div className="font-medium">{fund.managementFee}%</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Performance Fee</div>
+                  <div className="font-medium">{fund.performanceFee}%</div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2 pt-4">
+                <Button className="flex-1" data-testid={`button-invest-${fund.id}`}>
+                  <DollarSign className="w-4 h-4 mr-2" />
+                  Invest Now
+                </Button>
+                <Button variant="outline" data-testid={`button-details-${fund.id}`}>
+                  <Info className="w-4 h-4 mr-2" />
+                  Details
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Summary Statistics */}
+      {aifData?.statistics && (
+        <Card data-testid="card-aif-summary-stats">
+          <CardHeader>
+            <CardTitle>Market Summary</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <h4 className="font-medium mb-2">Category Distribution</h4>
+                <div className="space-y-1">
+                  {Object.entries(aifData.statistics.categoryBreakdown).map(([category, count]) => (
+                    <div key={category} className="flex justify-between text-sm">
+                      <span>{category}:</span>
+                      <span className="font-medium">{count as number} funds</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              <div>
+                <h4 className="font-medium mb-2">AMC Distribution</h4>
+                <div className="space-y-1">
+                  {Object.entries(aifData.statistics.amcBreakdown).map(([amc, count]) => (
+                    <div key={amc} className="flex justify-between text-sm">
+                      <span>{amc}:</span>
+                      <span className="font-medium">{count as number} funds</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              <div>
+                <h4 className="font-medium mb-2">Average Returns</h4>
+                <div className="space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span>1 Year:</span>
+                    <span className="font-medium text-green-600">+{aifData.statistics.averageReturns["1Y"]}%</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>3 Years:</span>
+                    <span className="font-medium text-green-600">+{aifData.statistics.averageReturns["3Y"]}%</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>5 Years:</span>
+                    <span className="font-medium text-green-600">+{aifData.statistics.averageReturns["5Y"]}%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

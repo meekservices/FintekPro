@@ -374,6 +374,98 @@ export const mutualFunds = pgTable("mutual_funds", {
   lastUpdated: timestamp("last_updated").defaultNow(),
 });
 
+// AIF (Alternative Investment Fund) comprehensive schema
+export const aifFunds = pgTable("aif_funds", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // Basic fund information
+  fundName: text("fund_name").notNull(),
+  isinNumber: varchar("isin_number", { length: 12 }).unique(),
+  schemeCode: text("scheme_code").unique(),
+  // AIF Classification
+  category: varchar("category").notNull(), // Category I, II, or III
+  subCategory: text("sub_category").notNull(), // Private Equity, Venture Capital, Hedge Fund, etc.
+  fundType: varchar("fund_type").notNull(), // Open-ended, Close-ended
+  // AMC and Management Information
+  amcName: text("amc_name").notNull(),
+  fundManager: text("fund_manager").notNull(),
+  fundManagerExperience: integer("fund_manager_experience"), // years
+  fundManagerQualification: text("fund_manager_qualification"),
+  investmentTeam: jsonb("investment_team"), // Array of team member details
+  // Financial Details
+  nav: decimal("nav", { precision: 15, scale: 4 }),
+  faceValue: decimal("face_value", { precision: 10, scale: 2 }),
+  aum: decimal("aum", { precision: 20, scale: 2 }),
+  minimumInvestment: decimal("minimum_investment", { precision: 15, scale: 2 }),
+  additionalInvestment: decimal("additional_investment", { precision: 15, scale: 2 }),
+  // Fee Structure
+  managementFee: decimal("management_fee", { precision: 5, scale: 2 }),
+  performanceFee: decimal("performance_fee", { precision: 5, scale: 2 }),
+  entryLoad: decimal("entry_load", { precision: 5, scale: 2 }),
+  exitLoad: decimal("exit_load", { precision: 5, scale: 2 }),
+  hurdle_rate: decimal("hurdle_rate", { precision: 5, scale: 2 }),
+  // Investment Strategy and Process
+  investmentObjective: text("investment_objective").notNull(),
+  investmentStrategy: text("investment_strategy").notNull(),
+  stockSelectionProcess: text("stock_selection_process").notNull(),
+  riskManagementProcess: text("risk_management_process"),
+  benchmarkIndex: text("benchmark_index"),
+  // Performance Metrics
+  returns1y: decimal("returns_1y", { precision: 8, scale: 4 }),
+  returns3y: decimal("returns_3y", { precision: 8, scale: 4 }),
+  returns5y: decimal("returns_5y", { precision: 8, scale: 4 }),
+  returnsSinceInception: decimal("returns_since_inception", { precision: 8, scale: 4 }),
+  sharpeRatio: decimal("sharpe_ratio", { precision: 6, scale: 4 }),
+  alpha: decimal("alpha", { precision: 6, scale: 4 }),
+  beta: decimal("beta", { precision: 6, scale: 4 }),
+  volatility: decimal("volatility", { precision: 8, scale: 4 }),
+  maxDrawdown: decimal("max_drawdown", { precision: 8, scale: 4 }),
+  // Portfolio Composition
+  assetAllocation: jsonb("asset_allocation"), // Equity, Debt, Others breakdown
+  sectorAllocation: jsonb("sector_allocation"), // Sector-wise allocation
+  marketCapAllocation: jsonb("market_cap_allocation"), // Large, Mid, Small cap
+  geographicAllocation: jsonb("geographic_allocation"), // Domestic vs International
+  topHoldings: jsonb("top_holdings"), // Top 10 holdings with percentages
+  portfolioTurnover: decimal("portfolio_turnover", { precision: 5, scale: 2 }),
+  // Risk Assessment
+  riskRating: varchar("risk_rating").notNull(), // Very High, High, Medium, Low
+  volatilityCategory: varchar("volatility_category"), // High, Medium, Low
+  suitabilityProfile: text("suitability_profile"), // Suitable investor profile
+  // Regulatory and Compliance
+  sebiRegistrationNumber: varchar("sebi_registration_number").notNull(),
+  trustee: text("trustee").notNull(),
+  custodian: text("custodian").notNull(),
+  auditor: text("auditor"),
+  registrar: text("registrar"),
+  riskDisclosures: text("risk_disclosures"),
+  // Dates and Periods
+  launchDate: date("launch_date").notNull(),
+  maturityDate: date("maturity_date"), // For close-ended funds
+  lockInPeriod: varchar("lock_in_period"), // Lock-in period details
+  subscriptionPeriod: varchar("subscription_period"),
+  redemptionFrequency: varchar("redemption_frequency"),
+  // Status and Availability
+  status: varchar("status").default("active"), // active, suspended, closed, matured
+  isOpenForSubscription: boolean("is_open_for_subscription").default(true),
+  isOpenForRedemption: boolean("is_open_for_redemption").default(true),
+  // Exchange and Trading
+  exchange: varchar("exchange"), // NSE, BSE, MCX, NCDEX, MSEI
+  tradingSymbol: varchar("trading_symbol"),
+  lotSize: integer("lot_size"),
+  // Additional Information
+  factsheetUrl: text("factsheet_url"),
+  prospectusUrl: text("prospectus_url"),
+  websiteUrl: text("website_url"),
+  keyPersonnel: jsonb("key_personnel"), // Management team details
+  // ESG and Sustainability
+  esgRating: varchar("esg_rating"),
+  sustainabilityScore: decimal("sustainability_score", { precision: 5, scale: 2 }),
+  greenBondAllocation: decimal("green_bond_allocation", { precision: 5, scale: 2 }),
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  lastNavUpdate: timestamp("last_nav_update"),
+});
+
 // Risk Profiling Schema
 export const riskProfiles = pgTable("risk_profiles", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -438,6 +530,13 @@ export const insertAssetAllocationSchema = createInsertSchema(assetAllocation).o
 export const insertMutualFundSchema = createInsertSchema(mutualFunds).omit({
   id: true,
   lastUpdated: true,
+});
+
+export const insertAifFundSchema = createInsertSchema(aifFunds).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastNavUpdate: true,
 });
 
 export const insertOtpVerificationSchema = createInsertSchema(otpVerifications).omit({
@@ -916,3 +1015,7 @@ export type UserProfile = typeof userProfiles.$inferSelect;
 export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
 export type MarketStory = typeof marketStories.$inferSelect;
 export type InsertMarketStory = z.infer<typeof insertMarketStorySchema>;
+
+// AIF Fund types
+export type AifFund = typeof aifFunds.$inferSelect;
+export type InsertAifFund = z.infer<typeof insertAifFundSchema>;
