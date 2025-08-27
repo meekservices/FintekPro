@@ -3,7 +3,9 @@ import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, User, HelpCircle } from "lucide-react";
+import { Menu, User as UserIcon, HelpCircle, LogOut } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { type User } from "@shared/schema";
 
 interface HeaderProps {
   onStartTutorial?: () => void;
@@ -12,6 +14,7 @@ interface HeaderProps {
 export function Header({ onStartTutorial }: HeaderProps = {}) {
   const [location] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
+  const { user, isAuthenticated, isLoading } = useAuth();
 
   const navigation = [
     { name: "Markets", href: "/markets" },
@@ -73,11 +76,43 @@ export function Header({ onStartTutorial }: HeaderProps = {}) {
               </Button>
             )}
 
-            {/* Desktop Login Button */}
-            <Button className="hidden md:inline-flex" data-testid="login-button">
-              <User className="h-4 w-4 mr-2" />
-              Login
-            </Button>
+            {/* Desktop Auth Button */}
+            {isLoading ? (
+              <div className="hidden md:block w-20 h-9 bg-gray-200 animate-pulse rounded"></div>
+            ) : isAuthenticated ? (
+              <div className="hidden md:flex items-center space-x-3">
+                <div className="flex items-center space-x-2">
+                  {user?.profileImageUrl && (
+                    <img 
+                      src={user.profileImageUrl} 
+                      alt="Profile" 
+                      className="w-6 h-6 rounded-full object-cover"
+                    />
+                  )}
+                  <span className="text-sm font-medium text-gray-700">
+                    {user?.firstName || user?.email || 'User'}
+                  </span>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => window.location.href = '/api/logout'}
+                  data-testid="logout-button"
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
+                </Button>
+              </div>
+            ) : (
+              <Button 
+                className="hidden md:inline-flex" 
+                onClick={() => window.location.href = '/api/login'}
+                data-testid="login-button"
+              >
+                <UserIcon className="h-4 w-4 mr-2" />
+                Login
+              </Button>
+            )}
 
             {/* Mobile Menu */}
             <Sheet open={isOpen} onOpenChange={setIsOpen}>
@@ -108,11 +143,46 @@ export function Header({ onStartTutorial }: HeaderProps = {}) {
                     ))}
                   </nav>
 
-                  {/* Mobile Login */}
-                  <Button className="w-full" data-testid="mobile-login-button">
-                    <User className="h-4 w-4 mr-2" />
-                    Login
-                  </Button>
+                  {/* Mobile Auth */}
+                  {isLoading ? (
+                    <div className="w-full h-9 bg-gray-200 animate-pulse rounded"></div>
+                  ) : isAuthenticated ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-2 p-3 bg-gray-50 rounded-lg">
+                        {user?.profileImageUrl && (
+                          <img 
+                            src={user.profileImageUrl} 
+                            alt="Profile" 
+                            className="w-8 h-8 rounded-full object-cover"
+                          />
+                        )}
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">
+                            {user?.firstName || 'User'}
+                          </p>
+                          <p className="text-sm text-gray-500">{user?.email}</p>
+                        </div>
+                      </div>
+                      <Button 
+                        className="w-full" 
+                        variant="outline"
+                        onClick={() => window.location.href = '/api/logout'}
+                        data-testid="mobile-logout-button"
+                      >
+                        <LogOut className="h-4 w-4 mr-2" />
+                        Logout
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button 
+                      className="w-full" 
+                      onClick={() => window.location.href = '/api/login'}
+                      data-testid="mobile-login-button"
+                    >
+                      <UserIcon className="h-4 w-4 mr-2" />
+                      Login
+                    </Button>
+                  )}
                 </div>
               </SheetContent>
             </Sheet>
