@@ -10,12 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertTriangle, Users, Activity, TrendingUp, MessageSquare, Settings, Search, Filter, Shield } from "lucide-react";
+import { AlertTriangle, Users, Activity, TrendingUp, MessageSquare, Settings, Search, Filter, Shield, FileText } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { RiskProfileViewer } from "@/components/risk-profiling/risk-profile-viewer";
 import { RiskAssessmentForm } from "@/components/risk-profiling/risk-assessment-form";
+import { CapitalGainsReportViewer } from "@/components/reports/capital-gains-report-viewer";
+import { TransactionReportViewer } from "@/components/reports/transaction-report-viewer";
 
 interface UserStats {
   totalUsers: number;
@@ -238,6 +240,10 @@ export default function AdminPanel() {
           <TabsTrigger value="risk-profiling" data-testid="tab-risk-profiling">
             <Shield className="w-4 h-4 mr-2" />
             Risk Profiles
+          </TabsTrigger>
+          <TabsTrigger value="reports" data-testid="tab-reports">
+            <FileText className="w-4 h-4 mr-2" />
+            Reports
           </TabsTrigger>
           <TabsTrigger value="guidance" data-testid="tab-guidance">
             <MessageSquare className="w-4 h-4 mr-2" />
@@ -665,6 +671,24 @@ export default function AdminPanel() {
               </Card>
             </div>
           </div>
+        </TabsContent>
+
+        {/* Reports Tab */}
+        <TabsContent value="reports" className="space-y-6">
+          <Tabs defaultValue="capital-gains" className="w-full">
+            <TabsList>
+              <TabsTrigger value="capital-gains">Capital Gains Reports</TabsTrigger>
+              <TabsTrigger value="transaction-reports">Transaction Reports</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="capital-gains">
+              <CapitalGainsReportViewer />
+            </TabsContent>
+            
+            <TabsContent value="transaction-reports">
+              <TransactionReportViewer />
+            </TabsContent>
+          </Tabs>
         </TabsContent>
       </Tabs>
 

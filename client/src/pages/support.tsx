@@ -11,11 +11,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { MessageCircle, Phone, Mail, Clock, Shield, User } from 'lucide-react';
+import { MessageCircle, Phone, Mail, Clock, Shield, User, FileText } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RiskProfileViewer } from '@/components/risk-profiling/risk-profile-viewer';
 import { RiskAssessmentForm } from '@/components/risk-profiling/risk-assessment-form';
+import { CapitalGainsReportViewer } from '@/components/reports/capital-gains-report-viewer';
+import { TransactionReportViewer } from '@/components/reports/transaction-report-viewer';
 
 const supportTicketSchema = z.object({
   clientName: z.string().min(1, 'Name is required'),
@@ -93,7 +95,7 @@ export default function Support() {
           </div>
 
           <Tabs defaultValue="tickets" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="tickets" data-testid="tab-support-tickets">
                 <MessageCircle className="w-4 h-4 mr-2" />
                 Support Tickets
@@ -105,6 +107,10 @@ export default function Support() {
               <TabsTrigger value="risk-assessment" data-testid="tab-risk-assessment">
                 <Shield className="w-4 h-4 mr-2" />
                 Risk Assessment
+              </TabsTrigger>
+              <TabsTrigger value="reports" data-testid="tab-reports">
+                <FileText className="w-4 h-4 mr-2" />
+                Reports
               </TabsTrigger>
             </TabsList>
 
@@ -373,6 +379,24 @@ export default function Support() {
                   <RiskAssessmentForm />
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            {/* Reports Tab */}
+            <TabsContent value="reports" className="space-y-6">
+              <Tabs defaultValue="capital-gains" className="w-full">
+                <TabsList>
+                  <TabsTrigger value="capital-gains">Capital Gains Reports</TabsTrigger>
+                  <TabsTrigger value="transaction-reports">Transaction Reports</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="capital-gains">
+                  <CapitalGainsReportViewer />
+                </TabsContent>
+                
+                <TabsContent value="transaction-reports">
+                  <TransactionReportViewer />
+                </TabsContent>
+              </Tabs>
             </TabsContent>
           </Tabs>
         </div>

@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
-import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema } from "@shared/schema";
+import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema, insertCapitalGainsReportSchema, insertTransactionReportSchema, insertTransactionRecordSchema } from "@shared/schema";
 import { marketStoryService, type MarketData as StoryMarketData } from "./market-story-service";
 import { generateMarketInsight, analyzePortfolio, generateInvestmentStory, explainFinancialConcept } from "./gemini";
 import { whatsappService } from "./whatsapp";
@@ -1824,6 +1824,269 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting risk assessment question:", error);
       res.status(500).json({ error: "Failed to delete risk assessment question" });
+    }
+  });
+
+  // ===== REPORTS API ENDPOINTS =====
+  
+  // Capital Gains Reports
+  app.get("/api/capital-gains-reports", async (req, res) => {
+    try {
+      const { userId, financialYear } = req.query;
+      const reports = await storage.getCapitalGainsReports(
+        userId as string,
+        financialYear as string
+      );
+      res.json(reports);
+    } catch (error) {
+      console.error("Error fetching capital gains reports:", error);
+      res.status(500).json({ error: "Failed to fetch capital gains reports" });
+    }
+  });
+
+  app.get("/api/capital-gains-reports/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const report = await storage.getCapitalGainsReport(id);
+      if (report) {
+        res.json(report);
+      } else {
+        res.status(404).json({ error: "Capital gains report not found" });
+      }
+    } catch (error) {
+      console.error("Error fetching capital gains report:", error);
+      res.status(500).json({ error: "Failed to fetch capital gains report" });
+    }
+  });
+
+  app.post("/api/capital-gains-reports", async (req, res) => {
+    try {
+      const report = await storage.createCapitalGainsReport(req.body);
+      res.status(201).json(report);
+    } catch (error) {
+      console.error("Error creating capital gains report:", error);
+      res.status(500).json({ error: "Failed to create capital gains report" });
+    }
+  });
+
+  app.put("/api/capital-gains-reports/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const report = await storage.updateCapitalGainsReport(id, req.body);
+      if (report) {
+        res.json(report);
+      } else {
+        res.status(404).json({ error: "Capital gains report not found" });
+      }
+    } catch (error) {
+      console.error("Error updating capital gains report:", error);
+      res.status(500).json({ error: "Failed to update capital gains report" });
+    }
+  });
+
+  // Transaction Reports  
+  app.get("/api/transaction-reports", async (req, res) => {
+    try {
+      const { userId, financialYear } = req.query;
+      const reports = await storage.getTransactionReports(
+        userId as string,
+        financialYear as string
+      );
+      res.json(reports);
+    } catch (error) {
+      console.error("Error fetching transaction reports:", error);
+      res.status(500).json({ error: "Failed to fetch transaction reports" });
+    }
+  });
+
+  app.get("/api/transaction-reports/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const report = await storage.getTransactionReport(id);
+      if (report) {
+        res.json(report);
+      } else {
+        res.status(404).json({ error: "Transaction report not found" });
+      }
+    } catch (error) {
+      console.error("Error fetching transaction report:", error);
+      res.status(500).json({ error: "Failed to fetch transaction report" });
+    }
+  });
+
+  app.post("/api/transaction-reports", async (req, res) => {
+    try {
+      const report = await storage.createTransactionReport(req.body);
+      res.status(201).json(report);
+    } catch (error) {
+      console.error("Error creating transaction report:", error);
+      res.status(500).json({ error: "Failed to create transaction report" });
+    }
+  });
+
+  app.put("/api/transaction-reports/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const report = await storage.updateTransactionReport(id, req.body);
+      if (report) {
+        res.json(report);
+      } else {
+        res.status(404).json({ error: "Transaction report not found" });
+      }
+    } catch (error) {
+      console.error("Error updating transaction report:", error);
+      res.status(500).json({ error: "Failed to update transaction report" });
+    }
+  });
+
+  // Transaction Records
+  app.get("/api/transaction-records/:reportId", async (req, res) => {
+    try {
+      const { reportId } = req.params;
+      const records = await storage.getTransactionRecords(reportId);
+      res.json(records);
+    } catch (error) {
+      console.error("Error fetching transaction records:", error);
+      res.status(500).json({ error: "Failed to fetch transaction records" });
+    }
+  });
+
+  app.get("/api/transaction-records/user/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { financialYear } = req.query;
+      const records = await storage.getTransactionRecordsByUser(
+        userId,
+        financialYear as string
+      );
+      res.json(records);
+    } catch (error) {
+      console.error("Error fetching user transaction records:", error);
+      res.status(500).json({ error: "Failed to fetch user transaction records" });
+    }
+  });
+
+  app.post("/api/transaction-records", async (req, res) => {
+    try {
+      const record = await storage.createTransactionRecord(req.body);
+      res.status(201).json(record);
+    } catch (error) {
+      console.error("Error creating transaction record:", error);
+      res.status(500).json({ error: "Failed to create transaction record" });
+    }
+  });
+
+  // External API Integration Endpoints for Fetching Reports
+  app.post("/api/reports/fetch-from-mf-central", async (req, res) => {
+    try {
+      const { userId, financialYear, panNumber } = req.body;
+      
+      // Mock external API call to MF Central
+      // In real implementation, this would call MF Central API
+      const mockReportData = {
+        source: "mf_central",
+        totalShortTermGains: "25000.00",
+        totalLongTermGains: "75000.00",
+        totalDividend: "12000.00",
+        totalTdsDeducted: "2400.00",
+        reportData: {
+          summary: { totalGains: 100000, taxableShortTerm: 25000 },
+          holdings: []
+        },
+        status: "completed"
+      };
+
+      const report = await storage.createCapitalGainsReport({
+        userId,
+        financialYear,
+        reportType: "capital_gains",
+        fetchedAt: new Date(),
+        ...mockReportData
+      });
+
+      res.status(201).json({
+        message: "Report fetched successfully from MF Central",
+        report
+      });
+    } catch (error) {
+      console.error("Error fetching from MF Central:", error);
+      res.status(500).json({ error: "Failed to fetch report from MF Central" });
+    }
+  });
+
+  app.post("/api/reports/fetch-from-nsdl", async (req, res) => {
+    try {
+      const { userId, financialYear, clientId } = req.body;
+      
+      // Mock external API call to NSDL
+      const mockReportData = {
+        source: "nsdl",
+        assetType: "equity",
+        totalPurchases: "500000.00",
+        totalRedemptions: "200000.00",
+        totalSwitches: "0.00",
+        totalDividendReceived: "15000.00",
+        totalBrokerage: "2500.00",
+        totalTaxes: "5000.00",
+        transactionCount: 45,
+        reportData: {
+          summary: { totalTransactions: 45, netInvestment: 300000 }
+        },
+        status: "completed"
+      };
+
+      const report = await storage.createTransactionReport({
+        userId,
+        financialYear,
+        fetchedAt: new Date(),
+        ...mockReportData
+      });
+
+      res.status(201).json({
+        message: "Report fetched successfully from NSDL",
+        report
+      });
+    } catch (error) {
+      console.error("Error fetching from NSDL:", error);
+      res.status(500).json({ error: "Failed to fetch report from NSDL" });
+    }
+  });
+
+  app.post("/api/reports/fetch-from-cdsl", async (req, res) => {
+    try {
+      const { userId, financialYear, dpId, clientId } = req.body;
+      
+      // Mock external API call to CDSL
+      const mockReportData = {
+        source: "cdsl", 
+        assetType: "equity",
+        totalPurchases: "300000.00",
+        totalRedemptions: "100000.00",
+        totalSwitches: "50000.00",
+        totalDividendReceived: "8000.00",
+        totalBrokerage: "1800.00",
+        totalTaxes: "3200.00",
+        transactionCount: 28,
+        reportData: {
+          summary: { totalTransactions: 28, netInvestment: 200000 }
+        },
+        status: "completed"
+      };
+
+      const report = await storage.createTransactionReport({
+        userId,
+        financialYear,
+        fetchedAt: new Date(),
+        ...mockReportData
+      });
+
+      res.status(201).json({
+        message: "Report fetched successfully from CDSL",
+        report
+      });
+    } catch (error) {
+      console.error("Error fetching from CDSL:", error);
+      res.status(500).json({ error: "Failed to fetch report from CDSL" });
     }
   });
 

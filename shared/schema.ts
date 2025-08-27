@@ -665,6 +665,100 @@ export const marketStories = pgTable("market_stories", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Capital Gains Reports
+export const capitalGainsReports = pgTable("capital_gains_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  financialYear: varchar("financial_year").notNull(), // e.g., "2023-24"
+  reportType: varchar("report_type").notNull(), // 'capital_gains', 'transaction_summary'
+  source: varchar("source").notNull(), // 'mf_central', 'nsdl', 'cdsl', 'kfintech', 'cams'
+  totalShortTermGains: decimal("total_short_term_gains", { precision: 15, scale: 2 }).default("0"),
+  totalLongTermGains: decimal("total_long_term_gains", { precision: 15, scale: 2 }).default("0"),
+  totalDividend: decimal("total_dividend", { precision: 15, scale: 2 }).default("0"),
+  totalTdsDeducted: decimal("total_tds_deducted", { precision: 15, scale: 2 }).default("0"),
+  reportData: jsonb("report_data"), // Complete report data from external sources
+  generatedAt: timestamp("generated_at").defaultNow(),
+  fetchedAt: timestamp("fetched_at"),
+  status: varchar("status").default("pending"), // 'pending', 'processing', 'completed', 'failed'
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Transaction Reports from various registrars
+export const transactionReports = pgTable("transaction_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  financialYear: varchar("financial_year").notNull(),
+  source: varchar("source").notNull(), // 'mf_central', 'nsdl', 'cdsl', 'kfintech', 'cams'
+  assetType: varchar("asset_type").notNull(), // 'mutual_fund', 'equity', 'bond', 'etf'
+  totalPurchases: decimal("total_purchases", { precision: 15, scale: 2 }).default("0"),
+  totalRedemptions: decimal("total_redemptions", { precision: 15, scale: 2 }).default("0"),
+  totalSwitches: decimal("total_switches", { precision: 15, scale: 2 }).default("0"),
+  totalDividendReceived: decimal("total_dividend_received", { precision: 15, scale: 2 }).default("0"),
+  totalBrokerage: decimal("total_brokerage", { precision: 15, scale: 2 }).default("0"),
+  totalTaxes: decimal("total_taxes", { precision: 15, scale: 2 }).default("0"),
+  transactionCount: integer("transaction_count").default(0),
+  reportData: jsonb("report_data"), // Detailed transaction data
+  generatedAt: timestamp("generated_at").defaultNow(),
+  fetchedAt: timestamp("fetched_at"),
+  status: varchar("status").default("pending"),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Individual Transaction Records
+export const transactionRecords = pgTable("transaction_records", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  reportId: varchar("report_id").references(() => transactionReports.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  transactionDate: date("transaction_date").notNull(),
+  transactionType: varchar("transaction_type").notNull(), // 'purchase', 'redemption', 'switch_in', 'switch_out', 'dividend'
+  fundName: text("fund_name").notNull(),
+  fundCode: varchar("fund_code"),
+  folio: varchar("folio"),
+  units: decimal("units", { precision: 15, scale: 6 }),
+  nav: decimal("nav", { precision: 15, scale: 4 }),
+  amount: decimal("amount", { precision: 15, scale: 2 }),
+  brokerage: decimal("brokerage", { precision: 15, scale: 2 }).default("0"),
+  stt: decimal("stt", { precision: 15, scale: 2 }).default("0"),
+  stampDuty: decimal("stamp_duty", { precision: 15, scale: 2 }).default("0"),
+  gst: decimal("gst", { precision: 15, scale: 2 }).default("0"),
+  tds: decimal("tds", { precision: 15, scale: 2 }).default("0"),
+  netAmount: decimal("net_amount", { precision: 15, scale: 2 }),
+  registrar: varchar("registrar"), // 'CAMS', 'KFINTECH', 'NSDL', 'CDSL'
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// TypeScript types for capital gains and transaction reports
+export type CapitalGainsReport = typeof capitalGainsReports.$inferSelect;
+export type InsertCapitalGainsReport = typeof capitalGainsReports.$inferInsert;
+export type TransactionReport = typeof transactionReports.$inferSelect;
+export type InsertTransactionReport = typeof transactionReports.$inferInsert;
+export type TransactionRecord = typeof transactionRecords.$inferSelect;
+export type InsertTransactionRecord = typeof transactionRecords.$inferInsert;
+
+// Insert schemas for validation
+export const insertCapitalGainsReportSchema = createInsertSchema(capitalGainsReports).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  generatedAt: true,
+});
+
+export const insertTransactionReportSchema = createInsertSchema(transactionReports).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  generatedAt: true,
+});
+
+export const insertTransactionRecordSchema = createInsertSchema(transactionRecords).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({
   id: true,
   createdAt: true,

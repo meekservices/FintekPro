@@ -1,4 +1,4 @@
-import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile } from "@shared/schema";
+import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 // We'll import hashPassword later to avoid circular dependency
@@ -78,6 +78,21 @@ export interface IStorage {
   updateRiskAssessmentQuestion(id: string, question: any): Promise<any>;
   getRiskAssessmentQuestions(): Promise<any[]>;
   deleteRiskAssessmentQuestion(id: string): Promise<void>;
+  
+  // Reports methods
+  createCapitalGainsReport(report: InsertCapitalGainsReport): Promise<CapitalGainsReport>;
+  getCapitalGainsReports(userId?: string, financialYear?: string): Promise<CapitalGainsReport[]>;
+  getCapitalGainsReport(id: string): Promise<CapitalGainsReport | undefined>;
+  updateCapitalGainsReport(id: string, updates: Partial<CapitalGainsReport>): Promise<CapitalGainsReport | undefined>;
+  
+  createTransactionReport(report: InsertTransactionReport): Promise<TransactionReport>;
+  getTransactionReports(userId?: string, financialYear?: string): Promise<TransactionReport[]>;
+  getTransactionReport(id: string): Promise<TransactionReport | undefined>;
+  updateTransactionReport(id: string, updates: Partial<TransactionReport>): Promise<TransactionReport | undefined>;
+  
+  createTransactionRecord(record: InsertTransactionRecord): Promise<TransactionRecord>;
+  getTransactionRecords(reportId: string): Promise<TransactionRecord[]>;
+  getTransactionRecordsByUser(userId: string, financialYear?: string): Promise<TransactionRecord[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -95,6 +110,9 @@ export class MemStorage implements IStorage {
   private riskProfiles: Map<string, any>;
   private riskProfilesByUserId: Map<string, any>;
   private riskAssessmentQuestions: Map<string, any>;
+  private capitalGainsReports: Map<string, CapitalGainsReport>;
+  private transactionReports: Map<string, TransactionReport>;
+  private transactionRecords: Map<string, TransactionRecord>;
 
   constructor() {
     this.users = new Map();
@@ -111,10 +129,14 @@ export class MemStorage implements IStorage {
     this.riskProfiles = new Map();
     this.riskProfilesByUserId = new Map();
     this.riskAssessmentQuestions = new Map();
+    this.capitalGainsReports = new Map();
+    this.transactionReports = new Map();
+    this.transactionRecords = new Map();
     
     // Initialize with sample data
     this.initializeSampleData();
     this.initializeRiskAssessmentQuestions();
+    this.initializeSampleReports();
   }
 
   private initializeSampleData() {
@@ -1066,6 +1088,104 @@ export class MemStorage implements IStorage {
     this.riskProfilesByUserId.set(sampleRiskProfile.userId, sampleRiskProfile);
   }
 
+  private initializeSampleReports() {
+    // Sample Capital Gains Report
+    const sampleCapitalGainsReport: CapitalGainsReport = {
+      id: "capital-gains-1",
+      userId: "demo-user-1",
+      financialYear: "2023-24",
+      reportType: "capital_gains",
+      source: "mf_central",
+      totalShortTermGains: "15000.00",
+      totalLongTermGains: "45000.00", 
+      totalDividend: "8500.00",
+      totalTdsDeducted: "1500.00",
+      reportData: {
+        summary: {
+          totalGains: 60000,
+          taxableShortTerm: 15000,
+          exemptLongTerm: 45000,
+        },
+        holdings: [
+          {
+            fundName: "HDFC Equity Fund",
+            investedAmount: 100000,
+            currentValue: 135000,
+            gains: 35000,
+            gainsType: "long_term"
+          },
+          {
+            fundName: "ICICI Bluechip Fund", 
+            investedAmount: 50000,
+            currentValue: 75000,
+            gains: 25000,
+            gainsType: "short_term"
+          }
+        ]
+      },
+      generatedAt: new Date(),
+      fetchedAt: new Date(),
+      status: "completed",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    // Sample Transaction Report  
+    const sampleTransactionReport: TransactionReport = {
+      id: "transaction-report-1",
+      userId: "demo-user-1",
+      financialYear: "2023-24",
+      source: "cams",
+      assetType: "mutual_fund",
+      totalPurchases: "200000.00",
+      totalRedemptions: "50000.00",
+      totalSwitches: "25000.00",
+      totalDividendReceived: "8500.00",
+      totalBrokerage: "150.00",
+      totalTaxes: "1500.00",
+      transactionCount: 24,
+      reportData: {
+        summary: {
+          totalTransactions: 24,
+          netInvestment: 150000,
+          currentPortfolioValue: 185000
+        }
+      },
+      generatedAt: new Date(),
+      fetchedAt: new Date(),
+      status: "completed",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    // Sample Transaction Records
+    const sampleTransactionRecord: TransactionRecord = {
+      id: "transaction-record-1",
+      reportId: "transaction-report-1",
+      userId: "demo-user-1",
+      transactionDate: "2024-01-15",
+      transactionType: "purchase",
+      fundName: "HDFC Equity Fund - Direct Growth",
+      fundCode: "120503",
+      folio: "12345678",
+      units: "156.7890",
+      nav: "850.25",
+      amount: "100000.00",
+      brokerage: "0.00",
+      stt: "100.00",
+      stampDuty: "50.00", 
+      gst: "0.00",
+      tds: "0.00",
+      netAmount: "99850.00",
+      registrar: "CAMS",
+      createdAt: new Date(),
+    };
+
+    this.capitalGainsReports.set(sampleCapitalGainsReport.id, sampleCapitalGainsReport);
+    this.transactionReports.set(sampleTransactionReport.id, sampleTransactionReport);
+    this.transactionRecords.set(sampleTransactionRecord.id, sampleTransactionRecord);
+  }
+
   // Risk profiling methods implementation
   async createRiskProfile(profile: any) {
     const id = `risk-profile-${Date.now()}`;
@@ -1144,6 +1264,135 @@ export class MemStorage implements IStorage {
 
   async deleteRiskAssessmentQuestion(id: string) {
     this.riskAssessmentQuestions.delete(id);
+  }
+
+  // Capital Gains Reports methods
+  async createCapitalGainsReport(report: InsertCapitalGainsReport): Promise<CapitalGainsReport> {
+    const id = `capital-gains-${Date.now()}`;
+    const newReport: CapitalGainsReport = {
+      ...report,
+      id,
+      generatedAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    
+    this.capitalGainsReports.set(id, newReport);
+    return newReport;
+  }
+
+  async getCapitalGainsReports(userId?: string, financialYear?: string): Promise<CapitalGainsReport[]> {
+    let reports = Array.from(this.capitalGainsReports.values());
+    
+    if (userId) {
+      reports = reports.filter(r => r.userId === userId);
+    }
+    
+    if (financialYear) {
+      reports = reports.filter(r => r.financialYear === financialYear);
+    }
+    
+    return reports.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getCapitalGainsReport(id: string): Promise<CapitalGainsReport | undefined> {
+    return this.capitalGainsReports.get(id);
+  }
+
+  async updateCapitalGainsReport(id: string, updates: Partial<CapitalGainsReport>): Promise<CapitalGainsReport | undefined> {
+    const existing = this.capitalGainsReports.get(id);
+    if (existing) {
+      const updated = {
+        ...existing,
+        ...updates,
+        updatedAt: new Date()
+      };
+      this.capitalGainsReports.set(id, updated);
+      return updated;
+    }
+    return undefined;
+  }
+
+  // Transaction Reports methods
+  async createTransactionReport(report: InsertTransactionReport): Promise<TransactionReport> {
+    const id = `transaction-report-${Date.now()}`;
+    const newReport: TransactionReport = {
+      ...report,
+      id,
+      generatedAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    
+    this.transactionReports.set(id, newReport);
+    return newReport;
+  }
+
+  async getTransactionReports(userId?: string, financialYear?: string): Promise<TransactionReport[]> {
+    let reports = Array.from(this.transactionReports.values());
+    
+    if (userId) {
+      reports = reports.filter(r => r.userId === userId);
+    }
+    
+    if (financialYear) {
+      reports = reports.filter(r => r.financialYear === financialYear);
+    }
+    
+    return reports.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getTransactionReport(id: string): Promise<TransactionReport | undefined> {
+    return this.transactionReports.get(id);
+  }
+
+  async updateTransactionReport(id: string, updates: Partial<TransactionReport>): Promise<TransactionReport | undefined> {
+    const existing = this.transactionReports.get(id);
+    if (existing) {
+      const updated = {
+        ...existing,
+        ...updates,
+        updatedAt: new Date()
+      };
+      this.transactionReports.set(id, updated);
+      return updated;
+    }
+    return undefined;
+  }
+
+  // Transaction Records methods
+  async createTransactionRecord(record: InsertTransactionRecord): Promise<TransactionRecord> {
+    const id = `transaction-record-${Date.now()}`;
+    const newRecord: TransactionRecord = {
+      ...record,
+      id,
+      createdAt: new Date(),
+    };
+    
+    this.transactionRecords.set(id, newRecord);
+    return newRecord;
+  }
+
+  async getTransactionRecords(reportId: string): Promise<TransactionRecord[]> {
+    return Array.from(this.transactionRecords.values())
+      .filter(r => r.reportId === reportId)
+      .sort((a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime());
+  }
+
+  async getTransactionRecordsByUser(userId: string, financialYear?: string): Promise<TransactionRecord[]> {
+    let records = Array.from(this.transactionRecords.values()).filter(r => r.userId === userId);
+    
+    if (financialYear) {
+      const startYear = parseInt(financialYear.split('-')[0]);
+      const endYear = startYear + 1;
+      
+      records = records.filter(r => {
+        const year = new Date(r.transactionDate).getFullYear();
+        return year >= startYear && year < endYear;
+      });
+    }
+    
+    return records.sort((a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime());
   }
 }
 
