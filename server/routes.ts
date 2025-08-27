@@ -1484,6 +1484,398 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get MCX listed bonds data (commodity-linked bonds)
+  app.get("/api/bonds/mcx-listed", async (req, res) => {
+    try {
+      // MCX commodity-linked bonds and structured products
+      const mcxBonds = [
+        {
+          id: "mcx-agri-1",
+          symbol: "MCXAGRI001",
+          name: "MCX Gold-Linked Bond 2030",
+          exchange: "MCX",
+          type: "Commodity-Linked Bond",
+          issuer: "Multi Commodity Exchange of India",
+          underlyingAsset: "Gold",
+          maturityDate: "2030-03-20",
+          couponRate: 6.85,
+          faceValue: 10000,
+          currentPrice: 10245.80,
+          prevClose: 10225.00,
+          change: 20.80,
+          changePercent: 0.20,
+          currentYield: 6.69,
+          ytm: 6.75,
+          duration: 5.3,
+          rating: "AA+",
+          volume: "₹450 Cr",
+          marketCap: "₹4,520 Cr",
+          lastTradedTime: "15:25:00",
+          bidPrice: 10240.00,
+          askPrice: 10250.00,
+          segment: "Commodity",
+          goldPrice: "₹72,450/10g",
+          linkageRatio: "1:1.2"
+        },
+        {
+          id: "mcx-agri-2", 
+          symbol: "MCXAGRI002",
+          name: "MCX Silver-Linked NCD 2028",
+          exchange: "MCX",
+          type: "Commodity-Linked Bond",
+          issuer: "Agricultural Finance Corporation",
+          underlyingAsset: "Silver",
+          maturityDate: "2028-09-15",
+          couponRate: 7.25,
+          faceValue: 5000,
+          currentPrice: 5180.45,
+          prevClose: 5165.00,
+          change: 15.45,
+          changePercent: 0.30,
+          currentYield: 7.01,
+          ytm: 7.08,
+          duration: 3.8,
+          rating: "AA",
+          volume: "₹285 Cr",
+          marketCap: "₹2,890 Cr",
+          lastTradedTime: "15:22:30",
+          bidPrice: 5175.00,
+          askPrice: 5185.00,
+          segment: "Precious Metals",
+          silverPrice: "₹94,250/kg",
+          linkageRatio: "1:1.5"
+        }
+      ];
+
+      res.json({
+        status: "success",
+        data: mcxBonds,
+        exchange: "MCX",
+        totalBonds: mcxBonds.length,
+        specialization: "Commodity-Linked Bonds",
+        lastUpdated: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error fetching MCX bonds data:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch MCX bonds data"
+      });
+    }
+  });
+
+  // Get NCDEX listed bonds data (agricultural commodity bonds)
+  app.get("/api/bonds/ncdex-listed", async (req, res) => {
+    try {
+      // NCDEX agricultural commodity-linked bonds
+      const ncdexBonds = [
+        {
+          id: "ncdex-agri-1",
+          symbol: "NCDXAGRI001",
+          name: "NCDEX Wheat-Linked Bond 2029",
+          exchange: "NCDEX",
+          type: "Agricultural Bond",
+          issuer: "National Commodity & Derivatives Exchange",
+          underlyingAsset: "Wheat",
+          maturityDate: "2029-04-30",
+          couponRate: 7.45,
+          faceValue: 25000,
+          currentPrice: 25680.50,
+          prevClose: 25620.00,
+          change: 60.50,
+          changePercent: 0.24,
+          currentYield: 7.25,
+          ytm: 7.32,
+          duration: 4.5,
+          rating: "AA+",
+          volume: "₹320 Cr",
+          marketCap: "₹3,240 Cr",
+          lastTradedTime: "15:20:00",
+          bidPrice: 25675.00,
+          askPrice: 25685.00,
+          segment: "Agricultural",
+          commodityPrice: "₹2,580/quintal",
+          linkageRatio: "1:10",
+          seasonality: "Rabi Crop"
+        },
+        {
+          id: "ncdex-agri-2",
+          symbol: "NCDXAGRI002", 
+          name: "NCDEX Cotton-Linked NCD 2030",
+          exchange: "NCDEX",
+          type: "Agricultural Bond",
+          issuer: "Cotton Corporation of India",
+          underlyingAsset: "Cotton",
+          maturityDate: "2030-12-31",
+          couponRate: 7.80,
+          faceValue: 50000,
+          currentPrice: 51450.75,
+          prevClose: 51350.00,
+          change: 100.75,
+          changePercent: 0.20,
+          currentYield: 7.58,
+          ytm: 7.65,
+          duration: 5.8,
+          rating: "AA",
+          volume: "₹195 Cr",
+          marketCap: "₹1,980 Cr",
+          lastTradedTime: "15:18:45",
+          bidPrice: 51440.00,
+          askPrice: 51460.00,
+          segment: "Fiber Crops",
+          commodityPrice: "₹58,400/candy",
+          linkageRatio: "1:0.85",
+          seasonality: "Kharif Crop"
+        },
+        {
+          id: "ncdex-agri-3",
+          symbol: "NCDXAGRI003",
+          name: "NCDEX Soybean-Linked Bond 2031",
+          exchange: "NCDEX",
+          type: "Agricultural Bond", 
+          issuer: "Soybean Processors Association",
+          underlyingAsset: "Soybean",
+          maturityDate: "2031-06-15",
+          couponRate: 8.15,
+          faceValue: 100000,
+          currentPrice: 103250.90,
+          prevClose: 103100.00,
+          change: 150.90,
+          changePercent: 0.15,
+          currentYield: 7.89,
+          ytm: 7.95,
+          duration: 6.2,
+          rating: "AA+",
+          volume: "₹275 Cr",
+          marketCap: "₹2,785 Cr",
+          lastTradedTime: "15:16:20",
+          bidPrice: 103240.00,
+          askPrice: 103260.00,
+          segment: "Oilseeds",
+          commodityPrice: "₹4,850/quintal",
+          linkageRatio: "1:20",
+          seasonality: "Kharif Crop"
+        }
+      ];
+
+      res.json({
+        status: "success",
+        data: ncdexBonds,
+        exchange: "NCDEX",
+        totalBonds: ncdexBonds.length,
+        specialization: "Agricultural Commodity Bonds",
+        lastUpdated: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error fetching NCDEX bonds data:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch NCDEX bonds data"
+      });
+    }
+  });
+
+  // Get MSEI listed bonds data (small/mid-cap and specialized bonds)
+  app.get("/api/bonds/msei-listed", async (req, res) => {
+    try {
+      // MSEI specialized and small-cap bonds
+      const mseiBonds = [
+        {
+          id: "msei-sme-1",
+          symbol: "MSEI001",
+          name: "MSEI SME Green Bond 2029",
+          exchange: "MSEI",
+          type: "Green Bond",
+          issuer: "Metropolitan Stock Exchange SME Platform",
+          maturityDate: "2029-08-30",
+          couponRate: 8.95,
+          faceValue: 10000,
+          currentPrice: 10425.60,
+          prevClose: 10390.00,
+          change: 35.60,
+          changePercent: 0.34,
+          currentYield: 8.58,
+          ytm: 8.68,
+          duration: 4.7,
+          rating: "A+",
+          volume: "₹125 Cr",
+          marketCap: "₹1,280 Cr",
+          lastTradedTime: "15:15:00",
+          bidPrice: 10420.00,
+          askPrice: 10430.00,
+          segment: "Green Finance",
+          greenCategory: "Renewable Energy",
+          carbonCredits: "500 tonnes CO2/year"
+        },
+        {
+          id: "msei-sme-2",
+          symbol: "MSEI002",
+          name: "MSEI Technology NCD 2030",
+          exchange: "MSEI",
+          type: "Subordinated Bond",
+          issuer: "MSEI Tech Innovation Fund",
+          maturityDate: "2030-11-20",
+          couponRate: 9.25,
+          faceValue: 50000,
+          currentPrice: 51850.40,
+          prevClose: 51750.00,
+          change: 100.40,
+          changePercent: 0.19,
+          currentYield: 8.93,
+          ytm: 9.02,
+          duration: 5.9,
+          rating: "A",
+          volume: "₹85 Cr",
+          marketCap: "₹865 Cr",
+          lastTradedTime: "15:12:30",
+          bidPrice: 51840.00,
+          askPrice: 51860.00,
+          segment: "Technology",
+          sector: "Fintech & AI",
+          innovationIndex: "Tech250"
+        },
+        {
+          id: "msei-sme-3",
+          symbol: "MSEI003", 
+          name: "MSEI Healthcare Bond 2028",
+          exchange: "MSEI",
+          type: "Sectoral Bond",
+          issuer: "MSEI Healthcare Ventures",
+          maturityDate: "2028-05-25",
+          couponRate: 8.65,
+          faceValue: 25000,
+          currentPrice: 25975.80,
+          prevClose: 25920.00,
+          change: 55.80,
+          changePercent: 0.22,
+          currentYield: 8.33,
+          ytm: 8.42,
+          duration: 3.4,
+          rating: "A+",
+          volume: "₹95 Cr",
+          marketCap: "₹975 Cr",
+          lastTradedTime: "15:10:15",
+          bidPrice: 25970.00,
+          askPrice: 25980.00,
+          segment: "Healthcare",
+          sector: "Pharmaceuticals",
+          regulatoryStatus: "SEBI Approved"
+        }
+      ];
+
+      res.json({
+        status: "success",
+        data: mseiBonds,
+        exchange: "MSEI",
+        totalBonds: mseiBonds.length,
+        specialization: "SME & Specialized Bonds",
+        lastUpdated: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error fetching MSEI bonds data:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch MSEI bonds data"
+      });
+    }
+  });
+
+  // Get comprehensive multi-exchange bonds data
+  app.get("/api/bonds/all-exchanges", async (req, res) => {
+    try {
+      const exchange = req.query.exchange as string;
+      const category = req.query.category as string;
+
+      // Fetch from all exchanges
+      const [nseResponse, bseResponse, mcxResponse, ncdexResponse, mseiResponse] = await Promise.all([
+        fetch(`${req.protocol}://${req.get('host')}/api/bonds/nse-listed`),
+        fetch(`${req.protocol}://${req.get('host')}/api/bonds/bse-listed`),
+        fetch(`${req.protocol}://${req.get('host')}/api/bonds/mcx-listed`),
+        fetch(`${req.protocol}://${req.get('host')}/api/bonds/ncdex-listed`),
+        fetch(`${req.protocol}://${req.get('host')}/api/bonds/msei-listed`)
+      ]);
+
+      const [nseData, bseData, mcxData, ncdexData, mseiData] = await Promise.all([
+        nseResponse.json(),
+        bseResponse.json(),
+        mcxResponse.json(),
+        ncdexResponse.json(),
+        mseiResponse.json()
+      ]);
+
+      let allBonds = [
+        ...nseData.data,
+        ...bseData.data, 
+        ...mcxData.data,
+        ...ncdexData.data,
+        ...mseiData.data
+      ];
+
+      // Filter by exchange if specified
+      if (exchange && exchange !== 'all') {
+        allBonds = allBonds.filter(bond => 
+          bond.exchange.toLowerCase() === exchange.toLowerCase()
+        );
+      }
+
+      // Filter by category if specified
+      if (category && category !== 'all') {
+        allBonds = allBonds.filter(bond => {
+          const bondCategory = bond.segment?.toLowerCase() || bond.type?.toLowerCase();
+          return bondCategory?.includes(category.toLowerCase());
+        });
+      }
+
+      // Calculate comprehensive market statistics
+      const marketStats = {
+        totalBonds: allBonds.length,
+        exchangeBreakdown: {
+          NSE: nseData.data.length,
+          BSE: bseData.data.length,
+          MCX: mcxData.data.length,
+          NCDEX: ncdexData.data.length,
+          MSEI: mseiData.data.length
+        },
+        totalVolume: allBonds.reduce((sum, bond) => {
+          const volume = parseFloat(bond.volume.replace(/[₹,\sCr]/g, ''));
+          return sum + volume;
+        }, 0),
+        averageYield: (allBonds.reduce((sum, bond) => sum + bond.currentYield, 0) / allBonds.length).toFixed(2),
+        topGainer: allBonds.reduce((max, bond) => 
+          bond.changePercent > max.changePercent ? bond : max, allBonds[0]
+        ),
+        mostTraded: allBonds.reduce((max, bond) => {
+          const volume1 = parseFloat(bond.volume.replace(/[₹,\sCr]/g, ''));
+          const volume2 = parseFloat(max.volume.replace(/[₹,\sCr]/g, ''));
+          return volume1 > volume2 ? bond : max;
+        }, allBonds[0]),
+        segmentDistribution: {
+          Government: allBonds.filter(b => b.segment === 'Government').length,
+          Corporate: allBonds.filter(b => b.segment === 'Corporate').length,
+          Agricultural: allBonds.filter(b => b.segment === 'Agricultural').length,
+          Commodity: allBonds.filter(b => b.segment === 'Commodity').length,
+          Technology: allBonds.filter(b => b.segment === 'Technology').length,
+          Healthcare: allBonds.filter(b => b.segment === 'Healthcare').length
+        }
+      };
+
+      res.json({
+        status: "success",
+        data: allBonds,
+        marketStats,
+        filters: { exchange: exchange || 'all', category: category || 'all' },
+        exchanges: ['NSE', 'BSE', 'MCX', 'NCDEX', 'MSEI'],
+        lastUpdated: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error fetching all exchanges bonds data:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch bonds data from all exchanges"
+      });
+    }
+  });
+
   // MCX API endpoints
 
   // Get MCX commodity data

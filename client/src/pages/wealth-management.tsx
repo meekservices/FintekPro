@@ -1100,6 +1100,9 @@ export default function WealthManagement() {
                             <SelectItem value="all">All Exchanges</SelectItem>
                             <SelectItem value="nse">NSE</SelectItem>
                             <SelectItem value="bse">BSE</SelectItem>
+                            <SelectItem value="mcx">MCX</SelectItem>
+                            <SelectItem value="ncdex">NCDEX</SelectItem>
+                            <SelectItem value="msei">MSEI</SelectItem>
                           </SelectContent>
                         </Select>
                         <Select defaultValue="all">
@@ -1112,6 +1115,11 @@ export default function WealthManagement() {
                             <SelectItem value="corporate">Corporate</SelectItem>
                             <SelectItem value="banking">Banking</SelectItem>
                             <SelectItem value="infrastructure">Infrastructure</SelectItem>
+                            <SelectItem value="commodity">Commodity-Linked</SelectItem>
+                            <SelectItem value="agricultural">Agricultural</SelectItem>
+                            <SelectItem value="technology">Technology</SelectItem>
+                            <SelectItem value="healthcare">Healthcare</SelectItem>
+                            <SelectItem value="green">Green Bonds</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -1122,16 +1130,16 @@ export default function WealthManagement() {
                       {/* Exchange Summary */}
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
                         <div className="text-center">
-                          <div className="text-2xl font-bold text-blue-600">8</div>
-                          <div className="text-sm text-muted-foreground">Total Listed</div>
+                          <div className="text-2xl font-bold text-blue-600">16</div>
+                          <div className="text-sm text-muted-foreground">Total Listed (5 Exchanges)</div>
                         </div>
                         <div className="text-center">
-                          <div className="text-2xl font-bold text-green-600">₹7,675 Cr</div>
+                          <div className="text-2xl font-bold text-green-600">₹12,895 Cr</div>
                           <div className="text-sm text-muted-foreground">Total Volume</div>
                         </div>
                         <div className="text-center">
-                          <div className="text-2xl font-bold text-purple-600">7.68%</div>
-                          <div className="text-sm text-muted-foreground">Avg Yield</div>
+                          <div className="text-2xl font-bold text-purple-600">7.54%</div>
+                          <div className="text-sm text-muted-foreground">Avg Yield (All Exchanges)</div>
                         </div>
                         <div className="text-center">
                           <div className="text-2xl font-bold text-orange-600">0.42%</div>
@@ -1311,11 +1319,334 @@ export default function WealthManagement() {
                         </div>
                       </div>
 
+                      {/* MCX Commodity-Linked Bonds */}
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-yellow-100 text-yellow-800">MCX</Badge>
+                          <h4 className="font-semibold">Multi Commodity Exchange Bonds</h4>
+                          <Badge variant="outline" className="text-xs">Commodity-Linked</Badge>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                          {/* MCX Gold-Linked Bond */}
+                          <div className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                            <div className="flex items-center justify-between mb-3">
+                              <div>
+                                <h3 className="font-semibold">MCX Gold-Linked Bond 2030</h3>
+                                <p className="text-sm text-muted-foreground">MCXAGRI001 • MCX</p>
+                              </div>
+                              <div className="text-right">
+                                <Badge className="bg-yellow-100 text-yellow-800">AA+</Badge>
+                                <div className="text-sm text-green-600 mt-1">+0.20%</div>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                              <div className="flex justify-between">
+                                <span>Current Price:</span>
+                                <span className="font-medium">₹10,245.80</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>YTM:</span>
+                                <span className="font-medium text-green-600">6.75%</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Volume:</span>
+                                <span className="font-medium">₹450 Cr</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Gold Price:</span>
+                                <span className="font-medium">₹72,450/10g</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between mt-3 pt-3 border-t">
+                              <div className="text-xs text-muted-foreground">
+                                Linkage Ratio: 1:1.2 | Bid: ₹10,240 | Ask: ₹10,250
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* MCX Silver-Linked Bond */}
+                          <div className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                            <div className="flex items-center justify-between mb-3">
+                              <div>
+                                <h3 className="font-semibold">MCX Silver-Linked NCD 2028</h3>
+                                <p className="text-sm text-muted-foreground">MCXAGRI002 • MCX</p>
+                              </div>
+                              <div className="text-right">
+                                <Badge className="bg-gray-100 text-gray-800">AA</Badge>
+                                <div className="text-sm text-green-600 mt-1">+0.30%</div>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                              <div className="flex justify-between">
+                                <span>Current Price:</span>
+                                <span className="font-medium">₹5,180.45</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>YTM:</span>
+                                <span className="font-medium text-green-600">7.08%</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Volume:</span>
+                                <span className="font-medium">₹285 Cr</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Silver Price:</span>
+                                <span className="font-medium">₹94,250/kg</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between mt-3 pt-3 border-t">
+                              <div className="text-xs text-muted-foreground">
+                                Linkage Ratio: 1:1.5 | Bid: ₹5,175 | Ask: ₹5,185
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* NCDEX Agricultural Bonds */}
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-green-100 text-green-800">NCDEX</Badge>
+                          <h4 className="font-semibold">National Commodity & Derivatives Exchange Bonds</h4>
+                          <Badge variant="outline" className="text-xs">Agricultural</Badge>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                          {/* NCDEX Wheat-Linked Bond */}
+                          <div className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                            <div className="flex items-center justify-between mb-3">
+                              <div>
+                                <h3 className="font-semibold">NCDEX Wheat-Linked Bond</h3>
+                                <p className="text-sm text-muted-foreground">NCDXAGRI001 • NCDEX</p>
+                              </div>
+                              <div className="text-right">
+                                <Badge className="bg-amber-100 text-amber-800">AA+</Badge>
+                                <div className="text-sm text-green-600 mt-1">+0.24%</div>
+                              </div>
+                            </div>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex justify-between">
+                                <span>Price:</span>
+                                <span className="font-medium">₹25,680.50</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>YTM:</span>
+                                <span className="font-medium text-green-600">7.32%</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Volume:</span>
+                                <span className="font-medium">₹320 Cr</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Wheat Price:</span>
+                                <span className="font-medium">₹2,580/qt</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Seasonality:</span>
+                                <span className="text-blue-600">Rabi Crop</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* NCDEX Cotton-Linked Bond */}
+                          <div className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                            <div className="flex items-center justify-between mb-3">
+                              <div>
+                                <h3 className="font-semibold">NCDEX Cotton-Linked NCD</h3>
+                                <p className="text-sm text-muted-foreground">NCDXAGRI002 • NCDEX</p>
+                              </div>
+                              <div className="text-right">
+                                <Badge className="bg-white-100 text-white-800 border">AA</Badge>
+                                <div className="text-sm text-green-600 mt-1">+0.20%</div>
+                              </div>
+                            </div>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex justify-between">
+                                <span>Price:</span>
+                                <span className="font-medium">₹51,450.75</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>YTM:</span>
+                                <span className="font-medium text-green-600">7.65%</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Volume:</span>
+                                <span className="font-medium">₹195 Cr</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Cotton Price:</span>
+                                <span className="font-medium">₹58,400/candy</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Seasonality:</span>
+                                <span className="text-orange-600">Kharif Crop</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* NCDEX Soybean-Linked Bond */}
+                          <div className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                            <div className="flex items-center justify-between mb-3">
+                              <div>
+                                <h3 className="font-semibold">NCDEX Soybean-Linked</h3>
+                                <p className="text-sm text-muted-foreground">NCDXAGRI003 • NCDEX</p>
+                              </div>
+                              <div className="text-right">
+                                <Badge className="bg-green-100 text-green-800">AA+</Badge>
+                                <div className="text-sm text-green-600 mt-1">+0.15%</div>
+                              </div>
+                            </div>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex justify-between">
+                                <span>Price:</span>
+                                <span className="font-medium">₹1,03,250.90</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>YTM:</span>
+                                <span className="font-medium text-green-600">7.95%</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Volume:</span>
+                                <span className="font-medium">₹275 Cr</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Soybean Price:</span>
+                                <span className="font-medium">₹4,850/qt</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Seasonality:</span>
+                                <span className="text-orange-600">Kharif Crop</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* MSEI Specialized Bonds */}
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-purple-100 text-purple-800">MSEI</Badge>
+                          <h4 className="font-semibold">Metropolitan Stock Exchange Bonds</h4>
+                          <Badge variant="outline" className="text-xs">SME & Specialized</Badge>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                          {/* MSEI Green Bond */}
+                          <div className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                            <div className="flex items-center justify-between mb-3">
+                              <div>
+                                <h3 className="font-semibold">MSEI SME Green Bond</h3>
+                                <p className="text-sm text-muted-foreground">MSEI001 • MSEI</p>
+                              </div>
+                              <div className="text-right">
+                                <Badge className="bg-green-100 text-green-800">Green</Badge>
+                                <div className="text-sm text-green-600 mt-1">+0.34%</div>
+                              </div>
+                            </div>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex justify-between">
+                                <span>Price:</span>
+                                <span className="font-medium">₹10,425.60</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>YTM:</span>
+                                <span className="font-medium text-green-600">8.68%</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Volume:</span>
+                                <span className="font-medium">₹125 Cr</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Green Category:</span>
+                                <span className="text-green-600">Renewable Energy</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Carbon Credits:</span>
+                                <span className="text-xs">500 tonnes CO2/year</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* MSEI Technology Bond */}
+                          <div className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                            <div className="flex items-center justify-between mb-3">
+                              <div>
+                                <h3 className="font-semibold">MSEI Technology NCD</h3>
+                                <p className="text-sm text-muted-foreground">MSEI002 • MSEI</p>
+                              </div>
+                              <div className="text-right">
+                                <Badge className="bg-blue-100 text-blue-800">Tech</Badge>
+                                <div className="text-sm text-green-600 mt-1">+0.19%</div>
+                              </div>
+                            </div>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex justify-between">
+                                <span>Price:</span>
+                                <span className="font-medium">₹51,850.40</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>YTM:</span>
+                                <span className="font-medium text-green-600">9.02%</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Volume:</span>
+                                <span className="font-medium">₹85 Cr</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Sector:</span>
+                                <span className="text-blue-600">Fintech & AI</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Index:</span>
+                                <span className="text-xs">Tech250</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* MSEI Healthcare Bond */}
+                          <div className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                            <div className="flex items-center justify-between mb-3">
+                              <div>
+                                <h3 className="font-semibold">MSEI Healthcare Bond</h3>
+                                <p className="text-sm text-muted-foreground">MSEI003 • MSEI</p>
+                              </div>
+                              <div className="text-right">
+                                <Badge className="bg-red-100 text-red-800">Healthcare</Badge>
+                                <div className="text-sm text-green-600 mt-1">+0.22%</div>
+                              </div>
+                            </div>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex justify-between">
+                                <span>Price:</span>
+                                <span className="font-medium">₹25,975.80</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>YTM:</span>
+                                <span className="font-medium text-green-600">8.42%</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Volume:</span>
+                                <span className="font-medium">₹95 Cr</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Sector:</span>
+                                <span className="text-red-600">Pharmaceuticals</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Status:</span>
+                                <span className="text-xs">SEBI Approved</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
                       {/* Market Activity Table */}
                       <div className="border rounded-lg">
                         <div className="p-4 border-b">
-                          <h4 className="font-semibold">Live Bond Market Activity</h4>
-                          <p className="text-sm text-muted-foreground">Real-time trading data from NSE & BSE</p>
+                          <h4 className="font-semibold">Live Bond Market Activity - All Exchanges</h4>
+                          <p className="text-sm text-muted-foreground">Real-time trading data from NSE, BSE, MCX, NCDEX & MSEI</p>
                         </div>
                         <div className="overflow-x-auto">
                           <Table>
@@ -1377,6 +1708,66 @@ export default function WealthManagement() {
                                 <TableCell><Badge>AAA</Badge></TableCell>
                                 <TableCell><Button size="sm">Trade</Button></TableCell>
                               </TableRow>
+                              <TableRow>
+                                <TableCell>
+                                  <div>
+                                    <div className="font-medium">MCX Gold-Linked</div>
+                                    <div className="text-xs text-muted-foreground">MCXAGRI001</div>
+                                  </div>
+                                </TableCell>
+                                <TableCell><Badge className="bg-yellow-100 text-yellow-800">MCX</Badge></TableCell>
+                                <TableCell className="font-medium">₹10,245.80</TableCell>
+                                <TableCell className="text-green-600">+0.20%</TableCell>
+                                <TableCell>6.75%</TableCell>
+                                <TableCell>₹450 Cr</TableCell>
+                                <TableCell><Badge>AA+</Badge></TableCell>
+                                <TableCell><Button size="sm">Trade</Button></TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>
+                                  <div>
+                                    <div className="font-medium">NCDEX Wheat-Linked</div>
+                                    <div className="text-xs text-muted-foreground">NCDXAGRI001</div>
+                                  </div>
+                                </TableCell>
+                                <TableCell><Badge className="bg-green-100 text-green-800">NCDEX</Badge></TableCell>
+                                <TableCell className="font-medium">₹25,680.50</TableCell>
+                                <TableCell className="text-green-600">+0.24%</TableCell>
+                                <TableCell>7.32%</TableCell>
+                                <TableCell>₹320 Cr</TableCell>
+                                <TableCell><Badge>AA+</Badge></TableCell>
+                                <TableCell><Button size="sm">Trade</Button></TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>
+                                  <div>
+                                    <div className="font-medium">MSEI Green Bond</div>
+                                    <div className="text-xs text-muted-foreground">MSEI001</div>
+                                  </div>
+                                </TableCell>
+                                <TableCell><Badge className="bg-purple-100 text-purple-800">MSEI</Badge></TableCell>
+                                <TableCell className="font-medium">₹10,425.60</TableCell>
+                                <TableCell className="text-green-600">+0.34%</TableCell>
+                                <TableCell>8.68%</TableCell>
+                                <TableCell>₹125 Cr</TableCell>
+                                <TableCell><Badge>A+</Badge></TableCell>
+                                <TableCell><Button size="sm">Trade</Button></TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>
+                                  <div>
+                                    <div className="font-medium">NCDEX Soybean</div>
+                                    <div className="text-xs text-muted-foreground">NCDXAGRI003</div>
+                                  </div>
+                                </TableCell>
+                                <TableCell><Badge className="bg-green-100 text-green-800">NCDEX</Badge></TableCell>
+                                <TableCell className="font-medium">₹1,03,250.90</TableCell>
+                                <TableCell className="text-green-600">+0.15%</TableCell>
+                                <TableCell>7.95%</TableCell>
+                                <TableCell>₹275 Cr</TableCell>
+                                <TableCell><Badge>AA+</Badge></TableCell>
+                                <TableCell><Button size="sm">Trade</Button></TableCell>
+                              </TableRow>
                             </TableBody>
                           </Table>
                         </div>
@@ -1386,18 +1777,44 @@ export default function WealthManagement() {
                       <div className="border-t pt-4">
                         <div className="flex items-center justify-between">
                           <div>
-                            <h4 className="font-semibold">Exchange Bond Features</h4>
-                            <p className="text-sm text-muted-foreground">Live pricing, real-time trades, and institutional-grade bonds</p>
+                            <h4 className="font-semibold">Multi-Exchange Bond Features</h4>
+                            <p className="text-sm text-muted-foreground">
+                              Complete coverage: NSE/BSE (Traditional), MCX (Commodity), NCDEX (Agricultural), MSEI (SME & Specialized)
+                            </p>
                           </div>
                           <div className="flex gap-2">
                             <Button variant="outline">
                               <Download className="w-4 h-4 mr-2" />
-                              Export Data
+                              Export All Exchange Data
                             </Button>
                             <Button>
                               <Eye className="w-4 h-4 mr-2" />
-                              View All Listed
+                              View Complete Portfolio
                             </Button>
+                          </div>
+                        </div>
+                        
+                        {/* Exchange Specialization Summary */}
+                        <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mt-4 p-3 bg-muted/30 rounded-lg">
+                          <div className="text-center">
+                            <Badge className="bg-blue-100 text-blue-800 mb-1">NSE</Badge>
+                            <div className="text-xs text-muted-foreground">Government & Large Corp</div>
+                          </div>
+                          <div className="text-center">
+                            <Badge className="bg-orange-100 text-orange-800 mb-1">BSE</Badge>
+                            <div className="text-xs text-muted-foreground">Tax-Free & Corporate</div>
+                          </div>
+                          <div className="text-center">
+                            <Badge className="bg-yellow-100 text-yellow-800 mb-1">MCX</Badge>
+                            <div className="text-xs text-muted-foreground">Commodity-Linked</div>
+                          </div>
+                          <div className="text-center">
+                            <Badge className="bg-green-100 text-green-800 mb-1">NCDEX</Badge>
+                            <div className="text-xs text-muted-foreground">Agricultural Bonds</div>
+                          </div>
+                          <div className="text-center">
+                            <Badge className="bg-purple-100 text-purple-800 mb-1">MSEI</Badge>
+                            <div className="text-xs text-muted-foreground">Green & Tech Bonds</div>
                           </div>
                         </div>
                       </div>
