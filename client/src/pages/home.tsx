@@ -90,254 +90,156 @@ export default function Home() {
           <PortfolioSummary userId={userId} />
         </section>
 
-        {/* API Integration Status */}
-        <section className="mb-8" data-testid="api-status-section">
+        {/* Active Endpoints Based on Client Profile */}
+        <section className="mb-8" data-testid="client-endpoints-section">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">Comprehensive Financial API Integration</h2>
-            <Badge className="bg-finance-green text-white text-base px-3 py-1">95+ Endpoints Active</Badge>
+            <h2 className="text-2xl font-bold text-gray-900">Your Active Services</h2>
+            <Badge className="bg-finance-green text-white text-base px-3 py-1">8 Services Enabled</Badge>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <Card className="border-l-4 border-l-yellow-500">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Portfolio Management */}
+            <Card className="border-l-4 border-l-blue-500 hover:shadow-lg transition-shadow">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center text-lg">
-                  <Coins className="h-5 w-5 mr-2 text-yellow-500" />
-                  <AgriculturalTooltip searchTerm="commodity">
-                    MCX Commodities
-                  </AgriculturalTooltip>
-                  <Badge className="ml-2 bg-finance-green text-white">Live</Badge>
+                  <PieChart className="h-5 w-5 mr-2 text-blue-500" />
+                  Portfolio Tracking
+                  <Badge className="ml-2 bg-finance-green text-white text-xs">Active</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  <p className="text-sm text-gray-600">✓ <AgriculturalTooltip searchTerm="commodity">Real-time commodity prices</AgriculturalTooltip></p>
-                  <p className="text-sm text-gray-600">✓ Gold, Silver & Energy</p>
-                  <p className="text-sm text-gray-600">✓ Base metals tracking</p>
-                  <p className="text-sm text-gray-600">✓ Market status & timings</p>
-                  <p className="text-sm text-gray-600">✓ <AgriculturalTooltip searchTerm="open interest">Open interest data</AgriculturalTooltip></p>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card className="border-l-4 border-l-green-600">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center text-lg">
-                  <Wheat className="h-5 w-5 mr-2 text-green-600" />
-                  <AgriculturalTooltip searchTerm="agricultural commodity">
-                    NCDEX Agricultural
-                  </AgriculturalTooltip>
-                  <Badge className="ml-2 bg-finance-green text-white">Live</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <p className="text-sm text-gray-600">✓ <AgriculturalTooltip searchTerm="commodity">Agricultural commodity prices</AgriculturalTooltip></p>
-                  <p className="text-sm text-gray-600">✓ <AgriculturalTooltip searchTerm="spices">Spices, Pulses & Grains</AgriculturalTooltip></p>
-                  <p className="text-sm text-gray-600">✓ <AgriculturalTooltip searchTerm="futures">Oilseeds & Cotton futures</AgriculturalTooltip></p>
-                  <p className="text-sm text-gray-600">✓ Market timings & status</p>
-                  <p className="text-sm text-gray-600">✓ Volume & open interest</p>
+                  <p className="text-sm text-gray-600">✓ Real-time portfolio value</p>
+                  <p className="text-sm text-gray-600">✓ Asset allocation analysis</p>
+                  <p className="text-sm text-gray-600">✓ Performance tracking</p>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-l-4 border-l-blue-600">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center text-lg">
-                  <Building2 className="h-5 w-5 mr-2 text-blue-600" />
-                  MSEI Exchange
-                  <Badge className="ml-2 bg-finance-green text-white">Live</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <p className="text-sm text-gray-600">✓ Equity & Currency trading</p>
-                  <p className="text-sm text-gray-600">✓ Derivatives & Futures</p>
-                  <p className="text-sm text-gray-600">✓ Multi-segment exchange</p>
-                  <p className="text-sm text-gray-600">✓ Real-time quotes</p>
-                  <p className="text-sm text-gray-600">✓ Options & Futures data</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-l-4 border-l-green-500">
+            {/* Market Data */}
+            <Card className="border-l-4 border-l-green-500 hover:shadow-lg transition-shadow">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center text-lg">
                   <TrendingUp className="h-5 w-5 mr-2 text-green-500" />
-                  NSE India API
-                  <Badge className="ml-2 bg-finance-green text-white">Live</Badge>
+                  Market Data
+                  <Badge className="ml-2 bg-finance-green text-white text-xs">Live</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  <p className="text-sm text-gray-600">✓ Real-time NSE quotes</p>
-                  <p className="text-sm text-gray-600">✓ Live indices data</p>
-                  <p className="text-sm text-gray-600">✓ Gainers & losers</p>
-                  <p className="text-sm text-gray-600">✓ Historical price data</p>
-                  <p className="text-sm text-gray-600">✓ Market status updates</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-l-4 border-l-orange-500">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center text-lg">
-                  <BarChart3 className="h-5 w-5 mr-2 text-orange-500" />
-                  BSE India API
-                  <Badge className="ml-2 bg-finance-green text-white">Live</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <p className="text-sm text-gray-600">✓ Real-time BSE quotes</p>
-                  <p className="text-sm text-gray-600">✓ Live indices data</p>
-                  <p className="text-sm text-gray-600">✓ Top gainers & losers</p>
-                  <p className="text-sm text-gray-600">✓ Top turnovers</p>
-                  <p className="text-sm text-gray-600">✓ Stock search & details</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-l-4 border-l-finance-blue">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center text-lg">
-                  <Database className="h-5 w-5 mr-2 text-finance-blue" />
-                  Finnhub Market Data
-                  <Badge className="ml-2 bg-finance-green text-white">Premium</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <p className="text-sm text-gray-600">✓ Real-time stock prices</p>
-                  <p className="text-sm text-gray-600">✓ Earnings & financial metrics</p>
-                  <p className="text-sm text-gray-600">✓ Analyst recommendations</p>
-                  <p className="text-sm text-gray-600">✓ Insider trading data</p>
-                  <p className="text-sm text-gray-600">✓ Financial news & sentiment</p>
+                  <p className="text-sm text-gray-600">✓ NSE & BSE live quotes</p>
+                  <p className="text-sm text-gray-600">✓ Market indices tracking</p>
+                  <p className="text-sm text-gray-600">✓ Real-time price updates</p>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-l-4 border-l-finance-purple">
+            {/* Mutual Funds */}
+            <Card className="border-l-4 border-l-purple-500 hover:shadow-lg transition-shadow">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center text-lg">
-                  <TrendingUp className="h-5 w-5 mr-2 text-finance-purple" />
-                  MF Central API
-                  <Badge className="ml-2 bg-finance-green text-white">Enhanced</Badge>
+                  <Target className="h-5 w-5 mr-2 text-purple-500" />
+                  Mutual Funds
+                  <Badge className="ml-2 bg-finance-green text-white text-xs">AMFI</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  <p className="text-sm text-gray-600">✓ SIP & lumpsum calculators</p>
-                  <p className="text-sm text-gray-600">✓ Portfolio analytics & comparison</p>
-                  <p className="text-sm text-gray-600">✓ Goal planning tools</p>
-                  <p className="text-sm text-gray-600">✓ Holdings import & tracking</p>
-                  <p className="text-sm text-gray-600">✓ NAV history & performance</p>
+                  <p className="text-sm text-gray-600">✓ Live NAV data</p>
+                  <p className="text-sm text-gray-600">✓ SIP calculator</p>
+                  <p className="text-sm text-gray-600">✓ Scheme comparison</p>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-l-4 border-l-finance-red">
+            {/* Financial Calculators */}
+            <Card className="border-l-4 border-l-orange-500 hover:shadow-lg transition-shadow">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center text-lg">
-                  <Shield className="h-5 w-5 mr-2 text-finance-red" />
-                  NSDL Services
-                  <Badge className="ml-2 bg-finance-green text-white">Complete</Badge>
+                  <Calculator className="h-5 w-5 mr-2 text-orange-500" />
+                  Calculators
+                  <Badge className="ml-2 bg-finance-green text-white text-xs">Tools</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  <p className="text-sm text-gray-600">✓ Demat account management</p>
-                  <p className="text-sm text-gray-600">✓ Corporate actions tracking</p>
-                  <p className="text-sm text-gray-600">✓ Portfolio analytics dashboard</p>
-                  <p className="text-sm text-gray-600">✓ eDIS & margin facilities</p>
-                  <p className="text-sm text-gray-600">✓ LAS & transaction history</p>
+                  <p className="text-sm text-gray-600">✓ SIP & EMI calculators</p>
+                  <p className="text-sm text-gray-600">✓ Tax planning tools</p>
+                  <p className="text-sm text-gray-600">✓ Retirement planning</p>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-l-4 border-l-orange-500">
+            {/* Bonds & Fixed Income */}
+            <Card className="border-l-4 border-l-indigo-500 hover:shadow-lg transition-shadow">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center text-lg">
-                  <Database className="h-5 w-5 mr-2 text-orange-500" />
-                  CDSL Services
-                  <Badge className="ml-2 bg-finance-green text-white">Advanced</Badge>
+                  <Receipt className="h-5 w-5 mr-2 text-indigo-500" />
+                  Bonds Trading
+                  <Badge className="ml-2 bg-finance-green text-white text-xs">Multi-Exchange</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  <p className="text-sm text-gray-600">✓ DESTAT statement generation</p>
-                  <p className="text-sm text-gray-600">✓ Repledge & unpledge services</p>
-                  <p className="text-sm text-gray-600">✓ Easiest portal integration</p>
-                  <p className="text-sm text-gray-600">✓ BO account & eDIS services</p>
-                  <p className="text-sm text-gray-600">✓ eLAS & transaction tracking</p>
+                  <p className="text-sm text-gray-600">✓ Government bonds</p>
+                  <p className="text-sm text-gray-600">✓ Corporate bonds</p>
+                  <p className="text-sm text-gray-600">✓ Fixed deposits</p>
                 </div>
               </CardContent>
             </Card>
-          </div>
-          
-          {/* Detailed API Features Breakdown */}
-          <div className="bg-white rounded-lg border p-6 mb-8">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">Complete Feature Coverage</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div>
-                <h4 className="font-semibold text-finance-blue mb-3 flex items-center">
-                  <Database className="h-4 w-4 mr-2" />
-                  Finnhub Premium
-                </h4>
-                <ul className="space-y-1 text-sm text-gray-600">
-                  <li>• Market quotes & indices</li>
-                  <li>• Earnings calendar</li>
-                  <li>• Analyst recommendations</li>
-                  <li>• Insider trading alerts</li>
-                  <li>• Financial news sentiment</li>
-                  <li>• Historical price data</li>
-                  <li>• Company fundamentals</li>
-                </ul>
-              </div>
-              
-              <div>
-                <h4 className="font-semibold text-finance-purple mb-3 flex items-center">
-                  <TrendingUp className="h-4 w-4 mr-2" />
-                  MF Central Pro
-                </h4>
-                <ul className="space-y-1 text-sm text-gray-600">
-                  <li>• SIP calculator</li>
-                  <li>• Lumpsum planner</li>
-                  <li>• Scheme comparison</li>
-                  <li>• Goal-based planning</li>
-                  <li>• NAV tracking</li>
-                  <li>• Holdings import</li>
-                  <li>• Performance analytics</li>
-                </ul>
-              </div>
-              
-              <div>
-                <h4 className="font-semibold text-finance-red mb-3 flex items-center">
-                  <Shield className="h-4 w-4 mr-2" />
-                  NSDL Complete
-                </h4>
-                <ul className="space-y-1 text-sm text-gray-600">
-                  <li>• Demat account services</li>
-                  <li>• Corporate actions</li>
-                  <li>• Portfolio analytics</li>
-                  <li>• eDIS transactions</li>
-                  <li>• Margin pledge</li>
-                  <li>• LAS (Loan against Securities)</li>
-                  <li>• Transaction history</li>
-                </ul>
-              </div>
-              
-              <div>
-                <h4 className="font-semibold text-orange-500 mb-3 flex items-center">
-                  <Banknote className="h-4 w-4 mr-2" />
-                  CDSL Advanced
-                </h4>
-                <ul className="space-y-1 text-sm text-gray-600">
-                  <li>• DESTAT generation</li>
-                  <li>• Repledge services</li>
-                  <li>• Unpledge requests</li>
-                  <li>• Easiest portal</li>
-                  <li>• BO account management</li>
-                  <li>• eDIS & e-voting</li>
-                  <li>• eLAS facilities</li>
-                </ul>
-              </div>
-            </div>
+
+            {/* IPO Services */}
+            <Card className="border-l-4 border-l-red-500 hover:shadow-lg transition-shadow">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center text-lg">
+                  <Building className="h-5 w-5 mr-2 text-red-500" />
+                  IPO Center
+                  <Badge className="ml-2 bg-finance-green text-white text-xs">NSE/BSE</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-600">✓ Current IPO listings</p>
+                  <p className="text-sm text-gray-600">✓ Application tracking</p>
+                  <p className="text-sm text-gray-600">✓ Allotment status</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Loan Services */}
+            <Card className="border-l-4 border-l-yellow-500 hover:shadow-lg transition-shadow">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center text-lg">
+                  <CreditCard className="h-5 w-5 mr-2 text-yellow-500" />
+                  Loan Services
+                  <Badge className="ml-2 bg-finance-green text-white text-xs">Partner</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-600">✓ Personal loans</p>
+                  <p className="text-sm text-gray-600">✓ Home loans</p>
+                  <p className="text-sm text-gray-600">✓ Loan against securities</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Capital Gains Reports */}
+            <Card className="border-l-4 border-l-teal-500 hover:shadow-lg transition-shadow">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center text-lg">
+                  <FileText className="h-5 w-5 mr-2 text-teal-500" />
+                  Tax Reports
+                  <Badge className="ml-2 bg-finance-green text-white text-xs">NSDL/CDSL</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-600">✓ Capital gains reports</p>
+                  <p className="text-sm text-gray-600">✓ Transaction summaries</p>
+                  <p className="text-sm text-gray-600">✓ Tax compliance</p>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </section>
 
