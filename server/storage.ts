@@ -57,6 +57,127 @@ export class MemStorage implements IStorage {
     this.marketData = new Map();
     this.assetAllocations = new Map();
     this.mutualFunds = new Map();
+    
+    // Initialize with sample data
+    this.initializeSampleData();
+  }
+
+  private initializeSampleData() {
+    // Create sample portfolio
+    const samplePortfolio: Portfolio = {
+      id: "demo-portfolio-1",
+      userId: "demo-user-1",
+      name: "My Investment Portfolio",
+      totalValue: "1250000",
+      cash: "50000",
+      isDefault: true,
+      createdAt: new Date()
+    };
+    this.portfolios.set(samplePortfolio.id, samplePortfolio);
+
+    // Create sample holdings across different exchanges and asset types
+    const sampleHoldings: PortfolioHolding[] = [
+      // NSE Equity holdings
+      {
+        id: "holding-1",
+        portfolioId: "demo-portfolio-1",
+        symbol: "TCS.NS",
+        quantity: "50",
+        avgPrice: "3650.00",
+        assetType: "equity",
+        updatedAt: new Date()
+      },
+      {
+        id: "holding-2",
+        portfolioId: "demo-portfolio-1",
+        symbol: "INFY.NS",
+        quantity: "75",
+        avgPrice: "1545.00",
+        assetType: "equity",
+        updatedAt: new Date()
+      },
+      {
+        id: "holding-3",
+        portfolioId: "demo-portfolio-1",
+        symbol: "RELIANCE.NS",
+        quantity: "25",
+        avgPrice: "2850.00",
+        assetType: "equity",
+        updatedAt: new Date()
+      },
+      // BSE Equity holdings
+      {
+        id: "holding-4",
+        portfolioId: "demo-portfolio-1",
+        symbol: "HDFC.BO",
+        quantity: "40",
+        avgPrice: "1680.00",
+        assetType: "equity",
+        updatedAt: new Date()
+      },
+      {
+        id: "holding-5",
+        portfolioId: "demo-portfolio-1",
+        symbol: "ICICIBANK.BO",
+        quantity: "60",
+        avgPrice: "1150.00",
+        assetType: "equity",
+        updatedAt: new Date()
+      },
+      // MCX Commodity holdings
+      {
+        id: "holding-6",
+        portfolioId: "demo-portfolio-1",
+        symbol: "GOLD",
+        quantity: "2",
+        avgPrice: "65000.00",
+        assetType: "commodity",
+        updatedAt: new Date()
+      },
+      {
+        id: "holding-7",
+        portfolioId: "demo-portfolio-1",
+        symbol: "CRUDE",
+        quantity: "5",
+        avgPrice: "6800.00",
+        assetType: "commodity",
+        updatedAt: new Date()
+      },
+      // NCDEX Agricultural commodity
+      {
+        id: "holding-8",
+        portfolioId: "demo-portfolio-1",
+        symbol: "WHEAT",
+        quantity: "10",
+        avgPrice: "2450.00",
+        assetType: "commodity",
+        updatedAt: new Date()
+      },
+      // MSEI Currency holding
+      {
+        id: "holding-9",
+        portfolioId: "demo-portfolio-1",
+        symbol: "USD_INR",
+        quantity: "1000",
+        avgPrice: "82.50",
+        assetType: "currency",
+        updatedAt: new Date()
+      },
+      // ETF and Mutual Fund holdings
+      {
+        id: "holding-10",
+        portfolioId: "demo-portfolio-1",
+        symbol: "NIFTYBEES.NS",
+        quantity: "100",
+        avgPrice: "245.00",
+        assetType: "etf",
+        updatedAt: new Date()
+      }
+    ];
+
+    sampleHoldings.forEach(holding => {
+      this.portfolioHoldings.set(holding.id, holding);
+    });
   }
 
   async getUser(id: string): Promise<User | undefined> {

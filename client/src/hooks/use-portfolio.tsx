@@ -2,6 +2,43 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import type { Portfolio, PortfolioHolding, AssetAllocation } from "@shared/schema";
 
+interface EnhancedHolding extends PortfolioHolding {
+  currentPrice: string;
+  investedValue: string;
+  currentValue: string;
+  gainLoss: string;
+  gainLossPercent: string;
+  dayChange: string;
+  dayChangePercent: string;
+  exchange: string;
+  marketData: any;
+  lastUpdated: string;
+}
+
+interface PortfolioPerformance {
+  portfolioId: string;
+  totalInvestedValue: string;
+  totalCurrentValue: string;
+  totalGainLoss: string;
+  totalGainLossPercent: string;
+  dayChange: string;
+  dayChangePercent: string;
+  holdingsCount: number;
+  exchangeBreakdown: Array<{
+    exchange: string;
+    value: number;
+    percentage: string;
+  }>;
+  assetBreakdown: Array<{
+    assetType: string;
+    name: string;
+    value: number;
+    percentage: string;
+    color: string;
+  }>;
+  lastUpdated: string;
+}
+
 export function usePortfolios(userId: string) {
   return useQuery<Portfolio[]>({
     queryKey: ['/api/portfolios', userId],
@@ -13,6 +50,22 @@ export function usePortfolioHoldings(portfolioId: string) {
   return useQuery<PortfolioHolding[]>({
     queryKey: ['/api/portfolios', portfolioId, 'holdings'],
     enabled: !!portfolioId,
+  });
+}
+
+export function useEnhancedPortfolioHoldings(portfolioId: string) {
+  return useQuery<EnhancedHolding[]>({
+    queryKey: ['/api/portfolios', portfolioId, 'holdings', 'enhanced'],
+    enabled: !!portfolioId,
+    refetchInterval: 30000, // Refresh every 30 seconds for live market data
+  });
+}
+
+export function usePortfolioPerformance(portfolioId: string) {
+  return useQuery<PortfolioPerformance>({
+    queryKey: ['/api/portfolios', portfolioId, 'performance'],
+    enabled: !!portfolioId,
+    refetchInterval: 30000, // Refresh every 30 seconds for live performance data
   });
 }
 
