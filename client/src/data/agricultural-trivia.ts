@@ -1,7 +1,7 @@
 // Agricultural Market Trivia Data
 export interface AgriculturalTrivia {
   id: string;
-  category: 'commodity' | 'weather' | 'trading' | 'history' | 'technology';
+  category: 'commodity' | 'weather' | 'trading' | 'history' | 'technology' | 'equity' | 'bonds' | 'debt';
   title: string;
   content: string;
   relatedTerms: string[];
@@ -216,6 +216,94 @@ export const agriculturalTrivia: AgriculturalTrivia[] = [
     content: 'Jute, known as the "golden fiber," is primarily grown in the Ganges Delta region of Bangladesh and India. As eco-consciousness grows, jute demand is increasing as a sustainable alternative to synthetic materials.',
     relatedTerms: ['jute', 'Bangladesh', 'sustainable', 'eco-friendly'],
     funFact: 'Jute plants can grow up to 4 meters tall in just 4-6 months!'
+  },
+  {
+    id: 'equity-trading-basics',
+    category: 'equity',
+    title: 'Equity Trading Fundamentals',
+    content: 'Equity trading involves buying and selling company shares on stock exchanges. In India, NSE and BSE are the primary exchanges. Trading happens in regular market hours (9:15 AM to 3:30 PM) with pre-market and after-market sessions for additional liquidity.',
+    relatedTerms: ['equity', 'NSE', 'BSE', 'shares', 'trading'],
+    funFact: 'NSE handles over 2 billion trades annually, making it one of the world\'s largest exchanges by volume!'
+  },
+  {
+    id: 'pre-ipo-bonds',
+    category: 'bonds',
+    title: 'Pre-IPO Bonds: Early Access Investment',
+    content: 'Pre-IPO bonds allow investors to gain exposure to companies before they go public. These bonds often come with conversion options to equity shares at predetermined ratios, offering potential upside if the company\'s IPO performs well.',
+    relatedTerms: ['pre-IPO', 'bonds', 'conversion', 'IPO'],
+    funFact: 'Pre-IPO bond investors can sometimes get equity at 20-30% discount to the IPO price!'
+  },
+  {
+    id: 'ncd-basics',
+    category: 'debt',
+    title: 'Non-Convertible Debentures (NCDs)',
+    content: 'NCDs are debt instruments that cannot be converted into equity shares. They offer fixed or floating interest rates and are tradeable on exchanges. NCDs are popular among retail investors seeking higher yields than bank deposits with relatively lower risk than equity.',
+    relatedTerms: ['NCD', 'debentures', 'fixed income', 'yield'],
+    funFact: 'NCDs can offer 2-3% higher returns than bank FDs while being tradeable on exchanges!'
+  },
+  {
+    id: 'intraday-trading',
+    category: 'equity',
+    title: 'Intraday Trading Strategies',
+    content: 'Intraday trading involves buying and selling stocks within the same trading day. Popular strategies include scalping, momentum trading, and gap trading. Traders use technical indicators like RSI, MACD, and moving averages to time their entries and exits.',
+    relatedTerms: ['intraday', 'scalping', 'momentum', 'technical analysis'],
+    funFact: 'Successful intraday traders typically have win rates of 40-50% but manage risk to stay profitable!'
+  },
+  {
+    id: 'ipo-process',
+    category: 'equity',
+    title: 'IPO: Going Public Journey',
+    content: 'Initial Public Offerings allow private companies to raise capital by selling shares to the public. The process involves merchant bankers, due diligence, price discovery, and regulatory approvals from SEBI. Retail investors get reservations in mainboard IPOs.',
+    relatedTerms: ['IPO', 'SEBI', 'merchant banker', 'price discovery'],
+    funFact: 'India saw over 200 IPOs in 2021, raising more than ₹1.18 lakh crores!'
+  },
+  {
+    id: 'credit-rating-ncds',
+    category: 'debt',
+    title: 'Credit Ratings for NCDs',
+    content: 'NCDs are rated by agencies like CRISIL, ICRA, and CARE based on creditworthiness. Ratings range from AAA (highest safety) to D (default). Higher-rated NCDs offer lower yields but better safety, while lower-rated ones provide higher returns with increased risk.',
+    relatedTerms: ['credit rating', 'CRISIL', 'AAA', 'default risk'],
+    funFact: 'A single notch downgrade from AA+ to AA can increase NCD yields by 50-100 basis points!'
+  },
+  {
+    id: 'futures-options-equity',
+    category: 'equity',
+    title: 'Equity Derivatives: F&O Trading',
+    content: 'Futures and Options on individual stocks and indices allow leveraged trading and hedging. F&O contracts expire monthly, and positions require margin payments. Options provide asymmetric risk-reward profiles, while futures offer direct leverage.',
+    relatedTerms: ['futures', 'options', 'leverage', 'margin', 'derivatives'],
+    funFact: 'F&O turnover in India is often 15-20 times higher than cash market turnover!'
+  },
+  {
+    id: 'qualified-institutional-placement',
+    category: 'equity',
+    title: 'Qualified Institutional Placement (QIP)',
+    content: 'QIP allows listed companies to raise funds from qualified institutional buyers without extensive documentation. QIPs are faster than rights issues and help companies raise capital for expansion, debt reduction, or working capital needs.',
+    relatedTerms: ['QIP', 'institutional buyers', 'rights issue', 'capital raising'],
+    funFact: 'QIPs must be priced at least 5% discount to the average market price of preceding two weeks!'
+  },
+  {
+    id: 'convertible-bonds',
+    category: 'bonds',
+    title: 'Convertible Bonds: Best of Both Worlds',
+    content: 'Convertible bonds can be converted into equity shares at predetermined ratios and times. They offer lower interest rates than regular bonds but provide equity upside potential. Popular among growth companies and income-seeking investors.',
+    relatedTerms: ['convertible', 'conversion ratio', 'equity upside', 'hybrid'],
+    funFact: 'Convertible bonds typically offer 2-3% lower yields than similar non-convertible bonds!'
+  },
+  {
+    id: 'systematic-investment-plan',
+    category: 'equity',
+    title: 'SIP: Disciplined Equity Investment',
+    content: 'Systematic Investment Plans allow regular investment in mutual funds or stocks, enabling rupee cost averaging. SIPs help reduce timing risk and build wealth through compounding. They\'re particularly effective for long-term equity wealth creation.',
+    relatedTerms: ['SIP', 'rupee cost averaging', 'mutual funds', 'compounding'],
+    funFact: 'A ₹10,000 monthly SIP for 20 years at 12% returns can create over ₹1 crore corpus!'
+  },
+  {
+    id: 'corporate-bond-yields',
+    category: 'debt',
+    title: 'Corporate Bond Yield Dynamics',
+    content: 'Corporate bond yields reflect credit risk, liquidity risk, and interest rate risk. Investment grade corporate bonds typically yield 100-300 basis points above government securities. Yield curves can invert during economic uncertainty.',
+    relatedTerms: ['corporate bonds', 'yield spread', 'credit risk', 'basis points'],
+    funFact: 'During the 2008 crisis, Indian corporate bond spreads widened to over 800 basis points!'
   }
 ];
 
