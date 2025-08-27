@@ -1976,6 +1976,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Capital Gains Report Download/Export
+  app.get("/api/capital-gains-reports/:id/download", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { format = 'csv' } = req.query;
+      
+      const report = await storage.getCapitalGainsReport(id);
+      if (!report) {
+        return res.status(404).json({ error: "Capital gains report not found" });
+      }
+
+      const filename = `capital-gains-${report.financialYear}-${report.source}-${Date.now()}`;
+      
+      if (format === 'csv') {
+        // Generate CSV content
+        const csvContent = [
+          'Financial Year,Source,Long Term Gains,Short Term Gains,Dividend,TDS Deducted,Status,Generated Date',
+          `${report.financialYear},${report.source.toUpperCase()},${report.totalLongTermGains},${report.totalShortTermGains},${report.totalDividend},${report.totalTdsDeducted},${report.status},${new Date(report.generatedAt).toLocaleDateString('en-IN')}`
+        ].join('\n');
+        
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}.csv"`);
+        res.send(csvContent);
+      } else if (format === 'pdf') {
+        // Mock PDF generation - in real implementation, use a PDF library
+        const pdfContent = `Capital Gains Report\n\nFinancial Year: ${report.financialYear}\nSource: ${report.source.toUpperCase()}\nLong Term Gains: ₹${report.totalLongTermGains}\nShort Term Gains: ₹${report.totalShortTermGains}\nDividend: ₹${report.totalDividend}\nTDS Deducted: ₹${report.totalTdsDeducted}\nStatus: ${report.status}\nGenerated: ${new Date(report.generatedAt).toLocaleDateString('en-IN')}`;
+        
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}.pdf"`);
+        res.send(pdfContent);
+      } else {
+        // JSON format
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}.json"`);
+        res.json(report);
+      }
+    } catch (error) {
+      console.error("Error downloading capital gains report:", error);
+      res.status(500).json({ error: "Failed to download capital gains report" });
+    }
+  });
+
+  // Transaction Report Download/Export
+  app.get("/api/transaction-reports/:id/download", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { format = 'csv' } = req.query;
+      
+      const report = await storage.getTransactionReport(id);
+      if (!report) {
+        return res.status(404).json({ error: "Transaction report not found" });
+      }
+
+      const filename = `transaction-report-${report.financialYear}-${report.source}-${Date.now()}`;
+      
+      if (format === 'csv') {
+        // Generate CSV content
+        const csvContent = [
+          'Financial Year,Source,Asset Type,Total Purchases,Total Redemptions,Total Switches,Dividend Received,Brokerage,Taxes,Transaction Count',
+          `${report.financialYear},${report.source.toUpperCase()},${report.assetType},${report.totalPurchases},${report.totalRedemptions},${report.totalSwitches},${report.totalDividendReceived},${report.totalBrokerage},${report.totalTaxes},${report.transactionCount}`
+        ].join('\n');
+        
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}.csv"`);
+        res.send(csvContent);
+      } else if (format === 'pdf') {
+        // Mock PDF generation
+        const pdfContent = `Transaction Report\n\nFinancial Year: ${report.financialYear}\nSource: ${report.source.toUpperCase()}\nAsset Type: ${report.assetType}\nTotal Purchases: ₹${report.totalPurchases}\nTotal Redemptions: ₹${report.totalRedemptions}\nTotal Switches: ₹${report.totalSwitches}\nDividend Received: ₹${report.totalDividendReceived}\nBrokerage: ₹${report.totalBrokerage}\nTaxes: ₹${report.totalTaxes}\nTransaction Count: ${report.transactionCount}`;
+        
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}.pdf"`);
+        res.send(pdfContent);
+      } else {
+        // JSON format
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}.json"`);
+        res.json(report);
+      }
+    } catch (error) {
+      console.error("Error downloading transaction report:", error);
+      res.status(500).json({ error: "Failed to download transaction report" });
+    }
+  });
+
   // External API Integration Endpoints for Fetching Reports
   app.post("/api/reports/fetch-from-mf-central", async (req, res) => {
     try {

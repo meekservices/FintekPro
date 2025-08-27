@@ -95,6 +95,43 @@ export function CapitalGainsReportViewer() {
     });
   };
 
+  const handleDownload = async (reportId: string, format: 'csv' | 'pdf' | 'json' = 'csv') => {
+    try {
+      const response = await fetch(`/api/capital-gains-reports/${reportId}/download?format=${format}`);
+      if (!response.ok) throw new Error('Download failed');
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      
+      // Get filename from Content-Disposition header if available
+      const disposition = response.headers.get('Content-Disposition');
+      let filename = `capital-gains-report.${format}`;
+      if (disposition) {
+        const filenameMatch = disposition.match(/filename="(.+)"/); 
+        if (filenameMatch) filename = filenameMatch[1];
+      }
+      
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast({
+        title: "Download Started",
+        description: `Capital gains report download started in ${format.toUpperCase()} format`,
+      });
+    } catch (error) {
+      toast({
+        title: "Download Failed",
+        description: "Failed to download the report. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const formatCurrency = (amount: string | number) => {
     const num = typeof amount === 'string' ? parseFloat(amount) : amount;
     return new Intl.NumberFormat('en-IN', { 
@@ -311,14 +348,26 @@ export function CapitalGainsReportViewer() {
                       {new Date(report.generatedAt).toLocaleDateString('en-IN')}
                     </TableCell>
                     <TableCell>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        data-testid={`button-download-${report.id}`}
-                      >
-                        <Download className="h-4 w-4 mr-1" />
-                        Download
-                      </Button>
+                      <div className="flex gap-1">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleDownload(report.id, 'csv')}
+                          data-testid={`button-download-csv-${report.id}`}
+                        >
+                          <Download className="h-4 w-4 mr-1" />
+                          CSV
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleDownload(report.id, 'pdf')}
+                          data-testid={`button-download-pdf-${report.id}`}
+                        >
+                          <Download className="h-4 w-4 mr-1" />
+                          PDF
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
