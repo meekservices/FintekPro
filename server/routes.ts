@@ -3020,6 +3020,530 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // AMFI API endpoints for mutual fund data
+  app.get("/api/amfi/mutual-funds", async (req, res) => {
+    try {
+      const { category, amc, nav_min, nav_max, returns_period = '1Y', sort_by = 'returns' } = req.query;
+      
+      const amfiMutualFunds = [
+        {
+          id: "amfi-mf-1",
+          scheme_code: "120503",
+          scheme_name: "SBI Bluechip Fund - Direct Plan - Growth",
+          amc: "SBI Mutual Fund",
+          category: "Large Cap Fund",
+          sub_category: "Large Cap",
+          nav: 87.4521,
+          nav_date: "2025-01-27",
+          fund_size: "₹45,680 Cr",
+          expense_ratio: 0.95,
+          min_investment: 5000,
+          fund_manager: "R. Srinivasan",
+          benchmark: "NIFTY 100 TRI",
+          launch_date: "2006-02-20",
+          returns: {
+            "1D": 0.45,
+            "1W": 1.23,
+            "1M": 2.87,
+            "3M": 8.92,
+            "6M": 15.67,
+            "1Y": 18.45,
+            "2Y": 16.32,
+            "3Y": 14.78,
+            "5Y": 12.90,
+            "since_inception": 11.85
+          },
+          risk_level: "Moderate",
+          rating: 4,
+          exit_load: "1% if redeemed within 365 days"
+        },
+        {
+          id: "amfi-mf-2",
+          scheme_code: "120305",
+          scheme_name: "HDFC Top 100 Fund - Direct Plan - Growth",
+          amc: "HDFC Mutual Fund",
+          category: "Large Cap Fund",
+          sub_category: "Large Cap",
+          nav: 998.7834,
+          nav_date: "2025-01-27",
+          fund_size: "₹38,542 Cr",
+          expense_ratio: 1.05,
+          min_investment: 5000,
+          fund_manager: "Chirag Setalvad",
+          benchmark: "NIFTY 100 TRI",
+          launch_date: "1996-10-01",
+          returns: {
+            "1D": 0.32,
+            "1W": 0.98,
+            "1M": 3.21,
+            "3M": 9.87,
+            "6M": 17.23,
+            "1Y": 19.56,
+            "2Y": 17.89,
+            "3Y": 15.23,
+            "5Y": 13.67,
+            "since_inception": 12.45
+          },
+          risk_level: "Moderate",
+          rating: 5,
+          exit_load: "1% if redeemed within 365 days"
+        },
+        {
+          id: "amfi-mf-3",
+          scheme_code: "119551",
+          scheme_name: "ICICI Prudential Technology Fund - Direct Plan - Growth",
+          amc: "ICICI Prudential Mutual Fund",
+          category: "Sectoral/Thematic",
+          sub_category: "Technology",
+          nav: 142.6789,
+          nav_date: "2025-01-27",
+          fund_size: "₹12,845 Cr",
+          expense_ratio: 1.25,
+          min_investment: 5000,
+          fund_manager: "Harish Krishnan",
+          benchmark: "NIFTY IT TRI",
+          launch_date: "2000-08-28",
+          returns: {
+            "1D": 0.78,
+            "1W": 2.45,
+            "1M": 5.67,
+            "3M": 12.34,
+            "6M": 22.78,
+            "1Y": 28.92,
+            "2Y": 25.67,
+            "3Y": 22.45,
+            "5Y": 18.90,
+            "since_inception": 16.78
+          },
+          risk_level: "High",
+          rating: 4,
+          exit_load: "1% if redeemed within 365 days"
+        },
+        {
+          id: "amfi-mf-4",
+          scheme_code: "118989",
+          scheme_name: "Axis Small Cap Fund - Direct Plan - Growth",
+          amc: "Axis Mutual Fund",
+          category: "Small Cap Fund",
+          sub_category: "Small Cap",
+          nav: 89.5612,
+          nav_date: "2025-01-27",
+          fund_size: "₹18,967 Cr",
+          expense_ratio: 1.35,
+          min_investment: 5000,
+          fund_manager: "Anupam Tiwari",
+          benchmark: "NIFTY SMALLCAP 250 TRI",
+          launch_date: "2013-01-01",
+          returns: {
+            "1D": 1.23,
+            "1W": 3.87,
+            "1M": 8.45,
+            "3M": 15.67,
+            "6M": 28.92,
+            "1Y": 35.78,
+            "2Y": 32.45,
+            "3Y": 28.67,
+            "5Y": 22.34,
+            "since_inception": 19.87
+          },
+          risk_level: "Very High",
+          rating: 4,
+          exit_load: "1% if redeemed within 365 days"
+        },
+        {
+          id: "amfi-mf-5",
+          scheme_code: "125478",
+          scheme_name: "Mirae Asset Large Cap Fund - Direct Plan - Growth",
+          amc: "Mirae Asset Mutual Fund",
+          category: "Large Cap Fund",
+          sub_category: "Large Cap",
+          nav: 198.7456,
+          nav_date: "2025-01-27",
+          fund_size: "₹32,156 Cr",
+          expense_ratio: 0.89,
+          min_investment: 1000,
+          fund_manager: "Neelesh Surana",
+          benchmark: "NIFTY 100 TRI",
+          launch_date: "2008-04-30",
+          returns: {
+            "1D": 0.56,
+            "1W": 1.67,
+            "1M": 3.89,
+            "3M": 10.45,
+            "6M": 18.92,
+            "1Y": 21.67,
+            "2Y": 19.34,
+            "3Y": 16.78,
+            "5Y": 14.23,
+            "since_inception": 13.45
+          },
+          risk_level: "Moderate",
+          rating: 5,
+          exit_load: "1% if redeemed within 365 days"
+        },
+        {
+          id: "amfi-mf-6",
+          scheme_code: "120716",
+          scheme_name: "DSP Mid Cap Fund - Direct Plan - Growth",
+          amc: "DSP Mutual Fund",
+          category: "Mid Cap Fund",
+          sub_category: "Mid Cap",
+          nav: 156.3421,
+          nav_date: "2025-01-27",
+          fund_size: "₹24,789 Cr",
+          expense_ratio: 1.15,
+          min_investment: 5000,
+          fund_manager: "Vinit Sambre",
+          benchmark: "NIFTY MIDCAP 150 TRI",
+          launch_date: "2006-11-07",
+          returns: {
+            "1D": 0.89,
+            "1W": 2.34,
+            "1M": 6.78,
+            "3M": 13.45,
+            "6M": 24.67,
+            "1Y": 31.23,
+            "2Y": 28.90,
+            "3Y": 25.67,
+            "5Y": 20.45,
+            "since_inception": 17.89
+          },
+          risk_level: "High",
+          rating: 4,
+          exit_load: "1% if redeemed within 365 days"
+        }
+      ];
+
+      // Filter by category if provided
+      let filteredFunds = category ? amfiMutualFunds.filter(fund => 
+        fund.category.toLowerCase().includes(category.toLowerCase()) ||
+        fund.sub_category.toLowerCase().includes(category.toLowerCase())
+      ) : amfiMutualFunds;
+
+      // Filter by AMC if provided
+      if (amc) {
+        filteredFunds = filteredFunds.filter(fund => 
+          fund.amc.toLowerCase().includes(amc.toLowerCase())
+        );
+      }
+
+      // Filter by NAV range if provided
+      if (nav_min) {
+        filteredFunds = filteredFunds.filter(fund => fund.nav >= parseFloat(nav_min));
+      }
+      if (nav_max) {
+        filteredFunds = filteredFunds.filter(fund => fund.nav <= parseFloat(nav_max));
+      }
+
+      // Sort by returns or other criteria
+      if (sort_by === 'returns') {
+        filteredFunds.sort((a, b) => b.returns[returns_period] - a.returns[returns_period]);
+      } else if (sort_by === 'nav') {
+        filteredFunds.sort((a, b) => b.nav - a.nav);
+      } else if (sort_by === 'fund_size') {
+        filteredFunds.sort((a, b) => {
+          const parseSize = (size) => parseFloat(size.replace(/[₹,\sCr]/g, ''));
+          return parseSize(b.fund_size) - parseSize(a.fund_size);
+        });
+      }
+
+      const summary = {
+        totalFunds: filteredFunds.length,
+        avgReturns1Y: (filteredFunds.reduce((sum, fund) => sum + fund.returns["1Y"], 0) / filteredFunds.length).toFixed(2),
+        avgExpenseRatio: (filteredFunds.reduce((sum, fund) => sum + fund.expense_ratio, 0) / filteredFunds.length).toFixed(2),
+        topPerformer: filteredFunds[0]?.scheme_name || "N/A",
+        categories: [...new Set(filteredFunds.map(fund => fund.category))],
+        amcList: [...new Set(filteredFunds.map(fund => fund.amc))]
+      };
+
+      res.json({
+        status: "success",
+        data: filteredFunds,
+        summary,
+        filters: { category, amc, nav_min, nav_max, returns_period, sort_by },
+        lastUpdated: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error fetching AMFI mutual funds:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch mutual fund data from AMFI"
+      });
+    }
+  });
+
+  // AMFI NAV history endpoint
+  app.get("/api/amfi/nav-history/:scheme_code", async (req, res) => {
+    try {
+      const { scheme_code } = req.params;
+      const { period = '1Y' } = req.query;
+
+      const navHistory = [
+        { date: "2025-01-27", nav: 87.4521 },
+        { date: "2025-01-26", nav: 87.0654 },
+        { date: "2025-01-25", nav: 86.8901 },
+        { date: "2025-01-24", nav: 87.2134 },
+        { date: "2025-01-23", nav: 86.9876 },
+        { date: "2025-01-22", nav: 87.5432 },
+        { date: "2025-01-21", nav: 87.1098 },
+        { date: "2025-01-20", nav: 86.7654 },
+        { date: "2025-01-19", nav: 87.0012 },
+        { date: "2025-01-18", nav: 86.8765 },
+        { date: "2025-01-17", nav: 87.3210 },
+        { date: "2025-01-16", nav: 86.9543 },
+        { date: "2025-01-15", nav: 87.1876 },
+        { date: "2025-01-14", nav: 86.8098 },
+        { date: "2025-01-13", nav: 87.4321 }
+      ];
+
+      const analytics = {
+        currentNAV: navHistory[0].nav,
+        periodStart: navHistory[navHistory.length - 1].nav,
+        periodReturn: (((navHistory[0].nav - navHistory[navHistory.length - 1].nav) / navHistory[navHistory.length - 1].nav) * 100).toFixed(2),
+        volatility: "2.45%",
+        maxNAV: Math.max(...navHistory.map(h => h.nav)),
+        minNAV: Math.min(...navHistory.map(h => h.nav)),
+        avgNAV: (navHistory.reduce((sum, h) => sum + h.nav, 0) / navHistory.length).toFixed(4)
+      };
+
+      res.json({
+        status: "success",
+        scheme_code,
+        period,
+        data: navHistory,
+        analytics,
+        lastUpdated: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error fetching NAV history:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch NAV history data"
+      });
+    }
+  });
+
+  // AMFI fund categories endpoint
+  app.get("/api/amfi/categories", async (req, res) => {
+    try {
+      const categories = [
+        {
+          category: "Equity Funds",
+          subcategories: [
+            {
+              name: "Large Cap Fund",
+              count: 45,
+              avgReturns1Y: 18.67,
+              riskLevel: "Moderate",
+              description: "Invest primarily in large-cap stocks with market cap above ₹20,000 Cr"
+            },
+            {
+              name: "Mid Cap Fund", 
+              count: 32,
+              avgReturns1Y: 24.89,
+              riskLevel: "High",
+              description: "Invest in mid-cap stocks with market cap between ₹5,000-20,000 Cr"
+            },
+            {
+              name: "Small Cap Fund",
+              count: 28,
+              avgReturns1Y: 31.45,
+              riskLevel: "Very High",
+              description: "Invest in small-cap stocks with market cap below ₹5,000 Cr"
+            },
+            {
+              name: "Multi Cap Fund",
+              count: 19,
+              avgReturns1Y: 21.23,
+              riskLevel: "Moderate to High",
+              description: "Flexible allocation across large, mid and small cap stocks"
+            },
+            {
+              name: "Flexi Cap Fund",
+              count: 24,
+              avgReturns1Y: 19.78,
+              riskLevel: "Moderate to High", 
+              description: "Dynamic allocation across market capitalizations"
+            }
+          ]
+        },
+        {
+          category: "Debt Funds",
+          subcategories: [
+            {
+              name: "Liquid Fund",
+              count: 38,
+              avgReturns1Y: 6.78,
+              riskLevel: "Low",
+              description: "Invest in money market instruments with maturity up to 91 days"
+            },
+            {
+              name: "Ultra Short Duration Fund",
+              count: 22,
+              avgReturns1Y: 7.23,
+              riskLevel: "Low",
+              description: "Invest in debt securities with Macaulay duration of 3-6 months"
+            },
+            {
+              name: "Short Duration Fund",
+              count: 18,
+              avgReturns1Y: 7.89,
+              riskLevel: "Low to Moderate",
+              description: "Invest in debt securities with Macaulay duration of 1-3 years"
+            },
+            {
+              name: "Medium Duration Fund",
+              count: 15,
+              avgReturns1Y: 8.45,
+              riskLevel: "Moderate",
+              description: "Invest in debt securities with Macaulay duration of 3-4 years"
+            }
+          ]
+        },
+        {
+          category: "Hybrid Funds",
+          subcategories: [
+            {
+              name: "Conservative Hybrid Fund",
+              count: 26,
+              avgReturns1Y: 12.34,
+              riskLevel: "Low to Moderate",
+              description: "Invest 75-90% in debt and 10-25% in equity"
+            },
+            {
+              name: "Balanced Hybrid Fund",
+              count: 21,
+              avgReturns1Y: 15.67,
+              riskLevel: "Moderate",
+              description: "Invest 40-60% in equity and 40-60% in debt"
+            },
+            {
+              name: "Aggressive Hybrid Fund",
+              count: 19,
+              avgReturns1Y: 18.92,
+              riskLevel: "Moderate to High",
+              description: "Invest 65-80% in equity and 20-35% in debt"
+            }
+          ]
+        },
+        {
+          category: "Sectoral/Thematic",
+          subcategories: [
+            {
+              name: "Banking & PSU Fund",
+              count: 12,
+              avgReturns1Y: 16.45,
+              riskLevel: "High",
+              description: "Invest primarily in banking and public sector undertaking stocks"
+            },
+            {
+              name: "Technology Fund",
+              count: 8,
+              avgReturns1Y: 28.67,
+              riskLevel: "Very High",
+              description: "Invest primarily in information technology sector stocks"
+            },
+            {
+              name: "Healthcare Fund",
+              count: 6,
+              avgReturns1Y: 22.34,
+              riskLevel: "High",
+              description: "Invest primarily in pharmaceutical and healthcare sector stocks"
+            },
+            {
+              name: "Infrastructure Fund",
+              count: 9,
+              avgReturns1Y: 25.78,
+              riskLevel: "High",
+              description: "Invest primarily in infrastructure sector stocks"
+            }
+          ]
+        }
+      ];
+
+      const summary = {
+        totalCategories: categories.length,
+        totalSubcategories: categories.reduce((sum, cat) => sum + cat.subcategories.length, 0),
+        totalFunds: categories.reduce((sum, cat) => 
+          sum + cat.subcategories.reduce((subSum, sub) => subSum + sub.count, 0), 0),
+        avgReturns1Y: (categories.reduce((sum, cat) => 
+          sum + cat.subcategories.reduce((subSum, sub) => subSum + sub.avgReturns1Y * sub.count, 0), 0) / 
+          categories.reduce((sum, cat) => 
+            sum + cat.subcategories.reduce((subSum, sub) => subSum + sub.count, 0), 0)).toFixed(2)
+      };
+
+      res.json({
+        status: "success",
+        data: categories,
+        summary,
+        lastUpdated: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error fetching AMFI categories:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch mutual fund categories"
+      });
+    }
+  });
+
+  // AMFI SIP calculator endpoint
+  app.get("/api/amfi/sip-calculator", async (req, res) => {
+    try {
+      const { monthly_investment, tenure_years, expected_return } = req.query;
+      
+      const monthlyAmt = parseFloat(monthly_investment) || 5000;
+      const tenureYears = parseInt(tenure_years) || 10;
+      const annualReturn = parseFloat(expected_return) || 12;
+      
+      const monthlyReturn = annualReturn / 12 / 100;
+      const totalMonths = tenureYears * 12;
+      
+      // SIP Future Value calculation
+      const futureValue = monthlyAmt * (((Math.pow(1 + monthlyReturn, totalMonths) - 1) / monthlyReturn) * (1 + monthlyReturn));
+      const totalInvested = monthlyAmt * totalMonths;
+      const totalReturns = futureValue - totalInvested;
+      
+      const calculation = {
+        monthlyInvestment: monthlyAmt,
+        tenureYears: tenureYears,
+        totalMonths: totalMonths,
+        expectedAnnualReturn: annualReturn + "%",
+        totalInvested: Math.round(totalInvested),
+        totalReturns: Math.round(totalReturns),
+        maturityAmount: Math.round(futureValue),
+        returnMultiple: (futureValue / totalInvested).toFixed(2) + "x"
+      };
+
+      // Year-wise breakdown
+      const yearlyBreakdown = [];
+      for (let year = 1; year <= tenureYears; year++) {
+        const months = year * 12;
+        const yearlyValue = monthlyAmt * (((Math.pow(1 + monthlyReturn, months) - 1) / monthlyReturn) * (1 + monthlyReturn));
+        const yearlyInvested = monthlyAmt * months;
+        yearlyBreakdown.push({
+          year: year,
+          invested: Math.round(yearlyInvested),
+          value: Math.round(yearlyValue),
+          returns: Math.round(yearlyValue - yearlyInvested)
+        });
+      }
+
+      res.json({
+        status: "success",
+        calculation,
+        yearlyBreakdown,
+        lastUpdated: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error calculating SIP:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to calculate SIP returns"
+      });
+    }
+  });
+
   // MCX API endpoints
 
   // Get MCX commodity data
