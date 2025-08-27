@@ -28,7 +28,9 @@ import {
   Plus,
   Search,
   Filter,
-  Download
+  Download,
+  Info,
+  Factory
 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
@@ -492,13 +494,509 @@ export default function WealthManagement() {
           </TabsContent>
 
           <TabsContent value="pre-ipo" className="space-y-6">
-            <Card>
-              <CardContent className="p-12 text-center">
-                <Star className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-lg font-semibold mb-2">Pre-IPO Investments</h3>
-                <p className="text-muted-foreground">Pre-IPO opportunities coming soon...</p>
-              </CardContent>
-            </Card>
+            {/* Pre-IPO Market Overview */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+              <Card data-testid="card-ipo-stats">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Upcoming IPOs</p>
+                      <p className="text-2xl font-bold">15</p>
+                    </div>
+                    <Star className="w-8 h-8 text-yellow-600" />
+                  </div>
+                  <div className="flex items-center mt-2">
+                    <ArrowUpRight className="w-4 h-4 text-green-600 mr-1" />
+                    <span className="text-sm text-green-600">+3 this month</span>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card data-testid="card-current-ipos">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Current IPOs</p>
+                      <p className="text-2xl font-bold">2</p>
+                    </div>
+                    <TrendingUp className="w-8 h-8 text-blue-600" />
+                  </div>
+                  <div className="flex items-center mt-2">
+                    <Clock className="w-4 h-4 text-orange-600 mr-1" />
+                    <span className="text-sm text-orange-600">Closing soon</span>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card data-testid="card-total-amount">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Total Amount</p>
+                      <p className="text-2xl font-bold">₹45,680 Cr</p>
+                    </div>
+                    <DollarSign className="w-8 h-8 text-green-600" />
+                  </div>
+                  <div className="flex items-center mt-2">
+                    <ArrowUpRight className="w-4 h-4 text-green-600 mr-1" />
+                    <span className="text-sm text-green-600">+12% YTD</span>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card data-testid="card-avg-listing-gains">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Avg Listing Gains</p>
+                      <p className="text-2xl font-bold">14.8%</p>
+                    </div>
+                    <Target className="w-8 h-8 text-purple-600" />
+                  </div>
+                  <div className="flex items-center mt-2">
+                    <TrendingUp className="w-4 h-4 text-green-600 mr-1" />
+                    <span className="text-sm text-green-600">Strong performance</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* IPO Tabs */}
+            <Tabs defaultValue="current" className="space-y-6">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="current" data-testid="tab-current-ipos">Current IPOs</TabsTrigger>
+                <TabsTrigger value="upcoming" data-testid="tab-upcoming-ipos">Upcoming</TabsTrigger>
+                <TabsTrigger value="recent" data-testid="tab-recent-listings">Recent Listings</TabsTrigger>
+                <TabsTrigger value="analytics" data-testid="tab-ipo-analytics">Analytics</TabsTrigger>
+              </TabsList>
+
+              {/* Current IPOs */}
+              <TabsContent value="current" className="space-y-4">
+                <Card data-testid="card-current-ipo-vishal">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                          <Building2 className="w-6 h-6 text-blue-600" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg">Vishal Mega Mart Ltd</CardTitle>
+                          <CardDescription>Retail • NSE</CardDescription>
+                        </div>
+                      </div>
+                      <Badge className="bg-red-100 text-red-800">Closing Soon</Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Issue Size</p>
+                        <p className="font-semibold">₹8,000 Cr</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Price Range</p>
+                        <p className="font-semibold">₹74-78</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Min Investment</p>
+                        <p className="font-semibold">₹14,976</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">GMP</p>
+                        <p className="font-semibold text-green-600">+₹12 (16.2%)</p>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>Subscription Status: 6.2x</span>
+                        <span className="font-medium">1 day remaining</span>
+                      </div>
+                      <Progress value={85} className="h-2" />
+                      <div className="grid grid-cols-3 gap-4 text-sm">
+                        <div>Retail: <span className="font-medium">8.5x</span></div>
+                        <div>HNI: <span className="font-medium">4.2x</span></div>
+                        <div>Institutional: <span className="font-medium">2.1x</span></div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button className="flex-1" data-testid="button-apply-ipo">
+                        <Star className="w-4 h-4 mr-2" />
+                        Apply Now
+                      </Button>
+                      <Button variant="outline" size="icon">
+                        <Info className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card data-testid="card-current-ipo-blackstone">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                          <CreditCard className="w-6 h-6 text-purple-600" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg">Blackstone Secured Credit Fund</CardTitle>
+                          <CardDescription>Financial Services • BSE</CardDescription>
+                        </div>
+                      </div>
+                      <Badge className="bg-orange-100 text-orange-800">Open</Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Issue Size</p>
+                        <p className="font-semibold">₹1,000 Cr</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Price Range</p>
+                        <p className="font-semibold">₹24-25</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Min Investment</p>
+                        <p className="font-semibold">₹15,000</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">GMP</p>
+                        <p className="font-semibold text-green-600">+₹3 (12.5%)</p>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>Subscription Status: 1.8x</span>
+                        <span className="font-medium">2 days remaining</span>
+                      </div>
+                      <Progress value={45} className="h-2" />
+                      <div className="grid grid-cols-3 gap-4 text-sm">
+                        <div>Retail: <span className="font-medium">2.1x</span></div>
+                        <div>HNI: <span className="font-medium">1.4x</span></div>
+                        <div>Institutional: <span className="font-medium">1.9x</span></div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button className="flex-1" data-testid="button-apply-blackstone">
+                        <Star className="w-4 h-4 mr-2" />
+                        Apply Now
+                      </Button>
+                      <Button variant="outline" size="icon">
+                        <Info className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Upcoming IPOs */}
+              <TabsContent value="upcoming" className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <Card data-testid="card-upcoming-purva">
+                    <CardHeader>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                          <Zap className="w-5 h-5 text-green-600" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-base">Purva Bharti Power</CardTitle>
+                          <CardDescription>Infrastructure • NSE</CardDescription>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span>Issue Size:</span>
+                          <span className="font-medium">₹1,200 Cr</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Price Range:</span>
+                          <span className="font-medium">₹280-320</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Opens:</span>
+                          <span className="font-medium">Feb 15, 2025</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>GMP:</span>
+                          <span className="font-medium text-green-600">+₹45 (15.8%)</span>
+                        </div>
+                      </div>
+                      <Button size="sm" className="w-full">Set Reminder</Button>
+                    </CardContent>
+                  </Card>
+
+                  <Card data-testid="card-upcoming-abans">
+                    <CardHeader>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                          <TrendingUp className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-base">Abans Holdings</CardTitle>
+                          <CardDescription>Financial Services • BSE</CardDescription>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span>Issue Size:</span>
+                          <span className="font-medium">₹540 Cr</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Price Range:</span>
+                          <span className="font-medium">₹256-270</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Opens:</span>
+                          <span className="font-medium">Feb 12, 2025</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>GMP:</span>
+                          <span className="font-medium text-green-600">+₹28 (10.4%)</span>
+                        </div>
+                      </div>
+                      <Button size="sm" className="w-full">Set Reminder</Button>
+                    </CardContent>
+                  </Card>
+
+                  <Card data-testid="card-upcoming-standard-glass">
+                    <CardHeader>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                          <Factory className="w-5 h-5 text-purple-600" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-base">Standard Glass Lining</CardTitle>
+                          <CardDescription>Manufacturing • NSE</CardDescription>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span>Issue Size:</span>
+                          <span className="font-medium">₹410 Cr</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Price Range:</span>
+                          <span className="font-medium">₹540-567</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Opens:</span>
+                          <span className="font-medium">Feb 10, 2025</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>GMP:</span>
+                          <span className="font-medium text-green-600">+₹85 (15.2%)</span>
+                        </div>
+                      </div>
+                      <Button size="sm" className="w-full">Set Reminder</Button>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+
+              {/* Recent Listings */}
+              <TabsContent value="recent" className="space-y-4">
+                <Card data-testid="card-recent-listings">
+                  <CardHeader>
+                    <CardTitle>Recent IPO Listings Performance</CardTitle>
+                    <CardDescription>Track how recently listed IPOs are performing in the market</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                        <div className="p-4 border rounded-lg">
+                          <div className="flex items-center justify-between mb-3">
+                            <h3 className="font-semibold">Mahindra Logistics</h3>
+                            <Badge className="bg-green-100 text-green-800">Strong</Badge>
+                          </div>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span>Issue Price:</span>
+                              <span className="font-medium">₹432</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Current Price:</span>
+                              <span className="font-medium">₹524</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Listing Gains:</span>
+                              <span className="font-medium text-green-600">+12.5%</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Current Gains:</span>
+                              <span className="font-medium text-green-600">+21.3%</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="p-4 border rounded-lg">
+                          <div className="flex items-center justify-between mb-3">
+                            <h3 className="font-semibold">Sagility India</h3>
+                            <Badge className="bg-blue-100 text-blue-800">Good</Badge>
+                          </div>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span>Issue Price:</span>
+                              <span className="font-medium">₹30</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Current Price:</span>
+                              <span className="font-medium">₹36</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Listing Gains:</span>
+                              <span className="font-medium text-green-600">+13.3%</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Current Gains:</span>
+                              <span className="font-medium text-green-600">+20.0%</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="p-4 border rounded-lg">
+                          <div className="flex items-center justify-between mb-3">
+                            <h3 className="font-semibold">Swiggy Ltd</h3>
+                            <Badge className="bg-blue-100 text-blue-800">Good</Badge>
+                          </div>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span>Issue Price:</span>
+                              <span className="font-medium">₹390</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Current Price:</span>
+                              <span className="font-medium">₹445</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Listing Gains:</span>
+                              <span className="font-medium text-green-600">+5.6%</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Current Gains:</span>
+                              <span className="font-medium text-green-600">+14.1%</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* IPO Analytics */}
+              <TabsContent value="analytics" className="space-y-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <Card data-testid="card-market-trends">
+                    <CardHeader>
+                      <CardTitle>IPO Market Trends</CardTitle>
+                      <CardDescription>Monthly IPO activity and amount raised</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-5 gap-2 text-sm">
+                          <div className="text-center">
+                            <div className="font-medium">Sep</div>
+                            <div className="text-muted-foreground">8 IPOs</div>
+                            <div className="text-xs">₹12.5k Cr</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="font-medium">Oct</div>
+                            <div className="text-muted-foreground">12 IPOs</div>
+                            <div className="text-xs">₹18.8k Cr</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="font-medium">Nov</div>
+                            <div className="text-muted-foreground">15 IPOs</div>
+                            <div className="text-xs">₹22.3k Cr</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="font-medium">Dec</div>
+                            <div className="text-muted-foreground">18 IPOs</div>
+                            <div className="text-xs">₹28.9k Cr</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="font-medium">Jan</div>
+                            <div className="text-muted-foreground">6 IPOs</div>
+                            <div className="text-xs">₹15.3k Cr</div>
+                          </div>
+                        </div>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium">Retail Participation</span>
+                            <span className="text-lg font-bold">68%</span>
+                          </div>
+                          <Progress value={68} className="h-2" />
+                          
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium">Institutional Interest</span>
+                            <span className="text-lg font-bold text-green-600">Strong</span>
+                          </div>
+                          <Progress value={85} className="h-2" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card data-testid="card-sector-analysis">
+                    <CardHeader>
+                      <CardTitle>Sector-wise Analysis</CardTitle>
+                      <CardDescription>IPO performance by sectors</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                              <span>Technology</span>
+                            </div>
+                            <span className="font-medium text-green-600">+18.5%</span>
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                              <span>Healthcare</span>
+                            </div>
+                            <span className="font-medium text-green-600">+16.2%</span>
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+                              <span>Financial Services</span>
+                            </div>
+                            <span className="font-medium text-green-600">+14.8%</span>
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                              <span>Manufacturing</span>
+                            </div>
+                            <span className="font-medium text-green-600">+12.3%</span>
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                              <span>Infrastructure</span>
+                            </div>
+                            <span className="font-medium text-green-600">+11.5%</span>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+            </Tabs>
           </TabsContent>
 
           <TabsContent value="debentures" className="space-y-6">
