@@ -5,6 +5,7 @@ import { setupAuth } from "./auth";
 import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema } from "@shared/schema";
 import { marketStoryService, type MarketData as StoryMarketData } from "./market-story-service";
 import { generateMarketInsight, analyzePortfolio, generateInvestmentStory, explainFinancialConcept } from "./gemini";
+import { whatsappService } from "./whatsapp";
 import { z } from "zod";
 import { NseIndia } from 'stock-nse-india';
 import { createRequire } from 'module';
@@ -18,6 +19,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Initialize user passwords with proper hashing
   await storage.initializeUserPasswords();
+  
+  // Initialize WhatsApp service
+  whatsappService.initialize().catch(console.error);
   
   // User Profile API endpoints
   app.get("/api/profile", async (req, res) => {
@@ -3565,6 +3569,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error explaining concept:", error);
       res.status(500).json({ error: "Failed to explain concept" });
+    }
+  });
+
+  // WhatsApp Business API endpoints
+  app.get("/api/whatsapp/status", async (req, res) => {
+    try {
+      const isReady = whatsappService.isClientReady();
+      res.json({ 
+        status: isReady ? "ready" : "not_ready",
+        ready: isReady 
+      });
+    } catch (error) {
+      console.error("Error checking WhatsApp status:", error);
+      res.status(500).json({ error: "Failed to check WhatsApp status" });
+    }
+  });
+
+  app.post("/api/whatsapp/send", async (req, res) => {
+    try {
+      const { phoneNumber, message } = req.body;
+      
+      if (!phoneNumber || !message) {
+        return res.status(400).json({ error: "Phone number and message are required" });
+      }
+
+      const success = await whatsappService.sendMessage(phoneNumber, message);
+      
+      if (success) {
+        res.json({ success: true, message: "Message sent successfully" });
+      } else {
+        res.status(500).json({ error: "Failed to send message" });
+      }
+    } catch (error) {
+      console.error("Error sending WhatsApp message:", error);
+      res.status(500).json({ error: "Failed to send WhatsApp message" });
+    }
+  });
+
+  app.post("/api/whatsapp/portfolio-update", async (req, res) => {
+    try {
+      const { phoneNumber, portfolioData } = req.body;
+      
+      if (!phoneNumber || !portfolioData) {
+        return res.status(400).json({ error: "Phone number and portfolio data are required" });
+      }
+
+      const success = await whatsappService.sendPortfolioUpdate(phoneNumber, portfolioData);
+      
+      if (success) {
+        res.json({ success: true, message: "Portfolio update sent successfully" });
+      } else {
+        res.status(500).json({ error: "Failed to send portfolio update" });
+      }
+    } catch (error) {
+      console.error("Error sending portfolio update:", error);
+      res.status(500).json({ error: "Failed to send portfolio update" });
+    }
+  });
+
+  app.post("/api/whatsapp/market-alert", async (req, res) => {
+    try {
+      const { phoneNumber, alertData } = req.body;
+      
+      if (!phoneNumber || !alertData) {
+        return res.status(400).json({ error: "Phone number and alert data are required" });
+      }
+
+      const success = await whatsappService.sendMarketAlert(phoneNumber, alertData);
+      
+      if (success) {
+        res.json({ success: true, message: "Market alert sent successfully" });
+      } else {
+        res.status(500).json({ error: "Failed to send market alert" });
+      }
+    } catch (error) {
+      console.error("Error sending market alert:", error);
+      res.status(500).json({ error: "Failed to send market alert" });
+    }
+  });
+
+  app.get("/api/whatsapp/chats", async (req, res) => {
+    try {
+      const chats = await whatsappService.getChats();
+      res.json({ chats: chats.length, data: chats.slice(0, 10) }); // Return first 10 chats
+    } catch (error) {
+      console.error("Error getting WhatsApp chats:", error);
+      res.status(500).json({ error: "Failed to get WhatsApp chats" });
     }
   });
 
