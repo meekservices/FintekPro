@@ -1,10 +1,19 @@
-import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund } from "@shared/schema";
+import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
-  // User methods for Replit Auth
+  // User methods for mobile/email authentication
   getUser(id: string): Promise<User | undefined>;
-  upsertUser(user: UpsertUser): Promise<User>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByMobile(mobile: string): Promise<User | undefined>;
+  createUser(user: Omit<User, 'id' | 'createdAt' | 'updatedAt'>): Promise<User>;
+  updateUser(id: string, updates: Partial<User>): Promise<User | undefined>;
+  
+  // OTP verification methods
+  createOtpVerification(otp: InsertOtpVerification): Promise<OtpVerification>;
+  getOtpVerification(identifier: string, type: string): Promise<OtpVerification | undefined>;
+  verifyOtp(identifier: string, type: string, otp: string): Promise<boolean>;
+  cleanupExpiredOtps(): Promise<void>;
   
   // Portfolio methods
   getPortfoliosByUserId(userId: string): Promise<Portfolio[]>;
@@ -43,6 +52,7 @@ export interface IStorage {
 
 export class MemStorage implements IStorage {
   private users: Map<string, User>;
+  private otpVerifications: Map<string, OtpVerification>;
   private portfolios: Map<string, Portfolio>;
   private portfolioHoldings: Map<string, PortfolioHolding>;
   private watchlists: Map<string, Watchlist>;
@@ -52,6 +62,7 @@ export class MemStorage implements IStorage {
 
   constructor() {
     this.users = new Map();
+    this.otpVerifications = new Map();
     this.portfolios = new Map();
     this.portfolioHoldings = new Map();
     this.watchlists = new Map();
@@ -185,30 +196,80 @@ export class MemStorage implements IStorage {
     return this.users.get(id);
   }
 
-  async upsertUser(userData: UpsertUser): Promise<User> {
-    const existing = Array.from(this.users.values()).find(user => user.id === userData.id);
-    
-    if (existing) {
-      const updated: User = {
-        ...existing,
-        ...userData,
-        updatedAt: new Date()
-      };
-      this.users.set(existing.id, updated);
-      return updated;
-    }
-    
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(user => user.email === email);
+  }
+
+  async getUserByMobile(mobile: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(user => user.mobile === mobile);
+  }
+
+  async createUser(userData: Omit<User, 'id' | 'createdAt' | 'updatedAt'>): Promise<User> {
+    const id = randomUUID();
     const user: User = {
-      id: userData.id || randomUUID(),
-      email: userData.email || null,
-      firstName: userData.firstName || null,
-      lastName: userData.lastName || null,
-      profileImageUrl: userData.profileImageUrl || null,
+      ...userData,
+      id,
       createdAt: new Date(),
       updatedAt: new Date()
     };
-    this.users.set(user.id, user);
+    this.users.set(id, user);
     return user;
+  }
+
+  async updateUser(id: string, updates: Partial<User>): Promise<User | undefined> {
+    const user = this.users.get(id);
+    if (!user) return undefined;
+    
+    const updated: User = {
+      ...user,
+      ...updates,
+      updatedAt: new Date()
+    };
+    this.users.set(id, updated);
+    return updated;
+  }
+
+  async createOtpVerification(otpData: InsertOtpVerification): Promise<OtpVerification> {
+    const id = randomUUID();
+    const otp: OtpVerification = {
+      ...otpData,
+      id,
+      verified: otpData.verified ?? false,
+      createdAt: new Date()
+    };
+    this.otpVerifications.set(`${otpData.identifier}_${otpData.type}`, otp);
+    return otp;
+  }
+
+  async getOtpVerification(identifier: string, type: string): Promise<OtpVerification | undefined> {
+    return this.otpVerifications.get(`${identifier}_${type}`);
+  }
+
+  async verifyOtp(identifier: string, type: string, otp: string): Promise<boolean> {
+    const verification = await this.getOtpVerification(identifier, type);
+    if (!verification) return false;
+    if (verification.verified) return false;
+    if (verification.expiresAt < new Date()) return false;
+    if (verification.otp !== otp) return false;
+
+    verification.verified = true;
+    this.otpVerifications.set(`${identifier}_${type}`, verification);
+    return true;
+  }
+
+  async cleanupExpiredOtps(): Promise<void> {
+    const now = new Date();
+    const expiredKeys: string[] = [];
+    
+    this.otpVerifications.forEach((otp, key) => {
+      if (otp.expiresAt < now) {
+        expiredKeys.push(key);
+      }
+    });
+    
+    expiredKeys.forEach(key => {
+      this.otpVerifications.delete(key);
+    });
   }
 
   async getPortfoliosByUserId(userId: string): Promise<Portfolio[]> {

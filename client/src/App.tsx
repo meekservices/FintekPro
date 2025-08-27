@@ -14,6 +14,7 @@ import NSDLServices from "@/pages/nsdl-services";
 import CDSLServices from "@/pages/cdsl-services";
 import AgriculturalInsights from "@/pages/agricultural-insights";
 import NotFound from "@/pages/not-found";
+import AuthPage from "@/pages/auth-page";
 
 function Router() {
   return (
@@ -28,6 +29,7 @@ function Router() {
       <Route path="/nsdl-services" component={NSDLServices} />
       <Route path="/cdsl-services" component={CDSLServices} />
       <Route path="/agricultural-insights" component={AgriculturalInsights} />
+      <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
   );

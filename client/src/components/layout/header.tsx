@@ -6,6 +6,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu, User as UserIcon, HelpCircle, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { type User } from "@shared/schema";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface HeaderProps {
   onStartTutorial?: () => void;
@@ -15,6 +16,16 @@ export function Header({ onStartTutorial }: HeaderProps = {}) {
   const [location] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const { user, isAuthenticated, isLoading } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await apiRequest("POST", "/api/logout");
+      queryClient.setQueryData(["/api/auth/user"], null);
+      window.location.href = "/";
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  };
 
   const navigation = [
     { name: "Markets", href: "/markets" },
@@ -96,7 +107,7 @@ export function Header({ onStartTutorial }: HeaderProps = {}) {
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  onClick={() => window.location.href = '/api/logout'}
+                  onClick={handleLogout}
                   data-testid="logout-button"
                 >
                   <LogOut className="h-4 w-4 mr-2" />
@@ -104,14 +115,15 @@ export function Header({ onStartTutorial }: HeaderProps = {}) {
                 </Button>
               </div>
             ) : (
-              <Button 
-                className="hidden md:inline-flex" 
-                onClick={() => window.location.href = '/api/login'}
-                data-testid="login-button"
-              >
-                <UserIcon className="h-4 w-4 mr-2" />
-                Login
-              </Button>
+              <Link href="/auth">
+                <Button 
+                  className="hidden md:inline-flex" 
+                  data-testid="login-button"
+                >
+                  <UserIcon className="h-4 w-4 mr-2" />
+                  Login
+                </Button>
+              </Link>
             )}
 
             {/* Mobile Menu */}
@@ -166,7 +178,10 @@ export function Header({ onStartTutorial }: HeaderProps = {}) {
                       <Button 
                         className="w-full" 
                         variant="outline"
-                        onClick={() => window.location.href = '/api/logout'}
+                        onClick={() => {
+                          setIsOpen(false);
+                          handleLogout();
+                        }}
                         data-testid="mobile-logout-button"
                       >
                         <LogOut className="h-4 w-4 mr-2" />
@@ -174,14 +189,16 @@ export function Header({ onStartTutorial }: HeaderProps = {}) {
                       </Button>
                     </div>
                   ) : (
-                    <Button 
-                      className="w-full" 
-                      onClick={() => window.location.href = '/api/login'}
-                      data-testid="mobile-login-button"
-                    >
-                      <UserIcon className="h-4 w-4 mr-2" />
-                      Login
-                    </Button>
+                    <Link href="/auth">
+                      <Button 
+                        className="w-full" 
+                        data-testid="mobile-login-button"
+                        onClick={() => setIsOpen(false)}
+                      >
+                        <UserIcon className="h-4 w-4 mr-2" />
+                        Login
+                      </Button>
+                    </Link>
                   )}
                 </div>
               </SheetContent>

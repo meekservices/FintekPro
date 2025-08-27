@@ -14,15 +14,30 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
-// User storage table for Replit Auth
+// User storage table with mobile/email authentication
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: varchar("email").unique(),
+  mobile: varchar("mobile").unique(),
+  password: text("password").notNull(),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
+  isEmailVerified: boolean("is_email_verified").default(false),
+  isMobileVerified: boolean("is_mobile_verified").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// OTP verification table
+export const otpVerifications = pgTable("otp_verifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  identifier: varchar("identifier").notNull(), // email or mobile
+  otp: varchar("otp", { length: 6 }).notNull(),
+  type: varchar("type").notNull(), // 'email' or 'mobile'
+  expiresAt: timestamp("expires_at").notNull(),
+  verified: boolean("verified").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const portfolios = pgTable("portfolios", {
@@ -126,9 +141,16 @@ export const insertMutualFundSchema = createInsertSchema(mutualFunds).omit({
   lastUpdated: true,
 });
 
+export const insertOtpVerificationSchema = createInsertSchema(otpVerifications).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+export type OtpVerification = typeof otpVerifications.$inferSelect;
+export type InsertOtpVerification = z.infer<typeof insertOtpVerificationSchema>;
 export type InsertPortfolio = z.infer<typeof insertPortfolioSchema>;
 export type Portfolio = typeof portfolios.$inferSelect;
 export type InsertPortfolioHolding = z.infer<typeof insertPortfolioHoldingSchema>;
