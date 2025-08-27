@@ -4,6 +4,7 @@ import { MarketTicker } from "@/components/dashboard/market-ticker";
 import { MarketChart } from "@/components/dashboard/market-chart";
 import { MarketMovers } from "@/components/dashboard/market-movers";
 import { MarketNews } from "@/components/dashboard/market-news";
+import { NSEData } from "@/components/dashboard/nse-data";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,7 +36,7 @@ export default function Markets() {
         
         {/* Page Header */}
         <div className="mb-8" data-testid="markets-header">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">Global Markets</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">Global & NSE Markets</h1>
           
           {/* Search Bar */}
           <form onSubmit={handleSearch} className="flex gap-4 max-w-md">
@@ -169,6 +170,12 @@ export default function Markets() {
               )}
             </CardContent>
           </Card>
+        </section>
+
+        {/* NSE Live Data Section */}
+        <section className="mb-8" data-testid="nse-data-section">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">NSE India Live Data</h2>
+          <NSEData />
         </section>
 
         {/* Market Data */}
