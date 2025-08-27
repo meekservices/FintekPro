@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Leaf, Wheat, TrendingUp, TrendingDown, Activity, BarChart3 } from "lucide-react";
+import { AgriculturalTooltip } from "@/components/agricultural-tooltip";
 
 interface NCDEXCommodity {
   symbol: string;
@@ -141,7 +142,9 @@ export function NCDEXData() {
             <CardHeader>
               <CardTitle className="flex items-center">
                 <Wheat className="h-5 w-5 mr-2 text-amber-600" />
-                Agricultural Commodities Live Prices
+                <AgriculturalTooltip searchTerm="agricultural commodity">
+                  Agricultural Commodities Live Prices
+                </AgriculturalTooltip>
               </CardTitle>
             </CardHeader>
             <CardContent>

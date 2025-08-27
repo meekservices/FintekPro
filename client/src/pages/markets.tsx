@@ -20,6 +20,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { StoryViewer, type MarketStoryData } from "@/components/market/story-viewer";
 import { useToast } from "@/hooks/use-toast";
 import { Search, TrendingUp, TrendingDown, Activity, Sparkles, Zap } from "lucide-react";
+import { AgriculturalTooltip } from "@/components/agricultural-tooltip";
 
 export default function Markets() {
   const [searchSymbol, setSearchSymbol] = useState("");
@@ -265,13 +266,21 @@ export default function Markets() {
 
         {/* MCX Commodities Data Section */}
         <section className="mb-8" data-testid="mcx-data-section">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">MCX Commodities Live Data</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">
+            <AgriculturalTooltip searchTerm="commodity">
+              MCX Commodities Live Data
+            </AgriculturalTooltip>
+          </h2>
           <MCXData />
         </section>
 
         {/* NCDEX Agricultural Commodities Data Section */}
         <section className="mb-8" data-testid="ncdex-data-section">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">NCDEX Agricultural Commodities Live Data</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">
+            <AgriculturalTooltip searchTerm="agricultural commodity">
+              NCDEX Agricultural Commodities Live Data
+            </AgriculturalTooltip>
+          </h2>
           <NCDEXData />
         </section>
 

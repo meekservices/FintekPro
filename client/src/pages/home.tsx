@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calculator, Home as HomeIcon, Percent, Umbrella, CheckCircle, Shield, Database, TrendingUp, Banknote, BarChart3, Coins, Wheat, Building2 } from "lucide-react";
+import { AgriculturalTooltip } from "@/components/agricultural-tooltip";
 
 export default function Home() {
   // Mock user ID for demo purposes
@@ -82,17 +83,19 @@ export default function Home() {
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center text-lg">
                   <Coins className="h-5 w-5 mr-2 text-yellow-500" />
-                  MCX Commodities
+                  <AgriculturalTooltip searchTerm="commodity">
+                    MCX Commodities
+                  </AgriculturalTooltip>
                   <Badge className="ml-2 bg-finance-green text-white">Live</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  <p className="text-sm text-gray-600">✓ Real-time commodity prices</p>
+                  <p className="text-sm text-gray-600">✓ <AgriculturalTooltip searchTerm="commodity">Real-time commodity prices</AgriculturalTooltip></p>
                   <p className="text-sm text-gray-600">✓ Gold, Silver & Energy</p>
                   <p className="text-sm text-gray-600">✓ Base metals tracking</p>
                   <p className="text-sm text-gray-600">✓ Market status & timings</p>
-                  <p className="text-sm text-gray-600">✓ Open interest data</p>
+                  <p className="text-sm text-gray-600">✓ <AgriculturalTooltip searchTerm="open interest">Open interest data</AgriculturalTooltip></p>
                 </div>
               </CardContent>
             </Card>
@@ -101,15 +104,17 @@ export default function Home() {
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center text-lg">
                   <Wheat className="h-5 w-5 mr-2 text-green-600" />
-                  NCDEX Agricultural
+                  <AgriculturalTooltip searchTerm="agricultural commodity">
+                    NCDEX Agricultural
+                  </AgriculturalTooltip>
                   <Badge className="ml-2 bg-finance-green text-white">Live</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  <p className="text-sm text-gray-600">✓ Agricultural commodity prices</p>
-                  <p className="text-sm text-gray-600">✓ Spices, Pulses & Grains</p>
-                  <p className="text-sm text-gray-600">✓ Oilseeds & Cotton futures</p>
+                  <p className="text-sm text-gray-600">✓ <AgriculturalTooltip searchTerm="commodity">Agricultural commodity prices</AgriculturalTooltip></p>
+                  <p className="text-sm text-gray-600">✓ <AgriculturalTooltip searchTerm="spices">Spices, Pulses & Grains</AgriculturalTooltip></p>
+                  <p className="text-sm text-gray-600">✓ <AgriculturalTooltip searchTerm="futures">Oilseeds & Cotton futures</AgriculturalTooltip></p>
                   <p className="text-sm text-gray-600">✓ Market timings & status</p>
                   <p className="text-sm text-gray-600">✓ Volume & open interest</p>
                 </div>
