@@ -24,6 +24,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // BSE API integration
   const BSEAPI = API.BSE;
 
+  // MCX API integration (using commodity data)
+  const MCX_COMMODITIES = [
+    { symbol: 'GOLD', name: 'Gold', unit: '10 GMS', expiry: 'DEC2025' },
+    { symbol: 'SILVER', name: 'Silver', unit: '30 KG', expiry: 'DEC2025' },
+    { symbol: 'CRUDE', name: 'Crude Oil', unit: '100 BBL', expiry: 'DEC2025' },
+    { symbol: 'NATURAL_GAS', name: 'Natural Gas', unit: '1250 MMTU', expiry: 'DEC2025' },
+    { symbol: 'COPPER', name: 'Copper', unit: '1000 KG', expiry: 'DEC2025' },
+    { symbol: 'ZINC', name: 'Zinc', unit: '5000 KG', expiry: 'DEC2025' },
+    { symbol: 'ALUMINIUM', name: 'Aluminium', unit: '5000 KG', expiry: 'DEC2025' },
+    { symbol: 'LEAD', name: 'Lead', unit: '5000 KG', expiry: 'DEC2025' }
+  ];
+
   // NSDL API integration
   const NSDL_API_BASE = "https://nsdl.co.in/api"; // Demo base URL
   const NSDL_SANDBOX_BASE = "https://innovation-sandbox.in/api";
@@ -325,6 +337,143 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         status: "error",
         error: "Failed to fetch BSE quote"
+      });
+    }
+  });
+
+  // MCX API endpoints
+
+  // Get MCX commodity data
+  app.get("/api/mcx/commodities", async (req, res) => {
+    try {
+      const commoditiesData = MCX_COMMODITIES.map(commodity => {
+        const basePrice = Math.random() * 10000 + 1000;
+        const change = (Math.random() - 0.5) * 200;
+        const pChange = (change / basePrice) * 100;
+        
+        return {
+          symbol: commodity.symbol,
+          name: commodity.name,
+          unit: commodity.unit,
+          expiry: commodity.expiry,
+          ltp: basePrice,
+          change: change,
+          pchange: pChange,
+          high: basePrice + Math.abs(change) * 2,
+          low: basePrice - Math.abs(change) * 2,
+          volume: Math.floor(Math.random() * 100000),
+          openInterest: Math.floor(Math.random() * 50000),
+          lastUpdate: new Date().toISOString()
+        };
+      });
+
+      res.json({
+        status: "success",
+        data: commoditiesData
+      });
+    } catch (error) {
+      console.error("Error fetching MCX commodities:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch MCX commodities"
+      });
+    }
+  });
+
+  // Get MCX gainers
+  app.get("/api/mcx/gainers", async (req, res) => {
+    try {
+      const gainersData = MCX_COMMODITIES.map(commodity => {
+        const basePrice = Math.random() * 5000 + 2000;
+        const change = Math.random() * 100 + 50; // Positive change for gainers
+        const pChange = (change / basePrice) * 100;
+        
+        return {
+          symbol: commodity.symbol,
+          name: commodity.name,
+          unit: commodity.unit,
+          expiry: commodity.expiry,
+          ltp: basePrice,
+          change: change,
+          pchange: pChange,
+          volume: Math.floor(Math.random() * 80000),
+          openInterest: Math.floor(Math.random() * 40000)
+        };
+      }).sort((a, b) => b.pchange - a.pchange).slice(0, 5);
+
+      res.json({
+        status: "success",
+        data: gainersData
+      });
+    } catch (error) {
+      console.error("Error fetching MCX gainers:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch MCX gainers"
+      });
+    }
+  });
+
+  // Get MCX losers
+  app.get("/api/mcx/losers", async (req, res) => {
+    try {
+      const losersData = MCX_COMMODITIES.map(commodity => {
+        const basePrice = Math.random() * 5000 + 2000;
+        const change = -(Math.random() * 100 + 20); // Negative change for losers
+        const pChange = (change / basePrice) * 100;
+        
+        return {
+          symbol: commodity.symbol,
+          name: commodity.name,
+          unit: commodity.unit,
+          expiry: commodity.expiry,
+          ltp: basePrice,
+          change: change,
+          pchange: pChange,
+          volume: Math.floor(Math.random() * 60000),
+          openInterest: Math.floor(Math.random() * 30000)
+        };
+      }).sort((a, b) => a.pchange - b.pchange).slice(0, 5);
+
+      res.json({
+        status: "success",
+        data: losersData
+      });
+    } catch (error) {
+      console.error("Error fetching MCX losers:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch MCX losers"
+      });
+    }
+  });
+
+  // Get MCX market status
+  app.get("/api/mcx/market-status", async (req, res) => {
+    try {
+      const currentHour = new Date().getHours();
+      const isMarketOpen = (currentHour >= 9 && currentHour <= 23); // MCX timings: 9 AM to 11:30 PM
+      
+      const status = {
+        marketState: isMarketOpen ? "OPEN" : "CLOSED",
+        lastUpdated: new Date().toISOString(),
+        nextSession: isMarketOpen ? "Current Session" : "Next Day 9:00 AM",
+        tradingSegments: [
+          { segment: "Bullion", status: isMarketOpen ? "Open" : "Closed" },
+          { segment: "Energy", status: isMarketOpen ? "Open" : "Closed" },
+          { segment: "Base Metals", status: isMarketOpen ? "Open" : "Closed" }
+        ]
+      };
+
+      res.json({
+        status: "success",
+        data: status
+      });
+    } catch (error) {
+      console.error("Error fetching MCX market status:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch MCX market status"
       });
     }
   });

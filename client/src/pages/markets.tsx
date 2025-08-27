@@ -6,6 +6,7 @@ import { MarketMovers } from "@/components/dashboard/market-movers";
 import { MarketNews } from "@/components/dashboard/market-news";
 import { NSEData } from "@/components/dashboard/nse-data";
 import { BSEData } from "@/components/dashboard/bse-data";
+import { MCXData } from "@/components/dashboard/mcx-data";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,7 +38,7 @@ export default function Markets() {
         
         {/* Page Header */}
         <div className="mb-8" data-testid="markets-header">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">Global, NSE & BSE Markets</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">Global, NSE, BSE & MCX Markets</h1>
           
           {/* Search Bar */}
           <form onSubmit={handleSearch} className="flex gap-4 max-w-md">
@@ -176,7 +177,7 @@ export default function Markets() {
         {/* Indian Stock Exchanges Data Section */}
         <section className="mb-8" data-testid="indian-exchanges-section">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Indian Stock Exchanges Live Data</h2>
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
             <div>
               <h3 className="text-xl font-semibold text-gray-900 mb-4">NSE (National Stock Exchange)</h3>
               <NSEData />
@@ -186,6 +187,12 @@ export default function Markets() {
               <BSEData />
             </div>
           </div>
+        </section>
+
+        {/* MCX Commodities Data Section */}
+        <section className="mb-8" data-testid="mcx-data-section">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">MCX Commodities Live Data</h2>
+          <MCXData />
         </section>
 
         {/* Market Data */}
