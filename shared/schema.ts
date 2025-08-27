@@ -147,6 +147,126 @@ export const userNotifications = pgTable("user_notifications", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Partner Portal Tables
+
+// Partners table for managing partner accounts
+export const partners = pgTable("partners", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyName: varchar("company_name").notNull(),
+  contactEmail: varchar("contact_email").unique().notNull(),
+  contactPhone: varchar("contact_phone"),
+  address: text("address"),
+  website: varchar("website"),
+  // Authentication
+  password: text("password").notNull(),
+  isActive: boolean("is_active").default(true),
+  isVerified: boolean("is_verified").default(false),
+  // Partner type and permissions
+  partnerType: varchar("partner_type").notNull(), // 'product_provider', 'service_provider', 'both'
+  permissions: jsonb("permissions").default({}), // Custom permissions object
+  // Business details
+  businessLicense: varchar("business_license"),
+  taxId: varchar("tax_id"),
+  commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }).default("0.00"),
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Products table for partner-managed financial products
+export const products = pgTable("products", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  partnerId: varchar("partner_id").references(() => partners.id).notNull(),
+  // Product details
+  name: varchar("name").notNull(),
+  description: text("description"),
+  category: varchar("category").notNull(), // 'mutual_fund', 'insurance', 'loan', 'credit_card', 'deposit'
+  subCategory: varchar("sub_category"), // Specific type within category
+  // Pricing and features
+  basePrice: decimal("base_price", { precision: 15, scale: 2 }),
+  interestRate: decimal("interest_rate", { precision: 8, scale: 4 }),
+  features: jsonb("features").default({}), // Product features and benefits
+  eligibilityCriteria: jsonb("eligibility_criteria").default({}),
+  documents: jsonb("documents").default([]), // Required documents
+  // Product status and visibility
+  status: varchar("status").default("draft"), // 'draft', 'active', 'suspended', 'discontinued'
+  isPublic: boolean("is_public").default(false), // Visible to end users
+  priority: integer("priority").default(0), // Display priority
+  // SEO and metadata
+  slug: varchar("slug").unique(),
+  tags: text("tags").array().default([]),
+  imageUrl: varchar("image_url"),
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Support tickets for client support
+export const supportTickets = pgTable("support_tickets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ticketNumber: varchar("ticket_number").unique().notNull(),
+  // Client information
+  userId: varchar("user_id").references(() => users.id),
+  clientName: varchar("client_name").notNull(),
+  clientEmail: varchar("client_email").notNull(),
+  clientPhone: varchar("client_phone"),
+  // Ticket details
+  subject: varchar("subject").notNull(),
+  description: text("description").notNull(),
+  category: varchar("category").notNull(), // 'technical', 'billing', 'product_inquiry', 'complaint'
+  priority: varchar("priority").default("medium"), // 'low', 'medium', 'high', 'urgent'
+  status: varchar("status").default("open"), // 'open', 'in_progress', 'pending', 'resolved', 'closed'
+  // Assignment
+  assignedTo: varchar("assigned_to").references(() => partners.id),
+  assignedBy: varchar("assigned_by").references(() => users.id),
+  // Resolution
+  resolution: text("resolution"),
+  resolvedAt: timestamp("resolved_at"),
+  // Metadata
+  source: varchar("source").default("web"), // 'web', 'email', 'phone', 'chat'
+  attachments: jsonb("attachments").default([]),
+  tags: text("tags").array().default([]),
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Support ticket messages for conversation history
+export const ticketMessages = pgTable("ticket_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ticketId: varchar("ticket_id").references(() => supportTickets.id).notNull(),
+  // Message details
+  senderId: varchar("sender_id"), // Can be user, partner, or admin
+  senderType: varchar("sender_type").notNull(), // 'user', 'partner', 'admin'
+  senderName: varchar("sender_name").notNull(),
+  message: text("message").notNull(),
+  messageType: varchar("message_type").default("text"), // 'text', 'file', 'image', 'system'
+  // Attachments
+  attachments: jsonb("attachments").default([]),
+  // Metadata
+  isInternal: boolean("is_internal").default(false), // Internal notes not visible to client
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Product applications for tracking user applications
+export const productApplications = pgTable("product_applications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  productId: varchar("product_id").references(() => products.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  partnerId: varchar("partner_id").references(() => partners.id).notNull(),
+  // Application details
+  applicationData: jsonb("application_data").notNull(), // Form data submitted by user
+  documents: jsonb("documents").default([]), // Uploaded documents
+  // Status tracking
+  status: varchar("status").default("submitted"), // 'submitted', 'under_review', 'approved', 'rejected', 'completed'
+  reviewNotes: text("review_notes"),
+  reviewedBy: varchar("reviewed_by").references(() => partners.id),
+  reviewedAt: timestamp("reviewed_at"),
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const mutualFunds = pgTable("mutual_funds", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   schemeCode: text("scheme_code").notNull().unique(),
@@ -225,6 +345,46 @@ export const insertUserNotificationSchema = createInsertSchema(userNotifications
 });
 export type InsertUserNotification = z.infer<typeof insertUserNotificationSchema>;
 export type UserNotification = typeof userNotifications.$inferSelect;
+
+// Partner Portal schemas
+export const insertPartnerSchema = createInsertSchema(partners).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertPartner = z.infer<typeof insertPartnerSchema>;
+export type Partner = typeof partners.$inferSelect;
+
+export const insertProductSchema = createInsertSchema(products).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertProduct = z.infer<typeof insertProductSchema>;
+export type Product = typeof products.$inferSelect;
+
+export const insertSupportTicketSchema = createInsertSchema(supportTickets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertSupportTicket = z.infer<typeof insertSupportTicketSchema>;
+export type SupportTicket = typeof supportTickets.$inferSelect;
+
+export const insertTicketMessageSchema = createInsertSchema(ticketMessages).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertTicketMessage = z.infer<typeof insertTicketMessageSchema>;
+export type TicketMessage = typeof ticketMessages.$inferSelect;
+
+export const insertProductApplicationSchema = createInsertSchema(productApplications).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertProductApplication = z.infer<typeof insertProductApplicationSchema>;
+export type ProductApplication = typeof productApplications.$inferSelect;
 export type OtpVerification = typeof otpVerifications.$inferSelect;
 export type InsertOtpVerification = z.infer<typeof insertOtpVerificationSchema>;
 export type InsertPortfolio = z.infer<typeof insertPortfolioSchema>;
