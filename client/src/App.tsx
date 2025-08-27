@@ -12,6 +12,7 @@ import Bonds from "@/pages/bonds";
 import Loans from "@/pages/loans";
 import NSDLServices from "@/pages/nsdl-services";
 import CDSLServices from "@/pages/cdsl-services";
+import AgriculturalInsights from "@/pages/agricultural-insights";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -26,6 +27,7 @@ function Router() {
       <Route path="/loans" component={Loans} />
       <Route path="/nsdl-services" component={NSDLServices} />
       <Route path="/cdsl-services" component={CDSLServices} />
+      <Route path="/agricultural-insights" component={AgriculturalInsights} />
       <Route component={NotFound} />
     </Switch>
   );

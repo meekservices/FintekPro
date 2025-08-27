@@ -16,6 +16,7 @@ export function Header({ onStartTutorial }: HeaderProps = {}) {
   const navigation = [
     { name: "Markets", href: "/markets" },
     { name: "Portfolio", href: "/portfolio" },
+    { name: "Agricultural Insights", href: "/agricultural-insights" },
     { name: "IPO", href: "/ipo" },
     { name: "Mutual Funds", href: "/mutual-funds" },
     { name: "Bonds", href: "/bonds" },
