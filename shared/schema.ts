@@ -21,6 +21,7 @@ export const users = pgTable("users", {
   mobile: varchar("mobile").unique(),
   password: text("password").notNull(),
   firstName: varchar("first_name"),
+  middleName: varchar("middle_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
   isEmailVerified: boolean("is_email_verified").default(false),

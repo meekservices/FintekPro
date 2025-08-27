@@ -22,6 +22,7 @@ const loginSchema = z.object({
 
 const registerSchema = z.object({
   firstName: z.string().min(2, "First name must be at least 2 characters"),
+  middleName: z.string().optional(),
   lastName: z.string().optional(),
   email: z.string().email("Invalid email address").optional().or(z.literal("")),
   mobile: z.string().regex(/^[0-9]{10}$/, "Mobile number must be 10 digits").optional().or(z.literal("")),
@@ -65,6 +66,7 @@ export default function AuthPage() {
     resolver: zodResolver(registerSchema),
     defaultValues: {
       firstName: "",
+      middleName: "",
       lastName: "",
       email: "",
       mobile: "",
@@ -111,6 +113,7 @@ export default function AuthPage() {
     mutationFn: async (data: RegisterFormData) => {
       const response = await apiRequest("POST", "/api/register", {
         firstName: data.firstName,
+        middleName: data.middleName,
         lastName: data.lastName,
         email: data.email || undefined,
         mobile: data.mobile || undefined,
@@ -413,7 +416,7 @@ export default function AuthPage() {
 
                   <TabsContent value="register">
                     <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 gap-4">
                         <div>
                           <Label htmlFor="firstName">First Name</Label>
                           <Input
@@ -426,8 +429,20 @@ export default function AuthPage() {
                             <p className="text-sm text-red-600 mt-1">{registerForm.formState.errors.firstName.message}</p>
                           )}
                         </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <Label htmlFor="lastName">Last Name</Label>
+                          <Label htmlFor="middleName">Middle Name (Optional)</Label>
+                          <Input
+                            id="middleName"
+                            {...registerForm.register("middleName")}
+                            placeholder="Michael"
+                            data-testid="input-middle-name"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="lastName">Last Name (Optional)</Label>
                           <Input
                             id="lastName"
                             {...registerForm.register("lastName")}

@@ -104,7 +104,7 @@ export function setupAuth(app: Express) {
   // Register endpoint
   app.post("/api/register", async (req, res) => {
     try {
-      const { email, mobile, password, firstName, lastName } = req.body;
+      const { email, mobile, password, firstName, middleName, lastName } = req.body;
 
       if (!email && !mobile) {
         return res.status(400).json({ message: "Email or mobile number is required" });
@@ -135,6 +135,7 @@ export function setupAuth(app: Express) {
         mobile: mobile || null,
         password: hashedPassword,
         firstName: firstName || null,
+        middleName: middleName || null,
         lastName: lastName || null,
         profileImageUrl: null,
         isEmailVerified: false,
@@ -151,6 +152,7 @@ export function setupAuth(app: Express) {
           email: user.email,
           mobile: user.mobile,
           firstName: user.firstName,
+          middleName: user.middleName,
           lastName: user.lastName,
           isEmailVerified: user.isEmailVerified,
           isMobileVerified: user.isMobileVerified,
@@ -182,6 +184,7 @@ export function setupAuth(app: Express) {
           email: user.email,
           mobile: user.mobile,
           firstName: user.firstName,
+          middleName: user.middleName,
           lastName: user.lastName,
           isEmailVerified: user.isEmailVerified,
           isMobileVerified: user.isMobileVerified,
@@ -210,6 +213,7 @@ export function setupAuth(app: Express) {
           email: user.email,
           mobile: user.mobile,
           firstName: user.firstName,
+          middleName: user.middleName,
           lastName: user.lastName,
           isEmailVerified: user.isEmailVerified,
           isMobileVerified: user.isMobileVerified,
@@ -309,6 +313,7 @@ export function setupAuth(app: Express) {
       email: req.user.email,
       mobile: req.user.mobile,
       firstName: req.user.firstName,
+      middleName: req.user.middleName,
       lastName: req.user.lastName,
       isEmailVerified: req.user.isEmailVerified,
       isMobileVerified: req.user.isMobileVerified,
