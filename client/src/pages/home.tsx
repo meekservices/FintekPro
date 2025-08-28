@@ -19,7 +19,7 @@ import { Link } from "wouter";
 export default function Home() {
   // Get authenticated user data
   const { data: user } = useQuery({ queryKey: ["/api/user"], retry: false });
-  const userId = user?.id || "demo-user-1";
+  const userId = (user as any)?.id || "demo-user-1";
   const portfolioId = `portfolio-${userId}`;
   
   // Fetch real-time portfolio value
@@ -34,9 +34,9 @@ export default function Home() {
   });
   
   // Calculate total value from actual holdings
-  const totalValue = holdings?.reduce((sum: number, holding: any) => {
+  const totalValue = Array.isArray(holdings) ? holdings.reduce((sum: number, holding: any) => {
     return sum + (holding.currentValue || 0);
-  }, 0) || 1250000; // Default fallback
+  }, 0) : 1250000; // Default fallback
   
 
   const calculators = [
