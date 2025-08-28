@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEnhancedPortfolioHoldings, usePortfolioPerformance } from "@/hooks/use-portfolio";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, TrendingUp, TrendingDown, RefreshCw, Bot, Coins, CreditCard, PiggyBank } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, RefreshCw, Bot, Coins, CreditCard, PiggyBank, Shield } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 export default function Portfolio() {
@@ -63,7 +63,7 @@ export default function Portfolio() {
 
         {/* Enhanced Portfolio with Tabs */}
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="overview">Portfolio Overview</TabsTrigger>
             <TabsTrigger value="pi-chat" className="flex items-center space-x-1">
               <Bot className="h-4 w-4" />
@@ -80,6 +80,10 @@ export default function Portfolio() {
             <TabsTrigger value="ppf" className="flex items-center space-x-1">
               <PiggyBank className="h-4 w-4" />
               <span>PPF Holdings</span>
+            </TabsTrigger>
+            <TabsTrigger value="eps" className="flex items-center space-x-1">
+              <Shield className="h-4 w-4" />
+              <span>EPS Pension</span>
             </TabsTrigger>
             <TabsTrigger value="rebalance">AI Rebalancing</TabsTrigger>
           </TabsList>
@@ -857,6 +861,383 @@ export default function Portfolio() {
                     </Button>
                     <Button variant="outline" size="sm">
                       Update Nominee
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="eps" className="space-y-8">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+              {/* EPS Account Overview */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center space-x-2">
+                      <Shield className="h-5 w-5 text-blue-600" />
+                      <span>EPS Pension Account</span>
+                    </CardTitle>
+                    <Badge variant="outline" className="text-blue-600 border-blue-600">EPS-95</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    {/* Account Details */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground">EPF Account Number</p>
+                        <p className="font-medium">MH/BOM/12345/001</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Pension Account</p>
+                        <p className="font-medium">PEN/MH/001/12345</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Current Employer</p>
+                        <p className="font-medium">Tech Solutions Pvt Ltd</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Employer Code</p>
+                        <p className="font-medium">MH/BOM/12345</p>
+                      </div>
+                    </div>
+
+                    {/* Service Details */}
+                    <div className="space-y-4">
+                      <h4 className="font-semibold text-gray-900">Service Information</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="p-3 bg-blue-50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">Service Start Date</p>
+                          <p className="font-bold text-blue-600">01-Jun-2015</p>
+                        </div>
+                        <div className="p-3 bg-green-50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">Total Service</p>
+                          <p className="font-bold text-green-600">9 Years 8 Months</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="p-3 bg-purple-50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">Current Salary</p>
+                          <p className="font-bold text-purple-600">₹85,000</p>
+                        </div>
+                        <div className="p-3 bg-orange-50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">Pensionable Wage</p>
+                          <p className="font-bold text-orange-600">₹15,000</p>
+                          <p className="text-xs text-orange-600">Max ceiling</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Vesting Status */}
+                    <div className="space-y-4">
+                      <h4 className="font-semibold text-gray-900">Vesting & Eligibility Status</h4>
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg border-l-4 border-green-500">
+                          <div>
+                            <p className="font-medium text-green-900">✓ Vested</p>
+                            <p className="text-xs text-green-700">Completed 10+ years minimum service</p>
+                          </div>
+                          <Badge className="bg-green-100 text-green-800 border-green-300">Eligible</Badge>
+                        </div>
+                        <div className="flex justify-between items-center p-3 bg-yellow-50 rounded-lg border-l-4 border-yellow-500">
+                          <div>
+                            <p className="font-medium text-yellow-900">⏳ Pension Eligibility</p>
+                            <p className="text-xs text-yellow-700">Available from age 58 (Currently 35)</p>
+                          </div>
+                          <Badge variant="outline" className="text-yellow-600 border-yellow-600">23 years</Badge>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Expected Retirement */}
+                    <div className="pt-4 border-t">
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-lg font-semibold text-gray-900">Expected Retirement Date</span>
+                          <span className="text-xl font-bold text-blue-600">01-Jun-2038</span>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Based on 58 years age eligibility (32 years total service)
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* EPS Pension Calculation & Benefits */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <TrendingUp className="h-5 w-5 text-green-600" />
+                    <span>Pension Calculation & Benefits</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    {/* Current Contribution Status */}
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-gray-900">Monthly Contribution (FY 2024-25)</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="p-3 bg-blue-50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">Contribution Rate</p>
+                          <p className="text-lg font-bold text-blue-900">8.33%</p>
+                          <p className="text-xs text-blue-600">of pensionable wage</p>
+                        </div>
+                        <div className="p-3 bg-green-50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">Monthly Contribution</p>
+                          <p className="text-lg font-bold text-green-900">₹1,249</p>
+                          <p className="text-xs text-green-600">8.33% of ₹15,000</p>
+                        </div>
+                      </div>
+                      <div className="p-3 bg-purple-50 rounded-lg">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-medium text-purple-900">Total Contributions Till Date</span>
+                          <span className="font-bold text-purple-900">₹1,45,104</span>
+                        </div>
+                        <p className="text-xs text-purple-600 mt-1">9 years 8 months of contributions</p>
+                      </div>
+                    </div>
+
+                    {/* Pension Formula & Calculation */}
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-gray-900">Pension Formula (EPS-95)</h4>
+                      <div className="p-4 bg-gray-50 rounded-lg border">
+                        <p className="text-sm font-medium text-center text-gray-700">
+                          Pension = (Pensionable Salary × Service) ÷ 70
+                        </p>
+                        <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                          <div className="text-center">
+                            <p className="text-muted-foreground">Average Salary</p>
+                            <p className="font-bold">₹15,000</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-muted-foreground">Expected Service</p>
+                            <p className="font-bold">32 years</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-muted-foreground">Factor</p>
+                            <p className="font-bold">70</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Projected Pension */}
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-gray-900">Projected Monthly Pension</h4>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                          <span className="text-sm font-medium text-green-900">At Current Service (9.8 years)</span>
+                          <span className="font-bold text-green-900">₹2,103</span>
+                        </div>
+                        <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+                          <span className="text-sm font-medium text-blue-900">At Retirement (32 years)</span>
+                          <span className="font-bold text-blue-900">₹6,857</span>
+                        </div>
+                        <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
+                          <span className="text-sm font-medium text-purple-900">Annual Pension (at retirement)</span>
+                          <span className="font-bold text-purple-900">₹82,286</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Pension Benefits */}
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-gray-900">Additional Benefits</h4>
+                      <div className="space-y-2">
+                        <div className="p-3 bg-green-50 rounded-lg border-l-4 border-green-500">
+                          <p className="text-sm font-medium text-green-900">✓ Lifelong Pension</p>
+                          <p className="text-xs text-green-700">Monthly pension for entire lifetime</p>
+                        </div>
+                        <div className="p-3 bg-blue-50 rounded-lg border-l-4 border-blue-500">
+                          <p className="text-sm font-medium text-blue-900">✓ Family Pension</p>
+                          <p className="text-xs text-blue-700">50% pension to spouse after member's death</p>
+                        </div>
+                        <div className="p-3 bg-purple-50 rounded-lg border-l-4 border-purple-500">
+                          <p className="text-sm font-medium text-purple-900">✓ Medical Benefits</p>
+                          <p className="text-xs text-purple-700">CGHS/ESI medical coverage continuation</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Nominee Information */}
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-gray-900">Nominee Details</h4>
+                      <div className="p-3 bg-gray-50 rounded-lg">
+                        <div className="grid grid-cols-3 gap-2">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Name</p>
+                            <p className="font-medium">Priya Sharma</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Relationship</p>
+                            <p className="font-medium">Spouse</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Share</p>
+                            <p className="font-medium">100%</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* EPS Portfolio Integration & Retirement Planning */}
+              <Card className="xl:col-span-2">
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Shield className="h-5 w-5 text-blue-600" />
+                    <span>EPS in Your Retirement Planning</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+                    {/* Retirement Income Impact */}
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-gray-900">Monthly Income</h4>
+                      <div className="text-center">
+                        <div className="text-3xl font-bold text-blue-600">₹6,857</div>
+                        <p className="text-sm text-muted-foreground">at retirement</p>
+                      </div>
+                      <div className="text-xs text-gray-600 text-center">
+                        Guaranteed lifelong pension
+                      </div>
+                    </div>
+
+                    {/* Risk Profile */}
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-gray-900">Security Level</h4>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-sm">Risk</span>
+                          <Badge variant="outline" className="text-green-600 border-green-600">Government Backed</Badge>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm">Inflation Protection</span>
+                          <Badge variant="outline" className="text-blue-600 border-blue-600">Periodic DA</Badge>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm">Tax Status</span>
+                          <Badge variant="outline" className="text-purple-600 border-purple-600">Tax-Free</Badge>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Service Progress */}
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-gray-900">Service Progress</h4>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-sm">Completed</span>
+                          <span className="text-sm font-medium">9.8 years</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div className="bg-blue-600 h-2 rounded-full" style={{ width: '30.6%' }}></div>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm">Projected Total</span>
+                          <span className="text-sm font-medium">32 years</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Family Security */}
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-gray-900">Family Security</h4>
+                      <div className="space-y-2">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-green-600">₹3,428</div>
+                          <p className="text-sm text-muted-foreground">Family pension</p>
+                        </div>
+                        <div className="text-xs text-gray-600 text-center">
+                          50% pension to spouse
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Retirement Corpus Equivalent */}
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-gray-900">Corpus Equivalent</h4>
+                      <div className="space-y-2">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-purple-600">₹17.1L</div>
+                          <p className="text-sm text-muted-foreground">@4% withdrawal</p>
+                        </div>
+                        <div className="text-xs text-gray-600 text-center">
+                          Equivalent corpus needed for same income
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Contribution Timeline Chart */}
+                  <div className="mt-6 pt-6 border-t">
+                    <h4 className="font-semibold text-gray-900 mb-4">9+ Year Contribution History</h4>
+                    <div className="grid grid-cols-10 gap-1">
+                      {Array.from({ length: 10 }, (_, i) => (
+                        <div key={i} className="text-center">
+                          <div className="bg-blue-100 rounded-lg p-2 mb-2">
+                            <div className="text-xs text-muted-foreground">{2015 + i}</div>
+                            <div className="text-sm font-bold text-blue-600">₹{Math.floor(12000 + i * 1500)}</div>
+                          </div>
+                          <div className="bg-blue-600 mx-auto rounded" 
+                               style={{ 
+                                 width: '100%', 
+                                 height: `${15 + i * 3}px` 
+                               }}>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Future Projections */}
+                  <div className="mt-6 pt-6 border-t">
+                    <h4 className="font-semibold text-gray-900 mb-4">Pension Growth Projection</h4>
+                    <div className="grid grid-cols-4 gap-4">
+                      <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg">
+                        <p className="text-sm text-blue-600 font-medium">Year 15</p>
+                        <p className="text-xl font-bold text-blue-800">₹3,214</p>
+                        <p className="text-xs text-blue-600">Monthly pension</p>
+                      </div>
+                      <div className="text-center p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-lg">
+                        <p className="text-sm text-green-600 font-medium">Year 20</p>
+                        <p className="text-xl font-bold text-green-800">₹4,286</p>
+                        <p className="text-xs text-green-600">Monthly pension</p>
+                      </div>
+                      <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg">
+                        <p className="text-sm text-purple-600 font-medium">Year 25</p>
+                        <p className="text-xl font-bold text-purple-800">₹5,357</p>
+                        <p className="text-xs text-purple-600">Monthly pension</p>
+                      </div>
+                      <div className="text-center p-4 bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg">
+                        <p className="text-sm text-orange-600 font-medium">Retirement</p>
+                        <p className="text-xl font-bold text-orange-800">₹6,857</p>
+                        <p className="text-xs text-orange-600">Monthly pension</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-4 mt-6 pt-4 border-t">
+                    <Button variant="outline" size="sm">
+                      View Pension Passbook
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      Download Certificate
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      Update Nominee
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      Calculate Pension
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      Transfer Request
                     </Button>
                   </div>
                 </CardContent>

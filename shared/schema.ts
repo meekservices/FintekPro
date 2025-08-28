@@ -191,6 +191,41 @@ export const ppfHoldings = pgTable("ppf_holdings", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// EPS (Employee Pension Scheme) Holdings Schema
+export const epsHoldings = pgTable("eps_holdings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  epfAccountNumber: varchar("epf_account_number").notNull(), // Linked to EPF account
+  pensionAccountNumber: varchar("pension_account_number").notNull(),
+  employerCode: varchar("employer_code").notNull(),
+  currentEmployer: text("current_employer").notNull(),
+  serviceStartDate: date("service_start_date").notNull(),
+  totalServiceYears: integer("total_service_years").notNull().default(0),
+  totalServiceMonths: integer("total_service_months").notNull().default(0),
+  currentSalary: decimal("current_salary", { precision: 15, scale: 2 }).notNull().default("0"),
+  pensionableWage: decimal("pensionable_wage", { precision: 15, scale: 2 }).notNull().default("0"), // Max 15,000 per month
+  contributionRate: decimal("contribution_rate", { precision: 5, scale: 2 }).notNull().default("8.33"), // 8.33% of pensionable wage
+  monthlyPensionContribution: decimal("monthly_pension_contribution", { precision: 15, scale: 2 }).notNull().default("0"),
+  totalContribution: decimal("total_contribution", { precision: 15, scale: 2 }).notNull().default("0"),
+  accumulatedPension: decimal("accumulated_pension", { precision: 15, scale: 2 }).notNull().default("0"),
+  estimatedMonthlyPension: decimal("estimated_monthly_pension", { precision: 15, scale: 2 }).notNull().default("0"), // At 58 years
+  minVestingPeriod: integer("min_vesting_period").notNull().default(10), // 10 years minimum
+  isVested: boolean("is_vested").notNull().default(false),
+  eligibleForPension: boolean("eligible_for_pension").notNull().default(false), // Age 58 minimum
+  expectedRetirementDate: date("expected_retirement_date"), // Age 58-60
+  schemeType: varchar("scheme_type").notNull().default("eps95"), // EPS-95 scheme
+  certificateNumber: varchar("certificate_number"), // Pension Payment Order (PPO)
+  nomineeName: text("nominee_name"),
+  nomineeRelationship: varchar("nominee_relationship"),
+  nomineeShare: decimal("nominee_share", { precision: 5, scale: 2 }).notNull().default("100"), // Percentage
+  status: varchar("status").notNull().default("active"), // active, suspended, pension_started, withdrawn
+  lastPensionCalculationDate: date("last_pension_calculation_date"),
+  remarks: text("remarks"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  lastUpdated: timestamp("last_updated").defaultNow().notNull(),
+});
+
 // Pi Chat Asset Summaries
 export const piChatSummaries = pgTable("pi_chat_summaries", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1103,6 +1138,17 @@ export type PpfHolding = typeof ppfHoldings.$inferSelect;
 export type InsertPpfHolding = typeof ppfHoldings.$inferInsert;
 
 export const insertPpfHoldingSchema = createInsertSchema(ppfHoldings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastUpdated: true,
+});
+
+// EPS Holdings types
+export type EpsHolding = typeof epsHoldings.$inferSelect;
+export type InsertEpsHolding = typeof epsHoldings.$inferInsert;
+
+export const insertEpsHoldingSchema = createInsertSchema(epsHoldings).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
