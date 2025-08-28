@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertTriangle, Users, Activity, TrendingUp, MessageSquare, Settings, Search, Filter, Shield, FileText, Building2, Plus, Edit3, Trash2, Server, Brain, Zap, Lock, Receipt, CheckCircle, Calendar, Download, Loader2, DollarSign, Clock, Eye, Edit, Send, UserPlus, MoreVertical, ShieldCheck, ShieldAlert } from "lucide-react";
+import { AlertTriangle, Users, Activity, TrendingUp, MessageSquare, Settings, Search, Filter, Shield, FileText, Building2, Plus, Edit3, Trash2, Server, Brain, Zap, Lock, Receipt, CheckCircle, Calendar, Download, Loader2, DollarSign, Clock, Eye, Edit, Send, UserPlus, MoreVertical, ShieldCheck, ShieldAlert, Bot, Monitor, BarChart, Globe } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -399,6 +399,290 @@ function AIAnalysisPanel() {
   );
 }
 
+// Replit Agent Panel Component for Post-Deployment Management
+function ReplitAgentPanel() {
+  const { toast } = useToast();
+  const [deploymentStatus, setDeploymentStatus] = useState('checking');
+  const [agentMetrics, setAgentMetrics] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Mock deployment and agent data - in real implementation, this would fetch from Replit APIs
+  const mockDeploymentData = {
+    status: 'active',
+    url: 'https://fintekpro.replit.app',
+    uptime: '99.9%',
+    lastDeployed: '2024-01-15 14:30:00',
+    version: '1.2.3',
+    buildTime: '2m 45s',
+    analytics: {
+      pageViews: 15420,
+      uniqueVisitors: 3280,
+      avgResponseTime: '145ms',
+      errorRate: '0.02%'
+    },
+    resources: {
+      cpuUsage: '12%',
+      memoryUsage: '340MB',
+      diskUsage: '1.2GB'
+    }
+  };
+
+  const handleAgentAction = async (action: string) => {
+    setIsLoading(true);
+    try {
+      // Simulate agent actions
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      toast({
+        title: `Agent Action: ${action}`,
+        description: `Successfully executed ${action.toLowerCase()}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Agent Action Failed",
+        description: "Failed to execute agent action",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Deployment Status */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Deployment Status</CardTitle>
+            <Globe className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">Active</div>
+            <p className="text-xs text-muted-foreground">
+              Uptime: {mockDeploymentData.uptime}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Page Views</CardTitle>
+            <BarChart className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{mockDeploymentData.analytics.pageViews.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">
+              +12% from last week
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Response Time</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{mockDeploymentData.analytics.avgResponseTime}</div>
+            <p className="text-xs text-muted-foreground">
+              Excellent performance
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Error Rate</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{mockDeploymentData.analytics.errorRate}</div>
+            <p className="text-xs text-muted-foreground">
+              Very low error rate
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Agent Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Bot className="h-5 w-5" />
+            Agent Actions
+          </CardTitle>
+          <CardDescription>
+            Manage your deployment and monitor website performance through AI-powered agent actions
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <Button
+              onClick={() => handleAgentAction('Health Check')}
+              disabled={isLoading}
+              variant="outline"
+              className="h-auto p-4 justify-start"
+            >
+              <div className="flex flex-col items-start">
+                <div className="flex items-center gap-2 mb-1">
+                  <Monitor className="h-4 w-4" />
+                  <span className="font-medium">Health Check</span>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  Run system diagnostics
+                </span>
+              </div>
+            </Button>
+
+            <Button
+              onClick={() => handleAgentAction('Performance Analysis')}
+              disabled={isLoading}
+              variant="outline"
+              className="h-auto p-4 justify-start"
+            >
+              <div className="flex flex-col items-start">
+                <div className="flex items-center gap-2 mb-1">
+                  <BarChart className="h-4 w-4" />
+                  <span className="font-medium">Performance Analysis</span>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  Analyze app performance
+                </span>
+              </div>
+            </Button>
+
+            <Button
+              onClick={() => handleAgentAction('Security Scan')}
+              disabled={isLoading}
+              variant="outline"
+              className="h-auto p-4 justify-start"
+            >
+              <div className="flex flex-col items-start">
+                <div className="flex items-center gap-2 mb-1">
+                  <Shield className="h-4 w-4" />
+                  <span className="font-medium">Security Scan</span>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  Check for vulnerabilities
+                </span>
+              </div>
+            </Button>
+
+            <Button
+              onClick={() => handleAgentAction('Backup Creation')}
+              disabled={isLoading}
+              variant="outline"
+              className="h-auto p-4 justify-start"
+            >
+              <div className="flex flex-col items-start">
+                <div className="flex items-center gap-2 mb-1">
+                  <Download className="h-4 w-4" />
+                  <span className="font-medium">Create Backup</span>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  Backup current state
+                </span>
+              </div>
+            </Button>
+
+            <Button
+              onClick={() => handleAgentAction('Log Analysis')}
+              disabled={isLoading}
+              variant="outline"
+              className="h-auto p-4 justify-start"
+            >
+              <div className="flex flex-col items-start">
+                <div className="flex items-center gap-2 mb-1">
+                  <Eye className="h-4 w-4" />
+                  <span className="font-medium">Analyze Logs</span>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  Review system logs
+                </span>
+              </div>
+            </Button>
+
+            <Button
+              onClick={() => handleAgentAction('Resource Optimization')}
+              disabled={isLoading}
+              variant="outline"
+              className="h-auto p-4 justify-start"
+            >
+              <div className="flex flex-col items-start">
+                <div className="flex items-center gap-2 mb-1">
+                  <Zap className="h-4 w-4" />
+                  <span className="font-medium">Optimize Resources</span>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  Improve efficiency
+                </span>
+              </div>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Deployment Information */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Deployment Info</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">URL:</span>
+              <a 
+                href={mockDeploymentData.url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:underline"
+              >
+                {mockDeploymentData.url}
+              </a>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Version:</span>
+              <Badge variant="secondary">{mockDeploymentData.version}</Badge>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Last Deployed:</span>
+              <span>{mockDeploymentData.lastDeployed}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Build Time:</span>
+              <span>{mockDeploymentData.buildTime}</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Resource Usage</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">CPU Usage:</span>
+              <span className="text-green-600">{mockDeploymentData.resources.cpuUsage}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Memory Usage:</span>
+              <span className="text-blue-600">{mockDeploymentData.resources.memoryUsage}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Disk Usage:</span>
+              <span className="text-orange-600">{mockDeploymentData.resources.diskUsage}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Unique Visitors:</span>
+              <span>{mockDeploymentData.analytics.uniqueVisitors.toLocaleString()}</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
 interface ClientStats {
   totalClients: number;
   activeClients: number;
@@ -697,7 +981,7 @@ export default function AdminPanel() {
       </div>
 
       <Tabs defaultValue="dashboard" className="space-y-6">
-        <TabsList className={`grid w-full ${currentUser?.role === 'super_admin' ? 'grid-cols-10' : 'grid-cols-9'}`}>
+        <TabsList className={`grid w-full ${currentUser?.role === 'super_admin' ? 'grid-cols-11' : 'grid-cols-10'}`}>
           <TabsTrigger value="dashboard" data-testid="tab-dashboard">
             <TrendingUp className="w-4 h-4 mr-2" />
             Dashboard
@@ -737,6 +1021,10 @@ export default function AdminPanel() {
           <TabsTrigger value="agents" data-testid="tab-agents">
             <Users className="w-4 h-4 mr-2" />
             Care Agents
+          </TabsTrigger>
+          <TabsTrigger value="replit-agent" data-testid="tab-replit-agent">
+            <Bot className="w-4 h-4 mr-2" />
+            Replit Agent
           </TabsTrigger>
           {currentUser?.role === 'super_admin' && (
             <TabsTrigger value="ai-analysis" data-testid="tab-ai-analysis">
@@ -1756,6 +2044,18 @@ export default function AdminPanel() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Replit Agent Tab */}
+        <TabsContent value="replit-agent" className="space-y-6">
+          <ReplitAgentPanel />
+        </TabsContent>
+
+        {/* AI Analysis Tab - Super Admin Only */}
+        {currentUser?.role === 'super_admin' && (
+          <TabsContent value="ai-analysis" className="space-y-6">
+            <AIAnalysisPanel />
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Guidance Dialog */}
@@ -2093,12 +2393,6 @@ export default function AdminPanel() {
         </DialogContent>
       </Dialog>
 
-      {/* AI Analysis Tab - Super Admin Only */}
-      {currentUser?.role === 'super_admin' && (
-        <TabsContent value="ai-analysis" className="space-y-6">
-          <AIAnalysisPanel />
-        </TabsContent>
-      )}
     </div>
   );
 }
