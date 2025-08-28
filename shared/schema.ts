@@ -120,6 +120,32 @@ export const assetAllocation = pgTable("asset_allocation", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// EPF Holdings table for tracking Employee Provident Fund data
+export const epfHoldings = pgTable("epf_holdings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  epfAccountNumber: varchar("epf_account_number").notNull(),
+  employerName: text("employer_name").notNull(),
+  memberName: text("member_name").notNull(),
+  // EPF Balance Information
+  employeeContribution: decimal("employee_contribution", { precision: 15, scale: 2 }),
+  employerContribution: decimal("employer_contribution", { precision: 15, scale: 2 }),
+  pensionContribution: decimal("pension_contribution", { precision: 15, scale: 2 }),
+  totalBalance: decimal("total_balance", { precision: 15, scale: 2 }),
+  interestEarned: decimal("interest_earned", { precision: 15, scale: 2 }),
+  interestRate: decimal("interest_rate", { precision: 5, scale: 2 }), // Annual interest rate
+  // Account Details
+  dateOfJoining: date("date_of_joining"),
+  dateOfExit: date("date_of_exit"),
+  isActive: boolean("is_active").default(true),
+  nomineeName: text("nominee_name"),
+  nomineeRelationship: varchar("nominee_relationship"),
+  // Tracking
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Pi Chat Asset Summaries
 export const piChatSummaries = pgTable("pi_chat_summaries", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1015,6 +1041,17 @@ export type UserProfile = typeof userProfiles.$inferSelect;
 export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
 export type MarketStory = typeof marketStories.$inferSelect;
 export type InsertMarketStory = z.infer<typeof insertMarketStorySchema>;
+
+// EPF Holdings types
+export type EpfHolding = typeof epfHoldings.$inferSelect;
+export type InsertEpfHolding = typeof epfHoldings.$inferInsert;
+
+export const insertEpfHoldingSchema = createInsertSchema(epfHoldings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastUpdated: true,
+});
 
 // AIF Fund types
 export type AifFund = typeof aifFunds.$inferSelect;

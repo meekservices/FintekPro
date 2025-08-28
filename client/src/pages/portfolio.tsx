@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEnhancedPortfolioHoldings, usePortfolioPerformance } from "@/hooks/use-portfolio";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, TrendingUp, TrendingDown, RefreshCw, Bot, Coins } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, RefreshCw, Bot, Coins, CreditCard } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 export default function Portfolio() {
@@ -63,7 +63,7 @@ export default function Portfolio() {
 
         {/* Enhanced Portfolio with Tabs */}
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="overview">Portfolio Overview</TabsTrigger>
             <TabsTrigger value="pi-chat" className="flex items-center space-x-1">
               <Bot className="h-4 w-4" />
@@ -72,6 +72,10 @@ export default function Portfolio() {
             <TabsTrigger value="commodities" className="flex items-center space-x-1">
               <Coins className="h-4 w-4" />
               <span>Commodities</span>
+            </TabsTrigger>
+            <TabsTrigger value="epf" className="flex items-center space-x-1">
+              <CreditCard className="h-4 w-4" />
+              <span>EPF Holdings</span>
             </TabsTrigger>
             <TabsTrigger value="rebalance">AI Rebalancing</TabsTrigger>
           </TabsList>
@@ -321,6 +325,237 @@ export default function Portfolio() {
                 </Card>
                 <AssetAllocation portfolioId={portfolioId} />
               </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="epf" className="space-y-8">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+              {/* EPF Account Overview */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center space-x-2">
+                      <CreditCard className="h-5 w-5 text-blue-600" />
+                      <span>EPF Account Summary</span>
+                    </CardTitle>
+                    <Badge variant="outline" className="text-green-600 border-green-600">Active</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    {/* Account Details */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Account Number</p>
+                        <p className="font-medium">KN/DEL/12345/67890</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Employer</p>
+                        <p className="font-medium">Tech Solutions Pvt Ltd</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Date of Joining</p>
+                        <p className="font-medium">15-Jan-2020</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Interest Rate</p>
+                        <p className="font-medium text-green-600">8.15%</p>
+                      </div>
+                    </div>
+
+                    {/* Balance Breakdown */}
+                    <div className="space-y-4">
+                      <h4 className="font-semibold text-gray-900">Balance Breakdown</h4>
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+                          <span className="text-sm font-medium text-blue-900">Employee Contribution</span>
+                          <span className="font-bold text-blue-900">₹4,82,350</span>
+                        </div>
+                        <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                          <span className="text-sm font-medium text-green-900">Employer Contribution</span>
+                          <span className="font-bold text-green-900">₹4,82,350</span>
+                        </div>
+                        <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
+                          <span className="text-sm font-medium text-purple-900">Pension Fund (EPS)</span>
+                          <span className="font-bold text-purple-900">₹1,45,620</span>
+                        </div>
+                        <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
+                          <span className="text-sm font-medium text-orange-900">Interest Earned</span>
+                          <span className="font-bold text-orange-900">₹1,23,480</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Total Balance */}
+                    <div className="pt-4 border-t">
+                      <div className="flex justify-between items-center">
+                        <span className="text-lg font-semibold text-gray-900">Total EPF Balance</span>
+                        <span className="text-2xl font-bold text-green-600">₹12,33,800</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        As of {new Date().toLocaleDateString('en-IN')}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* EPF Performance & Growth */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <TrendingUp className="h-5 w-5 text-green-600" />
+                    <span>EPF Performance & Growth</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    {/* Monthly Contribution */}
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-gray-900">Monthly Contribution</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="p-3 bg-gray-50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">Employee (12%)</p>
+                          <p className="text-lg font-bold text-gray-900">₹7,200</p>
+                        </div>
+                        <div className="p-3 bg-gray-50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">Employer (12%)</p>
+                          <p className="text-lg font-bold text-gray-900">₹7,200</p>
+                        </div>
+                      </div>
+                      <div className="p-3 bg-green-50 rounded-lg">
+                        <p className="text-sm text-muted-foreground">Total Monthly Addition</p>
+                        <p className="text-xl font-bold text-green-600">₹14,400</p>
+                      </div>
+                    </div>
+
+                    {/* Growth Statistics */}
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-gray-900">Growth Statistics</h4>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Current Year Interest</span>
+                          <span className="font-medium text-green-600">₹45,280</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">5-Year Growth</span>
+                          <span className="font-medium text-green-600">+89.4%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Annual Average Growth</span>
+                          <span className="font-medium text-green-600">8.12%</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Withdrawal Options */}
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-gray-900">Withdrawal Information</h4>
+                      <div className="space-y-2">
+                        <div className="p-3 bg-yellow-50 rounded-lg">
+                          <p className="text-sm font-medium text-yellow-900">Partial Withdrawal</p>
+                          <p className="text-xs text-yellow-700">Available after 5 years for specific purposes</p>
+                        </div>
+                        <div className="p-3 bg-blue-50 rounded-lg">
+                          <p className="text-sm font-medium text-blue-900">Full Withdrawal</p>
+                          <p className="text-xs text-blue-700">Available after employment termination or retirement</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Nominee Details */}
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-gray-900">Nominee Details</h4>
+                      <div className="p-3 bg-gray-50 rounded-lg">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Name</p>
+                            <p className="font-medium">Priya Sharma</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Relationship</p>
+                            <p className="font-medium">Spouse</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* EPF Portfolio Integration */}
+              <Card className="xl:col-span-2">
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <CreditCard className="h-5 w-5 text-purple-600" />
+                    <span>EPF in Your Overall Portfolio</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Portfolio Contribution */}
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-gray-900">Portfolio Weight</h4>
+                      <div className="text-center">
+                        <div className="text-3xl font-bold text-purple-600">8.9%</div>
+                        <p className="text-sm text-muted-foreground">of total wealth</p>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div className="bg-purple-600 h-2 rounded-full" style={{ width: '8.9%' }}></div>
+                      </div>
+                    </div>
+
+                    {/* Risk Profile */}
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-gray-900">Risk Profile</h4>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-sm">Risk Level</span>
+                          <Badge variant="outline" className="text-green-600 border-green-600">Low</Badge>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm">Volatility</span>
+                          <span className="text-sm font-medium">Very Low</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm">Liquidity</span>
+                          <Badge variant="outline" className="text-yellow-600 border-yellow-600">Restricted</Badge>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Retirement Planning */}
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-gray-900">Retirement Impact</h4>
+                      <div className="space-y-2">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-blue-600">₹85.2L</div>
+                          <p className="text-sm text-muted-foreground">Projected at 60</p>
+                        </div>
+                        <div className="text-xs text-gray-600">
+                          Based on current contributions and 8.15% annual growth
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-4 mt-6 pt-4 border-t">
+                    <Button variant="outline" size="sm">
+                      View Passbook
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      Download Statement
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      Update Nominee
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      Check Claim Status
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
 
