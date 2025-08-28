@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertTriangle, Users, Activity, TrendingUp, MessageSquare, Settings, Search, Filter, Shield, FileText, Building2, Plus, Edit3, Trash2, Server, Brain, Zap, Lock, Receipt, CheckCircle, Calendar, Download, Loader2, DollarSign, Clock, Eye, Edit, Send, UserPlus, MoreVertical, ShieldCheck, ShieldAlert, Bot, Monitor, BarChart, Globe } from "lucide-react";
+import { AlertTriangle, Users, Activity, TrendingUp, MessageSquare, Settings, Search, Filter, Shield, FileText, Building2, Plus, Edit3, Trash2, Server, Brain, Zap, Lock, Receipt, CheckCircle, Calendar, Download, Loader2, DollarSign, Clock, Eye, Edit, Send, UserPlus, MoreVertical, ShieldCheck, ShieldAlert, Bot, Monitor, BarChart, Globe, Mail, Target, TrendingDown, Share2, Megaphone, MousePointer, Users2, BarChart3, PieChart, LineChart, Phone } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -683,6 +683,598 @@ function ReplitAgentPanel() {
   );
 }
 
+// Marketing Tools Panel Component for Campaign Management and Analytics
+function MarketingToolsPanel() {
+  const { toast } = useToast();
+  const [activeView, setActiveView] = useState('overview');
+  const [isCreatingCampaign, setIsCreatingCampaign] = useState(false);
+  const [campaigns, setCampaigns] = useState([
+    {
+      id: 'campaign-1',
+      name: 'Q1 Investment Drive',
+      type: 'email',
+      status: 'active',
+      reach: 15420,
+      clicks: 2340,
+      conversions: 156,
+      budget: 25000,
+      spent: 18750,
+      startDate: '2024-01-15',
+      endDate: '2024-03-31'
+    },
+    {
+      id: 'campaign-2',
+      name: 'Mutual Fund Awareness',
+      type: 'social',
+      status: 'paused',
+      reach: 8900,
+      clicks: 890,
+      conversions: 45,
+      budget: 15000,
+      spent: 7200,
+      startDate: '2024-01-20',
+      endDate: '2024-02-20'
+    }
+  ]);
+
+  const [leads, setLeads] = useState([
+    {
+      id: 'lead-1',
+      name: 'Rajesh Kumar',
+      email: 'rajesh@email.com',
+      phone: '+91-9876543210',
+      source: 'Website Form',
+      interest: 'Mutual Funds',
+      status: 'hot',
+      score: 85,
+      createdAt: '2024-01-20'
+    },
+    {
+      id: 'lead-2',
+      name: 'Priya Sharma',
+      email: 'priya.s@email.com',
+      phone: '+91-8765432109',
+      source: 'Social Media',
+      interest: 'Portfolio Management',
+      status: 'warm',
+      score: 72,
+      createdAt: '2024-01-18'
+    }
+  ]);
+
+  const marketingMetrics = {
+    totalLeads: leads.length,
+    hotLeads: leads.filter(l => l.status === 'hot').length,
+    conversionRate: 12.8,
+    costPerLead: 245,
+    totalCampaigns: campaigns.length,
+    activeCampaigns: campaigns.filter(c => c.status === 'active').length,
+    totalSpend: campaigns.reduce((sum, c) => sum + c.spent, 0),
+    totalReach: campaigns.reduce((sum, c) => sum + c.reach, 0)
+  };
+
+  const handleCreateCampaign = () => {
+    setIsCreatingCampaign(true);
+    // Simulate campaign creation
+    setTimeout(() => {
+      toast({
+        title: "Campaign Created",
+        description: "Your marketing campaign has been created successfully",
+      });
+      setIsCreatingCampaign(false);
+    }, 2000);
+  };
+
+  const handleLeadAction = (leadId: string, action: string) => {
+    toast({
+      title: `Lead ${action}`,
+      description: `Successfully ${action.toLowerCase()} lead`,
+    });
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Marketing Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Leads</CardTitle>
+            <Users2 className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{marketingMetrics.totalLeads}</div>
+            <p className="text-xs text-muted-foreground">
+              {marketingMetrics.hotLeads} hot leads
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Campaigns</CardTitle>
+            <Target className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{marketingMetrics.activeCampaigns}</div>
+            <p className="text-xs text-muted-foreground">
+              {marketingMetrics.totalCampaigns} total campaigns
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Conversion Rate</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{marketingMetrics.conversionRate}%</div>
+            <p className="text-xs text-muted-foreground">
+              ₹{marketingMetrics.costPerLead} cost per lead
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Reach</CardTitle>
+            <BarChart3 className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{marketingMetrics.totalReach.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">
+              ₹{marketingMetrics.totalSpend.toLocaleString()} total spend
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Marketing Tools Navigation */}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant={activeView === 'overview' ? 'default' : 'outline'}
+          onClick={() => setActiveView('overview')}
+          size="sm"
+        >
+          <BarChart className="w-4 h-4 mr-2" />
+          Overview
+        </Button>
+        <Button
+          variant={activeView === 'campaigns' ? 'default' : 'outline'}
+          onClick={() => setActiveView('campaigns')}
+          size="sm"
+        >
+          <Target className="w-4 h-4 mr-2" />
+          Campaigns
+        </Button>
+        <Button
+          variant={activeView === 'leads' ? 'default' : 'outline'}
+          onClick={() => setActiveView('leads')}
+          size="sm"
+        >
+          <Users2 className="w-4 h-4 mr-2" />
+          Leads
+        </Button>
+        <Button
+          variant={activeView === 'email' ? 'default' : 'outline'}
+          onClick={() => setActiveView('email')}
+          size="sm"
+        >
+          <Mail className="w-4 h-4 mr-2" />
+          Email Marketing
+        </Button>
+        <Button
+          variant={activeView === 'social' ? 'default' : 'outline'}
+          onClick={() => setActiveView('social')}
+          size="sm"
+        >
+          <Share2 className="w-4 h-4 mr-2" />
+          Social Media
+        </Button>
+      </div>
+
+      {/* Campaign Management */}
+      {activeView === 'campaigns' && (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold">Campaign Management</h3>
+            <Button onClick={handleCreateCampaign} disabled={isCreatingCampaign}>
+              <Plus className="w-4 h-4 mr-2" />
+              {isCreatingCampaign ? 'Creating...' : 'New Campaign'}
+            </Button>
+          </div>
+
+          <div className="grid gap-4">
+            {campaigns.map((campaign) => (
+              <Card key={campaign.id}>
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <CardTitle className="text-base">{campaign.name}</CardTitle>
+                      <CardDescription>
+                        {campaign.type.toUpperCase()} • {campaign.startDate} to {campaign.endDate}
+                      </CardDescription>
+                    </div>
+                    <Badge variant={campaign.status === 'active' ? 'default' : 'secondary'}>
+                      {campaign.status}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Reach</p>
+                      <p className="text-lg font-semibold">{campaign.reach.toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Clicks</p>
+                      <p className="text-lg font-semibold">{campaign.clicks.toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Conversions</p>
+                      <p className="text-lg font-semibold">{campaign.conversions}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Budget Usage</p>
+                      <p className="text-lg font-semibold">
+                        ₹{campaign.spent.toLocaleString()} / ₹{campaign.budget.toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-4">
+                    <Button size="sm" variant="outline">
+                      <Edit className="w-4 h-4 mr-2" />
+                      Edit
+                    </Button>
+                    <Button size="sm" variant="outline">
+                      <BarChart className="w-4 h-4 mr-2" />
+                      Analytics
+                    </Button>
+                    <Button size="sm" variant="outline">
+                      {campaign.status === 'active' ? 'Pause' : 'Resume'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Lead Management */}
+      {activeView === 'leads' && (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold">Lead Management</h3>
+            <Button>
+              <UserPlus className="w-4 h-4 mr-2" />
+              Import Leads
+            </Button>
+          </div>
+
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Contact</TableHead>
+                    <TableHead>Source</TableHead>
+                    <TableHead>Interest</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Score</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {leads.map((lead) => (
+                    <TableRow key={lead.id}>
+                      <TableCell className="font-medium">{lead.name}</TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          <div>{lead.email}</div>
+                          <div className="text-muted-foreground">{lead.phone}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell>{lead.source}</TableCell>
+                      <TableCell>{lead.interest}</TableCell>
+                      <TableCell>
+                        <Badge variant={
+                          lead.status === 'hot' ? 'destructive' : 
+                          lead.status === 'warm' ? 'default' : 'secondary'
+                        }>
+                          {lead.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className="text-sm font-medium">{lead.score}</div>
+                          <div className="w-16 bg-muted rounded-full h-2">
+                            <div 
+                              className="bg-primary h-2 rounded-full" 
+                              style={{ width: `${lead.score}%` }}
+                            />
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button size="sm" variant="outline" onClick={() => handleLeadAction(lead.id, 'Contact')}>
+                            <Phone className="w-4 h-4" />
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => handleLeadAction(lead.id, 'Email')}>
+                            <Mail className="w-4 h-4" />
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => handleLeadAction(lead.id, 'Edit')}>
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Email Marketing */}
+      {activeView === 'email' && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">Email Marketing</h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Email Campaign Builder</CardTitle>
+                <CardDescription>Create and send targeted email campaigns</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Campaign Name</Label>
+                  <Input placeholder="Enter campaign name" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Target Audience</Label>
+                  <Select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select audience" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Clients</SelectItem>
+                      <SelectItem value="new">New Clients</SelectItem>
+                      <SelectItem value="active">Active Investors</SelectItem>
+                      <SelectItem value="inactive">Inactive Clients</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Email Template</Label>
+                  <Select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose template" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="newsletter">Newsletter</SelectItem>
+                      <SelectItem value="promotion">Promotion</SelectItem>
+                      <SelectItem value="welcome">Welcome Series</SelectItem>
+                      <SelectItem value="educational">Educational Content</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button className="w-full">
+                  <Send className="w-4 h-4 mr-2" />
+                  Create Campaign
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Email Analytics</CardTitle>
+                <CardDescription>Track email campaign performance</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Open Rate</span>
+                    <span className="font-medium">24.5%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Click Rate</span>
+                    <span className="font-medium">8.2%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Bounce Rate</span>
+                    <span className="font-medium">2.1%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Unsubscribe Rate</span>
+                    <span className="font-medium">0.8%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Total Sent</span>
+                    <span className="font-medium">12,450</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* Social Media Marketing */}
+      {activeView === 'social' && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">Social Media Marketing</h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Share2 className="w-4 h-4" />
+                  Facebook
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm">Followers</span>
+                    <span className="font-medium">8,420</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm">Engagement</span>
+                    <span className="font-medium">6.8%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm">Reach</span>
+                    <span className="font-medium">45,200</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Share2 className="w-4 h-4" />
+                  LinkedIn
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm">Connections</span>
+                    <span className="font-medium">12,680</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm">Engagement</span>
+                    <span className="font-medium">12.4%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm">Impressions</span>
+                    <span className="font-medium">89,300</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Share2 className="w-4 h-4" />
+                  Twitter
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm">Followers</span>
+                    <span className="font-medium">5,240</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm">Engagement</span>
+                    <span className="font-medium">4.2%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm">Impressions</span>
+                    <span className="font-medium">32,100</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Social Media Scheduler</CardTitle>
+              <CardDescription>Schedule posts across all platforms</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Textarea placeholder="What's on your mind? Share investment tips, market insights, or educational content..." />
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline">📷 Add Image</Button>
+                <Button size="sm" variant="outline">📊 Add Chart</Button>
+                <Button size="sm" variant="outline">🔗 Add Link</Button>
+              </div>
+              <div className="flex justify-between items-center">
+                <div className="flex gap-2">
+                  <Badge variant="secondary">Facebook</Badge>
+                  <Badge variant="secondary">LinkedIn</Badge>
+                  <Badge variant="outline">Twitter</Badge>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline">Schedule</Button>
+                  <Button size="sm">Post Now</Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Overview Dashboard */}
+      {activeView === 'overview' && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">Marketing Dashboard</h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Campaign Performance</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {campaigns.slice(0, 3).map((campaign) => (
+                    <div key={campaign.id} className="flex justify-between items-center p-3 border rounded">
+                      <div>
+                        <p className="font-medium">{campaign.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {campaign.conversions} conversions • {((campaign.clicks / campaign.reach) * 100).toFixed(1)}% CTR
+                        </p>
+                      </div>
+                      <Badge variant={campaign.status === 'active' ? 'default' : 'secondary'}>
+                        {campaign.status}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Top Lead Sources</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span>Website Forms</span>
+                    <span className="font-medium">45%</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span>Social Media</span>
+                    <span className="font-medium">28%</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span>Email Campaigns</span>
+                    <span className="font-medium">18%</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span>Referrals</span>
+                    <span className="font-medium">9%</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface ClientStats {
   totalClients: number;
   activeClients: number;
@@ -981,7 +1573,7 @@ export default function AdminPanel() {
       </div>
 
       <Tabs defaultValue="dashboard" className="space-y-6">
-        <TabsList className={`grid w-full ${currentUser?.role === 'super_admin' ? 'grid-cols-11' : 'grid-cols-10'}`}>
+        <TabsList className={`grid w-full ${currentUser?.role === 'super_admin' ? 'grid-cols-12' : 'grid-cols-11'}`}>
           <TabsTrigger value="dashboard" data-testid="tab-dashboard">
             <TrendingUp className="w-4 h-4 mr-2" />
             Dashboard
@@ -1025,6 +1617,10 @@ export default function AdminPanel() {
           <TabsTrigger value="replit-agent" data-testid="tab-replit-agent">
             <Bot className="w-4 h-4 mr-2" />
             Replit Agent
+          </TabsTrigger>
+          <TabsTrigger value="marketing" data-testid="tab-marketing">
+            <Megaphone className="w-4 h-4 mr-2" />
+            Marketing
           </TabsTrigger>
           {currentUser?.role === 'super_admin' && (
             <TabsTrigger value="ai-analysis" data-testid="tab-ai-analysis">
@@ -2043,6 +2639,11 @@ export default function AdminPanel() {
               </Table>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Marketing Tools Tab */}
+        <TabsContent value="marketing" className="space-y-6">
+          <MarketingToolsPanel />
         </TabsContent>
 
         {/* Replit Agent Tab */}
