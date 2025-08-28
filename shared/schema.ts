@@ -683,21 +683,24 @@ export type RiskAssessmentQuestion = typeof riskAssessmentQuestions.$inferSelect
 export type InsertRiskAssessmentQuestion = z.infer<typeof insertRiskAssessmentQuestionSchema>;
 
 // User Activity schemas
-export const insertUserActivitySchema = createInsertSchema(userActivities, {
+export const insertUserActivitySchema = createInsertSchema(userActivities).omit({
+  id: true,
   createdAt: true,
 });
 export type InsertUserActivity = z.infer<typeof insertUserActivitySchema>;
 export type UserActivity = typeof userActivities.$inferSelect;
 
 // Admin Settings schemas
-export const insertAdminSettingSchema = createInsertSchema(adminSettings, {
+export const insertAdminSettingSchema = createInsertSchema(adminSettings).omit({
+  id: true,
   updatedAt: true,
 });
 export type InsertAdminSetting = z.infer<typeof insertAdminSettingSchema>;
 export type AdminSetting = typeof adminSettings.$inferSelect;
 
 // User Notifications schemas
-export const insertUserNotificationSchema = createInsertSchema(userNotifications, {
+export const insertUserNotificationSchema = createInsertSchema(userNotifications).omit({
+  id: true,
   createdAt: true,
 });
 export type InsertUserNotification = z.infer<typeof insertUserNotificationSchema>;

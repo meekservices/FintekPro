@@ -27,7 +27,12 @@ interface Achievement {
   badgeImage?: string;
   points: number;
   difficulty: 'beginner' | 'intermediate' | 'advanced' | 'expert';
-  category: string;
+  categoryId?: string;
+  category?: {
+    name: string;
+    color?: string;
+    icon?: string;
+  };
   shareTemplate?: string;
 }
 
@@ -105,17 +110,49 @@ export function SocialSharing({ achievement, userAchievement, userId }: SocialSh
     const template = achievement.shareTemplate || 
       `🎉 I just earned the "${achievement.name}" achievement on FintekPro! ${achievement.description}`;
     
-    return `${template}\n\n🏆 ${achievement.points} points earned\n💪 Difficulty: ${achievement.difficulty}\n\n#InvestmentLearning #FintekPro #Achievement`;
+    const difficultyEmoji = {
+      'beginner': '🌱',
+      'intermediate': '🚀', 
+      'advanced': '⚡',
+      'expert': '🏆'
+    }[achievement.difficulty] || '🏅';
+    
+    const categoryEmoji = {
+      'portfolio': '📈',
+      'learning': '📚',
+      'trading': '💹',
+      'savings': '💰',
+      'investment': '📊'
+    }[achievement.categoryId?.toLowerCase() || 'investment'] || '🎯';
+    
+    return `${template}\n\n${categoryEmoji} ${achievement.points} points earned\n${difficultyEmoji} ${achievement.difficulty.charAt(0).toUpperCase() + achievement.difficulty.slice(1)} Level\n\n#InvestmentJourney #FintekPro #WealthBuilding #Achievement`;
   };
 
   const shareToTwitter = () => {
     const content = generateShareContent();
-    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(content)}`;
+    const hashtags = ['InvestmentJourney', 'FintekPro', 'WealthBuilding', 'Achievement'];
+    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(content)}&hashtags=${hashtags.join(',')}`;
     window.open(url, '_blank');
     
     createSocialShareMutation.mutate({
       platform: 'twitter',
       shareUrl: url,
+      shareContent: content
+    });
+  };
+
+  const shareToInstagram = () => {
+    const content = generateShareContent();
+    // Instagram doesn't have direct web sharing, so we'll copy content and show instructions
+    navigator.clipboard.writeText(content).then(() => {
+      toast({
+        title: "Content Copied!",
+        description: "The achievement content has been copied. Now open Instagram and paste it in your story or post.",
+      });
+    });
+    
+    createSocialShareMutation.mutate({
+      platform: 'instagram',
       shareContent: content
     });
   };
