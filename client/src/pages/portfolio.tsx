@@ -119,6 +119,319 @@ export default function Portfolio() {
               </div>
             )}
 
+            {/* Comprehensive Investment Summary */}
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">Complete Investment Portfolio</h2>
+              
+              {/* Total Portfolio Value Card */}
+              <Card className="mb-6 bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-200">
+                <CardContent className="p-6">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div className="md:col-span-2">
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2 flex items-center">
+                        <TrendingUp className="h-6 w-6 text-green-600 mr-2" />
+                        Total Portfolio Value
+                      </h3>
+                      <div className="text-4xl font-bold text-green-600 mb-2">₹45,67,890</div>
+                      <div className="flex items-center space-x-4">
+                        <span className="text-green-600 flex items-center text-lg font-medium">
+                          <TrendingUp className="h-5 w-5 mr-1" />
+                          +12.8% (₹5,18,420)
+                        </span>
+                        <Badge className="bg-green-100 text-green-800 border-green-300">YTD Gain</Badge>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <p className="text-sm text-muted-foreground font-medium">Investment Breakdown</p>
+                      <div className="text-lg font-semibold text-gray-900">₹40,49,470</div>
+                      <p className="text-xs text-gray-600">Total Invested</p>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <p className="text-sm text-muted-foreground font-medium">Monthly SIP</p>
+                      <div className="text-lg font-semibold text-blue-600">₹43,500</div>
+                      <p className="text-xs text-gray-600">Recurring Investment</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Investment Categories Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                {/* Equity Investments */}
+                <Card className="border-l-4 border-blue-500">
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center text-blue-700">
+                      <TrendingUp className="h-5 w-5 mr-2" />
+                      Equity Investments
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-blue-600 mb-3">₹18,45,150</div>
+                    <p className="text-sm text-muted-foreground mb-4">40.4% of portfolio</p>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Direct Stocks</span>
+                        <span className="font-medium">₹8,45,150</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Mutual Funds</span>
+                        <span className="font-medium">₹7,50,000</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">AIF Funds</span>
+                        <span className="font-medium">₹2,50,000</span>
+                      </div>
+                      <div className="pt-2 border-t flex justify-between">
+                        <span className="text-sm font-medium text-green-600">Returns</span>
+                        <span className="text-sm font-bold text-green-600">+15.2%</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Government Schemes */}
+                <Card className="border-l-4 border-green-500">
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center text-green-700">
+                      <Shield className="h-5 w-5 mr-2" />
+                      Government Schemes
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-green-600 mb-3">₹15,67,340</div>
+                    <p className="text-sm text-muted-foreground mb-4">34.3% of portfolio</p>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">EPF Holdings</span>
+                        <span className="font-medium">₹8,45,230</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">PPF Account</span>
+                        <span className="font-medium">₹5,95,110</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">EPS Contribution</span>
+                        <span className="font-medium">₹1,27,000</span>
+                      </div>
+                      <div className="pt-2 border-t flex justify-between">
+                        <span className="text-sm font-medium text-green-600">Pension Income</span>
+                        <span className="text-sm font-bold text-green-600">₹9,857/mo</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Alternative Assets */}
+                <Card className="border-l-4 border-purple-500">
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center text-purple-700">
+                      <Coins className="h-5 w-5 mr-2" />
+                      Alternative Assets
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-purple-600 mb-3">₹11,55,400</div>
+                    <p className="text-sm text-muted-foreground mb-4">25.3% of portfolio</p>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Bonds & FDs</span>
+                        <span className="font-medium">₹5,50,000</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Commodities</span>
+                        <span className="font-medium">₹3,25,400</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Pre-IPO</span>
+                        <span className="font-medium">₹2,80,000</span>
+                      </div>
+                      <div className="pt-2 border-t flex justify-between">
+                        <span className="text-sm font-medium text-green-600">Returns</span>
+                        <span className="text-sm font-bold text-green-600">+11.8%</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Asset Allocation & Performance Dashboard */}
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                {/* Asset Allocation Visualization */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <PiggyBank className="h-5 w-5 text-blue-600" />
+                      <span>Asset Allocation Analysis</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-6">
+                      {/* Risk Distribution */}
+                      <div>
+                        <h4 className="font-medium text-gray-900 mb-3">Risk Distribution</h4>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <div className="w-4 h-4 bg-green-500 rounded"></div>
+                              <span className="text-sm">Low Risk (Govt Schemes)</span>
+                            </div>
+                            <span className="text-sm font-bold">34.3%</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div className="bg-green-500 h-2 rounded-full" style={{ width: '34.3%' }}></div>
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <div className="w-4 h-4 bg-blue-500 rounded"></div>
+                              <span className="text-sm">Medium Risk (Equity)</span>
+                            </div>
+                            <span className="text-sm font-bold">40.4%</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div className="bg-blue-500 h-2 rounded-full" style={{ width: '40.4%' }}></div>
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <div className="w-4 h-4 bg-purple-500 rounded"></div>
+                              <span className="text-sm">High Risk (Alternatives)</span>
+                            </div>
+                            <span className="text-sm font-bold">25.3%</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div className="bg-purple-500 h-2 rounded-full" style={{ width: '25.3%' }}></div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Investment Goals Progress */}
+                      <div className="pt-4 border-t">
+                        <h4 className="font-medium text-gray-900 mb-3">Goal Progress</h4>
+                        <div className="space-y-4">
+                          <div>
+                            <div className="flex justify-between text-sm mb-2">
+                              <span>Retirement Goal</span>
+                              <span className="font-medium">68% Complete</span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-3">
+                              <div className="bg-green-500 h-3 rounded-full" style={{ width: '68%' }}></div>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">₹68L of ₹1Cr target</p>
+                          </div>
+
+                          <div>
+                            <div className="flex justify-between text-sm mb-2">
+                              <span>Child Education</span>
+                              <span className="font-medium">45% Complete</span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-3">
+                              <div className="bg-blue-500 h-3 rounded-full" style={{ width: '45%' }}></div>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">₹22.5L of ₹50L target</p>
+                          </div>
+
+                          <div>
+                            <div className="flex justify-between text-sm mb-2">
+                              <span>Emergency Fund</span>
+                              <span className="font-medium">100% Complete</span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-3">
+                              <div className="bg-green-500 h-3 rounded-full" style={{ width: '100%' }}></div>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">₹5L target achieved ✓</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Performance Metrics */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <TrendingUp className="h-5 w-5 text-green-600" />
+                      <span>Performance Dashboard</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-6">
+                      {/* Overall Returns */}
+                      <div>
+                        <h4 className="font-medium text-gray-900 mb-3">Portfolio Returns</h4>
+                        <div className="grid grid-cols-3 gap-4">
+                          <div className="text-center p-3 bg-green-50 rounded-lg">
+                            <p className="text-2xl font-bold text-green-600">+12.8%</p>
+                            <p className="text-xs text-muted-foreground">1 Year</p>
+                          </div>
+                          <div className="text-center p-3 bg-blue-50 rounded-lg">
+                            <p className="text-2xl font-bold text-blue-600">+9.4%</p>
+                            <p className="text-xs text-muted-foreground">3 Year CAGR</p>
+                          </div>
+                          <div className="text-center p-3 bg-purple-50 rounded-lg">
+                            <p className="text-2xl font-bold text-purple-600">+11.2%</p>
+                            <p className="text-xs text-muted-foreground">5 Year CAGR</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Asset Class Performance */}
+                      <div className="pt-4 border-t">
+                        <h4 className="font-medium text-gray-900 mb-3">Asset Performance (YTD)</h4>
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+                            <div>
+                              <span className="text-sm font-medium text-blue-900">Equity Investments</span>
+                              <p className="text-xs text-blue-700">₹18,45,150</p>
+                            </div>
+                            <span className="text-lg font-bold text-green-600">+15.2%</span>
+                          </div>
+                          
+                          <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                            <div>
+                              <span className="text-sm font-medium text-green-900">Government Schemes</span>
+                              <p className="text-xs text-green-700">₹15,67,340</p>
+                            </div>
+                            <span className="text-lg font-bold text-green-600">+8.1%</span>
+                          </div>
+                          
+                          <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
+                            <div>
+                              <span className="text-sm font-medium text-purple-900">Alternative Assets</span>
+                              <p className="text-xs text-purple-700">₹11,55,400</p>
+                            </div>
+                            <span className="text-lg font-bold text-green-600">+11.8%</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Monthly Investment Flow */}
+                      <div className="pt-4 border-t">
+                        <h4 className="font-medium text-gray-900 mb-3">Monthly Investment Flow</h4>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="text-center p-3 bg-blue-50 rounded-lg">
+                            <p className="text-lg font-bold text-blue-600">₹25,000</p>
+                            <p className="text-xs text-muted-foreground">SIP Investments</p>
+                          </div>
+                          <div className="text-center p-3 bg-green-50 rounded-lg">
+                            <p className="text-lg font-bold text-green-600">₹18,500</p>
+                            <p className="text-xs text-muted-foreground">EPF + PPF + EPS</p>
+                          </div>
+                        </div>
+                        <div className="mt-3 text-center p-3 bg-purple-50 rounded-lg">
+                          <p className="text-xl font-bold text-purple-600">₹43,500</p>
+                          <p className="text-xs text-muted-foreground">Total Monthly Investment</p>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+
         {/* Portfolio Overview */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8" data-testid="portfolio-overview">
           <div className="lg:col-span-2">
