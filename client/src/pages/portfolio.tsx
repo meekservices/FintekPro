@@ -1086,6 +1086,234 @@ export default function Portfolio() {
                 </CardContent>
               </Card>
 
+              {/* APY (Atal Pension Yojana) Integration */}
+              <Card className="xl:col-span-2">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center space-x-2">
+                      <Shield className="h-5 w-5 text-green-600" />
+                      <span>APY - Atal Pension Yojana</span>
+                    </CardTitle>
+                    <Badge variant="outline" className="text-green-600 border-green-600">Enrolled</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    {/* APY Account Overview */}
+                    <div className="space-y-4">
+                      <h4 className="font-semibold text-gray-900">Account Details</h4>
+                      <div className="space-y-3">
+                        <div className="p-3 bg-green-50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">APY Account</p>
+                          <p className="font-bold text-green-900">APY/SBI/001/789123</p>
+                        </div>
+                        <div className="p-3 bg-blue-50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">Bank Partner</p>
+                          <p className="font-bold text-blue-900">State Bank of India</p>
+                        </div>
+                        <div className="p-3 bg-purple-50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">Enrollment Date</p>
+                          <p className="font-bold text-purple-900">01-Sep-2018</p>
+                        </div>
+                        <div className="p-3 bg-orange-50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">Current Age</p>
+                          <p className="font-bold text-orange-900">35 Years</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Chosen Pension Plan */}
+                    <div className="space-y-4">
+                      <h4 className="font-semibold text-gray-900">Pension Plan</h4>
+                      <div className="space-y-3">
+                        <div className="text-center p-4 bg-gradient-to-br from-green-100 to-green-200 rounded-lg border-2 border-green-300">
+                          <p className="text-sm text-green-700 font-medium">Guaranteed Monthly Pension</p>
+                          <p className="text-3xl font-bold text-green-800">₹3,000</p>
+                          <p className="text-xs text-green-600">from age 60</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="text-center p-2 bg-blue-50 rounded border">
+                            <p className="text-xs text-muted-foreground">Annual Pension</p>
+                            <p className="font-bold text-blue-900">₹36,000</p>
+                          </div>
+                          <div className="text-center p-2 bg-purple-50 rounded border">
+                            <p className="text-xs text-muted-foreground">Maturity Age</p>
+                            <p className="font-bold text-purple-900">60 Years</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Monthly Contributions */}
+                    <div className="space-y-4">
+                      <h4 className="font-semibold text-gray-900">Contributions (FY 2024-25)</h4>
+                      <div className="space-y-3">
+                        <div className="p-3 bg-blue-50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">Monthly Contribution</p>
+                          <p className="text-lg font-bold text-blue-900">₹168</p>
+                          <p className="text-xs text-blue-600">Auto-debit from salary</p>
+                        </div>
+                        <div className="p-3 bg-green-50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">Govt Co-contribution</p>
+                          <p className="text-lg font-bold text-green-900">₹84</p>
+                          <p className="text-xs text-green-600">50% govt support</p>
+                        </div>
+                        <div className="p-3 bg-purple-50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">Total Monthly</p>
+                          <p className="text-lg font-bold text-purple-900">₹252</p>
+                          <p className="text-xs text-purple-600">Your + Government</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Contribution Progress */}
+                    <div className="space-y-4">
+                      <h4 className="font-semibold text-gray-900">Contribution Progress</h4>
+                      <div className="space-y-3">
+                        <div className="p-3 bg-gray-50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">Years Contributed</p>
+                          <p className="text-lg font-bold text-gray-900">6.3 Years</p>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-3">
+                          <div className="bg-green-500 h-3 rounded-full" style={{ width: '25.2%' }}></div>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">Age 35</span>
+                          <span className="font-medium">25 years to go</span>
+                          <span className="text-muted-foreground">Age 60</span>
+                        </div>
+                        <div className="p-3 bg-orange-50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">Total Contributed</p>
+                          <p className="text-lg font-bold text-orange-900">₹1,27,008</p>
+                          <p className="text-xs text-orange-600">Your + Govt contributions</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* APY Benefits Overview */}
+                  <div className="mt-6 pt-6 border-t">
+                    <h4 className="font-semibold text-gray-900 mb-4">APY Benefits & Features</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-3">
+                        <h5 className="font-medium text-gray-800">Pension Benefits</h5>
+                        <div className="space-y-2">
+                          <div className="p-3 bg-green-50 rounded-lg border-l-4 border-green-500">
+                            <p className="text-sm font-medium text-green-900">✓ Guaranteed Pension</p>
+                            <p className="text-xs text-green-700">₹3,000/month from age 60</p>
+                          </div>
+                          <div className="p-3 bg-blue-50 rounded-lg border-l-4 border-blue-500">
+                            <p className="text-sm font-medium text-blue-900">✓ Spouse Pension</p>
+                            <p className="text-xs text-blue-700">Same pension amount to spouse</p>
+                          </div>
+                          <div className="p-3 bg-purple-50 rounded-lg border-l-4 border-purple-500">
+                            <p className="text-sm font-medium text-purple-900">✓ Death Benefit</p>
+                            <p className="text-xs text-purple-700">Corpus return to nominee</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <h5 className="font-medium text-gray-800">Government Support</h5>
+                        <div className="space-y-2">
+                          <div className="p-3 bg-yellow-50 rounded-lg border-l-4 border-yellow-500">
+                            <p className="text-sm font-medium text-yellow-900">✓ Co-contribution</p>
+                            <p className="text-xs text-yellow-700">50% govt support (up to ₹1,000)</p>
+                          </div>
+                          <div className="p-3 bg-green-50 rounded-lg border-l-4 border-green-500">
+                            <p className="text-sm font-medium text-green-900">✓ Tax Benefits</p>
+                            <p className="text-xs text-green-700">80CCD(1B) deduction up to ₹50,000</p>
+                          </div>
+                          <div className="p-3 bg-indigo-50 rounded-lg border-l-4 border-indigo-500">
+                            <p className="text-sm font-medium text-indigo-900">✓ Govt Guarantee</p>
+                            <p className="text-xs text-indigo-700">Returns backed by Government of India</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <h5 className="font-medium text-gray-800">Account Features</h5>
+                        <div className="space-y-2">
+                          <div className="p-3 bg-orange-50 rounded-lg border-l-4 border-orange-500">
+                            <p className="text-sm font-medium text-orange-900">✓ Auto-Debit</p>
+                            <p className="text-xs text-orange-700">Monthly contributions from salary</p>
+                          </div>
+                          <div className="p-3 bg-teal-50 rounded-lg border-l-4 border-teal-500">
+                            <p className="text-sm font-medium text-teal-900">✓ Portability</p>
+                            <p className="text-xs text-teal-700">Transfer across banks/employers</p>
+                          </div>
+                          <div className="p-3 bg-red-50 rounded-lg border-l-4 border-red-500">
+                            <p className="text-sm font-medium text-red-900">⚠ Exit Clause</p>
+                            <p className="text-xs text-red-700">Penalties for early exit</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* APY vs Other Pension Plans Comparison */}
+                  <div className="mt-6 pt-6 border-t">
+                    <h4 className="font-semibold text-gray-900 mb-4">Your Complete Pension Portfolio</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                        <div className="flex items-center justify-between mb-2">
+                          <h5 className="font-medium text-blue-900">EPS-95</h5>
+                          <Badge variant="outline" className="text-blue-600 border-blue-600">Government</Badge>
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-2xl font-bold text-blue-900">₹6,857</p>
+                          <p className="text-sm text-blue-700">Monthly at age 58</p>
+                          <p className="text-xs text-muted-foreground">Based on salary & service</p>
+                        </div>
+                      </div>
+
+                      <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                        <div className="flex items-center justify-between mb-2">
+                          <h5 className="font-medium text-green-900">APY</h5>
+                          <Badge variant="outline" className="text-green-600 border-green-600">Government</Badge>
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-2xl font-bold text-green-900">₹3,000</p>
+                          <p className="text-sm text-green-700">Monthly at age 60</p>
+                          <p className="text-xs text-muted-foreground">Guaranteed pension amount</p>
+                        </div>
+                      </div>
+
+                      <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                        <div className="flex items-center justify-between mb-2">
+                          <h5 className="font-medium text-purple-900">Combined</h5>
+                          <Badge variant="outline" className="text-purple-600 border-purple-600">Total</Badge>
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-2xl font-bold text-purple-900">₹9,857</p>
+                          <p className="text-sm text-purple-700">Monthly pension income</p>
+                          <p className="text-xs text-muted-foreground">EPS + APY combined</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* APY Action Buttons */}
+                  <div className="flex gap-4 mt-6 pt-4 border-t">
+                    <Button variant="outline" size="sm">
+                      View APY Statement
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      Contribution History
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      Change Pension Amount
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      Update Bank Details
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      Download Certificate
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* EPS Portfolio Integration & Retirement Planning */}
               <Card className="xl:col-span-2">
                 <CardHeader>

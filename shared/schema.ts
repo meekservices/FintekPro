@@ -221,6 +221,19 @@ export const epsHoldings = pgTable("eps_holdings", {
   status: varchar("status").notNull().default("active"), // active, suspended, pension_started, withdrawn
   lastPensionCalculationDate: date("last_pension_calculation_date"),
   remarks: text("remarks"),
+  // APY (Atal Pension Yojana) Integration
+  apyEnrolled: boolean("apy_enrolled").notNull().default(false),
+  apyAccountNumber: varchar("apy_account_number"),
+  apyPensionAmount: decimal("apy_pension_amount", { precision: 15, scale: 2 }), // 1000, 2000, 3000, 4000, 5000
+  apyMonthlyContribution: decimal("apy_monthly_contribution", { precision: 15, scale: 2 }),
+  apyStartDate: date("apy_start_date"),
+  apyMaturityAge: integer("apy_maturity_age").default(60), // 60 years
+  apyCurrentAge: integer("apy_current_age"),
+  apyTotalContribution: decimal("apy_total_contribution", { precision: 15, scale: 2 }).default("0"),
+  apyGovernmentContribution: decimal("apy_government_contribution", { precision: 15, scale: 2 }).default("0"), // Co-contribution for eligible income groups
+  apyStatus: varchar("apy_status").default("active"), // active, matured, discontinued
+  apyBankName: text("apy_bank_name"),
+  apyBranchCode: varchar("apy_branch_code"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   lastUpdated: timestamp("last_updated").defaultNow().notNull(),
