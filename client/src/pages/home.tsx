@@ -98,148 +98,164 @@ export default function Home() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Portfolio Management */}
-            <Card className="border-l-4 border-l-blue-500 hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center text-lg">
-                  <PieChart className="h-5 w-5 mr-2 text-blue-500" />
-                  Portfolio Tracking
-                  <Badge className="ml-2 bg-finance-green text-white text-xs">Active</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <p className="text-sm text-gray-600">✓ Real-time portfolio value</p>
-                  <p className="text-sm text-gray-600">✓ Asset allocation analysis</p>
-                  <p className="text-sm text-gray-600">✓ Performance tracking</p>
-                </div>
-              </CardContent>
-            </Card>
+            <Link href="/portfolio" data-testid="link-portfolio">
+              <Card className="border-l-4 border-l-blue-500 hover:shadow-lg transition-shadow cursor-pointer group">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center text-lg">
+                    <PieChart className="h-5 w-5 mr-2 text-blue-500 group-hover:scale-110 transition-transform" />
+                    Portfolio Tracking
+                    <Badge className="ml-2 bg-finance-green text-white text-xs">Active</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-600">✓ Real-time portfolio value</p>
+                    <p className="text-sm text-gray-600">✓ Asset allocation analysis</p>
+                    <p className="text-sm text-gray-600">✓ Performance tracking</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
 
             {/* Market Data */}
-            <Card className="border-l-4 border-l-green-500 hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center text-lg">
-                  <TrendingUp className="h-5 w-5 mr-2 text-green-500" />
-                  Market Data
-                  <Badge className="ml-2 bg-finance-green text-white text-xs">Live</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <p className="text-sm text-gray-600">✓ NSE & BSE live quotes</p>
-                  <p className="text-sm text-gray-600">✓ Market indices tracking</p>
-                  <p className="text-sm text-gray-600">✓ Real-time price updates</p>
-                </div>
-              </CardContent>
-            </Card>
+            <Link href="/markets" data-testid="link-markets">
+              <Card className="border-l-4 border-l-green-500 hover:shadow-lg transition-shadow cursor-pointer group">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center text-lg">
+                    <TrendingUp className="h-5 w-5 mr-2 text-green-500 group-hover:scale-110 transition-transform" />
+                    Market Data
+                    <Badge className="ml-2 bg-finance-green text-white text-xs">Live</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-600">✓ NSE & BSE live quotes</p>
+                    <p className="text-sm text-gray-600">✓ Market indices tracking</p>
+                    <p className="text-sm text-gray-600">✓ Real-time price updates</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
 
             {/* Mutual Funds */}
-            <Card className="border-l-4 border-l-purple-500 hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center text-lg">
-                  <Target className="h-5 w-5 mr-2 text-purple-500" />
-                  Mutual Funds
-                  <Badge className="ml-2 bg-finance-green text-white text-xs">AMFI</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <p className="text-sm text-gray-600">✓ Live NAV data</p>
-                  <p className="text-sm text-gray-600">✓ SIP calculator</p>
-                  <p className="text-sm text-gray-600">✓ Scheme comparison</p>
-                </div>
-              </CardContent>
-            </Card>
+            <Link href="/mutual-funds" data-testid="link-mutual-funds">
+              <Card className="border-l-4 border-l-purple-500 hover:shadow-lg transition-shadow cursor-pointer group">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center text-lg">
+                    <Target className="h-5 w-5 mr-2 text-purple-500 group-hover:scale-110 transition-transform" />
+                    Mutual Funds
+                    <Badge className="ml-2 bg-finance-green text-white text-xs">AMFI</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-600">✓ Live NAV data</p>
+                    <p className="text-sm text-gray-600">✓ SIP calculator</p>
+                    <p className="text-sm text-gray-600">✓ Scheme comparison</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
 
             {/* Financial Calculators */}
-            <Card className="border-l-4 border-l-orange-500 hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center text-lg">
-                  <Calculator className="h-5 w-5 mr-2 text-orange-500" />
-                  Calculators
-                  <Badge className="ml-2 bg-finance-green text-white text-xs">Tools</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <p className="text-sm text-gray-600">✓ SIP & EMI calculators</p>
-                  <p className="text-sm text-gray-600">✓ Tax planning tools</p>
-                  <p className="text-sm text-gray-600">✓ Retirement planning</p>
-                </div>
-              </CardContent>
-            </Card>
+            <Link href="/calculators" data-testid="link-calculators">
+              <Card className="border-l-4 border-l-orange-500 hover:shadow-lg transition-shadow cursor-pointer group">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center text-lg">
+                    <Calculator className="h-5 w-5 mr-2 text-orange-500 group-hover:scale-110 transition-transform" />
+                    Calculators
+                    <Badge className="ml-2 bg-finance-green text-white text-xs">Tools</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-600">✓ SIP & EMI calculators</p>
+                    <p className="text-sm text-gray-600">✓ Tax planning tools</p>
+                    <p className="text-sm text-gray-600">✓ Retirement planning</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
 
             {/* Bonds & Fixed Income */}
-            <Card className="border-l-4 border-l-indigo-500 hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center text-lg">
-                  <Receipt className="h-5 w-5 mr-2 text-indigo-500" />
-                  Bonds Trading
-                  <Badge className="ml-2 bg-finance-green text-white text-xs">Multi-Exchange</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <p className="text-sm text-gray-600">✓ Government bonds</p>
-                  <p className="text-sm text-gray-600">✓ Corporate bonds</p>
-                  <p className="text-sm text-gray-600">✓ Fixed deposits</p>
-                </div>
-              </CardContent>
-            </Card>
+            <Link href="/bonds" data-testid="link-bonds">
+              <Card className="border-l-4 border-l-indigo-500 hover:shadow-lg transition-shadow cursor-pointer group">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center text-lg">
+                    <Receipt className="h-5 w-5 mr-2 text-indigo-500 group-hover:scale-110 transition-transform" />
+                    Bonds Trading
+                    <Badge className="ml-2 bg-finance-green text-white text-xs">Multi-Exchange</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-600">✓ Government bonds</p>
+                    <p className="text-sm text-gray-600">✓ Corporate bonds</p>
+                    <p className="text-sm text-gray-600">✓ Fixed deposits</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
 
             {/* IPO Services */}
-            <Card className="border-l-4 border-l-red-500 hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center text-lg">
-                  <Building className="h-5 w-5 mr-2 text-red-500" />
-                  IPO Center
-                  <Badge className="ml-2 bg-finance-green text-white text-xs">NSE/BSE</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <p className="text-sm text-gray-600">✓ Current IPO listings</p>
-                  <p className="text-sm text-gray-600">✓ Application tracking</p>
-                  <p className="text-sm text-gray-600">✓ Allotment status</p>
-                </div>
-              </CardContent>
-            </Card>
+            <Link href="/ipo" data-testid="link-ipo">
+              <Card className="border-l-4 border-l-red-500 hover:shadow-lg transition-shadow cursor-pointer group">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center text-lg">
+                    <Building className="h-5 w-5 mr-2 text-red-500 group-hover:scale-110 transition-transform" />
+                    IPO Center
+                    <Badge className="ml-2 bg-finance-green text-white text-xs">NSE/BSE</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-600">✓ Current IPO listings</p>
+                    <p className="text-sm text-gray-600">✓ Application tracking</p>
+                    <p className="text-sm text-gray-600">✓ Allotment status</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
 
             {/* Loan Services */}
-            <Card className="border-l-4 border-l-yellow-500 hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center text-lg">
-                  <CreditCard className="h-5 w-5 mr-2 text-yellow-500" />
-                  Loan Services
-                  <Badge className="ml-2 bg-finance-green text-white text-xs">Partner</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <p className="text-sm text-gray-600">✓ Personal loans</p>
-                  <p className="text-sm text-gray-600">✓ Home loans</p>
-                  <p className="text-sm text-gray-600">✓ Loan against securities</p>
-                </div>
-              </CardContent>
-            </Card>
+            <Link href="/loans" data-testid="link-loans">
+              <Card className="border-l-4 border-l-yellow-500 hover:shadow-lg transition-shadow cursor-pointer group">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center text-lg">
+                    <CreditCard className="h-5 w-5 mr-2 text-yellow-500 group-hover:scale-110 transition-transform" />
+                    Loan Services
+                    <Badge className="ml-2 bg-finance-green text-white text-xs">Partner</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-600">✓ Personal loans</p>
+                    <p className="text-sm text-gray-600">✓ Home loans</p>
+                    <p className="text-sm text-gray-600">✓ Loan against securities</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
 
             {/* Capital Gains Reports */}
-            <Card className="border-l-4 border-l-teal-500 hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center text-lg">
-                  <FileText className="h-5 w-5 mr-2 text-teal-500" />
-                  Tax Reports
-                  <Badge className="ml-2 bg-finance-green text-white text-xs">NSDL/CDSL</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <p className="text-sm text-gray-600">✓ Capital gains reports</p>
-                  <p className="text-sm text-gray-600">✓ Transaction summaries</p>
-                  <p className="text-sm text-gray-600">✓ Tax compliance</p>
-                </div>
-              </CardContent>
-            </Card>
+            <Link href="/capital-gains-reports" data-testid="link-capital-gains">
+              <Card className="border-l-4 border-l-teal-500 hover:shadow-lg transition-shadow cursor-pointer group">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center text-lg">
+                    <FileText className="h-5 w-5 mr-2 text-teal-500 group-hover:scale-110 transition-transform" />
+                    Tax Reports
+                    <Badge className="ml-2 bg-finance-green text-white text-xs">NSDL/CDSL</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-600">✓ Capital gains reports</p>
+                    <p className="text-sm text-gray-600">✓ Transaction summaries</p>
+                    <p className="text-sm text-gray-600">✓ Tax compliance</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
           </div>
         </section>
 
