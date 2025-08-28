@@ -146,6 +146,51 @@ export const epfHoldings = pgTable("epf_holdings", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// PPF Holdings table for tracking Public Provident Fund data
+export const ppfHoldings = pgTable("ppf_holdings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  ppfAccountNumber: varchar("ppf_account_number").notNull(),
+  bankName: text("bank_name").notNull(),
+  branchName: text("branch_name"),
+  accountHolderName: text("account_holder_name").notNull(),
+  // PPF Balance Information
+  totalBalance: decimal("total_balance", { precision: 15, scale: 2 }),
+  currentFinancialYearContribution: decimal("current_fy_contribution", { precision: 15, scale: 2 }),
+  totalContribution: decimal("total_contribution", { precision: 15, scale: 2 }),
+  totalInterestEarned: decimal("total_interest_earned", { precision: 15, scale: 2 }),
+  currentInterestRate: decimal("current_interest_rate", { precision: 5, scale: 2 }), // Annual interest rate
+  maturityAmount: decimal("maturity_amount", { precision: 15, scale: 2 }),
+  // Account Timeline
+  accountOpenDate: date("account_open_date").notNull(),
+  maturityDate: date("maturity_date").notNull(),
+  lastContributionDate: date("last_contribution_date"),
+  nextContributionDueDate: date("next_contribution_due_date"),
+  // PPF Rules and Status
+  yearsCompleted: integer("years_completed").default(0),
+  minContributionMet: boolean("min_contribution_met").default(false), // ₹500 minimum
+  maxContributionAllowed: decimal("max_contribution_allowed", { precision: 15, scale: 2 }).default("150000"), // ₹1.5L limit
+  contributionRemaining: decimal("contribution_remaining", { precision: 15, scale: 2 }),
+  // Loan and Withdrawal Information
+  loanAvailable: boolean("loan_available").default(false), // Available from 3rd year
+  maxLoanAmount: decimal("max_loan_amount", { precision: 15, scale: 2 }),
+  partialWithdrawalAvailable: boolean("partial_withdrawal_available").default(false), // From 7th year
+  maxWithdrawalAmount: decimal("max_withdrawal_amount", { precision: 15, scale: 2 }),
+  // Nominee Information
+  nomineeName: text("nominee_name"),
+  nomineeRelationship: varchar("nominee_relationship"),
+  nomineeAge: integer("nominee_age"),
+  // Account Status
+  isActive: boolean("is_active").default(true),
+  canExtend: boolean("can_extend").default(false), // After 15 years
+  hasExtended: boolean("has_extended").default(false),
+  extensionPeriod: integer("extension_period"), // 5-year blocks
+  // Tracking
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Pi Chat Asset Summaries
 export const piChatSummaries = pgTable("pi_chat_summaries", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1047,6 +1092,17 @@ export type EpfHolding = typeof epfHoldings.$inferSelect;
 export type InsertEpfHolding = typeof epfHoldings.$inferInsert;
 
 export const insertEpfHoldingSchema = createInsertSchema(epfHoldings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastUpdated: true,
+});
+
+// PPF Holdings types
+export type PpfHolding = typeof ppfHoldings.$inferSelect;
+export type InsertPpfHolding = typeof ppfHoldings.$inferInsert;
+
+export const insertPpfHoldingSchema = createInsertSchema(ppfHoldings).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
