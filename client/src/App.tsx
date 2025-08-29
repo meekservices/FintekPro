@@ -27,6 +27,7 @@ import CapitalGainsReports from "@/pages/capital-gains-reports";
 import WhatsAppAuthPage from "@/pages/whatsapp-auth-page";
 import CkycVerification from "@/pages/ckyc-verification";
 import CamsIntegration from "@/pages/cams-integration";
+import KFintechIntegration from "@/pages/kfintech-integration";
 
 function Router() {
   return (
@@ -56,6 +57,7 @@ function Router() {
       <Route path="/capital-gains" component={CapitalGainsReports} />
       <Route path="/ckyc" component={CkycVerification} />
       <Route path="/cams" component={CamsIntegration} />
+      <Route path="/kfintech" component={KFintechIntegration} />
       <Route component={NotFound} />
     </Switch>
   );

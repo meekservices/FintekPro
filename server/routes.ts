@@ -15,6 +15,7 @@ import { NseIndia } from 'stock-nse-india';
 import { sebiAPI } from "./sebi-api";
 import { comprehensiveAIFPMSAPI } from "./comprehensive-aif-pms-api";
 import { camsApi } from './cams-api';
+import { kfintechApi } from './kfintech-api';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const API = require('indian-stock-exchange');
@@ -11816,6 +11817,153 @@ System Security Data:`;
     } catch (error) {
       console.error('Comprehensive diagnostics failed:', error);
       res.status(500).json({ error: 'Comprehensive diagnostics failed' });
+    }
+  });
+
+  // KFintech API Integration endpoints
+
+  // Validate investor through KFintech
+  app.get('/api/kfintech/investor/validate/:pan', async (req, res) => {
+    try {
+      const { pan } = req.params;
+      const result = await kfintechApi.validateInvestor(pan);
+      
+      if (result.success) {
+        res.json({ success: true, data: result.data });
+      } else {
+        res.status(400).json({ success: false, message: result.message });
+      }
+    } catch (error) {
+      console.error('KFintech investor validation error:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  });
+
+  // Get portfolio from KFintech
+  app.get('/api/kfintech/portfolio/:pan', async (req, res) => {
+    try {
+      const { pan } = req.params;
+      const result = await kfintechApi.getInvestorPortfolio(pan);
+      
+      if (result.success) {
+        res.json({ success: true, data: result.data });
+      } else {
+        res.status(400).json({ success: false, message: result.message });
+      }
+    } catch (error) {
+      console.error('KFintech portfolio error:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  });
+
+  // Get transaction history from KFintech
+  app.get('/api/kfintech/transactions/:pan', async (req, res) => {
+    try {
+      const { pan } = req.params;
+      const { fromDate, toDate, folioNumber } = req.query;
+      
+      const result = await kfintechApi.getTransactionHistory(
+        pan,
+        fromDate as string || '2024-01-01',
+        toDate as string || new Date().toISOString().split('T')[0],
+        folioNumber as string
+      );
+      
+      if (result.success) {
+        res.json({ success: true, data: result.data });
+      } else {
+        res.status(400).json({ success: false, message: result.message });
+      }
+    } catch (error) {
+      console.error('KFintech transactions error:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  });
+
+  // Get SIP details from KFintech
+  app.get('/api/kfintech/sip/:pan', async (req, res) => {
+    try {
+      const { pan } = req.params;
+      const { folioNumber } = req.query;
+      
+      const result = await kfintechApi.getSIPDetails(pan, folioNumber as string);
+      
+      if (result.success) {
+        res.json({ success: true, data: result.data });
+      } else {
+        res.status(400).json({ success: false, message: result.message });
+      }
+    } catch (error) {
+      console.error('KFintech SIP error:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  });
+
+  // Create purchase transaction through KFintech
+  app.post('/api/kfintech/transactions/purchase', async (req, res) => {
+    try {
+      const purchaseRequest = req.body;
+      const result = await kfintechApi.createPurchaseTransaction(purchaseRequest);
+      
+      if (result.success) {
+        res.json({ success: true, data: result.data });
+      } else {
+        res.status(400).json({ success: false, message: result.message });
+      }
+    } catch (error) {
+      console.error('KFintech purchase error:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  });
+
+  // Setup SIP through KFintech
+  app.post('/api/kfintech/sip/setup', async (req, res) => {
+    try {
+      const sipRequest = req.body;
+      const result = await kfintechApi.setupSIP(sipRequest);
+      
+      if (result.success) {
+        res.json({ success: true, data: result.data });
+      } else {
+        res.status(400).json({ success: false, message: result.message });
+      }
+    } catch (error) {
+      console.error('KFintech SIP setup error:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  });
+
+  // Cancel SIP through KFintech
+  app.post('/api/kfintech/sip/cancel', async (req, res) => {
+    try {
+      const { pan, sipId } = req.body;
+      const result = await kfintechApi.cancelSIP(pan, sipId);
+      
+      if (result.success) {
+        res.json({ success: true, data: result.data });
+      } else {
+        res.status(400).json({ success: false, message: result.message });
+      }
+    } catch (error) {
+      console.error('KFintech SIP cancel error:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  });
+
+  // Get scheme details from KFintech
+  app.get('/api/kfintech/schemes/:schemeCode', async (req, res) => {
+    try {
+      const { schemeCode } = req.params;
+      const result = await kfintechApi.getSchemeDetails(schemeCode);
+      
+      if (result.success) {
+        res.json({ success: true, data: result.data });
+      } else {
+        res.status(400).json({ success: false, message: result.message });
+      }
+    } catch (error) {
+      console.error('KFintech scheme details error:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
     }
   });
 
