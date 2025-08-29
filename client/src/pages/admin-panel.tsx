@@ -2578,86 +2578,155 @@ export default function AdminPanel() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6" data-testid="admin-panel">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold" data-testid="text-admin-title">Admin Panel</h1>
-          <p className="text-muted-foreground" data-testid="text-admin-subtitle">
-            Monitor and manage platform activity
-          </p>
-        </div>
-        <Badge variant="secondary" data-testid="badge-admin-status">Admin Access</Badge>
-      </div>
+    <div className="min-h-screen bg-background" data-testid="admin-panel">
+      <div className="flex h-screen">
+        {/* Left Sidebar */}
+        <div className="w-64 border-r bg-card shadow-sm">
+          <div className="p-6 border-b">
+            <h1 className="text-2xl font-bold" data-testid="text-admin-title">Admin Panel</h1>
+            <p className="text-sm text-muted-foreground" data-testid="text-admin-subtitle">
+              Monitor and manage platform
+            </p>
+            <Badge variant="secondary" className="mt-2" data-testid="badge-admin-status">Admin Access</Badge>
+          </div>
 
-      <Tabs defaultValue="dashboard" className="space-y-6">
-        <TabsList className={`grid w-full ${(currentUser as any)?.role === 'super_admin' ? 'grid-cols-15' : 'grid-cols-14'}`}>
-          <TabsTrigger value="dashboard" data-testid="tab-dashboard">
-            <TrendingUp className="w-4 h-4 mr-2" />
-            Dashboard
-          </TabsTrigger>
-          <TabsTrigger value="comprehensive-users" data-testid="tab-comprehensive-users">
-            <Users2 className="w-4 h-4 mr-2" />
-            All Users
-          </TabsTrigger>
-          <TabsTrigger value="clients" data-testid="tab-clients">
-            <Users className="w-4 h-4 mr-2" />
-            Clients
-          </TabsTrigger>
-          <TabsTrigger value="activity" data-testid="tab-activity">
-            <Activity className="w-4 h-4 mr-2" />
-            Activity
-          </TabsTrigger>
-          <TabsTrigger value="ckyc" data-testid="tab-ckyc">
-            <Shield className="w-4 h-4 mr-2" />
-            CKYC
-          </TabsTrigger>
-          <TabsTrigger value="api-status" data-testid="tab-api-status">
-            <Server className="w-4 h-4 mr-2" />
-            API Status
-          </TabsTrigger>
-          <TabsTrigger value="error-monitoring" data-testid="tab-error-monitoring">
-            <Brain className="w-4 h-4 mr-2" />
-            AI Monitor
-          </TabsTrigger>
-          <TabsTrigger value="insights" data-testid="tab-insights">
-            <Settings className="w-4 h-4 mr-2" />
-            Insights
-          </TabsTrigger>
-          <TabsTrigger value="risk-profiling" data-testid="tab-risk-profiling">
-            <Shield className="w-4 h-4 mr-2" />
-            Risk Profiles
-          </TabsTrigger>
-          <TabsTrigger value="reports" data-testid="tab-reports">
-            <FileText className="w-4 h-4 mr-2" />
-            Reports
-          </TabsTrigger>
-          <TabsTrigger value="guidance" data-testid="tab-guidance">
-            <MessageSquare className="w-4 h-4 mr-2" />
-            Guidance
-          </TabsTrigger>
-          <TabsTrigger value="partners" data-testid="tab-partners">
-            <Building2 className="w-4 h-4 mr-2" />
-            Partners
-          </TabsTrigger>
-          <TabsTrigger value="agents" data-testid="tab-agents">
-            <Users className="w-4 h-4 mr-2" />
-            Care Agents
-          </TabsTrigger>
-          <TabsTrigger value="replit-agent" data-testid="tab-replit-agent">
-            <Bot className="w-4 h-4 mr-2" />
-            Replit Agent
-          </TabsTrigger>
-          <TabsTrigger value="marketing" data-testid="tab-marketing">
-            <Megaphone className="w-4 h-4 mr-2" />
-            Marketing
-          </TabsTrigger>
-          {(currentUser as any)?.role === 'super_admin' && (
-            <TabsTrigger value="ai-analysis" data-testid="tab-ai-analysis">
-              <Brain className="w-4 h-4 mr-2" />
-              AI Analysis
-            </TabsTrigger>
-          )}
-        </TabsList>
+          <Tabs defaultValue="dashboard" orientation="vertical" className="w-full">
+            <TabsList className="flex flex-col h-auto w-full bg-transparent p-2 space-y-1">
+              <TabsTrigger 
+                value="dashboard" 
+                data-testid="tab-dashboard"
+                className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              >
+                <TrendingUp className="w-4 h-4 mr-3" />
+                Dashboard
+              </TabsTrigger>
+              <TabsTrigger 
+                value="comprehensive-users" 
+                data-testid="tab-comprehensive-users"
+                className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              >
+                <Users2 className="w-4 h-4 mr-3" />
+                All Users
+              </TabsTrigger>
+              <TabsTrigger 
+                value="clients" 
+                data-testid="tab-clients"
+                className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              >
+                <Users className="w-4 h-4 mr-3" />
+                Clients
+              </TabsTrigger>
+              <TabsTrigger 
+                value="activity" 
+                data-testid="tab-activity"
+                className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              >
+                <Activity className="w-4 h-4 mr-3" />
+                Activity
+              </TabsTrigger>
+              <TabsTrigger 
+                value="ckyc" 
+                data-testid="tab-ckyc"
+                className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              >
+                <Shield className="w-4 h-4 mr-3" />
+                CKYC
+              </TabsTrigger>
+              <TabsTrigger 
+                value="api-status" 
+                data-testid="tab-api-status"
+                className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              >
+                <Server className="w-4 h-4 mr-3" />
+                API Status
+              </TabsTrigger>
+              <TabsTrigger 
+                value="error-monitoring" 
+                data-testid="tab-error-monitoring"
+                className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              >
+                <Brain className="w-4 h-4 mr-3" />
+                AI Monitor
+              </TabsTrigger>
+              <TabsTrigger 
+                value="insights" 
+                data-testid="tab-insights"
+                className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              >
+                <Settings className="w-4 h-4 mr-3" />
+                Insights
+              </TabsTrigger>
+              <TabsTrigger 
+                value="risk-profiling" 
+                data-testid="tab-risk-profiling"
+                className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              >
+                <Shield className="w-4 h-4 mr-3" />
+                Risk Profiles
+              </TabsTrigger>
+              <TabsTrigger 
+                value="reports" 
+                data-testid="tab-reports"
+                className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              >
+                <FileText className="w-4 h-4 mr-3" />
+                Reports
+              </TabsTrigger>
+              <TabsTrigger 
+                value="guidance" 
+                data-testid="tab-guidance"
+                className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              >
+                <MessageSquare className="w-4 h-4 mr-3" />
+                Guidance
+              </TabsTrigger>
+              <TabsTrigger 
+                value="partners" 
+                data-testid="tab-partners"
+                className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              >
+                <Building2 className="w-4 h-4 mr-3" />
+                Partners
+              </TabsTrigger>
+              <TabsTrigger 
+                value="agents" 
+                data-testid="tab-agents"
+                className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              >
+                <Users className="w-4 h-4 mr-3" />
+                Care Agents
+              </TabsTrigger>
+              <TabsTrigger 
+                value="replit-agent" 
+                data-testid="tab-replit-agent"
+                className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              >
+                <Bot className="w-4 h-4 mr-3" />
+                Replit Agent
+              </TabsTrigger>
+              <TabsTrigger 
+                value="marketing" 
+                data-testid="tab-marketing"
+                className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              >
+                <Megaphone className="w-4 h-4 mr-3" />
+                Marketing
+              </TabsTrigger>
+              {(currentUser as any)?.role === 'super_admin' && (
+                <TabsTrigger 
+                  value="ai-analysis" 
+                  data-testid="tab-ai-analysis"
+                  className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                >
+                  <Brain className="w-4 h-4 mr-3" />
+                  AI Analysis
+                </TabsTrigger>
+              )}
+            </TabsList>
+
+            {/* Main Content Area */}
+            <div className="flex-1 overflow-auto">
+              <div className="p-6">
 
         {/* Dashboard Tab */}
         <TabsContent value="dashboard" className="space-y-6">
