@@ -2171,7 +2171,7 @@ export default function AdminPanel() {
       </div>
 
       <Tabs defaultValue="dashboard" className="space-y-6">
-        <TabsList className={`grid w-full ${currentUser?.role === 'super_admin' ? 'grid-cols-12' : 'grid-cols-11'}`}>
+        <TabsList className={`grid w-full ${currentUser?.role === 'super_admin' ? 'grid-cols-13' : 'grid-cols-12'}`}>
           <TabsTrigger value="dashboard" data-testid="tab-dashboard">
             <TrendingUp className="w-4 h-4 mr-2" />
             Dashboard
@@ -2187,6 +2187,10 @@ export default function AdminPanel() {
           <TabsTrigger value="api-status" data-testid="tab-api-status">
             <Server className="w-4 h-4 mr-2" />
             API Status
+          </TabsTrigger>
+          <TabsTrigger value="error-monitoring" data-testid="tab-error-monitoring">
+            <Brain className="w-4 h-4 mr-2" />
+            AI Monitor
           </TabsTrigger>
           <TabsTrigger value="insights" data-testid="tab-insights">
             <Settings className="w-4 h-4 mr-2" />
@@ -2574,6 +2578,11 @@ export default function AdminPanel() {
         {/* API Status Tab */}
         <TabsContent value="api-status" className="space-y-6">
           <ApiStatusPanel />
+        </TabsContent>
+
+        {/* AI Error Monitoring Tab */}
+        <TabsContent value="error-monitoring" className="space-y-6">
+          <GeminiErrorMonitor />
         </TabsContent>
 
         {/* Insights Tab */}

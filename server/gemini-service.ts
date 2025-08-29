@@ -123,6 +123,148 @@ Provide a structured JSON response with optimization strategies.`;
   }
 }
 
+export async function generateReplitAgentInstructions(currentErrors: string, appState: string): Promise<any> {
+  const prompt = `You are an expert software architect working with Replit Agent to create perfect applications.
+
+Generate comprehensive development instructions for Replit Agent to fix all errors and optimize the FintekPro financial services platform.
+
+Current Application State:
+${appState}
+
+Current Errors and Issues:
+${currentErrors}
+
+Generate specific, actionable instructions that Replit Agent can execute to:
+1. Fix all TypeScript/JavaScript errors
+2. Optimize API performance and reliability 
+3. Ensure 100% live data integration
+4. Implement proper error handling
+5. Add comprehensive monitoring and logging
+6. Optimize database queries and caching
+7. Enhance security and authentication
+8. Improve user experience and performance
+
+Provide detailed step-by-step instructions in JSON format.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-pro",
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "object",
+          properties: {
+            summary: { type: "string" },
+            priority: { type: "string" },
+            totalTasks: { type: "number" },
+            estimatedTime: { type: "string" },
+            instructions: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  taskId: { type: "number" },
+                  category: { type: "string" },
+                  title: { type: "string" },
+                  description: { type: "string" },
+                  priority: { type: "string" },
+                  estimatedTime: { type: "string" },
+                  dependencies: { type: "array", items: { type: "number" } },
+                  commands: { type: "array", items: { type: "string" } },
+                  files: { type: "array", items: { type: "string" } },
+                  expectedOutcome: { type: "string" },
+                  verification: { type: "string" }
+                }
+              }
+            },
+            monitoring: {
+              type: "object", 
+              properties: {
+                healthChecks: { type: "array", items: { type: "string" } },
+                performanceMetrics: { type: "array", items: { type: "string" } },
+                errorTracking: { type: "array", items: { type: "string" } }
+              }
+            }
+          },
+          required: ["summary", "priority", "instructions"]
+        }
+      },
+      contents: prompt,
+    });
+
+    const rawJson = response.text;
+    if (rawJson) {
+      return JSON.parse(rawJson);
+    } else {
+      throw new Error("Empty response from Gemini API");
+    }
+  } catch (error) {
+    console.error("Gemini API error:", error);
+    throw error;
+  }
+}
+
+export async function analyzeCodeErrors(codeErrors: string, filePath: string): Promise<any> {
+  const prompt = `You are a senior TypeScript/JavaScript developer. Analyze the following code errors and provide specific fixes.
+
+File: ${filePath}
+Errors:
+${codeErrors}
+
+For each error, provide:
+1. Root cause explanation
+2. Exact code fix with proper TypeScript types
+3. Prevention strategy
+4. Performance impact if any
+
+Focus on creating production-ready, type-safe code with proper error handling.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-pro",
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "object",
+          properties: {
+            summary: { type: "string" },
+            totalErrors: { type: "number" },
+            severity: { type: "string" },
+            fixes: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  errorLine: { type: "number" },
+                  errorType: { type: "string" },
+                  description: { type: "string" },
+                  rootCause: { type: "string" },
+                  fix: { type: "string" },
+                  codeExample: { type: "string" },
+                  prevention: { type: "string" }
+                }
+              }
+            },
+            overallRecommendations: { type: "array", items: { type: "string" } }
+          },
+          required: ["summary", "totalErrors", "fixes"]
+        }
+      },
+      contents: prompt,
+    });
+
+    const rawJson = response.text;
+    if (rawJson) {
+      return JSON.parse(rawJson);
+    } else {
+      throw new Error("Empty response from Gemini API");
+    }
+  } catch (error) {
+    console.error("Gemini API error:", error);
+    throw error;
+  }
+}
+
 export async function analyzeSecurityVulnerabilities(securityData: string): Promise<any> {
   const prompt = `You are a cybersecurity expert. Analyze the following system data for security vulnerabilities and compliance issues.
 
