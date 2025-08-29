@@ -1,8 +1,26 @@
-import { useStockCandles } from "@/hooks/use-market-data";
+import { useStockCandles, type CandleData } from "@/hooks/use-market-data";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect } from "react";
+
+interface ProcessedCandleData {
+  time: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume?: number;
+}
+
+interface MarketStats {
+  open: number;
+  high: number;
+  low: number;
+  volume?: number;
+  change: number;
+  changePercent: number;
+}
 
 interface MarketChartProps {
   symbol?: string;
@@ -10,7 +28,7 @@ interface MarketChartProps {
 
 export function MarketChart({ symbol = "^NSEI" }: MarketChartProps) {
   const [timeframe, setTimeframe] = useState("1D");
-  const [chartData, setChartData] = useState<any>(null);
+  const [chartData, setChartData] = useState<ProcessedCandleData[]>([]);
   
   const { data: candles, isLoading, error } = useStockCandles(symbol, "D");
 
@@ -23,7 +41,7 @@ export function MarketChart({ symbol = "^NSEI" }: MarketChartProps) {
         high: candles.h[index],
         low: candles.l[index],
         close: candles.c[index],
-        volume: candles.v[index]
+        volume: candles.v?.[index]
       }));
       setChartData(processedData);
     }
@@ -36,7 +54,7 @@ export function MarketChart({ symbol = "^NSEI" }: MarketChartProps) {
     { label: "1Y", value: "1Y" },
   ];
 
-  const getMarketStats = () => {
+  const getMarketStats = (): MarketStats | null => {
     if (!chartData || chartData.length === 0) return null;
     
     const latest = chartData[chartData.length - 1];
@@ -47,7 +65,7 @@ export function MarketChart({ symbol = "^NSEI" }: MarketChartProps) {
       high: Math.max(...chartData.slice(-1).map((d: any) => d.high)),
       low: Math.min(...chartData.slice(-1).map((d: any) => d.low)),
       volume: latest.volume,
-      change: latest.close - previous?.close || 0,
+      change: latest.close - (previous?.close || latest.close),
       changePercent: previous ? ((latest.close - previous.close) / previous.close) * 100 : 0
     };
   };
@@ -126,7 +144,7 @@ export function MarketChart({ symbol = "^NSEI" }: MarketChartProps) {
               <p className="text-2xl font-bold text-finance-blue">
                 {symbol} - {chartData[chartData.length - 1]?.close.toFixed(2)}
               </p>
-              <p className={`text-sm ${stats?.change && stats.change >= 0 ? 'text-finance-green' : 'text-finance-red'}`}>
+              <p className={`text-sm ${(stats?.change || 0) >= 0 ? 'text-finance-green' : 'text-finance-red'}`}>
                 {stats?.change >= 0 ? '+' : ''}{stats?.change.toFixed(2)} ({stats?.changePercent.toFixed(2)}%)
               </p>
             </div>

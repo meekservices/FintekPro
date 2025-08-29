@@ -47,11 +47,25 @@ export const queryClient = new QueryClient({
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
-      staleTime: Infinity,
-      retry: false,
+      staleTime: 5 * 60 * 1000, // 5 minutes instead of Infinity
+      retry: (failureCount, error: any) => {
+        // Don't retry for 4xx errors except 408 (timeout)
+        if (error?.status >= 400 && error?.status < 500 && error?.status !== 408) {
+          return false;
+        }
+        // Retry network errors and 5xx errors up to 2 times
+        return failureCount < 2;
+      },
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
     },
     mutations: {
-      retry: false,
+      retry: (failureCount, error: any) => {
+        // Only retry mutations for network errors
+        if (!error?.status || error?.status >= 500) {
+          return failureCount < 1;
+        }
+        return false;
+      },
     },
   },
 });
