@@ -1929,6 +1929,424 @@ interface ClientActivity {
   createdAt: string;
 }
 
+// Comprehensive User Management Component
+function ComprehensiveUserManagement() {
+  const { toast } = useToast();
+  const [selectedUserType, setSelectedUserType] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [showBulkActions, setShowBulkActions] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [roleFilter, setRoleFilter] = useState('all');
+
+  const { data: usersData, isLoading } = useQuery({
+    queryKey: ['/api/admin/users', selectedUserType, searchQuery, statusFilter, roleFilter],
+    enabled: true
+  });
+
+  const updateUserMutation = useMutation({
+    mutationFn: async ({ userId, updates }: { userId: string, updates: any }) => {
+      const response = await apiRequest('PUT', `/api/admin/users/${userId}`, updates);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      toast({ title: 'User updated successfully' });
+    }
+  });
+
+  const bulkUpdateMutation = useMutation({
+    mutationFn: async ({ userIds, updates }: { userIds: string[], updates: any }) => {
+      const response = await apiRequest('POST', '/api/admin/users/bulk-update', { userIds, updates });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      setSelectedUsers([]);
+      toast({ title: 'Bulk update completed successfully' });
+    }
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      await apiRequest('DELETE', `/api/admin/users/${userId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      toast({ title: 'User deleted successfully' });
+    }
+  });
+
+  const getUserTypeColor = (role: string) => {
+    const colors = {
+      'user': 'bg-blue-100 text-blue-800',
+      'client': 'bg-green-100 text-green-800',
+      'partner': 'bg-purple-100 text-purple-800',
+      'supplier': 'bg-orange-100 text-orange-800',
+      'agent': 'bg-cyan-100 text-cyan-800',
+      'admin': 'bg-red-100 text-red-800',
+      'super_admin': 'bg-gray-800 text-white'
+    };
+    return colors[role as keyof typeof colors] || 'bg-gray-100 text-gray-800';
+  };
+
+  const handleBulkAction = (action: string) => {
+    if (selectedUsers.length === 0) {
+      toast({ title: 'No users selected', variant: 'destructive' });
+      return;
+    }
+
+    switch (action) {
+      case 'activate':
+        bulkUpdateMutation.mutate({ userIds: selectedUsers, updates: { isActive: true } });
+        break;
+      case 'deactivate':
+        bulkUpdateMutation.mutate({ userIds: selectedUsers, updates: { isActive: false } });
+        break;
+      case 'send_notification':
+        // Open notification modal for bulk users
+        break;
+    }
+  };
+
+  const userStats = {
+    total: usersData?.total || 0,
+    clients: usersData?.stats?.clients || 0,
+    partners: usersData?.stats?.partners || 0,
+    suppliers: usersData?.stats?.suppliers || 0,
+    agents: usersData?.stats?.agents || 0,
+    active: usersData?.stats?.active || 0,
+    inactive: usersData?.stats?.inactive || 0
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* User Statistics Overview */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{userStats.total}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Clients</CardTitle>
+            <Users2 className="h-4 w-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">{userStats.clients}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Partners</CardTitle>
+            <Building2 className="h-4 w-4 text-purple-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-purple-600">{userStats.partners}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Suppliers</CardTitle>
+            <Building2 className="h-4 w-4 text-orange-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600">{userStats.suppliers}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Agents</CardTitle>
+            <ShieldCheck className="h-4 w-4 text-cyan-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-cyan-600">{userStats.agents}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active</CardTitle>
+            <CheckCircle className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{userStats.active}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Inactive</CardTitle>
+            <Clock className="h-4 w-4 text-gray-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-gray-500">{userStats.inactive}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters and Search */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Filter className="h-5 w-5" />
+            User Filters & Search
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div>
+              <Label>User Type</Label>
+              <Select value={selectedUserType} onValueChange={setSelectedUserType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Users</SelectItem>
+                  <SelectItem value="user">Standard Users</SelectItem>
+                  <SelectItem value="client">Clients</SelectItem>
+                  <SelectItem value="partner">Partners</SelectItem>
+                  <SelectItem value="supplier">Suppliers</SelectItem>
+                  <SelectItem value="agent">Agents</SelectItem>
+                  <SelectItem value="admin">Admins</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Status</Label>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="pending">Pending Approval</SelectItem>
+                  <SelectItem value="suspended">Suspended</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Role</Label>
+              <Select value={roleFilter} onValueChange={setRoleFilter}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Roles</SelectItem>
+                  <SelectItem value="user">Regular User</SelectItem>
+                  <SelectItem value="premium">Premium User</SelectItem>
+                  <SelectItem value="vip">VIP Client</SelectItem>
+                  <SelectItem value="corporate">Corporate</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="md:col-span-2">
+              <Label>Search Users</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by name, email, phone, or ID..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Bulk Actions */}
+      {selectedUsers.length > 0 && (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <span className="text-sm font-medium">
+                  {selectedUsers.length} users selected
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setSelectedUsers([])}
+                >
+                  Clear Selection
+                </Button>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button size="sm" onClick={() => handleBulkAction('activate')}>
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                  Activate
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => handleBulkAction('deactivate')}>
+                  <Clock className="h-4 w-4 mr-1" />
+                  Deactivate
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => handleBulkAction('send_notification')}>
+                  <Send className="h-4 w-4 mr-1" />
+                  Send Message
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Users Table */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>User Management</CardTitle>
+            <div className="flex items-center gap-2">
+              <Button size="sm" onClick={() => setShowBulkActions(!showBulkActions)}>
+                <UserPlus className="h-4 w-4 mr-1" />
+                Add User
+              </Button>
+              <Button size="sm" variant="outline">
+                <Download className="h-4 w-4 mr-1" />
+                Export
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">
+                      <input
+                        type="checkbox"
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedUsers(usersData?.users?.map(u => u.id) || []);
+                          } else {
+                            setSelectedUsers([]);
+                          }
+                        }}
+                        checked={selectedUsers.length === usersData?.users?.length}
+                      />
+                    </TableHead>
+                    <TableHead>User</TableHead>
+                    <TableHead>Type/Role</TableHead>
+                    <TableHead>Contact</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Last Activity</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {usersData?.users?.map((user: any) => (
+                    <TableRow key={user.id}>
+                      <TableCell>
+                        <input
+                          type="checkbox"
+                          checked={selectedUsers.includes(user.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedUsers([...selectedUsers, user.id]);
+                            } else {
+                              setSelectedUsers(selectedUsers.filter(id => id !== user.id));
+                            }
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                            {user.firstName?.[0] || user.email?.[0] || '?'}
+                          </div>
+                          <div>
+                            <div className="font-medium">
+                              {user.firstName} {user.lastName || ''}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              ID: {user.id.slice(0, 8)}...
+                            </div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <Badge className={getUserTypeColor(user.role || 'user')}>
+                            {user.role || 'User'}
+                          </Badge>
+                          {user.userType && (
+                            <div className="text-xs text-muted-foreground">
+                              {user.userType}
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <div className="text-sm">{user.email}</div>
+                          {user.mobile && (
+                            <div className="text-xs text-muted-foreground">
+                              {user.mobile}
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={user.isActive ? 'default' : 'secondary'}>
+                          {user.isActive ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          {user.lastLoginAt 
+                            ? format(new Date(user.lastLoginAt), 'MMM dd, yyyy')
+                            : 'Never'
+                          }
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Button size="sm" variant="ghost">
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="ghost">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="ghost">
+                            <Send className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="ghost"
+                            onClick={() => {
+                              if (confirm('Are you sure you want to delete this user?')) {
+                                deleteUserMutation.mutate(user.id);
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function AdminPanel() {
   const { toast } = useToast();
   
@@ -2172,10 +2590,14 @@ export default function AdminPanel() {
       </div>
 
       <Tabs defaultValue="dashboard" className="space-y-6">
-        <TabsList className={`grid w-full ${(currentUser as any)?.role === 'super_admin' ? 'grid-cols-14' : 'grid-cols-13'}`}>
+        <TabsList className={`grid w-full ${(currentUser as any)?.role === 'super_admin' ? 'grid-cols-15' : 'grid-cols-14'}`}>
           <TabsTrigger value="dashboard" data-testid="tab-dashboard">
             <TrendingUp className="w-4 h-4 mr-2" />
             Dashboard
+          </TabsTrigger>
+          <TabsTrigger value="comprehensive-users" data-testid="tab-comprehensive-users">
+            <Users2 className="w-4 h-4 mr-2" />
+            All Users
           </TabsTrigger>
           <TabsTrigger value="clients" data-testid="tab-clients">
             <Users className="w-4 h-4 mr-2" />
@@ -2368,6 +2790,402 @@ export default function AdminPanel() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* Comprehensive User Management Tab */}
+        <TabsContent value="comprehensive-users" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {/* Total User Statistics */}
+            <Card data-testid="card-user-overview">
+              <CardHeader>
+                <CardTitle>User Overview</CardTitle>
+                <CardDescription>Platform-wide user statistics</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex justify-between">
+                  <span>Total Users</span>
+                  <Badge className="bg-blue-100 text-blue-800" data-testid="badge-total-users">1,248</Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span>Active Users</span>
+                  <Badge className="bg-green-100 text-green-800" data-testid="badge-active-users">1,156</Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span>New Today</span>
+                  <Badge className="bg-yellow-100 text-yellow-800" data-testid="badge-new-users-today">23</Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span>Verified Users</span>
+                  <Badge className="bg-purple-100 text-purple-800" data-testid="badge-verified-users">892</Badge>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Role Distribution */}
+            <Card data-testid="card-role-distribution">
+              <CardHeader>
+                <CardTitle>User Roles</CardTitle>
+                <CardDescription>Distribution by role</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span>Clients</span>
+                  <Badge className="bg-blue-100 text-blue-800">1,024</Badge>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>Partners</span>
+                  <Badge className="bg-green-100 text-green-800">185</Badge>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>Suppliers</span>
+                  <Badge className="bg-yellow-100 text-yellow-800">32</Badge>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>Agents</span>
+                  <Badge className="bg-purple-100 text-purple-800">15</Badge>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>Admins</span>
+                  <Badge className="bg-red-100 text-red-800">3</Badge>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Activity Metrics */}
+            <Card data-testid="card-activity-metrics">
+              <CardHeader>
+                <CardTitle>Activity Metrics</CardTitle>
+                <CardDescription>User engagement data</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span>Daily Active</span>
+                  <Badge className="bg-green-100 text-green-800">458</Badge>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>Weekly Active</span>
+                  <Badge className="bg-blue-100 text-blue-800">823</Badge>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>Monthly Active</span>
+                  <Badge className="bg-purple-100 text-purple-800">1,156</Badge>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>Avg Session</span>
+                  <Badge className="bg-yellow-100 text-yellow-800">24m</Badge>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Quick Actions */}
+            <Card data-testid="card-user-quick-actions">
+              <CardHeader>
+                <CardTitle>Quick Actions</CardTitle>
+                <CardDescription>User management tools</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button className="w-full" data-testid="button-add-user">
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Add User
+                </Button>
+                <Button variant="outline" className="w-full" data-testid="button-bulk-operations">
+                  <Users className="w-4 h-4 mr-2" />
+                  Bulk Operations
+                </Button>
+                <Button variant="outline" className="w-full" data-testid="button-export-users">
+                  <Download className="w-4 h-4 mr-2" />
+                  Export Users
+                </Button>
+                <Button variant="outline" className="w-full" data-testid="button-user-analytics">
+                  <BarChart className="w-4 h-4 mr-2" />
+                  User Analytics
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Advanced Filters */}
+          <Card data-testid="card-user-filters">
+            <CardHeader>
+              <CardTitle>Advanced Filters</CardTitle>
+              <CardDescription>Filter and search all platform users</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Search Users</label>
+                  <Input placeholder="Name, email, or ID..." data-testid="input-user-search" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Role</label>
+                  <Select data-testid="select-user-role">
+                    <SelectTrigger>
+                      <SelectValue placeholder="All roles" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Roles</SelectItem>
+                      <SelectItem value="client">Clients</SelectItem>
+                      <SelectItem value="partner">Partners</SelectItem>
+                      <SelectItem value="supplier">Suppliers</SelectItem>
+                      <SelectItem value="agent">Agents</SelectItem>
+                      <SelectItem value="admin">Admins</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Status</label>
+                  <Select data-testid="select-user-status">
+                    <SelectTrigger>
+                      <SelectValue placeholder="All statuses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                      <SelectItem value="suspended">Suspended</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Registration Date</label>
+                  <Select data-testid="select-registration-date">
+                    <SelectTrigger>
+                      <SelectValue placeholder="All time" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Time</SelectItem>
+                      <SelectItem value="today">Today</SelectItem>
+                      <SelectItem value="week">This Week</SelectItem>
+                      <SelectItem value="month">This Month</SelectItem>
+                      <SelectItem value="quarter">This Quarter</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button data-testid="button-apply-filters">Apply Filters</Button>
+                <Button variant="outline" data-testid="button-clear-filters">Clear All</Button>
+                <Button variant="outline" data-testid="button-save-filter">Save Filter</Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Comprehensive User Management Table */}
+          <Card data-testid="card-comprehensive-users-table">
+            <CardHeader>
+              <CardTitle>All Platform Users</CardTitle>
+              <CardDescription>Comprehensive user management with advanced controls</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>User Details</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Registration</TableHead>
+                    <TableHead>Last Activity</TableHead>
+                    <TableHead>Portfolio Value</TableHead>
+                    <TableHead>Risk Profile</TableHead>
+                    <TableHead>KYC Status</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow data-testid="user-row-1">
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">Rajesh Kumar</div>
+                        <div className="text-sm text-muted-foreground">rajesh.kumar@gmail.com</div>
+                        <div className="text-xs text-muted-foreground">ID: USR001</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className="bg-blue-100 text-blue-800" data-testid="badge-role-1">Client</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className="bg-green-100 text-green-800" data-testid="badge-status-1">Active</Badge>
+                    </TableCell>
+                    <TableCell data-testid="text-registration-1">Nov 15, 2024</TableCell>
+                    <TableCell data-testid="text-last-activity-1">2h ago</TableCell>
+                    <TableCell data-testid="text-portfolio-value-1">₹12,50,000</TableCell>
+                    <TableCell>
+                      <Badge className="bg-yellow-100 text-yellow-800" data-testid="badge-risk-1">Moderate</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className="bg-green-100 text-green-800" data-testid="badge-kyc-1">Verified</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button variant="outline" size="sm" data-testid="button-view-user-1">
+                          View
+                        </Button>
+                        <Button variant="outline" size="sm" data-testid="button-edit-user-1">
+                          Edit
+                        </Button>
+                        <Button variant="destructive" size="sm" data-testid="button-suspend-user-1">
+                          Suspend
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+
+                  <TableRow data-testid="user-row-2">
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">TechCorp Solutions</div>
+                        <div className="text-sm text-muted-foreground">contact@techcorp.com</div>
+                        <div className="text-xs text-muted-foreground">ID: PTR001</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className="bg-green-100 text-green-800" data-testid="badge-role-2">Partner</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className="bg-green-100 text-green-800" data-testid="badge-status-2">Active</Badge>
+                    </TableCell>
+                    <TableCell data-testid="text-registration-2">Oct 28, 2024</TableCell>
+                    <TableCell data-testid="text-last-activity-2">1h ago</TableCell>
+                    <TableCell data-testid="text-portfolio-value-2">N/A</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" data-testid="badge-risk-2">N/A</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className="bg-green-100 text-green-800" data-testid="badge-kyc-2">Verified</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button variant="outline" size="sm" data-testid="button-view-user-2">
+                          View
+                        </Button>
+                        <Button variant="outline" size="sm" data-testid="button-edit-user-2">
+                          Edit
+                        </Button>
+                        <Button variant="outline" size="sm" data-testid="button-manage-user-2">
+                          Manage
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+
+                  <TableRow data-testid="user-row-3">
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">Priya Sharma</div>
+                        <div className="text-sm text-muted-foreground">priya.sharma@email.com</div>
+                        <div className="text-xs text-muted-foreground">ID: USR123</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className="bg-blue-100 text-blue-800" data-testid="badge-role-3">Client</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className="bg-yellow-100 text-yellow-800" data-testid="badge-status-3">Pending</Badge>
+                    </TableCell>
+                    <TableCell data-testid="text-registration-3">Dec 1, 2024</TableCell>
+                    <TableCell data-testid="text-last-activity-3">5h ago</TableCell>
+                    <TableCell data-testid="text-portfolio-value-3">₹0</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" data-testid="badge-risk-3">Not Set</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className="bg-yellow-100 text-yellow-800" data-testid="badge-kyc-3">Pending</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button variant="outline" size="sm" data-testid="button-view-user-3">
+                          View
+                        </Button>
+                        <Button size="sm" data-testid="button-approve-user-3">
+                          Approve
+                        </Button>
+                        <Button variant="destructive" size="sm" data-testid="button-reject-user-3">
+                          Reject
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+
+                  <TableRow data-testid="user-row-4">
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">DataFlow Suppliers</div>
+                        <div className="text-sm text-muted-foreground">admin@dataflow.in</div>
+                        <div className="text-xs text-muted-foreground">ID: SUP005</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className="bg-purple-100 text-purple-800" data-testid="badge-role-4">Supplier</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className="bg-green-100 text-green-800" data-testid="badge-status-4">Active</Badge>
+                    </TableCell>
+                    <TableCell data-testid="text-registration-4">Sep 12, 2024</TableCell>
+                    <TableCell data-testid="text-last-activity-4">3d ago</TableCell>
+                    <TableCell data-testid="text-portfolio-value-4">N/A</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" data-testid="badge-risk-4">N/A</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className="bg-green-100 text-green-800" data-testid="badge-kyc-4">Verified</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button variant="outline" size="sm" data-testid="button-view-user-4">
+                          View
+                        </Button>
+                        <Button variant="outline" size="sm" data-testid="button-edit-user-4">
+                          Edit
+                        </Button>
+                        <Button variant="outline" size="sm" data-testid="button-contract-user-4">
+                          Contract
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+
+                  <TableRow data-testid="user-row-5">
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">Sarah Johnson</div>
+                        <div className="text-sm text-muted-foreground">sarah.j@fintekpro.com</div>
+                        <div className="text-xs text-muted-foreground">ID: AGT001</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className="bg-orange-100 text-orange-800" data-testid="badge-role-5">Agent</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className="bg-green-100 text-green-800" data-testid="badge-status-5">Active</Badge>
+                    </TableCell>
+                    <TableCell data-testid="text-registration-5">Aug 5, 2024</TableCell>
+                    <TableCell data-testid="text-last-activity-5">30m ago</TableCell>
+                    <TableCell data-testid="text-portfolio-value-5">N/A</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" data-testid="badge-risk-5">N/A</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className="bg-green-100 text-green-800" data-testid="badge-kyc-5">Verified</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button variant="outline" size="sm" data-testid="button-view-user-5">
+                          View
+                        </Button>
+                        <Button variant="outline" size="sm" data-testid="button-edit-user-5">
+                          Edit
+                        </Button>
+                        <Button variant="outline" size="sm" data-testid="button-schedule-user-5">
+                          Schedule
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Users Tab */}
