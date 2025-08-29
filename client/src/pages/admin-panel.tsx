@@ -405,6 +405,51 @@ function ReplitAgentPanel() {
   const [deploymentStatus, setDeploymentStatus] = useState('checking');
   const [agentMetrics, setAgentMetrics] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedTab, setSelectedTab] = useState('overview');
+
+  // Agent capabilities data based on Replit documentation
+  const agentCapabilities = {
+    development: [
+      'Create full-stack applications from natural language descriptions',
+      'Add advanced features and complex API integrations',
+      'Design and modify database structures with Drizzle ORM',
+      'Streamline environment setup and dependency management',
+      'Integrate with external services (OpenAI, Stripe, SendGrid, etc.)',
+      'Set up authentication systems (Replit Auth, Firebase Auth)',
+      'Configure object storage for file management',
+      'Implement real-time features with WebSockets'
+    ],
+    deployment: [
+      'Suggest deployment configurations and optimizations',
+      'Create comprehensive project checkpoints for rollback',
+      'Monitor deployment health and performance metrics',
+      'Track resource utilization (CPU, memory, disk)',
+      'View real-time logs and error tracking',
+      'Access analytics (page views, user engagement)',
+      'Manage environment variables and secrets',
+      'Handle TLS certificates and custom domains'
+    ],
+    integrations: [
+      'AI Services: OpenAI, Anthropic, xAI for intelligent features',
+      'Payment Processing: Stripe for secure transactions',
+      'Communication: Slack, Twilio, SendGrid for notifications',
+      'Authentication: Replit Auth, Firebase Auth, custom solutions',
+      'Storage: Object Storage, Database with PostgreSQL',
+      'Analytics: Google Analytics integration and tracking',
+      'External APIs: Google Calendar, Drive, Sheets integration',
+      'Social: Twitter, Facebook, LinkedIn API connections'
+    ],
+    automation: [
+      'Automatic checkpoint creation during development',
+      'Continuous health monitoring and alerting',
+      'Performance optimization suggestions',
+      'Security vulnerability scanning',
+      'Dependency updates and maintenance',
+      'Error pattern analysis and recommendations',
+      'Resource scaling based on usage patterns',
+      'Backup and disaster recovery automation'
+    ]
+  };
 
   // Mock deployment and agent data - in real implementation, this would fetch from Replit APIs
   const mockDeploymentData = {
@@ -424,6 +469,17 @@ function ReplitAgentPanel() {
       cpuUsage: '12%',
       memoryUsage: '340MB',
       diskUsage: '1.2GB'
+    },
+    integrations: {
+      active: 8,
+      configured: ['Database', 'Object Storage', 'Replit Auth', 'OpenAI', 'Stripe', 'Finnhub API', 'Google Analytics', 'SendGrid'],
+      health: 'excellent'
+    },
+    checkpoints: {
+      total: 47,
+      lastCreated: '2024-01-15 14:25:00',
+      automated: 42,
+      manual: 5
     }
   };
 
@@ -449,7 +505,20 @@ function ReplitAgentPanel() {
 
   return (
     <div className="space-y-6">
-      {/* Deployment Status */}
+      {/* Replit Agent Overview */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Bot className="h-6 w-6 text-blue-600" />
+            Replit Agent Capabilities Dashboard
+          </CardTitle>
+          <CardDescription>
+            Comprehensive overview of AI-powered development, deployment, and management capabilities
+          </CardDescription>
+        </CardHeader>
+      </Card>
+
+      {/* Deployment Status Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -466,6 +535,32 @@ function ReplitAgentPanel() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Integrations</CardTitle>
+            <Zap className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{mockDeploymentData.integrations.active}</div>
+            <p className="text-xs text-muted-foreground">
+              {mockDeploymentData.integrations.health} health
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Checkpoints</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{mockDeploymentData.checkpoints.total}</div>
+            <p className="text-xs text-muted-foreground">
+              {mockDeploymentData.checkpoints.automated} automated
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Page Views</CardTitle>
             <BarChart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -476,33 +571,162 @@ function ReplitAgentPanel() {
             </p>
           </CardContent>
         </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Response Time</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{mockDeploymentData.analytics.avgResponseTime}</div>
-            <p className="text-xs text-muted-foreground">
-              Excellent performance
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Error Rate</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{mockDeploymentData.analytics.errorRate}</div>
-            <p className="text-xs text-muted-foreground">
-              Very low error rate
-            </p>
-          </CardContent>
-        </Card>
       </div>
+
+      {/* Agent Capabilities Tabs */}
+      <Tabs value={selectedTab} onValueChange={setSelectedTab}>
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="development">Development</TabsTrigger>
+          <TabsTrigger value="deployment">Deployment</TabsTrigger>
+          <TabsTrigger value="integrations">Integrations</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Brain className="h-5 w-5" />
+                  AI-Powered Development
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground mb-4">
+                  Agent automatically creates full-stack applications from natural language descriptions with advanced features and integrations.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="secondary">Full-Stack Creation</Badge>
+                  <Badge variant="secondary">API Integrations</Badge>
+                  <Badge variant="secondary">Database Design</Badge>
+                  <Badge variant="secondary">Authentication</Badge>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Monitor className="h-5 w-5" />
+                  Post-Deployment Management
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground mb-4">
+                  Comprehensive monitoring, analytics, and management tools for deployed applications with automated optimization.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="secondary">Health Monitoring</Badge>
+                  <Badge variant="secondary">Performance Analytics</Badge>
+                  <Badge variant="secondary">Resource Tracking</Badge>
+                  <Badge variant="secondary">Error Analysis</Badge>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="development" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Development Capabilities</CardTitle>
+              <CardDescription>
+                Comprehensive AI-powered development features for rapid application creation
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-3">
+                {agentCapabilities.development.map((capability, index) => (
+                  <div key={index} className="flex items-center gap-3 p-3 border rounded-lg">
+                    <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+                    <span className="text-sm">{capability}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="deployment" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Deployment & Management</CardTitle>
+              <CardDescription>
+                Advanced deployment monitoring and post-deployment management capabilities
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-3">
+                {agentCapabilities.deployment.map((capability, index) => (
+                  <div key={index} className="flex items-center gap-3 p-3 border rounded-lg">
+                    <CheckCircle className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                    <span className="text-sm">{capability}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Current Deployment Metrics</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="text-center p-4 border rounded-lg">
+                  <div className="text-2xl font-bold text-green-600">{mockDeploymentData.analytics.avgResponseTime}</div>
+                  <p className="text-sm text-muted-foreground">Avg Response Time</p>
+                </div>
+                <div className="text-center p-4 border rounded-lg">
+                  <div className="text-2xl font-bold text-blue-600">{mockDeploymentData.resources.cpuUsage}</div>
+                  <p className="text-sm text-muted-foreground">CPU Usage</p>
+                </div>
+                <div className="text-center p-4 border rounded-lg">
+                  <div className="text-2xl font-bold text-purple-600">{mockDeploymentData.resources.memoryUsage}</div>
+                  <p className="text-sm text-muted-foreground">Memory Usage</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="integrations" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Available Integrations</CardTitle>
+              <CardDescription>
+                External services and APIs that Agent can automatically integrate
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-3">
+                {agentCapabilities.integrations.map((capability, index) => (
+                  <div key={index} className="flex items-center gap-3 p-3 border rounded-lg">
+                    <CheckCircle className="h-5 w-5 text-purple-600 flex-shrink-0" />
+                    <span className="text-sm">{capability}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Currently Active Integrations</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {mockDeploymentData.integrations.configured.map((integration, index) => (
+                  <div key={index} className="flex items-center gap-2 p-3 border rounded-lg">
+                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                    <span className="text-sm font-medium">{integration}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Agent Actions */}
       <Card>
