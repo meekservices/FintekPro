@@ -427,7 +427,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       errors.push(`AlphaVantage: ${error.message}`);
     }
     
@@ -438,13 +438,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...data,
         source: 'YahooFinance'
       };
-    } catch (error) {
+    } catch (error: any) {
       errors.push(`YahooFinance: ${error.message}`);
     }
     
     // Use realistic fallback data for Indian stocks
-    if (INDIAN_STOCK_FALLBACK[symbol]) {
-      const fallback = INDIAN_STOCK_FALLBACK[symbol];
+    if (INDIAN_STOCK_FALLBACK[symbol as keyof typeof INDIAN_STOCK_FALLBACK]) {
+      const fallback = INDIAN_STOCK_FALLBACK[symbol as keyof typeof INDIAN_STOCK_FALLBACK];
       // Add some randomness to make it look more realistic
       const variation = (Math.random() - 0.5) * 0.02; // ±1% variation
       const price = fallback.price * (1 + variation);
@@ -478,7 +478,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         dayLow: data.l,
         source: 'Finnhub'
       };
-    } catch (error) {
+    } catch (error: any) {
       errors.push(`Finnhub: ${error.message}`);
     }
     
