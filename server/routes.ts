@@ -16,6 +16,7 @@ import { sebiAPI } from "./sebi-api";
 import { comprehensiveAIFPMSAPI } from "./comprehensive-aif-pms-api";
 import { camsApi } from './cams-api';
 import { kfintechApi } from './kfintech-api';
+import './notification-service'; // Initialize notification service with auto-processing
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const API = require('indian-stock-exchange');
@@ -9967,6 +9968,60 @@ System Security Data:`;
     }
   });
 
+  // Agent CKYC API endpoints for care agents
+  app.get("/api/agent/ckyc-clients", async (req, res) => {
+    try {
+      const records = await storage.getAllCkycRecords();
+      res.json(records);
+    } catch (error) {
+      console.error("Error fetching CKYC clients for agent:", error);
+      res.status(500).json({ error: "Failed to fetch CKYC clients" });
+    }
+  });
+
+  app.get("/api/agent/notifications", async (req, res) => {
+    try {
+      const notifications = await storage.getNotificationTriggers();
+      const agentNotifications = notifications.filter(n => n.triggerredBy === 'care_agent');
+      res.json(agentNotifications);
+    } catch (error) {
+      console.error("Error fetching agent notifications:", error);
+      res.status(500).json({ error: "Failed to fetch notifications" });
+    }
+  });
+
+  app.post("/api/agent/ckyc/notifications", async (req, res) => {
+    try {
+      const notificationData = {
+        ...req.body,
+        status: 'pending',
+        createdAt: new Date(),
+        triggerredBy: 'care_agent'
+      };
+      
+      const notification = await storage.createNotificationTrigger(notificationData);
+      
+      // For agent-created notifications, mark them as sent immediately
+      // In a real implementation, you'd queue them for actual delivery
+      setTimeout(async () => {
+        try {
+          await storage.updateNotificationTrigger(notification.id, {
+            status: 'sent',
+            sentAt: new Date()
+          });
+          console.log(`📱 Agent notification sent: ${notificationData.subject}`);
+        } catch (error) {
+          console.error("Error updating notification status:", error);
+        }
+      }, 1000);
+      
+      res.json(notification);
+    } catch (error) {
+      console.error("Error creating agent notification:", error);
+      res.status(500).json({ error: "Failed to create notification" });
+    }
+  });
+
   // Admin: Get all CKYC records with pagination
   app.get("/api/admin/ckyc", requireAdmin, async (req, res) => {
     try {
@@ -10044,6 +10099,246 @@ System Security Data:`;
     } catch (error) {
       console.error("Error checking CKYC compliance:", error);
       res.status(500).json({ error: "Failed to check compliance" });
+    }
+  });
+
+  // ============ CKYC PROGRESS MONITORING & NOTIFICATION API ROUTES ============
+  
+  // Admin: Create notification trigger for CKYC record
+  app.post("/api/admin/ckyc/notifications", requireAdmin, async (req, res) => {
+    try {
+      const { ckycRecordId, triggerType, notificationMethod, recipientEmail, recipientMobile, subject, message, scheduledAt, triggerredBy, metadata } = req.body;
+      
+      // Validate CKYC record exists
+      const ckycRecord = await storage.getCkycRecord(ckycRecordId);
+      if (!ckycRecord) {
+        return res.status(404).json({ error: "CKYC record not found" });
+      }
+      
+      const trigger = await storage.createCkycNotificationTrigger({
+        ckycRecordId,
+        triggerType,
+        notificationMethod,
+        recipientEmail,
+        recipientMobile, 
+        subject,
+        message,
+        scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
+        triggerredBy,
+        metadata: metadata || {}
+      });
+      
+      // Log the action
+      await storage.createCkycActionLog({
+        ckycRecordId,
+        actionType: "trigger_notification",
+        actionBy: triggerredBy,
+        actionByType: "admin",
+        actionDetails: `Created ${triggerType} notification trigger for ${notificationMethod}`,
+        newValue: trigger
+      });
+      
+      console.log(`📧 CKYC notification trigger created: ${trigger.id}`);
+      res.status(201).json(trigger);
+    } catch (error) {
+      console.error("Error creating CKYC notification trigger:", error);
+      res.status(500).json({ error: "Failed to create notification trigger" });
+    }
+  });
+
+  // Admin: Get notification triggers with filtering  
+  app.get("/api/admin/ckyc/notifications", requireAdmin, async (req, res) => {
+    try {
+      const { ckycRecordId, status } = req.query;
+      const triggers = await storage.getCkycNotificationTriggers(
+        ckycRecordId as string,
+        status as string
+      );
+      res.json(triggers);
+    } catch (error) {
+      console.error("Error fetching CKYC notification triggers:", error);
+      res.status(500).json({ error: "Failed to fetch notification triggers" });
+    }
+  });
+
+  // Admin: Update notification status manually
+  app.patch("/api/admin/ckyc/notifications/:triggerId/status", requireAdmin, async (req, res) => {
+    try {
+      const { triggerId } = req.params;
+      const { status, failureReason } = req.body;
+      
+      const updated = await storage.updateCkycNotificationStatus(
+        triggerId, 
+        status,
+        status === "sent" ? new Date() : undefined,
+        failureReason
+      );
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Notification trigger not found" });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating notification status:", error);
+      res.status(500).json({ error: "Failed to update notification status" });
+    }
+  });
+
+  // Admin: Create progress step for CKYC record
+  app.post("/api/admin/ckyc/progress-steps", requireAdmin, async (req, res) => {
+    try {
+      const { ckycRecordId, stepName, stepDescription, stepOrder, estimatedCompletionTime, completedBy } = req.body;
+      
+      const step = await storage.createCkycProgressStep({
+        ckycRecordId,
+        stepName,
+        stepStatus: "pending",
+        stepDescription,
+        stepOrder,
+        estimatedCompletionTime,
+        completedBy,
+        isActive: true,
+        metadata: {}
+      });
+      
+      // Log the action
+      await storage.createCkycActionLog({
+        ckycRecordId,
+        actionType: "status_update", 
+        actionBy: completedBy || "admin",
+        actionByType: "admin",
+        actionDetails: `Created progress step: ${stepName}`,
+        newValue: step
+      });
+      
+      res.status(201).json(step);
+    } catch (error) {
+      console.error("Error creating CKYC progress step:", error);
+      res.status(500).json({ error: "Failed to create progress step" });
+    }
+  });
+
+  // Get CKYC progress steps for a record
+  app.get("/api/ckyc/:ckycRecordId/progress", async (req, res) => {
+    try {
+      const { ckycRecordId } = req.params;
+      const steps = await storage.getCkycProgressSteps(ckycRecordId);
+      res.json(steps);
+    } catch (error) {
+      console.error("Error fetching CKYC progress steps:", error);
+      res.status(500).json({ error: "Failed to fetch progress steps" });
+    }
+  });
+
+  // Admin: Update progress step
+  app.patch("/api/admin/ckyc/progress-steps/:stepId", requireAdmin, async (req, res) => {
+    try {
+      const { stepId } = req.params;
+      const { stepStatus, completedAt, completedBy, actualCompletionTime } = req.body;
+      
+      const updated = await storage.updateCkycProgressStep(stepId, {
+        stepStatus,
+        completedAt: completedAt ? new Date(completedAt) : undefined,
+        completedBy,
+        actualCompletionTime
+      });
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Progress step not found" });
+      }
+      
+      // Log the action
+      await storage.createCkycActionLog({
+        ckycRecordId: updated.ckycRecordId,
+        actionType: "status_update",
+        actionBy: completedBy || "admin",
+        actionByType: "admin", 
+        actionDetails: `Updated progress step: ${updated.stepName} to ${stepStatus}`,
+        previousValue: { stepStatus: "pending" },
+        newValue: updated
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating CKYC progress step:", error);
+      res.status(500).json({ error: "Failed to update progress step" });
+    }
+  });
+
+  // Agent: Trigger notification (limited permissions)
+  app.post("/api/agent/ckyc/notifications", async (req, res) => {
+    try {
+      const { ckycRecordId, notificationMethod, recipientEmail, recipientMobile, subject, message, triggerredBy } = req.body;
+      
+      // Validate CKYC record exists
+      const ckycRecord = await storage.getCkycRecord(ckycRecordId);
+      if (!ckycRecord) {
+        return res.status(404).json({ error: "CKYC record not found" });
+      }
+      
+      const trigger = await storage.createCkycNotificationTrigger({
+        ckycRecordId,
+        triggerType: "manual_trigger",
+        notificationMethod,
+        recipientEmail,
+        recipientMobile,
+        subject,
+        message,
+        triggerredBy,
+        metadata: { source: "agent_panel" }
+      });
+      
+      // Log the action
+      await storage.createCkycActionLog({
+        ckycRecordId,
+        actionType: "trigger_notification",
+        actionBy: triggerredBy,
+        actionByType: "agent",
+        actionDetails: `Agent triggered ${notificationMethod} notification`,
+        newValue: trigger
+      });
+      
+      console.log(`📧 Agent notification trigger created: ${trigger.id}`);
+      res.status(201).json(trigger);
+    } catch (error) {
+      console.error("Error creating agent notification trigger:", error);
+      res.status(500).json({ error: "Failed to create notification trigger" });
+    }
+  });
+
+  // Get action logs for CKYC record
+  app.get("/api/ckyc/:ckycRecordId/action-logs", async (req, res) => {
+    try {
+      const { ckycRecordId } = req.params;
+      const logs = await storage.getCkycActionLogs(ckycRecordId);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching CKYC action logs:", error);
+      res.status(500).json({ error: "Failed to fetch action logs" });
+    }
+  });
+
+  // Admin: Get all action logs with filtering
+  app.get("/api/admin/ckyc/action-logs", requireAdmin, async (req, res) => {
+    try {
+      const { actionBy } = req.query;
+      const logs = await storage.getCkycActionLogs(undefined, actionBy as string);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching all CKYC action logs:", error);
+      res.status(500).json({ error: "Failed to fetch action logs" });
+    }
+  });
+
+  // Process pending notifications (background job endpoint)
+  app.post("/api/admin/ckyc/process-notifications", requireAdmin, async (req, res) => {
+    try {
+      await storage.processPendingNotifications();
+      res.json({ success: true, message: "Pending notifications processed" });
+    } catch (error) {
+      console.error("Error processing pending notifications:", error);
+      res.status(500).json({ error: "Failed to process notifications" });
     }
   });
 

@@ -1,4 +1,4 @@
-import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory } from "@shared/schema";
+import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type CkycNotificationTrigger, type InsertCkycNotificationTrigger, type CkycProgressStep, type InsertCkycProgressStep, type CkycActionLog, type InsertCkycActionLog } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 // We'll import hashPassword later to avoid circular dependency
@@ -153,6 +153,24 @@ export interface IStorage {
   // CKYC Status History methods
   getCkycStatusHistory(userId: string): Promise<CkycStatusHistory[]>;
   addCkycStatusHistory(history: InsertCkycStatusHistory): Promise<CkycStatusHistory>;
+
+  // CKYC Progress Monitoring methods
+  createCkycNotificationTrigger(trigger: InsertCkycNotificationTrigger): Promise<CkycNotificationTrigger>;
+  getCkycNotificationTriggers(ckycRecordId?: string, status?: string): Promise<CkycNotificationTrigger[]>;
+  updateCkycNotificationStatus(id: string, status: string, sentAt?: Date, failureReason?: string): Promise<CkycNotificationTrigger | undefined>;
+
+  // CKYC Progress Steps methods
+  createCkycProgressStep(step: InsertCkycProgressStep): Promise<CkycProgressStep>;
+  getCkycProgressSteps(ckycRecordId: string): Promise<CkycProgressStep[]>;
+  updateCkycProgressStep(id: string, updates: Partial<CkycProgressStep>): Promise<CkycProgressStep | undefined>;
+  
+  // CKYC Action Log methods
+  createCkycActionLog(log: InsertCkycActionLog): Promise<CkycActionLog>;
+  getCkycActionLogs(ckycRecordId?: string, actionBy?: string): Promise<CkycActionLog[]>;
+
+  // CKYC Notification Service methods
+  sendNotification(trigger: CkycNotificationTrigger): Promise<boolean>;
+  processPendingNotifications(): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -178,6 +196,9 @@ export class MemStorage implements IStorage {
   private ckycRecords: Map<string, CkycRecord>;
   private ckycDocuments: Map<string, CkycDocument[]>;
   private ckycStatusHistory: Map<string, CkycStatusHistory[]>;
+  private ckycNotificationTriggers: Map<string, CkycNotificationTrigger>;
+  private ckycProgressSteps: Map<string, CkycProgressStep[]>;
+  private ckycActionLogs: Map<string, CkycActionLog[]>;
 
   constructor() {
     this.users = new Map();
@@ -202,6 +223,9 @@ export class MemStorage implements IStorage {
     this.ckycRecords = new Map();
     this.ckycDocuments = new Map();
     this.ckycStatusHistory = new Map();
+    this.ckycNotificationTriggers = new Map();
+    this.ckycProgressSteps = new Map();
+    this.ckycActionLogs = new Map();
     
     // Initialize with sample data
     this.initializeSampleData();
@@ -1680,6 +1704,154 @@ export class MemStorage implements IStorage {
     this.ckycStatusHistory.set(history.userId, existingHistory);
     
     return newHistory;
+  }
+
+  // CKYC Progress Monitoring methods
+  async createCkycNotificationTrigger(trigger: InsertCkycNotificationTrigger): Promise<CkycNotificationTrigger> {
+    const newTrigger: CkycNotificationTrigger = {
+      ...trigger,
+      id: randomUUID(),
+      status: "pending",
+      createdAt: new Date()
+    };
+    
+    this.ckycNotificationTriggers.set(newTrigger.id, newTrigger);
+    return newTrigger;
+  }
+
+  async getCkycNotificationTriggers(ckycRecordId?: string, status?: string): Promise<CkycNotificationTrigger[]> {
+    let triggers = Array.from(this.ckycNotificationTriggers.values());
+    
+    if (ckycRecordId) {
+      triggers = triggers.filter(t => t.ckycRecordId === ckycRecordId);
+    }
+    
+    if (status) {
+      triggers = triggers.filter(t => t.status === status);
+    }
+    
+    return triggers.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async updateCkycNotificationStatus(id: string, status: string, sentAt?: Date, failureReason?: string): Promise<CkycNotificationTrigger | undefined> {
+    const existing = this.ckycNotificationTriggers.get(id);
+    if (existing) {
+      const updated = {
+        ...existing,
+        status,
+        sentAt: sentAt || undefined,
+        failureReason: failureReason || undefined
+      };
+      this.ckycNotificationTriggers.set(id, updated);
+      return updated;
+    }
+    return undefined;
+  }
+
+  // CKYC Progress Steps methods
+  async createCkycProgressStep(step: InsertCkycProgressStep): Promise<CkycProgressStep> {
+    const newStep: CkycProgressStep = {
+      ...step,
+      id: randomUUID(),
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    const existingSteps = this.ckycProgressSteps.get(step.ckycRecordId) || [];
+    existingSteps.push(newStep);
+    this.ckycProgressSteps.set(step.ckycRecordId, existingSteps);
+    
+    return newStep;
+  }
+
+  async getCkycProgressSteps(ckycRecordId: string): Promise<CkycProgressStep[]> {
+    return (this.ckycProgressSteps.get(ckycRecordId) || [])
+      .sort((a, b) => a.stepOrder - b.stepOrder);
+  }
+
+  async updateCkycProgressStep(id: string, updates: Partial<CkycProgressStep>): Promise<CkycProgressStep | undefined> {
+    // Find and update step across all CKYC records
+    for (const [ckycRecordId, steps] of this.ckycProgressSteps.entries()) {
+      const stepIndex = steps.findIndex(step => step.id === id);
+      if (stepIndex !== -1) {
+        const updated = {
+          ...steps[stepIndex],
+          ...updates,
+          updatedAt: new Date()
+        };
+        steps[stepIndex] = updated;
+        this.ckycProgressSteps.set(ckycRecordId, steps);
+        return updated;
+      }
+    }
+    return undefined;
+  }
+
+  // CKYC Action Log methods
+  async createCkycActionLog(log: InsertCkycActionLog): Promise<CkycActionLog> {
+    const newLog: CkycActionLog = {
+      ...log,
+      id: randomUUID(),
+      actionAt: new Date()
+    };
+    
+    const existingLogs = this.ckycActionLogs.get(log.ckycRecordId) || [];
+    existingLogs.push(newLog);
+    this.ckycActionLogs.set(log.ckycRecordId, existingLogs);
+    
+    return newLog;
+  }
+
+  async getCkycActionLogs(ckycRecordId?: string, actionBy?: string): Promise<CkycActionLog[]> {
+    let allLogs: CkycActionLog[] = [];
+    
+    if (ckycRecordId) {
+      allLogs = this.ckycActionLogs.get(ckycRecordId) || [];
+    } else {
+      // Get all logs from all CKYC records
+      for (const logs of this.ckycActionLogs.values()) {
+        allLogs.push(...logs);
+      }
+    }
+    
+    if (actionBy) {
+      allLogs = allLogs.filter(log => log.actionBy === actionBy);
+    }
+    
+    return allLogs.sort((a, b) => b.actionAt.getTime() - a.actionAt.getTime());
+  }
+
+  // CKYC Notification Service methods
+  async sendNotification(trigger: CkycNotificationTrigger): Promise<boolean> {
+    try {
+      // Simulate notification sending (in real implementation, integrate with SMS/Email providers)
+      console.log(`📧 Sending ${trigger.notificationMethod} notification:`, {
+        to: trigger.recipientEmail || trigger.recipientMobile,
+        subject: trigger.subject,
+        message: trigger.message
+      });
+      
+      // Mark as sent
+      await this.updateCkycNotificationStatus(trigger.id, "sent", new Date());
+      return true;
+    } catch (error) {
+      console.error("❌ Failed to send notification:", error);
+      await this.updateCkycNotificationStatus(trigger.id, "failed", undefined, error.message);
+      return false;
+    }
+  }
+
+  async processPendingNotifications(): Promise<void> {
+    const pendingTriggers = await this.getCkycNotificationTriggers(undefined, "pending");
+    
+    for (const trigger of pendingTriggers) {
+      // Check if scheduled time has arrived
+      if (trigger.scheduledAt && new Date() < trigger.scheduledAt) {
+        continue; // Not yet time to send
+      }
+      
+      await this.sendNotification(trigger);
+    }
   }
 }
 

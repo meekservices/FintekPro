@@ -1481,3 +1481,80 @@ export type CkycDocument = typeof ckycDocuments.$inferSelect;
 export type InsertCkycDocument = z.infer<typeof insertCkycDocumentSchema>;
 export type CkycStatusHistory = typeof ckycStatusHistory.$inferSelect;
 export type InsertCkycStatusHistory = z.infer<typeof insertCkycStatusHistorySchema>;
+
+// CKYC Progress Monitoring and Notification System
+export const ckycNotificationTriggers = pgTable("ckyc_notification_triggers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ckycRecordId: varchar("ckyc_record_id").references(() => ckycRecords.id).notNull(),
+  triggerType: varchar("trigger_type").notNull(), // 'status_change', 'document_required', 'verification_pending', 'manual_trigger'
+  notificationMethod: varchar("notification_method").notNull(), // 'email', 'sms', 'both'
+  recipientEmail: varchar("recipient_email"),
+  recipientMobile: varchar("recipient_mobile"),
+  subject: varchar("subject").notNull(),
+  message: text("message").notNull(),
+  status: varchar("status").default("pending"), // pending, sent, failed, cancelled
+  scheduledAt: timestamp("scheduled_at"),
+  sentAt: timestamp("sent_at"),
+  failureReason: text("failure_reason"),
+  triggerredBy: varchar("triggerred_by"), // admin_id or agent_id who triggered
+  metadata: jsonb("metadata"), // additional context like template variables
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// CKYC Progress Tracking
+export const ckycProgressSteps = pgTable("ckyc_progress_steps", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ckycRecordId: varchar("ckyc_record_id").references(() => ckycRecords.id).notNull(),
+  stepName: varchar("step_name").notNull(), // 'application_received', 'documents_uploaded', 'verification_in_progress', 'approved', 'rejected'
+  stepStatus: varchar("step_status").notNull(), // 'pending', 'in_progress', 'completed', 'failed'
+  stepDescription: text("step_description"),
+  completedAt: timestamp("completed_at"),
+  completedBy: varchar("completed_by"), // user_id, agent_id, or 'system'
+  estimatedCompletionTime: integer("estimated_completion_time"), // in hours
+  actualCompletionTime: integer("actual_completion_time"), // in hours from step start
+  stepOrder: integer("step_order").notNull(), // order of steps (1, 2, 3...)
+  isActive: boolean("is_active").default(true),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Admin/Agent CKYC Actions Log
+export const ckycActionLogs = pgTable("ckyc_action_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ckycRecordId: varchar("ckyc_record_id").references(() => ckycRecords.id).notNull(),
+  actionType: varchar("action_type").notNull(), // 'trigger_notification', 'status_update', 'document_review', 'manual_verification'
+  actionBy: varchar("action_by").notNull(), // admin_id or agent_id
+  actionByType: varchar("action_by_type").notNull(), // 'admin' or 'agent'
+  actionDetails: text("action_details").notNull(),
+  previousValue: jsonb("previous_value"), // before state
+  newValue: jsonb("new_value"), // after state
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  actionAt: timestamp("action_at").defaultNow(),
+});
+
+// Zod schemas for CKYC Progress Monitoring
+export const insertCkycNotificationTriggerSchema = createInsertSchema(ckycNotificationTriggers).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertCkycProgressStepSchema = createInsertSchema(ckycProgressSteps).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCkycActionLogSchema = createInsertSchema(ckycActionLogs).omit({
+  id: true,
+  actionAt: true,
+});
+
+// Export types for CKYC Progress Monitoring
+export type CkycNotificationTrigger = typeof ckycNotificationTriggers.$inferSelect;
+export type InsertCkycNotificationTrigger = z.infer<typeof insertCkycNotificationTriggerSchema>;
+export type CkycProgressStep = typeof ckycProgressSteps.$inferSelect;
+export type InsertCkycProgressStep = z.infer<typeof insertCkycProgressStepSchema>;
+export type CkycActionLog = typeof ckycActionLogs.$inferSelect;
+export type InsertCkycActionLog = z.infer<typeof insertCkycActionLogSchema>;

@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { RiskProfileViewer } from "@/components/risk-profiling/risk-profile-viewer";
 import { RiskAssessmentForm } from "@/components/risk-profiling/risk-assessment-form";
+import CkycManagement from "./admin/ckyc-management";
 
 // API Status Panel Component
 function ApiStatusPanel() {
@@ -2171,7 +2172,7 @@ export default function AdminPanel() {
       </div>
 
       <Tabs defaultValue="dashboard" className="space-y-6">
-        <TabsList className={`grid w-full ${(currentUser as any)?.role === 'super_admin' ? 'grid-cols-13' : 'grid-cols-12'}`}>
+        <TabsList className={`grid w-full ${(currentUser as any)?.role === 'super_admin' ? 'grid-cols-14' : 'grid-cols-13'}`}>
           <TabsTrigger value="dashboard" data-testid="tab-dashboard">
             <TrendingUp className="w-4 h-4 mr-2" />
             Dashboard
@@ -2183,6 +2184,10 @@ export default function AdminPanel() {
           <TabsTrigger value="activity" data-testid="tab-activity">
             <Activity className="w-4 h-4 mr-2" />
             Activity
+          </TabsTrigger>
+          <TabsTrigger value="ckyc" data-testid="tab-ckyc">
+            <Shield className="w-4 h-4 mr-2" />
+            CKYC
           </TabsTrigger>
           <TabsTrigger value="api-status" data-testid="tab-api-status">
             <Server className="w-4 h-4 mr-2" />
@@ -2573,6 +2578,11 @@ export default function AdminPanel() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* CKYC Management Tab */}
+        <TabsContent value="ckyc" className="space-y-6">
+          <CkycManagement />
         </TabsContent>
 
         {/* API Status Tab */}

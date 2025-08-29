@@ -28,6 +28,7 @@ import WhatsAppAuthPage from "@/pages/whatsapp-auth-page";
 import CkycVerification from "@/pages/ckyc-verification";
 import CamsIntegration from "@/pages/cams-integration";
 import KFintechIntegration from "@/pages/kfintech-integration";
+import AgentDashboard from "@/pages/agent-dashboard";
 
 function Router() {
   return (
@@ -49,6 +50,7 @@ function Router() {
       <Route path="/whatsapp-login" component={WhatsAppAuthPage} />
       <Route path="/profile" component={ProfilePage} />
       <Route path="/admin" component={AdminPanel} />
+      <Route path="/agent" component={AgentDashboard} />
       <Route path="/partner" component={PartnerPortal} />
       <Route path="/support" component={Support} />
       <Route path="/wealth" component={WealthManagement} />
