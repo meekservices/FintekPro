@@ -118,13 +118,13 @@ export const FINANCIAL_SERVICES = [
     cta: 'View IPOs →'
   },
   {
-    id: 'bonds',
-    name: 'Bonds & NCDs',
-    description: 'Fixed income investments with guaranteed returns',
-    icon: 'fas fa-certificate',
+    id: 'unlisted',
+    name: 'Unlisted Securities',
+    description: 'Exclusive access to pre-IPO and unlisted equity investments',
+    icon: 'fas fa-gem',
     color: 'yellow',
-    stats: ['Yield: 7-12% p.a.', 'Min: ₹10,000', 'Government bonds'],
-    cta: 'Browse Bonds →'
+    stats: ['Pre-IPO access', 'High growth potential', 'Exclusive deals'],
+    cta: 'Explore Unlisted →'
   },
   {
     id: 'loans',
