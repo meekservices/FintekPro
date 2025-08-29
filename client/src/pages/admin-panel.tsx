@@ -1095,6 +1095,14 @@ function MarketingToolsPanel() {
           <Share2 className="w-4 h-4 mr-2" />
           Social Media
         </Button>
+        <Button
+          variant={activeView === 'whatsapp' ? 'default' : 'outline'}
+          onClick={() => setActiveView('whatsapp')}
+          size="sm"
+        >
+          <Phone className="w-4 h-4 mr-2" />
+          WhatsApp Marketing
+        </Button>
       </div>
 
       {/* Campaign Management */}
@@ -1431,6 +1439,372 @@ function MarketingToolsPanel() {
                 <div className="flex gap-2">
                   <Button size="sm" variant="outline">Schedule</Button>
                   <Button size="sm">Post Now</Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* WhatsApp Marketing */}
+      {activeView === 'whatsapp' && (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold">WhatsApp Marketing Center</h3>
+            <Button onClick={() => toast({ title: "WhatsApp Connected", description: "Your WhatsApp Business API is active and ready" })}>
+              <Phone className="w-4 h-4 mr-2" />
+              Connect WhatsApp Business
+            </Button>
+          </div>
+
+          {/* WhatsApp Overview Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Messages Sent</CardTitle>
+                <Phone className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">2,847</div>
+                <p className="text-xs text-muted-foreground">+12% from last month</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Read Rate</CardTitle>
+                <Eye className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">89.2%</div>
+                <p className="text-xs text-muted-foreground">Industry leading</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Response Rate</CardTitle>
+                <MessageSquare className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">34.7%</div>
+                <p className="text-xs text-muted-foreground">+5.2% increase</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Active Contacts</CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">1,234</div>
+                <p className="text-xs text-muted-foreground">Opted-in contacts</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* WhatsApp Campaign Tools */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Send className="w-5 h-5" />
+                  Broadcast Campaign
+                </CardTitle>
+                <CardDescription>Send marketing messages to segmented audiences</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Campaign Type</Label>
+                  <Select defaultValue="portfolio-update">
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="portfolio-update">Portfolio Updates</SelectItem>
+                      <SelectItem value="market-alerts">Market Alerts</SelectItem>
+                      <SelectItem value="educational">Educational Content</SelectItem>
+                      <SelectItem value="promotional">Promotional Offers</SelectItem>
+                      <SelectItem value="onboarding">New User Onboarding</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Target Audience</Label>
+                  <Select defaultValue="active-traders">
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all-users">All Users</SelectItem>
+                      <SelectItem value="new-users">New Users (Last 30 days)</SelectItem>
+                      <SelectItem value="active-traders">Active Traders</SelectItem>
+                      <SelectItem value="long-term-investors">Long-term Investors</SelectItem>
+                      <SelectItem value="inactive-users">Inactive Users</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Message Template</Label>
+                  <Textarea 
+                    placeholder="🏦 *Market Update from FintekPro*
+
+Hi {{name}}, your portfolio has gained {{gain}}% today! 
+
+📊 Top performers:
+• {{stock1}}: +{{percent1}}%
+• {{stock2}}: +{{percent2}}%
+
+💡 AI Recommendation: {{recommendation}}
+
+Login to view detailed analysis: {{app_link}}"
+                    className="min-h-[150px]"
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <Button className="flex-1" onClick={() => toast({ title: "Preview Ready", description: "WhatsApp message preview generated" })}>
+                    <Eye className="w-4 h-4 mr-2" />
+                    Preview
+                  </Button>
+                  <Button variant="outline" className="flex-1" onClick={() => toast({ title: "Campaign Scheduled", description: "WhatsApp broadcast will be sent to 1,234 contacts" })}>
+                    <Send className="w-4 h-4 mr-2" />
+                    Send Now
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Bot className="w-5 h-5" />
+                  AI-Powered Automation
+                </CardTitle>
+                <CardDescription>Automated WhatsApp marketing sequences</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div>
+                      <p className="font-medium">Welcome Sequence</p>
+                      <p className="text-sm text-muted-foreground">3-message onboarding flow</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary">Active</Badge>
+                      <Button size="sm" variant="outline">Edit</Button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div>
+                      <p className="font-medium">Market Alert Automation</p>
+                      <p className="text-sm text-muted-foreground">Triggered by significant movements</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary">Active</Badge>
+                      <Button size="sm" variant="outline">Edit</Button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div>
+                      <p className="font-medium">Portfolio Performance</p>
+                      <p className="text-sm text-muted-foreground">Weekly summary messages</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">Paused</Badge>
+                      <Button size="sm" variant="outline">Edit</Button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div>
+                      <p className="font-medium">Re-engagement Campaign</p>
+                      <p className="text-sm text-muted-foreground">For inactive users (30+ days)</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary">Active</Badge>
+                      <Button size="sm" variant="outline">Edit</Button>
+                    </div>
+                  </div>
+                </div>
+
+                <Button className="w-full" onClick={() => toast({ title: "New Automation", description: "Create a new WhatsApp automation sequence" })}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create New Automation
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* WhatsApp Analytics & Templates */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Message Templates</CardTitle>
+                <CardDescription>Pre-approved WhatsApp Business templates</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="p-3 border rounded-lg">
+                    <div className="flex justify-between items-start mb-2">
+                      <p className="font-medium">Portfolio Alert</p>
+                      <Badge variant="secondary">Approved</Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      🚨 Your portfolio {{action}} by {{percentage}}% today. Check the details...
+                    </p>
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" variant="outline">Edit</Button>
+                      <Button size="sm" variant="outline">Use Template</Button>
+                    </div>
+                  </div>
+
+                  <div className="p-3 border rounded-lg">
+                    <div className="flex justify-between items-start mb-2">
+                      <p className="font-medium">Market Insight</p>
+                      <Badge variant="secondary">Approved</Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      📊 Market Update: {{market_summary}}. AI recommends: {{recommendation}}
+                    </p>
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" variant="outline">Edit</Button>
+                      <Button size="sm" variant="outline">Use Template</Button>
+                    </div>
+                  </div>
+
+                  <div className="p-3 border rounded-lg">
+                    <div className="flex justify-between items-start mb-2">
+                      <p className="font-medium">Educational Tip</p>
+                      <Badge variant="secondary">Approved</Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      💡 Investment Tip: {{educational_content}}. Learn more in the app.
+                    </p>
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" variant="outline">Edit</Button>
+                      <Button size="sm" variant="outline">Use Template</Button>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Campaign Performance</CardTitle>
+                <CardDescription>Last 7 days WhatsApp campaign metrics</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center p-3 border rounded-lg">
+                    <div>
+                      <p className="font-medium">Market Alert Campaign</p>
+                      <p className="text-sm text-muted-foreground">Sent 2 days ago</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium">89.2% read</p>
+                      <p className="text-sm text-muted-foreground">1,234 sent</p>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center p-3 border rounded-lg">
+                    <div>
+                      <p className="font-medium">Portfolio Summary</p>
+                      <p className="text-sm text-muted-foreground">Sent 5 days ago</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium">76.8% read</p>
+                      <p className="text-sm text-muted-foreground">987 sent</p>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center p-3 border rounded-lg">
+                    <div>
+                      <p className="font-medium">Educational Content</p>
+                      <p className="text-sm text-muted-foreground">Sent 7 days ago</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium">92.1% read</p>
+                      <p className="text-sm text-muted-foreground">1,456 sent</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t">
+                  <div className="grid grid-cols-2 gap-4 text-center">
+                    <div>
+                      <p className="text-2xl font-bold text-green-600">86.4%</p>
+                      <p className="text-sm text-muted-foreground">Avg. Read Rate</p>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-blue-600">28.7%</p>
+                      <p className="text-sm text-muted-foreground">Click-through Rate</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* WhatsApp Capabilities Summary */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Zap className="w-5 h-5" />
+                WhatsApp Marketing Capabilities
+              </CardTitle>
+              <CardDescription>
+                Comprehensive WhatsApp Business API integration for automated marketing
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <h4 className="font-medium flex items-center gap-2">
+                    <Send className="w-4 h-4" />
+                    Automated Campaigns
+                  </h4>
+                  <ul className="text-sm text-muted-foreground space-y-1">
+                    <li>• AI-powered portfolio updates</li>
+                    <li>• Market alert notifications</li>
+                    <li>• Educational content delivery</li>
+                    <li>• User onboarding sequences</li>
+                    <li>• Re-engagement campaigns</li>
+                  </ul>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="font-medium flex items-center gap-2">
+                    <Target className="w-4 h-4" />
+                    Smart Targeting
+                  </h4>
+                  <ul className="text-sm text-muted-foreground space-y-1">
+                    <li>• User segmentation by activity</li>
+                    <li>• Investment behavior analysis</li>
+                    <li>• Portfolio performance targeting</li>
+                    <li>• Risk profile based messaging</li>
+                    <li>• Personalized recommendations</li>
+                  </ul>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="font-medium flex items-center gap-2">
+                    <BarChart className="w-4 h-4" />
+                    Analytics & Tracking
+                  </h4>
+                  <ul className="text-sm text-muted-foreground space-y-1">
+                    <li>• Real-time delivery status</li>
+                    <li>• Read receipt tracking</li>
+                    <li>• Click-through rate analysis</li>
+                    <li>• Conversion tracking</li>
+                    <li>• ROI measurement</li>
+                  </ul>
                 </div>
               </div>
             </CardContent>
