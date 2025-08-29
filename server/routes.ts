@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
-import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema, insertCapitalGainsReportSchema, insertTransactionReportSchema, insertTransactionRecordSchema } from "@shared/schema";
+import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema, insertCapitalGainsReportSchema, insertTransactionReportSchema, insertTransactionRecordSchema, insertCkycRecordSchema, insertCkycDocumentSchema, insertCkycStatusHistorySchema } from "@shared/schema";
 import { marketStoryService, type MarketData as StoryMarketData } from "./market-story-service";
 import { generateMarketInsight, analyzePortfolio, generateInvestmentStory, explainFinancialConcept } from "./gemini";
 import { whatsappService } from "./whatsapp";
@@ -9496,6 +9496,177 @@ System Security Data:`;
       }
     };
   }
+
+  // ============ CKYC (Central KYC Registry) API ROUTES ============
+
+  // Get CKYC record for a user
+  app.get("/api/ckyc/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const ckycRecord = await storage.getCkycRecord(userId);
+      
+      if (!ckycRecord) {
+        return res.status(404).json({ error: "CKYC record not found" });
+      }
+      
+      res.json(ckycRecord);
+    } catch (error) {
+      console.error("Error fetching CKYC record:", error);
+      res.status(500).json({ error: "Failed to fetch CKYC record" });
+    }
+  });
+
+  // Create or update CKYC record
+  app.post("/api/ckyc", async (req, res) => {
+    try {
+      const validatedData = insertCkycRecordSchema.parse(req.body);
+      
+      // Check if record already exists
+      const existingRecord = await storage.getCkycRecord(validatedData.userId);
+      
+      let ckycRecord;
+      if (existingRecord) {
+        ckycRecord = await storage.updateCkycRecord(validatedData.userId, validatedData);
+      } else {
+        ckycRecord = await storage.createCkycRecord(validatedData);
+      }
+      
+      // Log status change
+      await storage.addCkycStatusHistory({
+        userId: validatedData.userId,
+        status: validatedData.verificationStatus,
+        changedBy: req.user?.id || 'system',
+        remarks: 'CKYC record created/updated'
+      });
+      
+      res.json(ckycRecord);
+    } catch (error) {
+      console.error("Error creating/updating CKYC record:", error);
+      res.status(500).json({ error: "Failed to create/update CKYC record" });
+    }
+  });
+
+  // Upload CKYC document
+  app.post("/api/ckyc/:userId/documents", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const documentData = insertCkycDocumentSchema.parse(req.body);
+      
+      const document = await storage.addCkycDocument({
+        ...documentData,
+        userId
+      });
+      
+      res.json(document);
+    } catch (error) {
+      console.error("Error uploading CKYC document:", error);
+      res.status(500).json({ error: "Failed to upload document" });
+    }
+  });
+
+  // Get CKYC documents for a user
+  app.get("/api/ckyc/:userId/documents", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const documents = await storage.getCkycDocuments(userId);
+      res.json(documents);
+    } catch (error) {
+      console.error("Error fetching CKYC documents:", error);
+      res.status(500).json({ error: "Failed to fetch documents" });
+    }
+  });
+
+  // Get CKYC status history
+  app.get("/api/ckyc/:userId/history", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const history = await storage.getCkycStatusHistory(userId);
+      res.json(history);
+    } catch (error) {
+      console.error("Error fetching CKYC status history:", error);
+      res.status(500).json({ error: "Failed to fetch status history" });
+    }
+  });
+
+  // Admin: Get all CKYC records with pagination
+  app.get("/api/admin/ckyc", requireAdmin, async (req, res) => {
+    try {
+      const { status, page = "1", limit = "50" } = req.query as any;
+      const records = await storage.getAllCkycRecords({
+        status,
+        page: parseInt(page),
+        limit: parseInt(limit)
+      });
+      
+      res.json(records);
+    } catch (error) {
+      console.error("Error fetching all CKYC records:", error);
+      res.status(500).json({ error: "Failed to fetch CKYC records" });
+    }
+  });
+
+  // Admin: Update CKYC verification status
+  app.patch("/api/admin/ckyc/:userId/status", requireAdmin, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { status, remarks } = req.body;
+      
+      const updated = await storage.updateCkycRecord(userId, { 
+        verificationStatus: status,
+        verifiedAt: status === 'verified' ? new Date() : null,
+        verifiedBy: status === 'verified' ? req.user?.id : null
+      });
+      
+      // Log status change
+      await storage.addCkycStatusHistory({
+        userId,
+        status,
+        changedBy: req.user?.id || 'admin',
+        remarks: remarks || `Status changed to ${status}`
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating CKYC status:", error);
+      res.status(500).json({ error: "Failed to update CKYC status" });
+    }
+  });
+
+  // CKYC compliance check for trading/investment activities
+  app.get("/api/ckyc/:userId/compliance", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const ckycRecord = await storage.getCkycRecord(userId);
+      
+      if (!ckycRecord) {
+        return res.json({
+          compliant: false,
+          reason: "CKYC record not found",
+          requiredActions: ["Complete CKYC registration"]
+        });
+      }
+      
+      const compliance = {
+        compliant: ckycRecord.verificationStatus === 'verified',
+        status: ckycRecord.verificationStatus,
+        ckycNumber: ckycRecord.ckycNumber,
+        expiryDate: ckycRecord.expiryDate,
+        reason: ckycRecord.verificationStatus !== 'verified' 
+          ? `CKYC status is ${ckycRecord.verificationStatus}` 
+          : null,
+        requiredActions: ckycRecord.verificationStatus === 'pending' 
+          ? ["Upload required documents", "Wait for verification"] 
+          : ckycRecord.verificationStatus === 'rejected'
+          ? ["Review rejection remarks", "Resubmit with correct documents"]
+          : []
+      };
+      
+      res.json(compliance);
+    } catch (error) {
+      console.error("Error checking CKYC compliance:", error);
+      res.status(500).json({ error: "Failed to check compliance" });
+    }
+  });
 
   // ============ CUSTOMER CARE AGENT ROUTES ============
   

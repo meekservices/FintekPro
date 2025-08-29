@@ -1,4 +1,4 @@
-import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping } from "@shared/schema";
+import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 // We'll import hashPassword later to avoid circular dependency
@@ -139,6 +139,20 @@ export interface IStorage {
   // Achievement Analytics
   getUserAchievementStats(userId: string): Promise<{ totalPoints: number; completedAchievements: number; categories: Record<string, number> }>;
   getAchievementLeaderboard(limit?: number): Promise<Array<{ userId: string; totalPoints: number; completedAchievements: number; user?: User }>>;
+
+  // CKYC (Central KYC Registry) methods
+  getCkycRecord(userId: string): Promise<CkycRecord | undefined>;
+  createCkycRecord(ckycRecord: InsertCkycRecord): Promise<CkycRecord>;
+  updateCkycRecord(userId: string, updates: Partial<CkycRecord>): Promise<CkycRecord | undefined>;
+  getAllCkycRecords(options?: { status?: string; page?: number; limit?: number }): Promise<CkycRecord[]>;
+
+  // CKYC Document methods
+  getCkycDocuments(userId: string): Promise<CkycDocument[]>;
+  addCkycDocument(document: InsertCkycDocument): Promise<CkycDocument>;
+  
+  // CKYC Status History methods
+  getCkycStatusHistory(userId: string): Promise<CkycStatusHistory[]>;
+  addCkycStatusHistory(history: InsertCkycStatusHistory): Promise<CkycStatusHistory>;
 }
 
 export class MemStorage implements IStorage {
@@ -161,6 +175,9 @@ export class MemStorage implements IStorage {
   private transactionRecords: Map<string, TransactionRecord>;
   private customerCareAgents: Map<string, CustomerCareAgent>;
   private agentPartnerMappings: Map<string, AgentPartnerMapping>;
+  private ckycRecords: Map<string, CkycRecord>;
+  private ckycDocuments: Map<string, CkycDocument[]>;
+  private ckycStatusHistory: Map<string, CkycStatusHistory[]>;
 
   constructor() {
     this.users = new Map();
@@ -182,6 +199,9 @@ export class MemStorage implements IStorage {
     this.transactionRecords = new Map();
     this.customerCareAgents = new Map();
     this.agentPartnerMappings = new Map();
+    this.ckycRecords = new Map();
+    this.ckycDocuments = new Map();
+    this.ckycStatusHistory = new Map();
     
     // Initialize with sample data
     this.initializeSampleData();
@@ -1573,6 +1593,93 @@ export class MemStorage implements IStorage {
 
   async deleteAgentPartnerMapping(id: string): Promise<boolean> {
     return this.agentPartnerMappings.delete(id);
+  }
+
+  // CKYC (Central KYC Registry) methods
+  async getCkycRecord(userId: string): Promise<CkycRecord | undefined> {
+    return this.ckycRecords.get(userId);
+  }
+
+  async createCkycRecord(ckycRecord: InsertCkycRecord): Promise<CkycRecord> {
+    const newRecord: CkycRecord = {
+      ...ckycRecord,
+      id: randomUUID(),
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    this.ckycRecords.set(ckycRecord.userId, newRecord);
+    return newRecord;
+  }
+
+  async updateCkycRecord(userId: string, updates: Partial<CkycRecord>): Promise<CkycRecord | undefined> {
+    const existing = this.ckycRecords.get(userId);
+    if (existing) {
+      const updated: CkycRecord = {
+        ...existing,
+        ...updates,
+        updatedAt: new Date()
+      };
+      this.ckycRecords.set(userId, updated);
+      return updated;
+    }
+    return undefined;
+  }
+
+  async getAllCkycRecords(options?: { status?: string; page?: number; limit?: number }): Promise<CkycRecord[]> {
+    let records = Array.from(this.ckycRecords.values());
+    
+    if (options?.status) {
+      records = records.filter(record => record.verificationStatus === options.status);
+    }
+    
+    // Simple pagination
+    const page = options?.page || 1;
+    const limit = options?.limit || 50;
+    const start = (page - 1) * limit;
+    const end = start + limit;
+    
+    return records
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(start, end);
+  }
+
+  // CKYC Document methods
+  async getCkycDocuments(userId: string): Promise<CkycDocument[]> {
+    return this.ckycDocuments.get(userId) || [];
+  }
+
+  async addCkycDocument(document: InsertCkycDocument): Promise<CkycDocument> {
+    const newDocument: CkycDocument = {
+      ...document,
+      id: randomUUID(),
+      uploadedAt: new Date()
+    };
+    
+    const existingDocuments = this.ckycDocuments.get(document.userId) || [];
+    existingDocuments.push(newDocument);
+    this.ckycDocuments.set(document.userId, existingDocuments);
+    
+    return newDocument;
+  }
+
+  // CKYC Status History methods
+  async getCkycStatusHistory(userId: string): Promise<CkycStatusHistory[]> {
+    return this.ckycStatusHistory.get(userId) || [];
+  }
+
+  async addCkycStatusHistory(history: InsertCkycStatusHistory): Promise<CkycStatusHistory> {
+    const newHistory: CkycStatusHistory = {
+      ...history,
+      id: randomUUID(),
+      changedAt: new Date()
+    };
+    
+    const existingHistory = this.ckycStatusHistory.get(history.userId) || [];
+    existingHistory.push(newHistory);
+    this.ckycStatusHistory.set(history.userId, existingHistory);
+    
+    return newHistory;
   }
 }
 

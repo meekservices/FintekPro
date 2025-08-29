@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, User as UserIcon, HelpCircle, LogOut } from "lucide-react";
+import { Menu, User as UserIcon, HelpCircle, LogOut, Shield } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { type User } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -99,6 +99,16 @@ export function Header() {
                     {user?.firstName || user?.email || 'Client'}
                   </span>
                 </div>
+                <Link href="/ckyc">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    data-testid="ckyc-button"
+                  >
+                    <Shield className="h-4 w-4 mr-2" />
+                    CKYC
+                  </Button>
+                </Link>
                 <Link href="/profile">
                   <Button 
                     variant="outline" 
@@ -180,6 +190,17 @@ export function Header() {
                           <p className="text-sm text-gray-500">{user?.email}</p>
                         </div>
                       </div>
+                      <Link href="/ckyc">
+                        <Button 
+                          className="w-full" 
+                          variant="outline"
+                          onClick={() => setIsOpen(false)}
+                          data-testid="mobile-ckyc-button"
+                        >
+                          <Shield className="h-4 w-4 mr-2" />
+                          CKYC Verification
+                        </Button>
+                      </Link>
                       <Link href="/profile">
                         <Button 
                           className="w-full" 

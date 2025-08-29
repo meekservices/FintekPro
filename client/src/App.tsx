@@ -25,6 +25,7 @@ import WealthManagement from "@/pages/wealth-management";
 import Achievements from "@/pages/achievements";
 import CapitalGainsReports from "@/pages/capital-gains-reports";
 import WhatsAppAuthPage from "@/pages/whatsapp-auth-page";
+import CkycVerification from "@/pages/ckyc-verification";
 
 function Router() {
   return (
@@ -52,6 +53,7 @@ function Router() {
       <Route path="/wealth-management" component={WealthManagement} />
       <Route path="/achievements" component={Achievements} />
       <Route path="/capital-gains" component={CapitalGainsReports} />
+      <Route path="/ckyc" component={CkycVerification} />
       <Route component={NotFound} />
     </Switch>
   );

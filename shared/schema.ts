@@ -59,6 +59,95 @@ export const otpVerifications = pgTable("otp_verifications", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// CKYC (Central KYC Registry) records table
+export const ckycRecords = pgTable("ckyc_records", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  ckycNumber: varchar("ckyc_number").unique(), // CKYC identifier from registry
+  applicationNumber: varchar("application_number"),
+  
+  // Personal Information
+  firstName: varchar("first_name").notNull(),
+  middleName: varchar("middle_name"),
+  lastName: varchar("last_name").notNull(),
+  dateOfBirth: date("date_of_birth").notNull(),
+  gender: varchar("gender", { length: 1 }), // M/F/T
+  maritalStatus: varchar("marital_status"),
+  nationality: varchar("nationality").default("Indian"),
+  
+  // Document Information
+  panNumber: varchar("pan_number").notNull(),
+  aadharNumber: varchar("aadhar_number"),
+  passportNumber: varchar("passport_number"),
+  voterIdNumber: varchar("voter_id_number"),
+  drivingLicenseNumber: varchar("driving_license_number"),
+  
+  // Contact Information
+  mobileNumber: varchar("mobile_number").notNull(),
+  emailAddress: varchar("email_address").notNull(),
+  
+  // Address Information
+  addressLine1: text("address_line1").notNull(),
+  addressLine2: text("address_line2"),
+  city: varchar("city").notNull(),
+  district: varchar("district"),
+  state: varchar("state").notNull(),
+  pincode: varchar("pincode", { length: 6 }).notNull(),
+  country: varchar("country").default("India"),
+  addressType: varchar("address_type").default("permanent"), // permanent/correspondence
+  
+  // Financial Information
+  occupation: varchar("occupation"),
+  annualIncome: varchar("annual_income"),
+  netWorth: varchar("net_worth"),
+  sourceOfWealth: varchar("source_of_wealth"),
+  
+  // CKYC Status and Processing
+  status: varchar("status").default("pending"), // pending/verified/rejected/expired
+  verificationLevel: varchar("verification_level"), // basic/enhanced
+  lastVerifiedAt: timestamp("last_verified_at"),
+  expiryDate: date("expiry_date"),
+  
+  // Compliance and Regulatory
+  fatcaStatus: varchar("fatca_status"), // Y/N
+  pepStatus: varchar("pep_status").default("N"), // Y/N (Politically Exposed Person)
+  riskCategory: varchar("risk_category").default("low"), // low/medium/high
+  
+  // Metadata
+  kycType: varchar("kyc_type").default("ckyc"), // ckyc/ekyc/manual
+  submittedAt: timestamp("submitted_at").defaultNow(),
+  verifiedBy: varchar("verified_by"), // system/agent_id
+  rejectionReason: text("rejection_reason"),
+  
+  // Audit fields
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// CKYC Documents table for storing document references
+export const ckycDocuments = pgTable("ckyc_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ckycRecordId: varchar("ckyc_record_id").references(() => ckycRecords.id).notNull(),
+  documentType: varchar("document_type").notNull(), // pan/aadhar/passport/photo/signature
+  documentNumber: varchar("document_number"),
+  documentUrl: varchar("document_url"), // stored in object storage
+  verificationStatus: varchar("verification_status").default("pending"), // pending/verified/rejected
+  uploadedAt: timestamp("uploaded_at").defaultNow(),
+  verifiedAt: timestamp("verified_at"),
+});
+
+// CKYC Status History for audit trail
+export const ckycStatusHistory = pgTable("ckyc_status_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ckycRecordId: varchar("ckyc_record_id").references(() => ckycRecords.id).notNull(),
+  previousStatus: varchar("previous_status"),
+  newStatus: varchar("new_status").notNull(),
+  changedBy: varchar("changed_by"), // user_id or system
+  reason: text("reason"),
+  metadata: jsonb("metadata"), // additional context
+  changedAt: timestamp("changed_at").defaultNow(),
+});
+
 export const portfolios = pgTable("portfolios", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id).notNull(),
@@ -1367,3 +1456,28 @@ export type PreIpoAnalytics = typeof preIpoAnalytics.$inferSelect;
 export type InsertPreIpoAnalytics = z.infer<typeof insertPreIpoAnalyticsSchema>;
 export type PreIpoMarketInsights = typeof preIpoMarketInsights.$inferSelect;
 export type InsertPreIpoMarketInsights = z.infer<typeof insertPreIpoMarketInsightsSchema>;
+
+// Zod schemas for CKYC
+export const insertCkycRecordSchema = createInsertSchema(ckycRecords).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCkycDocumentSchema = createInsertSchema(ckycDocuments).omit({
+  id: true,
+  uploadedAt: true,
+});
+
+export const insertCkycStatusHistorySchema = createInsertSchema(ckycStatusHistory).omit({
+  id: true,
+  changedAt: true,
+});
+
+// Export types for CKYC
+export type CkycRecord = typeof ckycRecords.$inferSelect;
+export type InsertCkycRecord = z.infer<typeof insertCkycRecordSchema>;
+export type CkycDocument = typeof ckycDocuments.$inferSelect;
+export type InsertCkycDocument = z.infer<typeof insertCkycDocumentSchema>;
+export type CkycStatusHistory = typeof ckycStatusHistory.$inferSelect;
+export type InsertCkycStatusHistory = z.infer<typeof insertCkycStatusHistorySchema>;
