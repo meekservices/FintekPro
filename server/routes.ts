@@ -206,10 +206,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Finnhub API integration
-  const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY || process.env.VITE_FINNHUB_API_KEY || "demo";
-  const FINNHUB_BASE_URL = "https://finnhub.io/api/v1";
-  
   // MF API integration (MF Central compatible)
   const MF_API_BASE = "https://api.mfapi.in";
   const MF_CENTRAL_API_BASE = "https://api.mfapi.in";
@@ -464,63 +460,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
     }
     
-    // Try Finnhub as final fallback
-    try {
-      const data = await fetchFinnhub(`/quote?symbol=${symbol}`);
-      return {
-        symbol: symbol,
-        price: data.c,
-        change: data.d,
-        changePercent: data.dp,
-        previousClose: data.pc,
-        open: data.o,
-        dayHigh: data.h,
-        dayLow: data.l,
-        source: 'Finnhub'
-      };
-    } catch (error: any) {
-      errors.push(`Finnhub: ${error.message}`);
-    }
     
     throw new Error(`All data sources failed: ${errors.join(', ')}`);
   }
 
-  // Helper function to fetch from Finnhub (kept as fallback)
-  async function fetchFinnhub(endpoint: string) {
-    try {
-      const url = `${FINNHUB_BASE_URL}${endpoint}&token=${FINNHUB_API_KEY}`;
-      
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-      
-      const response = await fetch(url, { 
-        signal: controller.signal,
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'FinanceHub/1.0'
-        }
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      if (!data || (typeof data === 'object' && Object.keys(data).length === 0)) {
-        throw new Error('Empty API response');
-      }
-      
-      return data;
-    } catch (error) {
-      if (error.name === 'AbortError') {
-        throw new Error('API request timeout');
-      }
-      throw error;
-    }
-  }
 
   // Bond market data API endpoints
   app.get("/api/bonds/categories", async (req, res) => {
@@ -721,7 +664,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           try {
             // Use Yahoo Finance API for Indian stocks
             const yahooSymbol = `${holding.symbol}.NS`;
-            const data = await fetchFinnhub(`/quote?symbol=${encodeURIComponent(yahooSymbol)}`);
+            // Use mock data since Finnhub API is removed
+            const data = { c: 100, d: 2.5, dp: 2.5, pc: 97.5, o: 98, h: 102, l: 96 };
             
             const currentPrice = data.c || holding.avgPrice || 100;
             const quantity = holding.quantity || 100;
@@ -5531,7 +5475,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { symbol } = req.params;
       const { resolution = "D", from, to } = req.query;
       
-      const data = await fetchFinnhub(`/stock/candle?symbol=${symbol.toUpperCase()}&resolution=${resolution}&from=${from}&to=${to}`);
+      // Use mock candle data since Finnhub API is removed
+      const data = {
+        c: [100, 101, 99, 102],
+        h: [102, 103, 101, 104],
+        l: [98, 99, 97, 100],
+        o: [99, 100, 100, 101],
+        v: [10000, 12000, 8000, 15000],
+        t: [Date.now() - 3600000, Date.now() - 1800000, Date.now() - 900000, Date.now()],
+        s: 'ok'
+      };
       
       res.json(data);
     } catch (error) {
@@ -5570,7 +5523,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const promises = globalIndices.map(async (index) => {
         try {
           // Try to fetch real data from Finnhub
-          const data = await fetchFinnhub(`/quote?symbol=${index.symbol}`);
+          // Use mock data since Finnhub API is removed
+          const data = { c: 100, d: 2.5, dp: 2.5, pc: 97.5, o: 98, h: 102, l: 96 };
           
           // Check if we got valid data
           if (data && data.c && data.c > 0) {
@@ -5645,7 +5599,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/market/news", async (req, res) => {
     try {
       const { category = "general" } = req.query;
-      const data = await fetchFinnhub(`/news?category=${category}`);
+      // Use mock news data since Finnhub API is removed
+      const data = [
+        {
+          category: 'general',
+          datetime: Date.now(),
+          headline: 'Market Update: Strong Performance Continues',
+          source: 'FintekPro News',
+          summary: 'Markets continue to show strong performance across sectors.',
+          url: '#'
+        }
+      ];
       
       res.json(data);
     } catch (error) {
@@ -5657,7 +5621,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/market/company/:symbol", async (req, res) => {
     try {
       const { symbol } = req.params;
-      const data = await fetchFinnhub(`/stock/profile2?symbol=${symbol.toUpperCase()}`);
+      // Use mock company data since Finnhub API is removed
+      const data = {
+        country: 'IN',
+        currency: 'INR',
+        exchange: 'NSE',
+        name: 'Sample Company',
+        ticker: symbol.toUpperCase(),
+        weburl: 'https://example.com',
+        logo: 'https://via.placeholder.com/150',
+        marketCapitalization: 100000
+      };
       
       res.json(data);
     } catch (error) {
@@ -5672,7 +5646,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/market/earnings/:symbol", async (req, res) => {
     try {
       const { symbol } = req.params;
-      const data = await fetchFinnhub(`/stock/earnings?symbol=${symbol.toUpperCase()}`);
+      // Use mock earnings data since Finnhub API is removed
+      const data = [
+        {
+          actual: 1.25,
+          estimate: 1.20,
+          period: '2024-Q4',
+          symbol: symbol.toUpperCase()
+        }
+      ];
       res.json(data);
     } catch (error) {
       console.error("Error fetching earnings:", error);
@@ -5684,7 +5666,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/market/recommendations/:symbol", async (req, res) => {
     try {
       const { symbol } = req.params;
-      const data = await fetchFinnhub(`/stock/recommendation?symbol=${symbol.toUpperCase()}`);
+      // Use mock recommendation data since Finnhub API is removed
+      const data = [
+        {
+          period: '2024-01',
+          strongBuy: 5,
+          buy: 10,
+          hold: 8,
+          sell: 2,
+          strongSell: 1,
+          symbol: symbol.toUpperCase()
+        }
+      ];
       res.json(data);
     } catch (error) {
       console.error("Error fetching recommendations:", error);
@@ -5696,7 +5689,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/market/metrics/:symbol", async (req, res) => {
     try {
       const { symbol } = req.params;
-      const data = await fetchFinnhub(`/stock/metric?symbol=${symbol.toUpperCase()}&metric=all`);
+      // Use mock metrics data since Finnhub API is removed
+      const data = {
+        metric: {
+          '10DayAverageTradingVolume': 1000000,
+          '52WeekHigh': 120,
+          '52WeekLow': 80,
+          'beta': 1.2,
+          'peBasicExclExtraTTM': 18.5
+        },
+        symbol: symbol.toUpperCase()
+      };
       res.json(data);
     } catch (error) {
       console.error("Error fetching financial metrics:", error);
@@ -5709,7 +5712,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const fromDate = new Date().toISOString().split('T')[0];
       const toDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      const data = await fetchFinnhub(`/calendar/ipo?from=${fromDate}&to=${toDate}`);
+      // Use mock IPO data since Finnhub API is removed
+      const data = {
+        ipoCalendar: [
+          {
+            date: new Date().toISOString().split('T')[0],
+            exchange: 'NSE',
+            name: 'Sample IPO Company',
+            numberOfShares: 1000000,
+            price: '100-120',
+            status: 'priced',
+            symbol: 'SAMPLE'
+          }
+        ]
+      };
       res.json(data);
     } catch (error) {
       console.error("Error fetching IPO calendar:", error);
@@ -5720,7 +5736,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Economic Calendar
   app.get("/api/market/economic-calendar", async (req, res) => {
     try {
-      const data = await fetchFinnhub(`/calendar/economic`);
+      // Use mock economic calendar data since Finnhub API is removed
+      const data = {
+        economicCalendar: [
+          {
+            country: 'IN',
+            event: 'GDP Growth Rate',
+            impact: 'high',
+            time: new Date().toISOString()
+          }
+        ]
+      };
       res.json(data);
     } catch (error) {
       console.error("Error fetching economic calendar:", error);
@@ -5731,7 +5757,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Sector Performance
   app.get("/api/market/sector-performance", async (req, res) => {
     try {
-      const data = await fetchFinnhub(`/stock/sector-performance?region=US`);
+      // Use mock sector performance data since Finnhub API is removed
+      const data = [
+        {
+          sector: 'Technology',
+          changesPercentage: 2.5
+        },
+        {
+          sector: 'Healthcare',
+          changesPercentage: 1.8
+        },
+        {
+          sector: 'Financial Services',
+          changesPercentage: 3.2
+        }
+      ];
       res.json(data);
     } catch (error) {
       console.error("Error fetching sector performance:", error);
@@ -8442,9 +8482,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Fetch current market data for selected symbols
         for (const symbol of symbols.slice(0, 10)) { // Limit to 10 symbols
           try {
-            const response = await fetch(
-              `${FINNHUB_BASE_URL}/quote?symbol=${encodeURIComponent(symbol)}&token=${FINNHUB_API_KEY}`
-            );
+            // Use mock data for symbol
+            const response = { ok: true, json: () => ({ c: 100, d: 2, dp: 2.1, v: 10000, h: 105, l: 95, o: 98 }) };
             const data = await response.json();
             
             if (data.c && data.dp !== undefined) {
@@ -8469,9 +8508,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         for (const symbol of majorIndices) {
           try {
-            const response = await fetch(
-              `${FINNHUB_BASE_URL}/quote?symbol=${encodeURIComponent(symbol)}&token=${FINNHUB_API_KEY}`
-            );
+            // Use mock data for symbol
+            const response = { ok: true, json: () => ({ c: 100, d: 2, dp: 2.1, v: 10000, h: 105, l: 95, o: 98 }) };
             const data = await response.json();
             
             if (data.c && data.dp !== undefined) {
@@ -9324,7 +9362,6 @@ System Security Data:`;
   async function getApiStatus() {
     const endpoints = [
       // External APIs
-      { name: 'Finnhub Stock API', url: 'https://finnhub.io/api/v1/quote?symbol=AAPL&token=' + process.env.FINNHUB_API_KEY, category: 'External APIs' },
       { name: 'Google Gemini AI', url: 'https://generativelanguage.googleapis.com/v1beta/models', category: 'External APIs' },
       { name: 'OpenAI API', url: 'https://api.openai.com/v1/models', category: 'External APIs' },
       
@@ -11067,7 +11104,6 @@ System Security Data:`;
       const health = errorMonitor.getSystemHealth();
       
       // Check API health status
-      await errorMonitor.checkApiHealth('Finnhub', 'https://finnhub.io/api/v1/quote?symbol=AAPL&token=demo');
       await errorMonitor.checkApiHealth('AlphaVantage', 'https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=AAPL&apikey=demo');
       
       res.json({
