@@ -49,6 +49,7 @@ function Router() {
       <Route path="/partner" component={PartnerPortal} />
       <Route path="/support" component={Support} />
       <Route path="/wealth" component={WealthManagement} />
+      <Route path="/wealth-management" component={WealthManagement} />
       <Route path="/achievements" component={Achievements} />
       <Route path="/capital-gains" component={CapitalGainsReports} />
       <Route component={NotFound} />

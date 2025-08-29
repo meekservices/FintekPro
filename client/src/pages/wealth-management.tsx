@@ -7,7 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
-  Building2, 
+  Building2,
+  Building, 
   TrendingUp, 
   Users, 
   DollarSign, 
@@ -39,7 +40,8 @@ import {
   FileText,
   ChevronRight,
   Gem,
-  CheckCircle
+  CheckCircle,
+  BarChart
 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
@@ -206,6 +208,7 @@ export default function WealthManagement() {
             <TabsTrigger value="pre-ipo" data-testid="tab-pre-ipo">Pre-IPO</TabsTrigger>
             <TabsTrigger value="aif" data-testid="tab-aif">AIF Funds</TabsTrigger>
             <TabsTrigger value="unlisted" data-testid="tab-unlisted">Unlisted</TabsTrigger>
+            <TabsTrigger value="bonds" data-testid="tab-bonds">Bonds</TabsTrigger>
             <TabsTrigger value="mutual-funds" data-testid="tab-mutual-funds">Mutual Funds</TabsTrigger>
             <TabsTrigger value="newsletter" data-testid="tab-newsletter">Newsletter</TabsTrigger>
           </TabsList>
@@ -619,6 +622,254 @@ export default function WealthManagement() {
                 <p className="text-muted-foreground">Professional portfolio management coming soon...</p>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Bonds Tab Content */}
+          <TabsContent value="bonds" className="space-y-6">
+            {/* Bonds Market Overview */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+              <Card data-testid="card-bonds-stats">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Listed Bonds</p>
+                      <p className="text-2xl font-bold">847</p>
+                    </div>
+                    <Building2 className="w-8 h-8 text-blue-600" />
+                  </div>
+                  <div className="flex items-center mt-2">
+                    <ArrowUpRight className="w-4 h-4 text-green-600 mr-1" />
+                    <span className="text-sm text-green-600">NSE & BSE</span>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card data-testid="card-bond-yield">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Avg Yield</p>
+                      <p className="text-2xl font-bold">7.54%</p>
+                    </div>
+                    <TrendingUp className="w-8 h-8 text-green-600" />
+                  </div>
+                  <div className="flex items-center mt-2">
+                    <Plus className="w-4 h-4 text-green-600 mr-1" />
+                    <span className="text-sm text-green-600">+0.12% today</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card data-testid="card-govt-bonds">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Govt Bonds</p>
+                      <p className="text-2xl font-bold">6.89%</p>
+                    </div>
+                    <Shield className="w-8 h-8 text-purple-600" />
+                  </div>
+                  <div className="flex items-center mt-2">
+                    <Clock className="w-4 h-4 text-purple-600 mr-1" />
+                    <span className="text-sm text-purple-600">Risk-free</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card data-testid="card-corporate-bonds">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Corporate</p>
+                      <p className="text-2xl font-bold">8.12%</p>
+                    </div>
+                    <Gem className="w-8 h-8 text-orange-600" />
+                  </div>
+                  <div className="flex items-center mt-2">
+                    <Target className="w-4 h-4 text-orange-600 mr-1" />
+                    <span className="text-sm text-orange-600">Higher yield</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Bonds Categories Tabs */}
+            <Tabs defaultValue="government" className="space-y-6">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="government" data-testid="tab-government-bonds">Government</TabsTrigger>
+                <TabsTrigger value="corporate" data-testid="tab-corporate-bonds">Corporate</TabsTrigger>
+                <TabsTrigger value="municipal" data-testid="tab-municipal-bonds">Municipal</TabsTrigger>
+                <TabsTrigger value="bond-analytics" data-testid="tab-bond-analytics">Analytics</TabsTrigger>
+              </TabsList>
+
+              {/* Government Bonds */}
+              <TabsContent value="government" className="space-y-4">
+                <Card data-testid="card-government-bonds-list">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Shield className="w-5 h-5 text-purple-600" />
+                      Government Bonds
+                    </CardTitle>
+                    <CardDescription>Risk-free government securities with guaranteed returns</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div className="p-4 border rounded-lg">
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <h4 className="font-semibold">10-Year G-Sec</h4>
+                              <p className="text-sm text-muted-foreground">Government of India</p>
+                            </div>
+                            <Badge className="bg-green-100 text-green-800">Active</Badge>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <p className="text-muted-foreground">Yield</p>
+                              <p className="font-medium">6.89%</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Maturity</p>
+                              <p className="font-medium">2034</p>
+                            </div>
+                          </div>
+                          <Button size="sm" className="w-full mt-3" data-testid="button-buy-gsec">
+                            Invest Now
+                          </Button>
+                        </div>
+
+                        <div className="p-4 border rounded-lg">
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <h4 className="font-semibold">5-Year State Bond</h4>
+                              <p className="text-sm text-muted-foreground">State Development Loan</p>
+                            </div>
+                            <Badge className="bg-blue-100 text-blue-800">Available</Badge>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <p className="text-muted-foreground">Yield</p>
+                              <p className="font-medium">7.12%</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Maturity</p>
+                              <p className="font-medium">2029</p>
+                            </div>
+                          </div>
+                          <Button size="sm" className="w-full mt-3" data-testid="button-buy-state-bond">
+                            Invest Now
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Corporate Bonds */}
+              <TabsContent value="corporate" className="space-y-4">
+                <Card data-testid="card-corporate-bonds-list">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Building2 className="w-5 h-5 text-blue-600" />
+                      Corporate Bonds
+                    </CardTitle>
+                    <CardDescription>Higher yield bonds from top-rated corporations</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div className="p-4 border rounded-lg">
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <h4 className="font-semibold">HDFC Bank NCD</h4>
+                              <p className="text-sm text-muted-foreground">AAA Rated</p>
+                            </div>
+                            <Badge className="bg-green-100 text-green-800">Hot</Badge>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <p className="text-muted-foreground">Yield</p>
+                              <p className="font-medium">8.25%</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Maturity</p>
+                              <p className="font-medium">3 Years</p>
+                            </div>
+                          </div>
+                          <Button size="sm" className="w-full mt-3" data-testid="button-buy-hdfc-ncd">
+                            Invest Now
+                          </Button>
+                        </div>
+
+                        <div className="p-4 border rounded-lg">
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <h4 className="font-semibold">Bajaj Finance FD</h4>
+                              <p className="text-sm text-muted-foreground">AA+ Rated</p>
+                            </div>
+                            <Badge className="bg-blue-100 text-blue-800">Popular</Badge>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <p className="text-muted-foreground">Yield</p>
+                              <p className="font-medium">8.60%</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Maturity</p>
+                              <p className="font-medium">5 Years</p>
+                            </div>
+                          </div>
+                          <Button size="sm" className="w-full mt-3" data-testid="button-buy-bajaj-fd">
+                            Invest Now
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Municipal Bonds */}
+              <TabsContent value="municipal" className="space-y-4">
+                <Card data-testid="card-municipal-bonds">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Building className="w-5 h-5 text-green-600" />
+                      Municipal Bonds
+                    </CardTitle>
+                    <CardDescription>Tax-free bonds from municipal corporations</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-center py-8">
+                      <Building className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                      <h3 className="text-lg font-semibold mb-2">Municipal Bonds</h3>
+                      <p className="text-muted-foreground">Tax-efficient municipal bond investments coming soon...</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Bond Analytics */}
+              <TabsContent value="bond-analytics" className="space-y-4">
+                <Card data-testid="card-bond-analytics">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <BarChart className="w-5 h-5 text-indigo-600" />
+                      Bond Market Analytics
+                    </CardTitle>
+                    <CardDescription>Comprehensive bond market analysis and trends</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-center py-8">
+                      <BarChart className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                      <h3 className="text-lg font-semibold mb-2">Bond Analytics</h3>
+                      <p className="text-muted-foreground">Advanced bond market analytics coming soon...</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
           </TabsContent>
 
           {/* AIF Funds Tab Content */}
