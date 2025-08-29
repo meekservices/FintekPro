@@ -1656,7 +1656,7 @@ Login to view detailed analysis: {{app_link}}"
                       <Badge variant="secondary">Approved</Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      🚨 Your portfolio {{action}} by {{percentage}}% today. Check the details...
+                      🚨 Your portfolio {"{{action}}"} by {"{{percentage}}"}% today. Check the details...
                     </p>
                     <div className="flex gap-2 mt-2">
                       <Button size="sm" variant="outline">Edit</Button>
@@ -1670,7 +1670,7 @@ Login to view detailed analysis: {{app_link}}"
                       <Badge variant="secondary">Approved</Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      📊 Market Update: {{market_summary}}. AI recommends: {{recommendation}}
+                      📊 Market Update: {"{{market_summary}}"}. AI recommends: {"{{recommendation}}"}
                     </p>
                     <div className="flex gap-2 mt-2">
                       <Button size="sm" variant="outline">Edit</Button>
@@ -1684,7 +1684,7 @@ Login to view detailed analysis: {{app_link}}"
                       <Badge variant="secondary">Approved</Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      💡 Investment Tip: {{educational_content}}. Learn more in the app.
+                      💡 Investment Tip: {"{{educational_content}}"}. Learn more in the app.
                     </p>
                     <div className="flex gap-2 mt-2">
                       <Button size="sm" variant="outline">Edit</Button>
