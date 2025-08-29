@@ -7,6 +7,7 @@ export function Footer() {
     { name: "Stocks", href: "/markets" },
     { name: "Mutual Funds", href: "/mutual-funds" },
     { name: "IPO", href: "/ipo" },
+    { name: "Pre-IPO", href: "/pre-ipo" },
     { name: "Bonds", href: "/bonds" },
     { name: "PMS", href: "/pms" },
   ];

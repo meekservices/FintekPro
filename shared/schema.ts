@@ -1174,3 +1174,196 @@ export const insertEpsHoldingSchema = createInsertSchema(epsHoldings).omit({
 // AIF Fund types
 export type AifFund = typeof aifFunds.$inferSelect;
 export type InsertAifFund = z.infer<typeof insertAifFundSchema>;
+
+// Pre-IPO Companies table - stores information about companies preparing for IPO
+export const preIpoCompanies = pgTable("pre_ipo_companies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyName: text("company_name").notNull(),
+  sector: varchar("sector").notNull(), // 'technology', 'healthcare', 'fintech', 'retail', etc.
+  industry: varchar("industry").notNull(), // more specific industry classification
+  foundedYear: integer("founded_year"),
+  headquarters: varchar("headquarters"),
+  website: varchar("website"),
+  description: text("description"),
+  businessModel: text("business_model"),
+  keyProducts: text("key_products").array().default([]),
+  
+  // Valuation and Financial Info
+  currentValuation: decimal("current_valuation", { precision: 20, scale: 2 }),
+  lastRoundValuation: decimal("last_round_valuation", { precision: 20, scale: 2 }),
+  lastRoundDate: timestamp("last_round_date"),
+  totalFundingRaised: decimal("total_funding_raised", { precision: 20, scale: 2 }),
+  revenue: decimal("revenue", { precision: 20, scale: 2 }),
+  revenueGrowthRate: decimal("revenue_growth_rate", { precision: 5, scale: 2 }),
+  profitability: varchar("profitability"), // 'profitable', 'break_even', 'loss_making'
+  burnRate: decimal("burn_rate", { precision: 15, scale: 2 }),
+  
+  // Pre-IPO Status
+  ipoStatus: varchar("ipo_status").notNull().default("preparation"), // 'preparation', 'filed', 'roadshow', 'priced', 'listed', 'withdrawn'
+  expectedIpoDate: timestamp("expected_ipo_date"),
+  expectedPriceRange: jsonb("expected_price_range"), // {min: number, max: number}
+  proposedExchange: varchar("proposed_exchange"), // 'NSE', 'BSE', 'NASDAQ', 'NYSE'
+  leadUnderwriters: text("lead_underwriters").array().default([]),
+  
+  // Company Metrics
+  employees: integer("employees"),
+  marketPosition: varchar("market_position"), // 'market_leader', 'strong_competitor', 'niche_player'
+  competitiveAdvantage: text("competitive_advantage"),
+  keyRisks: text("key_risks").array().default([]),
+  keyOpportunities: text("key_opportunities").array().default([]),
+  
+  // Investment Metrics
+  minimumInvestment: decimal("minimum_investment", { precision: 15, scale: 2 }),
+  investmentTier: varchar("investment_tier"), // 'tier_1', 'tier_2', 'tier_3' based on company quality
+  riskRating: varchar("risk_rating"), // 'low', 'medium', 'high', 'very_high'
+  expectedReturns: decimal("expected_returns", { precision: 5, scale: 2 }), // percentage
+  lockInPeriod: integer("lock_in_period"), // months
+  
+  // Tracking and Status
+  isAvailableForInvestment: boolean("is_available_for_investment").default(false),
+  investmentDeadline: timestamp("investment_deadline"),
+  totalInvestmentSlots: integer("total_investment_slots"),
+  availableSlots: integer("available_slots"),
+  
+  // Metadata
+  logoUrl: varchar("logo_url"),
+  documents: jsonb("documents"), // links to pitch deck, financials, etc.
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Pre-IPO Investments table - tracks user investments in pre-IPO companies
+export const preIpoInvestments = pgTable("pre_ipo_investments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  companyId: varchar("company_id").references(() => preIpoCompanies.id).notNull(),
+  portfolioId: varchar("portfolio_id").references(() => portfolios.id),
+  
+  // Investment Details
+  investmentAmount: decimal("investment_amount", { precision: 15, scale: 2 }).notNull(),
+  sharePrice: decimal("share_price", { precision: 15, scale: 4 }),
+  sharesAllocated: decimal("shares_allocated", { precision: 15, scale: 4 }),
+  investmentDate: timestamp("investment_date").defaultNow(),
+  
+  // Status and Tracking
+  status: varchar("status").notNull().default("pending"), // 'pending', 'confirmed', 'allotted', 'listed', 'sold'
+  allotmentStatus: varchar("allotment_status"), // 'pending', 'full', 'partial', 'rejected'
+  allottedShares: decimal("allotted_shares", { precision: 15, scale: 4 }),
+  allotmentDate: timestamp("allotment_date"),
+  
+  // Post-IPO Tracking
+  listingDate: timestamp("listing_date"),
+  listingPrice: decimal("listing_price", { precision: 15, scale: 4 }),
+  currentPrice: decimal("current_price", { precision: 15, scale: 4 }),
+  unrealizedGains: decimal("unrealized_gains", { precision: 15, scale: 2 }),
+  realizedGains: decimal("realized_gains", { precision: 15, scale: 2 }),
+  
+  // Performance Metrics
+  roi: decimal("roi", { precision: 8, scale: 4 }), // return on investment percentage
+  holdingPeriod: integer("holding_period"), // days
+  isExited: boolean("is_exited").default(false),
+  exitDate: timestamp("exit_date"),
+  exitPrice: decimal("exit_price", { precision: 15, scale: 4 }),
+  
+  // Tracking
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Pre-IPO Investment Analytics table - tracks performance and insights
+export const preIpoAnalytics = pgTable("pre_ipo_analytics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  portfolioId: varchar("portfolio_id").references(() => portfolios.id),
+  
+  // Portfolio Analytics
+  totalInvestment: decimal("total_investment", { precision: 15, scale: 2 }).default("0"),
+  totalCurrentValue: decimal("total_current_value", { precision: 15, scale: 2 }).default("0"),
+  totalUnrealizedGains: decimal("total_unrealized_gains", { precision: 15, scale: 2 }).default("0"),
+  totalRealizedGains: decimal("total_realized_gains", { precision: 15, scale: 2 }).default("0"),
+  overallRoi: decimal("overall_roi", { precision: 8, scale: 4 }).default("0"),
+  
+  // Risk Metrics
+  riskScore: decimal("risk_score", { precision: 3, scale: 1 }),
+  diversificationScore: decimal("diversification_score", { precision: 3, scale: 1 }),
+  sectorConcentration: jsonb("sector_concentration"), // sector-wise breakdown
+  
+  // Performance Tracking
+  bestPerformer: varchar("best_performer"), // company ID
+  worstPerformer: varchar("worst_performer"), // company ID
+  averageHoldingPeriod: integer("average_holding_period"), // days
+  successRate: decimal("success_rate", { precision: 5, scale: 2 }), // percentage of profitable investments
+  
+  // Insights and Recommendations
+  aiInsights: text("ai_insights"),
+  recommendations: text("recommendations").array().default([]),
+  riskWarnings: text("risk_warnings").array().default([]),
+  
+  // Metadata
+  lastAnalyzed: timestamp("last_analyzed").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Pre-IPO Market Insights table - stores market analysis and trends
+export const preIpoMarketInsights = pgTable("pre_ipo_market_insights", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sector: varchar("sector").notNull(),
+  
+  // Market Trends
+  averageValuation: decimal("average_valuation", { precision: 20, scale: 2 }),
+  valuationTrend: varchar("valuation_trend"), // 'increasing', 'stable', 'decreasing'
+  averageTimeToIpo: integer("average_time_to_ipo"), // months
+  successRate: decimal("success_rate", { precision: 5, scale: 2 }),
+  averageIpoGains: decimal("average_ipo_gains", { precision: 8, scale: 4 }),
+  
+  // Market Analysis
+  marketSentiment: varchar("market_sentiment"), // 'bullish', 'neutral', 'bearish'
+  keyTrends: text("key_trends").array().default([]),
+  upcomingIpos: integer("upcoming_ipos"), // count of companies expected to list
+  hotSectors: text("hot_sectors").array().default([]),
+  
+  // AI Analysis
+  aiAnalysis: text("ai_analysis"),
+  investmentRecommendation: varchar("investment_recommendation"), // 'buy', 'hold', 'avoid'
+  confidenceScore: decimal("confidence_score", { precision: 3, scale: 1 }),
+  
+  // Metadata
+  analysisDate: timestamp("analysis_date").defaultNow(),
+  dataSource: varchar("data_source"), // 'internal', 'external_api', 'manual'
+  lastUpdated: timestamp("last_updated").defaultNow(),
+});
+
+// Zod schemas for Pre-IPO
+export const insertPreIpoCompanySchema = createInsertSchema(preIpoCompanies).omit({
+  id: true,
+  lastUpdated: true,
+  createdAt: true,
+});
+
+export const insertPreIpoInvestmentSchema = createInsertSchema(preIpoInvestments).omit({
+  id: true,
+  lastUpdated: true,
+  createdAt: true,
+});
+
+export const insertPreIpoAnalyticsSchema = createInsertSchema(preIpoAnalytics).omit({
+  id: true,
+  lastAnalyzed: true,
+  createdAt: true,
+});
+
+export const insertPreIpoMarketInsightsSchema = createInsertSchema(preIpoMarketInsights).omit({
+  id: true,
+  analysisDate: true,
+  lastUpdated: true,
+});
+
+// Export types for Pre-IPO
+export type PreIpoCompany = typeof preIpoCompanies.$inferSelect;
+export type InsertPreIpoCompany = z.infer<typeof insertPreIpoCompanySchema>;
+export type PreIpoInvestment = typeof preIpoInvestments.$inferSelect;
+export type InsertPreIpoInvestment = z.infer<typeof insertPreIpoInvestmentSchema>;
+export type PreIpoAnalytics = typeof preIpoAnalytics.$inferSelect;
+export type InsertPreIpoAnalytics = z.infer<typeof insertPreIpoAnalyticsSchema>;
+export type PreIpoMarketInsights = typeof preIpoMarketInsights.$inferSelect;
+export type InsertPreIpoMarketInsights = z.infer<typeof insertPreIpoMarketInsightsSchema>;

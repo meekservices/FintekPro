@@ -7,6 +7,7 @@ import Home from "@/pages/home";
 import Portfolio from "@/pages/portfolio";
 import Markets from "@/pages/markets";
 import IPO from "@/pages/ipo";
+import PreIPO from "@/pages/pre-ipo";
 import MutualFunds from "@/pages/mutual-funds";
 import Bonds from "@/pages/bonds";
 import Loans from "@/pages/loans";
@@ -33,6 +34,7 @@ function Router() {
       <Route path="/portfolio" component={Portfolio} />
       <Route path="/markets" component={Markets} />
       <Route path="/ipo" component={IPO} />
+      <Route path="/pre-ipo" component={PreIPO} />
       <Route path="/mutual-funds" component={MutualFunds} />
       <Route path="/bonds" component={Bonds} />
       <Route path="/loans" component={Loans} />

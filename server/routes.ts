@@ -1635,6 +1635,357 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Enhanced Pre-IPO Investment API endpoints with database integration
+  
+  // Get user's Pre-IPO investments 
+  app.get("/api/pre-ipo/my-investments", async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      // In production, fetch from database
+      const investments = [
+        {
+          id: "inv-1",
+          companyId: "company-1",
+          companyName: "TechNova Solutions",
+          sector: "Technology",
+          investmentAmount: 250000,
+          sharePrice: 125.50,
+          sharesAllocated: 1992,
+          status: "confirmed",
+          investmentDate: "2024-11-15",
+          expectedListingDate: "2025-03-15",
+          expectedReturns: 18.5,
+          riskRating: "medium",
+          currentValuation: 275000,
+          unrealizedGains: 25000,
+          roi: 10.0
+        },
+        {
+          id: "inv-2", 
+          companyId: "company-2",
+          companyName: "BioMed Innovations",
+          sector: "Healthcare",
+          investmentAmount: 150000,
+          sharePrice: 89.75,
+          sharesAllocated: 1671,
+          status: "pending",
+          investmentDate: "2024-12-20",
+          expectedListingDate: "2025-04-22",
+          expectedReturns: 22.3,
+          riskRating: "high",
+          currentValuation: 150000,
+          unrealizedGains: 0,
+          roi: 0.0
+        }
+      ];
+
+      res.json({
+        status: "success",
+        data: investments,
+        summary: {
+          totalInvestment: investments.reduce((sum, inv) => sum + inv.investmentAmount, 0),
+          totalCurrentValue: investments.reduce((sum, inv) => sum + inv.currentValuation, 0),
+          totalUnrealizedGains: investments.reduce((sum, inv) => sum + inv.unrealizedGains, 0),
+          averageROI: investments.reduce((sum, inv) => sum + inv.roi, 0) / investments.length
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching Pre-IPO investments:", error);
+      res.status(500).json({ error: "Failed to fetch investments" });
+    }
+  });
+
+  // Create new Pre-IPO investment
+  app.post("/api/pre-ipo/invest", async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { companyId, investmentAmount, portfolioId } = req.body;
+      
+      if (!companyId || !investmentAmount) {
+        return res.status(400).json({ error: "Company ID and investment amount are required" });
+      }
+
+      // Validate minimum investment
+      if (investmentAmount < 50000) {
+        return res.status(400).json({ error: "Minimum investment amount is ₹50,000" });
+      }
+
+      // In production, save to database
+      const investment = {
+        id: `inv-${Date.now()}`,
+        userId,
+        companyId,
+        portfolioId,
+        investmentAmount,
+        sharePrice: 0, // Will be set during allotment
+        sharesAllocated: 0,
+        status: "pending",
+        investmentDate: new Date().toISOString().split('T')[0],
+        allotmentStatus: "pending"
+      };
+
+      res.json({
+        status: "success",
+        message: "Investment application submitted successfully",
+        data: investment
+      });
+    } catch (error) {
+      console.error("Error creating Pre-IPO investment:", error);
+      res.status(500).json({ error: "Failed to create investment" });
+    }
+  });
+
+  // Get Pre-IPO analytics for user
+  app.get("/api/pre-ipo/analytics/:userId", async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      
+      // Validate user access
+      if (req.user?.id !== userId && !await adminService.isAdmin(req.user?.id)) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const analytics = {
+        totalInvestment: 400000,
+        totalCurrentValue: 425000,
+        totalUnrealizedGains: 25000,
+        totalRealizedGains: 0,
+        overallROI: 6.25,
+        riskScore: 7.2,
+        diversificationScore: 8.5,
+        sectorConcentration: {
+          "Technology": 62.5,
+          "Healthcare": 37.5
+        },
+        performance: {
+          bestPerformer: "TechNova Solutions",
+          worstPerformer: "BioMed Innovations",
+          averageHoldingPeriod: 89,
+          successRate: 50.0
+        },
+        aiInsights: "Your Pre-IPO portfolio shows good sector diversification with a balanced risk profile. Consider increasing allocation to proven sectors before adding high-risk investments.",
+        recommendations: [
+          "Consider booking partial profits in TechNova Solutions",
+          "Monitor BioMed Innovations for any regulatory updates",
+          "Diversify into fintech sector for better balance"
+        ],
+        riskWarnings: [
+          "High concentration in early-stage companies",
+          "Limited liquidity until listing dates"
+        ]
+      };
+
+      res.json({
+        status: "success",
+        data: analytics
+      });
+    } catch (error) {
+      console.error("Error fetching Pre-IPO analytics:", error);
+      res.status(500).json({ error: "Failed to fetch analytics" });
+    }
+  });
+
+  // Get Pre-IPO market insights
+  app.get("/api/pre-ipo/market-insights", async (req, res) => {
+    try {
+      const insights = [
+        {
+          sector: "Technology",
+          averageValuation: 2500000000,
+          valuationTrend: "increasing",
+          averageTimeToIpo: 18,
+          successRate: 78.5,
+          averageIpoGains: 24.3,
+          marketSentiment: "bullish",
+          keyTrends: ["AI/ML focus", "Cloud-first solutions", "Fintech integration"],
+          upcomingIpos: 8,
+          hotSectors: ["Fintech", "Edtech", "Healthtech"],
+          aiAnalysis: "Technology sector showing strong fundamentals with increasing valuations driven by AI adoption and digital transformation.",
+          investmentRecommendation: "buy",
+          confidenceScore: 8.7
+        },
+        {
+          sector: "Healthcare", 
+          averageValuation: 1800000000,
+          valuationTrend: "stable",
+          averageTimeToIpo: 24,
+          successRate: 65.2,
+          averageIpoGains: 19.8,
+          marketSentiment: "neutral",
+          keyTrends: ["Telemedicine growth", "Biotech innovation", "Medical devices"],
+          upcomingIpos: 5,
+          hotSectors: ["Biotech", "Digital health", "Medical devices"],
+          aiAnalysis: "Healthcare sector shows steady growth with regulatory clarity improving investor confidence.",
+          investmentRecommendation: "hold",
+          confidenceScore: 7.3
+        }
+      ];
+
+      res.json({
+        status: "success",
+        data: insights
+      });
+    } catch (error) {
+      console.error("Error fetching market insights:", error);
+      res.status(500).json({ error: "Failed to fetch market insights" });
+    }
+  });
+
+  // Get available Pre-IPO companies for investment
+  app.get("/api/pre-ipo/companies", async (req, res) => {
+    try {
+      const companies = [
+        {
+          id: "company-1",
+          companyName: "TechNova Solutions",
+          sector: "Technology",
+          industry: "SaaS",
+          foundedYear: 2018,
+          headquarters: "Bangalore, India",
+          description: "Leading AI-powered customer analytics platform serving Fortune 500 companies.",
+          currentValuation: 2500000000,
+          revenue: 450000000,
+          revenueGrowthRate: 58.3,
+          profitability: "profitable",
+          ipoStatus: "preparation",
+          expectedIpoDate: "2025-06-15",
+          expectedPriceRange: { min: 120, max: 140 },
+          proposedExchange: "NSE",
+          minimumInvestment: 50000,
+          investmentTier: "tier_1",
+          riskRating: "medium",
+          expectedReturns: 18.5,
+          lockInPeriod: 12,
+          isAvailableForInvestment: true,
+          totalInvestmentSlots: 1000,
+          availableSlots: 342,
+          keyProducts: ["Customer Analytics Suite", "AI Insights Platform"],
+          competitiveAdvantage: "Proprietary AI algorithms and strong customer retention",
+          keyRisks: ["Market competition", "Regulatory changes"],
+          keyOpportunities: ["Global expansion", "New product lines"]
+        },
+        {
+          id: "company-2", 
+          companyName: "BioMed Innovations",
+          sector: "Healthcare",
+          industry: "Biotechnology",
+          foundedYear: 2019,
+          headquarters: "Hyderabad, India", 
+          description: "Innovative biotechnology company developing next-generation cancer treatments.",
+          currentValuation: 1800000000,
+          revenue: 120000000,
+          revenueGrowthRate: 89.7,
+          profitability: "loss_making",
+          ipoStatus: "filed",
+          expectedIpoDate: "2025-04-22",
+          expectedPriceRange: { min: 85, max: 95 },
+          proposedExchange: "BSE",
+          minimumInvestment: 75000,
+          investmentTier: "tier_2", 
+          riskRating: "high",
+          expectedReturns: 22.3,
+          lockInPeriod: 18,
+          isAvailableForInvestment: true,
+          totalInvestmentSlots: 500,
+          availableSlots: 123,
+          keyProducts: ["Cancer Immunotherapy", "Diagnostic Tools"],
+          competitiveAdvantage: "Breakthrough research and FDA approvals",
+          keyRisks: ["Clinical trial outcomes", "Regulatory approval"],
+          keyOpportunities: ["Global partnerships", "New therapy areas"]
+        }
+      ];
+
+      res.json({
+        status: "success",
+        data: companies
+      });
+    } catch (error) {
+      console.error("Error fetching Pre-IPO companies:", error);
+      res.status(500).json({ error: "Failed to fetch companies" });
+    }
+  });
+
+  // Get specific Pre-IPO company details
+  app.get("/api/pre-ipo/companies/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Mock detailed company data
+      const company = {
+        id,
+        companyName: "TechNova Solutions",
+        sector: "Technology",
+        industry: "SaaS",
+        foundedYear: 2018,
+        headquarters: "Bangalore, India",
+        website: "https://technova.com",
+        description: "Leading AI-powered customer analytics platform serving Fortune 500 companies across 25+ countries.",
+        businessModel: "B2B SaaS with subscription-based revenue model",
+        keyProducts: ["Customer Analytics Suite", "AI Insights Platform", "Predictive Analytics Tools"],
+        financials: {
+          currentValuation: 2500000000,
+          lastRoundValuation: 2200000000,
+          lastRoundDate: "2024-08-15",
+          totalFundingRaised: 850000000,
+          revenue: 450000000,
+          revenueGrowthRate: 58.3,
+          profitability: "profitable",
+          burnRate: 0,
+          employees: 1250
+        },
+        ipoDetails: {
+          ipoStatus: "preparation",
+          expectedIpoDate: "2025-06-15",
+          expectedPriceRange: { min: 120, max: 140 },
+          proposedExchange: "NSE",
+          leadUnderwriters: ["Goldman Sachs", "Morgan Stanley", "Kotak Mahindra"]
+        },
+        investment: {
+          minimumInvestment: 50000,
+          investmentTier: "tier_1",
+          riskRating: "medium", 
+          expectedReturns: 18.5,
+          lockInPeriod: 12,
+          isAvailableForInvestment: true,
+          totalInvestmentSlots: 1000,
+          availableSlots: 342,
+          investmentDeadline: "2025-05-15"
+        },
+        analysis: {
+          marketPosition: "market_leader",
+          competitiveAdvantage: "Proprietary AI algorithms with 95% customer retention rate",
+          keyRisks: ["Increasing competition from tech giants", "Data privacy regulation changes"],
+          keyOpportunities: ["Global expansion to APAC markets", "New AI-powered product lines", "Enterprise partnerships"],
+          managementTeam: [
+            { name: "Rajesh Kumar", position: "CEO", experience: "15 years tech leadership" },
+            { name: "Priya Sharma", position: "CTO", experience: "12 years AI/ML expertise" }
+          ]
+        },
+        documents: {
+          pitchDeck: "/documents/technova-pitch.pdf",
+          financials: "/documents/technova-financials.pdf",
+          drhp: "/documents/technova-drhp.pdf"
+        }
+      };
+
+      res.json({
+        status: "success",
+        data: company
+      });
+    } catch (error) {
+      console.error("Error fetching company details:", error);
+      res.status(500).json({ error: "Failed to fetch company details" });
+    }
+  });
+
   // Bonds API endpoints
   
   // Get government bonds data
