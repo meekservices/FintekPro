@@ -94,7 +94,7 @@ export default function Home() {
         <section className="mb-8" data-testid="client-endpoints-section">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold text-gray-900">Your Active Services</h2>
-            <Badge className="bg-finance-green text-white text-base px-3 py-1">8 Services Enabled</Badge>
+            <Badge className="bg-finance-green text-white text-base px-3 py-1">12+ Services Enabled</Badge>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Portfolio Management */}
@@ -237,21 +237,41 @@ export default function Home() {
               </Card>
             </Link>
 
-            {/* Capital Gains Reports */}
-            <Link href="/capital-gains-reports" data-testid="link-capital-gains">
+            {/* CAMS Integration */}
+            <Link href="/cams" data-testid="link-cams">
               <Card className="border-l-4 border-l-teal-500 hover:shadow-lg transition-shadow cursor-pointer group">
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center text-lg">
-                    <FileText className="h-5 w-5 mr-2 text-teal-500 group-hover:scale-110 transition-transform" />
-                    Tax Reports
-                    <Badge className="ml-2 bg-finance-green text-white text-xs">NSDL/CDSL</Badge>
+                    <Landmark className="h-5 w-5 mr-2 text-teal-500 group-hover:scale-110 transition-transform" />
+                    CAMS Registry
+                    <Badge className="ml-2 bg-finance-green text-white text-xs">Active</Badge>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    <p className="text-sm text-gray-600">✓ Capital gains reports</p>
-                    <p className="text-sm text-gray-600">✓ Transaction summaries</p>
-                    <p className="text-sm text-gray-600">✓ Tax compliance</p>
+                    <p className="text-sm text-gray-600">✓ Mutual fund operations</p>
+                    <p className="text-sm text-gray-600">✓ Account statements</p>
+                    <p className="text-sm text-gray-600">✓ Investor services</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+
+            {/* KFintech Integration */}
+            <Link href="/kfintech" data-testid="link-kfintech">
+              <Card className="border-l-4 border-l-violet-500 hover:shadow-lg transition-shadow cursor-pointer group">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center text-lg">
+                    <Database className="h-5 w-5 mr-2 text-violet-500 group-hover:scale-110 transition-transform" />
+                    KFintech Registry
+                    <Badge className="ml-2 bg-finance-green text-white text-xs">Live</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-600">✓ MF portfolio tracking</p>
+                    <p className="text-sm text-gray-600">✓ Transaction processing</p>
+                    <p className="text-sm text-gray-600">✓ Investor validation</p>
                   </div>
                 </CardContent>
               </Card>
@@ -383,6 +403,26 @@ export default function Home() {
                   <BookOpen className="h-8 w-8 mx-auto mb-3 text-lime-500 group-hover:scale-110 transition-transform" />
                   <h3 className="font-semibold text-sm text-gray-900 mb-1">WhatsApp Auth</h3>
                   <p className="text-xs text-gray-600">Phone login</p>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link href="/cams">
+              <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer group border-l-4 border-l-amber-500">
+                <CardContent className="p-4 text-center">
+                  <Landmark className="h-8 w-8 mx-auto mb-3 text-amber-500 group-hover:scale-110 transition-transform" />
+                  <h3 className="font-semibold text-sm text-gray-900 mb-1">CAMS Registry</h3>
+                  <p className="text-xs text-gray-600">MF operations</p>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link href="/kfintech">
+              <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer group border-l-4 border-l-violet-500">
+                <CardContent className="p-4 text-center">
+                  <Database className="h-8 w-8 mx-auto mb-3 text-violet-500 group-hover:scale-110 transition-transform" />
+                  <h3 className="font-semibold text-sm text-gray-900 mb-1">KFintech</h3>
+                  <p className="text-xs text-gray-600">MF registry</p>
                 </CardContent>
               </Card>
             </Link>

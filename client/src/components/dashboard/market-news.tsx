@@ -93,12 +93,12 @@ export function MarketNews() {
           </div>
         ) : (
           <div className="space-y-4" data-testid="news-list">
-            {displayNews.map((item: NewsItem) => (
+            {displayNews.map((item: NewsItem, index: number) => (
               <div 
-                key={item.id} 
+                key={`news-item-${item.id || index}`} 
                 className="border-b border-gray-200 pb-4 last:border-b-0 group cursor-pointer"
                 onClick={() => window.open(item.url, '_blank')}
-                data-testid={`news-item-${item.id}`}
+                data-testid={`news-item-${item.id || index}`}
               >
                 <h4 className="font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-finance-blue transition-colors" data-testid={`news-headline-${item.id}`}>
                   {item.headline}

@@ -26,9 +26,9 @@ export function Header() {
   const navigation = [
     { name: "Markets", href: "/markets" },
     { name: "Portfolio", href: "/portfolio" },
-    { name: "Investments", href: "/wealth" },
-    { name: "CAMS", href: "/cams" },
-    { name: "KFintech", href: "/kfintech" },
+    { name: "Mutual Funds", href: "/mutual-funds" },
+    { name: "Registries", href: "/cams" },
+    { name: "Calculators", href: "/calculators" },
     { name: "Support", href: "/support" },
   ];
 
