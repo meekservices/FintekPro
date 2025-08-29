@@ -38,6 +38,7 @@ import {
   FileSpreadsheet,
   FileText,
   ChevronRight,
+  Gem,
   CheckCircle
 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -204,9 +205,8 @@ export default function WealthManagement() {
             <TabsTrigger value="pms" data-testid="tab-pms">PMS</TabsTrigger>
             <TabsTrigger value="pre-ipo" data-testid="tab-pre-ipo">Pre-IPO</TabsTrigger>
             <TabsTrigger value="aif" data-testid="tab-aif">AIF Funds</TabsTrigger>
-            <TabsTrigger value="bonds" data-testid="tab-bonds">Bonds</TabsTrigger>
+            <TabsTrigger value="unlisted" data-testid="tab-unlisted">Unlisted</TabsTrigger>
             <TabsTrigger value="mutual-funds" data-testid="tab-mutual-funds">Mutual Funds</TabsTrigger>
-            <TabsTrigger value="debentures" data-testid="tab-debentures">Debentures</TabsTrigger>
             <TabsTrigger value="newsletter" data-testid="tab-newsletter">Newsletter</TabsTrigger>
           </TabsList>
 
@@ -1132,95 +1132,95 @@ export default function WealthManagement() {
             </Tabs>
           </TabsContent>
 
-          <TabsContent value="bonds" className="space-y-6">
-            {/* Bonds Market Overview */}
+          <TabsContent value="unlisted" className="space-y-6">
+            {/* Unlisted Securities Market Overview */}
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-              <Card data-testid="card-bonds-market-size">
+              <Card data-testid="card-unlisted-market-size">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">Market Size</p>
-                      <p className="text-2xl font-bold">₹45.68 L Cr</p>
+                      <p className="text-2xl font-bold">₹75.40 L Cr</p>
                     </div>
                     <Building2 className="w-8 h-8 text-blue-600" />
                   </div>
                   <div className="flex items-center mt-2">
                     <ArrowUpRight className="w-4 h-4 text-green-600 mr-1" />
-                    <span className="text-sm text-green-600">+8.5% YoY</span>
+                    <span className="text-sm text-green-600">+18.2% YoY</span>
                   </div>
                 </CardContent>
               </Card>
               
-              <Card data-testid="card-daily-turnover">
+              <Card data-testid="card-pre-ipo-deals">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Daily Turnover</p>
-                      <p className="text-2xl font-bold">₹12,340 Cr</p>
+                      <p className="text-sm font-medium text-muted-foreground">Active Deals</p>
+                      <p className="text-2xl font-bold">245</p>
                     </div>
-                    <BarChart3 className="w-8 h-8 text-green-600" />
+                    <Star className="w-8 h-8 text-green-600" />
                   </div>
                   <div className="flex items-center mt-2">
                     <TrendingUp className="w-4 h-4 text-green-600 mr-1" />
-                    <span className="text-sm text-green-600">Active trading</span>
+                    <span className="text-sm text-green-600">Growing rapidly</span>
                   </div>
                 </CardContent>
               </Card>
               
-              <Card data-testid="card-average-yield">
+              <Card data-testid="card-average-returns">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Average Yield</p>
-                      <p className="text-2xl font-bold">7.25%</p>
+                      <p className="text-sm font-medium text-muted-foreground">Avg. Returns</p>
+                      <p className="text-2xl font-bold">25.8%</p>
                     </div>
                     <Target className="w-8 h-8 text-purple-600" />
                   </div>
                   <div className="flex items-center mt-2">
                     <ArrowUpRight className="w-4 h-4 text-green-600 mr-1" />
-                    <span className="text-sm text-green-600">Attractive returns</span>
+                    <span className="text-sm text-green-600">High potential</span>
                   </div>
                 </CardContent>
               </Card>
               
-              <Card data-testid="card-total-bonds">
+              <Card data-testid="card-unicorn-count">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Total Bonds</p>
-                      <p className="text-2xl font-bold">1,250</p>
+                      <p className="text-sm font-medium text-muted-foreground">Unicorns</p>
+                      <p className="text-2xl font-bold">108</p>
                     </div>
-                    <Star className="w-8 h-8 text-yellow-600" />
+                    <Gem className="w-8 h-8 text-yellow-600" />
                   </div>
                   <div className="flex items-center mt-2">
                     <Plus className="w-4 h-4 text-blue-600 mr-1" />
-                    <span className="text-sm text-blue-600">Growing market</span>
+                    <span className="text-sm text-blue-600">Premium access</span>
                   </div>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Bond Types Tabs */}
-            <Tabs defaultValue="listed-bonds" className="space-y-6">
+            {/* Unlisted Categories Tabs */}
+            <Tabs defaultValue="pre-ipo" className="space-y-6">
               <TabsList className="grid w-full grid-cols-5">
-                <TabsTrigger value="listed-bonds" data-testid="tab-listed-bonds">Listed Bonds</TabsTrigger>
-                <TabsTrigger value="government" data-testid="tab-govt-bonds">Government Bonds</TabsTrigger>
-                <TabsTrigger value="corporate" data-testid="tab-corp-bonds">Corporate Bonds</TabsTrigger>
-                <TabsTrigger value="tax-free" data-testid="tab-tax-free-bonds">Tax-Free Bonds</TabsTrigger>
-                <TabsTrigger value="analytics" data-testid="tab-bonds-analytics">Analytics</TabsTrigger>
+                <TabsTrigger value="pre-ipo" data-testid="tab-pre-ipo">Pre-IPO</TabsTrigger>
+                <TabsTrigger value="startup-equity" data-testid="tab-startup-equity">Startup Equity</TabsTrigger>
+                <TabsTrigger value="unicorn-stakes" data-testid="tab-unicorn-stakes">Unicorn Stakes</TabsTrigger>
+                <TabsTrigger value="esop-buybacks" data-testid="tab-esop-buybacks">ESOP Buybacks</TabsTrigger>
+                <TabsTrigger value="analytics" data-testid="tab-unlisted-analytics">Analytics</TabsTrigger>
               </TabsList>
 
-              {/* Listed Bonds from NSE & BSE */}
-              <TabsContent value="listed-bonds" className="space-y-4">
-                <Card data-testid="card-listed-bonds">
+              {/* Pre-IPO Securities */}
+              <TabsContent value="pre-ipo" className="space-y-4">
+                <Card data-testid="card-pre-ipo-companies">
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <div>
                         <CardTitle className="flex items-center gap-2">
-                          <Building2 className="w-5 h-5 text-blue-600" />
-                          NSE & BSE Listed Bonds
+                          <Star className="w-5 h-5 text-blue-600" />
+                          Pre-IPO Companies
                         </CardTitle>
-                        <CardDescription>Real-time bond data from National Stock Exchange and Bombay Stock Exchange</CardDescription>
+                        <CardDescription>Exclusive access to companies before they go public</CardDescription>
                       </div>
                       <div className="flex items-center gap-2">
                         <Select defaultValue="all">
@@ -2419,15 +2419,6 @@ export default function WealthManagement() {
             </Tabs>
           </TabsContent>
 
-          <TabsContent value="debentures" className="space-y-6">
-            <Card>
-              <CardContent className="p-12 text-center">
-                <CreditCard className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-lg font-semibold mb-2">Market Linked Debentures</h3>
-                <p className="text-muted-foreground">Debenture investments coming soon...</p>
-              </CardContent>
-            </Card>
-          </TabsContent>
 
           <TabsContent value="aif" className="space-y-6">
             {/* AIF Overview */}

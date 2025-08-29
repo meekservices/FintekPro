@@ -4045,7 +4045,7 @@ function TransactionReportViewer() {
                   <SelectItem value="all">All Types</SelectItem>
                   <SelectItem value="mutual_funds">Mutual Funds</SelectItem>
                   <SelectItem value="equities">Equities</SelectItem>
-                  <SelectItem value="bonds">Bonds</SelectItem>
+                  <SelectItem value="unlisted">Unlisted Securities</SelectItem>
                 </SelectContent>
               </Select>
             </div>

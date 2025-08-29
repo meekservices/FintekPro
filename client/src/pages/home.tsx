@@ -178,20 +178,20 @@ export default function Home() {
             </Link>
 
             {/* Bonds & Fixed Income */}
-            <Link href="/bonds" data-testid="link-bonds">
+            <Link href="/unlisted" data-testid="link-unlisted">
               <Card className="border-l-4 border-l-indigo-500 hover:shadow-lg transition-shadow cursor-pointer group">
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center text-lg">
                     <Receipt className="h-5 w-5 mr-2 text-indigo-500 group-hover:scale-110 transition-transform" />
-                    Bonds Trading
+                    Unlisted Securities
                     <Badge className="ml-2 bg-finance-green text-white text-xs">Multi-Exchange</Badge>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    <p className="text-sm text-gray-600">✓ Government bonds</p>
-                    <p className="text-sm text-gray-600">✓ Corporate bonds</p>
-                    <p className="text-sm text-gray-600">✓ Fixed deposits</p>
+                    <p className="text-sm text-gray-600">✓ Pre-IPO shares</p>
+                    <p className="text-sm text-gray-600">✓ Startup equity</p>
+                    <p className="text-sm text-gray-600">✓ Unicorn stakes</p>
                   </div>
                 </CardContent>
               </Card>
