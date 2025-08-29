@@ -27,6 +27,7 @@ export function Header() {
     { name: "Markets", href: "/markets" },
     { name: "Portfolio", href: "/portfolio" },
     { name: "Investments", href: "/wealth" },
+    { name: "CAMS", href: "/cams" },
     { name: "Support", href: "/support" },
   ];
 
@@ -199,6 +200,17 @@ export function Header() {
                         >
                           <Shield className="h-4 w-4 mr-2" />
                           CKYC Verification
+                        </Button>
+                      </Link>
+                      <Link href="/cams">
+                        <Button 
+                          className="w-full" 
+                          variant="outline"
+                          onClick={() => setIsOpen(false)}
+                          data-testid="mobile-cams-button"
+                        >
+                          <Shield className="h-4 w-4 mr-2" />
+                          CAMS Integration
                         </Button>
                       </Link>
                       <Link href="/profile">

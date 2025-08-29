@@ -14,6 +14,7 @@ import { z } from "zod";
 import { NseIndia } from 'stock-nse-india';
 import { sebiAPI } from "./sebi-api";
 import { comprehensiveAIFPMSAPI } from "./comprehensive-aif-pms-api";
+import { camsApi } from './cams-api';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const API = require('indian-stock-exchange');
@@ -7193,6 +7194,383 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         status: "error",
         error: "Failed to generate portfolio analytics" 
+      });
+    }
+  });
+
+  // CAMS API Integration endpoints
+
+  // Get investor portfolio from CAMS
+  app.get("/api/cams/portfolio/:pan", async (req, res) => {
+    try {
+      const { pan } = req.params;
+      const { folio } = req.query;
+      
+      if (!pan) {
+        return res.status(400).json({
+          status: "error",
+          error: "PAN number is required"
+        });
+      }
+
+      const portfolios = await camsApi.getInvestorPortfolio(pan, folio as string);
+
+      res.json({
+        status: "success",
+        data: portfolios,
+        count: portfolios.length,
+        message: "Portfolio details fetched successfully"
+      });
+    } catch (error) {
+      console.error("Error fetching CAMS portfolio:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch portfolio from CAMS"
+      });
+    }
+  });
+
+  // Get transaction history from CAMS
+  app.get("/api/cams/transactions/:pan", async (req, res) => {
+    try {
+      const { pan } = req.params;
+      const { fromDate, toDate, folio } = req.query;
+      
+      if (!pan || !fromDate || !toDate) {
+        return res.status(400).json({
+          status: "error",
+          error: "PAN, fromDate, and toDate are required"
+        });
+      }
+
+      const transactions = await camsApi.getTransactionHistory(
+        pan,
+        fromDate as string,
+        toDate as string,
+        folio as string
+      );
+
+      res.json({
+        status: "success",
+        data: transactions,
+        count: transactions.length,
+        message: "Transaction history fetched successfully"
+      });
+    } catch (error) {
+      console.error("Error fetching CAMS transactions:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch transactions from CAMS"
+      });
+    }
+  });
+
+  // Create purchase transaction through CAMS
+  app.post("/api/cams/transactions/purchase", async (req, res) => {
+    try {
+      const {
+        pan,
+        schemeCode,
+        amount,
+        folioNumber,
+        investorName,
+        bankAccount,
+        ifscCode
+      } = req.body;
+      
+      if (!pan || !schemeCode || !amount || !investorName || !bankAccount || !ifscCode) {
+        return res.status(400).json({
+          status: "error",
+          error: "PAN, scheme code, amount, investor name, bank account, and IFSC are required"
+        });
+      }
+
+      const result = await camsApi.createPurchaseTransaction({
+        pan,
+        schemeCode,
+        amount,
+        folioNumber,
+        investorName,
+        bankAccount,
+        ifscCode
+      });
+
+      res.json({
+        status: "success",
+        data: result,
+        message: "Purchase transaction created successfully"
+      });
+    } catch (error) {
+      console.error("Error creating CAMS purchase transaction:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to create purchase transaction"
+      });
+    }
+  });
+
+  // Create redemption transaction through CAMS
+  app.post("/api/cams/transactions/redemption", async (req, res) => {
+    try {
+      const {
+        pan,
+        folio,
+        schemeCode,
+        units,
+        amount,
+        redemptionType,
+        bankAccount,
+        ifscCode
+      } = req.body;
+      
+      if (!pan || !folio || !schemeCode || !redemptionType || !bankAccount || !ifscCode) {
+        return res.status(400).json({
+          status: "error",
+          error: "PAN, folio, scheme code, redemption type, bank account, and IFSC are required"
+        });
+      }
+
+      const result = await camsApi.createRedemptionTransaction({
+        pan,
+        folio,
+        schemeCode,
+        units,
+        amount,
+        redemptionType,
+        bankAccount,
+        ifscCode
+      });
+
+      res.json({
+        status: "success",
+        data: result,
+        message: "Redemption transaction created successfully"
+      });
+    } catch (error) {
+      console.error("Error creating CAMS redemption transaction:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to create redemption transaction"
+      });
+    }
+  });
+
+  // Setup SIP through CAMS
+  app.post("/api/cams/sip/setup", async (req, res) => {
+    try {
+      const {
+        pan,
+        schemeCode,
+        amount,
+        frequency,
+        startDate,
+        endDate,
+        installments,
+        folioNumber,
+        bankAccount,
+        ifscCode
+      } = req.body;
+      
+      if (!pan || !schemeCode || !amount || !frequency || !startDate || !bankAccount || !ifscCode) {
+        return res.status(400).json({
+          status: "error",
+          error: "PAN, scheme code, amount, frequency, start date, bank account, and IFSC are required"
+        });
+      }
+
+      const result = await camsApi.setupSip({
+        pan,
+        schemeCode,
+        amount,
+        frequency,
+        startDate,
+        endDate,
+        installments,
+        folioNumber,
+        bankAccount,
+        ifscCode
+      });
+
+      res.json({
+        status: "success",
+        data: result,
+        message: "SIP setup successfully"
+      });
+    } catch (error) {
+      console.error("Error setting up CAMS SIP:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to setup SIP"
+      });
+    }
+  });
+
+  // Get SIP details from CAMS
+  app.get("/api/cams/sip/:pan", async (req, res) => {
+    try {
+      const { pan } = req.params;
+      const { sipId } = req.query;
+      
+      if (!pan) {
+        return res.status(400).json({
+          status: "error",
+          error: "PAN number is required"
+        });
+      }
+
+      const sipDetails = await camsApi.getSipDetails(pan, sipId as string);
+
+      res.json({
+        status: "success",
+        data: sipDetails,
+        count: sipDetails.length,
+        message: "SIP details fetched successfully"
+      });
+    } catch (error) {
+      console.error("Error fetching CAMS SIP details:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch SIP details"
+      });
+    }
+  });
+
+  // Cancel SIP through CAMS
+  app.post("/api/cams/sip/cancel", async (req, res) => {
+    try {
+      const { sipId, pan } = req.body;
+      
+      if (!sipId || !pan) {
+        return res.status(400).json({
+          status: "error",
+          error: "SIP ID and PAN are required"
+        });
+      }
+
+      const result = await camsApi.cancelSip(sipId, pan);
+
+      res.json({
+        status: "success",
+        data: result,
+        message: "SIP cancelled successfully"
+      });
+    } catch (error) {
+      console.error("Error cancelling CAMS SIP:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to cancel SIP"
+      });
+    }
+  });
+
+  // Get scheme details from CAMS
+  app.get("/api/cams/schemes/:schemeCode?", async (req, res) => {
+    try {
+      const { schemeCode } = req.params;
+      
+      const schemes = await camsApi.getSchemeDetails(schemeCode);
+
+      res.json({
+        status: "success",
+        data: schemes,
+        count: schemes.length,
+        message: "Scheme details fetched successfully"
+      });
+    } catch (error) {
+      console.error("Error fetching CAMS scheme details:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch scheme details"
+      });
+    }
+  });
+
+  // Get NAV data from CAMS
+  app.get("/api/cams/nav/:schemeCode", async (req, res) => {
+    try {
+      const { schemeCode } = req.params;
+      const { date } = req.query;
+      
+      if (!schemeCode) {
+        return res.status(400).json({
+          status: "error",
+          error: "Scheme code is required"
+        });
+      }
+
+      const navData = await camsApi.getNavData(schemeCode, date as string);
+
+      res.json({
+        status: "success",
+        data: navData,
+        message: "NAV data fetched successfully"
+      });
+    } catch (error) {
+      console.error("Error fetching CAMS NAV data:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch NAV data"
+      });
+    }
+  });
+
+  // Validate investor through CAMS
+  app.get("/api/cams/investor/validate/:pan", async (req, res) => {
+    try {
+      const { pan } = req.params;
+      
+      if (!pan) {
+        return res.status(400).json({
+          status: "error",
+          error: "PAN number is required"
+        });
+      }
+
+      const validation = await camsApi.validateInvestor(pan);
+
+      res.json({
+        status: "success",
+        data: validation,
+        message: validation.isValid ? "Investor validated successfully" : "Invalid investor PAN"
+      });
+    } catch (error) {
+      console.error("Error validating investor through CAMS:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to validate investor"
+      });
+    }
+  });
+
+  // Generate consolidated statement through CAMS
+  app.post("/api/cams/statement/generate", async (req, res) => {
+    try {
+      const { pan, fromDate, toDate, format } = req.body;
+      
+      if (!pan || !fromDate || !toDate) {
+        return res.status(400).json({
+          status: "error",
+          error: "PAN, from date, and to date are required"
+        });
+      }
+
+      const statement = await camsApi.getConsolidatedStatement(
+        pan,
+        fromDate,
+        toDate,
+        format || 'PDF'
+      );
+
+      res.json({
+        status: "success",
+        data: statement,
+        message: "Statement generated successfully"
+      });
+    } catch (error) {
+      console.error("Error generating CAMS statement:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to generate statement"
       });
     }
   });
