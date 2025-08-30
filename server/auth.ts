@@ -378,17 +378,39 @@ export function setupAuth(app: Express) {
       }
 
       res.json({
+        // Enhanced KYC Fields
         panNumber: user.panNumber,
         aadharNumber: user.aadharNumber,
+        passportNumber: user.passportNumber,
+        drivingLicense: user.drivingLicense,
+        voterIdNumber: user.voterIdNumber,
         dateOfBirth: user.dateOfBirth,
+        nationality: user.nationality,
+        fatherName: user.fatherName,
+        motherName: user.motherName,
+        spouseName: user.spouseName,
+        maritalStatus: user.maritalStatus,
+        // Address Information
         address: user.address,
         city: user.city,
         state: user.state,
         pincode: user.pincode,
+        country: user.country,
+        // Financial Information
         occupation: user.occupation,
         annualIncome: user.annualIncome,
         investmentExperience: user.investmentExperience,
         riskTolerance: user.riskTolerance,
+        // Banking & Nominee Information
+        bankAccountNumber: user.bankAccountNumber,
+        ifscCode: user.ifscCode,
+        nomineeDetails: user.nomineeDetails,
+        nomineeRelation: user.nomineeRelation,
+        // Registry Preferences
+        preferredCamsRegistration: user.preferredCamsRegistration,
+        preferredKfintechRegistration: user.preferredKfintechRegistration,
+        preferredNsdlRegistration: user.preferredNsdlRegistration,
+        preferredCdslRegistration: user.preferredCdslRegistration,
       });
     } catch (error) {
       console.error("Error fetching profile:", error);
@@ -402,20 +424,54 @@ export function setupAuth(app: Express) {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const { panNumber, aadharNumber, dateOfBirth, address, city, state, pincode, occupation, annualIncome, investmentExperience, riskTolerance } = req.body;
+      const { 
+        // Enhanced KYC Fields
+        panNumber, aadharNumber, passportNumber, drivingLicense, voterIdNumber,
+        dateOfBirth, nationality, fatherName, motherName, spouseName, maritalStatus,
+        // Address Information
+        address, city, state, pincode, country,
+        // Financial Information
+        occupation, annualIncome, investmentExperience, riskTolerance,
+        // Banking & Nominee Information
+        bankAccountNumber, ifscCode, nomineeDetails, nomineeRelation,
+        // Registry Preferences
+        preferredCamsRegistration, preferredKfintechRegistration, preferredNsdlRegistration, preferredCdslRegistration
+      } = req.body;
 
       const updatedUser = await storage.updateUser(req.user.id, {
+        // Enhanced KYC Fields
         panNumber: panNumber || null,
         aadharNumber: aadharNumber || null,
+        passportNumber: passportNumber || null,
+        drivingLicense: drivingLicense || null,
+        voterIdNumber: voterIdNumber || null,
         dateOfBirth: dateOfBirth || null,
+        nationality: nationality || null,
+        fatherName: fatherName || null,
+        motherName: motherName || null,
+        spouseName: spouseName || null,
+        maritalStatus: maritalStatus || null,
+        // Address Information
         address: address || null,
         city: city || null,
         state: state || null,
         pincode: pincode || null,
+        country: country || null,
+        // Financial Information
         occupation: occupation || null,
         annualIncome: annualIncome || null,
         investmentExperience: investmentExperience || null,
         riskTolerance: riskTolerance || null,
+        // Banking & Nominee Information
+        bankAccountNumber: bankAccountNumber || null,
+        ifscCode: ifscCode || null,
+        nomineeDetails: nomineeDetails || null,
+        nomineeRelation: nomineeRelation || null,
+        // Registry Preferences
+        preferredCamsRegistration: preferredCamsRegistration || false,
+        preferredKfintechRegistration: preferredKfintechRegistration || false,
+        preferredNsdlRegistration: preferredNsdlRegistration || false,
+        preferredCdslRegistration: preferredCdslRegistration || false,
         updatedAt: new Date(),
       });
 
@@ -424,17 +480,39 @@ export function setupAuth(app: Express) {
       }
 
       res.json({
+        // Enhanced KYC Fields
         panNumber: updatedUser.panNumber,
         aadharNumber: updatedUser.aadharNumber,
+        passportNumber: updatedUser.passportNumber,
+        drivingLicense: updatedUser.drivingLicense,
+        voterIdNumber: updatedUser.voterIdNumber,
         dateOfBirth: updatedUser.dateOfBirth,
+        nationality: updatedUser.nationality,
+        fatherName: updatedUser.fatherName,
+        motherName: updatedUser.motherName,
+        spouseName: updatedUser.spouseName,
+        maritalStatus: updatedUser.maritalStatus,
+        // Address Information
         address: updatedUser.address,
         city: updatedUser.city,
         state: updatedUser.state,
         pincode: updatedUser.pincode,
+        country: updatedUser.country,
+        // Financial Information
         occupation: updatedUser.occupation,
         annualIncome: updatedUser.annualIncome,
         investmentExperience: updatedUser.investmentExperience,
         riskTolerance: updatedUser.riskTolerance,
+        // Banking & Nominee Information
+        bankAccountNumber: updatedUser.bankAccountNumber,
+        ifscCode: updatedUser.ifscCode,
+        nomineeDetails: updatedUser.nomineeDetails,
+        nomineeRelation: updatedUser.nomineeRelation,
+        // Registry Preferences
+        preferredCamsRegistration: updatedUser.preferredCamsRegistration,
+        preferredKfintechRegistration: updatedUser.preferredKfintechRegistration,
+        preferredNsdlRegistration: updatedUser.preferredNsdlRegistration,
+        preferredCdslRegistration: updatedUser.preferredCdslRegistration,
       });
     } catch (error) {
       console.error("Error updating profile:", error);

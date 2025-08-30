@@ -12,36 +12,80 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
-import { User, Shield, CreditCard, Building, TrendingUp } from "lucide-react";
+import { User, Shield, CreditCard, Building, TrendingUp, Database, FileText, Eye, Phone, Mail, Users, Link } from "lucide-react";
 
 const profileSchema = z.object({
-  panNumber: z.string().optional(),
-  aadharNumber: z.string().optional(),
+  // Enhanced KYC Fields
+  panNumber: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Invalid PAN format").optional().or(z.literal("")),
+  aadharNumber: z.string().regex(/^[0-9]{12}$/, "Aadhaar must be 12 digits").optional().or(z.literal("")),
+  passportNumber: z.string().optional(),
+  drivingLicense: z.string().optional(),
+  voterIdNumber: z.string().optional(),
   dateOfBirth: z.string().optional(),
+  nationality: z.string().optional(),
+  fatherName: z.string().optional(),
+  motherName: z.string().optional(),
+  spouseName: z.string().optional(),
+  maritalStatus: z.string().optional(),
+  // Address Information
   address: z.string().optional(),
   city: z.string().optional(),
   state: z.string().optional(),
-  pincode: z.string().optional(),
+  pincode: z.string().regex(/^[0-9]{6}$/, "Pincode must be 6 digits").optional().or(z.literal("")),
+  country: z.string().optional(),
+  // Financial Information
   occupation: z.string().optional(),
   annualIncome: z.string().optional(),
   investmentExperience: z.string().optional(),
   riskTolerance: z.string().optional(),
+  // Additional KYC for API Integration
+  bankAccountNumber: z.string().optional(),
+  ifscCode: z.string().optional(),
+  nomineeDetails: z.string().optional(),
+  nomineeRelation: z.string().optional(),
+  // Registry Preferences
+  preferredCamsRegistration: z.boolean().optional(),
+  preferredKfintechRegistration: z.boolean().optional(),
+  preferredNsdlRegistration: z.boolean().optional(),
+  preferredCdslRegistration: z.boolean().optional(),
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
 
 type ProfileData = {
+  // Enhanced KYC Fields
   panNumber?: string | null;
   aadharNumber?: string | null;
+  passportNumber?: string | null;
+  drivingLicense?: string | null;
+  voterIdNumber?: string | null;
   dateOfBirth?: string | null;
+  nationality?: string | null;
+  fatherName?: string | null;
+  motherName?: string | null;
+  spouseName?: string | null;
+  maritalStatus?: string | null;
+  // Address Information
   address?: string | null;
   city?: string | null;
   state?: string | null;
   pincode?: string | null;
+  country?: string | null;
+  // Financial Information
   occupation?: string | null;
   annualIncome?: string | null;
   investmentExperience?: string | null;
   riskTolerance?: string | null;
+  // Additional KYC for API Integration
+  bankAccountNumber?: string | null;
+  ifscCode?: string | null;
+  nomineeDetails?: string | null;
+  nomineeRelation?: string | null;
+  // Registry Preferences
+  preferredCamsRegistration?: boolean | null;
+  preferredKfintechRegistration?: boolean | null;
+  preferredNsdlRegistration?: boolean | null;
+  preferredCdslRegistration?: boolean | null;
 };
 
 const states = [
@@ -50,6 +94,34 @@ const states = [
   "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab",
   "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh",
   "Uttarakhand", "West Bengal", "Delhi", "Jammu and Kashmir", "Ladakh"
+];
+
+const maritalStatuses = [
+  "Single",
+  "Married",
+  "Divorced",
+  "Widowed",
+  "Separated"
+];
+
+const nationalities = [
+  "Indian",
+  "American",
+  "British",
+  "Canadian",
+  "Australian",
+  "Other"
+];
+
+const nomineeRelations = [
+  "Father",
+  "Mother",
+  "Spouse",
+  "Son",
+  "Daughter",
+  "Brother",
+  "Sister",
+  "Other"
 ];
 
 const incomeRanges = [
@@ -87,34 +159,78 @@ export default function ProfilePage() {
   const form = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
+      // Enhanced KYC Fields
       panNumber: "",
       aadharNumber: "",
+      passportNumber: "",
+      drivingLicense: "",
+      voterIdNumber: "",
       dateOfBirth: "",
+      nationality: "",
+      fatherName: "",
+      motherName: "",
+      spouseName: "",
+      maritalStatus: "",
+      // Address Information
       address: "",
       city: "",
       state: "",
       pincode: "",
+      country: "India",
+      // Financial Information
       occupation: "",
       annualIncome: "",
       investmentExperience: "",
       riskTolerance: "",
+      // Additional KYC for API Integration
+      bankAccountNumber: "",
+      ifscCode: "",
+      nomineeDetails: "",
+      nomineeRelation: "",
+      // Registry Preferences
+      preferredCamsRegistration: false,
+      preferredKfintechRegistration: false,
+      preferredNsdlRegistration: false,
+      preferredCdslRegistration: false,
     }
   });
 
   useEffect(() => {
     if (profileData) {
       form.reset({
+        // Enhanced KYC Fields
         panNumber: profileData.panNumber || "",
         aadharNumber: profileData.aadharNumber || "",
+        passportNumber: profileData.passportNumber || "",
+        drivingLicense: profileData.drivingLicense || "",
+        voterIdNumber: profileData.voterIdNumber || "",
         dateOfBirth: profileData.dateOfBirth || "",
+        nationality: profileData.nationality || "",
+        fatherName: profileData.fatherName || "",
+        motherName: profileData.motherName || "",
+        spouseName: profileData.spouseName || "",
+        maritalStatus: profileData.maritalStatus || "",
+        // Address Information
         address: profileData.address || "",
         city: profileData.city || "",
         state: profileData.state || "",
         pincode: profileData.pincode || "",
+        country: profileData.country || "India",
+        // Financial Information
         occupation: profileData.occupation || "",
         annualIncome: profileData.annualIncome || "",
         investmentExperience: profileData.investmentExperience || "",
         riskTolerance: profileData.riskTolerance || "",
+        // Additional KYC for API Integration
+        bankAccountNumber: profileData.bankAccountNumber || "",
+        ifscCode: profileData.ifscCode || "",
+        nomineeDetails: profileData.nomineeDetails || "",
+        nomineeRelation: profileData.nomineeRelation || "",
+        // Registry Preferences
+        preferredCamsRegistration: profileData.preferredCamsRegistration || false,
+        preferredKfintechRegistration: profileData.preferredKfintechRegistration || false,
+        preferredNsdlRegistration: profileData.preferredNsdlRegistration || false,
+        preferredCdslRegistration: profileData.preferredCdslRegistration || false,
       });
     }
   }, [profileData, form]);
@@ -209,18 +325,18 @@ export default function ProfilePage() {
         {/* Profile Form */}
         <div className="lg:col-span-2">
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {/* Personal Information */}
+            {/* KYC Information */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <CreditCard className="h-5 w-5" />
-                  Personal Information
+                  <Shield className="h-5 w-5" />
+                  KYC Information
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="panNumber">PAN Number</Label>
+                    <Label htmlFor="panNumber">PAN Number *</Label>
                     <Input
                       id="panNumber"
                       {...form.register("panNumber")}
@@ -229,27 +345,140 @@ export default function ProfilePage() {
                       className="uppercase"
                       data-testid="input-pan-number"
                     />
+                    {form.formState.errors.panNumber && (
+                      <p className="text-sm text-red-600 mt-1">{form.formState.errors.panNumber.message}</p>
+                    )}
                   </div>
                   <div>
-                    <Label htmlFor="aadharNumber">Aadhar Number</Label>
+                    <Label htmlFor="aadharNumber">Aadhaar Number *</Label>
                     <Input
                       id="aadharNumber"
                       {...form.register("aadharNumber")}
-                      placeholder="1234 5678 9012"
+                      placeholder="123456789012"
                       disabled={!isEditing}
                       data-testid="input-aadhar-number"
                     />
+                    {form.formState.errors.aadharNumber && (
+                      <p className="text-sm text-red-600 mt-1">{form.formState.errors.aadharNumber.message}</p>
+                    )}
                   </div>
                 </div>
-                <div>
-                  <Label htmlFor="dateOfBirth">Date of Birth</Label>
-                  <Input
-                    id="dateOfBirth"
-                    type="date"
-                    {...form.register("dateOfBirth")}
-                    disabled={!isEditing}
-                    data-testid="input-date-of-birth"
-                  />
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="passportNumber">Passport Number</Label>
+                    <Input
+                      id="passportNumber"
+                      {...form.register("passportNumber")}
+                      placeholder="A1234567"
+                      disabled={!isEditing}
+                      data-testid="input-passport-number"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="drivingLicense">Driving License</Label>
+                    <Input
+                      id="drivingLicense"
+                      {...form.register("drivingLicense")}
+                      placeholder="DL1420110012345"
+                      disabled={!isEditing}
+                      data-testid="input-driving-license"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="voterIdNumber">Voter ID Number</Label>
+                    <Input
+                      id="voterIdNumber"
+                      {...form.register("voterIdNumber")}
+                      placeholder="ABC1234567"
+                      disabled={!isEditing}
+                      data-testid="input-voter-id-number"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="dateOfBirth">Date of Birth</Label>
+                    <Input
+                      id="dateOfBirth"
+                      type="date"
+                      {...form.register("dateOfBirth")}
+                      disabled={!isEditing}
+                      data-testid="input-date-of-birth"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="nationality">Nationality</Label>
+                    <Select
+                      value={form.watch("nationality")}
+                      onValueChange={(value) => form.setValue("nationality", value)}
+                      disabled={!isEditing}
+                    >
+                      <SelectTrigger data-testid="select-nationality">
+                        <SelectValue placeholder="Select nationality" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {nationalities.map((nationality) => (
+                          <SelectItem key={nationality} value={nationality}>
+                            {nationality}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="maritalStatus">Marital Status</Label>
+                    <Select
+                      value={form.watch("maritalStatus")}
+                      onValueChange={(value) => form.setValue("maritalStatus", value)}
+                      disabled={!isEditing}
+                    >
+                      <SelectTrigger data-testid="select-marital-status">
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {maritalStatuses.map((status) => (
+                          <SelectItem key={status} value={status}>
+                            {status}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="fatherName">Father's Name</Label>
+                    <Input
+                      id="fatherName"
+                      {...form.register("fatherName")}
+                      placeholder="Father's full name"
+                      disabled={!isEditing}
+                      data-testid="input-father-name"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="motherName">Mother's Name</Label>
+                    <Input
+                      id="motherName"
+                      {...form.register("motherName")}
+                      placeholder="Mother's full name"
+                      disabled={!isEditing}
+                      data-testid="input-mother-name"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="spouseName">Spouse's Name</Label>
+                    <Input
+                      id="spouseName"
+                      {...form.register("spouseName")}
+                      placeholder="Spouse's full name"
+                      disabled={!isEditing}
+                      data-testid="input-spouse-name"
+                    />
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -274,7 +503,7 @@ export default function ProfilePage() {
                     data-testid="input-address"
                   />
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div>
                     <Label htmlFor="city">City</Label>
                     <Input
@@ -312,6 +541,19 @@ export default function ProfilePage() {
                       placeholder="123456"
                       disabled={!isEditing}
                       data-testid="input-pincode"
+                    />
+                    {form.formState.errors.pincode && (
+                      <p className="text-sm text-red-600 mt-1">{form.formState.errors.pincode.message}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label htmlFor="country">Country</Label>
+                    <Input
+                      id="country"
+                      {...form.register("country")}
+                      placeholder="India"
+                      disabled={!isEditing}
+                      data-testid="input-country"
                     />
                   </div>
                 </div>
@@ -396,6 +638,243 @@ export default function ProfilePage() {
                     </Select>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Banking & Nominee Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CreditCard className="h-5 w-5" />
+                  Banking & Nominee Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="bankAccountNumber">Bank Account Number</Label>
+                    <Input
+                      id="bankAccountNumber"
+                      {...form.register("bankAccountNumber")}
+                      placeholder="Enter bank account number"
+                      disabled={!isEditing}
+                      data-testid="input-bank-account-number"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="ifscCode">IFSC Code</Label>
+                    <Input
+                      id="ifscCode"
+                      {...form.register("ifscCode")}
+                      placeholder="SBIN0001234"
+                      disabled={!isEditing}
+                      className="uppercase"
+                      data-testid="input-ifsc-code"
+                    />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="nomineeDetails">Nominee Details</Label>
+                    <Textarea
+                      id="nomineeDetails"
+                      {...form.register("nomineeDetails")}
+                      placeholder="Nominee full name and other details"
+                      disabled={!isEditing}
+                      rows={2}
+                      data-testid="input-nominee-details"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="nomineeRelation">Nominee Relation</Label>
+                    <Select
+                      value={form.watch("nomineeRelation")}
+                      onValueChange={(value) => form.setValue("nomineeRelation", value)}
+                      disabled={!isEditing}
+                    >
+                      <SelectTrigger data-testid="select-nominee-relation">
+                        <SelectValue placeholder="Select relation" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {nomineeRelations.map((relation) => (
+                          <SelectItem key={relation} value={relation}>
+                            {relation}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Registry Integrations */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Database className="h-5 w-5" />
+                  Registry Integrations
+                </CardTitle>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Choose your preferred registries for mutual fund and demat account operations
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* CAMS Integration */}
+                <div className="flex items-start space-x-3 p-4 border rounded-lg">
+                  <input
+                    type="checkbox"
+                    id="preferredCamsRegistration"
+                    {...form.register("preferredCamsRegistration")}
+                    disabled={!isEditing}
+                    className="mt-1"
+                    data-testid="checkbox-cams-registration"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-5 w-5 text-blue-600" />
+                      <Label htmlFor="preferredCamsRegistration" className="font-medium cursor-pointer">
+                        CAMS (Computer Age Management Services)
+                      </Label>
+                    </div>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Leading registrar for mutual funds. Access portfolio, transactions, and SIP details.
+                    </p>
+                  </div>
+                </div>
+
+                {/* KFintech Integration */}
+                <div className="flex items-start space-x-3 p-4 border rounded-lg">
+                  <input
+                    type="checkbox"
+                    id="preferredKfintechRegistration"
+                    {...form.register("preferredKfintechRegistration")}
+                    disabled={!isEditing}
+                    className="mt-1"
+                    data-testid="checkbox-kfintech-registration"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="h-5 w-5 text-green-600" />
+                      <Label htmlFor="preferredKfintechRegistration" className="font-medium cursor-pointer">
+                        KFintech (Karvy Fintech)
+                      </Label>
+                    </div>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Major registrar and transfer agent. Manage your mutual fund investments efficiently.
+                    </p>
+                  </div>
+                </div>
+
+                {/* NSDL Integration */}
+                <div className="flex items-start space-x-3 p-4 border rounded-lg">
+                  <input
+                    type="checkbox"
+                    id="preferredNsdlRegistration"
+                    {...form.register("preferredNsdlRegistration")}
+                    disabled={!isEditing}
+                    className="mt-1"
+                    data-testid="checkbox-nsdl-registration"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <Building className="h-5 w-5 text-purple-600" />
+                      <Label htmlFor="preferredNsdlRegistration" className="font-medium cursor-pointer">
+                        NSDL (National Securities Depository Limited)
+                      </Label>
+                    </div>
+                    <p className="text-sm text-gray-600 mt-1">
+                      India's first depository. Access demat holdings, pledge shares, and loan against securities.
+                    </p>
+                  </div>
+                </div>
+
+                {/* CDSL Integration */}
+                <div className="flex items-start space-x-3 p-4 border rounded-lg">
+                  <input
+                    type="checkbox"
+                    id="preferredCdslRegistration"
+                    {...form.register("preferredCdslRegistration")}
+                    disabled={!isEditing}
+                    className="mt-1"
+                    data-testid="checkbox-cdsl-registration"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <Shield className="h-5 w-5 text-orange-600" />
+                      <Label htmlFor="preferredCdslRegistration" className="font-medium cursor-pointer">
+                        CDSL (Central Depository Services Limited)
+                      </Label>
+                    </div>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Leading depository service. Manage demat accounts, eDIS consent, and margin pledging.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Registry Access Links */}
+                {(profileData?.preferredCamsRegistration || 
+                  profileData?.preferredKfintechRegistration || 
+                  profileData?.preferredNsdlRegistration || 
+                  profileData?.preferredCdslRegistration) && (
+                  <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <h4 className="font-medium flex items-center gap-2 mb-3">
+                      <Link className="h-4 w-4" />
+                      Quick Access to Registry Services
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {profileData?.preferredCamsRegistration && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open('/cams', '_blank')}
+                          className="justify-start"
+                          data-testid="button-access-cams"
+                        >
+                          <FileText className="h-4 w-4 mr-2" />
+                          Access CAMS
+                        </Button>
+                      )}
+                      {profileData?.preferredKfintechRegistration && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open('/kfintech', '_blank')}
+                          className="justify-start"
+                          data-testid="button-access-kfintech"
+                        >
+                          <TrendingUp className="h-4 w-4 mr-2" />
+                          Access KFintech
+                        </Button>
+                      )}
+                      {profileData?.preferredNsdlRegistration && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open('/nsdl', '_blank')}
+                          className="justify-start"
+                          data-testid="button-access-nsdl"
+                        >
+                          <Building className="h-4 w-4 mr-2" />
+                          Access NSDL
+                        </Button>
+                      )}
+                      {profileData?.preferredCdslRegistration && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open('/cdsl', '_blank')}
+                          className="justify-start"
+                          data-testid="button-access-cdsl"
+                        >
+                          <Shield className="h-4 w-4 mr-2" />
+                          Access CDSL
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 

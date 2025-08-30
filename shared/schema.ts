@@ -27,18 +27,39 @@ export const users = pgTable("users", {
   profileImageUrl: varchar("profile_image_url"),
   isEmailVerified: boolean("is_email_verified").default(false),
   isMobileVerified: boolean("is_mobile_verified").default(false),
-  // Profile/KYC Information
+  // Enhanced KYC Information
   panNumber: varchar("pan_number"),
   aadharNumber: varchar("aadhar_number"),
+  passportNumber: varchar("passport_number"),
+  drivingLicense: varchar("driving_license"),
+  voterIdNumber: varchar("voter_id_number"),
   dateOfBirth: varchar("date_of_birth"),
+  nationality: varchar("nationality"),
+  fatherName: varchar("father_name"),
+  motherName: varchar("mother_name"),
+  spouseName: varchar("spouse_name"),
+  maritalStatus: varchar("marital_status"),
+  // Address Information
   address: text("address"),
   city: varchar("city"),
   state: varchar("state"),
   pincode: varchar("pincode"),
+  country: varchar("country"),
+  // Financial Information
   occupation: varchar("occupation"),
   annualIncome: varchar("annual_income"),
   investmentExperience: varchar("investment_experience"),
   riskTolerance: varchar("risk_tolerance"),
+  // Banking & Nominee Information
+  bankAccountNumber: varchar("bank_account_number"),
+  ifscCode: varchar("ifsc_code"),
+  nomineeDetails: text("nominee_details"),
+  nomineeRelation: varchar("nominee_relation"),
+  // Registry Preferences
+  preferredCamsRegistration: boolean("preferred_cams_registration").default(false),
+  preferredKfintechRegistration: boolean("preferred_kfintech_registration").default(false),
+  preferredNsdlRegistration: boolean("preferred_nsdl_registration").default(false),
+  preferredCdslRegistration: boolean("preferred_cdsl_registration").default(false),
   // Admin and system fields
   role: varchar("role").default("user"), // 'user', 'admin', 'super_admin'
   isActive: boolean("is_active").default(true),

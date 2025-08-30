@@ -27,7 +27,6 @@ export function Header() {
     { name: "Markets", href: "/markets" },
     { name: "Portfolio", href: "/portfolio" },
     { name: "Mutual Funds", href: "/mutual-funds" },
-    { name: "Registries", href: "/cams" },
     { name: "Calculators", href: "/calculators" },
     { name: "Support", href: "/support" },
   ];
@@ -201,28 +200,6 @@ export function Header() {
                         >
                           <Shield className="h-4 w-4 mr-2" />
                           CKYC Verification
-                        </Button>
-                      </Link>
-                      <Link href="/cams">
-                        <Button 
-                          className="w-full" 
-                          variant="outline"
-                          onClick={() => setIsOpen(false)}
-                          data-testid="mobile-cams-button"
-                        >
-                          <Shield className="h-4 w-4 mr-2" />
-                          CAMS Integration
-                        </Button>
-                      </Link>
-                      <Link href="/kfintech">
-                        <Button 
-                          className="w-full" 
-                          variant="outline"
-                          onClick={() => setIsOpen(false)}
-                          data-testid="mobile-kfintech-button"
-                        >
-                          <Shield className="h-4 w-4 mr-2" />
-                          KFintech Integration
                         </Button>
                       </Link>
                       <Link href="/profile">
