@@ -1837,69 +1837,97 @@ export default function AdminPanel() {
   };
 
   return (
-    <div className="min-h-screen bg-background" data-testid="admin-panel">
-      <div className="flex items-center justify-between p-6 border-b">
-        <div>
-          <h1 className="text-3xl font-bold" data-testid="text-admin-title">Admin Panel</h1>
-          <p className="text-muted-foreground" data-testid="text-admin-subtitle">
-            Monitor and manage platform activity
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950" data-testid="admin-panel">
+      {/* Enhanced Header with Gradient Background */}
+      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-blue-600 text-white shadow-xl">
+        <div className="flex items-center justify-between p-6">
+          <div className="flex items-center space-x-4">
+            <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+              <Shield className="h-8 w-8" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight" data-testid="text-admin-title">
+                FintekPro Admin Center
+              </h1>
+              <p className="text-indigo-100 text-lg" data-testid="text-admin-subtitle">
+                Complete platform management & analytics dashboard
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-4">
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2">
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <span className="text-sm font-medium">System Online</span>
+              </div>
+            </div>
+            <Badge variant="secondary" className="bg-white/20 text-white border-white/30 hover:bg-white/30" data-testid="badge-admin-status">
+              <ShieldCheck className="w-4 h-4 mr-2" />
+              Super Admin
+            </Badge>
+          </div>
         </div>
-        <Badge variant="secondary" data-testid="badge-admin-status">Admin Access</Badge>
       </div>
 
       <div className="flex h-screen">
-        {/* Left Sidebar */}
-        <div className="w-64 border-r bg-card shadow-sm flex-shrink-0">
+        {/* Enhanced Left Sidebar */}
+        <div className="w-72 border-r bg-white/70 dark:bg-slate-900/70 backdrop-blur-md shadow-xl flex-shrink-0 border-slate-200/50">
+          <div className="p-4">
+            <div className="mb-6">
+              <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
+                Navigation
+              </h3>
+            </div>
+          </div>
           <Tabs defaultValue="dashboard" orientation="vertical" className="w-full h-full">
-            <TabsList className="flex flex-col h-auto w-full bg-transparent p-2 space-y-1">
+            <TabsList className="flex flex-col h-auto w-full bg-transparent p-4 space-y-2">
               <TabsTrigger 
                 value="dashboard" 
                 data-testid="tab-dashboard"
-                className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                className="w-full justify-start p-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-indigo-200 dark:data-[state=active]:shadow-indigo-900/50"
               >
-                <TrendingUp className="w-4 h-4 mr-3" />
-                Dashboard
+                <TrendingUp className="w-5 h-5 mr-3" />
+                <span className="font-medium">Dashboard</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="comprehensive-users" 
                 data-testid="tab-comprehensive-users"
-                className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                className="w-full justify-start p-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-cyan-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-200 dark:data-[state=active]:shadow-blue-900/50"
               >
-                <Users2 className="w-4 h-4 mr-3" />
-                All Users
+                <Users2 className="w-5 h-5 mr-3" />
+                <span className="font-medium">All Users</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="clients" 
                 data-testid="tab-clients"
-                className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                className="w-full justify-start p-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-green-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-200 dark:data-[state=active]:shadow-emerald-900/50"
               >
-                <Users className="w-4 h-4 mr-3" />
-                Clients
+                <Users className="w-5 h-5 mr-3" />
+                <span className="font-medium">Clients</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="activity" 
                 data-testid="tab-activity"
-                className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                className="w-full justify-start p-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-red-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-orange-200 dark:data-[state=active]:shadow-orange-900/50"
               >
-                <Activity className="w-4 h-4 mr-3" />
-                Activity
+                <Activity className="w-5 h-5 mr-3" />
+                <span className="font-medium">Activity</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="ckyc" 
                 data-testid="tab-ckyc"
-                className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                className="w-full justify-start p-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-violet-200 dark:data-[state=active]:shadow-violet-900/50"
               >
-                <Shield className="w-4 h-4 mr-3" />
-                CKYC
+                <Shield className="w-5 h-5 mr-3" />
+                <span className="font-medium">CKYC Management</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="api-status" 
                 data-testid="tab-api-status"
-                className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                className="w-full justify-start p-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-teal-500 data-[state=active]:to-cyan-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-teal-200 dark:data-[state=active]:shadow-teal-900/50"
               >
-                <Server className="w-4 h-4 mr-3" />
-                API Status
+                <Server className="w-5 h-5 mr-3" />
+                <span className="font-medium">API Status</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="error-monitoring" 
@@ -1967,135 +1995,185 @@ export default function AdminPanel() {
               </TabsTrigger>
             </TabsList>
 
-            {/* Main Content Area */}
-            <div className="flex-1 overflow-auto p-6">
+            {/* Enhanced Main Content Area */}
+            <div className="flex-1 overflow-auto p-8 bg-gradient-to-br from-white/60 via-slate-50/80 to-blue-50/60 dark:from-slate-900/60 dark:via-slate-800/80 dark:to-slate-900/60">
 
             {/* Dashboard Tab */}
             <TabsContent value="dashboard" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card data-testid="card-total-users">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <Card data-testid="card-total-users" className="bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-xl shadow-blue-500/25 border-0 hover:shadow-2xl hover:shadow-blue-500/30 transition-all duration-300 hover:-translate-y-1">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Clients</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-blue-100">Total Clients</CardTitle>
+                <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                  <Users className="h-5 w-5 text-white" />
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold" data-testid="text-total-clients">
+                <div className="text-3xl font-bold mb-1" data-testid="text-total-clients">
                   {clientStats?.totalClients || 0}
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-sm text-blue-100 flex items-center">
+                  <TrendingUp className="w-4 h-4 mr-1" />
                   +{clientStats?.newClientsToday || 0} new today
                 </p>
               </CardContent>
             </Card>
 
-            <Card data-testid="card-active-users">
+            <Card data-testid="card-active-users" className="bg-gradient-to-br from-emerald-500 to-green-600 text-white shadow-xl shadow-emerald-500/25 border-0 hover:shadow-2xl hover:shadow-emerald-500/30 transition-all duration-300 hover:-translate-y-1">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Active Clients</CardTitle>
-                <Activity className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-emerald-100">Active Clients</CardTitle>
+                <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                  <Activity className="h-5 w-5 text-white" />
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold" data-testid="text-active-clients">
+                <div className="text-3xl font-bold mb-1" data-testid="text-active-clients">
                   {clientStats?.activeClients || 0}
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-sm text-emerald-100 flex items-center">
+                  <Clock className="w-4 h-4 mr-1" />
                   Last 7 days
                 </p>
               </CardContent>
             </Card>
 
-            <Card data-testid="card-total-logins">
+            <Card data-testid="card-total-logins" className="bg-gradient-to-br from-purple-500 to-indigo-600 text-white shadow-xl shadow-purple-500/25 border-0 hover:shadow-2xl hover:shadow-purple-500/30 transition-all duration-300 hover:-translate-y-1">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Logins</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-purple-100">Total Logins</CardTitle>
+                <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                  <TrendingUp className="h-5 w-5 text-white" />
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold" data-testid="text-total-logins">
+                <div className="text-3xl font-bold mb-1" data-testid="text-total-logins">
                   {clientStats?.totalLogins || 0}
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-sm text-purple-100 flex items-center">
+                  <Calendar className="w-4 h-4 mr-1" />
                   All time
                 </p>
               </CardContent>
             </Card>
 
-            <Card data-testid="card-avg-session">
+            <Card data-testid="card-avg-session" className="bg-gradient-to-br from-orange-500 to-red-600 text-white shadow-xl shadow-orange-500/25 border-0 hover:shadow-2xl hover:shadow-orange-500/30 transition-all duration-300 hover:-translate-y-1">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Avg Session</CardTitle>
-                <Settings className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-orange-100">Avg Session</CardTitle>
+                <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                  <Clock className="h-5 w-5 text-white" />
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold" data-testid="text-avg-session">
+                <div className="text-3xl font-bold mb-1" data-testid="text-avg-session">
                   {clientStats?.avgSessionTime || 0}m
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-sm text-orange-100 flex items-center">
+                  <Users className="w-4 h-4 mr-1" />
                   Average duration
                 </p>
               </CardContent>
             </Card>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card data-testid="card-activity-metrics">
-              <CardHeader>
-                <CardTitle>Activity Metrics</CardTitle>
-                <CardDescription>Last 24 hours</CardDescription>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <Card data-testid="card-activity-metrics" className="bg-gradient-to-br from-white to-blue-50 dark:from-slate-800 dark:to-slate-900 border-2 border-blue-100 dark:border-slate-700 shadow-xl hover:shadow-2xl transition-all duration-300">
+              <CardHeader className="pb-4">
+                <div className="flex items-center space-x-3">
+                  <div className="p-3 bg-gradient-to-r from-blue-500 to-cyan-600 rounded-xl">
+                    <Activity className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-xl font-bold text-slate-800 dark:text-white">Activity Metrics</CardTitle>
+                    <CardDescription className="text-slate-600 dark:text-slate-300">Last 24 hours performance</CardDescription>
+                  </div>
+                </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between">
-                  <span>Page Views</span>
-                  <span className="font-bold" data-testid="text-page-views">
+              <CardContent className="space-y-6">
+                <div className="flex justify-between items-center p-4 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-slate-700 dark:to-slate-800 rounded-xl">
+                  <div className="flex items-center space-x-3">
+                    <Eye className="h-5 w-5 text-blue-600" />
+                    <span className="font-medium text-slate-700 dark:text-slate-200">Page Views</span>
+                  </div>
+                  <span className="text-2xl font-bold text-blue-600" data-testid="text-page-views">
                     {activityMetrics?.pageViews || 0}
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span>API Calls</span>
-                  <span className="font-bold" data-testid="text-api-calls">
+                <div className="flex justify-between items-center p-4 bg-gradient-to-r from-emerald-50 to-green-50 dark:from-slate-700 dark:to-slate-800 rounded-xl">
+                  <div className="flex items-center space-x-3">
+                    <Zap className="h-5 w-5 text-emerald-600" />
+                    <span className="font-medium text-slate-700 dark:text-slate-200">API Calls</span>
+                  </div>
+                  <span className="text-2xl font-bold text-emerald-600" data-testid="text-api-calls">
                     {activityMetrics?.apiCalls || 0}
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Portfolio Views</span>
-                  <span className="font-bold" data-testid="text-portfolio-views">
+                <div className="flex justify-between items-center p-4 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-slate-700 dark:to-slate-800 rounded-xl">
+                  <div className="flex items-center space-x-3">
+                    <PieChart className="h-5 w-5 text-purple-600" />
+                    <span className="font-medium text-slate-700 dark:text-slate-200">Portfolio Views</span>
+                  </div>
+                  <span className="text-2xl font-bold text-purple-600" data-testid="text-portfolio-views">
                     {activityMetrics?.portfolioViews || 0}
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Trades</span>
-                  <span className="font-bold" data-testid="text-trades">
+                <div className="flex justify-between items-center p-4 bg-gradient-to-r from-orange-50 to-red-50 dark:from-slate-700 dark:to-slate-800 rounded-xl">
+                  <div className="flex items-center space-x-3">
+                    <TrendingUp className="h-5 w-5 text-orange-600" />
+                    <span className="font-medium text-slate-700 dark:text-slate-200">Trades</span>
+                  </div>
+                  <span className="text-2xl font-bold text-orange-600" data-testid="text-trades">
                     {activityMetrics?.trades || 0}
                   </span>
                 </div>
               </CardContent>
             </Card>
 
-            <Card data-testid="card-system-health">
-              <CardHeader>
-                <CardTitle>System Health</CardTitle>
-                <CardDescription>Current status</CardDescription>
+            <Card data-testid="card-system-health" className="bg-gradient-to-br from-white to-emerald-50 dark:from-slate-800 dark:to-slate-900 border-2 border-emerald-100 dark:border-slate-700 shadow-xl hover:shadow-2xl transition-all duration-300">
+              <CardHeader className="pb-4">
+                <div className="flex items-center space-x-3">
+                  <div className="p-3 bg-gradient-to-r from-emerald-500 to-green-600 rounded-xl">
+                    <Shield className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-xl font-bold text-slate-800 dark:text-white">System Health</CardTitle>
+                    <CardDescription className="text-slate-600 dark:text-slate-300">Real-time status monitoring</CardDescription>
+                  </div>
+                </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between">
-                  <span>Uptime</span>
-                  <span className="font-bold" data-testid="text-uptime">
+              <CardContent className="space-y-6">
+                <div className="flex justify-between items-center p-4 bg-gradient-to-r from-emerald-50 to-green-50 dark:from-slate-700 dark:to-slate-800 rounded-xl">
+                  <div className="flex items-center space-x-3">
+                    <Clock className="h-5 w-5 text-emerald-600" />
+                    <span className="font-medium text-slate-700 dark:text-slate-200">Uptime</span>
+                  </div>
+                  <span className="text-2xl font-bold text-emerald-600" data-testid="text-uptime">
                     {dashboardInsights?.systemHealth?.uptime || "0h 0m"}
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Error Rate</span>
-                  <span className="font-bold" data-testid="text-error-rate">
+                <div className="flex justify-between items-center p-4 bg-gradient-to-r from-red-50 to-pink-50 dark:from-slate-700 dark:to-slate-800 rounded-xl">
+                  <div className="flex items-center space-x-3">
+                    <AlertTriangle className="h-5 w-5 text-red-600" />
+                    <span className="font-medium text-slate-700 dark:text-slate-200">Error Rate</span>
+                  </div>
+                  <span className="text-2xl font-bold text-red-600" data-testid="text-error-rate">
                     {dashboardInsights?.systemHealth?.errorRate || 0}%
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Response Time</span>
-                  <span className="font-bold" data-testid="text-response-time">
+                <div className="flex justify-between items-center p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-700 dark:to-slate-800 rounded-xl">
+                  <div className="flex items-center space-x-3">
+                    <Zap className="h-5 w-5 text-blue-600" />
+                    <span className="font-medium text-slate-700 dark:text-slate-200">Response Time</span>
+                  </div>
+                  <span className="text-2xl font-bold text-blue-600" data-testid="text-response-time">
                     {dashboardInsights?.systemHealth?.responseTime || 0}ms
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Status</span>
-                  <Badge variant="secondary" className="bg-green-100 text-green-800" data-testid="badge-system-status">
-                    Healthy
+                <div className="flex justify-between items-center p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-slate-700 dark:to-slate-800 rounded-xl">
+                  <div className="flex items-center space-x-3">
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    <span className="font-medium text-slate-700 dark:text-slate-200">Status</span>
+                  </div>
+                  <Badge variant="secondary" className="bg-gradient-to-r from-green-500 to-emerald-600 text-white border-0 px-4 py-2 text-sm font-medium" data-testid="badge-system-status">
+                    ✓ Healthy
                   </Badge>
                 </div>
               </CardContent>
