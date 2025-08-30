@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertTriangle, Users, Activity, TrendingUp, MessageSquare, Settings, Search, Filter, Shield, FileText, Building2, Plus, Edit3, Trash2, Server, Brain, Zap, Lock, Receipt, CheckCircle, Calendar, Download, Loader2, DollarSign, Clock, Eye, Edit, Send, UserPlus, MoreVertical, ShieldCheck, ShieldAlert, Bot, Monitor, BarChart, Globe, Mail, Target, TrendingDown, Share2, Megaphone, MousePointer, Users2, BarChart3, PieChart, LineChart, Phone, ChevronLeft, ChevronRight, Menu } from "lucide-react";
+import { AlertTriangle, Users, Activity, TrendingUp, MessageSquare, Settings, Search, Filter, Shield, FileText, Building2, Plus, Edit3, Trash2, Server, Brain, Zap, Lock, Receipt, CheckCircle, Calendar, Download, Loader2, DollarSign, Clock, Eye, Edit, Send, UserPlus, MoreVertical, ShieldCheck, ShieldAlert, Bot, Monitor, BarChart, Globe, Mail, Target, TrendingDown, Share2, Megaphone, MousePointer, Users2, BarChart3, PieChart, LineChart, Phone, ChevronLeft, ChevronRight, Menu, MessageCircle, Smartphone, Link, UserCheck, Building, Network, ArrowRightLeft, Handshake } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -2019,6 +2019,24 @@ export default function AdminPanel() {
                 <Megaphone className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
                 {!sidebarCollapsed && <span className="font-medium">Marketing</span>}
               </TabsTrigger>
+              <TabsTrigger 
+                value="partner-management" 
+                data-testid="tab-partner-management"
+                className={`w-full ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start px-3'} py-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-indigo-200 dark:data-[state=active]:shadow-indigo-900/50`}
+                title={sidebarCollapsed ? "Partner Management" : undefined}
+              >
+                <Handshake className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
+                {!sidebarCollapsed && <span className="font-medium">Partner Management</span>}
+              </TabsTrigger>
+              <TabsTrigger 
+                value="communications" 
+                data-testid="tab-communications"
+                className={`w-full ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start px-3'} py-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-green-200 dark:data-[state=active]:shadow-green-900/50`}
+                title={sidebarCollapsed ? "Communications" : undefined}
+              >
+                <MessageCircle className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
+                {!sidebarCollapsed && <span className="font-medium">Communications</span>}
+              </TabsTrigger>
             </TabsList>
           </div>
 
@@ -3958,6 +3976,335 @@ export default function AdminPanel() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+          {/* Partner Management Tab */}
+          <TabsContent value="partner-management" className="space-y-6" data-testid="partner-management-content">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-3xl font-bold text-slate-800 dark:text-white">Partner Management</h2>
+                <p className="text-slate-600 dark:text-slate-400 mt-1">Manage partner relationships and agent assignments</p>
+              </div>
+              <Button className="bg-gradient-to-r from-indigo-500 to-blue-600 text-white hover:from-indigo-600 hover:to-blue-700" data-testid="button-add-partner">
+                <Building className="w-4 h-4 mr-2" />
+                Add Partner
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Partner Overview Cards */}
+              <div className="lg:col-span-2 space-y-6">
+                <Card className="group relative overflow-hidden bg-gradient-to-br from-white via-blue-50/50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-700 border-2 border-blue-200/30 dark:border-slate-600 shadow-2xl hover:shadow-3xl hover:shadow-blue-500/20 transition-all duration-500 hover:-translate-y-1">
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <CardHeader className="pb-6 relative z-10">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div className="p-4 bg-gradient-to-br from-blue-500 via-cyan-500 to-indigo-600 rounded-2xl shadow-lg group-hover:shadow-xl transition-all duration-300">
+                          <Handshake className="h-7 w-7 text-white" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-2xl font-bold text-slate-800 dark:text-white mb-1">Partner Network</CardTitle>
+                          <CardDescription className="text-slate-600 dark:text-slate-400 text-sm">Active partnerships and agent assignments</CardDescription>
+                        </div>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-6 relative z-10">
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="text-center p-4 bg-gradient-to-r from-blue-50/80 to-cyan-50/80 dark:from-slate-700/50 dark:to-slate-600/50 rounded-xl border border-blue-100/50 dark:border-slate-600/50">
+                        <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">24</div>
+                        <div className="text-sm text-slate-600 dark:text-slate-400">Active Partners</div>
+                      </div>
+                      <div className="text-center p-4 bg-gradient-to-r from-emerald-50/80 to-green-50/80 dark:from-slate-700/50 dark:to-slate-600/50 rounded-xl border border-emerald-100/50 dark:border-slate-600/50">
+                        <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">156</div>
+                        <div className="text-sm text-slate-600 dark:text-slate-400">Assigned Agents</div>
+                      </div>
+                      <div className="text-center p-4 bg-gradient-to-r from-purple-50/80 to-indigo-50/80 dark:from-slate-700/50 dark:to-slate-600/50 rounded-xl border border-purple-100/50 dark:border-slate-600/50">
+                        <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">2,847</div>
+                        <div className="text-sm text-slate-600 dark:text-slate-400">Total Clients</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Partner List */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Building className="w-5 h-5 text-indigo-600" />
+                      Partner Directory
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {[
+                        { name: "TechCorp Solutions", agents: 12, clients: 342, status: "active", tier: "platinum" },
+                        { name: "FinanceFirst Partners", agents: 8, clients: 156, status: "active", tier: "gold" },
+                        { name: "Global Investment Group", agents: 15, clients: 423, status: "active", tier: "platinum" },
+                        { name: "Regional Wealth Advisors", agents: 6, clients: 89, status: "pending", tier: "silver" }
+                      ].map((partner, index) => (
+                        <div key={index} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                          <div className="flex items-center space-x-4">
+                            <div className="w-12 h-12 bg-gradient-to-r from-indigo-500 to-blue-600 rounded-xl flex items-center justify-center">
+                              <Building className="w-6 h-6 text-white" />
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-slate-800 dark:text-white">{partner.name}</h4>
+                              <p className="text-sm text-slate-600 dark:text-slate-400">{partner.agents} agents • {partner.clients} clients</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Badge className={`${partner.tier === 'platinum' ? 'bg-purple-100 text-purple-800' : 
+                              partner.tier === 'gold' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'}`}>
+                              {partner.tier}
+                            </Badge>
+                            <Badge className={`${partner.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'}`}>
+                              {partner.status}
+                            </Badge>
+                            <Button variant="ghost" size="sm">
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Agent Assignment Panel */}
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <ArrowRightLeft className="w-5 h-5 text-emerald-600" />
+                      Agent Assignments
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-medium text-slate-800 dark:text-white">Agent Sarah Johnson</span>
+                          <Badge className="bg-blue-100 text-blue-800">Active</Badge>
+                        </div>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">TechCorp Solutions • 28 clients</p>
+                      </div>
+                      <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-medium text-slate-800 dark:text-white">Agent Mike Chen</span>
+                          <Badge className="bg-emerald-100 text-emerald-800">Active</Badge>
+                        </div>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">FinanceFirst Partners • 19 clients</p>
+                      </div>
+                      <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-medium text-slate-800 dark:text-white">Agent Lisa Wong</span>
+                          <Badge className="bg-purple-100 text-purple-800">Active</Badge>
+                        </div>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">Global Investment • 35 clients</p>
+                      </div>
+                    </div>
+                    <Button className="w-full mt-4 bg-gradient-to-r from-emerald-500 to-green-600" size="sm">
+                      <UserPlus className="w-4 h-4 mr-2" />
+                      Assign New Agent
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Network className="w-5 h-5 text-orange-600" />
+                      Client Distribution
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-slate-600 dark:text-slate-400">High Net Worth</span>
+                        <span className="font-semibold text-slate-800 dark:text-white">342</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-slate-600 dark:text-slate-400">Retail Investors</span>
+                        <span className="font-semibold text-slate-800 dark:text-white">1,856</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-slate-600 dark:text-slate-400">Corporate Clients</span>
+                        <span className="font-semibold text-slate-800 dark:text-white">649</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Communications Tab */}
+          <TabsContent value="communications" className="space-y-6" data-testid="communications-content">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-3xl font-bold text-slate-800 dark:text-white">Communications Center</h2>
+                <p className="text-slate-600 dark:text-slate-400 mt-1">Send messages via WhatsApp, SMS, and Email</p>
+              </div>
+              <div className="flex space-x-2">
+                <Button className="bg-gradient-to-r from-green-500 to-emerald-600 text-white" data-testid="button-whatsapp-bulk">
+                  <Smartphone className="w-4 h-4 mr-2" />
+                  WhatsApp Broadcast
+                </Button>
+                <Button className="bg-gradient-to-r from-blue-500 to-cyan-600 text-white" data-testid="button-email-campaign">
+                  <Mail className="w-4 h-4 mr-2" />
+                  Email Campaign
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Communication Stats */}
+              <Card className="group relative overflow-hidden bg-gradient-to-br from-white via-green-50/50 to-emerald-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-700 border-2 border-green-200/30 dark:border-slate-600 shadow-2xl hover:shadow-3xl hover:shadow-green-500/20 transition-all duration-500 hover:-translate-y-1">
+                <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <CardHeader className="pb-6 relative z-10">
+                  <div className="flex items-center space-x-4">
+                    <div className="p-4 bg-gradient-to-br from-green-500 via-emerald-500 to-green-600 rounded-2xl shadow-lg group-hover:shadow-xl transition-all duration-300">
+                      <MessageCircle className="h-7 w-7 text-white" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-2xl font-bold text-slate-800 dark:text-white mb-1">Message Analytics</CardTitle>
+                      <CardDescription className="text-slate-600 dark:text-slate-400 text-sm">Last 30 days communication stats</CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-6 relative z-10">
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="text-center p-4 bg-gradient-to-r from-green-50/80 to-emerald-50/80 dark:from-slate-700/50 dark:to-slate-600/50 rounded-xl border border-green-100/50 dark:border-slate-600/50">
+                      <Smartphone className="w-6 h-6 mx-auto mb-2 text-green-600 dark:text-green-400" />
+                      <div className="text-xl font-bold text-green-600 dark:text-green-400">1,247</div>
+                      <div className="text-xs text-slate-600 dark:text-slate-400">WhatsApp</div>
+                    </div>
+                    <div className="text-center p-4 bg-gradient-to-r from-blue-50/80 to-cyan-50/80 dark:from-slate-700/50 dark:to-slate-600/50 rounded-xl border border-blue-100/50 dark:border-slate-600/50">
+                      <Mail className="w-6 h-6 mx-auto mb-2 text-blue-600 dark:text-blue-400" />
+                      <div className="text-xl font-bold text-blue-600 dark:text-blue-400">856</div>
+                      <div className="text-xs text-slate-600 dark:text-slate-400">Emails</div>
+                    </div>
+                    <div className="text-center p-4 bg-gradient-to-r from-purple-50/80 to-indigo-50/80 dark:from-slate-700/50 dark:to-slate-600/50 rounded-xl border border-purple-100/50 dark:border-slate-600/50">
+                      <Phone className="w-6 h-6 mx-auto mb-2 text-purple-600 dark:text-purple-400" />
+                      <div className="text-xl font-bold text-purple-600 dark:text-purple-400">432</div>
+                      <div className="text-xs text-slate-600 dark:text-slate-400">SMS</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Quick Message Composer */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Send className="w-5 h-5 text-blue-600" />
+                    Quick Message
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="message-type">Message Type</Label>
+                    <Select>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select channel" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                        <SelectItem value="email">Email</SelectItem>
+                        <SelectItem value="sms">SMS</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="recipients">Recipients</Label>
+                    <Select>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select recipient group" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all-clients">All Clients</SelectItem>
+                        <SelectItem value="partner-agents">Partner Agents</SelectItem>
+                        <SelectItem value="high-value">High Value Clients</SelectItem>
+                        <SelectItem value="custom">Custom List</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="message-content">Message</Label>
+                    <Textarea 
+                      placeholder="Type your message here..."
+                      className="min-h-24"
+                    />
+                  </div>
+                  <Button className="w-full bg-gradient-to-r from-blue-500 to-cyan-600">
+                    <Send className="w-4 h-4 mr-2" />
+                    Send Message
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Recent Communications */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-gray-600" />
+                  Recent Communications
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {[
+                    { 
+                      type: "whatsapp", 
+                      recipient: "TechCorp Agents (12 recipients)", 
+                      message: "Market update: Portfolio rebalancing recommendations...", 
+                      time: "2 hours ago",
+                      status: "delivered"
+                    },
+                    { 
+                      type: "email", 
+                      recipient: "High Value Clients (156 recipients)", 
+                      message: "Monthly investment report and performance analysis...", 
+                      time: "5 hours ago",
+                      status: "sent"
+                    },
+                    { 
+                      type: "sms", 
+                      recipient: "Sarah Johnson", 
+                      message: "Urgent: Client meeting rescheduled to 3 PM", 
+                      time: "1 day ago",
+                      status: "delivered"
+                    }
+                  ].map((comm, index) => (
+                    <div key={index} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                      <div className="flex items-center space-x-4">
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                          comm.type === 'whatsapp' ? 'bg-green-100 text-green-600' :
+                          comm.type === 'email' ? 'bg-blue-100 text-blue-600' :
+                          'bg-purple-100 text-purple-600'
+                        }`}>
+                          {comm.type === 'whatsapp' ? <Smartphone className="w-5 h-5" /> :
+                           comm.type === 'email' ? <Mail className="w-5 h-5" /> :
+                           <Phone className="w-5 h-5" />}
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-slate-800 dark:text-white">{comm.recipient}</h4>
+                          <p className="text-sm text-slate-600 dark:text-slate-400 truncate max-w-96">{comm.message}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-500">{comm.time}</p>
+                        </div>
+                      </div>
+                      <Badge className={`${comm.status === 'delivered' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
+                        {comm.status}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           </div>
         </Tabs>
       </div>
