@@ -37,7 +37,7 @@ export default function Loans() {
   const { emi, totalAmount, totalInterest } = calculateEMI();
 
   // Real-time loan types with API data or fallback
-  const loanTypes = loanRates?.rates || [
+  const loanTypes = (loanRates as any)?.rates || [
     {
       loanType: "Personal Loan",
       bankName: "HDFC Bank", 
@@ -380,9 +380,9 @@ export default function Loans() {
                         <SelectValue placeholder="Select loan type" />
                       </SelectTrigger>
                       <SelectContent>
-                        {loanTypes.map((loan) => (
-                          <SelectItem key={loan.id} value={loan.id}>
-                            {loan.name}
+                        {loanTypes.map((loan: any, index: number) => (
+                          <SelectItem key={loan.loanType || index} value={loan.category || index.toString()}>
+                            {loan.loanType}
                           </SelectItem>
                         ))}
                       </SelectContent>
