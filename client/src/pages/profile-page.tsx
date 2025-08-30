@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
-import { User, Shield, CreditCard, Building, TrendingUp, Database, FileText, Eye, Phone, Mail, Users, Link } from "lucide-react";
+import { User, Shield, CreditCard, Building, TrendingUp, Database, FileText, Eye, Phone, Mail, Users, Link, Info } from "lucide-react";
 
 const profileSchema = z.object({
   // Enhanced KYC Fields
@@ -43,6 +43,12 @@ const profileSchema = z.object({
   ifscCode: z.string().optional(),
   nomineeDetails: z.string().optional(),
   nomineeRelation: z.string().optional(),
+  // EUIN and API Integration
+  euinNumber: z.string().optional(),
+  enableCamsApi: z.boolean().optional(),
+  enableKfintechApi: z.boolean().optional(),
+  enableNsdlApi: z.boolean().optional(),
+  enableCdslApi: z.boolean().optional(),
   // Registry Preferences
   preferredCamsRegistration: z.boolean().optional(),
   preferredKfintechRegistration: z.boolean().optional(),
@@ -898,68 +904,21 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                {/* Registry Access Links */}
-                {(profileData?.preferredCamsRegistration || 
-                  profileData?.preferredKfintechRegistration || 
-                  profileData?.preferredNsdlRegistration || 
-                  profileData?.preferredCdslRegistration) && (
-                  <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                    <h4 className="font-medium flex items-center gap-2 mb-3">
-                      <Link className="h-4 w-4" />
-                      Quick Access to Registry Services
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {profileData?.preferredCamsRegistration && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => window.open('/cams', '_blank')}
-                          className="justify-start"
-                          data-testid="button-access-cams"
-                        >
-                          <FileText className="h-4 w-4 mr-2" />
-                          Access CAMS
-                        </Button>
-                      )}
-                      {profileData?.preferredKfintechRegistration && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => window.open('/kfintech', '_blank')}
-                          className="justify-start"
-                          data-testid="button-access-kfintech"
-                        >
-                          <TrendingUp className="h-4 w-4 mr-2" />
-                          Access KFintech
-                        </Button>
-                      )}
-                      {profileData?.preferredNsdlRegistration && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => window.open('/nsdl', '_blank')}
-                          className="justify-start"
-                          data-testid="button-access-nsdl"
-                        >
-                          <Building className="h-4 w-4 mr-2" />
-                          Access NSDL
-                        </Button>
-                      )}
-                      {profileData?.preferredCdslRegistration && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => window.open('/cdsl', '_blank')}
-                          className="justify-start"
-                          data-testid="button-access-cdsl"
-                        >
-                          <Shield className="h-4 w-4 mr-2" />
-                          Access CDSL
-                        </Button>
-                      )}
+                {/* Registry Integration Note */}
+                <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <Info className="h-5 w-5 text-blue-600 mt-0.5" />
+                    <div>
+                      <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-1">
+                        Registry Integration Status
+                      </h4>
+                      <p className="text-sm text-blue-700 dark:text-blue-300">
+                        Your selected registries will be used for portfolio synchronization and transaction processing. 
+                        Direct access to registry services is available through their official websites.
+                      </p>
                     </div>
                   </div>
-                )}
+                </div>
               </CardContent>
             </Card>
 
