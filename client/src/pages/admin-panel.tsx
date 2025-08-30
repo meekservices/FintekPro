@@ -1870,16 +1870,16 @@ export default function AdminPanel() {
       </div>
 
       <div className="flex h-screen">
-        {/* Enhanced Left Sidebar */}
-        <div className="w-72 border-r bg-white/70 dark:bg-slate-900/70 backdrop-blur-md shadow-xl flex-shrink-0 border-slate-200/50">
-          <div className="p-4">
-            <div className="mb-6">
-              <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
-                Navigation
-              </h3>
+        <Tabs defaultValue="dashboard" orientation="vertical" className="w-full h-full flex">
+          {/* Enhanced Left Sidebar */}
+          <div className="w-72 border-r bg-white/70 dark:bg-slate-900/70 backdrop-blur-md shadow-xl flex-shrink-0 border-slate-200/50">
+            <div className="p-4">
+              <div className="mb-6">
+                <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
+                  Navigation
+                </h3>
+              </div>
             </div>
-          </div>
-          <Tabs defaultValue="dashboard" orientation="vertical" className="w-full h-full">
             <TabsList className="flex flex-col h-auto w-full bg-transparent p-4 space-y-2">
               <TabsTrigger 
                 value="dashboard" 
@@ -1932,71 +1932,72 @@ export default function AdminPanel() {
               <TabsTrigger 
                 value="error-monitoring" 
                 data-testid="tab-error-monitoring"
-                className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                className="w-full justify-start p-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-yellow-500 data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-yellow-200 dark:data-[state=active]:shadow-yellow-900/50"
               >
-                <Brain className="w-4 h-4 mr-3" />
-                AI Monitor
+                <Brain className="w-5 h-5 mr-3" />
+                <span className="font-medium">AI Monitor</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="insights" 
                 data-testid="tab-insights"
-                className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                className="w-full justify-start p-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-gray-500 data-[state=active]:to-slate-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-gray-200 dark:data-[state=active]:shadow-gray-900/50"
               >
-                <Settings className="w-4 h-4 mr-3" />
-                Insights
+                <Settings className="w-5 h-5 mr-3" />
+                <span className="font-medium">Insights</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="risk-profiling" 
                 data-testid="tab-risk-profiling"
-                className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                className="w-full justify-start p-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-red-500 data-[state=active]:to-pink-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-red-200 dark:data-[state=active]:shadow-red-900/50"
               >
-                <Shield className="w-4 h-4 mr-3" />
-                Risk Profiles
+                <Shield className="w-5 h-5 mr-3" />
+                <span className="font-medium">Risk Profiles</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="reports" 
                 data-testid="tab-reports"
-                className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                className="w-full justify-start p-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-indigo-200 dark:data-[state=active]:shadow-indigo-900/50"
               >
-                <FileText className="w-4 h-4 mr-3" />
-                Reports
+                <FileText className="w-5 h-5 mr-3" />
+                <span className="font-medium">Reports</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="guidance" 
                 data-testid="tab-guidance"
-                className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                className="w-full justify-start p-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-teal-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-green-200 dark:data-[state=active]:shadow-green-900/50"
               >
-                <MessageSquare className="w-4 h-4 mr-3" />
-                Guidance
+                <MessageSquare className="w-5 h-5 mr-3" />
+                <span className="font-medium">Guidance</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="partners" 
                 data-testid="tab-partners"
-                className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                className="w-full justify-start p-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-cyan-200 dark:data-[state=active]:shadow-cyan-900/50"
               >
-                <Building2 className="w-4 h-4 mr-3" />
-                Partners
+                <Building2 className="w-5 h-5 mr-3" />
+                <span className="font-medium">Partners</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="agents" 
                 data-testid="tab-agents"
-                className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                className="w-full justify-start p-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-yellow-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-amber-200 dark:data-[state=active]:shadow-amber-900/50"
               >
-                <Users className="w-4 h-4 mr-3" />
-                Care Agents
+                <Users className="w-5 h-5 mr-3" />
+                <span className="font-medium">Care Agents</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="marketing" 
                 data-testid="tab-marketing"
-                className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                className="w-full justify-start p-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-pink-500 data-[state=active]:to-rose-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-pink-200 dark:data-[state=active]:shadow-pink-900/50"
               >
-                <Megaphone className="w-4 h-4 mr-3" />
-                Marketing
+                <Megaphone className="w-5 h-5 mr-3" />
+                <span className="font-medium">Marketing</span>
               </TabsTrigger>
             </TabsList>
+          </div>
 
-            {/* Enhanced Main Content Area */}
-            <div className="flex-1 overflow-auto p-8 bg-gradient-to-br from-white/60 via-slate-50/80 to-blue-50/60 dark:from-slate-900/60 dark:via-slate-800/80 dark:to-slate-900/60">
+          {/* Enhanced Main Content Area */}
+          <div className="flex-1 overflow-auto p-8 bg-gradient-to-br from-white/60 via-slate-50/80 to-blue-50/60 dark:from-slate-900/60 dark:via-slate-800/80 dark:to-slate-900/60">
 
             {/* Dashboard Tab */}
             <TabsContent value="dashboard" className="space-y-6">
@@ -3871,9 +3872,8 @@ export default function AdminPanel() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-            </div>
+          </div>
         </Tabs>
-        </div>
       </div>
     </div>
   );
