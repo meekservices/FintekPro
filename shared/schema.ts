@@ -57,6 +57,11 @@ export const users = pgTable("users", {
   nomineeRelation: varchar("nominee_relation"),
   // EUIN and API Integration
   euinNumber: varchar("euin_number"),
+  arnCode: varchar("arn_code"), // ARN (AMFI Registration Number) for mutual fund distributors
+  amcCode: varchar("amc_code"), // Asset Management Company code
+  distributorId: varchar("distributor_id"), // Distributor identification
+  isAgent: boolean("is_agent").default(false), // Whether user is an agent/distributor
+  agentType: varchar("agent_type"), // 'individual', 'corporate', 'bank'
   enableCamsApi: boolean("enable_cams_api").default(false),
   enableKfintechApi: boolean("enable_kfintech_api").default(false),
   enableNsdlApi: boolean("enable_nsdl_api").default(false),
@@ -471,6 +476,32 @@ export const agentPartnerMappings = pgTable("agent_partner_mappings", {
   assignedAt: timestamp("assigned_at").defaultNow(),
   assignedBy: varchar("assigned_by").references(() => users.id), // Admin who made the assignment
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Client-Agent relationship table for EUIN/ARN association
+export const clientAgentRelationships = pgTable("client_agent_relationships", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  agentId: varchar("agent_id").references(() => users.id).notNull(), // Agent user ID
+  // EUIN/ARN details from agent
+  euinNumber: varchar("euin_number").notNull(),
+  arnCode: varchar("arn_code"),
+  amcCode: varchar("amc_code"),
+  distributorId: varchar("distributor_id"),
+  // Relationship details
+  relationshipType: varchar("relationship_type").default("primary"), // primary, secondary
+  isActive: boolean("is_active").default(true),
+  assignedAt: timestamp("assigned_at").defaultNow(),
+  assignedBy: varchar("assigned_by").references(() => users.id), // Admin who made the assignment
+  // Commission and fee structure
+  commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }),
+  feeStructure: jsonb("fee_structure"), // Detailed fee breakdown
+  // Auto-populate settings for APIs
+  autoPopulateEuin: boolean("auto_populate_euin").default(true),
+  autoPopulateArn: boolean("auto_populate_arn").default(true),
+  // Tracking
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Partners table for managing partner accounts
@@ -1585,3 +1616,7 @@ export type CkycProgressStep = typeof ckycProgressSteps.$inferSelect;
 export type InsertCkycProgressStep = z.infer<typeof insertCkycProgressStepSchema>;
 export type CkycActionLog = typeof ckycActionLogs.$inferSelect;
 export type InsertCkycActionLog = z.infer<typeof insertCkycActionLogSchema>;
+
+// Client-Agent relationship types
+export type ClientAgentRelationship = typeof clientAgentRelationships.$inferSelect;
+export type InsertClientAgentRelationship = typeof clientAgentRelationships.$inferInsert;

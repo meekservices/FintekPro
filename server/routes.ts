@@ -10474,6 +10474,139 @@ System Security Data:`;
     }
   });
 
+  // ============ CLIENT-AGENT RELATIONSHIP ROUTES (EUIN/ARN Integration) ============
+  
+  // Get all client-agent relationships
+  app.get("/api/admin/client-agent-relationships", requireAdmin, async (req, res) => {
+    try {
+      const { clientId, agentId } = req.query;
+      const relationships = await storage.getClientAgentRelationships(
+        clientId as string, 
+        agentId as string
+      );
+      res.json(relationships);
+    } catch (error) {
+      console.error("Error fetching client-agent relationships:", error);
+      res.status(500).json({ error: "Failed to fetch relationships" });
+    }
+  });
+
+  // Create client-agent relationship
+  app.post("/api/admin/client-agent-relationships", requireAdmin, async (req, res) => {
+    try {
+      const relationshipData = req.body;
+      
+      // Validate required fields
+      if (!relationshipData.clientId || !relationshipData.agentId || !relationshipData.euinNumber) {
+        return res.status(400).json({ error: "Client ID, Agent ID, and EUIN number are required" });
+      }
+
+      const relationship = await storage.createClientAgentRelationship(relationshipData);
+      res.json(relationship);
+    } catch (error) {
+      console.error("Error creating client-agent relationship:", error);
+      res.status(500).json({ error: "Failed to create relationship" });
+    }
+  });
+
+  // Update client-agent relationship
+  app.patch("/api/admin/client-agent-relationships/:relationshipId", requireAdmin, async (req, res) => {
+    try {
+      const { relationshipId } = req.params;
+      const updates = req.body;
+      
+      const updated = await storage.updateClientAgentRelationship(relationshipId, updates);
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Relationship not found" });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating client-agent relationship:", error);
+      res.status(500).json({ error: "Failed to update relationship" });
+    }
+  });
+
+  // Delete client-agent relationship
+  app.delete("/api/admin/client-agent-relationships/:relationshipId", requireAdmin, async (req, res) => {
+    try {
+      const { relationshipId } = req.params;
+      const deleted = await storage.deleteClientAgentRelationship(relationshipId);
+      
+      if (!deleted) {
+        return res.status(404).json({ error: "Relationship not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting client-agent relationship:", error);
+      res.status(500).json({ error: "Failed to delete relationship" });
+    }
+  });
+
+  // Get agent for a specific client
+  app.get("/api/client/:clientId/agent", async (req, res) => {
+    try {
+      const { clientId } = req.params;
+      const { relationshipType } = req.query;
+      
+      const agentRelationship = await storage.getAgentForClient(
+        clientId, 
+        relationshipType as string
+      );
+      
+      if (!agentRelationship) {
+        return res.status(404).json({ error: "No agent assigned to this client" });
+      }
+      
+      res.json(agentRelationship);
+    } catch (error) {
+      console.error("Error fetching agent for client:", error);
+      res.status(500).json({ error: "Failed to fetch agent" });
+    }
+  });
+
+  // Get clients for a specific agent
+  app.get("/api/agent/:agentId/clients", async (req, res) => {
+    try {
+      const { agentId } = req.params;
+      const clientRelationships = await storage.getClientsForAgent(agentId);
+      
+      res.json(clientRelationships);
+    } catch (error) {
+      console.error("Error fetching clients for agent:", error);
+      res.status(500).json({ error: "Failed to fetch clients" });
+    }
+  });
+
+  // Automatically populate EUIN/ARN for API calls (utility endpoint)
+  app.get("/api/client/:clientId/euin-arn", async (req, res) => {
+    try {
+      const { clientId } = req.params;
+      const agentRelationship = await storage.getAgentForClient(clientId);
+      
+      if (!agentRelationship) {
+        return res.status(404).json({ 
+          error: "No agent assigned to this client",
+          euinNumber: null,
+          arnCode: null 
+        });
+      }
+      
+      res.json({
+        euinNumber: agentRelationship.autoPopulateEuin ? agentRelationship.euinNumber : null,
+        arnCode: agentRelationship.autoPopulateArn ? agentRelationship.arnCode : null,
+        amcCode: agentRelationship.amcCode,
+        distributorId: agentRelationship.distributorId,
+        agentId: agentRelationship.agentId
+      });
+    } catch (error) {
+      console.error("Error fetching EUIN/ARN for client:", error);
+      res.status(500).json({ error: "Failed to fetch EUIN/ARN data" });
+    }
+  });
+
   // ============ END ADMIN PANEL ROUTES ============
 
   // ============ PARTNER PORTAL ROUTES ============

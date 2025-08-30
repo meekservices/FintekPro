@@ -1,4 +1,4 @@
-import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type CkycNotificationTrigger, type InsertCkycNotificationTrigger, type CkycProgressStep, type InsertCkycProgressStep, type CkycActionLog, type InsertCkycActionLog } from "@shared/schema";
+import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type CkycNotificationTrigger, type InsertCkycNotificationTrigger, type CkycProgressStep, type InsertCkycProgressStep, type CkycActionLog, type InsertCkycActionLog, type ClientAgentRelationship, type InsertClientAgentRelationship } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 // We'll import hashPassword later to avoid circular dependency
@@ -171,6 +171,15 @@ export interface IStorage {
   // CKYC Notification Service methods
   sendNotification(trigger: CkycNotificationTrigger): Promise<boolean>;
   processPendingNotifications(): Promise<void>;
+
+  // Client-Agent relationship methods for EUIN/ARN integration
+  getClientAgentRelationships(clientId?: string, agentId?: string): Promise<ClientAgentRelationship[]>;
+  getClientAgentRelationship(clientId: string, agentId: string): Promise<ClientAgentRelationship | undefined>;
+  createClientAgentRelationship(relationship: InsertClientAgentRelationship): Promise<ClientAgentRelationship>;
+  updateClientAgentRelationship(id: string, updates: Partial<ClientAgentRelationship>): Promise<ClientAgentRelationship | undefined>;
+  deleteClientAgentRelationship(id: string): Promise<boolean>;
+  getAgentForClient(clientId: string, relationshipType?: string): Promise<ClientAgentRelationship | undefined>;
+  getClientsForAgent(agentId: string): Promise<ClientAgentRelationship[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -199,6 +208,7 @@ export class MemStorage implements IStorage {
   private ckycNotificationTriggers: Map<string, CkycNotificationTrigger>;
   private ckycProgressSteps: Map<string, CkycProgressStep[]>;
   private ckycActionLogs: Map<string, CkycActionLog[]>;
+  private clientAgentRelationships: Map<string, ClientAgentRelationship>;
 
   constructor() {
     this.users = new Map();
@@ -226,6 +236,7 @@ export class MemStorage implements IStorage {
     this.ckycNotificationTriggers = new Map();
     this.ckycProgressSteps = new Map();
     this.ckycActionLogs = new Map();
+    this.clientAgentRelationships = new Map();
     
     // Initialize with sample data
     this.initializeSampleData();
@@ -1852,6 +1863,79 @@ export class MemStorage implements IStorage {
       
       await this.sendNotification(trigger);
     }
+  }
+
+  // Client-Agent relationship methods for EUIN/ARN integration
+  async getClientAgentRelationships(clientId?: string, agentId?: string): Promise<ClientAgentRelationship[]> {
+    let relationships = Array.from(this.clientAgentRelationships.values());
+    
+    if (clientId) {
+      relationships = relationships.filter(rel => rel.clientId === clientId);
+    }
+    
+    if (agentId) {
+      relationships = relationships.filter(rel => rel.agentId === agentId);
+    }
+    
+    return relationships;
+  }
+
+  async getClientAgentRelationship(clientId: string, agentId: string): Promise<ClientAgentRelationship | undefined> {
+    return Array.from(this.clientAgentRelationships.values())
+      .find(rel => rel.clientId === clientId && rel.agentId === agentId && rel.isActive);
+  }
+
+  async createClientAgentRelationship(insertRelationship: InsertClientAgentRelationship): Promise<ClientAgentRelationship> {
+    const id = randomUUID();
+    const now = new Date();
+    const relationship: ClientAgentRelationship = {
+      ...insertRelationship,
+      id,
+      createdAt: now,
+      updatedAt: now,
+      assignedAt: insertRelationship.assignedAt || now,
+      relationshipType: insertRelationship.relationshipType || "primary",
+      isActive: insertRelationship.isActive !== false,
+      autoPopulateEuin: insertRelationship.autoPopulateEuin !== false,
+      autoPopulateArn: insertRelationship.autoPopulateArn !== false
+    };
+    
+    this.clientAgentRelationships.set(id, relationship);
+    return relationship;
+  }
+
+  async updateClientAgentRelationship(id: string, updates: Partial<ClientAgentRelationship>): Promise<ClientAgentRelationship | undefined> {
+    const relationship = this.clientAgentRelationships.get(id);
+    if (!relationship) return undefined;
+    
+    const updated = { 
+      ...relationship, 
+      ...updates, 
+      updatedAt: new Date() 
+    };
+    this.clientAgentRelationships.set(id, updated);
+    return updated;
+  }
+
+  async deleteClientAgentRelationship(id: string): Promise<boolean> {
+    return this.clientAgentRelationships.delete(id);
+  }
+
+  async getAgentForClient(clientId: string, relationshipType?: string): Promise<ClientAgentRelationship | undefined> {
+    const relationships = Array.from(this.clientAgentRelationships.values())
+      .filter(rel => rel.clientId === clientId && rel.isActive);
+    
+    if (relationshipType) {
+      return relationships.find(rel => rel.relationshipType === relationshipType);
+    }
+    
+    // Return primary relationship first, then any active relationship
+    return relationships.find(rel => rel.relationshipType === "primary") || relationships[0];
+  }
+
+  async getClientsForAgent(agentId: string): Promise<ClientAgentRelationship[]> {
+    return Array.from(this.clientAgentRelationships.values())
+      .filter(rel => rel.agentId === agentId && rel.isActive);
   }
 }
 

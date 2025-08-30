@@ -2029,6 +2029,15 @@ export default function AdminPanel() {
                 {!sidebarCollapsed && <span className="font-medium">Partner Management</span>}
               </TabsTrigger>
               <TabsTrigger 
+                value="client-agent-relationships" 
+                data-testid="tab-client-agent-relationships"
+                className={`w-full ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start px-3'} py-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-violet-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-200 dark:data-[state=active]:shadow-purple-900/50`}
+                title={sidebarCollapsed ? "EUIN/ARN Integration" : undefined}
+              >
+                <Network className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
+                {!sidebarCollapsed && <span className="font-medium">EUIN/ARN Integration</span>}
+              </TabsTrigger>
+              <TabsTrigger 
                 value="communications" 
                 data-testid="tab-communications"
                 className={`w-full ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start px-3'} py-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-green-200 dark:data-[state=active]:shadow-green-900/50`}
@@ -4301,6 +4310,218 @@ export default function AdminPanel() {
                     </div>
                   ))}
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Client-Agent Relationships Tab */}
+          <TabsContent value="client-agent-relationships" className="space-y-6" data-testid="client-agent-relationships-content">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-3xl font-bold text-slate-800 dark:text-white">EUIN/ARN Integration</h2>
+                <p className="text-slate-600 dark:text-slate-400 mt-1">Manage client-agent relationships for automated API integration</p>
+              </div>
+              <Button className="bg-gradient-to-r from-purple-500 to-violet-600 text-white hover:from-purple-600 hover:to-violet-700" data-testid="button-add-relationship">
+                <Network className="w-4 h-4 mr-2" />
+                Add Relationship
+              </Button>
+            </div>
+
+            {/* Overview Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              <Card className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-green-200 dark:border-green-700">
+                <CardContent className="p-6">
+                  <div className="flex items-center space-x-4">
+                    <div className="p-3 bg-green-500 rounded-xl">
+                      <UserCheck className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-green-600 dark:text-green-400">Active Relationships</p>
+                      <p className="text-2xl font-bold text-green-800 dark:text-green-200">24</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-blue-50 to-sky-50 dark:from-blue-900/20 dark:to-sky-900/20 border-blue-200 dark:border-blue-700">
+                <CardContent className="p-6">
+                  <div className="flex items-center space-x-4">
+                    <div className="p-3 bg-blue-500 rounded-xl">
+                      <Building className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-blue-600 dark:text-blue-400">Unique Agents</p>
+                      <p className="text-2xl font-bold text-blue-800 dark:text-blue-200">8</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 border-purple-200 dark:border-purple-700">
+                <CardContent className="p-6">
+                  <div className="flex items-center space-x-4">
+                    <div className="p-3 bg-purple-500 rounded-xl">
+                      <Zap className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-purple-600 dark:text-purple-400">Auto-Populated APIs</p>
+                      <p className="text-2xl font-bold text-purple-800 dark:text-purple-200">156</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Client-Agent Relationships Table */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Network className="w-5 h-5" />
+                  Client-Agent Relationships
+                </CardTitle>
+                <CardDescription>
+                  Manage EUIN and ARN code associations for automated API integration
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center space-x-4 mb-4">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+                    <Input 
+                      placeholder="Search clients or agents..." 
+                      className="pl-10"
+                      data-testid="input-search-relationships"
+                    />
+                  </div>
+                  <Select>
+                    <SelectTrigger className="w-48" data-testid="select-relationship-type">
+                      <SelectValue placeholder="Relationship Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                      <SelectItem value="primary">Primary</SelectItem>
+                      <SelectItem value="secondary">Secondary</SelectItem>
+                      <SelectItem value="backup">Backup</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Client</TableHead>
+                      <TableHead>Agent</TableHead>
+                      <TableHead>EUIN Number</TableHead>
+                      <TableHead>ARN Code</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Auto-Populate</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {[
+                      {
+                        id: "1",
+                        clientName: "John Doe",
+                        clientEmail: "john.doe@example.com",
+                        agentName: "Agent Smith",
+                        agentCode: "AS001",
+                        euinNumber: "EUIN1234567890",
+                        arnCode: "ARN-98765",
+                        relationshipType: "primary",
+                        autoPopulateEuin: true,
+                        autoPopulateArn: true,
+                        isActive: true
+                      },
+                      {
+                        id: "2",
+                        clientName: "Sarah Johnson",
+                        clientEmail: "sarah.j@example.com",
+                        agentName: "Agent Brown",
+                        agentCode: "AB002",
+                        euinNumber: "EUIN2345678901",
+                        arnCode: "ARN-87654",
+                        relationshipType: "secondary",
+                        autoPopulateEuin: true,
+                        autoPopulateArn: false,
+                        isActive: true
+                      },
+                      {
+                        id: "3",
+                        clientName: "Mike Wilson",
+                        clientEmail: "mike.w@example.com",
+                        agentName: "Agent Davis",
+                        agentCode: "AD003",
+                        euinNumber: "EUIN3456789012",
+                        arnCode: "ARN-76543",
+                        relationshipType: "primary",
+                        autoPopulateEuin: false,
+                        autoPopulateArn: true,
+                        isActive: false
+                      }
+                    ].map((relationship) => (
+                      <TableRow key={relationship.id} data-testid={`row-relationship-${relationship.id}`}>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium text-slate-900 dark:text-white">{relationship.clientName}</p>
+                            <p className="text-sm text-slate-500 dark:text-slate-400">{relationship.clientEmail}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium text-slate-900 dark:text-white">{relationship.agentName}</p>
+                            <p className="text-sm text-slate-500 dark:text-slate-400">{relationship.agentCode}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <code className="bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded text-sm">
+                            {relationship.euinNumber}
+                          </code>
+                        </TableCell>
+                        <TableCell>
+                          <code className="bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded text-sm">
+                            {relationship.arnCode}
+                          </code>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={
+                            relationship.relationshipType === 'primary' ? 'bg-blue-100 text-blue-800' :
+                            relationship.relationshipType === 'secondary' ? 'bg-green-100 text-green-800' :
+                            'bg-gray-100 text-gray-800'
+                          }>
+                            {relationship.relationshipType}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center space-x-2">
+                            <Badge className={relationship.autoPopulateEuin ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
+                              EUIN: {relationship.autoPopulateEuin ? 'ON' : 'OFF'}
+                            </Badge>
+                            <Badge className={relationship.autoPopulateArn ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
+                              ARN: {relationship.autoPopulateArn ? 'ON' : 'OFF'}
+                            </Badge>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={relationship.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                            {relationship.isActive ? 'Active' : 'Inactive'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center space-x-2">
+                            <Button size="sm" variant="outline" data-testid={`button-edit-relationship-${relationship.id}`}>
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button size="sm" variant="outline" data-testid={`button-delete-relationship-${relationship.id}`}>
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </CardContent>
             </Card>
           </TabsContent>
