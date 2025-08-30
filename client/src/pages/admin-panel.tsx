@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertTriangle, Users, Activity, TrendingUp, MessageSquare, Settings, Search, Filter, Shield, FileText, Building2, Plus, Edit3, Trash2, Server, Brain, Zap, Lock, Receipt, CheckCircle, Calendar, Download, Loader2, DollarSign, Clock, Eye, Edit, Send, UserPlus, MoreVertical, ShieldCheck, ShieldAlert, Bot, Monitor, BarChart, Globe, Mail, Target, TrendingDown, Share2, Megaphone, MousePointer, Users2, BarChart3, PieChart, LineChart, Phone } from "lucide-react";
+import { AlertTriangle, Users, Activity, TrendingUp, MessageSquare, Settings, Search, Filter, Shield, FileText, Building2, Plus, Edit3, Trash2, Server, Brain, Zap, Lock, Receipt, CheckCircle, Calendar, Download, Loader2, DollarSign, Clock, Eye, Edit, Send, UserPlus, MoreVertical, ShieldCheck, ShieldAlert, Bot, Monitor, BarChart, Globe, Mail, Target, TrendingDown, Share2, Megaphone, MousePointer, Users2, BarChart3, PieChart, LineChart, Phone, ChevronLeft, ChevronRight, Menu } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -1618,6 +1618,7 @@ export default function AdminPanel() {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [guidanceDialog, setGuidanceDialog] = useState(false);
   const [guidanceForm, setGuidanceForm] = useState({
     title: "",
@@ -1871,127 +1872,152 @@ export default function AdminPanel() {
 
       <div className="flex h-screen">
         <Tabs defaultValue="dashboard" orientation="vertical" className="w-full h-full flex">
-          {/* Enhanced Left Sidebar */}
-          <div className="w-72 border-r bg-white/70 dark:bg-slate-900/70 backdrop-blur-md shadow-xl flex-shrink-0 border-slate-200/50">
+          {/* Enhanced Collapsible Left Sidebar */}
+          <div className={`${sidebarCollapsed ? 'w-20' : 'w-72'} border-r bg-white/70 dark:bg-slate-900/70 backdrop-blur-md shadow-xl flex-shrink-0 border-slate-200/50 transition-all duration-300 ease-in-out`}>
             <div className="p-4">
-              <div className="mb-6">
-                <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
-                  Navigation
-                </h3>
+              <div className="mb-6 flex justify-between items-center">
+                {!sidebarCollapsed && (
+                  <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    Navigation
+                  </h3>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                  className="hover:bg-slate-100 dark:hover:bg-slate-800 p-2"
+                  data-testid="button-toggle-sidebar"
+                >
+                  {sidebarCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
+                </Button>
               </div>
             </div>
             <TabsList className="flex flex-col h-auto w-full bg-transparent p-4 space-y-2">
               <TabsTrigger 
                 value="dashboard" 
                 data-testid="tab-dashboard"
-                className="w-full justify-start p-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-indigo-200 dark:data-[state=active]:shadow-indigo-900/50"
+                className={`w-full ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start px-3'} py-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-indigo-200 dark:data-[state=active]:shadow-indigo-900/50`}
+                title={sidebarCollapsed ? "Dashboard" : undefined}
               >
-                <TrendingUp className="w-5 h-5 mr-3" />
-                <span className="font-medium">Dashboard</span>
+                <TrendingUp className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
+                {!sidebarCollapsed && <span className="font-medium">Dashboard</span>}
               </TabsTrigger>
               <TabsTrigger 
                 value="comprehensive-users" 
                 data-testid="tab-comprehensive-users"
-                className="w-full justify-start p-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-cyan-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-200 dark:data-[state=active]:shadow-blue-900/50"
+                className={`w-full ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start px-3'} py-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-cyan-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-200 dark:data-[state=active]:shadow-blue-900/50`}
+                title={sidebarCollapsed ? "All Users" : undefined}
               >
-                <Users2 className="w-5 h-5 mr-3" />
-                <span className="font-medium">All Users</span>
+                <Users2 className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
+                {!sidebarCollapsed && <span className="font-medium">All Users</span>}
               </TabsTrigger>
               <TabsTrigger 
                 value="clients" 
                 data-testid="tab-clients"
-                className="w-full justify-start p-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-green-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-200 dark:data-[state=active]:shadow-emerald-900/50"
+                className={`w-full ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start px-3'} py-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-green-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-200 dark:data-[state=active]:shadow-emerald-900/50`}
+                title={sidebarCollapsed ? "Clients" : undefined}
               >
-                <Users className="w-5 h-5 mr-3" />
-                <span className="font-medium">Clients</span>
+                <Users className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
+                {!sidebarCollapsed && <span className="font-medium">Clients</span>}
               </TabsTrigger>
               <TabsTrigger 
                 value="activity" 
                 data-testid="tab-activity"
-                className="w-full justify-start p-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-red-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-orange-200 dark:data-[state=active]:shadow-orange-900/50"
+                className={`w-full ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start px-3'} py-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-red-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-orange-200 dark:data-[state=active]:shadow-orange-900/50`}
+                title={sidebarCollapsed ? "Activity" : undefined}
               >
-                <Activity className="w-5 h-5 mr-3" />
-                <span className="font-medium">Activity</span>
+                <Activity className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
+                {!sidebarCollapsed && <span className="font-medium">Activity</span>}
               </TabsTrigger>
               <TabsTrigger 
                 value="ckyc" 
                 data-testid="tab-ckyc"
-                className="w-full justify-start p-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-violet-200 dark:data-[state=active]:shadow-violet-900/50"
+                className={`w-full ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start px-3'} py-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-violet-200 dark:data-[state=active]:shadow-violet-900/50`}
+                title={sidebarCollapsed ? "CKYC Management" : undefined}
               >
-                <Shield className="w-5 h-5 mr-3" />
-                <span className="font-medium">CKYC Management</span>
+                <Shield className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
+                {!sidebarCollapsed && <span className="font-medium">CKYC Management</span>}
               </TabsTrigger>
               <TabsTrigger 
                 value="api-status" 
                 data-testid="tab-api-status"
-                className="w-full justify-start p-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-teal-500 data-[state=active]:to-cyan-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-teal-200 dark:data-[state=active]:shadow-teal-900/50"
+                className={`w-full ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start px-3'} py-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-teal-500 data-[state=active]:to-cyan-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-teal-200 dark:data-[state=active]:shadow-teal-900/50`}
+                title={sidebarCollapsed ? "API Status" : undefined}
               >
-                <Server className="w-5 h-5 mr-3" />
-                <span className="font-medium">API Status</span>
+                <Server className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
+                {!sidebarCollapsed && <span className="font-medium">API Status</span>}
               </TabsTrigger>
               <TabsTrigger 
                 value="error-monitoring" 
                 data-testid="tab-error-monitoring"
-                className="w-full justify-start p-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-yellow-500 data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-yellow-200 dark:data-[state=active]:shadow-yellow-900/50"
+                className={`w-full ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start px-3'} py-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-yellow-500 data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-yellow-200 dark:data-[state=active]:shadow-yellow-900/50`}
+                title={sidebarCollapsed ? "AI Monitor" : undefined}
               >
-                <Brain className="w-5 h-5 mr-3" />
-                <span className="font-medium">AI Monitor</span>
+                <Brain className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
+                {!sidebarCollapsed && <span className="font-medium">AI Monitor</span>}
               </TabsTrigger>
               <TabsTrigger 
                 value="insights" 
                 data-testid="tab-insights"
-                className="w-full justify-start p-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-gray-500 data-[state=active]:to-slate-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-gray-200 dark:data-[state=active]:shadow-gray-900/50"
+                className={`w-full ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start px-3'} py-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-gray-500 data-[state=active]:to-slate-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-gray-200 dark:data-[state=active]:shadow-gray-900/50`}
+                title={sidebarCollapsed ? "Insights" : undefined}
               >
-                <Settings className="w-5 h-5 mr-3" />
-                <span className="font-medium">Insights</span>
+                <Settings className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
+                {!sidebarCollapsed && <span className="font-medium">Insights</span>}
               </TabsTrigger>
               <TabsTrigger 
                 value="risk-profiling" 
                 data-testid="tab-risk-profiling"
-                className="w-full justify-start p-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-red-500 data-[state=active]:to-pink-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-red-200 dark:data-[state=active]:shadow-red-900/50"
+                className={`w-full ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start px-3'} py-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-red-500 data-[state=active]:to-pink-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-red-200 dark:data-[state=active]:shadow-red-900/50`}
+                title={sidebarCollapsed ? "Risk Profiles" : undefined}
               >
-                <Shield className="w-5 h-5 mr-3" />
-                <span className="font-medium">Risk Profiles</span>
+                <Shield className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
+                {!sidebarCollapsed && <span className="font-medium">Risk Profiles</span>}
               </TabsTrigger>
               <TabsTrigger 
                 value="reports" 
                 data-testid="tab-reports"
-                className="w-full justify-start p-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-indigo-200 dark:data-[state=active]:shadow-indigo-900/50"
+                className={`w-full ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start px-3'} py-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-indigo-200 dark:data-[state=active]:shadow-indigo-900/50`}
+                title={sidebarCollapsed ? "Reports" : undefined}
               >
-                <FileText className="w-5 h-5 mr-3" />
-                <span className="font-medium">Reports</span>
+                <FileText className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
+                {!sidebarCollapsed && <span className="font-medium">Reports</span>}
               </TabsTrigger>
               <TabsTrigger 
                 value="guidance" 
                 data-testid="tab-guidance"
-                className="w-full justify-start p-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-teal-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-green-200 dark:data-[state=active]:shadow-green-900/50"
+                className={`w-full ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start px-3'} py-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-teal-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-green-200 dark:data-[state=active]:shadow-green-900/50`}
+                title={sidebarCollapsed ? "Guidance" : undefined}
               >
-                <MessageSquare className="w-5 h-5 mr-3" />
-                <span className="font-medium">Guidance</span>
+                <MessageSquare className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
+                {!sidebarCollapsed && <span className="font-medium">Guidance</span>}
               </TabsTrigger>
               <TabsTrigger 
                 value="partners" 
                 data-testid="tab-partners"
-                className="w-full justify-start p-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-cyan-200 dark:data-[state=active]:shadow-cyan-900/50"
+                className={`w-full ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start px-3'} py-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-cyan-200 dark:data-[state=active]:shadow-cyan-900/50`}
+                title={sidebarCollapsed ? "Partners" : undefined}
               >
-                <Building2 className="w-5 h-5 mr-3" />
-                <span className="font-medium">Partners</span>
+                <Building2 className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
+                {!sidebarCollapsed && <span className="font-medium">Partners</span>}
               </TabsTrigger>
               <TabsTrigger 
                 value="agents" 
                 data-testid="tab-agents"
-                className="w-full justify-start p-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-yellow-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-amber-200 dark:data-[state=active]:shadow-amber-900/50"
+                className={`w-full ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start px-3'} py-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-yellow-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-amber-200 dark:data-[state=active]:shadow-amber-900/50`}
+                title={sidebarCollapsed ? "Care Agents" : undefined}
               >
-                <Users className="w-5 h-5 mr-3" />
-                <span className="font-medium">Care Agents</span>
+                <Users className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
+                {!sidebarCollapsed && <span className="font-medium">Care Agents</span>}
               </TabsTrigger>
               <TabsTrigger 
                 value="marketing" 
                 data-testid="tab-marketing"
-                className="w-full justify-start p-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-pink-500 data-[state=active]:to-rose-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-pink-200 dark:data-[state=active]:shadow-pink-900/50"
+                className={`w-full ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start px-3'} py-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-pink-500 data-[state=active]:to-rose-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-pink-200 dark:data-[state=active]:shadow-pink-900/50`}
+                title={sidebarCollapsed ? "Marketing" : undefined}
               >
-                <Megaphone className="w-5 h-5 mr-3" />
-                <span className="font-medium">Marketing</span>
+                <Megaphone className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
+                {!sidebarCollapsed && <span className="font-medium">Marketing</span>}
               </TabsTrigger>
             </TabsList>
           </div>
