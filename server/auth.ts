@@ -406,6 +406,12 @@ export function setupAuth(app: Express) {
         ifscCode: user.ifscCode,
         nomineeDetails: user.nomineeDetails,
         nomineeRelation: user.nomineeRelation,
+        // EUIN and API Integration
+        euinNumber: user.euinNumber,
+        enableCamsApi: user.enableCamsApi,
+        enableKfintechApi: user.enableKfintechApi,
+        enableNsdlApi: user.enableNsdlApi,
+        enableCdslApi: user.enableCdslApi,
         // Registry Preferences
         preferredCamsRegistration: user.preferredCamsRegistration,
         preferredKfintechRegistration: user.preferredKfintechRegistration,
@@ -434,6 +440,8 @@ export function setupAuth(app: Express) {
         occupation, annualIncome, investmentExperience, riskTolerance,
         // Banking & Nominee Information
         bankAccountNumber, ifscCode, nomineeDetails, nomineeRelation,
+        // EUIN and API Integration
+        euinNumber, enableCamsApi, enableKfintechApi, enableNsdlApi, enableCdslApi,
         // Registry Preferences
         preferredCamsRegistration, preferredKfintechRegistration, preferredNsdlRegistration, preferredCdslRegistration
       } = req.body;
@@ -467,6 +475,12 @@ export function setupAuth(app: Express) {
         ifscCode: ifscCode || null,
         nomineeDetails: nomineeDetails || null,
         nomineeRelation: nomineeRelation || null,
+        // EUIN and API Integration
+        euinNumber: euinNumber || null,
+        enableCamsApi: enableCamsApi || false,
+        enableKfintechApi: enableKfintechApi || false,
+        enableNsdlApi: enableNsdlApi || false,
+        enableCdslApi: enableCdslApi || false,
         // Registry Preferences
         preferredCamsRegistration: preferredCamsRegistration || false,
         preferredKfintechRegistration: preferredKfintechRegistration || false,
@@ -508,6 +522,12 @@ export function setupAuth(app: Express) {
         ifscCode: updatedUser.ifscCode,
         nomineeDetails: updatedUser.nomineeDetails,
         nomineeRelation: updatedUser.nomineeRelation,
+        // EUIN and API Integration
+        euinNumber: updatedUser.euinNumber,
+        enableCamsApi: updatedUser.enableCamsApi,
+        enableKfintechApi: updatedUser.enableKfintechApi,
+        enableNsdlApi: updatedUser.enableNsdlApi,
+        enableCdslApi: updatedUser.enableCdslApi,
         // Registry Preferences
         preferredCamsRegistration: updatedUser.preferredCamsRegistration,
         preferredKfintechRegistration: updatedUser.preferredKfintechRegistration,

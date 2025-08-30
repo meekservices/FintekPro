@@ -55,6 +55,12 @@ export const users = pgTable("users", {
   ifscCode: varchar("ifsc_code"),
   nomineeDetails: text("nominee_details"),
   nomineeRelation: varchar("nominee_relation"),
+  // EUIN and API Integration
+  euinNumber: varchar("euin_number"),
+  enableCamsApi: boolean("enable_cams_api").default(false),
+  enableKfintechApi: boolean("enable_kfintech_api").default(false),
+  enableNsdlApi: boolean("enable_nsdl_api").default(false),
+  enableCdslApi: boolean("enable_cdsl_api").default(false),
   // Registry Preferences
   preferredCamsRegistration: boolean("preferred_cams_registration").default(false),
   preferredKfintechRegistration: boolean("preferred_kfintech_registration").default(false),

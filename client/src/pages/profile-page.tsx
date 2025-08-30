@@ -579,7 +579,7 @@ export default function ProfilePage() {
                     data-testid="input-occupation"
                   />
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="annualIncome">Annual Income</Label>
                     <Select
@@ -599,6 +599,23 @@ export default function ProfilePage() {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div>
+                    <Label htmlFor="euinNumber">EUIN Number (Mutual Fund Distributor Code)</Label>
+                    <Input
+                      id="euinNumber"
+                      {...form.register("euinNumber")}
+                      placeholder="E123456"
+                      disabled={!isEditing}
+                      className="uppercase"
+                      data-testid="input-euin-number"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Employee Unique Identification Number (if advised by distributor)
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="investmentExperience">Investment Experience</Label>
                     <Select
@@ -636,6 +653,74 @@ export default function ProfilePage() {
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+                </div>
+                
+                {/* API Integration Information */}
+                <div className="border-t pt-4">
+                  <h4 className="font-medium mb-3 flex items-center gap-2">
+                    <Database className="h-4 w-4" />
+                    API Integration Preferences
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="enableCamsApi"
+                          {...form.register("enableCamsApi")}
+                          disabled={!isEditing}
+                          data-testid="checkbox-enable-cams-api"
+                        />
+                        <Label htmlFor="enableCamsApi" className="text-sm cursor-pointer">
+                          Enable CAMS API Integration
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="enableKfintechApi"
+                          {...form.register("enableKfintechApi")}
+                          disabled={!isEditing}
+                          data-testid="checkbox-enable-kfintech-api"
+                        />
+                        <Label htmlFor="enableKfintechApi" className="text-sm cursor-pointer">
+                          Enable KFintech API Integration
+                        </Label>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="enableNsdlApi"
+                          {...form.register("enableNsdlApi")}
+                          disabled={!isEditing}
+                          data-testid="checkbox-enable-nsdl-api"
+                        />
+                        <Label htmlFor="enableNsdlApi" className="text-sm cursor-pointer">
+                          Enable NSDL API Integration
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="enableCdslApi"
+                          {...form.register("enableCdslApi")}
+                          disabled={!isEditing}
+                          data-testid="checkbox-enable-cdsl-api"
+                        />
+                        <Label htmlFor="enableCdslApi" className="text-sm cursor-pointer">
+                          Enable CDSL API Integration
+                        </Label>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <p className="text-xs text-blue-700 dark:text-blue-300">
+                      <strong>Note:</strong> API integrations allow automatic synchronization of your portfolio data, 
+                      transactions, and statements from respective registries. Enable only the services you use.
+                    </p>
                   </div>
                 </div>
               </CardContent>
