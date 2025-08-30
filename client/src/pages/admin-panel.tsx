@@ -4562,7 +4562,6 @@ export default function AdminPanel() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-          </div>
         </Tabs>
       </div>
     </div>
