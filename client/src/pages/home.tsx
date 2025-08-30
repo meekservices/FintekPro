@@ -85,7 +85,7 @@ export default function Home() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
         {/* Hero Section */}
-        <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8" data-testid="hero-section">
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8" data-testid="hero-section">
           <MarketChart symbol="^NSEI" />
           <PortfolioSummary userId={userId} />
         </section>
