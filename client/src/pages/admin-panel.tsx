@@ -16,6 +16,8 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { RiskProfileViewer } from "@/components/risk-profiling/risk-profile-viewer";
 import { RiskAssessmentForm } from "@/components/risk-profiling/risk-assessment-form";
+import { CapitalGainsReportViewer } from "@/components/reports/capital-gains-report-viewer";
+import { TransactionReportViewer } from "@/components/reports/transaction-report-viewer";
 import CkycManagement from "./admin/ckyc-management";
 
 // API Status Panel Component
@@ -1267,13 +1269,13 @@ function ComprehensiveUserManagement() {
   };
 
   const userStats = {
-    total: usersData?.total || 0,
-    clients: usersData?.stats?.clients || 0,
-    partners: usersData?.stats?.partners || 0,
-    suppliers: usersData?.stats?.suppliers || 0,
-    agents: usersData?.stats?.agents || 0,
-    active: usersData?.stats?.active || 0,
-    inactive: usersData?.stats?.inactive || 0
+    total: (usersData as any)?.total || 0,
+    clients: (usersData as any)?.stats?.clients || 0,
+    partners: (usersData as any)?.stats?.partners || 0,
+    suppliers: (usersData as any)?.stats?.suppliers || 0,
+    agents: (usersData as any)?.stats?.agents || 0,
+    active: (usersData as any)?.stats?.active || 0,
+    inactive: (usersData as any)?.stats?.inactive || 0
   };
 
   return (
@@ -1486,12 +1488,12 @@ function ComprehensiveUserManagement() {
                         type="checkbox"
                         onChange={(e) => {
                           if (e.target.checked) {
-                            setSelectedUsers(usersData?.users?.map(u => u.id) || []);
+                            setSelectedUsers((usersData as any)?.users?.map((u: any) => u.id) || []);
                           } else {
                             setSelectedUsers([]);
                           }
                         }}
-                        checked={selectedUsers.length === usersData?.users?.length}
+                        checked={selectedUsers.length === (usersData as any)?.users?.length}
                       />
                     </TableHead>
                     <TableHead>User</TableHead>
@@ -1503,7 +1505,7 @@ function ComprehensiveUserManagement() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {usersData?.users?.map((user: any) => (
+                  {(usersData as any)?.users?.map((user: any) => (
                     <TableRow key={user.id}>
                       <TableCell>
                         <input
