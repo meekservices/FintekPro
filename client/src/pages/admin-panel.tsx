@@ -3793,6 +3793,7 @@ export default function AdminPanel() {
       </Dialog>
             </div>
         </Tabs>
+        </div>
       </div>
     </div>
   );
