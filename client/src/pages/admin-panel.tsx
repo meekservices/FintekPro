@@ -2579,18 +2579,20 @@ export default function AdminPanel() {
 
   return (
     <div className="min-h-screen bg-background" data-testid="admin-panel">
+      <div className="flex items-center justify-between p-6 border-b">
+        <div>
+          <h1 className="text-3xl font-bold" data-testid="text-admin-title">Admin Panel</h1>
+          <p className="text-muted-foreground" data-testid="text-admin-subtitle">
+            Monitor and manage platform activity
+          </p>
+        </div>
+        <Badge variant="secondary" data-testid="badge-admin-status">Admin Access</Badge>
+      </div>
+
       <div className="flex h-screen">
         {/* Left Sidebar */}
-        <div className="w-64 border-r bg-card shadow-sm">
-          <div className="p-6 border-b">
-            <h1 className="text-2xl font-bold" data-testid="text-admin-title">Admin Panel</h1>
-            <p className="text-sm text-muted-foreground" data-testid="text-admin-subtitle">
-              Monitor and manage platform
-            </p>
-            <Badge variant="secondary" className="mt-2" data-testid="badge-admin-status">Admin Access</Badge>
-          </div>
-
-          <Tabs defaultValue="dashboard" orientation="vertical" className="w-full">
+        <div className="w-64 border-r bg-card shadow-sm flex-shrink-0">
+          <Tabs defaultValue="dashboard" orientation="vertical" className="w-full h-full">
             <TabsList className="flex flex-col h-auto w-full bg-transparent p-2 space-y-1">
               <TabsTrigger 
                 value="dashboard" 
@@ -2725,11 +2727,10 @@ export default function AdminPanel() {
             </TabsList>
 
             {/* Main Content Area */}
-            <div className="flex-1 overflow-auto">
-              <div className="p-6">
+            <div className="flex-1 overflow-auto p-6">
 
-        {/* Dashboard Tab */}
-        <TabsContent value="dashboard" className="space-y-6">
+            {/* Dashboard Tab */}
+            <TabsContent value="dashboard" className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card data-testid="card-total-users">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -4226,7 +4227,6 @@ export default function AdminPanel() {
             <AIAnalysisPanel />
           </TabsContent>
         )}
-      </Tabs>
 
       {/* Guidance Dialog */}
       <Dialog open={guidanceDialog} onOpenChange={setGuidanceDialog}>
@@ -4562,431 +4562,9 @@ export default function AdminPanel() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-    </div>
-  );
-}
-
-// Capital Gains Report Viewer Component
-function CapitalGainsReportViewer() {
-  const [selectedFinancialYear, setSelectedFinancialYear] = useState('2023-24');
-  const [selectedSource, setSelectedSource] = useState('all');
-  const [exportFormat, setExportFormat] = useState<'csv' | 'excel' | 'json'>('csv');
-  const [isExporting, setIsExporting] = useState(false);
-  
-  const { toast } = useToast();
-
-  const { data: reportStats } = useQuery({
-    queryKey: ['/api/admin/reports/stats'],
-    queryFn: async () => {
-      const response = await fetch('/api/admin/reports/stats');
-      const result = await response.json();
-      return result.data;
-    }
-  });
-
-  const handleExportReports = async () => {
-    setIsExporting(true);
-    try {
-      const queryParams = new URLSearchParams({
-        format: exportFormat,
-        ...(selectedFinancialYear !== 'all' && { financialYear: selectedFinancialYear }),
-        ...(selectedSource !== 'all' && { source: selectedSource })
-      });
-
-      const response = await fetch(`/api/admin/capital-gains-reports/export?${queryParams}`);
-      
-      if (!response.ok) {
-        throw new Error('Export failed');
-      }
-
-      // Get the filename from the response headers
-      const contentDisposition = response.headers.get('Content-Disposition');
-      const filename = contentDisposition 
-        ? contentDisposition.split('filename=')[1]?.replace(/"/g, '')
-        : `capital-gains-export.${exportFormat === 'excel' ? 'xlsx' : exportFormat}`;
-
-      // Create download link
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      a.click();
-      window.URL.revokeObjectURL(url);
-
-      toast({
-        title: "Export Successful",
-        description: `Capital gains reports exported as ${exportFormat.toUpperCase()}`,
-      });
-
-    } catch (error) {
-      toast({
-        title: "Export Failed",
-        description: "Failed to export capital gains reports. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Reports</p>
-                <p className="text-2xl font-bold">{reportStats?.capitalGainsReports?.total || 0}</p>
-              </div>
-              <Receipt className="h-8 w-8 text-blue-500" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Completed</p>
-                <p className="text-2xl font-bold text-green-600">{reportStats?.capitalGainsReports?.completed || 0}</p>
-              </div>
-              <CheckCircle className="h-8 w-8 text-green-500" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">This Month</p>
-                <p className="text-2xl font-bold">{reportStats?.capitalGainsReports?.thisMonth || 0}</p>
-              </div>
-              <Calendar className="h-8 w-8 text-orange-500" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Failed</p>
-                <p className="text-2xl font-bold text-red-600">{reportStats?.capitalGainsReports?.failed || 0}</p>
-              </div>
-              <AlertTriangle className="h-8 w-8 text-red-500" />
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+        </Tabs>
       </div>
-
-      {/* Export Controls */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Download className="h-5 w-5" />
-            Export Capital Gains Reports
-          </CardTitle>
-          <CardDescription>
-            Export all capital gains reports with filtering options
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label>Financial Year</Label>
-              <Select value={selectedFinancialYear} onValueChange={setSelectedFinancialYear}>
-                <SelectTrigger data-testid="select-admin-financial-year">
-                  <SelectValue placeholder="Select financial year" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Years</SelectItem>
-                  <SelectItem value="2023-24">2023-24</SelectItem>
-                  <SelectItem value="2022-23">2022-23</SelectItem>
-                  <SelectItem value="2021-22">2021-22</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Data Source</Label>
-              <Select value={selectedSource} onValueChange={setSelectedSource}>
-                <SelectTrigger data-testid="select-admin-source">
-                  <SelectValue placeholder="Select source" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Sources</SelectItem>
-                  <SelectItem value="nsdl">NSDL</SelectItem>
-                  <SelectItem value="cdsl">CDSL</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Export Format</Label>
-              <Select value={exportFormat} onValueChange={(value: 'csv' | 'excel' | 'json') => setExportFormat(value)}>
-                <SelectTrigger data-testid="select-admin-export-format">
-                  <SelectValue placeholder="Select format" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="csv">CSV</SelectItem>
-                  <SelectItem value="excel">Excel</SelectItem>
-                  <SelectItem value="json">JSON</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <Button
-            onClick={handleExportReports}
-            disabled={isExporting}
-            className="w-full"
-            data-testid="button-export-capital-gains"
-          >
-            {isExporting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isExporting ? 'Exporting...' : `Export as ${exportFormat.toUpperCase()}`}
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Recent Reports Table Preview */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Capital Gains Reports</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            <Receipt className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>Recent reports will be displayed here</p>
-            <p className="text-sm">Use the export function to download complete data</p>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-// Transaction Report Viewer Component
-function TransactionReportViewer() {
-  const [selectedFinancialYear, setSelectedFinancialYear] = useState('2023-24');
-  const [selectedSource, setSelectedSource] = useState('all');
-  const [selectedAssetType, setSelectedAssetType] = useState('all');
-  const [exportFormat, setExportFormat] = useState<'csv' | 'excel' | 'json'>('csv');
-  const [isExporting, setIsExporting] = useState(false);
-  
-  const { toast } = useToast();
-
-  const { data: reportStats } = useQuery({
-    queryKey: ['/api/admin/reports/stats'],
-    queryFn: async () => {
-      const response = await fetch('/api/admin/reports/stats');
-      const result = await response.json();
-      return result.data;
-    }
-  });
-
-  const handleExportReports = async () => {
-    setIsExporting(true);
-    try {
-      const queryParams = new URLSearchParams({
-        format: exportFormat,
-        ...(selectedFinancialYear !== 'all' && { financialYear: selectedFinancialYear }),
-        ...(selectedSource !== 'all' && { source: selectedSource }),
-        ...(selectedAssetType !== 'all' && { assetType: selectedAssetType })
-      });
-
-      const response = await fetch(`/api/admin/transaction-reports/export?${queryParams}`);
-      
-      if (!response.ok) {
-        throw new Error('Export failed');
-      }
-
-      // Get the filename from the response headers
-      const contentDisposition = response.headers.get('Content-Disposition');
-      const filename = contentDisposition 
-        ? contentDisposition.split('filename=')[1]?.replace(/"/g, '')
-        : `transaction-reports-export.${exportFormat === 'excel' ? 'xlsx' : exportFormat}`;
-
-      // Create download link
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      a.click();
-      window.URL.revokeObjectURL(url);
-
-      toast({
-        title: "Export Successful",
-        description: `Transaction reports exported as ${exportFormat.toUpperCase()}`,
-      });
-
-    } catch (error) {
-      toast({
-        title: "Export Failed",
-        description: "Failed to export transaction reports. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Reports</p>
-                <p className="text-2xl font-bold">{reportStats?.transactionReports?.total || 0}</p>
-              </div>
-              <FileText className="h-8 w-8 text-blue-500" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Completed</p>
-                <p className="text-2xl font-bold text-green-600">{reportStats?.transactionReports?.completed || 0}</p>
-              </div>
-              <CheckCircle className="h-8 w-8 text-green-500" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">This Month</p>
-                <p className="text-2xl font-bold">{reportStats?.transactionReports?.thisMonth || 0}</p>
-              </div>
-              <Calendar className="h-8 w-8 text-orange-500" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Failed</p>
-                <p className="text-2xl font-bold text-red-600">{reportStats?.transactionReports?.failed || 0}</p>
-              </div>
-              <AlertTriangle className="h-8 w-8 text-red-500" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Export Controls */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Download className="h-5 w-5" />
-            Export Transaction Reports
-          </CardTitle>
-          <CardDescription>
-            Export all transaction reports with comprehensive filtering options
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="space-y-2">
-              <Label>Financial Year</Label>
-              <Select value={selectedFinancialYear} onValueChange={setSelectedFinancialYear}>
-                <SelectTrigger data-testid="select-admin-transaction-year">
-                  <SelectValue placeholder="Select financial year" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Years</SelectItem>
-                  <SelectItem value="2023-24">2023-24</SelectItem>
-                  <SelectItem value="2022-23">2022-23</SelectItem>
-                  <SelectItem value="2021-22">2021-22</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Data Source</Label>
-              <Select value={selectedSource} onValueChange={setSelectedSource}>
-                <SelectTrigger data-testid="select-admin-transaction-source">
-                  <SelectValue placeholder="Select source" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Sources</SelectItem>
-                  <SelectItem value="mf_central">MF Central</SelectItem>
-                  <SelectItem value="cams">CAMS</SelectItem>
-                  <SelectItem value="kfintech">KFintech</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Asset Type</Label>
-              <Select value={selectedAssetType} onValueChange={setSelectedAssetType}>
-                <SelectTrigger data-testid="select-admin-asset-type">
-                  <SelectValue placeholder="Select asset type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="mutual_funds">Mutual Funds</SelectItem>
-                  <SelectItem value="equities">Equities</SelectItem>
-                  <SelectItem value="unlisted">Unlisted Securities</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Export Format</Label>
-              <Select value={exportFormat} onValueChange={(value: 'csv' | 'excel' | 'json') => setExportFormat(value)}>
-                <SelectTrigger data-testid="select-admin-transaction-format">
-                  <SelectValue placeholder="Select format" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="csv">CSV</SelectItem>
-                  <SelectItem value="excel">Excel</SelectItem>
-                  <SelectItem value="json">JSON</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <Button
-            onClick={handleExportReports}
-            disabled={isExporting}
-            className="w-full"
-            data-testid="button-export-transaction-reports"
-          >
-            {isExporting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isExporting ? 'Exporting...' : `Export as ${exportFormat.toUpperCase()}`}
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Recent Reports Table Preview */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Transaction Reports</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>Recent transaction reports will be displayed here</p>
-            <p className="text-sm">Use the export function to download complete data</p>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }
