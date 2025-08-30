@@ -2025,114 +2025,169 @@ export default function AdminPanel() {
           {/* Enhanced Main Content Area */}
           <div className="flex-1 overflow-auto p-8 bg-gradient-to-br from-white/60 via-slate-50/80 to-blue-50/60 dark:from-slate-900/60 dark:via-slate-800/80 dark:to-slate-900/60">
 
-            {/* Dashboard Tab */}
-            <TabsContent value="dashboard" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card data-testid="card-total-users" className="bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-xl shadow-blue-500/25 border-0 hover:shadow-2xl hover:shadow-blue-500/30 transition-all duration-300 hover:-translate-y-1">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-blue-100">Total Clients</CardTitle>
-                <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-                  <Users className="h-5 w-5 text-white" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold mb-1" data-testid="text-total-clients">
-                  {clientStats?.totalClients || 0}
-                </div>
-                <p className="text-sm text-blue-100 flex items-center">
-                  <TrendingUp className="w-4 h-4 mr-1" />
-                  +{clientStats?.newClientsToday || 0} new today
-                </p>
-              </CardContent>
-            </Card>
+            {/* Enhanced Dashboard Tab */}
+            <TabsContent value="dashboard" className="space-y-8">
+              {/* Enhanced Header Section */}
+              <div className="mb-8">
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Admin Dashboard</h1>
+                <p className="text-gray-600 dark:text-gray-400">Monitor your platform's performance and manage operations</p>
+              </div>
+              
+              {/* Enhanced Stats Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <Card data-testid="card-total-users" className="group relative overflow-hidden bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 text-white shadow-2xl border-0 hover:shadow-3xl hover:shadow-blue-500/40 transition-all duration-500 hover:-translate-y-2 hover:scale-105">
+                  <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 relative z-10">
+                    <div>
+                      <CardTitle className="text-sm font-semibold text-blue-100 uppercase tracking-wider">Total Clients</CardTitle>
+                      <p className="text-xs text-blue-200 mt-1">Active users</p>
+                    </div>
+                    <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm group-hover:bg-white/30 transition-colors duration-300">
+                      <Users className="h-6 w-6 text-white" />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="relative z-10">
+                    <div className="text-4xl font-bold mb-3" data-testid="text-total-clients">
+                      {dashboardData?.totalClients?.toLocaleString() || '0'}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-blue-100 flex items-center">
+                        <TrendingUp className="w-4 h-4 mr-1" />
+                        +{dashboardData?.newClientsToday || 0} today
+                      </p>
+                      <div className="text-xs text-blue-200">
+                        {dashboardData?.clientGrowthPercent || 0}% growth
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
 
-            <Card data-testid="card-active-users" className="bg-gradient-to-br from-emerald-500 to-green-600 text-white shadow-xl shadow-emerald-500/25 border-0 hover:shadow-2xl hover:shadow-emerald-500/30 transition-all duration-300 hover:-translate-y-1">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-emerald-100">Active Clients</CardTitle>
-                <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-                  <Activity className="h-5 w-5 text-white" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold mb-1" data-testid="text-active-clients">
-                  {clientStats?.activeClients || 0}
-                </div>
-                <p className="text-sm text-emerald-100 flex items-center">
-                  <Clock className="w-4 h-4 mr-1" />
-                  Last 7 days
-                </p>
-              </CardContent>
-            </Card>
+                <Card data-testid="card-active-users" className="group relative overflow-hidden bg-gradient-to-br from-emerald-500 via-green-600 to-emerald-700 text-white shadow-2xl border-0 hover:shadow-3xl hover:shadow-emerald-500/40 transition-all duration-500 hover:-translate-y-2 hover:scale-105">
+                  <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 relative z-10">
+                    <div>
+                      <CardTitle className="text-sm font-semibold text-emerald-100 uppercase tracking-wider">Active Clients</CardTitle>
+                      <p className="text-xs text-emerald-200 mt-1">Online now</p>
+                    </div>
+                    <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm group-hover:bg-white/30 transition-colors duration-300">
+                      <Activity className="h-6 w-6 text-white" />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="relative z-10">
+                    <div className="text-4xl font-bold mb-3" data-testid="text-active-clients">
+                      {dashboardData?.activeClients?.toLocaleString() || '0'}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-emerald-100 flex items-center">
+                        <Clock className="w-4 h-4 mr-1" />
+                        Last 24 hours
+                      </p>
+                      <div className="h-2 w-16 bg-white/20 rounded-full overflow-hidden">
+                        <div className="h-full bg-white/60 rounded-full" style={{width: `${Math.min((dashboardData?.activeClients / dashboardData?.totalClients) * 100 || 0, 100)}%`}}></div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
 
-            <Card data-testid="card-total-logins" className="bg-gradient-to-br from-purple-500 to-indigo-600 text-white shadow-xl shadow-purple-500/25 border-0 hover:shadow-2xl hover:shadow-purple-500/30 transition-all duration-300 hover:-translate-y-1">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-purple-100">Total Logins</CardTitle>
-                <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-                  <TrendingUp className="h-5 w-5 text-white" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold mb-1" data-testid="text-total-logins">
-                  {clientStats?.totalLogins || 0}
-                </div>
-                <p className="text-sm text-purple-100 flex items-center">
-                  <Calendar className="w-4 h-4 mr-1" />
-                  All time
-                </p>
-              </CardContent>
-            </Card>
+                <Card data-testid="card-total-logins" className="group relative overflow-hidden bg-gradient-to-br from-purple-500 via-indigo-600 to-purple-700 text-white shadow-2xl border-0 hover:shadow-3xl hover:shadow-purple-500/40 transition-all duration-500 hover:-translate-y-2 hover:scale-105">
+                  <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 relative z-10">
+                    <div>
+                      <CardTitle className="text-sm font-semibold text-purple-100 uppercase tracking-wider">Total Logins</CardTitle>
+                      <p className="text-xs text-purple-200 mt-1">This month</p>
+                    </div>
+                    <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm group-hover:bg-white/30 transition-colors duration-300">
+                      <TrendingUp className="h-6 w-6 text-white" />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="relative z-10">
+                    <div className="text-4xl font-bold mb-3" data-testid="text-total-logins">
+                      {dashboardData?.totalLogins?.toLocaleString() || '0'}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-purple-100 flex items-center">
+                        <Calendar className="w-4 h-4 mr-1" />
+                        +{dashboardData?.loginsToday || 0} today
+                      </p>
+                      <div className="text-xs text-purple-200">
+                        Peak: {dashboardData?.peakLogins || 0}/day
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
 
-            <Card data-testid="card-avg-session" className="bg-gradient-to-br from-orange-500 to-red-600 text-white shadow-xl shadow-orange-500/25 border-0 hover:shadow-2xl hover:shadow-orange-500/30 transition-all duration-300 hover:-translate-y-1">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-orange-100">Avg Session</CardTitle>
-                <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-                  <Clock className="h-5 w-5 text-white" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold mb-1" data-testid="text-avg-session">
-                  {clientStats?.avgSessionTime || 0}m
-                </div>
-                <p className="text-sm text-orange-100 flex items-center">
-                  <Users className="w-4 h-4 mr-1" />
-                  Average duration
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <Card data-testid="card-activity-metrics" className="bg-gradient-to-br from-white to-blue-50 dark:from-slate-800 dark:to-slate-900 border-2 border-blue-100 dark:border-slate-700 shadow-xl hover:shadow-2xl transition-all duration-300">
-              <CardHeader className="pb-4">
-                <div className="flex items-center space-x-3">
-                  <div className="p-3 bg-gradient-to-r from-blue-500 to-cyan-600 rounded-xl">
-                    <Activity className="h-6 w-6 text-white" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-xl font-bold text-slate-800 dark:text-white">Activity Metrics</CardTitle>
-                    <CardDescription className="text-slate-600 dark:text-slate-300">Last 24 hours performance</CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex justify-between items-center p-4 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-slate-700 dark:to-slate-800 rounded-xl">
-                  <div className="flex items-center space-x-3">
-                    <Eye className="h-5 w-5 text-blue-600" />
-                    <span className="font-medium text-slate-700 dark:text-slate-200">Page Views</span>
-                  </div>
-                  <span className="text-2xl font-bold text-blue-600" data-testid="text-page-views">
-                    {activityMetrics?.pageViews || 0}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center p-4 bg-gradient-to-r from-emerald-50 to-green-50 dark:from-slate-700 dark:to-slate-800 rounded-xl">
-                  <div className="flex items-center space-x-3">
-                    <Zap className="h-5 w-5 text-emerald-600" />
-                    <span className="font-medium text-slate-700 dark:text-slate-200">API Calls</span>
-                  </div>
-                  <span className="text-2xl font-bold text-emerald-600" data-testid="text-api-calls">
-                    {activityMetrics?.apiCalls || 0}
-                  </span>
-                </div>
+                <Card data-testid="card-avg-session" className="group relative overflow-hidden bg-gradient-to-br from-orange-500 via-red-600 to-orange-700 text-white shadow-2xl border-0 hover:shadow-3xl hover:shadow-orange-500/40 transition-all duration-500 hover:-translate-y-2 hover:scale-105">
+                  <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 relative z-10">
+                    <div>
+                      <CardTitle className="text-sm font-semibold text-orange-100 uppercase tracking-wider">Avg Session</CardTitle>
+                      <p className="text-xs text-orange-200 mt-1">Duration</p>
+                    </div>
+                    <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm group-hover:bg-white/30 transition-colors duration-300">
+                      <Clock className="h-6 w-6 text-white" />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="relative z-10">
+                    <div className="text-4xl font-bold mb-3" data-testid="text-avg-session">
+                      {dashboardData?.avgSessionTime || 0}m
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-orange-100 flex items-center">
+                        <Users className="w-4 h-4 mr-1" />
+                        Per user
+                      </p>
+                      <div className="text-xs text-orange-200">
+                        Best: {dashboardData?.bestSessionTime || 0}m
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+              
+              {/* Enhanced Data Visualization Section */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <Card data-testid="card-activity-metrics" className="group relative overflow-hidden bg-gradient-to-br from-white via-blue-50/50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-700 border-2 border-blue-200/30 dark:border-slate-600 shadow-2xl hover:shadow-3xl hover:shadow-blue-500/20 transition-all duration-500 hover:-translate-y-1">
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <CardHeader className="pb-6 relative z-10">
+                    <div className="flex items-center space-x-4">
+                      <div className="p-4 bg-gradient-to-br from-blue-500 via-cyan-500 to-indigo-600 rounded-2xl shadow-lg group-hover:shadow-xl transition-all duration-300">
+                        <Activity className="h-7 w-7 text-white" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-2xl font-bold text-slate-800 dark:text-white mb-1">Activity Metrics</CardTitle>
+                        <CardDescription className="text-slate-600 dark:text-slate-400 text-sm">Real-time performance indicators</CardDescription>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-6 relative z-10">
+                    <div className="flex justify-between items-center p-5 bg-gradient-to-r from-blue-50/80 via-cyan-50/80 to-blue-50/80 dark:from-slate-700/50 dark:via-slate-600/50 dark:to-slate-700/50 rounded-2xl border border-blue-100/50 dark:border-slate-600/50 hover:border-blue-300/50 transition-all duration-300">
+                      <div className="flex items-center space-x-4">
+                        <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
+                          <Eye className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <span className="font-semibold text-slate-700 dark:text-slate-200">Page Views</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-blue-600 dark:text-blue-400" data-testid="text-page-views">
+                          {activityMetrics?.pageViews?.toLocaleString() || '0'}
+                        </div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">+12% today</div>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center p-5 bg-gradient-to-r from-emerald-50/80 via-green-50/80 to-emerald-50/80 dark:from-slate-700/50 dark:via-slate-600/50 dark:to-slate-700/50 rounded-2xl border border-emerald-100/50 dark:border-slate-600/50 hover:border-emerald-300/50 transition-all duration-300">
+                      <div className="flex items-center space-x-4">
+                        <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl">
+                          <Zap className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                        </div>
+                        <span className="font-semibold text-slate-700 dark:text-slate-200">API Calls</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400" data-testid="text-api-calls">
+                          {activityMetrics?.apiCalls?.toLocaleString() || '0'}
+                        </div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">+8% today</div>
+                      </div>
+                    </div>
                 <div className="flex justify-between items-center p-4 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-slate-700 dark:to-slate-800 rounded-xl">
                   <div className="flex items-center space-x-3">
                     <PieChart className="h-5 w-5 text-purple-600" />
@@ -2142,15 +2197,20 @@ export default function AdminPanel() {
                     {activityMetrics?.portfolioViews || 0}
                   </span>
                 </div>
-                <div className="flex justify-between items-center p-4 bg-gradient-to-r from-orange-50 to-red-50 dark:from-slate-700 dark:to-slate-800 rounded-xl">
-                  <div className="flex items-center space-x-3">
-                    <TrendingUp className="h-5 w-5 text-orange-600" />
-                    <span className="font-medium text-slate-700 dark:text-slate-200">Trades</span>
-                  </div>
-                  <span className="text-2xl font-bold text-orange-600" data-testid="text-trades">
-                    {activityMetrics?.trades || 0}
-                  </span>
-                </div>
+                    <div className="flex justify-between items-center p-5 bg-gradient-to-r from-orange-50/80 via-red-50/80 to-orange-50/80 dark:from-slate-700/50 dark:via-slate-600/50 dark:to-slate-700/50 rounded-2xl border border-orange-100/50 dark:border-slate-600/50 hover:border-orange-300/50 transition-all duration-300">
+                      <div className="flex items-center space-x-4">
+                        <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-xl">
+                          <TrendingUp className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                        </div>
+                        <span className="font-semibold text-slate-700 dark:text-slate-200">Trades</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-orange-600 dark:text-orange-400" data-testid="text-trades">
+                          {activityMetrics?.trades?.toLocaleString() || '0'}
+                        </div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">+5% today</div>
+                      </div>
+                    </div>
               </CardContent>
             </Card>
 
