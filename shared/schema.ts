@@ -1931,3 +1931,122 @@ export type InsertCkycActionLog = z.infer<typeof insertCkycActionLogSchema>;
 // Client-Agent relationship types
 export type ClientAgentRelationship = typeof clientAgentRelationships.$inferSelect;
 export type InsertClientAgentRelationship = typeof clientAgentRelationships.$inferInsert;
+
+// Product Store Catalog Tables
+export const storeCategories = pgTable("store_categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  description: text("description"),
+  slug: varchar("slug").notNull().unique(),
+  parentCategoryId: varchar("parent_category_id").references(() => storeCategories.id),
+  displayOrder: integer("display_order").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const storeProducts = pgTable("store_products", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  shortDescription: text("short_description"),
+  fullDescription: text("full_description"),
+  categoryId: varchar("category_id").references(() => storeCategories.id).notNull(),
+  productType: varchar("product_type").notNull(), // 'mutual_fund', 'etf', 'bond', 'insurance', 'loan', 'advisory'
+  price: decimal("price", { precision: 15, scale: 2 }),
+  currency: varchar("currency").default("INR"),
+  minimumInvestment: decimal("minimum_investment", { precision: 15, scale: 2 }),
+  lockInPeriod: integer("lock_in_period"), // in months
+  riskLevel: varchar("risk_level"), // 'low', 'medium', 'high'
+  expectedReturns: decimal("expected_returns", { precision: 5, scale: 2 }), // percentage
+  features: jsonb("features"), // array of key features
+  eligibility: jsonb("eligibility"), // eligibility criteria
+  documents: jsonb("documents"), // required documents
+  provider: varchar("provider"), // AMC/Bank/Insurance company name
+  providerCode: varchar("provider_code"), // internal provider code
+  regulatory: jsonb("regulatory"), // regulatory information like NAV, fund manager, etc.
+  isActive: boolean("is_active").default(true),
+  isFeatured: boolean("is_featured").default(false),
+  displayOrder: integer("display_order").default(0),
+  launchDate: date("launch_date"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const storeProductImages = pgTable("store_product_images", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  productId: varchar("product_id").references(() => storeProducts.id).notNull(),
+  imageUrl: varchar("image_url").notNull(),
+  altText: varchar("alt_text"),
+  isPrimary: boolean("is_primary").default(false),
+  displayOrder: integer("display_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const storeProductTags = pgTable("store_product_tags", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull().unique(),
+  slug: varchar("slug").notNull().unique(),
+  color: varchar("color").default("#3B82F6"), // hex color for display
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const storeProductTagMappings = pgTable("store_product_tag_mappings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  productId: varchar("product_id").references(() => storeProducts.id).notNull(),
+  tagId: varchar("tag_id").references(() => storeProductTags.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const userWishlist = pgTable("user_wishlist", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  productId: varchar("product_id").references(() => storeProducts.id).notNull(),
+  addedAt: timestamp("added_at").defaultNow(),
+});
+
+// Product Store Zod schemas
+export const insertStoreCategorySchema = createInsertSchema(storeCategories).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertStoreProductSchema = createInsertSchema(storeProducts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertStoreProductImageSchema = createInsertSchema(storeProductImages).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertStoreProductTagSchema = createInsertSchema(storeProductTags).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertStoreProductTagMappingSchema = createInsertSchema(storeProductTagMappings).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertUserWishlistSchema = createInsertSchema(userWishlist).omit({
+  id: true,
+  addedAt: true,
+});
+
+// Export types for Product Store
+export type StoreCategory = typeof storeCategories.$inferSelect;
+export type InsertStoreCategory = z.infer<typeof insertStoreCategorySchema>;
+export type StoreProduct = typeof storeProducts.$inferSelect;
+export type InsertStoreProduct = z.infer<typeof insertStoreProductSchema>;
+export type StoreProductImage = typeof storeProductImages.$inferSelect;
+export type InsertStoreProductImage = z.infer<typeof insertStoreProductImageSchema>;
+export type StoreProductTag = typeof storeProductTags.$inferSelect;
+export type InsertStoreProductTag = z.infer<typeof insertStoreProductTagSchema>;
+export type StoreProductTagMapping = typeof storeProductTagMappings.$inferSelect;
+export type InsertStoreProductTagMapping = z.infer<typeof insertStoreProductTagMappingSchema>;
+export type UserWishlist = typeof userWishlist.$inferSelect;
+export type InsertUserWishlist = z.infer<typeof insertUserWishlistSchema>;

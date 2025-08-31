@@ -29,6 +29,7 @@ import WhatsAppAuthPage from "@/pages/whatsapp-auth-page";
 import CkycVerification from "@/pages/ckyc-verification";
 import AgentDashboard from "@/pages/agent-dashboard";
 import IBTradingPage from "@/pages/ib-trading";
+import Store from "@/pages/store";
 
 function Router() {
   return (
@@ -59,6 +60,7 @@ function Router() {
       <Route path="/capital-gains" component={CapitalGainsReports} />
       <Route path="/ckyc" component={CkycVerification} />
       <Route path="/ib-trading" component={IBTradingPage} />
+      <Route path="/store" component={Store} />
       <Route component={NotFound} />
     </Switch>
   );

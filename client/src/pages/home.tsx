@@ -342,7 +342,17 @@ export default function Home() {
                 <CardContent className="p-4 text-center">
                   <CreditCard className="h-8 w-8 mx-auto mb-3 text-orange-500 group-hover:scale-110 transition-transform" />
                   <h3 className="font-semibold text-sm text-gray-900 mb-1">Loans</h3>
-                  <p className="text-xs text-gray-600">Personal & Home</p>
+                  <p className="text-xs text-gray-600">Personal & home</p>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link href="/store">
+              <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer group border-l-4 border-l-indigo-500">
+                <CardContent className="p-4 text-center">
+                  <BookOpen className="h-8 w-8 mx-auto mb-3 text-indigo-500 group-hover:scale-110 transition-transform" />
+                  <h3 className="font-semibold text-sm text-gray-900 mb-1">Product Store</h3>
+                  <p className="text-xs text-gray-600">Browse products</p>
                 </CardContent>
               </Card>
             </Link>
