@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import type { Portfolio, PortfolioHolding, AssetAllocation } from "@shared/schema";
+import type { Portfolio, PortfolioHolding, AssetAllocation, EpfHolding, PpfHolding, EpsHolding } from "@shared/schema";
 
 interface EnhancedHolding extends PortfolioHolding {
   currentPrice: string;
@@ -80,6 +80,25 @@ export function useAssetAllocation(portfolioId: string) {
   return useQuery<AssetAllocation[]>({
     queryKey: ['/api/portfolios', portfolioId, 'allocation'],
     enabled: !!portfolioId,
+  });
+}
+
+// Government Scheme Holdings hooks
+export function useEpfHoldings() {
+  return useQuery<EpfHolding[]>({
+    queryKey: ['/api/government-schemes/epf'],
+  });
+}
+
+export function usePpfHoldings() {
+  return useQuery<PpfHolding[]>({
+    queryKey: ['/api/government-schemes/ppf'],
+  });
+}
+
+export function useEpsHoldings() {
+  return useQuery<EpsHolding[]>({
+    queryKey: ['/api/government-schemes/eps'],
   });
 }
 

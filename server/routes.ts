@@ -6507,6 +6507,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Government Scheme Holdings endpoints
+  app.get("/api/government-schemes/epf", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const epfHoldings = await storage.getEpfHoldings(userId);
+      res.json(epfHoldings);
+    } catch (error) {
+      console.error("Error fetching EPF holdings:", error);
+      res.status(500).json({ error: "Failed to fetch EPF holdings" });
+    }
+  });
+
+  app.get("/api/government-schemes/ppf", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const ppfHoldings = await storage.getPpfHoldings(userId);
+      res.json(ppfHoldings);
+    } catch (error) {
+      console.error("Error fetching PPF holdings:", error);
+      res.status(500).json({ error: "Failed to fetch PPF holdings" });
+    }
+  });
+
+  app.get("/api/government-schemes/eps", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const epsHoldings = await storage.getEpsHoldings(userId);
+      res.json(epsHoldings);
+    } catch (error) {
+      console.error("Error fetching EPS holdings:", error);
+      res.status(500).json({ error: "Failed to fetch EPS holdings" });
+    }
+  });
+
   // Legacy endpoint for backwards compatibility
   app.get("/api/portfolios/:userId", async (req, res) => {
     try {

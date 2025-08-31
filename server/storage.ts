@@ -1,4 +1,4 @@
-import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type CkycNotificationTrigger, type CkycProgressStep, type CkycActionLog, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Supplier, type InsertSupplier, type SupplierProduct, type InsertSupplierProduct, type ProductPerformanceMetric, type InsertProductPerformanceMetric } from "@shared/schema";
+import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type CkycNotificationTrigger, type CkycProgressStep, type CkycActionLog, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Supplier, type InsertSupplier, type SupplierProduct, type InsertSupplierProduct, type ProductPerformanceMetric, type InsertProductPerformanceMetric, type EpfHolding, type PpfHolding, type EpsHolding } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 // We'll import hashPassword later to avoid circular dependency
@@ -24,6 +24,11 @@ export interface IStorage {
   getPortfoliosByUserPan(panNumber: string): Promise<Portfolio[]>;
   getPortfolio(id: string): Promise<Portfolio | undefined>;
   getUserByPan(panNumber: string): Promise<User | undefined>;
+
+  // Government Scheme Holdings methods
+  getEpfHoldings(userId: string): Promise<EpfHolding[]>;
+  getPpfHoldings(userId: string): Promise<PpfHolding[]>;
+  getEpsHoldings(userId: string): Promise<EpsHolding[]>;
   createPortfolio(portfolio: InsertPortfolio): Promise<Portfolio>;
   updatePortfolio(id: string, updates: Partial<Portfolio>): Promise<Portfolio | undefined>;
   
@@ -326,6 +331,9 @@ export class MemStorage implements IStorage {
   private supplierProducts: Map<string, SupplierProduct>;
   private productPerformanceMetrics: Map<string, ProductPerformanceMetric>;
   private clientAssignments: Map<string, any>;
+  private epfHoldings: Map<string, EpfHolding[]>;
+  private ppfHoldings: Map<string, PpfHolding[]>;
+  private epsHoldings: Map<string, EpsHolding[]>;
 
   constructor() {
     this.users = new Map();
@@ -367,12 +375,16 @@ export class MemStorage implements IStorage {
     this.supplierProducts = new Map();
     this.productPerformanceMetrics = new Map();
     this.clientAssignments = new Map();
+    this.epfHoldings = new Map();
+    this.ppfHoldings = new Map();
+    this.epsHoldings = new Map();
     
     // Initialize with sample data
     this.initializeSampleData();
     this.initializeRiskAssessmentQuestions();
     this.initializeSampleReports();
     this.initializeSampleSuppliers();
+    this.initializeGovernmentSchemeHoldings();
   }
 
   private initializeSampleData() {
@@ -2860,6 +2872,140 @@ export class MemStorage implements IStorage {
   async getClientAssignmentsByAgent(agentId: string): Promise<any[]> {
     return Array.from(this.clientAssignments.values())
       .filter(assignment => assignment.assignedAgentIds.includes(agentId));
+  }
+
+  // Government Scheme Holdings methods
+  async getEpfHoldings(userId: string): Promise<EpfHolding[]> {
+    return this.epfHoldings.get(userId) || [];
+  }
+
+  async getPpfHoldings(userId: string): Promise<PpfHolding[]> {
+    return this.ppfHoldings.get(userId) || [];
+  }
+
+  async getEpsHoldings(userId: string): Promise<EpsHolding[]> {
+    return this.epsHoldings.get(userId) || [];
+  }
+
+  private initializeGovernmentSchemeHoldings() {
+    // Sample EPF Holdings for demo user
+    const sampleEpfHoldings: EpfHolding[] = [
+      {
+        id: "epf-holding-1",
+        userId: "demo-user-1",
+        epfAccountNumber: "AP/HYD/12345/001/1234567",
+        employerName: "Tech Solutions Pvt Ltd",
+        memberName: "Demo User",
+        employeeContribution: "125000.00",
+        employerContribution: "125000.00",
+        pensionContribution: "15000.00",
+        totalBalance: "265000.00",
+        interestEarned: "35000.00",
+        interestRate: "8.15",
+        dateOfJoining: new Date("2020-01-15"),
+        dateOfExit: null,
+        isActive: true,
+        nomineeName: "John Doe",
+        nomineeRelationship: "Spouse",
+        lastUpdated: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    ];
+
+    // Sample PPF Holdings for demo user
+    const samplePpfHoldings: PpfHolding[] = [
+      {
+        id: "ppf-holding-1",
+        userId: "demo-user-1",
+        ppfAccountNumber: "PPF12345678901234",
+        bankName: "State Bank of India",
+        branchName: "Hyderabad Main Branch",
+        accountHolderName: "Demo User",
+        totalBalance: "180000.00",
+        currentFinancialYearContribution: "15000.00",
+        totalContribution: "120000.00",
+        totalInterestEarned: "60000.00",
+        currentInterestRate: "7.10",
+        maturityAmount: "450000.00",
+        accountOpenDate: new Date("2017-04-01"),
+        maturityDate: new Date("2032-04-01"),
+        lastContributionDate: new Date("2025-02-15"),
+        nextContributionDueDate: new Date("2025-03-31"),
+        yearsCompleted: 8,
+        minContributionMet: true,
+        maxContributionAllowed: "150000.00",
+        contributionRemaining: "135000.00",
+        loanAvailable: true,
+        maxLoanAmount: "90000.00",
+        partialWithdrawalAvailable: true,
+        maxWithdrawalAmount: "54000.00",
+        nomineeName: "John Doe",
+        nomineeRelationship: "Spouse",
+        nomineeAge: 35,
+        isActive: true,
+        canExtend: false,
+        hasExtended: false,
+        extensionPeriod: null,
+        lastUpdated: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    ];
+
+    // Sample EPS Holdings for demo user
+    const sampleEpsHoldings: EpsHolding[] = [
+      {
+        id: "eps-holding-1",
+        userId: "demo-user-1",
+        epfAccountNumber: "AP/HYD/12345/001/1234567",
+        pensionAccountNumber: "PEN12345678901234",
+        employerCode: "TECH001",
+        currentEmployer: "Tech Solutions Pvt Ltd",
+        serviceStartDate: new Date("2020-01-15"),
+        totalServiceYears: 5,
+        totalServiceMonths: 2,
+        currentSalary: "75000.00",
+        pensionableWage: "15000.00",
+        contributionRate: "8.33",
+        monthlyPensionContribution: "1249.50",
+        totalContribution: "78000.00",
+        accumulatedPension: "95000.00",
+        estimatedMonthlyPension: "3500.00",
+        minVestingPeriod: 10,
+        isVested: false,
+        eligibleForPension: false,
+        expectedRetirementDate: new Date("2038-01-15"),
+        schemeType: "eps95",
+        certificateNumber: null,
+        nomineeName: "John Doe",
+        nomineeRelationship: "Spouse",
+        nomineeShare: "100.00",
+        status: "active",
+        lastPensionCalculationDate: new Date("2025-01-31"),
+        remarks: "Active employee with good contribution record",
+        apyEnrolled: true,
+        apyAccountNumber: "APY12345678901234",
+        apyPensionAmount: "5000.00",
+        apyMonthlyContribution: "2100.00",
+        apyStartDate: new Date("2020-04-01"),
+        apyMaturityAge: 60,
+        apyCurrentAge: 30,
+        apyTotalContribution: "126000.00",
+        apyGovernmentContribution: "25000.00",
+        apyStatus: "active",
+        apyBankName: "State Bank of India",
+        apyBranchCode: "SBIN0001234",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        lastUpdated: new Date()
+      }
+    ];
+
+    // Store the sample data
+    this.epfHoldings.set("demo-user-1", sampleEpfHoldings);
+    this.ppfHoldings.set("demo-user-1", samplePpfHoldings);
+    this.epsHoldings.set("demo-user-1", sampleEpsHoldings);
   }
 }
 

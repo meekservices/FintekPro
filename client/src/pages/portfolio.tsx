@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { usePortfoliosByPan, useEnhancedPortfolioHoldings, usePortfolioPerformance } from "@/hooks/use-portfolio";
+import { usePortfoliosByPan, useEnhancedPortfolioHoldings, usePortfolioPerformance, useEpfHoldings, usePpfHoldings, useEpsHoldings } from "@/hooks/use-portfolio";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, TrendingUp, TrendingDown, RefreshCw, Bot, Coins, CreditCard, PiggyBank, Shield } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -22,6 +22,11 @@ export default function Portfolio() {
 
   const { data: enhancedHoldings, isLoading: holdingsLoading, refetch: refetchHoldings } = useEnhancedPortfolioHoldings(portfolioId);
   const { data: performance, isLoading: performanceLoading } = usePortfolioPerformance(portfolioId);
+
+  // Government Scheme Holdings data
+  const { data: epfHoldings, isLoading: epfLoading } = useEpfHoldings();
+  const { data: ppfHoldings, isLoading: ppfLoading } = usePpfHoldings();
+  const { data: epsHoldings, isLoading: epsLoading } = useEpsHoldings();
   
   const isLoading = portfoliosLoading || holdingsLoading || performanceLoading;
   const totalValue = performance ? parseFloat(performance.totalCurrentValue) : 1250000;
@@ -702,124 +707,140 @@ export default function Portfolio() {
           </TabsContent>
 
           <TabsContent value="epf" className="space-y-8">
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-              {/* EPF Account Overview */}
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center space-x-2">
-                      <CreditCard className="h-5 w-5 text-blue-600" />
-                      <span>EPF Account Summary</span>
-                    </CardTitle>
-                    <Badge variant="outline" className="text-green-600 border-green-600">Active</Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    {/* Account Details */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Account Number</p>
-                        <p className="font-medium">KN/DEL/12345/67890</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Employer</p>
-                        <p className="font-medium">Tech Solutions Pvt Ltd</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Date of Joining</p>
-                        <p className="font-medium">15-Jan-2020</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Interest Rate</p>
-                        <p className="font-medium text-green-600">8.15%</p>
-                      </div>
-                    </div>
+            {epfLoading ? (
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  <Skeleton className="h-8 w-48" />
+                  <Skeleton className="h-64 w-full" />
+                </div>
+                <div className="space-y-4">
+                  <Skeleton className="h-8 w-48" />
+                  <Skeleton className="h-64 w-full" />
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                {epfHoldings?.map((epf) => (
+                  <div key={epf.id} className="contents">
+                    {/* EPF Account Overview */}
+                    <Card>
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="flex items-center space-x-2">
+                            <CreditCard className="h-5 w-5 text-blue-600" />
+                            <span>EPF Account Summary</span>
+                          </CardTitle>
+                          <Badge variant="outline" className="text-green-600 border-green-600">
+                            {epf.isActive ? 'Active' : 'Inactive'}
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-6">
+                          {/* Account Details */}
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-sm text-muted-foreground">Account Number</p>
+                              <p className="font-medium">{epf.epfAccountNumber}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Employer</p>
+                              <p className="font-medium">{epf.employerName}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Date of Joining</p>
+                              <p className="font-medium">{epf.dateOfJoining ? new Date(epf.dateOfJoining).toLocaleDateString('en-IN') : 'N/A'}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Interest Rate</p>
+                              <p className="font-medium text-green-600">{epf.interestRate}%</p>
+                            </div>
+                          </div>
 
-                    {/* Balance Breakdown */}
-                    <div className="space-y-4">
-                      <h4 className="font-semibold text-gray-900">Balance Breakdown</h4>
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
-                          <span className="text-sm font-medium text-blue-900">Employee Contribution</span>
-                          <span className="font-bold text-blue-900">₹4,82,350</span>
-                        </div>
-                        <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-                          <span className="text-sm font-medium text-green-900">Employer Contribution</span>
-                          <span className="font-bold text-green-900">₹4,82,350</span>
-                        </div>
-                        <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
-                          <span className="text-sm font-medium text-purple-900">Pension Fund (EPS)</span>
-                          <span className="font-bold text-purple-900">₹1,45,620</span>
-                        </div>
-                        <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
-                          <span className="text-sm font-medium text-orange-900">Interest Earned</span>
-                          <span className="font-bold text-orange-900">₹1,23,480</span>
-                        </div>
-                      </div>
-                    </div>
+                          {/* Balance Breakdown */}
+                          <div className="space-y-4">
+                            <h4 className="font-semibold text-gray-900">Balance Breakdown</h4>
+                            <div className="space-y-3">
+                              <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+                                <span className="text-sm font-medium text-blue-900">Employee Contribution</span>
+                                <span className="font-bold text-blue-900">₹{parseFloat(epf.employeeContribution).toLocaleString('en-IN')}</span>
+                              </div>
+                              <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                                <span className="text-sm font-medium text-green-900">Employer Contribution</span>
+                                <span className="font-bold text-green-900">₹{parseFloat(epf.employerContribution).toLocaleString('en-IN')}</span>
+                              </div>
+                              <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
+                                <span className="text-sm font-medium text-purple-900">Pension Fund (EPS)</span>
+                                <span className="font-bold text-purple-900">₹{parseFloat(epf.pensionContribution).toLocaleString('en-IN')}</span>
+                              </div>
+                              <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
+                                <span className="text-sm font-medium text-orange-900">Interest Earned</span>
+                                <span className="font-bold text-orange-900">₹{parseFloat(epf.interestEarned).toLocaleString('en-IN')}</span>
+                              </div>
+                            </div>
+                          </div>
 
-                    {/* Total Balance */}
-                    <div className="pt-4 border-t">
-                      <div className="flex justify-between items-center">
-                        <span className="text-lg font-semibold text-gray-900">Total EPF Balance</span>
-                        <span className="text-2xl font-bold text-green-600">₹12,33,800</span>
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        As of {new Date().toLocaleDateString('en-IN')}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                          {/* Total Balance */}
+                          <div className="pt-4 border-t">
+                            <div className="flex justify-between items-center">
+                              <span className="text-lg font-semibold text-gray-900">Total EPF Balance</span>
+                              <span className="text-2xl font-bold text-green-600">₹{parseFloat(epf.totalBalance).toLocaleString('en-IN')}</span>
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              As of {new Date(epf.lastUpdated).toLocaleDateString('en-IN')}
+                            </p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
 
-              {/* EPF Performance & Growth */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <TrendingUp className="h-5 w-5 text-green-600" />
-                    <span>EPF Performance & Growth</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    {/* Monthly Contribution */}
-                    <div className="space-y-3">
-                      <h4 className="font-semibold text-gray-900">Monthly Contribution</h4>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="p-3 bg-gray-50 rounded-lg">
-                          <p className="text-sm text-muted-foreground">Employee (12%)</p>
-                          <p className="text-lg font-bold text-gray-900">₹7,200</p>
-                        </div>
-                        <div className="p-3 bg-gray-50 rounded-lg">
-                          <p className="text-sm text-muted-foreground">Employer (12%)</p>
-                          <p className="text-lg font-bold text-gray-900">₹7,200</p>
-                        </div>
-                      </div>
-                      <div className="p-3 bg-green-50 rounded-lg">
-                        <p className="text-sm text-muted-foreground">Total Monthly Addition</p>
-                        <p className="text-xl font-bold text-green-600">₹14,400</p>
-                      </div>
-                    </div>
+                    {/* EPF Performance & Growth */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center space-x-2">
+                          <TrendingUp className="h-5 w-5 text-green-600" />
+                          <span>EPF Performance & Growth</span>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-6">
+                          {/* Monthly Contribution */}
+                          <div className="space-y-3">
+                            <h4 className="font-semibold text-gray-900">Monthly Contribution</h4>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="p-3 bg-gray-50 rounded-lg">
+                                <p className="text-sm text-muted-foreground">Employee (12%)</p>
+                                <p className="text-lg font-bold text-gray-900">₹7,200</p>
+                              </div>
+                              <div className="p-3 bg-gray-50 rounded-lg">
+                                <p className="text-sm text-muted-foreground">Employer (12%)</p>
+                                <p className="text-lg font-bold text-gray-900">₹7,200</p>
+                              </div>
+                            </div>
+                            <div className="p-3 bg-green-50 rounded-lg">
+                              <p className="text-sm text-muted-foreground">Total Monthly Addition</p>
+                              <p className="text-xl font-bold text-green-600">₹14,400</p>
+                            </div>
+                          </div>
 
-                    {/* Growth Statistics */}
-                    <div className="space-y-3">
-                      <h4 className="font-semibold text-gray-900">Growth Statistics</h4>
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-sm text-muted-foreground">Current Year Interest</span>
-                          <span className="font-medium text-green-600">₹45,280</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm text-muted-foreground">5-Year Growth</span>
-                          <span className="font-medium text-green-600">+89.4%</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm text-muted-foreground">Annual Average Growth</span>
-                          <span className="font-medium text-green-600">8.12%</span>
-                        </div>
-                      </div>
-                    </div>
+                          {/* Growth Statistics */}
+                          <div className="space-y-3">
+                            <h4 className="font-semibold text-gray-900">Growth Statistics</h4>
+                            <div className="space-y-2">
+                              <div className="flex justify-between">
+                                <span className="text-sm text-muted-foreground">Current Year Interest</span>
+                                <span className="font-medium text-green-600">₹{parseFloat(epf.interestEarned).toLocaleString('en-IN')}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-sm text-muted-foreground">Account Status</span>
+                                <span className="font-medium text-green-600">{epf.isActive ? 'Active' : 'Inactive'}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-sm text-muted-foreground">Annual Interest Rate</span>
+                                <span className="font-medium text-green-600">{epf.interestRate}%</span>
+                              </div>
+                            </div>
+                          </div>
 
                     {/* Withdrawal Options */}
                     <div className="space-y-3">
@@ -910,62 +931,81 @@ export default function Portfolio() {
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Action Buttons */}
-                  <div className="flex gap-4 mt-6 pt-4 border-t">
-                    <Button variant="outline" size="sm">
-                      View Passbook
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      Download Statement
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      Update Nominee
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      Check Claim Status
-                    </Button>
+                          {/* Action Buttons */}
+                          <div className="flex gap-4 mt-6 pt-4 border-t">
+                            <Button variant="outline" size="sm">
+                              View Passbook
+                            </Button>
+                            <Button variant="outline" size="sm">
+                              Download Statement
+                            </Button>
+                            <Button variant="outline" size="sm">
+                              Update Nominee
+                            </Button>
+                            <Button variant="outline" size="sm">
+                              Check Claim Status
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="ppf" className="space-y-8">
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-              {/* PPF Account Overview */}
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center space-x-2">
-                      <PiggyBank className="h-5 w-5 text-purple-600" />
-                      <span>PPF Account Summary</span>
-                    </CardTitle>
-                    <Badge variant="outline" className="text-green-600 border-green-600">Active</Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    {/* Account Details */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Account Number</p>
-                        <p className="font-medium">PPF-SBI-12345678</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Bank & Branch</p>
-                        <p className="font-medium">SBI - Connaught Place</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Account Opening Date</p>
-                        <p className="font-medium">01-Apr-2015</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Maturity Date</p>
-                        <p className="font-medium text-blue-600">01-Apr-2030</p>
-                      </div>
-                    </div>
+            {ppfLoading ? (
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  <Skeleton className="h-8 w-48" />
+                  <Skeleton className="h-64 w-full" />
+                </div>
+                <div className="space-y-4">
+                  <Skeleton className="h-8 w-48" />
+                  <Skeleton className="h-64 w-full" />
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                {ppfHoldings?.map((ppf) => (
+                  <div key={ppf.id} className="contents">
+                    {/* PPF Account Overview */}
+                    <Card>
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="flex items-center space-x-2">
+                            <PiggyBank className="h-5 w-5 text-purple-600" />
+                            <span>PPF Account Summary</span>
+                          </CardTitle>
+                          <Badge variant="outline" className="text-green-600 border-green-600">
+                            {ppf.isActive ? 'Active' : 'Inactive'}
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-6">
+                          {/* Account Details */}
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-sm text-muted-foreground">Account Number</p>
+                              <p className="font-medium">{ppf.ppfAccountNumber}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Bank & Branch</p>
+                              <p className="font-medium">{ppf.bankName} - {ppf.branchName}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Account Opening Date</p>
+                              <p className="font-medium">{new Date(ppf.accountOpenDate).toLocaleDateString('en-IN')}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Maturity Date</p>
+                              <p className="font-medium text-blue-600">{new Date(ppf.maturityDate).toLocaleDateString('en-IN')}</p>
+                            </div>
+                          </div>
 
                     {/* Current Status */}
                     <div className="space-y-4">
@@ -1230,43 +1270,60 @@ export default function Portfolio() {
                   </div>
                 </CardContent>
               </Card>
-            </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="eps" className="space-y-8">
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-              {/* EPS Account Overview */}
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center space-x-2">
-                      <Shield className="h-5 w-5 text-blue-600" />
-                      <span>EPS Pension Account</span>
-                    </CardTitle>
-                    <Badge variant="outline" className="text-blue-600 border-blue-600">EPS-95</Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    {/* Account Details */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm text-muted-foreground">EPF Account Number</p>
-                        <p className="font-medium">MH/BOM/12345/001</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Pension Account</p>
-                        <p className="font-medium">PEN/MH/001/12345</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Current Employer</p>
-                        <p className="font-medium">Tech Solutions Pvt Ltd</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Employer Code</p>
-                        <p className="font-medium">MH/BOM/12345</p>
-                      </div>
-                    </div>
+            {epsLoading ? (
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  <Skeleton className="h-8 w-48" />
+                  <Skeleton className="h-64 w-full" />
+                </div>
+                <div className="space-y-4">
+                  <Skeleton className="h-8 w-48" />
+                  <Skeleton className="h-64 w-full" />
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                {epsHoldings?.map((eps) => (
+                  <div key={eps.id} className="contents">
+                    {/* EPS Account Overview */}
+                    <Card>
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="flex items-center space-x-2">
+                            <Shield className="h-5 w-5 text-blue-600" />
+                            <span>EPS Pension Account</span>
+                          </CardTitle>
+                          <Badge variant="outline" className="text-blue-600 border-blue-600">{eps.schemeType?.toUpperCase() || 'EPS-95'}</Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-6">
+                          {/* Account Details */}
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-sm text-muted-foreground">EPF Account Number</p>
+                              <p className="font-medium">{eps.epfAccountNumber}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Pension Account</p>
+                              <p className="font-medium">{eps.pensionAccountNumber}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Current Employer</p>
+                              <p className="font-medium">{eps.currentEmployer}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Employer Code</p>
+                              <p className="font-medium">{eps.employerCode}</p>
+                            </div>
+                          </div>
 
                     {/* Service Details */}
                     <div className="space-y-4">
@@ -1835,7 +1892,10 @@ export default function Portfolio() {
                   </div>
                 </CardContent>
               </Card>
-            </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="rebalance" className="space-y-8">
