@@ -40,6 +40,10 @@ export interface IStorage {
   createGovernmentSchemeConsent(consent: InsertGovernmentSchemeConsent): Promise<GovernmentSchemeConsent>;
   getGovernmentSchemeConsents(userId: string, panNumber?: string): Promise<GovernmentSchemeConsent[]>;
   revokeGovernmentSchemeConsent(userId: string, panNumber: string, schemeType: string): Promise<boolean>;
+
+  // PAN Verification Consent methods
+  checkPanVerificationConsent(userId: string): Promise<boolean>;
+  recordPanVerificationConsent(userId: string, ipAddress: string, userAgent: string): Promise<void>;
   createPortfolio(portfolio: InsertPortfolio): Promise<Portfolio>;
   updatePortfolio(id: string, updates: Partial<Portfolio>): Promise<Portfolio | undefined>;
   
@@ -3005,6 +3009,35 @@ export class MemStorage implements IStorage {
       return true;
     }
     return false;
+  }
+
+  // PAN Verification Consent Methods
+  async checkPanVerificationConsent(userId: string): Promise<boolean> {
+    const user = this.users.get(userId);
+    return user?.panVerificationConsent || false;
+  }
+
+  async recordPanVerificationConsent(userId: string, ipAddress: string, userAgent: string): Promise<void> {
+    const user = this.users.get(userId);
+    if (user) {
+      const updatedUser = {
+        ...user,
+        panVerificationConsent: true,
+        panConsentGivenAt: new Date(),
+        panConsentIpAddress: ipAddress,
+        panConsentUserAgent: userAgent,
+        panConsentVersion: "1.0",
+        updatedAt: new Date()
+      };
+      this.users.set(userId, updatedUser);
+      // Also update email and mobile indexes if they exist
+      if (user.email) {
+        this.usersByEmail.set(user.email, updatedUser);
+      }
+      if (user.mobile) {
+        this.usersByMobile.set(user.mobile, updatedUser);
+      }
+    }
   }
 
   private initializeGovernmentSchemeHoldings() {

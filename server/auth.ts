@@ -442,6 +442,10 @@ export function setupAuth(app: Express) {
         euinNumber: agentData?.euinNumber || user.euinNumber || "",
         arnCode: agentData?.arnCode || user.arnCode || "",
         distributorId: agentData?.distributorId || user.distributorId || "",
+        
+        // PAN Consent Status
+        panVerificationConsent: user.panVerificationConsent || false,
+        panConsentGivenAt: user.panConsentGivenAt,
       });
     } catch (error) {
       console.error("Error fetching profile:", error);
@@ -615,6 +619,45 @@ export function setupAuth(app: Express) {
     } catch (error) {
       console.error("Error updating profile:", error);
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // PAN Verification Consent Routes
+  app.get("/api/pan-consent/check", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || !req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const hasConsent = await storage.checkPanVerificationConsent(req.user.id);
+      res.json({ hasConsent });
+    } catch (error) {
+      console.error("Error checking PAN consent:", error);
+      res.status(500).json({ message: "Failed to check consent status" });
+    }
+  });
+
+  app.post("/api/pan-consent/record", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || !req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Check if consent already exists
+      const existingConsent = await storage.checkPanVerificationConsent(req.user.id);
+      if (existingConsent) {
+        return res.json({ message: "Consent already recorded", hasConsent: true });
+      }
+
+      const ipAddress = req.ip || req.headers['x-forwarded-for'] as string || 'unknown';
+      const userAgent = req.headers['user-agent'] || 'unknown';
+
+      await storage.recordPanVerificationConsent(req.user.id, ipAddress, userAgent);
+      
+      res.json({ message: "PAN verification consent recorded successfully", hasConsent: true });
+    } catch (error) {
+      console.error("Error recording PAN consent:", error);
+      res.status(500).json({ message: "Failed to record consent" });
     }
   });
 

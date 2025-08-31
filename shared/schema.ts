@@ -210,6 +210,13 @@ export const users = pgTable("users", {
   enableKfintechApi: boolean("enable_kfintech_api").default(false),
   enableNsdlApi: boolean("enable_nsdl_api").default(false),
   enableCdslApi: boolean("enable_cdsl_api").default(false),
+
+  // PAN Verification Consent - One-time collection
+  panVerificationConsent: boolean("pan_verification_consent").default(false),
+  panConsentGivenAt: timestamp("pan_consent_given_at"),
+  panConsentIpAddress: varchar("pan_consent_ip_address"),
+  panConsentUserAgent: text("pan_consent_user_agent"),
+  panConsentVersion: varchar("pan_consent_version").default("1.0"), // Track consent version for changes
   
   // Registry Preferences
   preferredCamsRegistration: boolean("preferred_cams_registration").default(false),

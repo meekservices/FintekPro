@@ -13,10 +13,13 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { User, Shield, CreditCard, Building, TrendingUp, Database, FileText, Eye, Phone, Mail, Users, Link, Info, Loader2, CheckCircle } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { usePanConsent } from "@/hooks/use-pan-consent";
 
 const profileSchema = z.object({
   // Enhanced KYC Fields - Mandatory as per SEBI
   panNumber: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Invalid PAN format").optional().or(z.literal("")),
+  panConsentGiven: z.boolean().optional(),
   aadharNumber: z.string().regex(/^[0-9]{12}$/, "Aadhaar must be 12 digits").optional().or(z.literal("")),
   passportNumber: z.string().optional(),
   drivingLicense: z.string().optional(),
@@ -64,6 +67,15 @@ const profileSchema = z.object({
   euinNumber: z.string().optional(),
   arnCode: z.string().optional(),
   distributorId: z.string().optional(),
+}).refine((data) => {
+  // If PAN is provided, consent must be given (unless already recorded)
+  if (data.panNumber && data.panNumber.length === 10) {
+    return data.panConsentGiven === true;
+  }
+  return true;
+}, {
+  message: "PAN verification consent is required when providing PAN number",
+  path: ["panConsentGiven"]
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
@@ -71,6 +83,8 @@ type ProfileFormData = z.infer<typeof profileSchema>;
 type ProfileData = {
   // Enhanced KYC Fields
   panNumber?: string | null;
+  panVerificationConsent?: boolean;
+  panConsentGivenAt?: Date | null;
   aadharNumber?: string | null;
   passportNumber?: string | null;
   drivingLicense?: string | null;
@@ -233,8 +247,10 @@ const riskTolerances = [
 export default function ProfilePage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { hasConsent, recordConsent, isRecording } = usePanConsent();
   const [isEditing, setIsEditing] = useState(false);
   const [showAutoPopulate, setShowAutoPopulate] = useState(false);
+  const [panConsentGiven, setPanConsentGiven] = useState(false);
   const [autoPopulateData, setAutoPopulateData] = useState({
     panNumber: '',
     mobile: '',
@@ -255,6 +271,7 @@ export default function ProfilePage() {
     defaultValues: {
       // Enhanced KYC Fields
       panNumber: "",
+      panConsentGiven: false,
       aadharNumber: "",
       passportNumber: "",
       drivingLicense: "",
@@ -310,6 +327,7 @@ export default function ProfilePage() {
       form.reset({
         // Enhanced KYC Fields
         panNumber: profileData.panNumber || "",
+        panConsentGiven: profileData.panVerificationConsent || false,
         aadharNumber: profileData.aadharNumber || "",
         passportNumber: profileData.passportNumber || "",
         drivingLicense: profileData.drivingLicense || "",
@@ -364,11 +382,18 @@ export default function ProfilePage() {
   const updateProfileMutation = useMutation({
     mutationFn: async (data: ProfileFormData) => {
       const response = await apiRequest("PUT", "/api/profile", data);
+      
+      // Record PAN consent if given and not already recorded
+      if (data.panNumber && data.panConsentGiven && !hasConsent) {
+        await recordConsent();
+      }
+      
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/pan-consent/check"] });
       setIsEditing(false);
       toast({
         title: "Profile Updated",
@@ -755,6 +780,44 @@ export default function ProfilePage() {
                     />
                     {form.formState.errors.panNumber && (
                       <p className="text-sm text-red-600 mt-1">{form.formState.errors.panNumber.message}</p>
+                    )}
+                    
+                    {/* PAN Verification Consent - Show only when PAN is provided and consent not already given */}
+                    {form.watch("panNumber") && !hasConsent && (
+                      <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+                        <div className="flex items-start space-x-3">
+                          <Checkbox
+                            id="panConsentGiven"
+                            checked={form.watch("panConsentGiven") || false}
+                            onCheckedChange={(checked) => {
+                              form.setValue("panConsentGiven", checked as boolean);
+                              setPanConsentGiven(checked as boolean);
+                            }}
+                            data-testid="checkbox-pan-consent"
+                          />
+                          <div className="flex-1">
+                            <Label htmlFor="panConsentGiven" className="text-sm font-medium">
+                              PAN Verification Consent *
+                            </Label>
+                            <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">
+                              I consent to verify my PAN details with NSDL/CDSL for regulatory compliance and account verification purposes. This is a one-time consent required for KYC completion.
+                            </p>
+                          </div>
+                        </div>
+                        {form.formState.errors.panConsentGiven && (
+                          <p className="text-sm text-red-600 mt-2">{form.formState.errors.panConsentGiven.message}</p>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Show consent status if already given */}
+                    {hasConsent && (
+                      <div className="mt-3 p-3 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
+                        <div className="flex items-center space-x-2">
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                          <span className="text-sm text-green-700 dark:text-green-300">PAN verification consent already provided</span>
+                        </div>
+                      </div>
                     )}
                   </div>
                   <div>
