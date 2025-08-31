@@ -45,6 +45,11 @@ const limiter = rateLimit({
   message: { message: "Too many requests, please try again later." },
   standardHeaders: true,
   legacyHeaders: false,
+  trustProxy: true, // Trust proxy headers in Replit environment
+  skip: (req) => {
+    // Skip rate limiting for health checks and static assets
+    return req.path.includes('/health') || req.path.includes('/static')
+  }
 });
 
 app.use("/api", limiter);
@@ -55,6 +60,7 @@ const authLimiter = rateLimit({
   max: 5, // Limit each IP to 5 auth requests per windowMs
   message: { message: "Too many authentication attempts, please try again later." },
   skipSuccessfulRequests: true,
+  trustProxy: true, // Trust proxy headers in Replit environment
 });
 
 app.use(["/api/login", "/api/register"], authLimiter);
