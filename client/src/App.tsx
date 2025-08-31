@@ -31,6 +31,8 @@ import AgentDashboard from "@/pages/agent-dashboard";
 import IBTradingPage from "@/pages/ib-trading";
 import Store from "@/pages/store";
 import ApiMonitorDemo from "@/pages/api-monitor-demo";
+import ICICIBanking from "@/pages/icici-banking";
+import HDFCBanking from "@/pages/hdfc-banking";
 
 function Router() {
   return (
@@ -63,6 +65,8 @@ function Router() {
       <Route path="/ib-trading" component={IBTradingPage} />
       <Route path="/store" component={Store} />
       <Route path="/api-monitor" component={ApiMonitorDemo} />
+      <Route path="/icici-banking" component={ICICIBanking} />
+      <Route path="/hdfc-banking" component={HDFCBanking} />
       <Route component={NotFound} />
     </Switch>
   );

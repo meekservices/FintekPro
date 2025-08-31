@@ -179,8 +179,8 @@ class ErrorMonitor {
     const appState = JSON.stringify({
       architecture: 'Full-stack TypeScript (React + Express)',
       database: 'PostgreSQL with Drizzle ORM',
-      apis: ['Finnhub', 'Alpha Vantage', 'Yahoo Finance', 'Gemini AI'],
-      features: ['Portfolio Management', 'Market Data', 'AI Insights', 'WhatsApp Marketing'],
+      apis: ['Finnhub', 'Alpha Vantage', 'Yahoo Finance', 'Gemini AI', 'ICICI Bank', 'JM Financial', 'Probe42'],
+      features: ['Portfolio Management', 'Market Data', 'AI Insights', 'WhatsApp Marketing', 'Banking Services'],
       currentStatus: this.systemHealth.overall
     });
 

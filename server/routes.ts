@@ -16,6 +16,8 @@ import { sebiAPI } from "./sebi-api";
 import { comprehensiveAIFPMSAPI } from "./comprehensive-aif-pms-api";
 import { camsApi } from './cams-api';
 import { kfintechApi } from './kfintech-api';
+import { iciciBankAPI } from './icici-bank-api';
+import { hdfcBankAPI } from './hdfc-bank-api';
 import './notification-service'; // Initialize notification service with auto-processing
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
@@ -1024,6 +1026,342 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     return response.json();
   }
+
+  // ICICI Bank API endpoints
+  app.get("/api/icici/health", async (req, res) => {
+    try {
+      const result = await iciciBankAPI.healthCheck();
+      res.json(result);
+    } catch (error) {
+      console.error("Error checking ICICI Bank API health:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to check ICICI Bank API health"
+      });
+    }
+  });
+
+  app.post("/api/icici/accounts/balance", async (req, res) => {
+    try {
+      const { accountNumber } = req.body;
+      
+      if (!accountNumber) {
+        return res.status(400).json({
+          success: false,
+          error: "Account number is required"
+        });
+      }
+
+      const result = await iciciBankAPI.getAccountBalance(accountNumber);
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching account balance:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch account balance"
+      });
+    }
+  });
+
+  app.post("/api/icici/accounts/transactions", async (req, res) => {
+    try {
+      const { accountNumber, fromDate, toDate, limit } = req.body;
+      
+      if (!accountNumber || !fromDate || !toDate) {
+        return res.status(400).json({
+          success: false,
+          error: "Account number, from date, and to date are required"
+        });
+      }
+
+      const result = await iciciBankAPI.getTransactionHistory(
+        accountNumber, 
+        fromDate, 
+        toDate, 
+        limit || 100
+      );
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching transaction history:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch transaction history"
+      });
+    }
+  });
+
+  app.post("/api/icici/payments/imps", async (req, res) => {
+    try {
+      const paymentRequest = req.body;
+      
+      const requiredFields = [
+        'accountNumber', 
+        'beneficiaryAccountNumber', 
+        'beneficiaryIFSC', 
+        'amount', 
+        'purpose', 
+        'beneficiaryName'
+      ];
+      
+      for (const field of requiredFields) {
+        if (!paymentRequest[field]) {
+          return res.status(400).json({
+            success: false,
+            error: `${field} is required`
+          });
+        }
+      }
+
+      const result = await iciciBankAPI.makeIMPSPayment(paymentRequest);
+      res.json(result);
+    } catch (error) {
+      console.error("Error making IMPS payment:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to make IMPS payment"
+      });
+    }
+  });
+
+  app.post("/api/icici/payments/status", async (req, res) => {
+    try {
+      const { transactionId } = req.body;
+      
+      if (!transactionId) {
+        return res.status(400).json({
+          success: false,
+          error: "Transaction ID is required"
+        });
+      }
+
+      const result = await iciciBankAPI.getPaymentStatus(transactionId);
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching payment status:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch payment status"
+      });
+    }
+  });
+
+  app.post("/api/icici/accounts/validate", async (req, res) => {
+    try {
+      const { accountNumber, ifscCode } = req.body;
+      
+      if (!accountNumber || !ifscCode) {
+        return res.status(400).json({
+          success: false,
+          error: "Account number and IFSC code are required"
+        });
+      }
+
+      const result = await iciciBankAPI.validateAccount(accountNumber, ifscCode);
+      res.json(result);
+    } catch (error) {
+      console.error("Error validating account:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to validate account"
+      });
+    }
+  });
+
+  app.post("/api/icici/accounts/statement", async (req, res) => {
+    try {
+      const { accountNumber, fromDate, toDate, format } = req.body;
+      
+      if (!accountNumber || !fromDate || !toDate) {
+        return res.status(400).json({
+          success: false,
+          error: "Account number, from date, and to date are required"
+        });
+      }
+
+      const result = await iciciBankAPI.getAccountStatement(
+        accountNumber, 
+        fromDate, 
+        toDate, 
+        format || 'pdf'
+      );
+      res.json(result);
+    } catch (error) {
+      console.error("Error generating account statement:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to generate account statement"
+      });
+    }
+  });
+
+  // HDFC Bank API endpoints
+  app.get("/api/hdfc/health", async (req, res) => {
+    try {
+      const result = await hdfcBankAPI.healthCheck();
+      res.json(result);
+    } catch (error) {
+      console.error("Error checking HDFC Bank API health:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to check HDFC Bank API health"
+      });
+    }
+  });
+
+  app.post("/api/hdfc/accounts/balance", async (req, res) => {
+    try {
+      const { accountNumber } = req.body;
+      
+      if (!accountNumber) {
+        return res.status(400).json({
+          success: false,
+          error: "Account number is required"
+        });
+      }
+
+      const result = await hdfcBankAPI.getAccountBalance(accountNumber);
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching HDFC account balance:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch account balance"
+      });
+    }
+  });
+
+  app.post("/api/hdfc/accounts/transactions", async (req, res) => {
+    try {
+      const { accountNumber, fromDate, toDate, limit } = req.body;
+      
+      if (!accountNumber || !fromDate || !toDate) {
+        return res.status(400).json({
+          success: false,
+          error: "Account number, from date, and to date are required"
+        });
+      }
+
+      const result = await hdfcBankAPI.getTransactionHistory(
+        accountNumber, 
+        fromDate, 
+        toDate, 
+        limit || 100
+      );
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching HDFC transaction history:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch transaction history"
+      });
+    }
+  });
+
+  app.post("/api/hdfc/payments/transfer", async (req, res) => {
+    try {
+      const paymentRequest = req.body;
+      
+      const requiredFields = [
+        'debitAccountNumber', 
+        'creditAccountNumber', 
+        'creditIFSC', 
+        'amount', 
+        'purpose', 
+        'beneficiaryName',
+        'paymentMode'
+      ];
+      
+      for (const field of requiredFields) {
+        if (!paymentRequest[field]) {
+          return res.status(400).json({
+            success: false,
+            error: `${field} is required`
+          });
+        }
+      }
+
+      const result = await hdfcBankAPI.initiatePayment(paymentRequest);
+      res.json(result);
+    } catch (error) {
+      console.error("Error making HDFC payment:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to make payment"
+      });
+    }
+  });
+
+  app.post("/api/hdfc/payments/status", async (req, res) => {
+    try {
+      const { transactionId } = req.body;
+      
+      if (!transactionId) {
+        return res.status(400).json({
+          success: false,
+          error: "Transaction ID is required"
+        });
+      }
+
+      const result = await hdfcBankAPI.getPaymentStatus(transactionId);
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching HDFC payment status:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch payment status"
+      });
+    }
+  });
+
+  app.post("/api/hdfc/accounts/validate", async (req, res) => {
+    try {
+      const { accountNumber, ifscCode } = req.body;
+      
+      if (!accountNumber || !ifscCode) {
+        return res.status(400).json({
+          success: false,
+          error: "Account number and IFSC code are required"
+        });
+      }
+
+      const result = await hdfcBankAPI.validateAccount(accountNumber, ifscCode);
+      res.json(result);
+    } catch (error) {
+      console.error("Error validating HDFC account:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to validate account"
+      });
+    }
+  });
+
+  app.post("/api/hdfc/accounts/statement", async (req, res) => {
+    try {
+      const { accountNumber, fromDate, toDate, format, emailId } = req.body;
+      
+      if (!accountNumber || !fromDate || !toDate) {
+        return res.status(400).json({
+          success: false,
+          error: "Account number, from date, and to date are required"
+        });
+      }
+
+      const result = await hdfcBankAPI.generateStatement({
+        accountNumber, 
+        fromDate, 
+        toDate, 
+        format: format || 'PDF',
+        emailId
+      });
+      res.json(result);
+    } catch (error) {
+      console.error("Error generating HDFC account statement:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to generate account statement"
+      });
+    }
+  });
 
   // NSE API endpoints
 
@@ -9951,6 +10289,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
         endpoint: "Probe42 Intelligence API",
         recommendations: process.env.PROBE42_API_KEY ? "" : "Configure PROBE42_API_KEY environment variable"
       };
+
+      // ICICI Bank API Status Check
+      try {
+        const iciciBankStart = Date.now();
+        const iciciBankResult = await iciciBankAPI.healthCheck();
+        if (iciciBankResult.success) {
+          status.apis.iciciBankAPI = {
+            name: "ICICI Bank API",
+            status: "healthy",
+            responseTime: `${Date.now() - iciciBankStart}ms`,
+            lastChecked: new Date().toISOString(),
+            details: "Banking services API responding normally",
+            endpoint: "ICICI Bank API Gateway",
+            features: ["Account Balance", "Transaction History", "IMPS Payments", "Account Validation"]
+          };
+        } else {
+          throw new Error(iciciBankResult.error || 'Health check failed');
+        }
+      } catch (error) {
+        status.apis.iciciBankAPI = {
+          name: "ICICI Bank API",
+          status: process.env.ICICI_BANK_APP_KEY ? "error" : "not_configured",
+          responseTime: "timeout",
+          lastChecked: new Date().toISOString(),
+          error: process.env.ICICI_BANK_APP_KEY ? "API connection failed" : "API credentials not configured",
+          details: process.env.ICICI_BANK_APP_KEY ? "Unable to connect to ICICI Bank API" : "ICICI Bank API credentials not configured",
+          endpoint: "ICICI Bank API Gateway",
+          recommendations: process.env.ICICI_BANK_APP_KEY ? "Check network connectivity and API credentials" : "Configure ICICI_BANK_APP_KEY and ICICI_BANK_SECRET_KEY environment variables"
+        };
+      }
+
+      // HDFC Bank API Status Check
+      try {
+        const hdfcBankStart = Date.now();
+        const hdfcBankResult = await hdfcBankAPI.healthCheck();
+        if (hdfcBankResult.success) {
+          status.apis.hdfcBankAPI = {
+            name: "HDFC Bank API",
+            status: "operational",
+            responseTime: `${Date.now() - hdfcBankStart}ms`,
+            lastChecked: new Date().toISOString(),
+            details: "Banking services available including account management, payments, and validation",
+            endpoint: "HDFC Bank API Gateway",
+            recommendations: ""
+          };
+        } else {
+          throw new Error(hdfcBankResult.error || 'Health check failed');
+        }
+      } catch (error) {
+        status.apis.hdfcBankAPI = {
+          name: "HDFC Bank API",
+          status: process.env.HDFC_BANK_CLIENT_ID ? "error" : "not_configured",
+          responseTime: "timeout",
+          lastChecked: new Date().toISOString(),
+          error: process.env.HDFC_BANK_CLIENT_ID ? "API connection failed" : "API credentials not configured",
+          details: process.env.HDFC_BANK_CLIENT_ID ? "Unable to connect to HDFC Bank API" : "HDFC Bank API credentials not configured",
+          endpoint: "HDFC Bank API Gateway",
+          recommendations: process.env.HDFC_BANK_CLIENT_ID ? "Check network connectivity and API credentials" : "Configure HDFC_BANK_CLIENT_ID and HDFC_BANK_CLIENT_SECRET environment variables"
+        };
+      }
 
       // Interactive Brokers API Status Check
       status.apis.interactiveBrokers = {
