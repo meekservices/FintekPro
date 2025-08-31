@@ -27,7 +27,6 @@ export function Header() {
     { name: "Markets", href: "/markets" },
     { name: "Portfolio", href: "/portfolio" },
     { name: "Mutual Funds", href: "/mutual-funds" },
-    { name: "Store", href: "/store" },
     { name: "Calculators", href: "/calculators" },
     { name: "Support", href: "/support" },
   ];
