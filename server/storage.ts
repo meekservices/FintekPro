@@ -1663,7 +1663,7 @@ export class MemStorage implements IStorage {
     return false;
   }
 
-  async updateUserStatus(id: string, isActive: boolean): Promise<User | undefined> {
+  async updateUserActiveStatus(id: string, isActive: boolean): Promise<User | undefined> {
     return this.updateUser(id, { isActive });
   }
 
