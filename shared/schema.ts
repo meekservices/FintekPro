@@ -14,6 +14,131 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
+// User profiles table for detailed client information
+export const userProfiles = pgTable("user_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  
+  // Enhanced KYC Information
+  panNumber: varchar("pan_number"),
+  aadharNumber: varchar("aadhar_number"),
+  passportNumber: varchar("passport_number"),
+  drivingLicense: varchar("driving_license"),
+  voterIdNumber: varchar("voter_id_number"),
+  dateOfBirth: varchar("date_of_birth"),
+  nationality: varchar("nationality"),
+  fatherName: varchar("father_name"),
+  motherName: varchar("mother_name"),
+  spouseName: varchar("spouse_name"),
+  maritalStatus: varchar("marital_status"),
+  
+  // Address Information
+  address: text("address"),
+  city: varchar("city"),
+  state: varchar("state"),
+  pincode: varchar("pincode"),
+  country: varchar("country"),
+  
+  // Financial Information
+  occupation: varchar("occupation"),
+  annualIncome: varchar("annual_income"),
+  investmentExperience: varchar("investment_experience"),
+  riskTolerance: varchar("risk_tolerance"),
+  
+  // Banking & Nominee Information
+  bankAccountNumber: varchar("bank_account_number"),
+  ifscCode: varchar("ifsc_code"),
+  nomineeDetails: text("nominee_details"),
+  nomineeRelation: varchar("nominee_relation"),
+  
+  // EUIN and API Integration
+  euinNumber: varchar("euin_number"),
+  arnCode: varchar("arn_code"), // ARN (AMFI Registration Number) for mutual fund distributors
+  amcCode: varchar("amc_code"), // Asset Management Company code
+  distributorId: varchar("distributor_id"), // Distributor identification
+  isAgent: boolean("is_agent").default(false), // Whether user is an agent/distributor
+  agentType: varchar("agent_type"), // 'individual', 'corporate', 'bank'
+  enableCamsApi: boolean("enable_cams_api").default(false),
+  enableKfintechApi: boolean("enable_kfintech_api").default(false),
+  enableNsdlApi: boolean("enable_nsdl_api").default(false),
+  enableCdslApi: boolean("enable_cdsl_api").default(false),
+  
+  // Registry Preferences
+  preferredCamsRegistration: boolean("preferred_cams_registration").default(false),
+  preferredKfintechRegistration: boolean("preferred_kfintech_registration").default(false),
+  preferredNsdlRegistration: boolean("preferred_nsdl_registration").default(false),
+  preferredCdslRegistration: boolean("preferred_cdsl_registration").default(false),
+  
+  // Comprehensive FATCA Information
+  fatcaStatus: varchar("fatca_status"), // Y/N
+  fatcaDeclarationDate: timestamp("fatca_declaration_date"),
+  fatcaTinNumber: varchar("fatca_tin_number"),
+  fatcaCountryOfTaxResidence: varchar("fatca_country_of_tax_residence"),
+  fatcaReasonCode: varchar("fatca_reason_code"),
+  fatcaW8BenStatus: varchar("fatca_w8_ben_status"), // submitted/pending/approved
+  fatcaW9Status: varchar("fatca_w9_status"), // for US persons
+  fatcaTaxpayerIdType: varchar("fatca_taxpayer_id_type"), // SSN/EIN/GIIN/TIN
+  
+  // PEP (Politically Exposed Person) Information
+  pepStatus: varchar("pep_status").default("N"), // Y/N
+  pepRelatedPersonStatus: varchar("pep_related_person_status").default("N"), // Y/N
+  pepDetails: text("pep_details"), // Details if PEP or related person
+  pepCountry: varchar("pep_country"), // Country where person is politically exposed
+  pepPosition: varchar("pep_position"), // Political position held
+  pepRelationshipType: varchar("pep_relationship_type"), // family/associate/close_business
+  
+  // Resident Status and Citizenship
+  residentStatus: varchar("resident_status").default("resident"), // resident/nri/pio/oci
+  countryOfResidence: varchar("country_of_residence").default("India"),
+  countryOfCitizenship: varchar("country_of_citizenship").default("India"),
+  nriType: varchar("nri_type"), // ordinary/non_ordinary for NRIs
+  nriCountry: varchar("nri_country"), // Country of residence for NRIs
+  passportCountry: varchar("passport_country"),
+  visaStatus: varchar("visa_status"), // for non-residents
+  
+  // AML (Anti-Money Laundering) Status
+  amlStatus: varchar("aml_status").default("clear"), // clear/flagged/under_review
+  amlLastChecked: timestamp("aml_last_checked"),
+  amlRiskScore: integer("aml_risk_score").default(0), // 0-100
+  sanctionListStatus: varchar("sanction_list_status").default("clear"), // clear/flagged
+  sanctionListLastChecked: timestamp("sanction_list_last_checked"),
+  
+  // CDD/EDD (Customer Due Diligence / Enhanced Due Diligence)
+  cddLevel: varchar("cdd_level").default("simplified"), // simplified/basic/enhanced
+  eddRequired: boolean("edd_required").default(false), // Enhanced Due Diligence
+  eddCompletedDate: timestamp("edd_completed_date"),
+  eddNextReviewDate: timestamp("edd_next_review_date"),
+  sourceOfFunds: varchar("source_of_funds"), // employment/business/inheritance/gift/investment
+  sourceOfWealthDocumentation: text("source_of_wealth_documentation"),
+  
+  // Risk Assessment
+  riskCategory: varchar("risk_category").default("low"), // low/medium/high
+  complianceScore: integer("compliance_score").default(100), // 0-100 score
+  lastComplianceReview: timestamp("last_compliance_review").defaultNow(),
+  nextComplianceReview: timestamp("next_compliance_review"),
+  complianceOfficer: varchar("compliance_officer"), // Assigned compliance officer
+  
+  // Additional Regulatory Information
+  isUSPerson: boolean("is_us_person").default(false),
+  isEUResident: boolean("is_eu_resident").default(false),
+  gdprConsent: boolean("gdpr_consent").default(false), // GDPR compliance
+  gdprConsentDate: timestamp("gdpr_consent_date"),
+  dataProcessingConsent: boolean("data_processing_consent").default(false),
+  marketingConsent: boolean("marketing_consent").default(false),
+  
+  // Investment Profile
+  investorType: varchar("investor_type"), // retail/hni/institutional/corporate
+  investorCategory: varchar("investor_category"), // individual/company/trust/partnership
+  financialSituation: varchar("financial_situation"), // stable/growing/volatile
+  investmentObjective: varchar("investment_objective"), // capital_appreciation/income/balanced
+  
+  // Audit and Tracking
+  profileCompleteness: integer("profile_completeness").default(0), // 0-100%
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // User storage table with mobile/email authentication
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -27,50 +152,6 @@ export const users = pgTable("users", {
   profileImageUrl: varchar("profile_image_url"),
   isEmailVerified: boolean("is_email_verified").default(false),
   isMobileVerified: boolean("is_mobile_verified").default(false),
-  // Enhanced KYC Information
-  panNumber: varchar("pan_number"),
-  aadharNumber: varchar("aadhar_number"),
-  passportNumber: varchar("passport_number"),
-  drivingLicense: varchar("driving_license"),
-  voterIdNumber: varchar("voter_id_number"),
-  dateOfBirth: varchar("date_of_birth"),
-  nationality: varchar("nationality"),
-  fatherName: varchar("father_name"),
-  motherName: varchar("mother_name"),
-  spouseName: varchar("spouse_name"),
-  maritalStatus: varchar("marital_status"),
-  // Address Information
-  address: text("address"),
-  city: varchar("city"),
-  state: varchar("state"),
-  pincode: varchar("pincode"),
-  country: varchar("country"),
-  // Financial Information
-  occupation: varchar("occupation"),
-  annualIncome: varchar("annual_income"),
-  investmentExperience: varchar("investment_experience"),
-  riskTolerance: varchar("risk_tolerance"),
-  // Banking & Nominee Information
-  bankAccountNumber: varchar("bank_account_number"),
-  ifscCode: varchar("ifsc_code"),
-  nomineeDetails: text("nominee_details"),
-  nomineeRelation: varchar("nominee_relation"),
-  // EUIN and API Integration
-  euinNumber: varchar("euin_number"),
-  arnCode: varchar("arn_code"), // ARN (AMFI Registration Number) for mutual fund distributors
-  amcCode: varchar("amc_code"), // Asset Management Company code
-  distributorId: varchar("distributor_id"), // Distributor identification
-  isAgent: boolean("is_agent").default(false), // Whether user is an agent/distributor
-  agentType: varchar("agent_type"), // 'individual', 'corporate', 'bank'
-  enableCamsApi: boolean("enable_cams_api").default(false),
-  enableKfintechApi: boolean("enable_kfintech_api").default(false),
-  enableNsdlApi: boolean("enable_nsdl_api").default(false),
-  enableCdslApi: boolean("enable_cdsl_api").default(false),
-  // Registry Preferences
-  preferredCamsRegistration: boolean("preferred_cams_registration").default(false),
-  preferredKfintechRegistration: boolean("preferred_kfintech_registration").default(false),
-  preferredNsdlRegistration: boolean("preferred_nsdl_registration").default(false),
-  preferredCdslRegistration: boolean("preferred_cdsl_registration").default(false),
   // Admin and system fields
   role: varchar("role").default("user"), // 'user', 'admin', 'super_admin'
   isActive: boolean("is_active").default(true),
@@ -78,6 +159,47 @@ export const users = pgTable("users", {
   loginCount: integer("login_count").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Compliance Documents table for storing regulatory documents
+export const complianceDocuments = pgTable("compliance_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  documentType: varchar("document_type").notNull(), // fatca_w8ben/fatca_w9/pep_declaration/aml_docs/source_of_funds
+  documentNumber: varchar("document_number"),
+  documentUrl: varchar("document_url"), // stored in object storage
+  originalFileName: varchar("original_file_name"),
+  fileSize: integer("file_size"),
+  mimeType: varchar("mime_type"),
+  verificationStatus: varchar("verification_status").default("pending"), // pending/verified/rejected
+  verificationDate: timestamp("verification_date"),
+  verifiedBy: varchar("verified_by"), // compliance officer ID
+  expiryDate: timestamp("expiry_date"),
+  isActive: boolean("is_active").default(true),
+  rejectionReason: text("rejection_reason"),
+  metadata: jsonb("metadata"), // additional document-specific data
+  uploadedAt: timestamp("uploaded_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Compliance Audit Trail table for tracking all compliance-related changes
+export const complianceAuditTrail = pgTable("compliance_audit_trail", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  action: varchar("action").notNull(), // status_change/document_upload/review_completed/risk_assessment
+  fieldChanged: varchar("field_changed"), // specific field that was modified
+  oldValue: text("old_value"),
+  newValue: text("new_value"),
+  reason: text("reason"),
+  performedBy: varchar("performed_by").notNull(), // user ID or system
+  performedByRole: varchar("performed_by_role"), // compliance_officer/system/user
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  riskImpact: varchar("risk_impact"), // low/medium/high
+  complianceImpact: varchar("compliance_impact"), // none/minor/major/critical
+  metadata: jsonb("metadata"), // additional context
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // OTP verification table
@@ -142,19 +264,35 @@ export const ckycRecords = pgTable("ckyc_records", {
   
   // Compliance and Regulatory
   fatcaStatus: varchar("fatca_status"), // Y/N
+  fatcaDeclarationDate: timestamp("fatca_declaration_date"),
+  fatcaTinNumber: varchar("fatca_tin_number"),
+  fatcaCountryOfTaxResidence: varchar("fatca_country_of_tax_residence"),
+  fatcaReasonCode: varchar("fatca_reason_code"),
   pepStatus: varchar("pep_status").default("N"), // Y/N (Politically Exposed Person)
+  pepRelatedPersonStatus: varchar("pep_related_person_status").default("N"), // Y/N
+  pepDetails: text("pep_details"), // Details if PEP or related person
   riskCategory: varchar("risk_category").default("low"), // low/medium/high
+  residentStatus: varchar("resident_status").default("resident"), // resident/nri/pio/oci
+  countryOfResidence: varchar("country_of_residence").default("India"),
+  countryOfCitizenship: varchar("country_of_citizenship").default("India"),
+  amlStatus: varchar("aml_status").default("clear"), // clear/flagged/under_review
+  amlLastChecked: timestamp("aml_last_checked"),
+  sanctionListStatus: varchar("sanction_list_status").default("clear"), // clear/flagged
+  sanctionListLastChecked: timestamp("sanction_list_last_checked"),
+  cddLevel: varchar("cdd_level").default("simplified"), // simplified/basic/enhanced
+  eddRequired: boolean("edd_required").default(false), // Enhanced Due Diligence
+  eddCompletedDate: timestamp("edd_completed_date"),
+  complianceScore: integer("compliance_score").default(100), // 0-100 score
+  lastComplianceReview: timestamp("last_compliance_review").defaultNow(),
+  nextComplianceReview: timestamp("next_compliance_review"),
   
-  // Metadata
-  kycType: varchar("kyc_type").default("ckyc"), // ckyc/ekyc/manual
-  submittedAt: timestamp("submitted_at").defaultNow(),
-  verifiedBy: varchar("verified_by"), // system/agent_id
-  rejectionReason: text("rejection_reason"),
-  
-  // Audit fields
+  // Audit and Tracking
+  profileCompleteness: integer("profile_completeness").default(0), // 0-100%
+  lastUpdated: timestamp("last_updated").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
 
 // CKYC Documents table for storing document references
 export const ckycDocuments = pgTable("ckyc_documents", {
@@ -1026,6 +1164,29 @@ export const insertUserSchema = createInsertSchema(users).omit({
   updatedAt: true,
 });
 
+export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCkycRecordSchema = createInsertSchema(ckycRecords).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertComplianceDocumentSchema = createInsertSchema(complianceDocuments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertComplianceAuditTrailSchema = createInsertSchema(complianceAuditTrail).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertPortfolioSchema = createInsertSchema(portfolios).omit({
   id: true,
   createdAt: true,
@@ -1077,6 +1238,29 @@ export const insertRiskAssessmentQuestionSchema = createInsertSchema(riskAssessm
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+
+// User Profile types
+export type UserProfile = typeof userProfiles.$inferSelect;
+export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
+export type UpsertUserProfile = typeof userProfiles.$inferInsert;
+
+// CKYC types
+export type CkycRecord = typeof ckycRecords.$inferSelect;
+export type InsertCkycRecord = z.infer<typeof insertCkycRecordSchema>;
+export type UpsertCkycRecord = typeof ckycRecords.$inferInsert;
+
+export type CkycDocument = typeof ckycDocuments.$inferSelect;
+export type InsertCkycDocument = typeof ckycDocuments.$inferInsert;
+
+export type CkycStatusHistory = typeof ckycStatusHistory.$inferSelect;
+export type InsertCkycStatusHistory = typeof ckycStatusHistory.$inferInsert;
+
+// Compliance types
+export type ComplianceDocument = typeof complianceDocuments.$inferSelect;
+export type InsertComplianceDocument = z.infer<typeof insertComplianceDocumentSchema>;
+
+export type ComplianceAuditTrail = typeof complianceAuditTrail.$inferSelect;
+export type InsertComplianceAuditTrail = z.infer<typeof insertComplianceAuditTrailSchema>;
 export type RiskProfile = typeof riskProfiles.$inferSelect;
 export type InsertRiskProfile = z.infer<typeof insertRiskProfileSchema>;
 export type RiskAssessmentQuestion = typeof riskAssessmentQuestions.$inferSelect;
@@ -1385,33 +1569,6 @@ export type InsertUserProgress = z.infer<typeof insertUserProgressSchema>;
 export type UserStats = typeof userStats.$inferSelect;
 export type InsertUserStats = z.infer<typeof insertUserStatsSchema>;
 
-// User Profile table for API integration data
-export const userProfiles = pgTable("user_profiles", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull().unique(),
-  // Personal Information
-  fullName: varchar("full_name", { length: 255 }),
-  email: varchar("email", { length: 255 }),
-  phone: varchar("phone", { length: 20 }),
-  dateOfBirth: date("date_of_birth"),
-  // Investment Profile
-  riskTolerance: varchar("risk_tolerance", { length: 20 }), // conservative, moderate, aggressive
-  investmentExperience: varchar("investment_experience", { length: 20 }), // beginner, intermediate, experienced
-  annualIncome: decimal("annual_income", { precision: 12, scale: 2 }),
-  investmentGoals: text("investment_goals").array(),
-  investmentHorizon: varchar("investment_horizon", { length: 20 }), // short, medium, long
-  // API Integration Data
-  panNumber: varchar("pan_number", { length: 10 }),
-  dematerializedAccounts: jsonb("demat_accounts"), // Array of demat account details
-  mutualFundDistributor: varchar("mf_distributor_code", { length: 50 }),
-  bankDetails: jsonb("bank_details"), // Primary bank account details
-  // Platform Preferences
-  preferredCurrency: varchar("preferred_currency", { length: 10 }).default("INR"),
-  notificationPreferences: jsonb("notification_preferences"),
-  // Timestamps
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull()
-});
 
 // Market Stories table for AI-generated content
 export const marketStories = pgTable("market_stories", {
@@ -1521,20 +1678,12 @@ export const insertTransactionRecordSchema = createInsertSchema(transactionRecor
   createdAt: true,
 });
 
-export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
 export const insertMarketStorySchema = createInsertSchema(marketStories).omit({
   id: true,
   generatedAt: true,
   createdAt: true,
 });
 
-export type UserProfile = typeof userProfiles.$inferSelect;
-export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
 export type MarketStory = typeof marketStories.$inferSelect;
 export type InsertMarketStory = z.infer<typeof insertMarketStorySchema>;
 
@@ -1768,30 +1917,6 @@ export type InsertPreIpoAnalytics = z.infer<typeof insertPreIpoAnalyticsSchema>;
 export type PreIpoMarketInsights = typeof preIpoMarketInsights.$inferSelect;
 export type InsertPreIpoMarketInsights = z.infer<typeof insertPreIpoMarketInsightsSchema>;
 
-// Zod schemas for CKYC
-export const insertCkycRecordSchema = createInsertSchema(ckycRecords).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertCkycDocumentSchema = createInsertSchema(ckycDocuments).omit({
-  id: true,
-  uploadedAt: true,
-});
-
-export const insertCkycStatusHistorySchema = createInsertSchema(ckycStatusHistory).omit({
-  id: true,
-  changedAt: true,
-});
-
-// Export types for CKYC
-export type CkycRecord = typeof ckycRecords.$inferSelect;
-export type InsertCkycRecord = z.infer<typeof insertCkycRecordSchema>;
-export type CkycDocument = typeof ckycDocuments.$inferSelect;
-export type InsertCkycDocument = z.infer<typeof insertCkycDocumentSchema>;
-export type CkycStatusHistory = typeof ckycStatusHistory.$inferSelect;
-export type InsertCkycStatusHistory = z.infer<typeof insertCkycStatusHistorySchema>;
 
 // Investment proposal types
 export type InvestmentProposal = typeof investmentProposals.$inferSelect;
