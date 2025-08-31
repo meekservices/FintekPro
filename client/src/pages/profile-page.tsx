@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
-import { User, Shield, CreditCard, Building, TrendingUp, Database, FileText, Eye, Phone, Mail, Users, Link, Info } from "lucide-react";
+import { User, Shield, CreditCard, Building, TrendingUp, Database, FileText, Eye, Phone, Mail, Users, Link, Info, Loader2, CheckCircle } from "lucide-react";
 
 const profileSchema = z.object({
   // Enhanced KYC Fields - Mandatory as per SEBI
@@ -224,6 +224,16 @@ export default function ProfilePage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
+  const [showAutoPopulate, setShowAutoPopulate] = useState(false);
+  const [autoPopulateData, setAutoPopulateData] = useState({
+    panNumber: '',
+    mobile: '',
+    email: '',
+    accountNumber: '',
+    bankName: 'ICICI',
+    investmentPreference: 'balanced'
+  });
+  const [currentStep, setCurrentStep] = useState(0);
 
   const { data: profileData, isLoading } = useQuery<ProfileData>({
     queryKey: ["/api/profile"],
@@ -354,6 +364,49 @@ export default function ProfilePage() {
     },
   });
 
+  const autoPopulateMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiRequest("POST", "/api/client/auto-populate", { 
+        body: data 
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      // Auto-fill form with fetched data
+      if (data.personalInfo || data.bankingData) {
+        form.setValue("panNumber", autoPopulateData.panNumber);
+        form.setValue("annualIncome", data.bankingData?.monthlyAverage ? 
+          (data.bankingData.monthlyAverage * 12).toString() : "");
+        form.setValue("riskTolerance", autoPopulateData.investmentPreference);
+        
+        // Set additional fields based on fetched data
+        if (data.complianceData) {
+          form.setValue("residentStatus", data.complianceData.residentStatus);
+          form.setValue("countryOfResidence", data.complianceData.countryOfResidence);
+          form.setValue("pepStatus", data.complianceData.pepStatus);
+          form.setValue("fatcaStatus", data.complianceData.fatcaStatus);
+        }
+      }
+      
+      setCurrentStep(6);
+      setShowAutoPopulate(false);
+      toast({
+        title: "Profile Auto-Populated!",
+        description: `Successfully fetched ${data.totalDataPoints} data points from your banking and compliance records`,
+        variant: "default"
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/profile'] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Auto-Population Failed",
+        description: error.message,
+        variant: "destructive"
+      });
+      setCurrentStep(0);
+    }
+  });
+
   const onSubmit = (data: ProfileFormData) => {
     updateProfileMutation.mutate(data);
   };
@@ -414,6 +467,247 @@ export default function ProfilePage() {
                   </span>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Smart Auto-Populate Section */}
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Database className="h-5 w-5" />
+                Smart Profile Setup
+              </CardTitle>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Auto-populate your profile using banking APIs and compliance data
+              </p>
+            </CardHeader>
+            <CardContent>
+              {!showAutoPopulate ? (
+                <div className="space-y-4">
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-4 rounded-lg">
+                    <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">Instant Profile Setup</h4>
+                    <p className="text-sm text-blue-700 dark:text-blue-300 mb-3">
+                      Just provide your PAN and bank details - we'll auto-fetch your complete profile from official sources
+                    </p>
+                    <div className="flex items-center gap-4 text-xs text-blue-600 dark:text-blue-400">
+                      <div className="flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3" />
+                        Banking data
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3" />
+                        Portfolio holdings
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3" />
+                        Compliance data
+                      </div>
+                    </div>
+                  </div>
+                  <Button 
+                    onClick={() => setShowAutoPopulate(true)}
+                    className="w-full"
+                    variant="default"
+                    data-testid="button-start-auto-populate"
+                  >
+                    <Database className="w-4 h-4 mr-2" />
+                    Start Smart Setup
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Step Indicator */}
+                  <div className="flex items-center justify-between mb-6">
+                    {[1, 2, 3, 4, 5, 6].map((step) => (
+                      <div
+                        key={step}
+                        className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${
+                          currentStep >= step
+                            ? 'bg-blue-600 text-white'
+                            : currentStep + 1 === step
+                            ? 'bg-blue-100 text-blue-600'
+                            : 'bg-gray-100 text-gray-400'
+                        }`}
+                      >
+                        {currentStep > step ? <CheckCircle className="w-4 h-4" /> : step}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Step Content */}
+                  {currentStep === 0 && (
+                    <div className="space-y-4">
+                      <h3 className="font-semibold">Basic Information</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="auto-pan">PAN Number *</Label>
+                          <Input
+                            id="auto-pan"
+                            value={autoPopulateData.panNumber}
+                            onChange={(e) => setAutoPopulateData({...autoPopulateData, panNumber: e.target.value.toUpperCase()})}
+                            placeholder="ABCDE1234F"
+                            className="uppercase"
+                            data-testid="input-auto-pan"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="auto-mobile">Mobile Number *</Label>
+                          <Input
+                            id="auto-mobile"
+                            value={autoPopulateData.mobile}
+                            onChange={(e) => setAutoPopulateData({...autoPopulateData, mobile: e.target.value})}
+                            placeholder="9876543210"
+                            data-testid="input-auto-mobile"
+                          />
+                        </div>
+                      </div>
+                      <Button 
+                        onClick={() => setCurrentStep(1)}
+                        disabled={!autoPopulateData.panNumber || !autoPopulateData.mobile}
+                        data-testid="button-next-step-1"
+                      >
+                        Next: Banking Details
+                      </Button>
+                    </div>
+                  )}
+
+                  {currentStep === 1 && (
+                    <div className="space-y-4">
+                      <h3 className="font-semibold">Banking Information</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="auto-bank">Bank</Label>
+                          <Select value={autoPopulateData.bankName} onValueChange={(value) => setAutoPopulateData({...autoPopulateData, bankName: value})}>
+                            <SelectTrigger data-testid="select-auto-bank">
+                              <SelectValue placeholder="Select your bank" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="ICICI">ICICI Bank</SelectItem>
+                              <SelectItem value="HDFC">HDFC Bank</SelectItem>
+                              <SelectItem value="SBI">State Bank of India</SelectItem>
+                              <SelectItem value="AXIS">Axis Bank</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label htmlFor="auto-account">Account Number</Label>
+                          <Input
+                            id="auto-account"
+                            value={autoPopulateData.accountNumber}
+                            onChange={(e) => setAutoPopulateData({...autoPopulateData, accountNumber: e.target.value})}
+                            placeholder="Account number"
+                            data-testid="input-auto-account"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="outline" onClick={() => setCurrentStep(0)} data-testid="button-back-step-1">
+                          Back
+                        </Button>
+                        <Button 
+                          onClick={() => setCurrentStep(2)}
+                          disabled={!autoPopulateData.bankName || !autoPopulateData.accountNumber}
+                          data-testid="button-next-step-2"
+                        >
+                          Next: Investment Preference
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {currentStep === 2 && (
+                    <div className="space-y-4">
+                      <h3 className="font-semibold">Investment Preference</h3>
+                      <div>
+                        <Label htmlFor="auto-preference">Risk Tolerance</Label>
+                        <Select value={autoPopulateData.investmentPreference} onValueChange={(value) => setAutoPopulateData({...autoPopulateData, investmentPreference: value})}>
+                          <SelectTrigger data-testid="select-auto-preference">
+                            <SelectValue placeholder="Select investment preference" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Conservative">Conservative</SelectItem>
+                            <SelectItem value="Moderate">Moderate</SelectItem>
+                            <SelectItem value="Aggressive">Aggressive</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="outline" onClick={() => setCurrentStep(1)} data-testid="button-back-step-2">
+                          Back
+                        </Button>
+                        <Button 
+                          onClick={() => {
+                            setCurrentStep(3);
+                            autoPopulateMutation.mutate(autoPopulateData);
+                          }}
+                          disabled={autoPopulateMutation.isPending}
+                          data-testid="button-auto-populate"
+                        >
+                          {autoPopulateMutation.isPending ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Fetching Data...
+                            </>
+                          ) : (
+                            'Auto-Populate Profile'
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {(currentStep === 3 || currentStep === 4 || currentStep === 5) && (
+                    <div className="space-y-4">
+                      <div className="text-center">
+                        <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
+                        <h3 className="font-semibold">
+                          {currentStep === 3 && "Fetching banking data..."}
+                          {currentStep === 4 && "Loading portfolio holdings..."}
+                          {currentStep === 5 && "Retrieving compliance information..."}
+                        </h3>
+                        <p className="text-sm text-gray-600 mt-2">
+                          This may take a few moments as we securely fetch your data
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {currentStep === 6 && (
+                    <div className="space-y-4">
+                      <div className="text-center">
+                        <CheckCircle className="w-12 h-12 text-green-600 mx-auto mb-4" />
+                        <h3 className="font-semibold text-green-800">Profile Successfully Populated!</h3>
+                        <p className="text-sm text-gray-600 mt-2">
+                          Your profile has been automatically filled with data from banking and compliance sources
+                        </p>
+                      </div>
+                      <Button 
+                        onClick={() => {
+                          setShowAutoPopulate(false);
+                          setCurrentStep(0);
+                          setIsEditing(true);
+                        }}
+                        className="w-full"
+                        data-testid="button-review-profile"
+                      >
+                        Review & Edit Profile
+                      </Button>
+                    </div>
+                  )}
+
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setShowAutoPopulate(false);
+                      setCurrentStep(0);
+                    }}
+                    className="w-full"
+                    data-testid="button-cancel-auto-populate"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
