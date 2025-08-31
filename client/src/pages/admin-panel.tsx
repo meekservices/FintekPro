@@ -19,6 +19,7 @@ import { RiskAssessmentForm } from "@/components/risk-profiling/risk-assessment-
 import { CapitalGainsReportViewer } from "@/components/reports/capital-gains-report-viewer";
 import { TransactionReportViewer } from "@/components/reports/transaction-report-viewer";
 import CkycManagement from "./admin/ckyc-management";
+import SupplierDashboard from "./admin/supplier-dashboard";
 
 // API Status Panel Component
 function ApiStatusPanel() {
@@ -2045,6 +2046,15 @@ export default function AdminPanel() {
               >
                 <MessageCircle className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
                 {!sidebarCollapsed && <span className="font-medium">Communications</span>}
+              </TabsTrigger>
+              <TabsTrigger 
+                value="supplier-dashboard" 
+                data-testid="tab-supplier-dashboard"
+                className={`w-full ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start px-3'} py-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-red-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-orange-200 dark:data-[state=active]:shadow-orange-900/50`}
+                title={sidebarCollapsed ? "Suppliers" : undefined}
+              >
+                <Building2 className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
+                {!sidebarCollapsed && <span className="font-medium">Supplier Dashboard</span>}
               </TabsTrigger>
             </TabsList>
           </div>
@@ -4524,6 +4534,11 @@ export default function AdminPanel() {
                 </Table>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Supplier Dashboard Tab */}
+          <TabsContent value="supplier-dashboard" className="space-y-6" data-testid="supplier-dashboard-content">
+            <SupplierDashboard />
           </TabsContent>
 
           </div>

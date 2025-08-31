@@ -2050,3 +2050,56 @@ export type StoreProductTagMapping = typeof storeProductTagMappings.$inferSelect
 export type InsertStoreProductTagMapping = z.infer<typeof insertStoreProductTagMappingSchema>;
 export type UserWishlist = typeof userWishlist.$inferSelect;
 export type InsertUserWishlist = z.infer<typeof insertUserWishlistSchema>;
+
+// Supplier and Product Performance Tables
+export const suppliers = pgTable("suppliers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  contactEmail: varchar("contact_email"),
+  contactPhone: varchar("contact_phone"),
+  address: text("address"),
+  productCategories: text("product_categories").array(),
+  performanceRating: decimal("performance_rating", { precision: 3, scale: 2 }).default("0.00"),
+  commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }).default("0.00"), // Commission percentage
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const productPerformance = pgTable("product_performance", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  productId: varchar("product_id").references(() => storeProducts.id).notNull(),
+  supplierId: varchar("supplier_id").references(() => suppliers.id).notNull(),
+  costPrice: decimal("cost_price", { precision: 15, scale: 2 }).notNull(),
+  sellingPrice: decimal("selling_price", { precision: 15, scale: 2 }).notNull(),
+  profitMargin: decimal("profit_margin", { precision: 5, scale: 2 }).notNull(), // Calculated profit percentage
+  salesVolume: integer("sales_volume").default(0),
+  revenue: decimal("revenue", { precision: 15, scale: 2 }).default("0.00"),
+  monthlyPerformance: jsonb("monthly_performance"), // Track monthly sales/profit data
+  lastSaleDate: timestamp("last_sale_date"),
+  isPromoted: boolean("is_promoted").default(false),
+  promotionStartDate: timestamp("promotion_start_date"),
+  promotionEndDate: timestamp("promotion_end_date"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Create schemas for supplier tables
+export const insertSupplierSchema = createInsertSchema(suppliers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertProductPerformanceSchema = createInsertSchema(productPerformance).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Export types for supplier tables
+export type Supplier = typeof suppliers.$inferSelect;
+export type InsertSupplier = z.infer<typeof insertSupplierSchema>;
+export type ProductPerformance = typeof productPerformance.$inferSelect;
+export type InsertProductPerformance = z.infer<typeof insertProductPerformanceSchema>;

@@ -1,4 +1,4 @@
-import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type CkycNotificationTrigger, type CkycProgressStep, type CkycActionLog, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession } from "@shared/schema";
+import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type CkycNotificationTrigger, type CkycProgressStep, type CkycActionLog, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Supplier, type InsertSupplier, type SupplierProduct, type InsertSupplierProduct, type ProductPerformanceMetric, type InsertProductPerformanceMetric } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 // We'll import hashPassword later to avoid circular dependency
@@ -256,6 +256,26 @@ export interface IStorage {
   updateIBTradingSession(id: string, updates: Partial<IBTradingSession>): Promise<IBTradingSession | undefined>;
   getActiveIBTradingSession(ibAccountId: string): Promise<IBTradingSession | undefined>;
   endIBTradingSession(id: string, disconnectReason?: string): Promise<IBTradingSession | undefined>;
+
+  // Supplier methods
+  getAllSuppliers(): Promise<Supplier[]>;
+  getSupplier(id: string): Promise<Supplier | undefined>;
+  createSupplier(supplier: InsertSupplier): Promise<Supplier>;
+  updateSupplier(id: string, updates: Partial<Supplier>): Promise<Supplier | undefined>;
+  deleteSupplier(id: string): Promise<boolean>;
+  
+  // Supplier Product methods
+  getSupplierProducts(supplierId?: string): Promise<SupplierProduct[]>;
+  getSupplierProduct(id: string): Promise<SupplierProduct | undefined>;
+  createSupplierProduct(product: InsertSupplierProduct): Promise<SupplierProduct>;
+  updateSupplierProduct(id: string, updates: Partial<SupplierProduct>): Promise<SupplierProduct | undefined>;
+  deleteSupplierProduct(id: string): Promise<boolean>;
+  
+  // Product Performance methods
+  getProductPerformanceMetrics(productId?: string): Promise<ProductPerformanceMetric[]>;
+  createProductPerformanceMetric(metric: InsertProductPerformanceMetric): Promise<ProductPerformanceMetric>;
+  updateProductPerformanceMetric(id: string, updates: Partial<ProductPerformanceMetric>): Promise<ProductPerformanceMetric | undefined>;
+  deleteProductPerformanceMetric(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -294,6 +314,9 @@ export class MemStorage implements IStorage {
   private ibAccountSummaries: Map<string, IBAccountSummary>;
   private ibMarketDataSubscriptions: Map<string, IBMarketDataSubscription>;
   private ibTradingSessions: Map<string, IBTradingSession>;
+  private suppliers: Map<string, Supplier>;
+  private supplierProducts: Map<string, SupplierProduct>;
+  private productPerformanceMetrics: Map<string, ProductPerformanceMetric>;
 
   constructor() {
     this.users = new Map();
@@ -331,11 +354,15 @@ export class MemStorage implements IStorage {
     this.ibAccountSummaries = new Map();
     this.ibMarketDataSubscriptions = new Map();
     this.ibTradingSessions = new Map();
+    this.suppliers = new Map();
+    this.supplierProducts = new Map();
+    this.productPerformanceMetrics = new Map();
     
     // Initialize with sample data
     this.initializeSampleData();
     this.initializeRiskAssessmentQuestions();
     this.initializeSampleReports();
+    this.initializeSampleSuppliers();
   }
 
   private initializeSampleData() {
@@ -2517,6 +2544,268 @@ export class MemStorage implements IStorage {
     return this.updateIBTradingSession(id, { 
       disconnectedAt: new Date(),
       disconnectReason 
+    });
+  }
+
+  // Supplier methods
+  async getAllSuppliers(): Promise<Supplier[]> {
+    return Array.from(this.suppliers.values());
+  }
+
+  async getSupplier(id: string): Promise<Supplier | undefined> {
+    return this.suppliers.get(id);
+  }
+
+  async createSupplier(supplierData: InsertSupplier): Promise<Supplier> {
+    const id = randomUUID();
+    const supplier: Supplier = {
+      ...supplierData,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.suppliers.set(id, supplier);
+    return supplier;
+  }
+
+  async updateSupplier(id: string, updates: Partial<Supplier>): Promise<Supplier | undefined> {
+    const supplier = this.suppliers.get(id);
+    if (!supplier) return undefined;
+    
+    const updated = { ...supplier, ...updates, updatedAt: new Date() };
+    this.suppliers.set(id, updated);
+    return updated;
+  }
+
+  async deleteSupplier(id: string): Promise<boolean> {
+    return this.suppliers.delete(id);
+  }
+
+  // Supplier Product methods
+  async getSupplierProducts(supplierId?: string): Promise<SupplierProduct[]> {
+    const products = Array.from(this.supplierProducts.values());
+    return supplierId ? products.filter(p => p.supplierId === supplierId) : products;
+  }
+
+  async getSupplierProduct(id: string): Promise<SupplierProduct | undefined> {
+    return this.supplierProducts.get(id);
+  }
+
+  async createSupplierProduct(productData: InsertSupplierProduct): Promise<SupplierProduct> {
+    const id = randomUUID();
+    const product: SupplierProduct = {
+      ...productData,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.supplierProducts.set(id, product);
+    return product;
+  }
+
+  async updateSupplierProduct(id: string, updates: Partial<SupplierProduct>): Promise<SupplierProduct | undefined> {
+    const product = this.supplierProducts.get(id);
+    if (!product) return undefined;
+    
+    const updated = { ...product, ...updates, updatedAt: new Date() };
+    this.supplierProducts.set(id, updated);
+    return updated;
+  }
+
+  async deleteSupplierProduct(id: string): Promise<boolean> {
+    return this.supplierProducts.delete(id);
+  }
+
+  // Product Performance methods
+  async getProductPerformanceMetrics(productId?: string): Promise<ProductPerformanceMetric[]> {
+    const metrics = Array.from(this.productPerformanceMetrics.values());
+    return productId ? metrics.filter(m => m.productId === productId) : metrics;
+  }
+
+  async createProductPerformanceMetric(metricData: InsertProductPerformanceMetric): Promise<ProductPerformanceMetric> {
+    const id = randomUUID();
+    const metric: ProductPerformanceMetric = {
+      ...metricData,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.productPerformanceMetrics.set(id, metric);
+    return metric;
+  }
+
+  async updateProductPerformanceMetric(id: string, updates: Partial<ProductPerformanceMetric>): Promise<ProductPerformanceMetric | undefined> {
+    const metric = this.productPerformanceMetrics.get(id);
+    if (!metric) return undefined;
+    
+    const updated = { ...metric, ...updates, updatedAt: new Date() };
+    this.productPerformanceMetrics.set(id, updated);
+    return updated;
+  }
+
+  async deleteProductPerformanceMetric(id: string): Promise<boolean> {
+    return this.productPerformanceMetrics.delete(id);
+  }
+
+  private initializeSampleSuppliers() {
+    // Create sample suppliers
+    const suppliers: Supplier[] = [
+      {
+        id: "supplier-1",
+        name: "Alpha Financial Products Ltd",
+        contactEmail: "contact@alphafinancial.com",
+        contactPhone: "+91-9876543210",
+        address: "Mumbai, Maharashtra",
+        description: "Leading provider of investment products and financial instruments",
+        rating: 4.8,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: "supplier-2", 
+        name: "Beta Asset Management",
+        contactEmail: "info@betaassets.com",
+        contactPhone: "+91-8765432109",
+        address: "Delhi, NCR",
+        description: "Specialized in mutual funds and portfolio management solutions",
+        rating: 4.6,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: "supplier-3",
+        name: "Gamma Investment Corp",
+        contactEmail: "support@gammainvest.com", 
+        contactPhone: "+91-7654321098",
+        address: "Bangalore, Karnataka",
+        description: "High-yield investment products and alternative assets",
+        rating: 4.9,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    ];
+
+    suppliers.forEach(supplier => {
+      this.suppliers.set(supplier.id, supplier);
+    });
+
+    // Create sample supplier products
+    const products: SupplierProduct[] = [
+      {
+        id: "product-1",
+        supplierId: "supplier-1",
+        productName: "High Yield Bond Fund",
+        description: "Corporate bond fund with 8.5% annual returns",
+        price: 10000.00,
+        profitMargin: 15.5,
+        category: "Bonds",
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: "product-2",
+        supplierId: "supplier-1", 
+        productName: "Equity Growth Fund",
+        description: "Large cap equity fund targeting 12% returns",
+        price: 5000.00,
+        profitMargin: 12.0,
+        category: "Equity",
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: "product-3",
+        supplierId: "supplier-2",
+        productName: "Balanced Advantage Fund",
+        description: "Dynamic asset allocation between equity and debt",
+        price: 2500.00,
+        profitMargin: 18.5,
+        category: "Hybrid",
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: "product-4",
+        supplierId: "supplier-3",
+        productName: "Alternative Investment Platform",
+        description: "Access to REITs, InvITs and structured products",
+        price: 25000.00,
+        profitMargin: 22.0,
+        category: "Alternative",
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    ];
+
+    products.forEach(product => {
+      this.supplierProducts.set(product.id, product);
+    });
+
+    // Create sample performance metrics
+    const metrics: ProductPerformanceMetric[] = [
+      {
+        id: "metric-1",
+        productId: "product-1",
+        salesVolume: 150,
+        revenue: 1500000.00,
+        customerSatisfaction: 4.7,
+        returnRate: 2.1,
+        profitMargin: 15.5,
+        trendDirection: "up",
+        recordedAt: new Date("2025-01-15"),
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: "metric-2",
+        productId: "product-2",
+        salesVolume: 280,
+        revenue: 1400000.00,
+        customerSatisfaction: 4.5,
+        returnRate: 3.2,
+        profitMargin: 12.0,
+        trendDirection: "stable",
+        recordedAt: new Date("2025-01-15"),
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: "metric-3",
+        productId: "product-3",
+        salesVolume: 320,
+        revenue: 800000.00,
+        customerSatisfaction: 4.8,
+        returnRate: 1.5,
+        profitMargin: 18.5,
+        trendDirection: "up",
+        recordedAt: new Date("2025-01-15"),
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: "metric-4",
+        productId: "product-4",
+        salesVolume: 45,
+        revenue: 1125000.00,
+        customerSatisfaction: 4.9,
+        returnRate: 0.8,
+        profitMargin: 22.0,
+        trendDirection: "up",
+        recordedAt: new Date("2025-01-15"),
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    ];
+
+    metrics.forEach(metric => {
+      this.productPerformanceMetrics.set(metric.id, metric);
     });
   }
 }

@@ -13547,6 +13547,183 @@ System Security Data:`;
     }
   });
 
+  // Supplier API endpoints
+  app.get("/api/suppliers", async (req, res) => {
+    try {
+      const suppliers = await storage.getAllSuppliers();
+      res.json({ suppliers });
+    } catch (error) {
+      console.error("Error fetching suppliers:", error);
+      res.status(500).json({ error: "Failed to fetch suppliers" });
+    }
+  });
+
+  app.post("/api/suppliers", async (req, res) => {
+    try {
+      const { name, contactEmail, contactPhone, address, description, rating, isActive } = req.body;
+
+      if (!name || !contactEmail) {
+        return res.status(400).json({ error: "Name and contact email are required" });
+      }
+
+      const supplier = await storage.createSupplier({
+        name,
+        contactEmail,
+        contactPhone,
+        address,
+        description,
+        rating: rating || 5.0,
+        isActive: isActive !== false
+      });
+
+      res.json({ supplier });
+    } catch (error) {
+      console.error("Error creating supplier:", error);
+      res.status(500).json({ error: "Failed to create supplier" });
+    }
+  });
+
+  app.put("/api/suppliers/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+
+      const supplier = await storage.updateSupplier(id, updates);
+      if (!supplier) {
+        return res.status(404).json({ error: "Supplier not found" });
+      }
+
+      res.json({ supplier });
+    } catch (error) {
+      console.error("Error updating supplier:", error);
+      res.status(500).json({ error: "Failed to update supplier" });
+    }
+  });
+
+  app.delete("/api/suppliers/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const deleted = await storage.deleteSupplier(id);
+      
+      if (!deleted) {
+        return res.status(404).json({ error: "Supplier not found" });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting supplier:", error);
+      res.status(500).json({ error: "Failed to delete supplier" });
+    }
+  });
+
+  // Supplier Products API endpoints
+  app.get("/api/supplier-products", async (req, res) => {
+    try {
+      const { supplierId } = req.query;
+      const products = await storage.getSupplierProducts(supplierId as string);
+      res.json({ products });
+    } catch (error) {
+      console.error("Error fetching supplier products:", error);
+      res.status(500).json({ error: "Failed to fetch supplier products" });
+    }
+  });
+
+  app.post("/api/supplier-products", async (req, res) => {
+    try {
+      const { supplierId, productName, description, price, profitMargin, category, isActive } = req.body;
+
+      if (!supplierId || !productName || !price || !profitMargin) {
+        return res.status(400).json({ error: "Supplier ID, product name, price, and profit margin are required" });
+      }
+
+      const product = await storage.createSupplierProduct({
+        supplierId,
+        productName,
+        description,
+        price,
+        profitMargin,
+        category,
+        isActive: isActive !== false
+      });
+
+      res.json({ product });
+    } catch (error) {
+      console.error("Error creating supplier product:", error);
+      res.status(500).json({ error: "Failed to create supplier product" });
+    }
+  });
+
+  app.put("/api/supplier-products/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+
+      const product = await storage.updateSupplierProduct(id, updates);
+      if (!product) {
+        return res.status(404).json({ error: "Supplier product not found" });
+      }
+
+      res.json({ product });
+    } catch (error) {
+      console.error("Error updating supplier product:", error);
+      res.status(500).json({ error: "Failed to update supplier product" });
+    }
+  });
+
+  app.delete("/api/supplier-products/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const deleted = await storage.deleteSupplierProduct(id);
+      
+      if (!deleted) {
+        return res.status(404).json({ error: "Supplier product not found" });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting supplier product:", error);
+      res.status(500).json({ error: "Failed to delete supplier product" });
+    }
+  });
+
+  // Product Performance Metrics API endpoints
+  app.get("/api/product-performance", async (req, res) => {
+    try {
+      const { productId } = req.query;
+      const metrics = await storage.getProductPerformanceMetrics(productId as string);
+      res.json({ metrics });
+    } catch (error) {
+      console.error("Error fetching product performance metrics:", error);
+      res.status(500).json({ error: "Failed to fetch product performance metrics" });
+    }
+  });
+
+  app.post("/api/product-performance", async (req, res) => {
+    try {
+      const { productId, salesVolume, revenue, customerSatisfaction, returnRate, profitMargin, trendDirection } = req.body;
+
+      if (!productId || !salesVolume || !revenue) {
+        return res.status(400).json({ error: "Product ID, sales volume, and revenue are required" });
+      }
+
+      const metric = await storage.createProductPerformanceMetric({
+        productId,
+        salesVolume,
+        revenue,
+        customerSatisfaction,
+        returnRate,
+        profitMargin,
+        trendDirection,
+        recordedAt: new Date()
+      });
+
+      res.json({ metric });
+    } catch (error) {
+      console.error("Error creating product performance metric:", error);
+      res.status(500).json({ error: "Failed to create product performance metric" });
+    }
+  });
+
   // Global error handler (must be last)
   app.use(globalErrorHandler);
 
