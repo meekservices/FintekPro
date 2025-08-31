@@ -11,7 +11,7 @@ import { RebalanceDashboard } from "@/components/dashboard/rebalance-dashboard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calculator, Home as HomeIcon, Percent, Umbrella, CheckCircle, Shield, Database, TrendingUp, Banknote, BarChart3, Coins, Wheat, Building2, CreditCard, PiggyBank, FileText, Building, Briefcase, Target, PieChart, Landmark, Receipt, BookOpen } from "lucide-react";
+import { Calculator, Home as HomeIcon, Percent, Umbrella, CheckCircle, Shield, Database, TrendingUp, Banknote, BarChart3, Coins, Wheat, Building2, CreditCard, PiggyBank, FileText, Building, Briefcase, Target, PieChart, Landmark, Receipt, BookOpen, Activity } from "lucide-react";
 import { AgriculturalTooltip } from "@/components/agricultural-tooltip";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
@@ -272,6 +272,26 @@ export default function Home() {
                     <p className="text-sm text-gray-600">✓ MF portfolio tracking</p>
                     <p className="text-sm text-gray-600">✓ Transaction processing</p>
                     <p className="text-sm text-gray-600">✓ Investor validation</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+
+            {/* Interactive Brokers Trading */}
+            <Link href="/ib-trading" data-testid="link-ib-trading">
+              <Card className="border-l-4 border-l-cyan-500 hover:shadow-lg transition-shadow cursor-pointer group">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center text-lg">
+                    <Activity className="h-5 w-5 mr-2 text-cyan-500 group-hover:scale-110 transition-transform" />
+                    IB Trading
+                    <Badge className="ml-2 bg-finance-green text-white text-xs">API</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-600">✓ Real-time trading</p>
+                    <p className="text-sm text-gray-600">✓ Advanced orders</p>
+                    <p className="text-sm text-gray-600">✓ Global markets</p>
                   </div>
                 </CardContent>
               </Card>

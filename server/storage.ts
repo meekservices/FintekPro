@@ -1,4 +1,4 @@
-import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type CkycNotificationTrigger, type InsertCkycNotificationTrigger, type CkycProgressStep, type InsertCkycProgressStep, type CkycActionLog, type InsertCkycActionLog, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment } from "@shared/schema";
+import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type CkycNotificationTrigger, type CkycProgressStep, type CkycActionLog, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 // We'll import hashPassword later to avoid circular dependency
@@ -210,6 +210,52 @@ export interface IStorage {
   // Report sharing methods
   createReportSharing(sharing: any): Promise<any>;
   getAgentSharedReports(agentId: string, filters?: { reportType?: string; status?: string }): Promise<any[]>;
+
+  // Interactive Brokers integration methods
+  // IB Account methods
+  getIBAccounts(userId: string): Promise<IBAccount[]>;
+  getIBAccount(id: string): Promise<IBAccount | undefined>;
+  createIBAccount(account: InsertIBAccount): Promise<IBAccount>;
+  updateIBAccount(id: string, updates: Partial<IBAccount>): Promise<IBAccount | undefined>;
+  deleteIBAccount(id: string): Promise<boolean>;
+  updateIBAccountConnectionStatus(id: string, status: string, lastConnected?: Date): Promise<IBAccount | undefined>;
+
+  // IB Order methods
+  getIBOrders(userId: string, ibAccountId?: string): Promise<IBOrder[]>;
+  getIBOrder(id: string): Promise<IBOrder | undefined>;
+  createIBOrder(order: InsertIBOrder): Promise<IBOrder>;
+  updateIBOrder(id: string, updates: Partial<IBOrder>): Promise<IBOrder | undefined>;
+  deleteIBOrder(id: string): Promise<boolean>;
+  getIBOrderByOrderId(orderId: number, ibAccountId: string): Promise<IBOrder | undefined>;
+
+  // IB Position methods
+  getIBPositions(userId: string, ibAccountId?: string): Promise<IBPosition[]>;
+  getIBPosition(id: string): Promise<IBPosition | undefined>;
+  createIBPosition(position: InsertIBPosition): Promise<IBPosition>;
+  updateIBPosition(id: string, updates: Partial<IBPosition>): Promise<IBPosition | undefined>;
+  deleteIBPosition(id: string): Promise<boolean>;
+  upsertIBPosition(position: InsertIBPosition): Promise<IBPosition>;
+
+  // IB Account Summary methods
+  getIBAccountSummary(userId: string, ibAccountId?: string): Promise<IBAccountSummary[]>;
+  createIBAccountSummary(summary: InsertIBAccountSummary): Promise<IBAccountSummary>;
+  updateIBAccountSummary(id: string, updates: Partial<IBAccountSummary>): Promise<IBAccountSummary | undefined>;
+  upsertIBAccountSummary(summary: InsertIBAccountSummary): Promise<IBAccountSummary>;
+
+  // IB Market Data Subscription methods
+  getIBMarketDataSubscriptions(userId: string, ibAccountId?: string): Promise<IBMarketDataSubscription[]>;
+  createIBMarketDataSubscription(subscription: InsertIBMarketDataSubscription): Promise<IBMarketDataSubscription>;
+  updateIBMarketDataSubscription(id: string, updates: Partial<IBMarketDataSubscription>): Promise<IBMarketDataSubscription | undefined>;
+  deleteIBMarketDataSubscription(id: string): Promise<boolean>;
+  getIBMarketDataSubscriptionBySymbol(symbol: string, ibAccountId: string): Promise<IBMarketDataSubscription | undefined>;
+
+  // IB Trading Session methods
+  getIBTradingSessions(userId: string, ibAccountId?: string): Promise<IBTradingSession[]>;
+  getIBTradingSession(id: string): Promise<IBTradingSession | undefined>;
+  createIBTradingSession(session: InsertIBTradingSession): Promise<IBTradingSession>;
+  updateIBTradingSession(id: string, updates: Partial<IBTradingSession>): Promise<IBTradingSession | undefined>;
+  getActiveIBTradingSession(ibAccountId: string): Promise<IBTradingSession | undefined>;
+  endIBTradingSession(id: string, disconnectReason?: string): Promise<IBTradingSession | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -242,6 +288,12 @@ export class MemStorage implements IStorage {
   private investmentProposals: Map<string, InvestmentProposal>;
   private investmentProposalItems: Map<string, InvestmentProposalItem[]>;
   private proposalPayments: Map<string, ProposalPayment>;
+  private ibAccounts: Map<string, IBAccount>;
+  private ibOrders: Map<string, IBOrder>;
+  private ibPositions: Map<string, IBPosition>;
+  private ibAccountSummaries: Map<string, IBAccountSummary>;
+  private ibMarketDataSubscriptions: Map<string, IBMarketDataSubscription>;
+  private ibTradingSessions: Map<string, IBTradingSession>;
 
   constructor() {
     this.users = new Map();
@@ -273,6 +325,12 @@ export class MemStorage implements IStorage {
     this.investmentProposals = new Map();
     this.investmentProposalItems = new Map();
     this.proposalPayments = new Map();
+    this.ibAccounts = new Map();
+    this.ibOrders = new Map();
+    this.ibPositions = new Map();
+    this.ibAccountSummaries = new Map();
+    this.ibMarketDataSubscriptions = new Map();
+    this.ibTradingSessions = new Map();
     
     // Initialize with sample data
     this.initializeSampleData();
@@ -2204,6 +2262,262 @@ export class MemStorage implements IStorage {
     }
     
     return sharings.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  // Interactive Brokers storage methods
+  async getIBAccounts(userId: string): Promise<IBAccount[]> {
+    return Array.from(this.ibAccounts.values()).filter(acc => acc.userId === userId);
+  }
+
+  async getIBAccount(id: string): Promise<IBAccount | undefined> {
+    return this.ibAccounts.get(id);
+  }
+
+  async createIBAccount(account: InsertIBAccount): Promise<IBAccount> {
+    const id = `ib-account-${Date.now()}`;
+    const newAccount: IBAccount = {
+      ...account,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.ibAccounts.set(id, newAccount);
+    return newAccount;
+  }
+
+  async updateIBAccount(id: string, updates: Partial<IBAccount>): Promise<IBAccount | undefined> {
+    const account = this.ibAccounts.get(id);
+    if (!account) return undefined;
+    
+    const updated = { ...account, ...updates, updatedAt: new Date() };
+    this.ibAccounts.set(id, updated);
+    return updated;
+  }
+
+  async deleteIBAccount(id: string): Promise<boolean> {
+    return this.ibAccounts.delete(id);
+  }
+
+  async updateIBAccountConnectionStatus(id: string, status: string, lastConnected?: Date): Promise<IBAccount | undefined> {
+    return this.updateIBAccount(id, { status, lastConnected });
+  }
+
+  async getIBOrders(userId: string, ibAccountId?: string): Promise<IBOrder[]> {
+    let orders = Array.from(this.ibOrders.values()).filter(order => order.userId === userId);
+    if (ibAccountId) {
+      orders = orders.filter(order => order.ibAccountId === ibAccountId);
+    }
+    return orders;
+  }
+
+  async getIBOrder(id: string): Promise<IBOrder | undefined> {
+    return this.ibOrders.get(id);
+  }
+
+  async createIBOrder(order: InsertIBOrder): Promise<IBOrder> {
+    const id = `ib-order-${Date.now()}`;
+    const newOrder: IBOrder = {
+      ...order,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.ibOrders.set(id, newOrder);
+    return newOrder;
+  }
+
+  async updateIBOrder(id: string, updates: Partial<IBOrder>): Promise<IBOrder | undefined> {
+    const order = this.ibOrders.get(id);
+    if (!order) return undefined;
+    
+    const updated = { ...order, ...updates, updatedAt: new Date() };
+    this.ibOrders.set(id, updated);
+    return updated;
+  }
+
+  async deleteIBOrder(id: string): Promise<boolean> {
+    return this.ibOrders.delete(id);
+  }
+
+  async getIBOrderByOrderId(orderId: number, ibAccountId: string): Promise<IBOrder | undefined> {
+    return Array.from(this.ibOrders.values()).find(order => 
+      order.orderId === orderId && order.ibAccountId === ibAccountId
+    );
+  }
+
+  async getIBPositions(userId: string, ibAccountId?: string): Promise<IBPosition[]> {
+    let positions = Array.from(this.ibPositions.values()).filter(pos => pos.userId === userId);
+    if (ibAccountId) {
+      positions = positions.filter(pos => pos.ibAccountId === ibAccountId);
+    }
+    return positions;
+  }
+
+  async getIBPosition(id: string): Promise<IBPosition | undefined> {
+    return this.ibPositions.get(id);
+  }
+
+  async createIBPosition(position: InsertIBPosition): Promise<IBPosition> {
+    const id = `ib-position-${Date.now()}`;
+    const newPosition: IBPosition = {
+      ...position,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.ibPositions.set(id, newPosition);
+    return newPosition;
+  }
+
+  async updateIBPosition(id: string, updates: Partial<IBPosition>): Promise<IBPosition | undefined> {
+    const position = this.ibPositions.get(id);
+    if (!position) return undefined;
+    
+    const updated = { ...position, ...updates, updatedAt: new Date() };
+    this.ibPositions.set(id, updated);
+    return updated;
+  }
+
+  async deleteIBPosition(id: string): Promise<boolean> {
+    return this.ibPositions.delete(id);
+  }
+
+  async upsertIBPosition(position: InsertIBPosition): Promise<IBPosition> {
+    const existing = Array.from(this.ibPositions.values()).find(pos => 
+      pos.symbol === position.symbol && pos.ibAccountId === position.ibAccountId
+    );
+    
+    if (existing) {
+      return this.updateIBPosition(existing.id, position) as Promise<IBPosition>;
+    } else {
+      return this.createIBPosition(position);
+    }
+  }
+
+  async getIBAccountSummary(userId: string, ibAccountId?: string): Promise<IBAccountSummary[]> {
+    let summaries = Array.from(this.ibAccountSummaries.values()).filter(sum => sum.userId === userId);
+    if (ibAccountId) {
+      summaries = summaries.filter(sum => sum.ibAccountId === ibAccountId);
+    }
+    return summaries;
+  }
+
+  async createIBAccountSummary(summary: InsertIBAccountSummary): Promise<IBAccountSummary> {
+    const id = `ib-summary-${Date.now()}`;
+    const newSummary: IBAccountSummary = {
+      ...summary,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.ibAccountSummaries.set(id, newSummary);
+    return newSummary;
+  }
+
+  async updateIBAccountSummary(id: string, updates: Partial<IBAccountSummary>): Promise<IBAccountSummary | undefined> {
+    const summary = this.ibAccountSummaries.get(id);
+    if (!summary) return undefined;
+    
+    const updated = { ...summary, ...updates, updatedAt: new Date() };
+    this.ibAccountSummaries.set(id, updated);
+    return updated;
+  }
+
+  async upsertIBAccountSummary(summary: InsertIBAccountSummary): Promise<IBAccountSummary> {
+    const existing = Array.from(this.ibAccountSummaries.values()).find(sum => 
+      sum.ibAccountId === summary.ibAccountId && sum.currency === summary.currency
+    );
+    
+    if (existing) {
+      return this.updateIBAccountSummary(existing.id, summary) as Promise<IBAccountSummary>;
+    } else {
+      return this.createIBAccountSummary(summary);
+    }
+  }
+
+  async getIBMarketDataSubscriptions(userId: string, ibAccountId?: string): Promise<IBMarketDataSubscription[]> {
+    let subscriptions = Array.from(this.ibMarketDataSubscriptions.values()).filter(sub => sub.userId === userId);
+    if (ibAccountId) {
+      subscriptions = subscriptions.filter(sub => sub.ibAccountId === ibAccountId);
+    }
+    return subscriptions;
+  }
+
+  async createIBMarketDataSubscription(subscription: InsertIBMarketDataSubscription): Promise<IBMarketDataSubscription> {
+    const id = `ib-subscription-${Date.now()}`;
+    const newSubscription: IBMarketDataSubscription = {
+      ...subscription,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.ibMarketDataSubscriptions.set(id, newSubscription);
+    return newSubscription;
+  }
+
+  async updateIBMarketDataSubscription(id: string, updates: Partial<IBMarketDataSubscription>): Promise<IBMarketDataSubscription | undefined> {
+    const subscription = this.ibMarketDataSubscriptions.get(id);
+    if (!subscription) return undefined;
+    
+    const updated = { ...subscription, ...updates, updatedAt: new Date() };
+    this.ibMarketDataSubscriptions.set(id, updated);
+    return updated;
+  }
+
+  async deleteIBMarketDataSubscription(id: string): Promise<boolean> {
+    return this.ibMarketDataSubscriptions.delete(id);
+  }
+
+  async getIBMarketDataSubscriptionBySymbol(symbol: string, ibAccountId: string): Promise<IBMarketDataSubscription | undefined> {
+    return Array.from(this.ibMarketDataSubscriptions.values()).find(sub => 
+      sub.symbol === symbol && sub.ibAccountId === ibAccountId
+    );
+  }
+
+  async getIBTradingSessions(userId: string, ibAccountId?: string): Promise<IBTradingSession[]> {
+    let sessions = Array.from(this.ibTradingSessions.values()).filter(sess => sess.userId === userId);
+    if (ibAccountId) {
+      sessions = sessions.filter(sess => sess.ibAccountId === ibAccountId);
+    }
+    return sessions;
+  }
+
+  async getIBTradingSession(id: string): Promise<IBTradingSession | undefined> {
+    return this.ibTradingSessions.get(id);
+  }
+
+  async createIBTradingSession(session: InsertIBTradingSession): Promise<IBTradingSession> {
+    const id = `ib-session-${Date.now()}`;
+    const newSession: IBTradingSession = {
+      ...session,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.ibTradingSessions.set(id, newSession);
+    return newSession;
+  }
+
+  async updateIBTradingSession(id: string, updates: Partial<IBTradingSession>): Promise<IBTradingSession | undefined> {
+    const session = this.ibTradingSessions.get(id);
+    if (!session) return undefined;
+    
+    const updated = { ...session, ...updates, updatedAt: new Date() };
+    this.ibTradingSessions.set(id, updated);
+    return updated;
+  }
+
+  async getActiveIBTradingSession(ibAccountId: string): Promise<IBTradingSession | undefined> {
+    return Array.from(this.ibTradingSessions.values()).find(sess => 
+      sess.ibAccountId === ibAccountId && !sess.disconnectedAt
+    );
+  }
+
+  async endIBTradingSession(id: string, disconnectReason?: string): Promise<IBTradingSession | undefined> {
+    return this.updateIBTradingSession(id, { 
+      disconnectedAt: new Date(),
+      disconnectReason 
+    });
   }
 }
 

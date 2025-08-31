@@ -13392,6 +13392,161 @@ System Security Data:`;
     }
   });
 
+  // Interactive Brokers API integration routes
+  app.get("/api/ib/accounts", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const accounts = await storage.getIBAccounts(req.user.id);
+      res.json({ accounts });
+    } catch (error) {
+      console.error("Error fetching IB accounts:", error);
+      res.status(500).json({ error: "Failed to fetch IB accounts" });
+    }
+  });
+
+  app.post("/api/ib/accounts", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { accountNumber, host = "127.0.0.1", port = 7497, clientId } = req.body;
+
+      if (!accountNumber || !clientId) {
+        return res.status(400).json({ error: "Account number and client ID are required" });
+      }
+
+      const account = await storage.createIBAccount({
+        userId: req.user.id,
+        accountNumber,
+        host,
+        port,
+        clientId,
+        status: "disconnected"
+      });
+
+      res.json({ account });
+    } catch (error) {
+      console.error("Error creating IB account:", error);
+      res.status(500).json({ error: "Failed to create IB account" });
+    }
+  });
+
+  app.post("/api/ib/accounts/:id/connect", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { id } = req.params;
+      const account = await storage.getIBAccount(id);
+
+      if (!account || account.userId !== req.user.id) {
+        return res.status(404).json({ error: "IB account not found" });
+      }
+
+      // TODO: Implement actual IB API connection logic
+      // For now, just update status
+      const updatedAccount = await storage.updateIBAccountConnectionStatus(
+        id, 
+        "connected", 
+        new Date()
+      );
+
+      res.json({ account: updatedAccount });
+    } catch (error) {
+      console.error("Error connecting to IB account:", error);
+      res.status(500).json({ error: "Failed to connect to IB account" });
+    }
+  });
+
+  app.get("/api/ib/positions", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { accountId } = req.query;
+      const positions = await storage.getIBPositions(req.user.id, accountId as string);
+      res.json({ positions });
+    } catch (error) {
+      console.error("Error fetching IB positions:", error);
+      res.status(500).json({ error: "Failed to fetch IB positions" });
+    }
+  });
+
+  app.get("/api/ib/orders", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { accountId } = req.query;
+      const orders = await storage.getIBOrders(req.user.id, accountId as string);
+      res.json({ orders });
+    } catch (error) {
+      console.error("Error fetching IB orders:", error);
+      res.status(500).json({ error: "Failed to fetch IB orders" });
+    }
+  });
+
+  app.post("/api/ib/orders", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { ibAccountId, symbol, action, quantity, orderType, price, timeInForce } = req.body;
+
+      if (!ibAccountId || !symbol || !action || !quantity || !orderType) {
+        return res.status(400).json({ error: "Missing required order parameters" });
+      }
+
+      // Verify account ownership
+      const account = await storage.getIBAccount(ibAccountId);
+      if (!account || account.userId !== req.user.id) {
+        return res.status(404).json({ error: "IB account not found" });
+      }
+
+      const order = await storage.createIBOrder({
+        userId: req.user.id,
+        ibAccountId,
+        symbol,
+        action,
+        quantity,
+        orderType,
+        price,
+        timeInForce: timeInForce || "DAY",
+        status: "pending"
+      });
+
+      // TODO: Submit order to IB API
+
+      res.json({ order });
+    } catch (error) {
+      console.error("Error creating IB order:", error);
+      res.status(500).json({ error: "Failed to create IB order" });
+    }
+  });
+
+  app.get("/api/ib/account-summary", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { accountId } = req.query;
+      const summaries = await storage.getIBAccountSummary(req.user.id, accountId as string);
+      res.json({ summaries });
+    } catch (error) {
+      console.error("Error fetching IB account summary:", error);
+      res.status(500).json({ error: "Failed to fetch IB account summary" });
+    }
+  });
+
   // Global error handler (must be last)
   app.use(globalErrorHandler);
 
