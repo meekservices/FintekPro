@@ -1,4 +1,4 @@
-import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type CkycNotificationTrigger, type CkycProgressStep, type CkycActionLog, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Supplier, type InsertSupplier, type SupplierProduct, type InsertSupplierProduct, type ProductPerformanceMetric, type InsertProductPerformanceMetric, type EpfHolding, type PpfHolding, type EpsHolding, type GovernmentSchemeConsent, type InsertGovernmentSchemeConsent } from "@shared/schema";
+import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type CkycNotificationTrigger, type CkycProgressStep, type CkycActionLog, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Supplier, type InsertSupplier, type SupplierProduct, type InsertSupplierProduct, type ProductPerformanceMetric, type InsertProductPerformanceMetric, type EpfHolding, type PpfHolding, type EpsHolding, type GovernmentSchemeConsent, type InsertGovernmentSchemeConsent, type InsuranceHolding, type InsertInsuranceHolding } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 // We'll import hashPassword later to avoid circular dependency
@@ -29,6 +29,11 @@ export interface IStorage {
   getEpfHoldings(userId: string): Promise<EpfHolding[]>;
   getPpfHoldings(userId: string): Promise<PpfHolding[]>;
   getEpsHoldings(userId: string): Promise<EpsHolding[]>;
+  
+  // Insurance Holdings methods
+  getInsuranceHoldings(userId: string): Promise<InsuranceHolding[]>;
+  createInsuranceHolding(holding: InsertInsuranceHolding): Promise<InsuranceHolding>;
+  updateInsuranceHolding(id: string, updates: Partial<InsuranceHolding>): Promise<InsuranceHolding | undefined>;
   
   // Government Scheme Consent methods
   checkGovernmentSchemeConsent(userId: string, panNumber: string, schemeType: string): Promise<boolean>;
@@ -349,6 +354,7 @@ export class MemStorage implements IStorage {
   private ppfHoldings: Map<string, PpfHolding[]>;
   private epsHoldings: Map<string, EpsHolding[]>;
   private governmentSchemeConsents: Map<string, GovernmentSchemeConsent[]>;
+  private insuranceHoldings: Map<string, InsuranceHolding[]>;
   private loanApplications: Map<string, any>;
   private collateralValuations: Map<string, any>;
 
@@ -396,6 +402,7 @@ export class MemStorage implements IStorage {
     this.ppfHoldings = new Map();
     this.epsHoldings = new Map();
     this.governmentSchemeConsents = new Map();
+    this.insuranceHoldings = new Map();
     this.loanApplications = new Map();
     this.collateralValuations = new Map();
     
@@ -2907,6 +2914,44 @@ export class MemStorage implements IStorage {
     return this.epsHoldings.get(userId) || [];
   }
 
+  // Insurance Holdings methods
+  async getInsuranceHoldings(userId: string): Promise<InsuranceHolding[]> {
+    return this.insuranceHoldings.get(userId) || [];
+  }
+
+  async createInsuranceHolding(holding: InsertInsuranceHolding): Promise<InsuranceHolding> {
+    const id = randomUUID();
+    const newHolding: InsuranceHolding = {
+      ...holding,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    const userHoldings = this.insuranceHoldings.get(holding.userId) || [];
+    userHoldings.push(newHolding);
+    this.insuranceHoldings.set(holding.userId, userHoldings);
+    
+    return newHolding;
+  }
+
+  async updateInsuranceHolding(id: string, updates: Partial<InsuranceHolding>): Promise<InsuranceHolding | undefined> {
+    for (const [userId, holdings] of this.insuranceHoldings.entries()) {
+      const index = holdings.findIndex(h => h.id === id);
+      if (index !== -1) {
+        const updatedHolding = { 
+          ...holdings[index], 
+          ...updates, 
+          updatedAt: new Date() 
+        };
+        holdings[index] = updatedHolding;
+        this.insuranceHoldings.set(userId, holdings);
+        return updatedHolding;
+      }
+    }
+    return undefined;
+  }
+
   // Government Scheme Consent methods
   async checkGovernmentSchemeConsent(userId: string, panNumber: string, schemeType: string): Promise<boolean> {
     const consents = this.governmentSchemeConsents.get(userId) || [];
@@ -3077,10 +3122,75 @@ export class MemStorage implements IStorage {
       }
     ];
 
+    // Sample Insurance Holdings for demo user
+    const sampleInsuranceHoldings: InsuranceHolding[] = [
+      {
+        id: "insurance-holding-1",
+        userId: "demo-user-1",
+        policyNumber: "LIC/500/1234567890",
+        policyName: "Jeevan Anand",
+        insuranceCompany: "Life Insurance Corporation of India",
+        policyType: "life",
+        category: "traditional",
+        sumAssured: "1000000.00",
+        premiumAmount: "25000.00",
+        premiumFrequency: "yearly",
+        fundValue: null,
+        policyStartDate: new Date("2020-04-01"),
+        policyMaturityDate: new Date("2040-03-31"),
+        premiumDueDate: new Date("2025-04-01"),
+        lastPremiumPaidDate: new Date("2024-04-01"),
+        depositoryName: "NSDL",
+        depositoryAccountNumber: "IN300214-12345678",
+        isinNumber: "INE123A01012",
+        policyStatus: "active",
+        paidUpValue: "85000.00",
+        surrenderValue: "75000.00",
+        nomineeDetails: "John Doe - Spouse",
+        nomineeRelation: "Spouse",
+        agentCode: "LIC001234",
+        branchCode: "HYD001",
+        servicing_branch: "Hyderabad Secunderabad",
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: "insurance-holding-2",
+        userId: "demo-user-1",
+        policyNumber: "HDFC/LIFE/2024/987654321",
+        policyName: "HDFC Life Click 2 Protect Plus",
+        insuranceCompany: "HDFC Life Insurance",
+        policyType: "life",
+        category: "term",
+        sumAssured: "5000000.00",
+        premiumAmount: "12000.00",
+        premiumFrequency: "yearly",
+        fundValue: null,
+        policyStartDate: new Date("2024-01-15"),
+        policyMaturityDate: new Date("2054-01-14"),
+        premiumDueDate: new Date("2025-01-15"),
+        lastPremiumPaidDate: new Date("2024-01-15"),
+        depositoryName: "CDSL",
+        depositoryAccountNumber: "12345678-12345678",
+        isinNumber: "INE040A01034",
+        policyStatus: "active",
+        paidUpValue: null,
+        surrenderValue: null,
+        nomineeDetails: "Jane Doe - Daughter",
+        nomineeRelation: "Daughter",
+        agentCode: "HDFC5678",
+        branchCode: "HYD002",
+        servicing_branch: "HDFC Life Banjara Hills",
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    ];
+
     // Store the sample data
     this.epfHoldings.set("demo-user-1", sampleEpfHoldings);
     this.ppfHoldings.set("demo-user-1", samplePpfHoldings);
     this.epsHoldings.set("demo-user-1", sampleEpsHoldings);
+    this.insuranceHoldings.set("demo-user-1", sampleInsuranceHoldings);
   }
 
   // Loan Against Securities methods implementation

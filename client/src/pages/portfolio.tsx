@@ -6,11 +6,11 @@ import { RebalanceDashboard } from "@/components/dashboard/rebalance-dashboard";
 import { RebalancingSuggestions } from "@/components/rebalancing-suggestions";
 import { PiChatSummaries } from "@/components/portfolio/pi-chat-summaries";
 import { CommodityTracker } from "@/components/portfolio/commodity-tracker";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { usePortfoliosByPan, useEnhancedPortfolioHoldings, usePortfolioPerformance, useEpfHoldings, usePpfHoldings, useEpsHoldings } from "@/hooks/use-portfolio";
+import { usePortfoliosByPan, useEnhancedPortfolioHoldings, usePortfolioPerformance, useEpfHoldings, usePpfHoldings, useEpsHoldings, useInsuranceHoldings } from "@/hooks/use-portfolio";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, TrendingUp, TrendingDown, RefreshCw, Bot, Coins, CreditCard, PiggyBank, Shield } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -38,6 +38,9 @@ export default function Portfolio() {
   const { data: epfHoldings, isLoading: epfLoading } = useEpfHoldings();
   const { data: ppfHoldings, isLoading: ppfLoading } = usePpfHoldings();
   const { data: epsHoldings, isLoading: epsLoading } = useEpsHoldings();
+  
+  // Insurance Holdings data from NSDL/CDSL
+  const { data: insuranceHoldings, isLoading: insuranceLoading } = useInsuranceHoldings();
   
   const isLoading = portfoliosLoading || holdingsLoading || performanceLoading;
   const totalValue = performance ? parseFloat(performance.totalCurrentValue) : 1250000;
@@ -142,7 +145,7 @@ export default function Portfolio() {
 
         {/* Enhanced Portfolio with Tabs */}
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-7">
+          <TabsList className="grid w-full grid-cols-8">
             <TabsTrigger value="overview">Portfolio Overview</TabsTrigger>
             <TabsTrigger value="pi-chat" className="flex items-center space-x-1">
               <Bot className="h-4 w-4" />
@@ -151,6 +154,10 @@ export default function Portfolio() {
             <TabsTrigger value="commodities" className="flex items-center space-x-1">
               <Coins className="h-4 w-4" />
               <span>Commodities</span>
+            </TabsTrigger>
+            <TabsTrigger value="insurance" className="flex items-center space-x-1">
+              <Shield className="h-4 w-4" />
+              <span>Insurance</span>
             </TabsTrigger>
             <TabsTrigger value="epf" className="flex items-center space-x-1">
               <CreditCard className="h-4 w-4" />
@@ -726,6 +733,259 @@ export default function Portfolio() {
                 <AssetAllocation portfolioId={portfolioId} />
               </div>
             </div>
+          </TabsContent>
+
+          <TabsContent value="insurance" className="space-y-8">
+            <ConsentAwareSchemeTab 
+              schemeType="insurance" 
+              onRequestConsent={handleRequestConsent}
+            >
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                {/* Insurance Holdings Overview */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <Shield className="h-5 w-5 text-blue-600" />
+                      <span>Insurance Holdings Overview</span>
+                    </CardTitle>
+                    <CardDescription>
+                      Holdings data from NSDL & CDSL depository accounts
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {insuranceLoading ? (
+                      <div className="space-y-4">
+                        <Skeleton className="h-24 w-full" />
+                        <Skeleton className="h-32 w-full" />
+                      </div>
+                    ) : (
+                    <div className="space-y-6">
+                      {/* Summary Stats */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="p-4 bg-blue-50 rounded-lg">
+                          <div className="text-sm text-muted-foreground">Total Policies</div>
+                          <div className="text-2xl font-bold text-blue-600">{insuranceHoldings?.length || 0}</div>
+                        </div>
+                        <div className="p-4 bg-green-50 rounded-lg">
+                          <div className="text-sm text-muted-foreground">Total Coverage</div>
+                          <div className="text-2xl font-bold text-green-600">
+                            ₹{insuranceHoldings?.reduce((sum, policy) => sum + parseFloat(policy.sumAssured), 0).toLocaleString() || "0"}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Policy Breakdown */}
+                      <div className="space-y-3">
+                        <h4 className="font-semibold text-gray-900">Policy Categories</h4>
+                        <div className="space-y-2">
+                          {insuranceHoldings && insuranceHoldings.length > 0 ? (
+                            Array.from(new Set(insuranceHoldings.map(p => p.policyType))).map(policyType => {
+                              const count = insuranceHoldings.filter(p => p.policyType === policyType).length;
+                              return (
+                                <div key={policyType} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                  <span className="text-sm">{policyType.charAt(0).toUpperCase() + policyType.slice(1)} Insurance</span>
+                                  <span className="font-medium">{count} {count === 1 ? 'policy' : 'policies'}</span>
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <div className="text-center text-muted-foreground py-4">
+                              <p className="text-sm">No policy categories to display</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Depository Info */}
+                      <div className="space-y-3">
+                        <h4 className="font-semibold text-gray-900">Depository Details</h4>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="text-center p-3 bg-purple-50 rounded-lg">
+                            <p className="text-sm font-medium text-purple-600">NSDL Holdings</p>
+                            <p className="text-xs text-purple-600">{insuranceHoldings?.filter(p => p.depositoryName === 'NSDL').length || 0} policies</p>
+                          </div>
+                          <div className="text-center p-3 bg-indigo-50 rounded-lg">
+                            <p className="text-sm font-medium text-indigo-600">CDSL Holdings</p>
+                            <p className="text-xs text-indigo-600">{insuranceHoldings?.filter(p => p.depositoryName === 'CDSL').length || 0} policies</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Detailed Policy List */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <Shield className="h-5 w-5 text-green-600" />
+                      <span>Active Insurance Policies</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {insuranceLoading ? (
+                      <div className="space-y-4">
+                        <Skeleton className="h-24 w-full" />
+                        <Skeleton className="h-24 w-full" />
+                        <Skeleton className="h-24 w-full" />
+                      </div>
+                    ) : (
+                    <div className="space-y-4">
+                      {insuranceHoldings && insuranceHoldings.length > 0 ? (
+                        insuranceHoldings.map((policy) => (
+                          <div key={policy.id} className="border rounded-lg p-4" data-testid={`insurance-policy-${policy.id}`}>
+                            <div className="flex justify-between items-start mb-3">
+                              <div>
+                                <h4 className="font-medium text-gray-900">{policy.policyName}</h4>
+                                <p className="text-sm text-muted-foreground">Policy No: {policy.policyNumber}</p>
+                                <p className="text-xs text-muted-foreground">{policy.insuranceCompany}</p>
+                              </div>
+                              <Badge className={policy.policyStatus === 'active' ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}>
+                                {policy.policyStatus.charAt(0).toUpperCase() + policy.policyStatus.slice(1)}
+                              </Badge>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                              <div>
+                                <p className="text-muted-foreground">Sum Assured</p>
+                                <p className="font-medium">₹{parseFloat(policy.sumAssured).toLocaleString()}</p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">Premium</p>
+                                <p className="font-medium">₹{parseFloat(policy.premiumAmount).toLocaleString()}/{policy.premiumFrequency}</p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">
+                                  {policy.policyMaturityDate ? 'Maturity Date' : 'Premium Due'}
+                                </p>
+                                <p className="font-medium">
+                                  {policy.policyMaturityDate 
+                                    ? new Date(policy.policyMaturityDate).toLocaleDateString()
+                                    : policy.premiumDueDate ? new Date(policy.premiumDueDate).toLocaleDateString() : 'N/A'
+                                  }
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">Depository</p>
+                                <p className={`font-medium ${policy.depositoryName === 'NSDL' ? 'text-purple-600' : 'text-indigo-600'}`}>
+                                  {policy.depositoryName}
+                                </p>
+                              </div>
+                              {policy.fundValue && (
+                                <div className="col-span-2">
+                                  <p className="text-muted-foreground">Fund Value</p>
+                                  <p className="font-medium text-green-600">₹{parseFloat(policy.fundValue).toLocaleString()}</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <Shield className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                          <p>No insurance policies found</p>
+                          <p className="text-sm">Connect your NSDL/CDSL account to view your insurance holdings</p>
+                        </div>
+                      )}
+                    </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Insurance Portfolio Analytics */}
+              <Card className="mt-6">
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Shield className="h-5 w-5 text-orange-600" />
+                    <span>Insurance Portfolio Analytics</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    {/* Coverage Adequacy */}
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-gray-900">Coverage Adequacy</h4>
+                      <div className="text-center">
+                        <div className="text-3xl font-bold text-green-600">85%</div>
+                        <p className="text-sm text-muted-foreground">of recommended coverage</p>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div className="bg-green-600 h-2 rounded-full" style={{ width: '85%' }}></div>
+                      </div>
+                    </div>
+
+                    {/* Annual Premium */}
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-gray-900">Annual Premium</h4>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-sm">Total Premium</span>
+                          <span className="text-sm font-medium">₹88,500</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm">% of Income</span>
+                          <span className="text-sm font-medium text-green-600">8.2%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm">Next Due</span>
+                          <span className="text-sm font-medium text-orange-600">15 days</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Risk Protection */}
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-gray-900">Risk Protection</h4>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-sm">Life Coverage</span>
+                          <span className="text-sm font-medium">₹1.5Cr</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm">Health Coverage</span>
+                          <span className="text-sm font-medium">₹20L</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm">Motor Coverage</span>
+                          <span className="text-sm font-medium">₹15L</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Portfolio Impact */}
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-gray-900">Portfolio Impact</h4>
+                      <div className="space-y-2">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-blue-600">₹3.85L</div>
+                          <p className="text-sm text-muted-foreground">ULIP Fund Value</p>
+                        </div>
+                        <div className="text-xs text-gray-600 text-center">
+                          Part of investment portfolio
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-4 mt-6 pt-4 border-t">
+                    <Button variant="outline" size="sm" data-testid="button-view-policies">
+                      View All Policies
+                    </Button>
+                    <Button variant="outline" size="sm" data-testid="button-pay-premium">
+                      Pay Premium
+                    </Button>
+                    <Button variant="outline" size="sm" data-testid="button-claim-status">
+                      Claim Status
+                    </Button>
+                    <Button variant="outline" size="sm" data-testid="button-download-certificates">
+                      Download Certificates
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </ConsentAwareSchemeTab>
           </TabsContent>
 
           <TabsContent value="epf" className="space-y-8">

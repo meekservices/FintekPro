@@ -7112,6 +7112,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Insurance Holdings Routes
+  app.get("/api/insurance-holdings", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const insuranceHoldings = await storage.getInsuranceHoldings(userId);
+      res.json(insuranceHoldings);
+    } catch (error) {
+      console.error("Error fetching insurance holdings:", error);
+      res.status(500).json({ error: "Failed to fetch insurance holdings" });
+    }
+  });
+
+  app.post("/api/insurance-holdings", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const holdingData = { ...req.body, userId };
+      const insuranceHolding = await storage.createInsuranceHolding(holdingData);
+      res.json(insuranceHolding);
+    } catch (error) {
+      console.error("Error creating insurance holding:", error);
+      res.status(500).json({ error: "Failed to create insurance holding" });
+    }
+  });
+
+  app.patch("/api/insurance-holdings/:id", requireAuth, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      const updatedHolding = await storage.updateInsuranceHolding(id, updates);
+      if (!updatedHolding) {
+        return res.status(404).json({ error: "Insurance holding not found" });
+      }
+      res.json(updatedHolding);
+    } catch (error) {
+      console.error("Error updating insurance holding:", error);
+      res.status(500).json({ error: "Failed to update insurance holding" });
+    }
+  });
+
   // Legacy endpoint for backwards compatibility
   app.get("/api/portfolios/:userId", async (req, res) => {
     try {

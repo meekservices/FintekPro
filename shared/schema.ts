@@ -2439,9 +2439,65 @@ export type ProductPerformance = typeof productPerformance.$inferSelect;
 export type InsertProductPerformance = z.infer<typeof insertProductPerformanceSchema>;
 
 // Export types for loan tables
+// Insurance Holdings table for NSDL/CDSL insurance policy data
+export const insuranceHoldings = pgTable("insurance_holdings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Policy Information
+  policyNumber: varchar("policy_number").notNull(),
+  policyName: varchar("policy_name").notNull(),
+  insuranceCompany: varchar("insurance_company").notNull(),
+  policyType: varchar("policy_type").notNull(), // life, health, motor, general
+  category: varchar("category").notNull(), // traditional, ulip, term, health, motor
+  
+  // Coverage and Premium Details
+  sumAssured: decimal("sum_assured", { precision: 15, scale: 2 }).notNull(),
+  premiumAmount: decimal("premium_amount", { precision: 15, scale: 2 }).notNull(),
+  premiumFrequency: varchar("premium_frequency").default("yearly"), // monthly, quarterly, half_yearly, yearly
+  fundValue: decimal("fund_value", { precision: 15, scale: 2 }), // For ULIP policies
+  
+  // Policy Dates
+  policyStartDate: date("policy_start_date").notNull(),
+  policyMaturityDate: date("policy_maturity_date"),
+  premiumDueDate: date("premium_due_date"),
+  lastPremiumPaidDate: date("last_premium_paid_date"),
+  
+  // Depository Information
+  depositoryName: varchar("depository_name").notNull(), // NSDL or CDSL
+  depositoryAccountNumber: varchar("depository_account_number"),
+  isinNumber: varchar("isin_number"),
+  
+  // Policy Status
+  policyStatus: varchar("policy_status").default("active"), // active, lapsed, matured, surrendered
+  paidUpValue: decimal("paid_up_value", { precision: 15, scale: 2 }),
+  surrenderValue: decimal("surrender_value", { precision: 15, scale: 2 }),
+  
+  // Nominee Information
+  nomineeDetails: text("nominee_details"),
+  nomineeRelation: varchar("nominee_relation"),
+  
+  // Additional Metadata
+  agentCode: varchar("agent_code"),
+  branchCode: varchar("branch_code"),
+  servicing_branch: varchar("servicing_branch"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Create insert schema for insurance holdings
+export const insertInsuranceHoldingSchema = createInsertSchema(insuranceHoldings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export type LoanApplication = typeof loanApplications.$inferSelect;
 export type InsertLoanApplication = z.infer<typeof insertLoanApplicationSchema>;
 export type LoanRepayment = typeof loanRepayments.$inferSelect;
 export type InsertLoanRepayment = z.infer<typeof insertLoanRepaymentSchema>;
 export type CollateralValuation = typeof collateralValuations.$inferSelect;
 export type InsertCollateralValuation = z.infer<typeof insertCollateralValuationSchema>;
+export type InsuranceHolding = typeof insuranceHoldings.$inferSelect;
+export type InsertInsuranceHolding = z.infer<typeof insertInsuranceHoldingSchema>;
