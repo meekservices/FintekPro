@@ -16446,6 +16446,77 @@ System Security Data:`;
     }
   });
 
+  // API Key Management endpoints (admin only)
+  app.get("/api/admin/api-keys", requireAdmin, async (req, res) => {
+    try {
+      // Return available API keys without exposing actual values
+      const apiKeys = {
+        GEMINI_API_KEY: process.env.GEMINI_API_KEY ? 'configured' : 'not_configured',
+        FINNHUB_API_KEY: process.env.FINNHUB_API_KEY ? 'configured' : 'not_configured', 
+        ALPHA_VANTAGE_API_KEY: process.env.ALPHA_VANTAGE_API_KEY ? 'configured' : 'not_configured',
+        OPENAI_API_KEY: process.env.OPENAI_API_KEY ? 'configured' : 'not_configured',
+        ICICI_BANK_API_KEY: process.env.ICICI_BANK_API_KEY ? 'configured' : 'not_configured',
+        HDFC_BANK_API_KEY: process.env.HDFC_BANK_API_KEY ? 'configured' : 'not_configured',
+        JM_FINANCIAL_API_KEY: process.env.JM_FINANCIAL_API_KEY ? 'configured' : 'not_configured',
+        PROBE42_API_KEY: process.env.PROBE42_API_KEY ? 'configured' : 'not_configured'
+      };
+
+      res.json({ success: true, data: apiKeys });
+    } catch (error) {
+      console.error("Error fetching API keys status:", error);
+      res.status(500).json({ success: false, error: "Failed to fetch API keys status" });
+    }
+  });
+
+  app.post("/api/admin/api-keys", requireAdmin, async (req, res) => {
+    try {
+      const { keyName, keyValue } = req.body;
+      
+      if (!keyName || !keyValue) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "API key name and value are required" 
+        });
+      }
+
+      // Validate that the key name is allowed
+      const allowedKeys = [
+        'GEMINI_API_KEY', 'FINNHUB_API_KEY', 'ALPHA_VANTAGE_API_KEY', 
+        'OPENAI_API_KEY', 'ICICI_BANK_API_KEY', 'HDFC_BANK_API_KEY',
+        'JM_FINANCIAL_API_KEY', 'PROBE42_API_KEY'
+      ];
+
+      if (!allowedKeys.includes(keyName)) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Invalid API key name" 
+        });
+      }
+
+      // Update environment variable (note: this only persists for current session)
+      process.env[keyName] = keyValue;
+
+      // Log the configuration change for audit
+      await adminService.logActivity({
+        userId: req.user.id,
+        action: 'api_key_updated',
+        resource: `API Key: ${keyName}`,
+        ipAddress: req.ip || req.connection.remoteAddress,
+        userAgent: req.get('User-Agent'),
+        details: { keyName, timestamp: new Date().toISOString() }
+      });
+
+      res.json({ 
+        success: true, 
+        message: `${keyName} has been updated successfully`,
+        data: { keyName, status: 'configured' }
+      });
+    } catch (error) {
+      console.error("Error updating API key:", error);
+      res.status(500).json({ success: false, error: "Failed to update API key" });
+    }
+  });
+
   // Global error handler (must be last)
   app.use(globalErrorHandler);
 

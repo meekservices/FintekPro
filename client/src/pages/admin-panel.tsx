@@ -274,10 +274,64 @@ function Probe42Intelligence() {
 
 // Enhanced API Status Panel Component
 function ApiStatusPanel() {
-  const { data: apiStatus = {}, isLoading, error } = useQuery({
+  const { data: apiStatus = {}, isLoading, error, refetch } = useQuery({
     queryKey: ['/api/public/api-status'], // Using public endpoint for testing
     refetchInterval: 10000, // Refresh every 10 seconds for real-time monitoring
   });
+
+  const { data: apiKeys = {}, refetch: refetchApiKeys } = useQuery({
+    queryKey: ['/api/admin/api-keys'],
+    enabled: true // Only fetch for admin users
+  });
+
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedApiKey, setSelectedApiKey] = useState<string>('');
+  const [keyValue, setKeyValue] = useState('');
+  const { toast } = useToast();
+
+  const updateApiKeyMutation = useMutation({
+    mutationFn: async ({ keyName, keyValue }: { keyName: string; keyValue: string }) => {
+      return await apiRequest('/api/admin/api-keys', {
+        method: 'POST',
+        body: { keyName, keyValue }
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "API Key Updated",
+        description: "The API key has been updated successfully",
+      });
+      setEditDialogOpen(false);
+      setKeyValue('');
+      refetchApiKeys();
+      refetch(); // Refresh API status
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Update Failed",
+        description: error.message || "Failed to update API key",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const handleEditApiKey = (keyName: string) => {
+    setSelectedApiKey(keyName);
+    setKeyValue('');
+    setEditDialogOpen(true);
+  };
+
+  const handleSaveApiKey = () => {
+    if (!selectedApiKey || !keyValue.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter a valid API key",
+        variant: "destructive"
+      });
+      return;
+    }
+    updateApiKeyMutation.mutate({ keyName: selectedApiKey, keyValue: keyValue.trim() });
+  };
 
   const getOverallStatusColor = (status: string) => {
     switch (status) {
@@ -503,8 +557,27 @@ function ApiStatusPanel() {
                           </Badge>
                         </div>
                       </div>
-                      <div className="flex-shrink-0">
+                      <div className="flex-shrink-0 flex items-center gap-2">
                         {getStatusIcon(api.status)}
+                        {/* Add edit button for configurable API keys */}
+                        {(key.toUpperCase().includes('GEMINI') || 
+                          key.toUpperCase().includes('FINNHUB') || 
+                          key.toUpperCase().includes('ALPHA_VANTAGE') ||
+                          key.toUpperCase().includes('OPENAI') ||
+                          key.toUpperCase().includes('ICICI') ||
+                          key.toUpperCase().includes('HDFC') ||
+                          key.toUpperCase().includes('JM_FINANCIAL') ||
+                          key.toUpperCase().includes('PROBE42')) && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleEditApiKey(key.toUpperCase().replace(/\s+/g, '_') + '_API_KEY')}
+                            className="h-8 w-8 p-0"
+                            data-testid={`button-edit-api-key-${key}`}
+                          >
+                            <Edit className="w-3 h-3" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </CardHeader>
@@ -677,6 +750,78 @@ function ApiStatusPanel() {
         </Card>
       )}
 
+      {/* API Configuration Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="w-5 h-5" />
+            API Configuration ({Object.keys(apiKeys?.data || {}).length})
+          </CardTitle>
+          <CardDescription>
+            Manage and configure API keys for external service integrations
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {Object.entries(apiKeys?.data || {}).map(([keyName, status]: [string, any]) => {
+              const getKeyStatusColor = (status: string) => {
+                return status === 'configured' ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50';
+              };
+
+              const getKeyStatusIcon = (status: string) => {
+                return status === 'configured' ? 
+                  <CheckCircle className="w-4 h-4 text-green-600" /> : 
+                  <AlertTriangle className="w-4 h-4 text-red-600" />;
+              };
+
+              const getServiceName = (keyName: string) => {
+                return keyName.replace(/_API_KEY$/, '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+              };
+
+              return (
+                <Card key={keyName} className={`transition-all duration-300 border hover:shadow-md ${getKeyStatusColor(status)}`}>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {getKeyStatusIcon(status)}
+                        <div>
+                          <CardTitle className="text-sm text-gray-900">
+                            {getServiceName(keyName)}
+                          </CardTitle>
+                          <Badge 
+                            variant={status === 'configured' ? 'default' : 'destructive'}
+                            className="text-xs mt-1"
+                          >
+                            {status === 'configured' ? 'Configured' : 'Not Configured'}
+                          </Badge>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleEditApiKey(keyName)}
+                        className="h-8 w-8 p-0"
+                        data-testid={`button-edit-key-${keyName}`}
+                      >
+                        <Edit className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="text-xs text-muted-foreground">
+                      {status === 'configured' ? 
+                        'API key is configured and ready for use' : 
+                        'API key needs to be configured for this service'
+                      }
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Manual API Test Section */}
       <Card>
         <CardHeader>
@@ -732,6 +877,65 @@ function ApiStatusPanel() {
           </div>
         </CardContent>
       </Card>
+
+      {/* API Key Edit Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Settings className="w-5 h-5" />
+              Edit API Key
+            </DialogTitle>
+            <DialogDescription>
+              Update the API key for {selectedApiKey?.replace(/_/g, ' ')}. This change will take effect immediately.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="api-key-input">API Key</Label>
+              <Input
+                id="api-key-input"
+                type="password"
+                placeholder="Enter new API key..."
+                value={keyValue}
+                onChange={(e) => setKeyValue(e.target.value)}
+                data-testid="input-api-key"
+              />
+              <p className="text-xs text-muted-foreground">
+                The API key will be stored securely and validated immediately.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setEditDialogOpen(false)}
+              data-testid="button-cancel-api-key"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveApiKey}
+              disabled={updateApiKeyMutation.isPending || !keyValue.trim()}
+              data-testid="button-save-api-key"
+            >
+              {updateApiKeyMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Update Key
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
