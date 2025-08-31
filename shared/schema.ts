@@ -152,6 +152,71 @@ export const users = pgTable("users", {
   profileImageUrl: varchar("profile_image_url"),
   isEmailVerified: boolean("is_email_verified").default(false),
   isMobileVerified: boolean("is_mobile_verified").default(false),
+  
+  // Enhanced KYC Fields
+  panNumber: varchar("pan_number"),
+  aadharNumber: varchar("aadhar_number"),
+  passportNumber: varchar("passport_number"),
+  drivingLicense: varchar("driving_license"),
+  voterIdNumber: varchar("voter_id_number"),
+  dateOfBirth: varchar("date_of_birth"),
+  nationality: varchar("nationality"),
+  fatherName: varchar("father_name"),
+  motherName: varchar("mother_name"),
+  spouseName: varchar("spouse_name"),
+  maritalStatus: varchar("marital_status"),
+  
+  // Address Information
+  address: text("address"),
+  city: varchar("city"),
+  state: varchar("state"),
+  pincode: varchar("pincode"),
+  country: varchar("country"),
+  
+  // Financial Information
+  occupation: varchar("occupation"),
+  annualIncome: varchar("annual_income"),
+  investmentExperience: varchar("investment_experience"),
+  riskTolerance: varchar("risk_tolerance"),
+  sourceOfWealth: varchar("source_of_wealth"),
+  
+  // Residency Status - Critical for NRI Compliance
+  residentStatus: varchar("resident_status"),
+  countryOfResidence: varchar("country_of_residence"),
+  taxResidencyCountry: varchar("tax_residency_country"),
+  
+  // FATCA Compliance Fields
+  fatcaStatus: varchar("fatca_status"),
+  fatcaTinNumber: varchar("fatca_tin_number"),
+  fatcaCountryOfTaxResidence: varchar("fatca_country_of_tax_residence"),
+  
+  // PEP Status
+  pepStatus: varchar("pep_status"),
+  pepDetails: text("pep_details"),
+  
+  // UBO Information
+  isUbo: boolean("is_ubo").default(false),
+  uboDetails: text("ubo_details"),
+  
+  // Banking & Nominee Information
+  bankAccountNumber: varchar("bank_account_number"),
+  ifscCode: varchar("ifsc_code"),
+  nomineeDetails: text("nominee_details"),
+  nomineeRelation: varchar("nominee_relation"),
+  
+  // EUIN and API Integration
+  euinNumber: varchar("euin_number"),
+  enableCamsApi: boolean("enable_cams_api").default(false),
+  enableKfintechApi: boolean("enable_kfintech_api").default(false),
+  enableNsdlApi: boolean("enable_nsdl_api").default(false),
+  enableCdslApi: boolean("enable_cdsl_api").default(false),
+  
+  // Registry Preferences
+  preferredCamsRegistration: boolean("preferred_cams_registration").default(false),
+  preferredKfintechRegistration: boolean("preferred_kfintech_registration").default(false),
+  preferredNsdlRegistration: boolean("preferred_nsdl_registration").default(false),
+  preferredCdslRegistration: boolean("preferred_cdsl_registration").default(false),
+  
   // Admin and system fields
   role: varchar("role").default("user"), // 'user', 'admin', 'super_admin'
   isActive: boolean("is_active").default(true),

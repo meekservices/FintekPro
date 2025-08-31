@@ -15,7 +15,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { User, Shield, CreditCard, Building, TrendingUp, Database, FileText, Eye, Phone, Mail, Users, Link, Info } from "lucide-react";
 
 const profileSchema = z.object({
-  // Enhanced KYC Fields
+  // Enhanced KYC Fields - Mandatory as per SEBI
   panNumber: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Invalid PAN format").optional().or(z.literal("")),
   aadharNumber: z.string().regex(/^[0-9]{12}$/, "Aadhaar must be 12 digits").optional().or(z.literal("")),
   passportNumber: z.string().optional(),
@@ -27,17 +27,38 @@ const profileSchema = z.object({
   motherName: z.string().optional(),
   spouseName: z.string().optional(),
   maritalStatus: z.string().optional(),
+  
+  // Residency Status - Critical for NRI Compliance
+  residentStatus: z.string().optional(),
+  countryOfResidence: z.string().optional(),
+  taxResidencyCountry: z.string().optional(),
+  
   // Address Information
   address: z.string().optional(),
   city: z.string().optional(),
   state: z.string().optional(),
   pincode: z.string().regex(/^[0-9]{6}$/, "Pincode must be 6 digits").optional().or(z.literal("")),
   country: z.string().optional(),
-  // Financial Information
+  
+  // Financial Information - Enhanced for Compliance
   occupation: z.string().optional(),
   annualIncome: z.string().optional(),
   investmentExperience: z.string().optional(),
   riskTolerance: z.string().optional(),
+  sourceOfWealth: z.string().optional(),
+  
+  // FATCA Compliance Fields
+  fatcaStatus: z.string().optional(),
+  fatcaTinNumber: z.string().optional(),
+  fatcaCountryOfTaxResidence: z.string().optional(),
+  
+  // PEP Status
+  pepStatus: z.string().optional(),
+  pepDetails: z.string().optional(),
+  
+  // UBO Information
+  isUbo: z.boolean().optional(),
+  uboDetails: z.string().optional(),
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
@@ -55,18 +76,91 @@ type ProfileData = {
   motherName?: string | null;
   spouseName?: string | null;
   maritalStatus?: string | null;
+  
+  // Residency Status
+  residentStatus?: string | null;
+  countryOfResidence?: string | null;
+  taxResidencyCountry?: string | null;
+  
   // Address Information
   address?: string | null;
   city?: string | null;
   state?: string | null;
   pincode?: string | null;
   country?: string | null;
+  
   // Financial Information
   occupation?: string | null;
   annualIncome?: string | null;
   investmentExperience?: string | null;
   riskTolerance?: string | null;
+  sourceOfWealth?: string | null;
+  
+  // FATCA Compliance
+  fatcaStatus?: string | null;
+  fatcaTinNumber?: string | null;
+  fatcaCountryOfTaxResidence?: string | null;
+  
+  // PEP Status
+  pepStatus?: string | null;
+  pepDetails?: string | null;
+  
+  // UBO Information
+  isUbo?: boolean | null;
+  uboDetails?: string | null;
 };
+
+// Indian Compliance Constants
+const residentStatuses = [
+  "Resident Indian",
+  "Non-Resident Indian (NRI)",
+  "Person of Indian Origin (PIO)",
+  "Overseas Citizen of India (OCI)",
+  "Foreign National"
+];
+
+const sourceOfWealthOptions = [
+  "Employment/Salary",
+  "Business Income",
+  "Investment Returns",
+  "Inheritance",
+  "Gift",
+  "Sale of Property",
+  "Insurance Proceeds",
+  "Other"
+];
+
+const fatcaStatuses = [
+  "Not Applicable",
+  "US Person",
+  "Non-US Person",
+  "Passive NFFE",
+  "Active NFFE",
+  "Financial Institution"
+];
+
+const pepStatuses = [
+  "No",
+  "Yes - Self",
+  "Yes - Related Person",
+  "Yes - Close Associate"
+];
+
+const countries = [
+  "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Argentina", "Armenia", "Australia",
+  "Austria", "Azerbaijan", "Bahrain", "Bangladesh", "Belarus", "Belgium", "Bhutan", "Bolivia",
+  "Brazil", "Brunei", "Bulgaria", "Cambodia", "Canada", "Chile", "China", "Colombia",
+  "Croatia", "Cyprus", "Czech Republic", "Denmark", "Ecuador", "Egypt", "Estonia", "Ethiopia",
+  "Finland", "France", "Georgia", "Germany", "Ghana", "Greece", "Hong Kong", "Hungary",
+  "Iceland", "India", "Indonesia", "Iran", "Iraq", "Ireland", "Israel", "Italy",
+  "Japan", "Jordan", "Kazakhstan", "Kenya", "Kuwait", "Latvia", "Lebanon", "Lithuania",
+  "Luxembourg", "Malaysia", "Maldives", "Malta", "Mauritius", "Mexico", "Mongolia", "Myanmar",
+  "Nepal", "Netherlands", "New Zealand", "Norway", "Oman", "Pakistan", "Philippines", "Poland",
+  "Portugal", "Qatar", "Romania", "Russia", "Saudi Arabia", "Singapore", "Slovakia", "Slovenia",
+  "South Africa", "South Korea", "Spain", "Sri Lanka", "Sweden", "Switzerland", "Taiwan",
+  "Thailand", "Turkey", "UAE", "Ukraine", "United Kingdom", "United States", "Uzbekistan",
+  "Vietnam", "Yemen"
+];
 
 const states = [
   "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat",
@@ -151,17 +245,38 @@ export default function ProfilePage() {
       motherName: "",
       spouseName: "",
       maritalStatus: "",
+      
+      // Residency Status
+      residentStatus: "",
+      countryOfResidence: "",
+      taxResidencyCountry: "",
+      
       // Address Information
       address: "",
       city: "",
       state: "",
       pincode: "",
       country: "India",
+      
       // Financial Information
       occupation: "",
       annualIncome: "",
       investmentExperience: "",
       riskTolerance: "",
+      sourceOfWealth: "",
+      
+      // FATCA Compliance
+      fatcaStatus: "",
+      fatcaTinNumber: "",
+      fatcaCountryOfTaxResidence: "",
+      
+      // PEP Status
+      pepStatus: "",
+      pepDetails: "",
+      
+      // UBO Information
+      isUbo: false,
+      uboDetails: "",
     }
   });
 
@@ -180,17 +295,38 @@ export default function ProfilePage() {
         motherName: profileData.motherName || "",
         spouseName: profileData.spouseName || "",
         maritalStatus: profileData.maritalStatus || "",
+        
+        // Residency Status
+        residentStatus: profileData.residentStatus || "",
+        countryOfResidence: profileData.countryOfResidence || "",
+        taxResidencyCountry: profileData.taxResidencyCountry || "",
+        
         // Address Information
         address: profileData.address || "",
         city: profileData.city || "",
         state: profileData.state || "",
         pincode: profileData.pincode || "",
         country: profileData.country || "India",
+        
         // Financial Information
         occupation: profileData.occupation || "",
         annualIncome: profileData.annualIncome || "",
         investmentExperience: profileData.investmentExperience || "",
         riskTolerance: profileData.riskTolerance || "",
+        sourceOfWealth: profileData.sourceOfWealth || "",
+        
+        // FATCA Compliance
+        fatcaStatus: profileData.fatcaStatus || "",
+        fatcaTinNumber: profileData.fatcaTinNumber || "",
+        fatcaCountryOfTaxResidence: profileData.fatcaCountryOfTaxResidence || "",
+        
+        // PEP Status
+        pepStatus: profileData.pepStatus || "",
+        pepDetails: profileData.pepDetails || "",
+        
+        // UBO Information
+        isUbo: profileData.isUbo || false,
+        uboDetails: profileData.uboDetails || "",
       });
     }
   }, [profileData, form]);
@@ -602,9 +738,341 @@ export default function ProfilePage() {
                   </div>
                 </div>
                 
+                <div>
+                  <Label htmlFor="sourceOfWealth">Source of Wealth</Label>
+                  <Select
+                    value={form.watch("sourceOfWealth")}
+                    onValueChange={(value) => form.setValue("sourceOfWealth", value)}
+                    disabled={!isEditing}
+                  >
+                    <SelectTrigger data-testid="select-source-of-wealth">
+                      <SelectValue placeholder="Select source" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sourceOfWealthOptions.map((source) => (
+                        <SelectItem key={source} value={source}>
+                          {source}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </CardContent>
             </Card>
 
+            {/* Residency & Tax Status - Critical for NRI Compliance */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Info className="h-5 w-5" />
+                  Residency & Tax Status
+                </CardTitle>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  Required for Indian regulatory compliance and NRI investor classification
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="residentStatus">Resident Status *</Label>
+                    <Select
+                      value={form.watch("residentStatus")}
+                      onValueChange={(value) => form.setValue("residentStatus", value)}
+                      disabled={!isEditing}
+                    >
+                      <SelectTrigger data-testid="select-resident-status">
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {residentStatuses.map((status) => (
+                          <SelectItem key={status} value={status}>
+                            {status}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="countryOfResidence">Country of Residence</Label>
+                    <Select
+                      value={form.watch("countryOfResidence")}
+                      onValueChange={(value) => form.setValue("countryOfResidence", value)}
+                      disabled={!isEditing}
+                    >
+                      <SelectTrigger data-testid="select-country-of-residence">
+                        <SelectValue placeholder="Select country" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {countries.map((country) => (
+                          <SelectItem key={country} value={country}>
+                            {country}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                <div>
+                  <Label htmlFor="taxResidencyCountry">Tax Residency Country</Label>
+                  <Select
+                    value={form.watch("taxResidencyCountry")}
+                    onValueChange={(value) => form.setValue("taxResidencyCountry", value)}
+                    disabled={!isEditing}
+                  >
+                    <SelectTrigger data-testid="select-tax-residency-country">
+                      <SelectValue placeholder="Select tax residency" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {countries.map((country) => (
+                        <SelectItem key={country} value={country}>
+                          {country}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <p className="text-xs text-blue-700 dark:text-blue-300">
+                    <strong>Note for NRIs:</strong> As per SEBI guidelines, Non-Resident Indians must declare their residency status for proper classification and compliance with FEMA regulations.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* FATCA Compliance */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  FATCA Compliance
+                </CardTitle>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  Foreign Account Tax Compliance Act - Required for international compliance
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="fatcaStatus">FATCA Status</Label>
+                    <Select
+                      value={form.watch("fatcaStatus")}
+                      onValueChange={(value) => form.setValue("fatcaStatus", value)}
+                      disabled={!isEditing}
+                    >
+                      <SelectTrigger data-testid="select-fatca-status">
+                        <SelectValue placeholder="Select FATCA status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {fatcaStatuses.map((status) => (
+                          <SelectItem key={status} value={status}>
+                            {status}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="fatcaTinNumber">US TIN Number</Label>
+                    <Input
+                      id="fatcaTinNumber"
+                      {...form.register("fatcaTinNumber")}
+                      placeholder="123-45-6789 or 12-3456789"
+                      disabled={!isEditing}
+                      data-testid="input-fatca-tin-number"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <Label htmlFor="fatcaCountryOfTaxResidence">FATCA Country of Tax Residence</Label>
+                  <Select
+                    value={form.watch("fatcaCountryOfTaxResidence")}
+                    onValueChange={(value) => form.setValue("fatcaCountryOfTaxResidence", value)}
+                    disabled={!isEditing}
+                  >
+                    <SelectTrigger data-testid="select-fatca-country-of-tax-residence">
+                      <SelectValue placeholder="Select country" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {countries.map((country) => (
+                        <SelectItem key={country} value={country}>
+                          {country}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="mt-3 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                  <p className="text-xs text-orange-700 dark:text-orange-300">
+                    <strong>FATCA Declaration:</strong> This information is required for compliance with US tax regulations. Please ensure accuracy as false information may result in penalties.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* PEP Status & UBO Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="h-5 w-5" />
+                  PEP Status & Beneficial Ownership
+                </CardTitle>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  Politically Exposed Person declaration and Ultimate Beneficial Owner information
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="pepStatus">PEP Status</Label>
+                    <Select
+                      value={form.watch("pepStatus")}
+                      onValueChange={(value) => form.setValue("pepStatus", value)}
+                      disabled={!isEditing}
+                    >
+                      <SelectTrigger data-testid="select-pep-status">
+                        <SelectValue placeholder="Select PEP status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {pepStatuses.map((status) => (
+                          <SelectItem key={status} value={status}>
+                            {status}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="isUbo"
+                      checked={form.watch("isUbo") || false}
+                      onChange={(e) => form.setValue("isUbo", e.target.checked)}
+                      disabled={!isEditing}
+                      data-testid="checkbox-is-ubo"
+                    />
+                    <Label htmlFor="isUbo" className="text-sm cursor-pointer">
+                      I am the Ultimate Beneficial Owner (UBO)
+                    </Label>
+                  </div>
+                </div>
+                
+                {form.watch("pepStatus") && form.watch("pepStatus") !== "No" && (
+                  <div>
+                    <Label htmlFor="pepDetails">PEP Details</Label>
+                    <Textarea
+                      id="pepDetails"
+                      {...form.register("pepDetails")}
+                      placeholder="Please provide details about political exposure..."
+                      disabled={!isEditing}
+                      rows={3}
+                      data-testid="input-pep-details"
+                    />
+                  </div>
+                )}
+                
+                {form.watch("isUbo") && (
+                  <div>
+                    <Label htmlFor="uboDetails">UBO Details</Label>
+                    <Textarea
+                      id="uboDetails"
+                      {...form.register("uboDetails")}
+                      placeholder="Details about beneficial ownership structure..."
+                      disabled={!isEditing}
+                      rows={3}
+                      data-testid="input-ubo-details"
+                    />
+                  </div>
+                )}
+                
+                <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                  <p className="text-xs text-red-700 dark:text-red-300">
+                    <strong>Important:</strong> PEP status and UBO information is critical for anti-money laundering (AML) compliance. Accurate disclosure is mandatory under Indian regulations.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* NRI Documentation Requirements */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  NRI Documentation Requirements
+                </CardTitle>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  Additional documents required for Non-Resident Indian investors
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-4 rounded-lg">
+                  <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-3">Required Documents for NRI Investors:</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <span>Valid Passport with Indian origin proof</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <span>Overseas address proof</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <span>Visa/Work permit copy</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <span>Bank statement from overseas account</span>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <span>PIO/OCI card (if applicable)</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <span>FATCA declaration</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <span>Tax residency certificate</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <span>FEMA compliance declaration</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 p-4 rounded-lg">
+                  <h4 className="font-semibold text-green-800 dark:text-green-200 mb-3">Investment Restrictions for NRIs:</h4>
+                  <div className="text-sm space-y-1 text-green-700 dark:text-green-300">
+                    <p>• Portfolio Investment Scheme (PIS) permission required for equity investments</p>
+                    <p>• FDI restrictions apply for certain sectors</p>
+                    <p>• Repatriation limits as per RBI guidelines</p>
+                    <p>• Tax implications in both India and country of residence</p>
+                  </div>
+                </div>
+                
+                <div className="bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 p-4 rounded-lg">
+                  <h4 className="font-semibold text-amber-800 dark:text-amber-200 mb-3">Compliance Checklist:</h4>
+                  <div className="text-sm space-y-1 text-amber-700 dark:text-amber-300">
+                    <p>✓ Valid KYC documentation completed</p>
+                    <p>✓ FATCA status declared and TIN provided</p>
+                    <p>✓ Residency status accurately classified</p>
+                    <p>✓ PEP status declared</p>
+                    <p>✓ UBO information disclosed</p>
+                    <p>✓ Tax residency country specified</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Action Buttons */}
             <div className="flex gap-4">

@@ -390,33 +390,38 @@ export function setupAuth(app: Express) {
         motherName: user.motherName,
         spouseName: user.spouseName,
         maritalStatus: user.maritalStatus,
+        
+        // Residency Status
+        residentStatus: user.residentStatus,
+        countryOfResidence: user.countryOfResidence,
+        taxResidencyCountry: user.taxResidencyCountry,
+        
         // Address Information
         address: user.address,
         city: user.city,
         state: user.state,
         pincode: user.pincode,
         country: user.country,
+        
         // Financial Information
         occupation: user.occupation,
         annualIncome: user.annualIncome,
         investmentExperience: user.investmentExperience,
         riskTolerance: user.riskTolerance,
-        // Banking & Nominee Information
-        bankAccountNumber: user.bankAccountNumber,
-        ifscCode: user.ifscCode,
-        nomineeDetails: user.nomineeDetails,
-        nomineeRelation: user.nomineeRelation,
-        // EUIN and API Integration
-        euinNumber: user.euinNumber,
-        enableCamsApi: user.enableCamsApi,
-        enableKfintechApi: user.enableKfintechApi,
-        enableNsdlApi: user.enableNsdlApi,
-        enableCdslApi: user.enableCdslApi,
-        // Registry Preferences
-        preferredCamsRegistration: user.preferredCamsRegistration,
-        preferredKfintechRegistration: user.preferredKfintechRegistration,
-        preferredNsdlRegistration: user.preferredNsdlRegistration,
-        preferredCdslRegistration: user.preferredCdslRegistration,
+        sourceOfWealth: user.sourceOfWealth,
+        
+        // FATCA Compliance
+        fatcaStatus: user.fatcaStatus,
+        fatcaTinNumber: user.fatcaTinNumber,
+        fatcaCountryOfTaxResidence: user.fatcaCountryOfTaxResidence,
+        
+        // PEP Status
+        pepStatus: user.pepStatus,
+        pepDetails: user.pepDetails,
+        
+        // UBO Information
+        isUbo: user.isUbo,
+        uboDetails: user.uboDetails,
       });
     } catch (error) {
       console.error("Error fetching profile:", error);
@@ -434,10 +439,25 @@ export function setupAuth(app: Express) {
         // Enhanced KYC Fields
         panNumber, aadharNumber, passportNumber, drivingLicense, voterIdNumber,
         dateOfBirth, nationality, fatherName, motherName, spouseName, maritalStatus,
+        
+        // Residency Status
+        residentStatus, countryOfResidence, taxResidencyCountry,
+        
         // Address Information
         address, city, state, pincode, country,
+        
         // Financial Information
-        occupation, annualIncome, investmentExperience, riskTolerance,
+        occupation, annualIncome, investmentExperience, riskTolerance, sourceOfWealth,
+        
+        // FATCA Compliance
+        fatcaStatus, fatcaTinNumber, fatcaCountryOfTaxResidence,
+        
+        // PEP Status
+        pepStatus, pepDetails,
+        
+        // UBO Information
+        isUbo, uboDetails,
+        
         // Banking & Nominee Information
         bankAccountNumber, ifscCode, nomineeDetails, nomineeRelation,
         // EUIN and API Integration
@@ -459,17 +479,39 @@ export function setupAuth(app: Express) {
         motherName: motherName || null,
         spouseName: spouseName || null,
         maritalStatus: maritalStatus || null,
+        
+        // Residency Status
+        residentStatus: residentStatus || null,
+        countryOfResidence: countryOfResidence || null,
+        taxResidencyCountry: taxResidencyCountry || null,
+        
         // Address Information
         address: address || null,
         city: city || null,
         state: state || null,
         pincode: pincode || null,
         country: country || null,
+        
         // Financial Information
         occupation: occupation || null,
         annualIncome: annualIncome || null,
         investmentExperience: investmentExperience || null,
         riskTolerance: riskTolerance || null,
+        sourceOfWealth: sourceOfWealth || null,
+        
+        // FATCA Compliance
+        fatcaStatus: fatcaStatus || null,
+        fatcaTinNumber: fatcaTinNumber || null,
+        fatcaCountryOfTaxResidence: fatcaCountryOfTaxResidence || null,
+        
+        // PEP Status
+        pepStatus: pepStatus || null,
+        pepDetails: pepDetails || null,
+        
+        // UBO Information
+        isUbo: isUbo || false,
+        uboDetails: uboDetails || null,
+        
         // Banking & Nominee Information
         bankAccountNumber: bankAccountNumber || null,
         ifscCode: ifscCode || null,
@@ -506,22 +548,38 @@ export function setupAuth(app: Express) {
         motherName: updatedUser.motherName,
         spouseName: updatedUser.spouseName,
         maritalStatus: updatedUser.maritalStatus,
+        
+        // Residency Status
+        residentStatus: updatedUser.residentStatus,
+        countryOfResidence: updatedUser.countryOfResidence,
+        taxResidencyCountry: updatedUser.taxResidencyCountry,
+        
         // Address Information
         address: updatedUser.address,
         city: updatedUser.city,
         state: updatedUser.state,
         pincode: updatedUser.pincode,
         country: updatedUser.country,
+        
         // Financial Information
         occupation: updatedUser.occupation,
         annualIncome: updatedUser.annualIncome,
         investmentExperience: updatedUser.investmentExperience,
         riskTolerance: updatedUser.riskTolerance,
-        // Banking & Nominee Information
-        bankAccountNumber: updatedUser.bankAccountNumber,
-        ifscCode: updatedUser.ifscCode,
-        nomineeDetails: updatedUser.nomineeDetails,
-        nomineeRelation: updatedUser.nomineeRelation,
+        sourceOfWealth: updatedUser.sourceOfWealth,
+        
+        // FATCA Compliance
+        fatcaStatus: updatedUser.fatcaStatus,
+        fatcaTinNumber: updatedUser.fatcaTinNumber,
+        fatcaCountryOfTaxResidence: updatedUser.fatcaCountryOfTaxResidence,
+        
+        // PEP Status
+        pepStatus: updatedUser.pepStatus,
+        pepDetails: updatedUser.pepDetails,
+        
+        // UBO Information
+        isUbo: updatedUser.isUbo,
+        uboDetails: updatedUser.uboDetails,
         // EUIN and API Integration
         euinNumber: updatedUser.euinNumber,
         enableCamsApi: updatedUser.enableCamsApi,
