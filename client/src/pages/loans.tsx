@@ -81,6 +81,17 @@ export default function Loans() {
       processingFee: "2.0%",
       category: "business", 
       color: "orange"
+    },
+    {
+      loanType: "LAS (Loan Against Securities)",
+      bankName: "Axis Bank",
+      interestRate: "9.75%",
+      minAmount: "₹1 Lakh",
+      maxAmount: "₹20 Crores",
+      tenure: "Up to 5 years",
+      processingFee: "1.5%",
+      category: "securities", 
+      color: "blue"
     }
   ];
 
@@ -90,7 +101,8 @@ export default function Loans() {
       home: Home,
       vehicle: Car,
       business: Building2,
-      education: GraduationCap
+      education: GraduationCap,
+      securities: DollarSign
     };
     return icons[category as keyof typeof icons] || User;
   };
