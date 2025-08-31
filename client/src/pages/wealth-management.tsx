@@ -6,6 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { 
   Building2,
   Building, 
@@ -64,6 +67,62 @@ interface MutualFund {
 
 export default function WealthManagement() {
   const [activeTab, setActiveTab] = useState("overview");
+  
+  // SIP Calculator state
+  const [sipAmount, setSipAmount] = useState(5000);
+  const [sipPeriod, setSipPeriod] = useState(10);
+  const [expectedReturn, setExpectedReturn] = useState(12);
+  const [calculatedValue, setCalculatedValue] = useState({ maturity: 1161695, totalInvestment: 600000, capitalGain: 561695 });
+  
+  // Dialog states
+  const [isCompareFundsOpen, setIsCompareFundsOpen] = useState(false);
+  const [isPlanGoalOpen, setIsPlanGoalOpen] = useState(false);
+  
+  // Goal planning state
+  const [goalAmount, setGoalAmount] = useState(1000000);
+  const [goalPeriod, setGoalPeriod] = useState(5);
+  const [goalReturn, setGoalReturn] = useState(12);
+  
+  // Fund comparison state
+  const [selectedFunds, setSelectedFunds] = useState<string[]>([]);
+  
+  // Calculate SIP maturity value
+  const calculateSIP = (monthlyAmount: number, years: number, annualReturn: number) => {
+    const monthlyReturn = annualReturn / 100 / 12;
+    const totalMonths = years * 12;
+    const futureValue = monthlyAmount * (((1 + monthlyReturn) ** totalMonths - 1) / monthlyReturn) * (1 + monthlyReturn);
+    const totalInvestment = monthlyAmount * totalMonths;
+    const capitalGain = futureValue - totalInvestment;
+    
+    return {
+      maturity: Math.round(futureValue),
+      totalInvestment: Math.round(totalInvestment),
+      capitalGain: Math.round(capitalGain)
+    };
+  };
+  
+  // Calculate SIP for goal planning
+  const calculateSIPForGoal = (goalAmount: number, years: number, annualReturn: number) => {
+    const monthlyReturn = annualReturn / 100 / 12;
+    const totalMonths = years * 12;
+    const requiredSIP = goalAmount / (((1 + monthlyReturn) ** totalMonths - 1) / monthlyReturn * (1 + monthlyReturn));
+    
+    return Math.round(requiredSIP);
+  };
+  
+  // Handle SIP calculation
+  const handleSIPCalculation = () => {
+    const result = calculateSIP(sipAmount, sipPeriod, expectedReturn);
+    setCalculatedValue(result);
+  };
+  
+  // Sample mutual funds data for comparison
+  const sampleFunds = [
+    { id: '1', name: 'SBI Blue Chip Fund', category: 'Large Cap', returns1Y: '18.5%', returns3Y: '15.2%', returns5Y: '12.8%', aum: '₹45,230 Cr', expenseRatio: '1.75%', rating: 4 },
+    { id: '2', name: 'HDFC Top 100 Fund', category: 'Large Cap', returns1Y: '17.8%', returns3Y: '14.9%', returns5Y: '13.1%', aum: '₹38,650 Cr', expenseRatio: '1.85%', rating: 5 },
+    { id: '3', name: 'Axis Small Cap Fund', category: 'Small Cap', returns1Y: '25.2%', returns3Y: '18.7%', returns5Y: '16.4%', aum: '₹12,840 Cr', expenseRatio: '2.15%', rating: 4 },
+    { id: '4', name: 'Mirae Asset Emerging Bluechip', category: 'Large & Mid Cap', returns1Y: '22.3%', returns3Y: '16.8%', returns5Y: '14.9%', aum: '₹28,950 Cr', expenseRatio: '1.95%', rating: 5 }
+  ];
 
   // Real-time mutual funds data with auto-refresh every 30 seconds
   const { data: mutualFunds = [], isLoading: isMutualFundsLoading, error: mutualFundsError } = useQuery<MutualFund[]>({
@@ -3605,13 +3664,14 @@ export default function WealthManagement() {
                       <Input 
                         type="number" 
                         placeholder="₹5,000" 
-                        defaultValue="5000"
+                        value={sipAmount}
+                        onChange={(e) => setSipAmount(Number(e.target.value))}
                         data-testid="input-sip-amount" 
                       />
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Investment Period</label>
-                      <Select>
+                      <Select value={sipPeriod.toString()} onValueChange={(value) => setSipPeriod(Number(value))}>
                         <SelectTrigger data-testid="select-sip-period">
                           <SelectValue placeholder="Select period" />
                         </SelectTrigger>
@@ -3630,19 +3690,26 @@ export default function WealthManagement() {
                       <Input 
                         type="number" 
                         placeholder="12" 
-                        defaultValue="12"
+                        value={expectedReturn}
+                        onChange={(e) => setExpectedReturn(Number(e.target.value))}
                         data-testid="input-expected-return" 
                       />
                     </div>
-                    <Button className="w-full" data-testid="button-calculate-sip">
+                    <Button className="w-full" onClick={handleSIPCalculation} data-testid="button-calculate-sip">
                       <Calculator className="w-4 h-4 mr-2" />
                       Calculate
                     </Button>
                     <div className="border rounded-lg p-3 bg-accent/50">
                       <div className="text-sm text-muted-foreground">Expected Maturity Value</div>
-                      <div className="text-xl font-bold text-green-600" data-testid="text-maturity-value">₹11,61,695</div>
-                      <div className="text-xs text-muted-foreground">Total Investment: ₹6,00,000</div>
-                      <div className="text-xs text-muted-foreground">Capital Gain: ₹5,61,695</div>
+                      <div className="text-xl font-bold text-green-600" data-testid="text-maturity-value">
+                        ₹{calculatedValue.maturity.toLocaleString('en-IN')}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Total Investment: ₹{calculatedValue.totalInvestment.toLocaleString('en-IN')}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Capital Gain: ₹{calculatedValue.capitalGain.toLocaleString('en-IN')}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -3657,10 +3724,182 @@ export default function WealthManagement() {
                       <FileSearch className="w-4 h-4 mr-2" />
                       Portfolio X-Ray
                     </Button>
-                    <Button className="w-full" variant="outline" data-testid="button-compare-funds">
-                      <BarChart3 className="w-4 h-4 mr-2" />
-                      Compare Funds
-                    </Button>
+                    <Dialog open={isCompareFundsOpen} onOpenChange={setIsCompareFundsOpen}>
+                      <DialogTrigger asChild>
+                        <Button className="w-full" variant="outline" data-testid="button-compare-funds">
+                          <BarChart3 className="w-4 h-4 mr-2" />
+                          Compare Funds
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                        <DialogHeader>
+                          <DialogTitle>Compare Mutual Funds</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {sampleFunds.map((fund) => (
+                              <Card key={fund.id} className={`cursor-pointer transition-all ${
+                                selectedFunds.includes(fund.id) ? 'ring-2 ring-finance-blue bg-blue-50' : 'hover:shadow-md'
+                              }`} onClick={() => {
+                                setSelectedFunds(prev => 
+                                  prev.includes(fund.id) 
+                                    ? prev.filter(id => id !== fund.id)
+                                    : prev.length < 3 ? [...prev, fund.id] : prev
+                                )
+                              }}>
+                                <CardContent className="p-4">
+                                  <div className="space-y-2">
+                                    <h4 className="font-semibold text-sm">{fund.name}</h4>
+                                    <p className="text-xs text-muted-foreground">{fund.category}</p>
+                                    <div className="flex justify-between text-xs">
+                                      <span>1Y Return:</span>
+                                      <span className="font-medium text-green-600">{fund.returns1Y}</span>
+                                    </div>
+                                    <div className="flex justify-between text-xs">
+                                      <span>AUM:</span>
+                                      <span className="font-medium">{fund.aum}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-xs">Rating:</span>
+                                      <div className="flex">
+                                        {Array.from({ length: fund.rating }).map((_, i) => (
+                                          <Star key={i} className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            ))}
+                          </div>
+                          
+                          {selectedFunds.length > 1 && (
+                            <div className="mt-6">
+                              <h3 className="font-semibold mb-4">Comparison Table</h3>
+                              <div className="overflow-x-auto">
+                                <table className="w-full border border-gray-200 rounded-lg">
+                                  <thead className="bg-gray-50">
+                                    <tr>
+                                      <th className="p-3 text-left text-sm font-medium">Fund Name</th>
+                                      <th className="p-3 text-center text-sm font-medium">1Y Return</th>
+                                      <th className="p-3 text-center text-sm font-medium">3Y Return</th>
+                                      <th className="p-3 text-center text-sm font-medium">5Y Return</th>
+                                      <th className="p-3 text-center text-sm font-medium">AUM</th>
+                                      <th className="p-3 text-center text-sm font-medium">Expense Ratio</th>
+                                      <th className="p-3 text-center text-sm font-medium">Rating</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {selectedFunds.map((fundId) => {
+                                      const fund = sampleFunds.find(f => f.id === fundId)!;
+                                      return (
+                                        <tr key={fundId} className="border-t">
+                                          <td className="p-3 text-sm font-medium">{fund.name}</td>
+                                          <td className="p-3 text-center text-sm text-green-600">{fund.returns1Y}</td>
+                                          <td className="p-3 text-center text-sm text-green-600">{fund.returns3Y}</td>
+                                          <td className="p-3 text-center text-sm text-green-600">{fund.returns5Y}</td>
+                                          <td className="p-3 text-center text-sm">{fund.aum}</td>
+                                          <td className="p-3 text-center text-sm">{fund.expenseRatio}</td>
+                                          <td className="p-3 text-center">
+                                            <div className="flex justify-center">
+                                              {Array.from({ length: fund.rating }).map((_, i) => (
+                                                <Star key={i} className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                                              ))}
+                                            </div>
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          )}
+                          
+                          <div className="flex justify-between pt-4">
+                            <p className="text-sm text-muted-foreground">
+                              Select up to 3 funds to compare. Click on fund cards to select them.
+                            </p>
+                            <Button onClick={() => setSelectedFunds([])} variant="outline" size="sm">
+                              Clear Selection
+                            </Button>
+                          </div>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                    <Dialog open={isPlanGoalOpen} onOpenChange={setIsPlanGoalOpen}>
+                      <DialogTrigger asChild>
+                        <Button className="w-full" variant="outline" data-testid="button-plan-goal">
+                          <Target className="w-4 h-4 mr-2" />
+                          Plan Goal
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-md">
+                        <DialogHeader>
+                          <DialogTitle>Goal Planning Calculator</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="goal-amount">Target Amount</Label>
+                            <Input 
+                              id="goal-amount"
+                              type="number" 
+                              placeholder="₹10,00,000" 
+                              value={goalAmount}
+                              onChange={(e) => setGoalAmount(Number(e.target.value))}
+                              data-testid="input-goal-amount" 
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="goal-period">Time Period (Years)</Label>
+                            <Select value={goalPeriod.toString()} onValueChange={(value) => setGoalPeriod(Number(value))}>
+                              <SelectTrigger data-testid="select-goal-period">
+                                <SelectValue placeholder="Select period" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="1">1 Year</SelectItem>
+                                <SelectItem value="3">3 Years</SelectItem>
+                                <SelectItem value="5">5 Years</SelectItem>
+                                <SelectItem value="10">10 Years</SelectItem>
+                                <SelectItem value="15">15 Years</SelectItem>
+                                <SelectItem value="20">20 Years</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="goal-return">Expected Return (%)</Label>
+                            <Input 
+                              id="goal-return"
+                              type="number" 
+                              placeholder="12" 
+                              value={goalReturn}
+                              onChange={(e) => setGoalReturn(Number(e.target.value))}
+                              data-testid="input-goal-return" 
+                            />
+                          </div>
+                          
+                          <Separator />
+                          
+                          <div className="border rounded-lg p-4 bg-accent/50">
+                            <div className="text-sm text-muted-foreground mb-2">Required Monthly SIP</div>
+                            <div className="text-2xl font-bold text-finance-blue" data-testid="text-required-sip">
+                              ₹{calculateSIPForGoal(goalAmount, goalPeriod, goalReturn).toLocaleString('en-IN')}
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-2">
+                              To achieve ₹{goalAmount.toLocaleString('en-IN')} in {goalPeriod} years
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              Total Investment: ₹{(calculateSIPForGoal(goalAmount, goalPeriod, goalReturn) * goalPeriod * 12).toLocaleString('en-IN')}
+                            </div>
+                          </div>
+                          
+                          <Button className="w-full" onClick={() => setIsPlanGoalOpen(false)}>
+                            Start This SIP
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                    
                     <Button className="w-full" variant="outline" data-testid="button-tax-planning">
                       <FileText className="w-4 h-4 mr-2" />
                       Tax Planning
