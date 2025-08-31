@@ -59,6 +59,11 @@ const profileSchema = z.object({
   // UBO Information
   isUbo: z.boolean().optional(),
   uboDetails: z.string().optional(),
+  
+  // API Integration (read-only, auto-populated from agent)
+  euinNumber: z.string().optional(),
+  arnCode: z.string().optional(),
+  distributorId: z.string().optional(),
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
@@ -108,6 +113,11 @@ type ProfileData = {
   // UBO Information
   isUbo?: boolean | null;
   uboDetails?: string | null;
+  
+  // API Integration (auto-populated from agent)
+  euinNumber?: string | null;
+  arnCode?: string | null;
+  distributorId?: string | null;
 };
 
 // Indian Compliance Constants
@@ -287,6 +297,11 @@ export default function ProfilePage() {
       // UBO Information
       isUbo: false,
       uboDetails: "",
+      
+      // API Integration (auto-populated)
+      euinNumber: "",
+      arnCode: "",
+      distributorId: "",
     }
   });
 
@@ -337,6 +352,11 @@ export default function ProfilePage() {
         // UBO Information
         isUbo: profileData.isUbo || false,
         uboDetails: profileData.uboDetails || "",
+        
+        // API Integration (auto-populated)
+        euinNumber: profileData.euinNumber || "",
+        arnCode: profileData.arnCode || "",
+        distributorId: profileData.distributorId || "",
       });
     }
   }, [profileData, form]);
@@ -1283,6 +1303,62 @@ export default function ProfilePage() {
                 <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
                   <p className="text-xs text-red-700 dark:text-red-300">
                     <strong>Important:</strong> PEP status and UBO information is critical for anti-money laundering (AML) compliance. Accurate disclosure is mandatory under Indian regulations.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* API Integration Settings */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Link className="h-5 w-5" />
+                  API Integration Settings
+                </CardTitle>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  External service codes automatically assigned by your relationship manager
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="euinNumber">EUIN Number</Label>
+                    <Input
+                      id="euinNumber"
+                      value={form.watch("euinNumber") || "Auto-assigned by agent"}
+                      disabled={true}
+                      className="bg-gray-50 dark:bg-gray-800"
+                      data-testid="input-euin-number"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Employee Unique Identification Number</p>
+                  </div>
+                  <div>
+                    <Label htmlFor="arnCode">ARN Code</Label>
+                    <Input
+                      id="arnCode"
+                      value={form.watch("arnCode") || "Auto-assigned by agent"}
+                      disabled={true}
+                      className="bg-gray-50 dark:bg-gray-800"
+                      data-testid="input-arn-code"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">AMFI Registration Number</p>
+                  </div>
+                  <div>
+                    <Label htmlFor="distributorId">Distributor ID</Label>
+                    <Input
+                      id="distributorId"
+                      value={form.watch("distributorId") || "Auto-assigned by agent"}
+                      disabled={true}
+                      className="bg-gray-50 dark:bg-gray-800"
+                      data-testid="input-distributor-id"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Distributor Identification Code</p>
+                  </div>
+                </div>
+                
+                <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <p className="text-xs text-blue-700 dark:text-blue-300">
+                    <strong>Note:</strong> These codes are automatically provided by your assigned relationship manager and cannot be edited. They enable seamless integration with mutual fund registrars and other financial services.
                   </p>
                 </div>
               </CardContent>

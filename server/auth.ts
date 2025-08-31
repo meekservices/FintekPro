@@ -377,6 +377,21 @@ export function setupAuth(app: Express) {
         return res.status(404).json({ message: "User not found" });
       }
 
+      // Fetch agent data for API integration codes
+      let agentData = null;
+      try {
+        const agentRelationship = await storage.getAgentForClient(req.user.id);
+        if (agentRelationship && agentRelationship.agent) {
+          agentData = {
+            euinNumber: agentRelationship.agent.euinNumber,
+            arnCode: agentRelationship.agent.arnCode,
+            distributorId: agentRelationship.agent.distributorId,
+          };
+        }
+      } catch (error) {
+        console.log("No agent assigned or error fetching agent data:", error);
+      }
+
       res.json({
         // Enhanced KYC Fields
         panNumber: user.panNumber,
@@ -422,6 +437,11 @@ export function setupAuth(app: Express) {
         // UBO Information
         isUbo: user.isUbo,
         uboDetails: user.uboDetails,
+        
+        // API Integration (auto-populated from agent)
+        euinNumber: agentData?.euinNumber || user.euinNumber || "",
+        arnCode: agentData?.arnCode || user.arnCode || "",
+        distributorId: agentData?.distributorId || user.distributorId || "",
       });
     } catch (error) {
       console.error("Error fetching profile:", error);
