@@ -10,6 +10,7 @@ export function Footer() {
     { name: "Pre-IPO", href: "/pre-ipo" },
     { name: "Unlisted", href: "/unlisted" },
     { name: "PMS", href: "/pms" },
+    { name: "AIF", href: "/aif" },
   ];
 
   const loanLinks = [
