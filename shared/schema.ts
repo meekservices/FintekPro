@@ -2123,12 +2123,12 @@ export type ClientAgentRelationship = typeof clientAgentRelationships.$inferSele
 export type InsertClientAgentRelationship = typeof clientAgentRelationships.$inferInsert;
 
 // Product Store Catalog Tables
-export const storeCategories = pgTable("store_categories", {
+export const storeCategories: any = pgTable("store_categories", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: varchar("name").notNull(),
   description: text("description"),
   slug: varchar("slug").notNull().unique(),
-  parentCategoryId: varchar("parent_category_id").references(() => storeCategories.id),
+  parentCategoryId: varchar("parent_category_id"),
   displayOrder: integer("display_order").default(0),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),

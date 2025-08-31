@@ -576,7 +576,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       return data;
     } catch (error) {
-      if (error.name === 'AbortError') {
+      if (error instanceof Error && error.name === 'AbortError') {
         throw new Error('Alpha Vantage API timeout');
       }
       throw error;
@@ -603,7 +603,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         volume: quote.regularMarketVolume
       };
     } catch (error) {
-      throw new Error(`Yahoo Finance error: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Yahoo Finance error: ${errorMessage}`);
     }
   }
 
@@ -863,11 +864,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         firstName,
         lastName,
         email,
-        mobile,
-        panNumber,
+        mobile: mobile || null,
+        phoneNumber: null,
+        panNumber: panNumber || null,
         password: "temp123", // Temporary password - client should change on first login
         role: "user",
-        isActive: true
+        isActive: true,
+        middleName: null,
+        profileImageUrl: null,
+        isEmailVerified: false,
+        isMobileVerified: false,
+        aadharNumber: null,
+        passportNumber: null,
+        drivingLicense: null,
+        voterIdNumber: null,
+        dateOfBirth: null,
+        nationality: null,
+        fatherName: null,
+        motherName: null,
+        spouseName: null,
+        maritalStatus: null,
+        address: null,
+        city: null,
+        state: null,
+        pincode: null,
+        occupation: null,
+        annualIncome: null,
+        investmentExperience: null,
+        riskTolerance: null,
+        loginCount: 0,
+        lastLoginAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date()
       });
       
       console.log("Client created and added to users:", client);
@@ -3720,26 +3748,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let filteredFunds = comprehensiveAifData;
       
       if (amc && amc !== 'all') {
+        const amcStr = Array.isArray(amc) ? amc[0] : amc.toString();
         filteredFunds = filteredFunds.filter(fund => 
-          fund.amcName.toLowerCase().includes(amc.toLowerCase())
+          fund.amcName.toLowerCase().includes(amcStr.toLowerCase())
         );
       }
       
       if (category && category !== 'all') {
+        const categoryStr = Array.isArray(category) ? category[0] : category.toString();
         filteredFunds = filteredFunds.filter(fund => 
-          fund.category.toLowerCase() === category.toLowerCase()
+          fund.category.toLowerCase() === categoryStr.toLowerCase()
         );
       }
       
       if (subCategory && subCategory !== 'all') {
+        const subCategoryStr = Array.isArray(subCategory) ? subCategory[0] : subCategory.toString();
         filteredFunds = filteredFunds.filter(fund => 
-          fund.subCategory.toLowerCase().includes(subCategory.toLowerCase())
+          fund.subCategory.toLowerCase().includes(subCategoryStr.toLowerCase())
         );
       }
       
       if (riskRating && riskRating !== 'all') {
+        const riskRatingStr = Array.isArray(riskRating) ? riskRating[0] : riskRating.toString();
         filteredFunds = filteredFunds.filter(fund => 
-          fund.riskRating.toLowerCase().includes(riskRating.toLowerCase())
+          fund.riskRating.toLowerCase().includes(riskRatingStr.toLowerCase())
         );
       }
 
