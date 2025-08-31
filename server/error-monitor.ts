@@ -1,5 +1,4 @@
 import { analyzeSystemErrors, analyzeCodeErrors, generateReplitAgentInstructions } from "./gemini-service";
-import { get_latest_lsp_diagnostics } from "./lsp-diagnostics";
 
 export interface ErrorReport {
   timestamp: Date;
@@ -199,13 +198,11 @@ class ErrorMonitor {
   // Simulate LSP diagnostics (replace with actual implementation)
   private async getLSPDiagnostics(filePath: string): Promise<any> {
     // This would integrate with actual LSP diagnostics
+    // For now, return a simple mock structure
     return {
       file: filePath,
-      errorCount: 66,
-      errors: [
-        { line: 446, type: 'TypeScript', message: "Element implicitly has 'any' type" },
-        { line: 5142, type: 'TypeScript', message: "'stock' is possibly 'null'" }
-      ]
+      errorCount: 0,
+      errors: []
     };
   }
 

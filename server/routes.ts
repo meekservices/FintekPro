@@ -20,6 +20,7 @@ import { iciciBankAPI } from './icici-bank-api';
 import { hdfcBankAPI } from './hdfc-bank-api';
 import './notification-service'; // Initialize notification service with auto-processing
 import { complianceMonitor } from './compliance-monitor';
+import { errorMonitor, errorMonitoringMiddleware, globalErrorHandler } from './error-monitor';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const API = require('indian-stock-exchange');
@@ -13402,9 +13403,8 @@ System Security Data:`;
     }
   });
 
-  // Import error monitoring system
-  const { errorMonitor, errorMonitoringMiddleware, globalErrorHandler } = require('./error-monitor');
-  const geminiService = require('./gemini-service');
+  // Import gemini service
+  const geminiService = await import('./gemini-service');
 
   // Enable error monitoring middleware
   app.use(errorMonitoringMiddleware);
