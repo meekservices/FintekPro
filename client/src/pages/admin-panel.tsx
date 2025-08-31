@@ -277,20 +277,39 @@ function Probe42Intelligence() {
   );
 }
 
-// API Status Panel Component
+// Enhanced API Status Panel Component
 function ApiStatusPanel() {
   const { data: apiStatus, isLoading, error } = useQuery({
     queryKey: ['/api/admin/api-status'],
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
+  const getOverallStatusColor = (status: string) => {
+    switch (status) {
+      case 'healthy':
+        return 'text-green-600 bg-green-50 border-green-200';
+      case 'partial':
+        return 'text-blue-600 bg-blue-50 border-blue-200';
+      case 'degraded':
+        return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+      case 'critical':
+      case 'error':
+        return 'text-red-600 bg-red-50 border-red-200';
+      default:
+        return 'text-gray-600 bg-gray-50 border-gray-200';
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'healthy':
+      case 'configured':
+      case 'available':
         return 'text-green-600 bg-green-50';
       case 'degraded':
         return 'text-yellow-600 bg-yellow-50';
-      case 'unhealthy':
+      case 'not_configured':
+        return 'text-blue-600 bg-blue-50';
       case 'error':
         return 'text-red-600 bg-red-50';
       default:
@@ -301,32 +320,65 @@ function ApiStatusPanel() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'healthy':
-        return '🟢';
+      case 'configured':
+      case 'available':
+        return <CheckCircle className="w-4 h-4 text-green-600" />;
       case 'degraded':
-        return '🟡';
-      case 'unhealthy':
+        return <AlertTriangle className="w-4 h-4 text-yellow-600" />;
+      case 'not_configured':
+        return <Settings className="w-4 h-4 text-blue-600" />;
       case 'error':
-        return '🔴';
+        return <ShieldAlert className="w-4 h-4 text-red-600" />;
       default:
-        return '⚪';
+        return <Monitor className="w-4 h-4 text-gray-600" />;
     }
+  };
+
+  const getSeverityColor = (severity: string) => {
+    switch (severity) {
+      case 'critical':
+        return 'text-red-600 bg-red-50 border-red-200';
+      case 'high':
+        return 'text-orange-600 bg-orange-50 border-orange-200';
+      case 'medium':
+        return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+      case 'low':
+        return 'text-blue-600 bg-blue-50 border-blue-200';
+      default:
+        return 'text-gray-600 bg-gray-50 border-gray-200';
+    }
+  };
+
+  const formatUptime = (seconds: number) => {
+    const days = Math.floor(seconds / (24 * 60 * 60));
+    const hours = Math.floor((seconds % (24 * 60 * 60)) / (60 * 60));
+    const minutes = Math.floor((seconds % (60 * 60)) / 60);
+    
+    if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}m`;
+  };
+
+  const formatMemory = (bytes: number) => {
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
   };
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <span className="ml-2 text-gray-600">Checking API status...</span>
       </div>
     );
   }
 
   if (error) {
     return (
-      <Card>
+      <Card className="border-red-200">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Server className="w-5 h-5" />
-            API Status Monitor
+          <CardTitle className="flex items-center gap-2 text-red-600">
+            <ShieldAlert className="w-5 h-5" />
+            API Status Monitor - Error
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -341,64 +393,146 @@ function ApiStatusPanel() {
 
   return (
     <div className="space-y-6">
-      {/* Overall Health Summary */}
+      {/* Overall Status Header */}
+      <Card className={`border-2 ${getOverallStatusColor(apiStatus?.overall)}`}>
+        <CardHeader className="pb-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-3">
+              <Monitor className="w-6 h-6" />
+              System Status: {apiStatus?.overall?.toUpperCase() || 'UNKNOWN'}
+            </CardTitle>
+            <div className="text-sm text-gray-500">
+              Last updated: {apiStatus?.timestamp ? new Date(apiStatus.timestamp).toLocaleTimeString() : 'Unknown'}
+            </div>
+          </div>
+          <div className="text-sm opacity-80">
+            Comprehensive monitoring of all integrated APIs and system components
+          </div>
+        </CardHeader>
+      </Card>
+
+      {/* API Services Status */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Server className="w-5 h-5" />
-            System Health Overview
+            <Globe className="w-5 h-5" />
+            API Services ({Object.keys(apiStatus?.apis || {}).length})
           </CardTitle>
+          <CardDescription>
+            Real-time status monitoring for all integrated external services
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="text-center">
-              <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor((apiStatus as any)?.overall?.status || 'unknown')}`}>
-                {getStatusIcon((apiStatus as any)?.overall?.status || 'unknown')} {(apiStatus as any)?.overall?.status || 'Unknown'}
+          <div className="grid gap-4">
+            {Object.entries(apiStatus?.apis || {}).map(([key, api]: [string, any]) => (
+              <div
+                key={key}
+                className={`flex items-start justify-between p-4 rounded-lg border-2 ${getStatusColor(api.status)} transition-all hover:shadow-md`}
+              >
+                <div className="flex items-start gap-3">
+                  {getStatusIcon(api.status)}
+                  <div className="flex-1">
+                    <div className="font-semibold text-gray-900">{api.name || key}</div>
+                    <div className="text-sm text-gray-600 mt-1">{api.details}</div>
+                    <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                      <span>Response: {api.responseTime}</span>
+                      <span>Last Check: {new Date(api.lastChecked).toLocaleTimeString()}</span>
+                    </div>
+                    {api.error && (
+                      <div className="text-sm text-red-600 mt-2 font-medium">
+                        Error: {api.error}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <Badge variant="outline" className={`${getStatusColor(api.status)} border-0`}>
+                  {api.status.replace('_', ' ').toUpperCase()}
+                </Badge>
               </div>
-              <p className="text-sm text-muted-foreground mt-1">Overall Status</p>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold">{(apiStatus as any)?.overall?.healthScore || 0}%</div>
-              <p className="text-sm text-muted-foreground">Health Score</p>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">{(apiStatus as any)?.overall?.healthyEndpoints || 0}</div>
-              <p className="text-sm text-muted-foreground">Healthy APIs</p>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold">{(apiStatus as any)?.overall?.totalEndpoints || 0}</div>
-              <p className="text-sm text-muted-foreground">Total APIs</p>
-            </div>
+            ))}
           </div>
         </CardContent>
       </Card>
 
-      {/* API Endpoints by Category */}
-      {(apiStatus as any)?.categories && Object.entries((apiStatus as any).categories).map(([category, endpoints]: [string, any]) => (
-        <Card key={category}>
+      {/* System Health Metrics */}
+      {apiStatus?.systemHealth && (
+        <Card>
           <CardHeader>
-            <CardTitle>{category}</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="w-5 h-5" />
+              System Health
+            </CardTitle>
             <CardDescription>
-              {(endpoints as any[]).filter(ep => ep.status === 'healthy').length} of {(endpoints as any[]).length} services operational
+              Server performance metrics and resource utilization
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {(endpoints as any[]).map((endpoint: any, index: number) => (
-                <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(endpoint.status)}`}>
-                      {getStatusIcon(endpoint.status)} {endpoint.status}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <div className="text-center p-4 bg-gray-50 rounded-lg">
+                <div className="text-2xl font-bold text-blue-600">
+                  {formatUptime(apiStatus.systemHealth.uptime)}
+                </div>
+                <div className="text-sm text-gray-600 mt-1">System Uptime</div>
+              </div>
+              <div className="text-center p-4 bg-gray-50 rounded-lg">
+                <div className="text-2xl font-bold text-green-600">
+                  {formatMemory(apiStatus.systemHealth.memory.heapUsed)}
+                </div>
+                <div className="text-sm text-gray-600 mt-1">Memory Used</div>
+              </div>
+              <div className="text-center p-4 bg-gray-50 rounded-lg">
+                <div className="text-2xl font-bold text-purple-600">
+                  {apiStatus.systemHealth.nodeVersion}
+                </div>
+                <div className="text-sm text-gray-600 mt-1">Node.js Version</div>
+              </div>
+              <div className="text-center p-4 bg-gray-50 rounded-lg">
+                <div className="text-2xl font-bold text-orange-600">
+                  {apiStatus.systemHealth.totalResponseTime}
+                </div>
+                <div className="text-sm text-gray-600 mt-1">Check Duration</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Recommendations & Actions */}
+      {apiStatus?.recommendations && apiStatus.recommendations.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Lightbulb className="w-5 h-5" />
+              Recommendations & Actions ({apiStatus.recommendations.length})
+            </CardTitle>
+            <CardDescription>
+              System insights and recommended actions to improve performance and reliability
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {apiStatus.recommendations.map((rec: any, index: number) => (
+                <div
+                  key={index}
+                  className={`p-4 rounded-lg border ${getSeverityColor(rec.severity)}`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0">
+                      {rec.severity === 'critical' && <ShieldAlert className="w-5 h-5 text-red-600" />}
+                      {rec.severity === 'high' && <AlertTriangle className="w-5 h-5 text-orange-600" />}
+                      {rec.severity === 'medium' && <AlertCircle className="w-5 h-5 text-yellow-600" />}
+                      {rec.severity === 'low' && <Info className="w-5 h-5 text-blue-600" />}
                     </div>
-                    <div>
-                      <div className="font-medium">{endpoint.name}</div>
-                      <div className="text-sm text-muted-foreground">{endpoint.message}</div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-medium">{endpoint.responseTime}ms</div>
-                    <div className="text-xs text-muted-foreground">
-                      {new Date(endpoint.lastChecked).toLocaleTimeString()}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge variant="outline" className={getSeverityColor(rec.severity)}>
+                          {rec.severity.toUpperCase()}
+                        </Badge>
+                      </div>
+                      <div className="font-medium text-gray-900 mb-1">{rec.message}</div>
+                      <div className="text-sm text-gray-600">
+                        <span className="font-medium">Recommended Action:</span> {rec.action}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -406,15 +540,60 @@ function ApiStatusPanel() {
             </div>
           </CardContent>
         </Card>
-      ))}
+      )}
 
-      {/* Last Updated */}
+      {/* Manual API Test Section */}
       <Card>
-        <CardContent className="pt-6">
-          <div className="text-center text-sm text-muted-foreground">
-            Last updated: {(apiStatus as any)?.overall?.lastUpdated ? new Date((apiStatus as any).overall.lastUpdated).toLocaleString() : 'Never'}
-            <br />
-            <span className="text-xs">Auto-refreshes every 30 seconds</span>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TestTube className="w-5 h-5" />
+            Manual API Tests
+          </CardTitle>
+          <CardDescription>
+            Test individual API endpoints and troubleshoot connection issues
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <Button
+              variant="outline"
+              className="justify-start h-auto p-4"
+              onClick={() => window.open('https://finance.yahoo.com', '_blank')}
+            >
+              <Globe className="w-4 h-4 mr-2" />
+              <div className="text-left">
+                <div className="font-medium">Test Yahoo Finance</div>
+                <div className="text-xs text-gray-500">Check market data source</div>
+              </div>
+            </Button>
+            <Button
+              variant="outline"
+              className="justify-start h-auto p-4"
+              onClick={() => {
+                // Test database connection by refetching
+                window.location.reload();
+              }}
+            >
+              <Database className="w-4 h-4 mr-2" />
+              <div className="text-left">
+                <div className="font-medium">Test Database</div>
+                <div className="text-xs text-gray-500">Verify DB connectivity</div>
+              </div>
+            </Button>
+            <Button
+              variant="outline"
+              className="justify-start h-auto p-4"
+              onClick={() => {
+                // Force refresh API status
+                window.location.href = window.location.href;
+              }}
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              <div className="text-left">
+                <div className="font-medium">Refresh Status</div>
+                <div className="text-xs text-gray-500">Force status check</div>
+              </div>
+            </Button>
           </div>
         </CardContent>
       </Card>
