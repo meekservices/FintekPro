@@ -30,6 +30,7 @@ import CkycVerification from "@/pages/ckyc-verification";
 import AgentDashboard from "@/pages/agent-dashboard";
 import IBTradingPage from "@/pages/ib-trading";
 import Store from "@/pages/store";
+import ApiMonitorDemo from "@/pages/api-monitor-demo";
 
 function Router() {
   return (
@@ -61,6 +62,7 @@ function Router() {
       <Route path="/ckyc" component={CkycVerification} />
       <Route path="/ib-trading" component={IBTradingPage} />
       <Route path="/store" component={Store} />
+      <Route path="/api-monitor" component={ApiMonitorDemo} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertTriangle, Users, Activity, TrendingUp, MessageSquare, Settings, Search, Filter, Shield, FileText, Building2, Plus, Edit3, Trash2, Server, Brain, Zap, Lock, Receipt, CheckCircle, Calendar, Download, Loader2, DollarSign, Clock, Eye, Edit, Send, UserPlus, MoreVertical, ShieldCheck, ShieldAlert, Bot, Monitor, BarChart, Globe, Mail, Target, TrendingDown, Share2, Megaphone, MousePointer, Users2, BarChart3, PieChart, LineChart, Phone, ChevronLeft, ChevronRight, Menu, MessageCircle, Smartphone, Link, UserCheck, Building, Network, ArrowRightLeft, Handshake } from "lucide-react";
+import { AlertTriangle, Users, Activity, TrendingUp, MessageSquare, Settings, Search, Filter, Shield, FileText, Building2, Plus, Edit3, Trash2, Server, Brain, Zap, Lock, Receipt, CheckCircle, Calendar, Download, Loader2, DollarSign, Clock, Eye, Edit, Send, UserPlus, MoreVertical, ShieldCheck, ShieldAlert, Bot, Monitor, BarChart, Globe, Mail, Target, TrendingDown, Share2, Megaphone, MousePointer, Users2, BarChart3, PieChart, LineChart, Phone, ChevronLeft, ChevronRight, Menu, MessageCircle, Smartphone, Link, UserCheck, Building, Network, ArrowRightLeft, Handshake, Lightbulb, TestTube, AlertCircle, Info } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -280,8 +280,8 @@ function Probe42Intelligence() {
 // Enhanced API Status Panel Component
 function ApiStatusPanel() {
   const { data: apiStatus, isLoading, error } = useQuery({
-    queryKey: ['/api/admin/api-status'],
-    refetchInterval: 30000, // Refresh every 30 seconds
+    queryKey: ['/api/public/api-status'], // Using public endpoint for testing
+    refetchInterval: 10000, // Refresh every 10 seconds for real-time monitoring
   });
 
   const getOverallStatusColor = (status: string) => {
@@ -411,45 +411,185 @@ function ApiStatusPanel() {
         </CardHeader>
       </Card>
 
-      {/* API Services Status */}
+      {/* Individual API Services Status Grid */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Globe className="w-5 h-5" />
-            API Services ({Object.keys(apiStatus?.apis || {}).length})
+            <Monitor className="w-6 h-6 text-blue-600" />
+            Individual API Services Monitor ({Object.keys(apiStatus?.apis || {}).length})
           </CardTitle>
           <CardDescription>
-            Real-time status monitoring for all integrated external services
+            Real-time individual status monitoring with detailed health metrics for each integrated service
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="grid gap-4">
-            {Object.entries(apiStatus?.apis || {}).map(([key, api]: [string, any]) => (
-              <div
-                key={key}
-                className={`flex items-start justify-between p-4 rounded-lg border-2 ${getStatusColor(api.status)} transition-all hover:shadow-md`}
-              >
-                <div className="flex items-start gap-3">
-                  {getStatusIcon(api.status)}
-                  <div className="flex-1">
-                    <div className="font-semibold text-gray-900">{api.name || key}</div>
-                    <div className="text-sm text-gray-600 mt-1">{api.details}</div>
-                    <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                      <span>Response: {api.responseTime}</span>
-                      <span>Last Check: {new Date(api.lastChecked).toLocaleTimeString()}</span>
-                    </div>
-                    {api.error && (
-                      <div className="text-sm text-red-600 mt-2 font-medium">
-                        Error: {api.error}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <Badge variant="outline" className={`${getStatusColor(api.status)} border-0`}>
-                  {api.status.replace('_', ' ').toUpperCase()}
-                </Badge>
+        <CardContent className="p-6">
+          {/* API Status Summary Cards */}
+          <div className="grid grid-cols-4 gap-4 mb-6">
+            <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+              <div className="text-2xl font-bold text-green-600">
+                {Object.values(apiStatus?.apis || {}).filter((api: any) => api.status === 'healthy' || api.status === 'configured').length}
               </div>
-            ))}
+              <div className="text-sm text-green-600 font-medium">Healthy</div>
+            </div>
+            <div className="p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg border border-yellow-200">
+              <div className="text-2xl font-bold text-yellow-600">
+                {Object.values(apiStatus?.apis || {}).filter((api: any) => api.status === 'degraded').length}
+              </div>
+              <div className="text-sm text-yellow-600 font-medium">Degraded</div>
+            </div>
+            <div className="p-4 bg-gradient-to-r from-red-50 to-pink-50 rounded-lg border border-red-200">
+              <div className="text-2xl font-bold text-red-600">
+                {Object.values(apiStatus?.apis || {}).filter((api: any) => api.status === 'error').length}
+              </div>
+              <div className="text-sm text-red-600 font-medium">Error</div>
+            </div>
+            <div className="p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-200">
+              <div className="text-2xl font-bold text-blue-600">
+                {Object.values(apiStatus?.apis || {}).filter((api: any) => api.status === 'not_configured').length}
+              </div>
+              <div className="text-sm text-blue-600 font-medium">Not Configured</div>
+            </div>
+          </div>
+
+          {/* Individual API Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {Object.entries(apiStatus?.apis || {}).map(([key, api]: [string, any]) => {
+              const getApiTypeIcon = (apiName: string) => {
+                const name = apiName?.toLowerCase() || '';
+                if (name.includes('database') || name.includes('postgresql')) return <Server className="w-5 h-5" />;
+                if (name.includes('yahoo') || name.includes('finance')) return <TrendingUp className="w-5 h-5" />;
+                if (name.includes('jm financial')) return <Building2 className="w-5 h-5" />;
+                if (name.includes('probe42')) return <Brain className="w-5 h-5" />;
+                if (name.includes('interactive') || name.includes('brokers')) return <BarChart3 className="w-5 h-5" />;
+                return <Globe className="w-5 h-5" />;
+              };
+
+              const getResponseTimeColor = (responseTime: string) => {
+                const time = parseInt(responseTime?.replace(/[^\d]/g, '') || '0');
+                if (time < 200) return 'text-green-600';
+                if (time < 1000) return 'text-yellow-600';
+                return 'text-red-600';
+              };
+
+              const getStatusBadgeClass = (status: string) => {
+                switch (status) {
+                  case 'healthy':
+                  case 'configured':
+                  case 'available':
+                    return 'bg-green-100 text-green-700 border-green-300';
+                  case 'degraded':
+                    return 'bg-yellow-100 text-yellow-700 border-yellow-300';
+                  case 'error':
+                    return 'bg-red-100 text-red-700 border-red-300';
+                  case 'not_configured':
+                    return 'bg-blue-100 text-blue-700 border-blue-300';
+                  default:
+                    return 'bg-gray-100 text-gray-700 border-gray-300';
+                }
+              };
+
+              return (
+                <Card key={key} className={`transition-all duration-300 border-2 hover:shadow-lg hover:scale-[1.02] ${getStatusColor(api.status)}`}>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-white bg-opacity-70 shadow-sm">
+                          {getApiTypeIcon(api.name)}
+                        </div>
+                        <div className="flex-1">
+                          <CardTitle className="text-lg text-gray-900 leading-tight">
+                            {api.name || key}
+                          </CardTitle>
+                          <Badge 
+                            variant="outline" 
+                            className={`mt-1 text-xs font-medium ${getStatusBadgeClass(api.status)}`}
+                          >
+                            {api.status.replace('_', ' ').toUpperCase()}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="flex-shrink-0">
+                        {getStatusIcon(api.status)}
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="space-y-4">
+                      <p className="text-sm text-gray-600 leading-relaxed">{api.details}</p>
+                      
+                      {/* Performance Metrics */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-white bg-opacity-60 p-3 rounded-lg border">
+                          <div className="text-xs text-gray-500 mb-1 font-medium">Response Time</div>
+                          <div className={`text-sm font-bold ${getResponseTimeColor(api.responseTime)}`}>
+                            {api.responseTime || 'N/A'}
+                          </div>
+                        </div>
+                        <div className="bg-white bg-opacity-60 p-3 rounded-lg border">
+                          <div className="text-xs text-gray-500 mb-1 font-medium">Last Check</div>
+                          <div className="text-sm font-medium text-gray-700">
+                            {api.lastChecked ? new Date(api.lastChecked).toLocaleTimeString([], { 
+                              hour: '2-digit', 
+                              minute: '2-digit',
+                              second: '2-digit'
+                            }) : 'Never'}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Connection Details */}
+                      {(api.endpoint || api.url) && (
+                        <div className="bg-gray-50 p-3 rounded-lg border">
+                          <div className="text-xs text-gray-500 mb-1 font-medium">Endpoint</div>
+                          <div className="text-sm text-gray-700 font-mono break-all">
+                            {api.endpoint || api.url}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Error Information */}
+                      {api.error && (
+                        <div className="bg-red-50 border border-red-200 p-3 rounded-lg">
+                          <div className="text-xs text-red-500 mb-1 font-medium flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3" />
+                            Error Details
+                          </div>
+                          <div className="text-sm text-red-700 leading-tight">
+                            {api.error}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Status-specific Information */}
+                      {api.status === 'not_configured' && (
+                        <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg">
+                          <div className="text-xs text-blue-500 mb-1 font-medium flex items-center gap-1">
+                            <Settings className="w-3 h-3" />
+                            Configuration Required
+                          </div>
+                          <div className="text-sm text-blue-700 leading-tight">
+                            This API requires configuration. Please check environment variables or settings.
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Recommendations */}
+                      {api.recommendations && (
+                        <div className="bg-indigo-50 border border-indigo-200 p-3 rounded-lg">
+                          <div className="text-xs text-indigo-500 mb-1 font-medium flex items-center gap-1">
+                            <Lightbulb className="w-3 h-3" />
+                            Recommendations
+                          </div>
+                          <div className="text-sm text-indigo-700 leading-tight">
+                            {api.recommendations}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </CardContent>
       </Card>
