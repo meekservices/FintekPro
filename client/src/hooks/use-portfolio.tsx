@@ -126,3 +126,20 @@ export function useRebalancePortfolio() {
     },
   });
 }
+
+// Portfolio-specific rebalancing suggestions
+export function usePortfolioRebalancingSuggestions(portfolioId: string) {
+  return useQuery<any[]>({
+    queryKey: ['/api/portfolios', portfolioId, 'rebalancing-suggestions'],
+    enabled: !!portfolioId,
+  });
+}
+
+// Portfolio-specific news based on holdings
+export function usePortfolioNews(portfolioId: string) {
+  return useQuery<any[]>({
+    queryKey: ['/api/portfolios', portfolioId, 'news'],
+    enabled: !!portfolioId,
+    refetchInterval: 300000, // Refresh every 5 minutes
+  });
+}

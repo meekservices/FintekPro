@@ -5782,7 +5782,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Portfolio endpoints
+  // Authentication middleware for user-specific portfolio access
+  const requireAuth = (req: any, res: any, next: any) => {
+    if (!req.user) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+    next();
+  };
+
+  const requireOwnPortfolio = async (req: any, res: any, next: any) => {
+    try {
+      const { portfolioId } = req.params;
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      // Check if the portfolio belongs to the authenticated user
+      const portfolio = await storage.getPortfolio(portfolioId);
+      if (!portfolio || portfolio.userId !== userId) {
+        return res.status(403).json({ error: "Access denied: Portfolio not found or not owned by user" });
+      }
+      
+      next();
+    } catch (error) {
+      console.error("Error checking portfolio ownership:", error);
+      res.status(500).json({ error: "Failed to verify portfolio access" });
+    }
+  };
+
+  // Portfolio endpoints - User can only see their own portfolios
+  app.get("/api/portfolios", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const portfolios = await storage.getPortfoliosByUserId(userId);
+      res.json(portfolios);
+    } catch (error) {
+      console.error("Error fetching portfolios:", error);
+      res.status(500).json({ error: "Failed to fetch portfolios" });
+    }
+  });
+
+  // Legacy endpoint for backwards compatibility
   app.get("/api/portfolios/:userId", async (req, res) => {
     try {
       const { userId } = req.params;
@@ -5809,7 +5851,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/portfolios/:portfolioId/holdings", async (req, res) => {
+  app.get("/api/portfolios/:portfolioId/holdings", requireOwnPortfolio, async (req, res) => {
     try {
       const { portfolioId } = req.params;
       const holdings = await storage.getPortfolioHoldings(portfolioId);
@@ -5840,7 +5882,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Enhanced Portfolio endpoints with real market data
-  app.get("/api/portfolios/:portfolioId/holdings/enhanced", async (req, res) => {
+  app.get("/api/portfolios/:portfolioId/holdings/enhanced", requireOwnPortfolio, async (req, res) => {
     try {
       const { portfolioId } = req.params;
       const holdings = await storage.getPortfolioHoldings(portfolioId);
@@ -6009,7 +6051,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Enhanced Portfolio Performance Summary
-  app.get("/api/portfolios/:portfolioId/performance", async (req, res) => {
+  app.get("/api/portfolios/:portfolioId/performance", requireOwnPortfolio, async (req, res) => {
     try {
       const { portfolioId } = req.params;
       const portfolio = await storage.getPortfolio(portfolioId);
@@ -6094,7 +6136,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Asset allocation endpoints
-  app.get("/api/portfolios/:portfolioId/allocation", async (req, res) => {
+  app.get("/api/portfolios/:portfolioId/allocation", requireOwnPortfolio, async (req, res) => {
     try {
       const { portfolioId } = req.params;
       const allocation = await storage.getAssetAllocation(portfolioId);
@@ -6105,7 +6147,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/portfolios/:portfolioId/rebalance", async (req, res) => {
+  app.post("/api/portfolios/:portfolioId/rebalance", requireOwnPortfolio, async (req, res) => {
     try {
       const { portfolioId } = req.params;
       const { targetAllocations } = req.body;
@@ -6158,12 +6200,147 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get rebalancing suggestions for a portfolio
-  app.get("/api/portfolios/:portfolioId/rebalancing-suggestions", async (req, res) => {
+  // Get rebalancing suggestions for a portfolio - personalized for the specific user
+  app.get("/api/portfolios/:portfolioId/rebalancing-suggestions", requireOwnPortfolio, async (req, res) => {
     try {
       const { portfolioId } = req.params;
-      const suggestions = await storage.getRebalancingSuggestions(portfolioId);
-      res.json(suggestions);
+      const userId = (req as any).user.id;
+      
+      // Get portfolio and holdings for personalized suggestions
+      const portfolio = await storage.getPortfolio(portfolioId);
+      const holdings = await storage.getPortfolioHoldings(portfolioId);
+      
+      if (!portfolio || !holdings) {
+        return res.status(404).json({ error: "Portfolio not found" });
+      }
+
+      // Generate personalized rebalancing suggestions based on the user's actual portfolio
+      const totalValue = parseFloat(portfolio.totalValue || "0");
+      const suggestions = [];
+
+      // Calculate current asset allocation
+      const assetAllocation: Record<string, number> = {};
+      let totalCurrentValue = 0;
+
+      for (const holding of holdings) {
+        const currentValue = parseFloat(holding.quantity) * parseFloat(holding.avgPrice);
+        totalCurrentValue += currentValue;
+        assetAllocation[holding.assetType] = (assetAllocation[holding.assetType] || 0) + currentValue;
+      }
+
+      // Generate suggestions based on diversification analysis
+      const assetTypes = Object.keys(assetAllocation);
+      const suggestions_data = [];
+
+      // Check for over-concentration in single asset type
+      for (const [assetType, value] of Object.entries(assetAllocation)) {
+        const percentage = (value / totalCurrentValue) * 100;
+        
+        if (percentage > 70) {
+          suggestions_data.push({
+            id: `reduce-${assetType}`,
+            type: "risk_reduction",
+            priority: "high",
+            title: `Reduce ${assetType.charAt(0).toUpperCase() + assetType.slice(1)} Concentration`,
+            description: `Your portfolio is ${percentage.toFixed(1)}% concentrated in ${assetType}. Consider diversifying to reduce risk.`,
+            expectedImpact: {
+              risk: "Reduced by 15-25%",
+              diversification: "Improved significantly"
+            },
+            actions: [
+              {
+                action: "sell",
+                assetType,
+                percentage: Math.max(percentage - 60, 10),
+                reason: "Reduce concentration risk"
+              },
+              {
+                action: "buy",
+                assetType: assetType === "equity" ? "bond" : "equity",
+                percentage: Math.max(percentage - 60, 10),
+                reason: "Improve diversification"
+              }
+            ],
+            confidenceScore: 85
+          });
+        }
+        
+        if (percentage < 5 && assetType !== "cash") {
+          suggestions_data.push({
+            id: `increase-${assetType}`,
+            type: "diversification",
+            priority: "medium",
+            title: `Consider Increasing ${assetType.charAt(0).toUpperCase() + assetType.slice(1)} Allocation`,
+            description: `Your ${assetType} allocation is only ${percentage.toFixed(1)}%. A modest increase could improve diversification.`,
+            expectedImpact: {
+              diversification: "Improved",
+              yield: "Potentially higher"
+            },
+            actions: [
+              {
+                action: "buy",
+                assetType,
+                percentage: 10 - percentage,
+                reason: "Improve portfolio balance"
+              }
+            ],
+            confidenceScore: 70
+          });
+        }
+      }
+
+      // Add sector-specific suggestions based on holdings
+      const equityHoldings = holdings.filter(h => h.assetType === "equity");
+      if (equityHoldings.length > 0) {
+        const sectors = [...new Set(equityHoldings.map(h => h.sector).filter(Boolean))];
+        
+        if (sectors.length < 3 && equityHoldings.length > 3) {
+          suggestions_data.push({
+            id: "sector-diversification",
+            type: "diversification",
+            priority: "medium",
+            title: "Improve Sector Diversification",
+            description: `Your equity holdings are concentrated in ${sectors.length} sector${sectors.length === 1 ? '' : 's'}. Consider adding exposure to other sectors.`,
+            expectedImpact: {
+              risk: "Reduced sector risk",
+              diversification: "Better sector balance"
+            },
+            actions: [
+              {
+                action: "research",
+                target: "technology, healthcare, financial services",
+                reason: "Explore other growth sectors"
+              }
+            ],
+            confidenceScore: 75
+          });
+        }
+      }
+
+      // Add default suggestion if no specific issues found
+      if (suggestions_data.length === 0) {
+        suggestions_data.push({
+          id: "maintain-allocation",
+          type: "yield_optimization",
+          priority: "low",
+          title: "Portfolio is Well Balanced",
+          description: "Your current allocation appears well-diversified. Consider periodic rebalancing to maintain target allocations.",
+          expectedImpact: {
+            risk: "Maintained",
+            diversification: "Good"
+          },
+          actions: [
+            {
+              action: "review",
+              frequency: "quarterly",
+              reason: "Maintain optimal allocation"
+            }
+          ],
+          confidenceScore: 80
+        });
+      }
+
+      res.json(suggestions_data);
     } catch (error) {
       console.error("Error getting rebalancing suggestions:", error);
       res.status(500).json({ error: "Failed to get rebalancing suggestions" });
@@ -6182,8 +6359,142 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Portfolio-specific news based on holdings - personalized for the specific user
+  app.get("/api/portfolios/:portfolioId/news", requireOwnPortfolio, async (req, res) => {
+    try {
+      const { portfolioId } = req.params;
+      const holdings = await storage.getPortfolioHoldings(portfolioId);
+      
+      if (!holdings || holdings.length === 0) {
+        return res.json([]);
+      }
+
+      // Extract symbols from holdings for personalized news
+      const symbols = [...new Set(holdings.map(h => h.symbol))];
+      const sectors = [...new Set(holdings.map(h => h.sector).filter(Boolean))];
+      
+      // Generate portfolio-specific news
+      const portfolioNews = [];
+      
+      // Add holding-specific news for top holdings
+      const topHoldings = holdings
+        .sort((a, b) => (parseFloat(b.quantity) * parseFloat(b.avgPrice)) - (parseFloat(a.quantity) * parseFloat(a.avgPrice)))
+        .slice(0, 5);
+
+      for (const holding of topHoldings) {
+        const holdingValue = parseFloat(holding.quantity) * parseFloat(holding.avgPrice);
+        portfolioNews.push({
+          id: `holding-${holding.symbol}-${Date.now()}`,
+          category: "portfolio_specific",
+          datetime: Date.now() / 1000,
+          headline: `${holding.symbol}: Monitoring Your ${holdingValue.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })} Position`,
+          image: `/api/placeholder/300/200?text=${holding.symbol}`,
+          related: holding.symbol,
+          source: "FintekPro Portfolio Analysis",
+          summary: `Your ${holding.symbol} position (${holding.quantity} shares at avg price ₹${holding.avgPrice}) represents ${((holdingValue / holdings.reduce((total, h) => total + (parseFloat(h.quantity) * parseFloat(h.avgPrice)), 0)) * 100).toFixed(1)}% of your portfolio. Monitor for any significant market movements.`,
+          url: `#/portfolio-analysis/${holding.symbol}`,
+          relevanceScore: 95
+        });
+      }
+
+      // Add sector-specific news if user has sector concentration
+      const sectorAllocation: Record<string, number> = {};
+      holdings.forEach(h => {
+        if (h.sector) {
+          const value = parseFloat(h.quantity) * parseFloat(h.avgPrice);
+          sectorAllocation[h.sector] = (sectorAllocation[h.sector] || 0) + value;
+        }
+      });
+
+      const totalPortfolioValue = holdings.reduce((total, h) => total + (parseFloat(h.quantity) * parseFloat(h.avgPrice)), 0);
+      
+      Object.entries(sectorAllocation).forEach(([sector, value]) => {
+        const percentage = (value / totalPortfolioValue) * 100;
+        if (percentage > 20) { // Significant sector exposure
+          portfolioNews.push({
+            id: `sector-${sector.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`,
+            category: "sector_analysis",
+            datetime: Date.now() / 1000,
+            headline: `${sector} Sector Update: ${percentage.toFixed(1)}% of Your Portfolio`,
+            image: `/api/placeholder/300/200?text=${sector}`,
+            related: sector,
+            source: "FintekPro Sector Analysis",
+            summary: `Your portfolio has significant exposure (${percentage.toFixed(1)}%) to ${sector} sector. Stay informed about sector-specific trends and regulatory changes that could impact your holdings.`,
+            url: `#/sector-analysis/${sector.toLowerCase().replace(/\s+/g, '-')}`,
+            relevanceScore: 85
+          });
+        }
+      });
+
+      // Add risk-based news for concentrated positions
+      const concentratedHoldings = holdings.filter(h => {
+        const holdingValue = parseFloat(h.quantity) * parseFloat(h.avgPrice);
+        const percentage = (holdingValue / totalPortfolioValue) * 100;
+        return percentage > 15;
+      });
+
+      if (concentratedHoldings.length > 0) {
+        portfolioNews.push({
+          id: `concentration-alert-${Date.now()}`,
+          category: "risk_management",
+          datetime: Date.now() / 1000,
+          headline: "Portfolio Concentration Alert: Consider Diversification",
+          image: "/api/placeholder/300/200?text=Risk+Alert",
+          related: "portfolio_risk",
+          source: "FintekPro Risk Management",
+          summary: `You have ${concentratedHoldings.length} position${concentratedHoldings.length > 1 ? 's' : ''} representing more than 15% of your portfolio each. Consider rebalancing to reduce concentration risk.`,
+          url: "#/portfolio-rebalance",
+          relevanceScore: 90
+        });
+      }
+
+      // Add general market news relevant to asset classes in portfolio
+      const assetTypes = [...new Set(holdings.map(h => h.assetType))];
+      
+      if (assetTypes.includes('equity')) {
+        portfolioNews.push({
+          id: `equity-market-${Date.now()}`,
+          category: "market_update",
+          datetime: Date.now() / 1000,
+          headline: "Indian Equity Markets: Key Levels to Watch",
+          image: "/api/placeholder/300/200?text=Equity+Markets",
+          related: "equity_markets",
+          source: "Market Research",
+          summary: "Your equity holdings are subject to market volatility. Nifty 50 trading in range with support at key technical levels. Monitor for breakout signals.",
+          url: "#/market-analysis/equity",
+          relevanceScore: 75
+        });
+      }
+
+      if (assetTypes.includes('mutual_fund')) {
+        portfolioNews.push({
+          id: `mf-performance-${Date.now()}`,
+          category: "fund_analysis",
+          datetime: Date.now() / 1000,
+          headline: "Mutual Fund Performance Review: Your Holdings Analysis",
+          image: "/api/placeholder/300/200?text=Mutual+Funds",
+          related: "mutual_funds",
+          source: "Fund Analysis Team",
+          summary: "Regular review of mutual fund performance in your portfolio. Check fund manager changes, expense ratios, and relative performance against benchmarks.",
+          url: "#/fund-analysis",
+          relevanceScore: 80
+        });
+      }
+
+      // Sort by relevance score and limit to 10 items
+      const sortedNews = portfolioNews
+        .sort((a, b) => b.relevanceScore - a.relevanceScore)
+        .slice(0, 10);
+
+      res.json(sortedNews);
+    } catch (error) {
+      console.error("Error fetching portfolio-specific news:", error);
+      res.status(500).json({ error: "Failed to fetch portfolio news" });
+    }
+  });
+
   // Pi Chat asset class summaries
-  app.get("/api/portfolios/:portfolioId/pi-chat-summaries", async (req, res) => {
+  app.get("/api/portfolios/:portfolioId/pi-chat-summaries", requireOwnPortfolio, async (req, res) => {
     try {
       const { portfolioId } = req.params;
       const summaries = await storage.getPiChatSummaries(portfolioId);
