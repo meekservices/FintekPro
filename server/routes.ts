@@ -14991,6 +14991,176 @@ System Security Data:`;
     }
   });
 
+  // PhonePe Payment Gateway Routes
+  app.post('/api/payments/phonepe/initiate', async (req, res) => {
+    try {
+      const { amount, userId, phone, name, email, callbackUrl } = req.body;
+
+      if (!amount || !userId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Amount and userId are required'
+        });
+      }
+
+      if (amount <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Amount must be greater than 0'
+        });
+      }
+
+      const { phonePeService } = await import('./phonepe-service');
+      
+      const paymentResponse = await phonePeService.initiatePayment({
+        amount: parseFloat(amount),
+        userId: userId.toString(),
+        phone,
+        name,
+        email,
+        callbackUrl
+      });
+
+      if (paymentResponse.success) {
+        res.json({
+          success: true,
+          message: 'Payment initiated successfully',
+          data: {
+            paymentUrl: paymentResponse.data?.instrumentResponse.redirectInfo.url,
+            merchantTransactionId: paymentResponse.data?.merchantTransactionId,
+            transactionId: paymentResponse.data?.transactionId
+          }
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          message: paymentResponse.message
+        });
+      }
+
+    } catch (error: any) {
+      console.error('PhonePe initiate payment error:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to initiate payment'
+      });
+    }
+  });
+
+  app.get('/api/payments/phonepe/status/:merchantTransactionId', async (req, res) => {
+    try {
+      const { merchantTransactionId } = req.params;
+
+      if (!merchantTransactionId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Merchant transaction ID is required'
+        });
+      }
+
+      const { phonePeService } = await import('./phonepe-service');
+      
+      const statusResponse = await phonePeService.checkPaymentStatus(merchantTransactionId);
+
+      res.json({
+        success: statusResponse.success,
+        message: statusResponse.message,
+        data: statusResponse.data,
+        paymentStatus: statusResponse.data?.responseCode === 'SUCCESS' ? 'SUCCESS' : 
+                      statusResponse.data?.responseCode === 'PENDING' ? 'PENDING' : 'FAILED'
+      });
+
+    } catch (error: any) {
+      console.error('PhonePe status check error:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to check payment status'
+      });
+    }
+  });
+
+  app.post('/api/payments/phonepe/callback/:merchantTransactionId', async (req, res) => {
+    try {
+      const { merchantTransactionId } = req.params;
+      const callbackData = req.body;
+
+      console.log('PhonePe callback received:', { 
+        merchantTransactionId, 
+        headers: req.headers,
+        body: callbackData 
+      });
+
+      const { phonePeService } = await import('./phonepe-service');
+
+      // Verify the callback signature
+      const receivedChecksum = req.headers['x-verify'] as string;
+      
+      if (receivedChecksum && callbackData.response) {
+        const isValidCallback = phonePeService.verifyCallback(receivedChecksum, callbackData.response);
+        
+        if (!isValidCallback) {
+          console.error('Invalid callback signature');
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid callback signature'
+          });
+        }
+
+        // Process the callback data
+        const paymentData = phonePeService.processCallback(callbackData);
+        
+        // Handle payment success/failure logic here
+        if (paymentData.code === 'PAYMENT_SUCCESS') {
+          // Update your database, send notifications, etc.
+          console.log('Payment successful:', paymentData);
+          
+          // Redirect user to success page
+          res.redirect(`/payment-success?txnId=${merchantTransactionId}&amount=${paymentData.data.amount / 100}`);
+        } else {
+          console.log('Payment failed:', paymentData);
+          
+          // Redirect user to failure page
+          res.redirect(`/payment-failed?txnId=${merchantTransactionId}&reason=${paymentData.message}`);
+        }
+      } else {
+        // Direct status check fallback
+        const statusResponse = await phonePeService.checkPaymentStatus(merchantTransactionId);
+        
+        if (statusResponse.success && statusResponse.data?.responseCode === 'SUCCESS') {
+          res.redirect(`/payment-success?txnId=${merchantTransactionId}&amount=${statusResponse.data.amount / 100}`);
+        } else {
+          res.redirect(`/payment-failed?txnId=${merchantTransactionId}&reason=Payment verification failed`);
+        }
+      }
+
+    } catch (error: any) {
+      console.error('PhonePe callback error:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Callback processing failed'
+      });
+    }
+  });
+
+  app.get('/api/payments/phonepe/config', async (req, res) => {
+    try {
+      const { phonePeService } = await import('./phonepe-service');
+      const testCredentials = phonePeService.getTestCredentials();
+      
+      res.json({
+        success: true,
+        config: testCredentials
+      });
+
+    } catch (error: any) {
+      console.error('PhonePe config error:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to get config'
+      });
+    }
+  });
+
   // Global error handler (must be last)
   app.use(globalErrorHandler);
 
