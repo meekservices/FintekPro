@@ -291,10 +291,7 @@ function ApiStatusPanel() {
 
   const updateApiKeyMutation = useMutation({
     mutationFn: async ({ keyName, keyValue }: { keyName: string; keyValue: string }) => {
-      return await apiRequest('/api/admin/api-keys', {
-        method: 'POST',
-        body: { keyName, keyValue }
-      });
+      return await apiRequest('POST', '/api/admin/api-keys', { keyName, keyValue });
     },
     onSuccess: () => {
       toast({
@@ -443,15 +440,15 @@ function ApiStatusPanel() {
   return (
     <div className="space-y-6">
       {/* Overall Status Header */}
-      <Card className={`border-2 ${getOverallStatusColor(apiStatus?.overall)}`}>
+      <Card className={`border-2 ${getOverallStatusColor((apiStatus as any)?.overall)}`}>
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-3">
               <Monitor className="w-6 h-6" />
-              System Status: {apiStatus?.overall?.toUpperCase() || 'UNKNOWN'}
+              System Status: {((apiStatus as any)?.overall || 'unknown').toUpperCase()}
             </CardTitle>
             <div className="text-sm text-gray-500">
-              Last updated: {apiStatus?.timestamp ? new Date(apiStatus.timestamp).toLocaleTimeString() : 'Unknown'}
+              Last updated: {(apiStatus as any)?.timestamp ? new Date((apiStatus as any).timestamp).toLocaleTimeString() : 'Unknown'}
             </div>
           </div>
           <div className="text-sm opacity-80">
@@ -465,7 +462,7 @@ function ApiStatusPanel() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Monitor className="w-6 h-6 text-blue-600" />
-            Individual API Services Monitor ({Object.keys(apiStatus?.apis || {}).length})
+            Individual API Services Monitor ({Object.keys((apiStatus as any)?.apis || {}).length})
           </CardTitle>
           <CardDescription>
             Real-time individual status monitoring with detailed health metrics for each integrated service
@@ -502,7 +499,7 @@ function ApiStatusPanel() {
 
           {/* Individual API Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {Object.entries(apiStatus?.apis || {}).map(([key, api]: [string, any]) => {
+            {Object.entries((apiStatus as any)?.apis || {}).map(([key, api]: [string, any]) => {
               const getApiTypeIcon = (apiName: string) => {
                 const name = apiName?.toLowerCase() || '';
                 if (name.includes('database') || name.includes('postgresql')) return <Server className="w-5 h-5" />;
@@ -763,7 +760,7 @@ function ApiStatusPanel() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {Object.entries(apiKeys?.data || {}).map(([keyName, status]: [string, any]) => {
+            {Object.entries(apiKeys.data || {}).map(([keyName, status]: [string, any]) => {
               const getKeyStatusColor = (status: string) => {
                 return status === 'configured' ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50';
               };
