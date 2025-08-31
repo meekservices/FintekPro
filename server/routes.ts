@@ -3479,6 +3479,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/aif/comprehensive", async (req, res) => {
     try {
       const { amc, category, subCategory, riskRating } = req.query;
+      const amcStr = typeof amc === 'string' ? amc : Array.isArray(amc) ? amc[0] : undefined;
+      const categoryStr = typeof category === 'string' ? category : Array.isArray(category) ? category[0] : undefined;
+      const subCategoryStr = typeof subCategory === 'string' ? subCategory : Array.isArray(subCategory) ? subCategory[0] : undefined;
+      const riskRatingStr = typeof riskRating === 'string' ? riskRating : Array.isArray(riskRating) ? riskRating[0] : undefined;
       
       // Fetch real-time AIF data from comprehensive API
       const realAifData = await comprehensiveAIFPMSAPI.getComprehensiveAIFData(
@@ -3754,31 +3758,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Filter based on query parameters
       let filteredFunds = comprehensiveAifData;
       
-      if (amc && amc !== 'all') {
-        const amcStr = Array.isArray(amc) ? amc[0] : amc.toString();
+      if (amcStr && amcStr !== 'all') {
         filteredFunds = filteredFunds.filter(fund => 
-          fund.amcName.toLowerCase().includes(amcStr.toLowerCase())
+          fund.amcName && fund.amcName.toLowerCase().includes(amcStr.toLowerCase())
         );
       }
       
-      if (category && category !== 'all') {
-        const categoryStr = Array.isArray(category) ? category[0] : category.toString();
+      if (categoryStr && categoryStr !== 'all') {
         filteredFunds = filteredFunds.filter(fund => 
-          fund.category.toLowerCase() === categoryStr.toLowerCase()
+          fund.category && fund.category.toLowerCase() === categoryStr.toLowerCase()
         );
       }
       
-      if (subCategory && subCategory !== 'all') {
-        const subCategoryStr = Array.isArray(subCategory) ? subCategory[0] : subCategory.toString();
+      if (subCategoryStr && subCategoryStr !== 'all') {
         filteredFunds = filteredFunds.filter(fund => 
-          fund.subCategory.toLowerCase().includes(subCategoryStr.toLowerCase())
+          fund.subCategory && fund.subCategory.toLowerCase().includes(subCategoryStr.toLowerCase())
         );
       }
       
-      if (riskRating && riskRating !== 'all') {
-        const riskRatingStr = Array.isArray(riskRating) ? riskRating[0] : riskRating.toString();
+      if (riskRatingStr && riskRatingStr !== 'all') {
         filteredFunds = filteredFunds.filter(fund => 
-          fund.riskRating.toLowerCase().includes(riskRatingStr.toLowerCase())
+          fund.riskRating && fund.riskRating.toLowerCase().includes(riskRatingStr.toLowerCase())
         );
       }
 
@@ -3812,11 +3812,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Enhanced statistics calculation
       const enhancedStats = {
         totalFunds: allFundsData.length,
-        totalAUM: allFundsData.reduce((sum, fund) => sum + (fund.currentAUM || fund.aum || 0), 0),
+        totalAUM: allFundsData.reduce((sum, fund) => {
+          const currentAUM = (fund as any).currentAUM;
+          const aum = (fund as any).aum;
+          return sum + (currentAUM || aum || 0);
+        }, 0),
         averageReturns: {
-          "1Y": allFundsData.reduce((sum, fund) => sum + (fund.pastPerformance?.['1Y'] || fund.returns1y || 0), 0) / allFundsData.length,
-          "3Y": allFundsData.reduce((sum, fund) => sum + (fund.pastPerformance?.['3Y'] || fund.returns3y || 0), 0) / allFundsData.length,
-          "5Y": allFundsData.reduce((sum, fund) => sum + (fund.pastPerformance?.['5Y'] || fund.returns5y || 0), 0) / allFundsData.length
+          "1Y": allFundsData.reduce((sum, fund) => {
+            const pastPerf = (fund as any).pastPerformance;
+            const returns1y = (fund as any).returns1y;
+            return sum + (pastPerf?.['1Y'] || returns1y || 0);
+          }, 0) / allFundsData.length,
+          "3Y": allFundsData.reduce((sum, fund) => {
+            const pastPerf = (fund as any).pastPerformance;
+            const returns3y = (fund as any).returns3y;
+            return sum + (pastPerf?.['3Y'] || returns3y || 0);
+          }, 0) / allFundsData.length,
+          "5Y": allFundsData.reduce((sum, fund) => {
+            const pastPerf = (fund as any).pastPerformance;
+            const returns5y = (fund as any).returns5y;
+            return sum + (pastPerf?.['5Y'] || returns5y || 0);
+          }, 0) / allFundsData.length
         },
         categoryBreakdown: {
           "Category I": allFundsData.filter(f => f.category === 'Category I').length,
@@ -4379,9 +4395,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           "Category III": allFunds.filter(f => f.category === 'Category III').length
         },
         riskDistribution: {
-          "High": allFunds.filter(f => f.riskRating.includes('High')).length,
-          "Medium": allFunds.filter(f => f.riskRating.includes('Medium')).length,
-          "Low": allFunds.filter(f => f.riskRating.includes('Low')).length
+          "High": allFunds.filter(f => f.riskRating && f.riskRating.includes('High')).length,
+          "Medium": allFunds.filter(f => f.riskRating && f.riskRating.includes('Medium')).length,
+          "Low": allFunds.filter(f => f.riskRating && f.riskRating.includes('Low')).length
         },
         topPerformer: allFunds.reduce((max, fund) => 
           fund.returns["1Y"] > max.returns["1Y"] ? fund : max, allFunds[0]
@@ -5194,28 +5210,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Filter by category if provided
       let filteredFunds = category ? amfiMutualFunds.filter(fund => 
-        fund.category.toLowerCase().includes(category.toLowerCase()) ||
-        fund.sub_category.toLowerCase().includes(category.toLowerCase())
+        fund.category.toLowerCase().includes(String(category).toLowerCase()) ||
+        fund.sub_category.toLowerCase().includes(String(category).toLowerCase())
       ) : amfiMutualFunds;
 
       // Filter by AMC if provided
       if (amc) {
         filteredFunds = filteredFunds.filter(fund => 
-          fund.amc.toLowerCase().includes(amc.toLowerCase())
+          fund.amc.toLowerCase().includes(String(amc).toLowerCase())
         );
       }
 
       // Filter by NAV range if provided
       if (nav_min) {
-        filteredFunds = filteredFunds.filter(fund => fund.nav >= parseFloat(nav_min));
+        filteredFunds = filteredFunds.filter(fund => fund.nav >= parseFloat(String(nav_min)));
       }
       if (nav_max) {
-        filteredFunds = filteredFunds.filter(fund => fund.nav <= parseFloat(nav_max));
+        filteredFunds = filteredFunds.filter(fund => fund.nav <= parseFloat(String(nav_max)));
       }
 
       // Sort by returns or other criteria
       if (sort_by === 'returns') {
-        filteredFunds.sort((a, b) => b.returns[returns_period] - a.returns[returns_period]);
+        const period = String(returns_period || '1Y');
+        filteredFunds.sort((a, b) => (b.returns[period] || 0) - (a.returns[period] || 0));
       } else if (sort_by === 'nav') {
         filteredFunds.sort((a, b) => b.nav - a.nav);
       } else if (sort_by === 'fund_size') {
@@ -5230,8 +5247,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         avgReturns1Y: (filteredFunds.reduce((sum, fund) => sum + fund.returns["1Y"], 0) / filteredFunds.length).toFixed(2),
         avgExpenseRatio: (filteredFunds.reduce((sum, fund) => sum + fund.expense_ratio, 0) / filteredFunds.length).toFixed(2),
         topPerformer: filteredFunds[0]?.scheme_name || "N/A",
-        categories: [...new Set(filteredFunds.map(fund => fund.category))],
-        amcList: [...new Set(filteredFunds.map(fund => fund.amc))]
+        categories: Array.from(new Set(filteredFunds.map(fund => fund.category))),
+        amcList: Array.from(new Set(filteredFunds.map(fund => fund.amc)))
       };
 
       res.json({

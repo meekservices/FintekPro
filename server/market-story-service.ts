@@ -33,7 +33,7 @@ export class MarketStoryService {
       const prompt = this.buildStoryPrompt(marketData);
       
       const response = await openai.chat.completions.create({
-        model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+        model: "gpt-4o", // Using the latest stable OpenAI model
         messages: [
           {
             role: "system",
@@ -163,7 +163,7 @@ Focus on trends, patterns, and what these movements signal about market sentimen
   async analyzeSentiment(text: string): Promise<{ sentiment: string; confidence: number }> {
     try {
       const response = await openai.chat.completions.create({
-        model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+        model: "gpt-4o", // Using the latest stable OpenAI model
         messages: [
           {
             role: "system",
