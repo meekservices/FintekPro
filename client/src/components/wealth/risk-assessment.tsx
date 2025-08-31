@@ -525,9 +525,10 @@ export function RiskAssessment() {
                   </CardContent>
                 </Card>
               </div>
-            )}
-          </div>
-        )}
-      </div>
-    );
-  }
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+}
