@@ -37,6 +37,7 @@ import HDFCBanking from "@/pages/hdfc-banking";
 import ClientAutoPopulate from "@/pages/client-auto-populate";
 import Privacy from "@/pages/privacy";
 import Terms from "@/pages/terms";
+import AIF from "@/pages/aif";
 
 function Router() {
   return (
@@ -74,6 +75,7 @@ function Router() {
       <Route path="/client-auto-populate" component={ClientAutoPopulate} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/terms" component={Terms} />
+      <Route path="/aif" component={AIF} />
       <Route component={NotFound} />
     </Switch>
   );
