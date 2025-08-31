@@ -6636,6 +6636,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Market status endpoint - live/closed status for different exchanges
+  app.get("/api/market/status", async (req, res) => {
+    try {
+      const now = new Date();
+      const istTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+      const hours = istTime.getHours();
+      const minutes = istTime.getMinutes();
+      const day = istTime.getDay(); // 0 = Sunday, 6 = Saturday
+      const currentTime = hours * 60 + minutes;
+      
+      // Market timings in IST (Indian Standard Time)
+      const marketTimings = {
+        nse: { open: 9 * 60 + 15, close: 15 * 60 + 30 }, // 9:15 AM to 3:30 PM
+        bse: { open: 9 * 60 + 15, close: 15 * 60 + 30 }, // 9:15 AM to 3:30 PM
+        mcx: { open: 9 * 60, close: 23 * 60 + 30 }, // 9:00 AM to 11:30 PM
+        ncdex: { open: 10 * 60, close: 17 * 60 }, // 10:00 AM to 5:00 PM
+        msei: { open: 9 * 60 + 15, close: 15 * 60 + 30 }, // 9:15 AM to 3:30 PM
+        global: { open: 0, close: 24 * 60 } // 24/7 for global markets (different time zones)
+      };
+
+      // Check if it's a weekend (Saturday = 6, Sunday = 0)
+      const isWeekend = day === 0 || day === 6;
+      
+      const getMarketStatus = (exchange: keyof typeof marketTimings) => {
+        const timing = marketTimings[exchange];
+        
+        if (isWeekend && exchange !== 'global') {
+          return {
+            status: 'closed',
+            reason: 'Weekend',
+            nextOpen: 'Monday 9:15 AM IST'
+          };
+        }
+        
+        if (currentTime >= timing.open && currentTime <= timing.close) {
+          return {
+            status: 'open',
+            reason: 'Trading Hours',
+            nextClose: `${Math.floor(timing.close / 60)}:${(timing.close % 60).toString().padStart(2, '0')} IST`
+          };
+        } else {
+          return {
+            status: 'closed',
+            reason: currentTime < timing.open ? 'Pre-market' : 'Post-market',
+            nextOpen: currentTime < timing.open 
+              ? `${Math.floor(timing.open / 60)}:${(timing.open % 60).toString().padStart(2, '0')} IST`
+              : `Tomorrow ${Math.floor(timing.open / 60)}:${(timing.open % 60).toString().padStart(2, '0')} IST`
+          };
+        }
+      };
+
+      const marketStatus = {
+        timestamp: istTime.toISOString(),
+        timezone: 'Asia/Kolkata',
+        currentTime: `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} IST`,
+        exchanges: {
+          nse: {
+            name: 'National Stock Exchange',
+            ...getMarketStatus('nse'),
+            tradingHours: '9:15 AM - 3:30 PM IST'
+          },
+          bse: {
+            name: 'Bombay Stock Exchange',
+            ...getMarketStatus('bse'),
+            tradingHours: '9:15 AM - 3:30 PM IST'
+          },
+          mcx: {
+            name: 'Multi Commodity Exchange',
+            ...getMarketStatus('mcx'),
+            tradingHours: '9:00 AM - 11:30 PM IST'
+          },
+          ncdex: {
+            name: 'National Commodity & Derivatives Exchange',
+            ...getMarketStatus('ncdex'),
+            tradingHours: '10:00 AM - 5:00 PM IST'
+          },
+          msei: {
+            name: 'Metropolitan Stock Exchange',
+            ...getMarketStatus('msei'),
+            tradingHours: '9:15 AM - 3:30 PM IST'
+          },
+          global: {
+            name: 'Global Markets',
+            ...getMarketStatus('global'),
+            tradingHours: '24/7 (Various Time Zones)'
+          }
+        }
+      };
+
+      res.json(marketStatus);
+    } catch (error) {
+      console.error("Error fetching market status:", error);
+      res.status(500).json({ error: "Failed to fetch market status" });
+    }
+  });
+
   app.get("/api/market/company/:symbol", async (req, res) => {
     try {
       const { symbol } = req.params;

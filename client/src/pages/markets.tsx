@@ -4,6 +4,7 @@ import { MarketTicker } from "@/components/dashboard/market-ticker";
 import { MarketChart } from "@/components/dashboard/market-chart";
 import { MarketMovers } from "@/components/dashboard/market-movers";
 import { MarketNews } from "@/components/dashboard/market-news";
+import { MarketStatus } from "@/components/dashboard/market-status";
 import { NSEData } from "@/components/dashboard/nse-data";
 import { BSEData } from "@/components/dashboard/bse-data";
 import { MCXData } from "@/components/dashboard/mcx-data";
@@ -189,6 +190,9 @@ export default function Markets() {
         {/* Market Overview */}
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8" data-testid="market-overview">
           <MarketChart symbol={selectedSymbol} />
+          
+          {/* Market Status */}
+          <MarketStatus />
           
           {/* Stock Quote Details */}
           <Card>

@@ -61,6 +61,29 @@ export interface MarketNews {
   url: string;
 }
 
+export interface ExchangeStatus {
+  name: string;
+  status: 'open' | 'closed';
+  reason: string;
+  nextOpen?: string;
+  nextClose?: string;
+  tradingHours: string;
+}
+
+export interface MarketStatus {
+  timestamp: string;
+  timezone: string;
+  currentTime: string;
+  exchanges: {
+    nse: ExchangeStatus;
+    bse: ExchangeStatus;
+    mcx: ExchangeStatus;
+    ncdex: ExchangeStatus;
+    msei: ExchangeStatus;
+    global: ExchangeStatus;
+  };
+}
+
 export function useMarketQuote(symbol: string) {
   return useQuery<MarketQuote>({
     queryKey: ['/api/market/quote', symbol],
@@ -103,5 +126,14 @@ export function useCompanyProfile(symbol: string) {
     enabled: !!symbol,
     retry: 2,
     staleTime: 30 * 60 * 1000, // 30 minutes
+  });
+}
+
+export function useMarketStatus() {
+  return useQuery<MarketStatus>({
+    queryKey: ['/api/market/status'],
+    refetchInterval: 60000, // Refetch every minute
+    retry: 2,
+    staleTime: 30 * 1000, // 30 seconds
   });
 }
