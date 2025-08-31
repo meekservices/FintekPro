@@ -10,22 +10,66 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useEnhancedPortfolioHoldings, usePortfolioPerformance } from "@/hooks/use-portfolio";
+import { usePortfoliosByPan, useEnhancedPortfolioHoldings, usePortfolioPerformance } from "@/hooks/use-portfolio";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, TrendingUp, TrendingDown, RefreshCw, Bot, Coins, CreditCard, PiggyBank, Shield } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 export default function Portfolio() {
-  // Get authenticated user data
-  const { data: user } = useQuery({ queryKey: ["/api/user"], retry: false });
-  const clientId = user?.id || "demo-user-1";
-  const portfolioId = `portfolio-${clientId}`;
+  // Get portfolios linked to user's PAN card for enhanced security
+  const { data: portfolios, isLoading: portfoliosLoading, error: portfoliosError } = usePortfoliosByPan();
+  const portfolioId = portfolios?.[0]?.id || "demo-portfolio-1";
 
   const { data: enhancedHoldings, isLoading: holdingsLoading, refetch: refetchHoldings } = useEnhancedPortfolioHoldings(portfolioId);
   const { data: performance, isLoading: performanceLoading } = usePortfolioPerformance(portfolioId);
   
-  const isLoading = holdingsLoading || performanceLoading;
+  const isLoading = portfoliosLoading || holdingsLoading || performanceLoading;
   const totalValue = performance ? parseFloat(performance.totalCurrentValue) : 1250000;
+
+  // Handle PAN-related errors
+  if (portfoliosError && !portfoliosLoading) {
+    return (
+      <div className="min-h-screen bg-finance-light" data-testid="portfolio-page">
+        <Header />
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
+          <div className="text-center py-16">
+            <Shield className="h-16 w-16 text-orange-500 mx-auto mb-4" />
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">PAN Card Required</h1>
+            <p className="text-gray-600 mb-4">
+              Complete your KYC by adding your PAN card to access portfolio data
+            </p>
+            <Button className="bg-orange-500 text-white hover:bg-orange-600">
+              Complete KYC
+            </Button>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Handle no portfolios found
+  if (!portfoliosLoading && portfolios && portfolios.length === 0) {
+    return (
+      <div className="min-h-screen bg-finance-light" data-testid="portfolio-page">
+        <Header />
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
+          <div className="text-center py-16">
+            <TrendingUp className="h-16 w-16 text-blue-500 mx-auto mb-4" />
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">No Portfolios Found</h1>
+            <p className="text-gray-600 mb-4">
+              No investment portfolios are linked to your PAN card yet
+            </p>
+            <Button className="bg-blue-500 text-white hover:bg-blue-600">
+              <Plus className="h-4 w-4 mr-2" />
+              Create Your First Portfolio
+            </Button>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-finance-light" data-testid="portfolio-page">
@@ -38,6 +82,14 @@ export default function Portfolio() {
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Portfolio Management</h1>
             <p className="text-gray-600 mt-2">Track, analyze, and rebalance your investments with live market data</p>
+            {portfolios && portfolios.length > 0 && (
+              <div className="flex items-center mt-3 p-2 bg-green-50 border border-green-200 rounded-lg">
+                <Shield className="h-4 w-4 text-green-600 mr-2" />
+                <span className="text-sm text-green-700">
+                  Showing portfolios linked to your verified PAN card for enhanced security
+                </span>
+              </div>
+            )}
             {performance && (
               <div className="flex items-center space-x-4 mt-3">
                 <div className="text-sm text-gray-500">
@@ -561,7 +613,7 @@ export default function Portfolio() {
             </Card>
           </div>
           
-          <PortfolioSummary userId={clientId} />
+          <PortfolioSummary userId={portfolios?.[0]?.userId || "demo-user-1"} />
         </div>
 
           </TabsContent>

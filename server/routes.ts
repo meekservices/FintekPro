@@ -6434,10 +6434,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // Get the authenticated user's details including PAN
+      const authenticatedUser = await storage.getUser(userId);
+      if (!authenticatedUser) {
+        return res.status(401).json({ error: "User not found" });
+      }
+      
       // Check if the portfolio belongs to the authenticated user
       const portfolio = await storage.getPortfolio(portfolioId);
-      if (!portfolio || portfolio.userId !== userId) {
-        return res.status(403).json({ error: "Access denied: Portfolio not found or not owned by user" });
+      if (!portfolio) {
+        return res.status(404).json({ error: "Portfolio not found" });
+      }
+      
+      // Get the portfolio owner's details including PAN
+      const portfolioOwner = await storage.getUser(portfolio.userId);
+      if (!portfolioOwner) {
+        return res.status(404).json({ error: "Portfolio owner not found" });
+      }
+      
+      // Verify PAN-based access: user can only access portfolios linked to their PAN
+      if (portfolio.userId !== userId || 
+          (authenticatedUser.panNumber && portfolioOwner.panNumber && 
+           authenticatedUser.panNumber !== portfolioOwner.panNumber)) {
+        return res.status(403).json({ 
+          error: "Access denied: Portfolio not linked to your PAN card",
+          details: "You can only access portfolios associated with your verified PAN card"
+        });
       }
       
       next();
@@ -6455,6 +6477,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(portfolios);
     } catch (error) {
       console.error("Error fetching portfolios:", error);
+      res.status(500).json({ error: "Failed to fetch portfolios" });
+    }
+  });
+
+  // PAN-based portfolio access - Client can only see portfolios linked to their PAN
+  app.get("/api/portfolios/by-pan", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      if (!user.panNumber) {
+        return res.status(400).json({ 
+          error: "PAN card required", 
+          details: "Please complete your KYC by adding your PAN card to access portfolio data" 
+        });
+      }
+      
+      // Get portfolios linked to user's PAN card
+      const portfolios = await storage.getPortfoliosByUserPan(user.panNumber);
+      res.json(portfolios);
+    } catch (error) {
+      console.error("Error fetching portfolios by PAN:", error);
       res.status(500).json({ error: "Failed to fetch portfolios" });
     }
   });

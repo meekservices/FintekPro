@@ -21,7 +21,9 @@ export interface IStorage {
   
   // Portfolio methods
   getPortfoliosByUserId(userId: string): Promise<Portfolio[]>;
+  getPortfoliosByUserPan(panNumber: string): Promise<Portfolio[]>;
   getPortfolio(id: string): Promise<Portfolio | undefined>;
+  getUserByPan(panNumber: string): Promise<User | undefined>;
   createPortfolio(portfolio: InsertPortfolio): Promise<Portfolio>;
   updatePortfolio(id: string, updates: Partial<Portfolio>): Promise<Portfolio | undefined>;
   
@@ -551,8 +553,8 @@ export class MemStorage implements IStorage {
       profileImageUrl: null,
       isEmailVerified: true,
       isMobileVerified: true,
-      panNumber: null,
-      aadharNumber: null,
+      panNumber: "ABCDE1234F",
+      aadharNumber: "123456789012",
       dateOfBirth: null,
       address: null,
       city: null,
@@ -656,6 +658,16 @@ export class MemStorage implements IStorage {
 
   async getPortfoliosByUserId(userId: string): Promise<Portfolio[]> {
     return Array.from(this.portfolios.values()).filter(portfolio => portfolio.userId === userId);
+  }
+
+  async getPortfoliosByUserPan(panNumber: string): Promise<Portfolio[]> {
+    // First find the user by PAN number
+    const user = await this.getUserByPan(panNumber);
+    if (!user) {
+      return [];
+    }
+    // Return portfolios for that user
+    return this.getPortfoliosByUserId(user.id);
   }
 
   async getPortfolio(id: string): Promise<Portfolio | undefined> {
@@ -960,6 +972,15 @@ export class MemStorage implements IStorage {
   async getUserByMobile(mobile: string): Promise<User | undefined> {
     for (const [key, user] of this.users.entries()) {
       if (user.mobile === mobile) {
+        return user;
+      }
+    }
+    return undefined;
+  }
+
+  async getUserByPan(panNumber: string): Promise<User | undefined> {
+    for (const [key, user] of this.users.entries()) {
+      if (user.panNumber === panNumber) {
         return user;
       }
     }

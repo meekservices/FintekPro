@@ -46,6 +46,13 @@ export function usePortfolios(userId: string) {
   });
 }
 
+export function usePortfoliosByPan() {
+  return useQuery<Portfolio[]>({
+    queryKey: ['/api/portfolios/by-pan'],
+    retry: false,
+  });
+}
+
 export function usePortfolioHoldings(portfolioId: string) {
   return useQuery<PortfolioHolding[]>({
     queryKey: ['/api/portfolios', portfolioId, 'holdings'],
