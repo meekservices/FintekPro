@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Facebook, Twitter, Linkedin, Instagram } from "lucide-react";
+import { Facebook, Twitter, Linkedin, Instagram, Store, Package, ShoppingCart } from "lucide-react";
 
 
 export function Footer() {
@@ -26,10 +26,17 @@ export function Footer() {
     { name: "Privacy Policy", href: "/privacy" },
   ];
 
+  const storeLinks = [
+    { name: "Browse Products", href: "/store" },
+    { name: "Financial Tools", href: "/store?category=tools" },
+    { name: "Investment Plans", href: "/store?category=plans" },
+    { name: "Premium Services", href: "/store?category=premium" },
+  ];
+
   return (
     <footer className="bg-finance-gray text-white py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
           
           {/* Company Info */}
           <div>
@@ -59,6 +66,28 @@ export function Footer() {
                     <span 
                       className="hover:text-white transition-colors cursor-pointer"
                       data-testid={`footer-investment-${link.name.toLowerCase().replace(" ", "-")}`}
+                    >
+                      {link.name}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+          
+          {/* Store */}
+          <div>
+            <h4 className="font-semibold mb-4 flex items-center gap-2" data-testid="footer-store-title">
+              <Store className="h-4 w-4 text-green-400" />
+              Store
+            </h4>
+            <ul className="space-y-2 text-gray-300">
+              {storeLinks.map((link) => (
+                <li key={link.name}>
+                  <Link href={link.href}>
+                    <span 
+                      className="hover:text-green-400 transition-colors cursor-pointer"
+                      data-testid={`footer-store-${link.name.toLowerCase().replace(" ", "-")}`}
                     >
                       {link.name}
                     </span>

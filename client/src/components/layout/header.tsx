@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, User as UserIcon, HelpCircle, LogOut, Shield } from "lucide-react";
+import { Menu, User as UserIcon, HelpCircle, LogOut, Shield, Store } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { type User } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -27,6 +27,7 @@ export function Header() {
     { name: "Markets", href: "/markets" },
     { name: "Portfolio", href: "/portfolio" },
     { name: "Mutual Funds", href: "/mutual-funds" },
+    { name: "Store", href: "/store" },
     { name: "Calculators", href: "/calculators" },
     { name: "Support", href: "/support" },
   ];
@@ -82,6 +83,18 @@ export function Header() {
           </div>
 
           <div className="flex items-center space-x-4">
+            {/* Store Button */}
+            <Link href="/store">
+              <Button 
+                variant="default" 
+                size="sm"
+                className="bg-green-600 hover:bg-green-700 text-white"
+                data-testid="header-store-button"
+              >
+                <Store className="h-4 w-4 mr-2" />
+                Store
+              </Button>
+            </Link>
 
             {/* Desktop Auth Button */}
             {isLoading ? (
@@ -169,6 +182,20 @@ export function Header() {
                         </div>
                       </Link>
                     ))}
+                    <Link href="/store">
+                      <div
+                        className={`block px-3 py-2 rounded-md font-medium transition-colors cursor-pointer flex items-center gap-2 ${
+                          location === "/store"
+                            ? "bg-green-600 text-white"
+                            : "text-gray-700 hover:bg-green-50 hover:text-green-600"
+                        }`}
+                        onClick={() => setIsOpen(false)}
+                        data-testid="mobile-nav-store"
+                      >
+                        <Store className="h-4 w-4" />
+                        Product Store
+                      </div>
+                    </Link>
                   </nav>
 
                   {/* Mobile Auth */}
