@@ -1,5 +1,3 @@
-2025/08/31-14:32:52.544 41bf Reusing MANIFEST /home/runner/workspace/whatsapp-session/session/Default/Session Storage/MANIFEST-000001
-2025/08/31-14:32:52.544 41bf Recovering log #3
-2025/08/31-14:32:52.545 41bf Level-0 table #3: started
-2025/08/31-14:32:52.558 41bf Level-0 table #3: 15630 bytes OK
-2025/08/31-14:32:52.565 41bf Delete type=0 #3
+2025/08/31-14:46:26.490 4a56 Reusing MANIFEST /home/runner/workspace/whatsapp-session/session/Default/Session Storage/MANIFEST-000001
+2025/08/31-14:46:26.491 4a56 Recovering log #4
+2025/08/31-14:46:26.491 4a56 Reusing old log /home/runner/workspace/whatsapp-session/session/Default/Session Storage/000004.log 

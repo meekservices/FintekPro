@@ -49,6 +49,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 import { MarketNewsletter } from "@/components/wealth/market-newsletter";
+import { LoanDashboard } from "@/components/loan/loan-dashboard";
 
 // Define the mutual fund interface
 interface MutualFund {
@@ -265,6 +266,7 @@ export default function WealthManagement() {
             <TabsTrigger value="unlisted" data-testid="tab-unlisted">Unlisted</TabsTrigger>
             <TabsTrigger value="bonds" data-testid="tab-bonds">Bonds</TabsTrigger>
             <TabsTrigger value="mutual-funds" data-testid="tab-mutual-funds">Mutual Funds</TabsTrigger>
+            <TabsTrigger value="loans" data-testid="tab-loans">Loans</TabsTrigger>
             <TabsTrigger value="newsletter" data-testid="tab-newsletter">Newsletter</TabsTrigger>
           </TabsList>
 
@@ -3939,6 +3941,11 @@ export default function WealthManagement() {
                 </Card>
               </div>
             </div>
+          </TabsContent>
+
+          {/* Loans Tab */}
+          <TabsContent value="loans">
+            <LoanDashboard />
           </TabsContent>
 
           {/* Newsletter Tab */}

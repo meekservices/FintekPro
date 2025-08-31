@@ -16093,6 +16093,169 @@ System Security Data:`;
     }
   });
 
+  // Loan Against Securities API endpoints
+  
+  // Check loan eligibility
+  app.post("/api/loans/eligibility", async (req, res) => {
+    try {
+      const { portfolioId, requestedAmount } = req.body;
+      
+      if (!portfolioId || !requestedAmount) {
+        return res.status(400).json({
+          success: false,
+          error: "Portfolio ID and requested amount are required"
+        });
+      }
+
+      // Get portfolio holdings
+      const holdings = await storage.getPortfolioHoldings(portfolioId);
+      const totalValue = holdings.reduce((sum, holding) => sum + (parseFloat(holding.quantity) * parseFloat(holding.avgPrice)), 0);
+      
+      // Calculate eligibility (typically 50-80% LTV for securities)
+      const maxLoanAmount = totalValue * 0.75; // 75% LTV
+      const isEligible = parseFloat(requestedAmount) <= maxLoanAmount;
+      
+      const eligibilityData = {
+        isEligible,
+        maxLoanAmount,
+        portfolioValue: totalValue,
+        loanToValue: (parseFloat(requestedAmount) / totalValue * 100).toFixed(2),
+        interestRate: "10.25", // Starting rate like 50Fin
+        processingFee: parseFloat(requestedAmount) * 0.01, // 1% processing fee
+        eligibleAssets: holdings.filter(h => ['equity', 'mf'].includes(h.assetType))
+      };
+
+      res.json({
+        success: true,
+        data: eligibilityData
+      });
+    } catch (error) {
+      console.error("Error checking loan eligibility:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to check loan eligibility"
+      });
+    }
+  });
+
+  // Submit loan application
+  app.post("/api/loans/apply", async (req, res) => {
+    try {
+      const loanData = req.body;
+      
+      // Generate application number
+      const applicationNumber = `LAS${Date.now()}${Math.floor(Math.random() * 1000)}`;
+      
+      const application = await storage.createLoanApplication({
+        ...loanData,
+        applicationNumber,
+        status: "pending"
+      });
+
+      res.json({
+        success: true,
+        data: application
+      });
+    } catch (error) {
+      console.error("Error creating loan application:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to create loan application"
+      });
+    }
+  });
+
+  // Get user's loan applications
+  app.get("/api/loans/user/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const loans = await storage.getUserLoans(userId);
+      
+      res.json({
+        success: true,
+        data: loans
+      });
+    } catch (error) {
+      console.error("Error fetching user loans:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch loan applications"
+      });
+    }
+  });
+
+  // Get loan details
+  app.get("/api/loans/:loanId", async (req, res) => {
+    try {
+      const { loanId } = req.params;
+      const loan = await storage.getLoanApplication(loanId);
+      
+      if (!loan) {
+        return res.status(404).json({
+          success: false,
+          error: "Loan application not found"
+        });
+      }
+      
+      res.json({
+        success: true,
+        data: loan
+      });
+    } catch (error) {
+      console.error("Error fetching loan details:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch loan details"
+      });
+    }
+  });
+
+  // Update loan status (admin only)
+  app.patch("/api/loans/:loanId/status", async (req, res) => {
+    try {
+      const { loanId } = req.params;
+      const { status, approvedAmount, rejectionReason } = req.body;
+      
+      const updatedLoan = await storage.updateLoanStatus(loanId, {
+        status,
+        approvedAmount,
+        rejectionReason,
+        approvalDate: status === 'approved' ? new Date() : undefined,
+        disbursalDate: status === 'disbursed' ? new Date() : undefined
+      });
+      
+      res.json({
+        success: true,
+        data: updatedLoan
+      });
+    } catch (error) {
+      console.error("Error updating loan status:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to update loan status"
+      });
+    }
+  });
+
+  // Get collateral valuation
+  app.get("/api/loans/:loanId/valuation", async (req, res) => {
+    try {
+      const { loanId } = req.params;
+      const valuation = await storage.getCollateralValuation(loanId);
+      
+      res.json({
+        success: true,
+        data: valuation
+      });
+    } catch (error) {
+      console.error("Error fetching collateral valuation:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch collateral valuation"
+      });
+    }
+  });
+
   // Global error handler (must be last)
   app.use(globalErrorHandler);
 

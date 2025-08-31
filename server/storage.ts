@@ -295,6 +295,14 @@ export interface IStorage {
   getClientAssignments(): Promise<any[]>;
   updateClientAssignment(id: string, updates: any): Promise<any>;
   getClientAssignmentsByAgent(agentId: string): Promise<any[]>;
+
+  // Loan Against Securities methods
+  createLoanApplication(application: any): Promise<any>;
+  getLoanApplication(id: string): Promise<any | undefined>;
+  getUserLoans(userId: string): Promise<any[]>;
+  updateLoanStatus(id: string, updates: any): Promise<any | undefined>;
+  getCollateralValuation(loanId: string): Promise<any | undefined>;
+  createCollateralValuation(valuation: any): Promise<any>;
 }
 
 export class MemStorage implements IStorage {
@@ -341,6 +349,8 @@ export class MemStorage implements IStorage {
   private ppfHoldings: Map<string, PpfHolding[]>;
   private epsHoldings: Map<string, EpsHolding[]>;
   private governmentSchemeConsents: Map<string, GovernmentSchemeConsent[]>;
+  private loanApplications: Map<string, any>;
+  private collateralValuations: Map<string, any>;
 
   constructor() {
     this.users = new Map();
@@ -386,6 +396,8 @@ export class MemStorage implements IStorage {
     this.ppfHoldings = new Map();
     this.epsHoldings = new Map();
     this.governmentSchemeConsents = new Map();
+    this.loanApplications = new Map();
+    this.collateralValuations = new Map();
     
     // Initialize with sample data
     this.initializeSampleData();
@@ -3069,6 +3081,55 @@ export class MemStorage implements IStorage {
     this.epfHoldings.set("demo-user-1", sampleEpfHoldings);
     this.ppfHoldings.set("demo-user-1", samplePpfHoldings);
     this.epsHoldings.set("demo-user-1", sampleEpsHoldings);
+  }
+
+  // Loan Against Securities methods implementation
+  async createLoanApplication(application: any): Promise<any> {
+    const id = application.id || `loan-${Date.now()}`;
+    const loanApp = {
+      id,
+      ...application,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.loanApplications.set(id, loanApp);
+    return loanApp;
+  }
+
+  async getLoanApplication(id: string): Promise<any | undefined> {
+    return this.loanApplications.get(id);
+  }
+
+  async getUserLoans(userId: string): Promise<any[]> {
+    return Array.from(this.loanApplications.values()).filter(loan => loan.userId === userId);
+  }
+
+  async updateLoanStatus(id: string, updates: any): Promise<any | undefined> {
+    const loan = this.loanApplications.get(id);
+    if (!loan) return undefined;
+    
+    const updatedLoan = {
+      ...loan,
+      ...updates,
+      updatedAt: new Date()
+    };
+    this.loanApplications.set(id, updatedLoan);
+    return updatedLoan;
+  }
+
+  async getCollateralValuation(loanId: string): Promise<any | undefined> {
+    return this.collateralValuations.get(loanId);
+  }
+
+  async createCollateralValuation(valuation: any): Promise<any> {
+    const id = valuation.id || `valuation-${Date.now()}`;
+    const valuationData = {
+      id,
+      ...valuation,
+      createdAt: new Date()
+    };
+    this.collateralValuations.set(valuation.loanId, valuationData);
+    return valuationData;
   }
 }
 

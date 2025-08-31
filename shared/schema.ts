@@ -2316,8 +2316,132 @@ export const insertProductPerformanceSchema = createInsertSchema(productPerforma
   updatedAt: true,
 });
 
+// Loan Against Securities (LAS) table
+export const loanApplications = pgTable("loan_applications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  portfolioId: varchar("portfolio_id").references(() => portfolios.id).notNull(),
+  
+  // Loan Details
+  requestedAmount: decimal("requested_amount", { precision: 15, scale: 2 }).notNull(),
+  approvedAmount: decimal("approved_amount", { precision: 15, scale: 2 }),
+  interestRate: decimal("interest_rate", { precision: 5, scale: 2 }), // Annual percentage
+  tenure: integer("tenure"), // Loan duration in months
+  loanToValue: decimal("loan_to_value", { precision: 5, scale: 2 }), // LTV ratio as percentage
+  
+  // Collateral Information
+  collateralValue: decimal("collateral_value", { precision: 15, scale: 2 }).notNull(),
+  collateralAssets: jsonb("collateral_assets").notNull(), // Array of pledged securities
+  marginRequirement: decimal("margin_requirement", { precision: 5, scale: 2 }), // Margin percentage
+  
+  // Application Status and Processing
+  status: varchar("status").default("pending"), // pending/approved/rejected/disbursed/closed
+  applicationNumber: varchar("application_number").unique(),
+  applicationDate: timestamp("application_date").defaultNow(),
+  approvalDate: timestamp("approval_date"),
+  disbursalDate: timestamp("disbursal_date"),
+  closureDate: timestamp("closure_date"),
+  
+  // Risk Assessment
+  riskScore: integer("risk_score"), // 0-100 risk assessment
+  eligibilityScore: decimal("eligibility_score", { precision: 5, scale: 2 }),
+  creditScore: integer("credit_score"), // CIBIL/Experian score
+  
+  // Loan Terms
+  processingFee: decimal("processing_fee", { precision: 15, scale: 2 }),
+  legalCharges: decimal("legal_charges", { precision: 15, scale: 2 }),
+  isOverdraftFacility: boolean("is_overdraft_facility").default(false),
+  preClosurePenalty: decimal("pre_closure_penalty", { precision: 5, scale: 2 }).default("0"),
+  
+  // Approval Information
+  approvedBy: varchar("approved_by"), // User ID of approver
+  rejectionReason: text("rejection_reason"),
+  
+  // Tracking and Audit
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Loan Repayments table for tracking payment history
+export const loanRepayments = pgTable("loan_repayments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  loanId: varchar("loan_id").references(() => loanApplications.id).notNull(),
+  
+  // Payment Details
+  paymentAmount: decimal("payment_amount", { precision: 15, scale: 2 }).notNull(),
+  principalAmount: decimal("principal_amount", { precision: 15, scale: 2 }),
+  interestAmount: decimal("interest_amount", { precision: 15, scale: 2 }),
+  penaltyAmount: decimal("penalty_amount", { precision: 15, scale: 2 }).default("0"),
+  
+  // Payment Information
+  paymentDate: timestamp("payment_date").defaultNow(),
+  dueDate: timestamp("due_date"),
+  paymentMethod: varchar("payment_method"), // bank_transfer/upi/net_banking/auto_debit
+  transactionId: varchar("transaction_id"),
+  paymentStatus: varchar("payment_status").default("completed"), // pending/completed/failed
+  
+  // Balance Information
+  outstandingPrincipal: decimal("outstanding_principal", { precision: 15, scale: 2 }),
+  outstandingInterest: decimal("outstanding_interest", { precision: 15, scale: 2 }),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Collateral Valuation table for tracking security values
+export const collateralValuations = pgTable("collateral_valuations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  loanId: varchar("loan_id").references(() => loanApplications.id).notNull(),
+  
+  // Valuation Details
+  valuationDate: timestamp("valuation_date").defaultNow(),
+  totalCollateralValue: decimal("total_collateral_value", { precision: 15, scale: 2 }).notNull(),
+  eligibleCollateralValue: decimal("eligible_collateral_value", { precision: 15, scale: 2 }).notNull(),
+  haircut: decimal("haircut", { precision: 5, scale: 2 }), // Discount percentage applied
+  
+  // Margin and LTV
+  currentLtv: decimal("current_ltv", { precision: 5, scale: 2 }),
+  maxAllowedLtv: decimal("max_allowed_ltv", { precision: 5, scale: 2 }),
+  marginCall: boolean("margin_call").default(false),
+  marginCallDate: timestamp("margin_call_date"),
+  
+  // Valuation Status
+  valuationMethod: varchar("valuation_method"), // market_price/model_based/manual
+  valuedBy: varchar("valued_by"), // system/manual/third_party
+  
+  // Asset Breakdown
+  assetBreakdown: jsonb("asset_breakdown"), // Detailed asset-wise valuation
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Create insert schemas for loan tables
+export const insertLoanApplicationSchema = createInsertSchema(loanApplications).omit({
+  id: true,
+  applicationNumber: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertLoanRepaymentSchema = createInsertSchema(loanRepayments).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertCollateralValuationSchema = createInsertSchema(collateralValuations).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Export types for supplier tables
 export type Supplier = typeof suppliers.$inferSelect;
 export type InsertSupplier = z.infer<typeof insertSupplierSchema>;
 export type ProductPerformance = typeof productPerformance.$inferSelect;
 export type InsertProductPerformance = z.infer<typeof insertProductPerformanceSchema>;
+
+// Export types for loan tables
+export type LoanApplication = typeof loanApplications.$inferSelect;
+export type InsertLoanApplication = z.infer<typeof insertLoanApplicationSchema>;
+export type LoanRepayment = typeof loanRepayments.$inferSelect;
+export type InsertLoanRepayment = z.infer<typeof insertLoanRepaymentSchema>;
+export type CollateralValuation = typeof collateralValuations.$inferSelect;
+export type InsertCollateralValuation = z.infer<typeof insertCollateralValuationSchema>;
