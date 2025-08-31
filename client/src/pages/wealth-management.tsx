@@ -241,10 +241,6 @@ export default function WealthManagement() {
               <p className="text-muted-foreground mt-1">Comprehensive wealth management and trading platform</p>
             </div>
             <div className="flex gap-3">
-              <Button variant="outline" data-testid="button-download-app">
-                <Download className="w-4 h-4 mr-2" />
-                Download App
-              </Button>
               <Button data-testid="button-start-investing">
                 <TrendingUp className="w-4 h-4 mr-2" />
                 Start Investing
