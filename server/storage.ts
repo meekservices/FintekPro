@@ -202,6 +202,14 @@ export interface IStorage {
   createProposalPayment(payment: InsertProposalPayment): Promise<ProposalPayment>;
   getProposalPayments(proposalId?: string, status?: string): Promise<ProposalPayment[]>;
   updateProposalPayment(id: string, updates: Partial<ProposalPayment>): Promise<ProposalPayment | undefined>;
+
+  // Agent-specific report methods
+  getAgentTransactionReports(agentId: string, filters?: { clientId?: string; status?: string; reportType?: string }): Promise<TransactionReport[]>;
+  getAgentCapitalGainsReports(agentId: string, filters?: { clientId?: string; financialYear?: string; status?: string }): Promise<CapitalGainsReport[]>;
+  
+  // Report sharing methods
+  createReportSharing(sharing: any): Promise<any>;
+  getAgentSharedReports(agentId: string, filters?: { reportType?: string; status?: string }): Promise<any[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -2135,6 +2143,67 @@ export class MemStorage implements IStorage {
     };
     this.proposalPayments.set(id, updated);
     return updated;
+  }
+
+  // Agent-specific report methods
+  async getAgentTransactionReports(agentId: string, filters?: { clientId?: string; status?: string; reportType?: string }): Promise<TransactionReport[]> {
+    let reports = Array.from(this.transactionReports.values()).filter(r => r.agentId === agentId);
+    
+    if (filters?.clientId) {
+      reports = reports.filter(r => r.clientId === filters.clientId);
+    }
+    if (filters?.status) {
+      reports = reports.filter(r => r.status === filters.status);
+    }
+    if (filters?.reportType) {
+      reports = reports.filter(r => r.reportType === filters.reportType);
+    }
+    
+    return reports.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async getAgentCapitalGainsReports(agentId: string, filters?: { clientId?: string; financialYear?: string; status?: string }): Promise<CapitalGainsReport[]> {
+    let reports = Array.from(this.capitalGainsReports.values()).filter(r => r.agentId === agentId);
+    
+    if (filters?.clientId) {
+      reports = reports.filter(r => r.clientId === filters.clientId);
+    }
+    if (filters?.financialYear) {
+      reports = reports.filter(r => r.financialYear === filters.financialYear);
+    }
+    if (filters?.status) {
+      reports = reports.filter(r => r.status === filters.status);
+    }
+    
+    return reports.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  // Report sharing methods - simple in-memory implementation
+  private reportSharings: Map<string, any> = new Map();
+
+  async createReportSharing(sharing: any): Promise<any> {
+    const id = `sharing-${Date.now()}`;
+    const newSharing = {
+      ...sharing,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.reportSharings.set(id, newSharing);
+    return newSharing;
+  }
+
+  async getAgentSharedReports(agentId: string, filters?: { reportType?: string; status?: string }): Promise<any[]> {
+    let sharings = Array.from(this.reportSharings.values()).filter(s => s.sharedBy === agentId);
+    
+    if (filters?.reportType) {
+      sharings = sharings.filter(s => s.reportType === filters.reportType);
+    }
+    if (filters?.status) {
+      sharings = sharings.filter(s => s.status === filters.status);
+    }
+    
+    return sharings.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 }
 

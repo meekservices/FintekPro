@@ -372,10 +372,14 @@ export default function AgentDashboard() {
       </div>
 
       <Tabs defaultValue="proposals" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="proposals" className="flex items-center gap-2">
             <TrendingUp size={16} />
             Investment Proposals
+          </TabsTrigger>
+          <TabsTrigger value="reports" className="flex items-center gap-2">
+            <FileText size={16} />
+            Client Reports
           </TabsTrigger>
           <TabsTrigger value="clients" className="flex items-center gap-2">
             <Users size={16} />
@@ -559,6 +563,181 @@ export default function AgentDashboard() {
                   ))}
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="reports" className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Transaction Reports
+                </CardTitle>
+                <CardDescription>
+                  Request and download client transaction reports from registries
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div>
+                      <p className="font-medium">Portfolio Statements</p>
+                      <p className="text-sm text-muted-foreground">Complete portfolio holdings</p>
+                    </div>
+                    <Button size="sm" data-testid="button-request-portfolio">
+                      Request Report
+                    </Button>
+                  </div>
+                  <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div>
+                      <p className="font-medium">Transaction History</p>
+                      <p className="text-sm text-muted-foreground">Buy/sell transaction details</p>
+                    </div>
+                    <Button size="sm" data-testid="button-request-transactions">
+                      Request Report
+                    </Button>
+                  </div>
+                  <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div>
+                      <p className="font-medium">Dividend Summary</p>
+                      <p className="text-sm text-muted-foreground">Dividend payments received</p>
+                    </div>
+                    <Button size="sm" data-testid="button-request-dividends">
+                      Request Report
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <PieChart className="h-5 w-5" />
+                  Capital Gains Reports
+                </CardTitle>
+                <CardDescription>
+                  Generate tax-ready capital gains statements
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div>
+                      <p className="font-medium">FY 2023-24</p>
+                      <p className="text-sm text-muted-foreground">Ready for ITR filing</p>
+                    </div>
+                    <Button size="sm" data-testid="button-request-fy2024">
+                      Generate Report
+                    </Button>
+                  </div>
+                  <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div>
+                      <p className="font-medium">FY 2024-25</p>
+                      <p className="text-sm text-muted-foreground">Current financial year</p>
+                    </div>
+                    <Button size="sm" data-testid="button-request-fy2025">
+                      Generate Report
+                    </Button>
+                  </div>
+                  <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div>
+                      <p className="font-medium">Custom Period</p>
+                      <p className="text-sm text-muted-foreground">Select date range</p>
+                    </div>
+                    <Button size="sm" variant="outline" data-testid="button-request-custom">
+                      Custom Range
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Report Requests</CardTitle>
+              <CardDescription>Track status of requested client reports</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 rounded-full">
+                      <FileText className="h-4 w-4 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium">John Doe - Portfolio Statement</p>
+                      <p className="text-sm text-muted-foreground">Requested via CAMS • FY 2024-25</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary">Processing</Badge>
+                    <Button size="sm" variant="outline" disabled>
+                      Download
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-green-100 rounded-full">
+                      <PieChart className="h-4 w-4 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Jane Smith - Capital Gains Report</p>
+                      <p className="text-sm text-muted-foreground">Generated via KFintech • FY 2023-24</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="default">Ready</Badge>
+                    <Button size="sm" data-testid="button-download-report">
+                      Download
+                    </Button>
+                    <Button size="sm" variant="outline" data-testid="button-share-report">
+                      Share
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-orange-100 rounded-full">
+                      <FileText className="h-4 w-4 text-orange-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Mike Johnson - Transaction History</p>
+                      <p className="text-sm text-muted-foreground">Requested via MF Central • Q3 2024</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="destructive">Payment Required</Badge>
+                    <Button size="sm" variant="outline" data-testid="button-pay-fee">
+                      Pay ₹5
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-gray-100 rounded-full">
+                      <PieChart className="h-4 w-4 text-gray-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Sarah Wilson - Capital Gains Report</p>
+                      <p className="text-sm text-muted-foreground">Shared with client • Expires in 15 days</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline">Shared</Badge>
+                    <Button size="sm" variant="outline" data-testid="button-extend-access">
+                      Extend Access
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

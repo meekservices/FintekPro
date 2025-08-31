@@ -12706,6 +12706,381 @@ System Security Data:`;
     }
   });
 
+  // ============ AGENT TRANSACTION REPORTS ROUTES ============
+  
+  // Agent requests client transaction report
+  app.post("/api/agent/transaction-reports/request", async (req, res) => {
+    try {
+      const { clientId, reportType, reportPeriod, startDate, endDate, apiProvider } = req.body;
+      
+      if (!req.user || req.user.role !== 'agent') {
+        return res.status(403).json({ error: "Agent access required" });
+      }
+      
+      if (!clientId || !reportType || !apiProvider) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+      
+      // Verify agent has access to this client
+      const relationship = await storage.getClientAgentRelationship(clientId, req.user.id);
+      if (!relationship || relationship.status !== 'active') {
+        return res.status(403).json({ error: "No active relationship with this client" });
+      }
+      
+      const reportData = {
+        clientId,
+        agentId: req.user.id,
+        reportType,
+        reportPeriod: reportPeriod || 'yearly',
+        startDate: startDate || new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0],
+        endDate: endDate || new Date().toISOString().split('T')[0],
+        apiProvider,
+        status: 'requested',
+        reportFee: reportType === 'portfolio_statement' ? '10' : '5'
+      };
+      
+      const report = await storage.createTransactionReport(reportData);
+      
+      res.status(201).json({
+        success: true,
+        report,
+        message: "Transaction report request created successfully"
+      });
+    } catch (error) {
+      console.error("Error requesting transaction report:", error);
+      res.status(500).json({ error: "Failed to request transaction report" });
+    }
+  });
+  
+  // Agent gets list of transaction reports for their clients
+  app.get("/api/agent/transaction-reports", async (req, res) => {
+    try {
+      if (!req.user || req.user.role !== 'agent') {
+        return res.status(403).json({ error: "Agent access required" });
+      }
+      
+      const { clientId, status, reportType } = req.query;
+      
+      // Get all reports where the agent is the requester
+      const reports = await storage.getAgentTransactionReports(req.user.id, {
+        clientId: clientId as string,
+        status: status as string,
+        reportType: reportType as string
+      });
+      
+      res.json({
+        success: true,
+        reports,
+        count: reports.length
+      });
+    } catch (error) {
+      console.error("Error fetching agent transaction reports:", error);
+      res.status(500).json({ error: "Failed to fetch transaction reports" });
+    }
+  });
+  
+  // Agent downloads client transaction report
+  app.get("/api/agent/transaction-reports/:id/download", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { format = 'pdf' } = req.query;
+      
+      if (!req.user || req.user.role !== 'agent') {
+        return res.status(403).json({ error: "Agent access required" });
+      }
+      
+      const report = await storage.getTransactionReport(id);
+      if (!report) {
+        return res.status(404).json({ error: "Transaction report not found" });
+      }
+      
+      // Verify agent has access to this report
+      if (report.agentId !== req.user.id) {
+        return res.status(403).json({ error: "Access denied to this report" });
+      }
+      
+      if (report.status !== 'generated') {
+        return res.status(400).json({ error: "Report is not ready for download" });
+      }
+      
+      // Update download count
+      await storage.updateTransactionReport(id, {
+        downloadCount: (report.downloadCount || 0) + 1,
+        downloadedAt: new Date()
+      });
+      
+      const filename = `client-transaction-report-${report.clientId}-${report.reportPeriod}-${Date.now()}`;
+      
+      if (format === 'pdf') {
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}.pdf"`);
+        
+        const pdfContent = `Client Transaction Report\n\nClient ID: ${report.clientId}\nReport Type: ${report.reportType}\nPeriod: ${report.reportPeriod}\nSource: ${report.apiProvider}\nGenerated: ${new Date().toLocaleDateString('en-IN')}\n\nTotal Purchases: ₹${report.totalPurchases || 0}\nTotal Redemptions: ₹${report.totalRedemptions || 0}\nTransaction Count: ${report.transactionCount || 0}`;
+        
+        res.send(Buffer.from(pdfContent));
+      } else if (format === 'excel') {
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}.xlsx"`);
+        
+        const excelContent = "Client,Report Type,Period,Purchases,Redemptions,Count\n" +
+          `${report.clientId},${report.reportType},${report.reportPeriod},${report.totalPurchases || 0},${report.totalRedemptions || 0},${report.transactionCount || 0}`;
+        
+        res.send(Buffer.from(excelContent));
+      } else {
+        res.status(400).json({ error: "Invalid format. Use 'pdf' or 'excel'" });
+      }
+    } catch (error) {
+      console.error("Error downloading transaction report:", error);
+      res.status(500).json({ error: "Failed to download transaction report" });
+    }
+  });
+  
+  // Agent shares transaction report with client
+  app.post("/api/agent/transaction-reports/:id/share", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { shareWithType = 'client', message, expiresInDays = 30 } = req.body;
+      
+      if (!req.user || req.user.role !== 'agent') {
+        return res.status(403).json({ error: "Agent access required" });
+      }
+      
+      const report = await storage.getTransactionReport(id);
+      if (!report) {
+        return res.status(404).json({ error: "Transaction report not found" });
+      }
+      
+      // Verify agent has access to this report
+      if (report.agentId !== req.user.id) {
+        return res.status(403).json({ error: "Access denied to this report" });
+      }
+      
+      // Create sharing record
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + expiresInDays);
+      
+      const sharing = await storage.createReportSharing({
+        reportId: id,
+        reportType: 'transaction_report',
+        sharedBy: req.user.id,
+        sharedWith: report.clientId,
+        sharedWithType,
+        accessType: 'download',
+        message,
+        expiresAt
+      });
+      
+      res.json({
+        success: true,
+        sharing,
+        message: "Report shared successfully"
+      });
+    } catch (error) {
+      console.error("Error sharing transaction report:", error);
+      res.status(500).json({ error: "Failed to share transaction report" });
+    }
+  });
+  
+  // ============ AGENT CAPITAL GAINS REPORTS ROUTES ============
+  
+  // Agent requests client capital gains report
+  app.post("/api/agent/capital-gains-reports/request", async (req, res) => {
+    try {
+      const { clientId, financialYear, assessmentYear, reportType, dataSource } = req.body;
+      
+      if (!req.user || req.user.role !== 'agent') {
+        return res.status(403).json({ error: "Agent access required" });
+      }
+      
+      if (!clientId || !financialYear || !dataSource) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+      
+      // Verify agent has access to this client
+      const relationship = await storage.getClientAgentRelationship(clientId, req.user.id);
+      if (!relationship || relationship.status !== 'active') {
+        return res.status(403).json({ error: "No active relationship with this client" });
+      }
+      
+      const reportData = {
+        clientId,
+        agentId: req.user.id,
+        financialYear,
+        assessmentYear: assessmentYear || `${parseInt(financialYear.split('-')[1]) + 1}-${parseInt(financialYear.split('-')[1]) + 2}`,
+        reportType: reportType || 'capital_gains',
+        dataSource,
+        status: 'calculating',
+        reportFee: '25',
+        paymentStatus: 'pending'
+      };
+      
+      const report = await storage.createCapitalGainsReport(reportData);
+      
+      res.status(201).json({
+        success: true,
+        report,
+        message: "Capital gains report request created successfully"
+      });
+    } catch (error) {
+      console.error("Error requesting capital gains report:", error);
+      res.status(500).json({ error: "Failed to request capital gains report" });
+    }
+  });
+  
+  // Agent gets list of capital gains reports for their clients
+  app.get("/api/agent/capital-gains-reports", async (req, res) => {
+    try {
+      if (!req.user || req.user.role !== 'agent') {
+        return res.status(403).json({ error: "Agent access required" });
+      }
+      
+      const { clientId, financialYear, status } = req.query;
+      
+      // Get all reports where the agent is the requester
+      const reports = await storage.getAgentCapitalGainsReports(req.user.id, {
+        clientId: clientId as string,
+        financialYear: financialYear as string,
+        status: status as string
+      });
+      
+      res.json({
+        success: true,
+        reports,
+        count: reports.length
+      });
+    } catch (error) {
+      console.error("Error fetching agent capital gains reports:", error);
+      res.status(500).json({ error: "Failed to fetch capital gains reports" });
+    }
+  });
+  
+  // Agent downloads client capital gains report
+  app.get("/api/agent/capital-gains-reports/:id/download", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { format = 'pdf' } = req.query;
+      
+      if (!req.user || req.user.role !== 'agent') {
+        return res.status(403).json({ error: "Agent access required" });
+      }
+      
+      const report = await storage.getCapitalGainsReport(id);
+      if (!report) {
+        return res.status(404).json({ error: "Capital gains report not found" });
+      }
+      
+      // Verify agent has access to this report
+      if (report.agentId !== req.user.id) {
+        return res.status(403).json({ error: "Access denied to this report" });
+      }
+      
+      if (report.status !== 'generated') {
+        return res.status(400).json({ error: "Report is not ready for download" });
+      }
+      
+      // Update download count
+      await storage.updateCapitalGainsReport(id, {
+        downloadCount: (report.downloadCount || 0) + 1,
+        downloadedAt: new Date()
+      });
+      
+      const filename = `client-capital-gains-${report.clientId}-${report.financialYear}-${Date.now()}`;
+      
+      if (format === 'pdf') {
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}.pdf"`);
+        
+        const pdfContent = `Client Capital Gains Report\n\nClient ID: ${report.clientId}\nFinancial Year: ${report.financialYear}\nAssessment Year: ${report.assessmentYear}\nSource: ${report.dataSource}\nGenerated: ${new Date().toLocaleDateString('en-IN')}\n\nShort Term Gains: ₹${report.totalShortTermGains || 0}\nLong Term Gains: ₹${report.totalLongTermGains || 0}\nTotal Tax Liability: ₹${report.totalTaxLiability || 0}\nNet Gains: ₹${report.netGains || 0}`;
+        
+        res.send(Buffer.from(pdfContent));
+      } else if (format === 'excel') {
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}.xlsx"`);
+        
+        const excelContent = "Client,Financial Year,Short Term Gains,Long Term Gains,Net Gains,Tax Liability\n" +
+          `${report.clientId},${report.financialYear},${report.totalShortTermGains || 0},${report.totalLongTermGains || 0},${report.netGains || 0},${report.totalTaxLiability || 0}`;
+        
+        res.send(Buffer.from(excelContent));
+      } else {
+        res.status(400).json({ error: "Invalid format. Use 'pdf' or 'excel'" });
+      }
+    } catch (error) {
+      console.error("Error downloading capital gains report:", error);
+      res.status(500).json({ error: "Failed to download capital gains report" });
+    }
+  });
+  
+  // Agent shares capital gains report with client
+  app.post("/api/agent/capital-gains-reports/:id/share", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { shareWithType = 'client', message, expiresInDays = 30 } = req.body;
+      
+      if (!req.user || req.user.role !== 'agent') {
+        return res.status(403).json({ error: "Agent access required" });
+      }
+      
+      const report = await storage.getCapitalGainsReport(id);
+      if (!report) {
+        return res.status(404).json({ error: "Capital gains report not found" });
+      }
+      
+      // Verify agent has access to this report
+      if (report.agentId !== req.user.id) {
+        return res.status(403).json({ error: "Access denied to this report" });
+      }
+      
+      // Create sharing record
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + expiresInDays);
+      
+      const sharing = await storage.createReportSharing({
+        reportId: id,
+        reportType: 'capital_gains_report',
+        sharedBy: req.user.id,
+        sharedWith: report.clientId,
+        sharedWithType,
+        accessType: 'download',
+        message,
+        expiresAt
+      });
+      
+      res.json({
+        success: true,
+        sharing,
+        message: "Capital gains report shared successfully"
+      });
+    } catch (error) {
+      console.error("Error sharing capital gains report:", error);
+      res.status(500).json({ error: "Failed to share capital gains report" });
+    }
+  });
+  
+  // Get agent's report sharing history
+  app.get("/api/agent/reports/shared", async (req, res) => {
+    try {
+      if (!req.user || req.user.role !== 'agent') {
+        return res.status(403).json({ error: "Agent access required" });
+      }
+      
+      const { reportType, status } = req.query;
+      
+      const sharedReports = await storage.getAgentSharedReports(req.user.id, {
+        reportType: reportType as string,
+        status: status as string
+      });
+      
+      res.json({
+        success: true,
+        sharedReports,
+        count: sharedReports.length
+      });
+    } catch (error) {
+      console.error("Error fetching shared reports:", error);
+      res.status(500).json({ error: "Failed to fetch shared reports" });
+    }
+  });
+
   // Global error handler (must be last)
   app.use(globalErrorHandler);
 
