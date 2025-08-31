@@ -38,22 +38,6 @@ const profileSchema = z.object({
   annualIncome: z.string().optional(),
   investmentExperience: z.string().optional(),
   riskTolerance: z.string().optional(),
-  // Additional KYC for API Integration
-  bankAccountNumber: z.string().optional(),
-  ifscCode: z.string().optional(),
-  nomineeDetails: z.string().optional(),
-  nomineeRelation: z.string().optional(),
-  // EUIN and API Integration
-  euinNumber: z.string().optional(),
-  enableCamsApi: z.boolean().optional(),
-  enableKfintechApi: z.boolean().optional(),
-  enableNsdlApi: z.boolean().optional(),
-  enableCdslApi: z.boolean().optional(),
-  // Registry Preferences
-  preferredCamsRegistration: z.boolean().optional(),
-  preferredKfintechRegistration: z.boolean().optional(),
-  preferredNsdlRegistration: z.boolean().optional(),
-  preferredCdslRegistration: z.boolean().optional(),
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
@@ -82,16 +66,6 @@ type ProfileData = {
   annualIncome?: string | null;
   investmentExperience?: string | null;
   riskTolerance?: string | null;
-  // Additional KYC for API Integration
-  bankAccountNumber?: string | null;
-  ifscCode?: string | null;
-  nomineeDetails?: string | null;
-  nomineeRelation?: string | null;
-  // Registry Preferences
-  preferredCamsRegistration?: boolean | null;
-  preferredKfintechRegistration?: boolean | null;
-  preferredNsdlRegistration?: boolean | null;
-  preferredCdslRegistration?: boolean | null;
 };
 
 const states = [
@@ -188,16 +162,6 @@ export default function ProfilePage() {
       annualIncome: "",
       investmentExperience: "",
       riskTolerance: "",
-      // Additional KYC for API Integration
-      bankAccountNumber: "",
-      ifscCode: "",
-      nomineeDetails: "",
-      nomineeRelation: "",
-      // Registry Preferences
-      preferredCamsRegistration: false,
-      preferredKfintechRegistration: false,
-      preferredNsdlRegistration: false,
-      preferredCdslRegistration: false,
     }
   });
 
@@ -227,16 +191,6 @@ export default function ProfilePage() {
         annualIncome: profileData.annualIncome || "",
         investmentExperience: profileData.investmentExperience || "",
         riskTolerance: profileData.riskTolerance || "",
-        // Additional KYC for API Integration
-        bankAccountNumber: profileData.bankAccountNumber || "",
-        ifscCode: profileData.ifscCode || "",
-        nomineeDetails: profileData.nomineeDetails || "",
-        nomineeRelation: profileData.nomineeRelation || "",
-        // Registry Preferences
-        preferredCamsRegistration: profileData.preferredCamsRegistration || false,
-        preferredKfintechRegistration: profileData.preferredKfintechRegistration || false,
-        preferredNsdlRegistration: profileData.preferredNsdlRegistration || false,
-        preferredCdslRegistration: profileData.preferredCdslRegistration || false,
       });
     }
   }, [profileData, form]);
@@ -281,7 +235,7 @@ export default function ProfilePage() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Profile Settings</h1>
         <p className="text-gray-600 dark:text-gray-300">
-          Complete your profile to enable advanced portfolio features and API integrations
+          Complete your profile to enable advanced portfolio features and compliance tracking
         </p>
       </div>
 
@@ -318,9 +272,9 @@ export default function ProfilePage() {
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <TrendingUp className="h-4 w-4" />
-                  <span>API Integration:</span>
+                  <span>Profile Status:</span>
                   <span className={`font-medium ${profileData?.panNumber ? 'text-green-600' : 'text-gray-600'}`}>
-                    {profileData?.panNumber ? 'Enabled' : 'Disabled'}
+                    {profileData?.panNumber ? 'Complete' : 'Incomplete'}
                   </span>
                 </div>
               </div>
@@ -732,195 +686,6 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
 
-            {/* Banking & Nominee Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CreditCard className="h-5 w-5" />
-                  Banking & Nominee Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="bankAccountNumber">Bank Account Number</Label>
-                    <Input
-                      id="bankAccountNumber"
-                      {...form.register("bankAccountNumber")}
-                      placeholder="Enter bank account number"
-                      disabled={!isEditing}
-                      data-testid="input-bank-account-number"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="ifscCode">IFSC Code</Label>
-                    <Input
-                      id="ifscCode"
-                      {...form.register("ifscCode")}
-                      placeholder="SBIN0001234"
-                      disabled={!isEditing}
-                      className="uppercase"
-                      data-testid="input-ifsc-code"
-                    />
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="nomineeDetails">Nominee Details</Label>
-                    <Textarea
-                      id="nomineeDetails"
-                      {...form.register("nomineeDetails")}
-                      placeholder="Nominee full name and other details"
-                      disabled={!isEditing}
-                      rows={2}
-                      data-testid="input-nominee-details"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="nomineeRelation">Nominee Relation</Label>
-                    <Select
-                      value={form.watch("nomineeRelation")}
-                      onValueChange={(value) => form.setValue("nomineeRelation", value)}
-                      disabled={!isEditing}
-                    >
-                      <SelectTrigger data-testid="select-nominee-relation">
-                        <SelectValue placeholder="Select relation" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {nomineeRelations.map((relation) => (
-                          <SelectItem key={relation} value={relation}>
-                            {relation}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Registry Integrations */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Database className="h-5 w-5" />
-                  Registry Integrations
-                </CardTitle>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Choose your preferred registries for mutual fund and demat account operations
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* CAMS Integration */}
-                <div className="flex items-start space-x-3 p-4 border rounded-lg">
-                  <input
-                    type="checkbox"
-                    id="preferredCamsRegistration"
-                    {...form.register("preferredCamsRegistration")}
-                    disabled={!isEditing}
-                    className="mt-1"
-                    data-testid="checkbox-cams-registration"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-5 w-5 text-blue-600" />
-                      <Label htmlFor="preferredCamsRegistration" className="font-medium cursor-pointer">
-                        CAMS (Computer Age Management Services)
-                      </Label>
-                    </div>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Leading registrar for mutual funds. Access portfolio, transactions, and SIP details.
-                    </p>
-                  </div>
-                </div>
-
-                {/* KFintech Integration */}
-                <div className="flex items-start space-x-3 p-4 border rounded-lg">
-                  <input
-                    type="checkbox"
-                    id="preferredKfintechRegistration"
-                    {...form.register("preferredKfintechRegistration")}
-                    disabled={!isEditing}
-                    className="mt-1"
-                    data-testid="checkbox-kfintech-registration"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <TrendingUp className="h-5 w-5 text-green-600" />
-                      <Label htmlFor="preferredKfintechRegistration" className="font-medium cursor-pointer">
-                        KFintech (Karvy Fintech)
-                      </Label>
-                    </div>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Major registrar and transfer agent. Manage your mutual fund investments efficiently.
-                    </p>
-                  </div>
-                </div>
-
-                {/* NSDL Integration */}
-                <div className="flex items-start space-x-3 p-4 border rounded-lg">
-                  <input
-                    type="checkbox"
-                    id="preferredNsdlRegistration"
-                    {...form.register("preferredNsdlRegistration")}
-                    disabled={!isEditing}
-                    className="mt-1"
-                    data-testid="checkbox-nsdl-registration"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <Building className="h-5 w-5 text-purple-600" />
-                      <Label htmlFor="preferredNsdlRegistration" className="font-medium cursor-pointer">
-                        NSDL (National Securities Depository Limited)
-                      </Label>
-                    </div>
-                    <p className="text-sm text-gray-600 mt-1">
-                      India's first depository. Access demat holdings, pledge shares, and loan against securities.
-                    </p>
-                  </div>
-                </div>
-
-                {/* CDSL Integration */}
-                <div className="flex items-start space-x-3 p-4 border rounded-lg">
-                  <input
-                    type="checkbox"
-                    id="preferredCdslRegistration"
-                    {...form.register("preferredCdslRegistration")}
-                    disabled={!isEditing}
-                    className="mt-1"
-                    data-testid="checkbox-cdsl-registration"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <Shield className="h-5 w-5 text-orange-600" />
-                      <Label htmlFor="preferredCdslRegistration" className="font-medium cursor-pointer">
-                        CDSL (Central Depository Services Limited)
-                      </Label>
-                    </div>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Leading depository service. Manage demat accounts, eDIS consent, and margin pledging.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Registry Integration Note */}
-                <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <div className="flex items-start gap-3">
-                    <Info className="h-5 w-5 text-blue-600 mt-0.5" />
-                    <div>
-                      <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-1">
-                        Registry Integration Status
-                      </h4>
-                      <p className="text-sm text-blue-700 dark:text-blue-300">
-                        Your selected registries will be used for portfolio synchronization and transaction processing. 
-                        Direct access to registry services is available through their official websites.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
 
             {/* Action Buttons */}
             <div className="flex gap-4">
