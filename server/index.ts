@@ -9,8 +9,8 @@ import { complianceMiddleware } from "./compliance-monitor";
 
 const app = express();
 
-// Trust proxy for Replit environment
-app.set('trust proxy', true);
+// Trust proxy configuration for Replit environment
+app.set('trust proxy', 1);
 
 // Security middleware
 app.use(helmet({
@@ -34,21 +34,22 @@ app.use(helmet({
 // CORS configuration
 app.use(cors({
   origin: process.env.NODE_ENV === "production" 
-    ? ["https://*.replit.app", "https://*.repl.co"]
+    ? ["https://*.replit.app", "https://*.repl.co", "https://fintekpro.com", "https://www.fintekpro.com"]
     : ["http://localhost:5000", "http://127.0.0.1:5000"],
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"]
 }));
 
-// Rate limiting
+// Rate limiting with proper proxy configuration
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // Limit each IP to 100 requests per windowMs
   message: { message: "Too many requests, please try again later." },
   standardHeaders: true,
   legacyHeaders: false,
-  trustProxy: true, // Trust proxy headers in Replit environment
+  // Configure for Replit environment - trust first proxy
+  trustProxy: 1,
   skip: (req) => {
     // Skip rate limiting for health checks and static assets
     return req.path.includes('/health') || req.path.includes('/static')
@@ -63,7 +64,8 @@ const authLimiter = rateLimit({
   max: 5, // Limit each IP to 5 auth requests per windowMs
   message: { message: "Too many authentication attempts, please try again later." },
   skipSuccessfulRequests: true,
-  trustProxy: true, // Trust proxy headers in Replit environment
+  // Configure for Replit environment - trust first proxy
+  trustProxy: 1,
 });
 
 app.use(["/api/login", "/api/register"], authLimiter);
