@@ -27,14 +27,16 @@ export function Header() {
     { name: "Markets", href: "/markets" },
     { name: "Portfolio", href: "/portfolio" },
     { name: "Wealth Management", href: "/wealth-management" },
-    { name: "Suppliers", href: "/suppliers" },
     { name: "Calculators", href: "/calculators" },
     { name: "Support", href: "/support" },
   ];
 
   // Add admin navigation for admin clients
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
-  const adminNavigation = isAdmin ? [{ name: "Admin Panel", href: "/admin" }] : [];
+  const adminNavigation = isAdmin ? [
+    { name: "Admin Panel", href: "/admin" },
+    { name: "Supplier Management", href: "/suppliers" }
+  ] : [];
 
   return (
     <header className="bg-white shadow-sm border-b border-gray-200 fixed top-0 w-full z-50">

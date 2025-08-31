@@ -15524,7 +15524,7 @@ System Security Data:`;
   });
 
   // Supplier API endpoints
-  app.get("/api/suppliers", async (req, res) => {
+  app.get("/api/suppliers", requireAdmin, async (req, res) => {
     try {
       const suppliers = await storage.getAllSuppliers();
       res.json({ suppliers });
@@ -15534,7 +15534,7 @@ System Security Data:`;
     }
   });
 
-  app.post("/api/suppliers", async (req, res) => {
+  app.post("/api/suppliers", requireAdmin, async (req, res) => {
     try {
       const { name, contactEmail, contactPhone, address, description, rating, isActive } = req.body;
 
@@ -15559,7 +15559,7 @@ System Security Data:`;
     }
   });
 
-  app.put("/api/suppliers/:id", async (req, res) => {
+  app.put("/api/suppliers/:id", requireAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       const updates = req.body;
@@ -15576,7 +15576,7 @@ System Security Data:`;
     }
   });
 
-  app.delete("/api/suppliers/:id", async (req, res) => {
+  app.delete("/api/suppliers/:id", requireAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       const deleted = await storage.deleteSupplier(id);
@@ -15593,7 +15593,7 @@ System Security Data:`;
   });
 
   // Supplier Products API endpoints
-  app.get("/api/supplier-products", async (req, res) => {
+  app.get("/api/supplier-products", requireAdmin, async (req, res) => {
     try {
       const { supplierId } = req.query;
       const products = await storage.getSupplierProducts(supplierId as string);
@@ -15604,7 +15604,7 @@ System Security Data:`;
     }
   });
 
-  app.post("/api/supplier-products", async (req, res) => {
+  app.post("/api/supplier-products", requireAdmin, async (req, res) => {
     try {
       const { supplierId, productName, description, price, profitMargin, category, isActive } = req.body;
 
@@ -15629,7 +15629,7 @@ System Security Data:`;
     }
   });
 
-  app.put("/api/supplier-products/:id", async (req, res) => {
+  app.put("/api/supplier-products/:id", requireAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       const updates = req.body;
@@ -15646,7 +15646,7 @@ System Security Data:`;
     }
   });
 
-  app.delete("/api/supplier-products/:id", async (req, res) => {
+  app.delete("/api/supplier-products/:id", requireAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       const deleted = await storage.deleteSupplierProduct(id);
@@ -15663,7 +15663,7 @@ System Security Data:`;
   });
 
   // Profit Optimization endpoints
-  app.get("/api/products/:productId/optimal-supplier", async (req, res) => {
+  app.get("/api/products/:productId/optimal-supplier", requireAdmin, async (req, res) => {
     try {
       const { productId } = req.params;
       const optimalSupplier = await storage.getOptimalSupplier(productId);
@@ -15679,7 +15679,7 @@ System Security Data:`;
     }
   });
 
-  app.get("/api/products/:productId/profit-analysis", async (req, res) => {
+  app.get("/api/products/:productId/profit-analysis", requireAdmin, async (req, res) => {
     try {
       const { productId } = req.params;
       const analysis = await storage.getProfitAnalysis(productId);
@@ -15690,7 +15690,7 @@ System Security Data:`;
     }
   });
 
-  app.get("/api/products/:productId/supplier-comparison", async (req, res) => {
+  app.get("/api/products/:productId/supplier-comparison", requireAdmin, async (req, res) => {
     try {
       const { productId } = req.params;
       const comparison = await storage.getSupplierComparison(productId);
@@ -15702,7 +15702,7 @@ System Security Data:`;
   });
 
   // Product Performance Metrics API endpoints
-  app.get("/api/product-performance", async (req, res) => {
+  app.get("/api/product-performance", requireAdmin, async (req, res) => {
     try {
       const { productId } = req.query;
       const metrics = await storage.getProductPerformanceMetrics(productId as string);
@@ -15713,7 +15713,7 @@ System Security Data:`;
     }
   });
 
-  app.post("/api/product-performance", async (req, res) => {
+  app.post("/api/product-performance", requireAdmin, async (req, res) => {
     try {
       const { productId, salesVolume, revenue, customerSatisfaction, returnRate, profitMargin, trendDirection } = req.body;
 

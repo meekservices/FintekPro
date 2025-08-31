@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,11 +6,44 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { TrendingUp, TrendingDown, DollarSign, Package, Users, AlertTriangle } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, Package, Users, AlertTriangle, Shield } from "lucide-react";
 import { ProfitDashboard } from "@/components/supplier/profit-dashboard";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 
 export function SupplierManagement() {
   const [selectedProductId, setSelectedProductId] = useState<string>("");
+  const { user, isAuthenticated, isLoading } = useAuth();
+  const { toast } = useToast();
+
+  // Check if user is admin
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+
+  // Redirect non-admin users
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && !isAdmin) {
+      toast({
+        title: "Access Denied",
+        description: "You don't have permission to access supplier management.",
+        variant: "destructive",
+      });
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 1500);
+      return;
+    }
+    if (!isLoading && !isAuthenticated) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to access supplier management.",
+        variant: "destructive",
+      });
+      setTimeout(() => {
+        window.location.href = "/api/login";
+      }, 1500);
+      return;
+    }
+  }, [isAuthenticated, isLoading, isAdmin, toast]);
 
   const { data: suppliersData } = useQuery({
     queryKey: ["/api/suppliers"],
@@ -40,6 +73,53 @@ export function SupplierManagement() {
   const analysis = profitAnalysis?.analysis;
   const comparison = supplierComparison?.suppliers || [];
   const optimal = optimalSupplier?.optimalSupplier;
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <Card>
+          <CardContent className="p-12 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-finance-blue mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show unauthorized access for non-admin users
+  if (isAuthenticated && !isAdmin) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <Card>
+          <CardContent className="p-12 text-center">
+            <Shield className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Access Denied</h3>
+            <p className="text-muted-foreground">You don't have permission to access supplier management. Admin access required.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show login prompt for unauthenticated users
+  if (!isAuthenticated) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <Card>
+          <CardContent className="p-12 text-center">
+            <Shield className="h-12 w-12 text-blue-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Authentication Required</h3>
+            <p className="text-muted-foreground mb-4">Please log in to access supplier management.</p>
+            <Button onClick={() => window.location.href = "/api/login"}>
+              Log In
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-6 space-y-6">
