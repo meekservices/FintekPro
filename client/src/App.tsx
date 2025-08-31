@@ -33,6 +33,7 @@ import Store from "@/pages/store";
 import ApiMonitorDemo from "@/pages/api-monitor-demo";
 import ICICIBanking from "@/pages/icici-banking";
 import HDFCBanking from "@/pages/hdfc-banking";
+import ClientAutoPopulate from "@/pages/client-auto-populate";
 
 function Router() {
   return (
@@ -67,6 +68,7 @@ function Router() {
       <Route path="/api-monitor" component={ApiMonitorDemo} />
       <Route path="/icici-banking" component={ICICIBanking} />
       <Route path="/hdfc-banking" component={HDFCBanking} />
+      <Route path="/client-auto-populate" component={ClientAutoPopulate} />
       <Route component={NotFound} />
     </Switch>
   );
