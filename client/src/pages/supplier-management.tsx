@@ -78,6 +78,7 @@ export function SupplierManagement() {
           <TabsList>
             <TabsTrigger value="analysis" data-testid="tab-analysis">Profit Analysis</TabsTrigger>
             <TabsTrigger value="comparison" data-testid="tab-comparison">Supplier Comparison</TabsTrigger>
+            <TabsTrigger value="dashboard" data-testid="tab-dashboard">Profit Dashboard</TabsTrigger>
             <TabsTrigger value="suppliers" data-testid="tab-suppliers">All Suppliers</TabsTrigger>
           </TabsList>
 
@@ -270,6 +271,29 @@ export function SupplierManagement() {
                   </Card>
                 ))}
               </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="dashboard" className="space-y-4">
+            {isAnalysisLoading ? (
+              <Card>
+                <CardContent className="p-6">
+                  <div className="text-center">Loading profit dashboard...</div>
+                </CardContent>
+              </Card>
+            ) : analysis && optimal ? (
+              <ProfitDashboard 
+                analysis={analysis} 
+                suppliers={comparison} 
+                optimalSupplier={optimal} 
+              />
+            ) : (
+              <Card>
+                <CardContent className="p-6 text-center">
+                  <Package className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-muted-foreground">No data available for dashboard analysis</p>
+                </CardContent>
+              </Card>
             )}
           </TabsContent>
 
