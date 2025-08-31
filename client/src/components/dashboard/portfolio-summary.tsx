@@ -1,9 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { usePortfolios, usePortfolioHoldings } from "@/hooks/use-portfolio";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from "recharts";
 import { ASSET_COLORS, ASSET_TYPE_LABELS } from "@/lib/constants";
+import { RebalanceDashboard } from "./rebalance-dashboard";
+import { useState } from "react";
 
 interface PortfolioSummaryProps {
   userId: string;
@@ -13,6 +16,7 @@ export function PortfolioSummary({ userId }: PortfolioSummaryProps) {
   const { data: portfolios, isLoading: portfoliosLoading } = usePortfolios(userId);
   const defaultPortfolio = portfolios?.[0]; // Use first portfolio as default
   const { data: holdings, isLoading: holdingsLoading } = usePortfolioHoldings(defaultPortfolio?.id || "");
+  const [isRebalanceOpen, setIsRebalanceOpen] = useState(false);
 
   const isLoading = portfoliosLoading || holdingsLoading;
 
@@ -145,12 +149,22 @@ export function PortfolioSummary({ userId }: PortfolioSummaryProps) {
 
         {/* Quick Actions */}
         <div className="space-y-2">
-          <Button 
-            className="w-full bg-finance-blue text-white hover:bg-blue-700"
-            data-testid="rebalance-button"
-          >
-            Rebalance Portfolio
-          </Button>
+          <Dialog open={isRebalanceOpen} onOpenChange={setIsRebalanceOpen}>
+            <DialogTrigger asChild>
+              <Button 
+                className="w-full bg-finance-blue text-white hover:bg-blue-700"
+                data-testid="rebalance-button"
+              >
+                Rebalance Portfolio
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Portfolio Rebalancing</DialogTitle>
+              </DialogHeader>
+              <RebalanceDashboard portfolioId={defaultPortfolio?.id || ""} totalValue={summary.totalValue || 0} />
+            </DialogContent>
+          </Dialog>
           <Button 
             variant="outline" 
             className="w-full border-finance-blue text-finance-blue hover:bg-blue-50"

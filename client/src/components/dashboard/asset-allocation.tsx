@@ -1,9 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useAssetAllocation } from "@/hooks/use-portfolio";
 import { ASSET_TYPE_LABELS, ASSET_COLORS, RISK_PROFILES } from "@/lib/constants";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
+import { RebalanceDashboard } from "./rebalance-dashboard";
+import { useState } from "react";
 
 interface AssetAllocationProps {
   portfolioId: string;
@@ -11,6 +14,7 @@ interface AssetAllocationProps {
 
 export function AssetAllocation({ portfolioId }: AssetAllocationProps) {
   const { data: allocation, isLoading, error } = useAssetAllocation(portfolioId);
+  const [isRebalanceOpen, setIsRebalanceOpen] = useState(false);
 
   // Mock data for demonstration - would come from real allocation API
   const mockAllocationData = [
@@ -98,12 +102,22 @@ export function AssetAllocation({ portfolioId }: AssetAllocationProps) {
           <CardTitle className="text-2xl font-bold text-gray-900" data-testid="allocation-title">
             Asset Allocation Dashboard
           </CardTitle>
-          <Button 
-            className="bg-finance-blue text-white hover:bg-blue-700"
-            data-testid="rebalance-portfolio-button"
-          >
-            Rebalance Portfolio
-          </Button>
+          <Dialog open={isRebalanceOpen} onOpenChange={setIsRebalanceOpen}>
+            <DialogTrigger asChild>
+              <Button 
+                className="bg-finance-blue text-white hover:bg-blue-700"
+                data-testid="rebalance-portfolio-button"
+              >
+                Rebalance Portfolio
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Portfolio Rebalancing</DialogTitle>
+              </DialogHeader>
+              <RebalanceDashboard portfolioId={portfolioId} totalValue={chartData.reduce((sum, item) => sum + (item.currentValue || 0), 0)} />
+            </DialogContent>
+          </Dialog>
         </div>
       </CardHeader>
       <CardContent>
