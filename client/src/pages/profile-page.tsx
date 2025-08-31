@@ -366,9 +366,7 @@ export default function ProfilePage() {
 
   const autoPopulateMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await apiRequest("POST", "/api/client/auto-populate", { 
-        body: data 
-      });
+      const response = await apiRequest("POST", "/api/client/auto-populate", data);
       return response.json();
     },
     onSuccess: (data) => {
