@@ -1,10 +1,11 @@
 import pkg from 'whatsapp-web.js';
-const { Client, LocalAuth, Message } = pkg;
+const { Client, LocalAuth } = pkg;
+import type { Message } from 'whatsapp-web.js';
 import qrcode from 'qrcode-terminal';
 import { storage } from './storage';
 import { randomUUID } from 'crypto';
 
-let whatsappClient: Client | null = null;
+let whatsappClient: InstanceType<typeof Client> | null = null;
 
 interface AuthSession {
   id: string;
@@ -17,7 +18,7 @@ interface AuthSession {
 }
 
 export class WhatsAppService {
-  private client: Client;
+  private client: InstanceType<typeof Client>;
   private isReady: boolean = false;
   private qrCode: string | null = null;
   private authSessions: Map<string, AuthSession> = new Map();
@@ -49,7 +50,7 @@ export class WhatsAppService {
   }
 
   private setupEventHandlers() {
-    this.client.on('qr', (qr) => {
+    this.client.on('qr', (qr: string) => {
       console.log('WhatsApp QR Code generated. Scan with your phone:');
       qrcode.generate(qr, { small: true });
       this.qrCode = qr;
@@ -64,17 +65,17 @@ export class WhatsAppService {
       console.log('WhatsApp Client authenticated');
     });
 
-    this.client.on('auth_failure', (msg) => {
+    this.client.on('auth_failure', (msg: string) => {
       console.error('WhatsApp authentication failed:', msg);
     });
 
-    this.client.on('disconnected', (reason) => {
+    this.client.on('disconnected', (reason: string) => {
       console.log('WhatsApp Client disconnected:', reason);
       this.isReady = false;
     });
 
     // Handle incoming messages
-    this.client.on('message_create', async (message) => {
+    this.client.on('message_create', async (message: Message) => {
       if (message.fromMe) return; // Ignore messages sent by the bot
       
       await this.handleIncomingMessage(message);
@@ -321,7 +322,7 @@ export class WhatsAppService {
 
   cleanupExpiredSessions(): void {
     const now = new Date();
-    for (const [sessionId, session] of this.authSessions.entries()) {
+    for (const [sessionId, session] of Array.from(this.authSessions.entries())) {
       if (session.expiresAt < now) {
         this.authSessions.delete(sessionId);
       }
