@@ -276,6 +276,12 @@ export interface IStorage {
   createProductPerformanceMetric(metric: InsertProductPerformanceMetric): Promise<ProductPerformanceMetric>;
   updateProductPerformanceMetric(id: string, updates: Partial<ProductPerformanceMetric>): Promise<ProductPerformanceMetric | undefined>;
   deleteProductPerformanceMetric(id: string): Promise<boolean>;
+
+  // Client Assignment methods
+  createClientAssignment(assignment: any): Promise<any>;
+  getClientAssignments(): Promise<any[]>;
+  updateClientAssignment(id: string, updates: any): Promise<any>;
+  getClientAssignmentsByAgent(agentId: string): Promise<any[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -317,6 +323,7 @@ export class MemStorage implements IStorage {
   private suppliers: Map<string, Supplier>;
   private supplierProducts: Map<string, SupplierProduct>;
   private productPerformanceMetrics: Map<string, ProductPerformanceMetric>;
+  private clientAssignments: Map<string, any>;
 
   constructor() {
     this.users = new Map();
@@ -357,6 +364,7 @@ export class MemStorage implements IStorage {
     this.suppliers = new Map();
     this.supplierProducts = new Map();
     this.productPerformanceMetrics = new Map();
+    this.clientAssignments = new Map();
     
     // Initialize with sample data
     this.initializeSampleData();
@@ -2807,6 +2815,30 @@ export class MemStorage implements IStorage {
     metrics.forEach(metric => {
       this.productPerformanceMetrics.set(metric.id, metric);
     });
+  }
+
+  // Client Assignment methods implementation
+  async createClientAssignment(assignment: any): Promise<any> {
+    this.clientAssignments.set(assignment.id, assignment);
+    return assignment;
+  }
+
+  async getClientAssignments(): Promise<any[]> {
+    return Array.from(this.clientAssignments.values());
+  }
+
+  async updateClientAssignment(id: string, updates: any): Promise<any> {
+    const assignment = this.clientAssignments.get(id);
+    if (!assignment) return undefined;
+    
+    const updatedAssignment = { ...assignment, ...updates, updatedAt: new Date() };
+    this.clientAssignments.set(id, updatedAssignment);
+    return updatedAssignment;
+  }
+
+  async getClientAssignmentsByAgent(agentId: string): Promise<any[]> {
+    return Array.from(this.clientAssignments.values())
+      .filter(assignment => assignment.assignedAgentIds.includes(agentId));
   }
 }
 

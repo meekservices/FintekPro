@@ -21,6 +21,262 @@ import { TransactionReportViewer } from "@/components/reports/transaction-report
 import CkycManagement from "./admin/ckyc-management";
 import SupplierDashboard from "./admin/supplier-dashboard";
 
+// Probe42 Intelligence Component
+function Probe42Intelligence() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchType, setSearchType] = useState("company");
+  const [searchResults, setSearchResults] = useState([]);
+  const [selectedCompany, setSelectedCompany] = useState(null);
+  const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false);
+  const [selectedAgents, setSelectedAgents] = useState([]);
+  const [assignmentNotes, setAssignmentNotes] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const { toast } = useToast();
+
+  // Get all agents for assignment
+  const { data: agents } = useQuery({
+    queryKey: ['/api/admin/users'],
+    select: (users) => users?.filter(user => user.role === 'agent') || []
+  });
+
+  // Search companies using Probe42 API
+  const searchCompanies = async () => {
+    if (!searchQuery.trim()) return;
+    
+    setIsSearching(true);
+    try {
+      const response = await apiRequest('/api/probe42/companies/search', {
+        method: 'POST',
+        body: {
+          name: searchType === 'company' ? searchQuery : undefined,
+          cin: searchType === 'cin' ? searchQuery : undefined,
+          pan: searchType === 'pan' ? searchQuery : undefined,
+          gst: searchType === 'gst' ? searchQuery : undefined
+        }
+      });
+      
+      setSearchResults(response.data || []);
+      
+      if (response.data?.length === 0) {
+        toast({
+          title: "No Results",
+          description: "No companies found matching your search criteria.",
+          variant: "default"
+        });
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+      toast({
+        title: "Search Failed",
+        description: "Failed to search companies. Please try again.",
+        variant: "destructive"
+      });
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Assign company to agents
+  const assignToAgents = async () => {
+    if (!selectedCompany || selectedAgents.length === 0) return;
+
+    try {
+      await apiRequest('/api/admin/assign-probed-client', {
+        method: 'POST',
+        body: {
+          clientData: selectedCompany,
+          agentIds: selectedAgents,
+          notes: assignmentNotes
+        }
+      });
+
+      toast({
+        title: "Assignment Successful",
+        description: `Company ${selectedCompany.name} assigned to ${selectedAgents.length} agent(s).`,
+        variant: "default"
+      });
+
+      setAssignmentDialogOpen(false);
+      setSelectedCompany(null);
+      setSelectedAgents([]);
+      setAssignmentNotes("");
+    } catch (error) {
+      console.error('Assignment error:', error);
+      toast({
+        title: "Assignment Failed",
+        description: "Failed to assign company to agents. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Probe42 Intelligence</h2>
+          <p className="text-gray-600 dark:text-gray-400 mt-2">
+            Search and analyze companies using Probe42 data intelligence services. Assign findings to agents for follow-up.
+          </p>
+        </div>
+      </div>
+
+      {/* Search Interface */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Search className="w-5 h-5" />
+            Company Search
+          </CardTitle>
+          <CardDescription>
+            Search for companies by name, CIN, PAN, or GST number to view detailed intelligence reports.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-4">
+            <Select value={searchType} onValueChange={setSearchType}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Search by..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="company">Company Name</SelectItem>
+                <SelectItem value="cin">CIN Number</SelectItem>
+                <SelectItem value="pan">PAN Number</SelectItem>
+                <SelectItem value="gst">GST Number</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input
+              placeholder={`Enter ${searchType === 'company' ? 'company name' : searchType.toUpperCase()}`}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && searchCompanies()}
+              className="flex-1"
+            />
+            <Button 
+              onClick={searchCompanies} 
+              disabled={isSearching || !searchQuery.trim()}
+              className="px-6"
+            >
+              {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+              Search
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Search Results */}
+      {searchResults.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Search Results ({searchResults.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {searchResults.map((company, index) => (
+                <div key={index} className="border rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-800">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-lg">{company.name || 'Unknown Company'}</h3>
+                      <div className="grid grid-cols-2 gap-4 mt-2 text-sm text-gray-600 dark:text-gray-400">
+                        {company.cin && <div><span className="font-medium">CIN:</span> {company.cin}</div>}
+                        {company.pan && <div><span className="font-medium">PAN:</span> {company.pan}</div>}
+                        {company.gst && <div><span className="font-medium">GST:</span> {company.gst}</div>}
+                        {company.status && <div><span className="font-medium">Status:</span> {company.status}</div>}
+                      </div>
+                      {company.complianceScore && (
+                        <div className="mt-2">
+                          <Badge variant={company.complianceScore > 70 ? 'default' : 'destructive'}>
+                            Compliance Score: {company.complianceScore}%
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
+                    <Button
+                      onClick={() => {
+                        setSelectedCompany(company);
+                        setAssignmentDialogOpen(true);
+                      }}
+                      variant="outline"
+                      size="sm"
+                    >
+                      <UserPlus className="w-4 h-4 mr-2" />
+                      Assign to Agent
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Assignment Dialog */}
+      <Dialog open={assignmentDialogOpen} onOpenChange={setAssignmentDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Assign Company to Agents</DialogTitle>
+            <DialogDescription>
+              Assign {selectedCompany?.name} to one or more agents for follow-up and client management.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label>Select Agents</Label>
+              <div className="mt-2 space-y-2 max-h-48 overflow-y-auto">
+                {agents?.map((agent) => (
+                  <div key={agent.id} className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id={`agent-${agent.id}`}
+                      checked={selectedAgents.includes(agent.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedAgents([...selectedAgents, agent.id]);
+                        } else {
+                          setSelectedAgents(selectedAgents.filter(id => id !== agent.id));
+                        }
+                      }}
+                      className="rounded border-gray-300"
+                    />
+                    <label htmlFor={`agent-${agent.id}`} className="text-sm">
+                      {agent.name || agent.email} ({agent.email})
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            <div>
+              <Label htmlFor="notes">Assignment Notes</Label>
+              <Textarea
+                id="notes"
+                placeholder="Add any notes or instructions for the assigned agents..."
+                value={assignmentNotes}
+                onChange={(e) => setAssignmentNotes(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAssignmentDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={assignToAgents}
+              disabled={selectedAgents.length === 0}
+            >
+              Assign to {selectedAgents.length} Agent{selectedAgents.length !== 1 ? 's' : ''}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 // API Status Panel Component
 function ApiStatusPanel() {
   const { data: apiStatus, isLoading, error } = useQuery({
@@ -2055,6 +2311,14 @@ export default function AdminPanel() {
               >
                 <Building2 className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
                 {!sidebarCollapsed && <span className="font-medium">Supplier Dashboard</span>}
+              </TabsTrigger>
+              <TabsTrigger 
+                value="probe42" 
+                data-testid="tab-probe42"
+                className={`w-full ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start px-3'} py-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-200 dark:data-[state=active]:shadow-blue-900/50`}
+              >
+                <Search className="w-5 h-5" />
+                {!sidebarCollapsed && <span className="font-medium">Probe42 Intelligence</span>}
               </TabsTrigger>
             </TabsList>
           </div>
@@ -4539,6 +4803,10 @@ export default function AdminPanel() {
           {/* Supplier Dashboard Tab */}
           <TabsContent value="supplier-dashboard" className="space-y-6" data-testid="supplier-dashboard-content">
             <SupplierDashboard />
+          </TabsContent>
+
+          <TabsContent value="probe42" className="space-y-6" data-testid="probe42-content">
+            <Probe42Intelligence />
           </TabsContent>
 
           </div>

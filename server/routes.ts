@@ -13740,7 +13740,7 @@ System Security Data:`;
   });
 
   // Probe42 API Integration Routes
-  import { createProbe42API } from './integrations/probe42';
+  const { createProbe42API } = require('./integrations/probe42');
   
   let probe42API: any = null;
   
@@ -13751,8 +13751,8 @@ System Security Data:`;
     });
   }
 
-  // Search companies endpoint
-  app.post("/api/probe42/companies/search", async (req, res) => {
+  // Search companies endpoint (Admin only)
+  app.post("/api/probe42/companies/search", requireAdmin, async (req, res) => {
     try {
       if (!probe42API) {
         return res.status(503).json({ error: "Probe42 API not configured" });
@@ -13774,8 +13774,8 @@ System Security Data:`;
     }
   });
 
-  // Get company by CIN endpoint
-  app.get("/api/probe42/companies/:cin", async (req, res) => {
+  // Get company by CIN endpoint (Admin only)
+  app.get("/api/probe42/companies/:cin", requireAdmin, async (req, res) => {
     try {
       if (!probe42API) {
         return res.status(503).json({ error: "Probe42 API not configured" });
@@ -13797,8 +13797,8 @@ System Security Data:`;
     }
   });
 
-  // Get company directors endpoint
-  app.get("/api/probe42/companies/:cin/directors", async (req, res) => {
+  // Get company directors endpoint (Admin only)
+  app.get("/api/probe42/companies/:cin/directors", requireAdmin, async (req, res) => {
     try {
       if (!probe42API) {
         return res.status(503).json({ error: "Probe42 API not configured" });
@@ -13820,8 +13820,8 @@ System Security Data:`;
     }
   });
 
-  // Get company charges endpoint
-  app.get("/api/probe42/companies/:cin/charges", async (req, res) => {
+  // Get company charges endpoint (Admin only)
+  app.get("/api/probe42/companies/:cin/charges", requireAdmin, async (req, res) => {
     try {
       if (!probe42API) {
         return res.status(503).json({ error: "Probe42 API not configured" });
@@ -13843,8 +13843,8 @@ System Security Data:`;
     }
   });
 
-  // Get company filings endpoint
-  app.get("/api/probe42/companies/:cin/filings", async (req, res) => {
+  // Get company filings endpoint (Admin only)
+  app.get("/api/probe42/companies/:cin/filings", requireAdmin, async (req, res) => {
     try {
       if (!probe42API) {
         return res.status(503).json({ error: "Probe42 API not configured" });
@@ -13867,8 +13867,8 @@ System Security Data:`;
     }
   });
 
-  // Get GST information endpoint
-  app.get("/api/probe42/gst/:gstNumber", async (req, res) => {
+  // Get GST information endpoint (Admin only)
+  app.get("/api/probe42/gst/:gstNumber", requireAdmin, async (req, res) => {
     try {
       if (!probe42API) {
         return res.status(503).json({ error: "Probe42 API not configured" });
@@ -13890,8 +13890,8 @@ System Security Data:`;
     }
   });
 
-  // Search signatories by PAN endpoint
-  app.post("/api/probe42/signatories/search", async (req, res) => {
+  // Search signatories by PAN endpoint (Admin only)
+  app.post("/api/probe42/signatories/search", requireAdmin, async (req, res) => {
     try {
       if (!probe42API) {
         return res.status(503).json({ error: "Probe42 API not configured" });
@@ -13913,8 +13913,8 @@ System Security Data:`;
     }
   });
 
-  // Get compliance data endpoint
-  app.get("/api/probe42/companies/:cin/compliance", async (req, res) => {
+  // Get compliance data endpoint (Admin only)
+  app.get("/api/probe42/companies/:cin/compliance", requireAdmin, async (req, res) => {
     try {
       if (!probe42API) {
         return res.status(503).json({ error: "Probe42 API not configured" });
@@ -13936,8 +13936,8 @@ System Security Data:`;
     }
   });
 
-  // Get credit risk assessment endpoint
-  app.get("/api/probe42/companies/:cin/credit-risk", async (req, res) => {
+  // Get credit risk assessment endpoint (Admin only)
+  app.get("/api/probe42/companies/:cin/credit-risk", requireAdmin, async (req, res) => {
     try {
       if (!probe42API) {
         return res.status(503).json({ error: "Probe42 API not configured" });
@@ -13959,8 +13959,8 @@ System Security Data:`;
     }
   });
 
-  // Bulk verify companies endpoint
-  app.post("/api/probe42/companies/bulk-verify", async (req, res) => {
+  // Bulk verify companies endpoint (Admin only)
+  app.post("/api/probe42/companies/bulk-verify", requireAdmin, async (req, res) => {
     try {
       if (!probe42API) {
         return res.status(503).json({ error: "Probe42 API not configured" });
@@ -13978,6 +13978,137 @@ System Security Data:`;
       res.status(500).json({ 
         status: "error", 
         error: "Failed to bulk verify companies" 
+      });
+    }
+  });
+
+  // Admin endpoint to assign probed client to agent(s)
+  app.post("/api/admin/assign-probed-client", requireAdmin, async (req, res) => {
+    try {
+      const { clientData, agentIds, notes } = req.body;
+
+      if (!clientData || !agentIds || !Array.isArray(agentIds)) {
+        return res.status(400).json({ error: "Client data and agent IDs are required" });
+      }
+
+      // Create the client assignment record
+      const assignment = {
+        id: `assignment-${Date.now()}`,
+        clientCIN: clientData.cin,
+        clientName: clientData.name,
+        clientData: clientData,
+        assignedAgentIds: agentIds,
+        assignedBy: req.user.id,
+        assignedAt: new Date(),
+        status: 'assigned',
+        notes: notes || '',
+        probeData: {
+          complianceScore: clientData.complianceScore,
+          creditRisk: clientData.creditRisk,
+          lastProbed: new Date()
+        }
+      };
+
+      // Store the assignment (you can extend storage to save this)
+      await storage.createClientAssignment(assignment);
+
+      // Log the assignment activity
+      await adminService.logActivity({
+        userId: req.user.id,
+        action: 'assign_probed_client',
+        resource: `client:${clientData.cin}`,
+        details: {
+          clientName: clientData.name,
+          agentIds: agentIds,
+          assignmentId: assignment.id
+        }
+      });
+
+      res.json({
+        status: "success",
+        data: assignment,
+        message: `Client ${clientData.name} assigned to ${agentIds.length} agent(s)`
+      });
+    } catch (error) {
+      console.error("Error assigning probed client:", error);
+      res.status(500).json({ 
+        status: "error", 
+        error: "Failed to assign probed client to agents" 
+      });
+    }
+  });
+
+  // Admin endpoint to get all client assignments
+  app.get("/api/admin/client-assignments", requireAdmin, async (req, res) => {
+    try {
+      const assignments = await storage.getClientAssignments();
+      
+      res.json({
+        status: "success",
+        data: assignments
+      });
+    } catch (error) {
+      console.error("Error fetching client assignments:", error);
+      res.status(500).json({ 
+        status: "error", 
+        error: "Failed to fetch client assignments" 
+      });
+    }
+  });
+
+  // Admin endpoint to update client assignment
+  app.put("/api/admin/client-assignments/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+
+      const assignment = await storage.updateClientAssignment(id, updates);
+      
+      if (!assignment) {
+        return res.status(404).json({ error: "Assignment not found" });
+      }
+
+      // Log the update activity
+      await adminService.logActivity({
+        userId: req.user.id,
+        action: 'update_client_assignment',
+        resource: `assignment:${id}`,
+        details: updates
+      });
+
+      res.json({
+        status: "success",
+        data: assignment
+      });
+    } catch (error) {
+      console.error("Error updating client assignment:", error);
+      res.status(500).json({ 
+        status: "error", 
+        error: "Failed to update client assignment" 
+      });
+    }
+  });
+
+  // Agent endpoint to get assigned clients
+  app.get("/api/agents/assigned-clients", async (req, res) => {
+    try {
+      const agentId = req.user?.id;
+      
+      if (!agentId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const assignments = await storage.getClientAssignmentsByAgent(agentId);
+      
+      res.json({
+        status: "success",
+        data: assignments
+      });
+    } catch (error) {
+      console.error("Error fetching assigned clients:", error);
+      res.status(500).json({ 
+        status: "error", 
+        error: "Failed to fetch assigned clients" 
       });
     }
   });
