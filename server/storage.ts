@@ -312,6 +312,17 @@ export interface IStorage {
   updateLoanStatus(id: string, updates: any): Promise<any | undefined>;
   getCollateralValuation(loanId: string): Promise<any | undefined>;
   createCollateralValuation(valuation: any): Promise<any>;
+
+  // Financial Goals methods
+  getFinancialGoals(userId: string): Promise<FinancialGoal[]>;
+  getFinancialGoal(id: string): Promise<FinancialGoal | undefined>;
+  createFinancialGoal(goal: InsertFinancialGoal): Promise<FinancialGoal>;
+  updateFinancialGoal(id: string, updates: Partial<FinancialGoal>): Promise<FinancialGoal | undefined>;
+  deleteFinancialGoal(id: string): Promise<boolean>;
+  
+  // Investment Recommendations methods
+  generateGoalBasedRecommendations(goalId: string): Promise<any[]>;
+  generatePortfolioRebalanceRecommendations(portfolioId: string, goals: FinancialGoal[]): Promise<any[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -361,6 +372,7 @@ export class MemStorage implements IStorage {
   private insuranceHoldings: Map<string, InsuranceHolding[]>;
   private loanApplications: Map<string, any>;
   private collateralValuations: Map<string, any>;
+  private financialGoals: Map<string, FinancialGoal>;
 
   constructor() {
     this.users = new Map();
@@ -409,6 +421,7 @@ export class MemStorage implements IStorage {
     this.insuranceHoldings = new Map();
     this.loanApplications = new Map();
     this.collateralValuations = new Map();
+    this.financialGoals = new Map();
     
     // Initialize with sample data
     this.initializeSampleData();
@@ -3273,6 +3286,265 @@ export class MemStorage implements IStorage {
     };
     this.collateralValuations.set(valuation.loanId, valuationData);
     return valuationData;
+  }
+
+  // Financial Goals methods
+  async getFinancialGoals(userId: string): Promise<FinancialGoal[]> {
+    return Array.from(this.financialGoals.values()).filter(goal => goal.userId === userId);
+  }
+
+  async getFinancialGoal(id: string): Promise<FinancialGoal | undefined> {
+    return this.financialGoals.get(id);
+  }
+
+  async createFinancialGoal(goalData: InsertFinancialGoal): Promise<FinancialGoal> {
+    const id = randomUUID();
+    const goal: FinancialGoal = {
+      ...goalData,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.financialGoals.set(id, goal);
+    return goal;
+  }
+
+  async updateFinancialGoal(id: string, updates: Partial<FinancialGoal>): Promise<FinancialGoal | undefined> {
+    const goal = this.financialGoals.get(id);
+    if (!goal) return undefined;
+    
+    const updatedGoal = { 
+      ...goal, 
+      ...updates, 
+      updatedAt: new Date() 
+    };
+    this.financialGoals.set(id, updatedGoal);
+    return updatedGoal;
+  }
+
+  async deleteFinancialGoal(id: string): Promise<boolean> {
+    return this.financialGoals.delete(id);
+  }
+
+  // Investment Recommendations methods
+  async generateGoalBasedRecommendations(goalId: string): Promise<any[]> {
+    const goal = await this.getFinancialGoal(goalId);
+    if (!goal) return [];
+
+    const monthsToGoal = Math.max(Math.ceil((new Date(goal.targetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24 * 30)), 1);
+    const remainingAmount = parseFloat(goal.targetAmount) - parseFloat(goal.currentAmount);
+    const monthlyRequirement = remainingAmount / monthsToGoal;
+
+    // Generate recommendations based on goal characteristics
+    const recommendations = [];
+
+    if (monthsToGoal <= 12) {
+      // Short-term goals
+      recommendations.push({
+        category: "Debt Instruments",
+        instruments: ["Liquid Funds", "Ultra Short Duration Funds", "Fixed Deposits"],
+        allocation: 100,
+        expectedReturn: "6-8%",
+        risk: "Very Low",
+        rationale: "Capital protection is crucial for short-term goals"
+      });
+    } else if (monthsToGoal <= 36) {
+      // Medium-term goals
+      recommendations.push({
+        category: "Conservative Hybrid",
+        instruments: ["Conservative Hybrid Funds", "Arbitrage Funds", "Short Duration Funds"],
+        allocation: 70,
+        expectedReturn: "8-10%",
+        risk: "Low to Moderate",
+        rationale: "Balanced approach for medium-term goals"
+      });
+      recommendations.push({
+        category: "Equity",
+        instruments: ["Large Cap Funds", "Index Funds"],
+        allocation: 30,
+        expectedReturn: "12-15%",
+        risk: "Moderate",
+        rationale: "Growth component for better returns"
+      });
+    } else {
+      // Long-term goals
+      if (goal.riskProfile === "aggressive") {
+        recommendations.push({
+          category: "Equity",
+          instruments: ["Large Cap Funds", "Mid Cap Funds", "Flexi Cap Funds", "ELSS"],
+          allocation: 80,
+          expectedReturn: "15-18%",
+          risk: "High",
+          rationale: "Aggressive growth for long-term wealth creation"
+        });
+        recommendations.push({
+          category: "Debt",
+          instruments: ["Corporate Bond Funds", "Long Duration Funds"],
+          allocation: 20,
+          expectedReturn: "8-10%",
+          risk: "Low",
+          rationale: "Stability component in aggressive portfolio"
+        });
+      } else if (goal.riskProfile === "moderate") {
+        recommendations.push({
+          category: "Equity",
+          instruments: ["Large Cap Funds", "Balanced Advantage Funds"],
+          allocation: 60,
+          expectedReturn: "12-15%",
+          risk: "Moderate",
+          rationale: "Moderate growth with balanced risk"
+        });
+        recommendations.push({
+          category: "Debt",
+          instruments: ["Corporate Bond Funds", "Conservative Hybrid Funds"],
+          allocation: 40,
+          expectedReturn: "8-10%",
+          risk: "Low",
+          rationale: "Income and stability component"
+        });
+      } else {
+        recommendations.push({
+          category: "Conservative Equity",
+          instruments: ["Large Cap Funds", "Dividend Yield Funds"],
+          allocation: 40,
+          expectedReturn: "10-12%",
+          risk: "Moderate",
+          rationale: "Gentle equity exposure"
+        });
+        recommendations.push({
+          category: "Debt",
+          instruments: ["Conservative Hybrid Funds", "Medium Duration Funds", "PPF"],
+          allocation: 60,
+          expectedReturn: "7-9%",
+          risk: "Low",
+          rationale: "Primary focus on capital protection"
+        });
+      }
+    }
+
+    return recommendations.map(rec => ({
+      ...rec,
+      monthlyInvestment: monthlyRequirement * (rec.allocation / 100),
+      goalId,
+      goalName: goal.name,
+      priority: goal.priority
+    }));
+  }
+
+  async generatePortfolioRebalanceRecommendations(portfolioId: string, goals: FinancialGoal[]): Promise<any[]> {
+    const portfolio = await this.getPortfolio(portfolioId);
+    const holdings = await this.getPortfolioHoldings(portfolioId);
+    
+    if (!portfolio || !holdings.length) return [];
+
+    const totalValue = parseFloat(portfolio.totalValue || "0");
+    const recommendations = [];
+
+    // Calculate current allocation
+    const currentAllocation: Record<string, number> = {};
+    let totalCurrentValue = 0;
+
+    for (const holding of holdings) {
+      const currentValue = parseFloat(holding.quantity) * parseFloat(holding.avgPrice);
+      totalCurrentValue += currentValue;
+      currentAllocation[holding.assetType] = (currentAllocation[holding.assetType] || 0) + currentValue;
+    }
+
+    // Convert to percentages
+    const currentPercentages: Record<string, number> = {};
+    for (const [assetType, value] of Object.entries(currentAllocation)) {
+      currentPercentages[assetType] = (value / totalCurrentValue) * 100;
+    }
+
+    // Generate recommendations based on goals
+    const activeGoals = goals.filter(g => g.isActive);
+    const shortTermGoals = activeGoals.filter(g => g.goalType === 'short_term');
+    const longTermGoals = activeGoals.filter(g => g.goalType === 'long_term');
+
+    // Determine ideal allocation based on goals
+    const targetAllocation = this.calculateIdealAllocation(activeGoals);
+
+    // Generate specific rebalancing suggestions
+    for (const [assetType, targetPercentage] of Object.entries(targetAllocation)) {
+      const currentPercentage = currentPercentages[assetType] || 0;
+      const difference = targetPercentage - currentPercentage;
+
+      if (Math.abs(difference) > 5) { // Only suggest if difference > 5%
+        const action = difference > 0 ? "increase" : "decrease";
+        const amount = Math.abs((difference / 100) * totalCurrentValue);
+
+        recommendations.push({
+          id: `rebalance-${assetType}`,
+          type: "rebalancing",
+          priority: Math.abs(difference) > 15 ? "high" : "medium",
+          title: `${action === "increase" ? "Increase" : "Reduce"} ${assetType.charAt(0).toUpperCase() + assetType.slice(1)} Allocation`,
+          description: `Move from ${currentPercentage.toFixed(1)}% to ${targetPercentage.toFixed(1)}% in ${assetType}`,
+          currentPercentage: currentPercentage.toFixed(1),
+          targetPercentage: targetPercentage.toFixed(1),
+          rebalanceAmount: amount,
+          action,
+          assetType,
+          reasoning: action === "increase" 
+            ? `Your goals require more exposure to ${assetType} for optimal returns`
+            : `Your current ${assetType} allocation is higher than optimal for your goals`,
+          expectedImpact: {
+            riskAdjustment: action === "increase" && assetType === "equity" ? "Higher" : "Lower",
+            returnPotential: action === "increase" && assetType === "equity" ? "Higher" : "More Stable"
+          }
+        });
+      }
+    }
+
+    return recommendations;
+  }
+
+  private calculateIdealAllocation(goals: FinancialGoal[]): Record<string, number> {
+    if (!goals.length) {
+      return { equity: 60, debt: 30, gold: 5, alternative: 5 };
+    }
+
+    // Calculate weighted allocation based on goal priorities and time horizons
+    let equityWeight = 0;
+    let debtWeight = 0;
+    let totalWeight = 0;
+
+    for (const goal of goals) {
+      const monthsToGoal = Math.max(Math.ceil((new Date(goal.targetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24 * 30)), 1);
+      const goalWeight = goal.priority === 'high' ? 3 : goal.priority === 'medium' ? 2 : 1;
+      
+      // Time-based allocation
+      if (monthsToGoal <= 12) {
+        debtWeight += goalWeight * 90;
+        equityWeight += goalWeight * 10;
+      } else if (monthsToGoal <= 36) {
+        debtWeight += goalWeight * 60;
+        equityWeight += goalWeight * 40;
+      } else {
+        if (goal.riskProfile === 'aggressive') {
+          equityWeight += goalWeight * 80;
+          debtWeight += goalWeight * 20;
+        } else if (goal.riskProfile === 'moderate') {
+          equityWeight += goalWeight * 60;
+          debtWeight += goalWeight * 40;
+        } else {
+          equityWeight += goalWeight * 40;
+          debtWeight += goalWeight * 60;
+        }
+      }
+      
+      totalWeight += goalWeight;
+    }
+
+    const equityPercentage = Math.round((equityWeight / totalWeight));
+    const debtPercentage = Math.round((debtWeight / totalWeight));
+    const remaining = 100 - equityPercentage - debtPercentage;
+
+    return {
+      equity: equityPercentage,
+      debt: debtPercentage,
+      gold: Math.min(remaining / 2, 5),
+      alternative: Math.max(remaining / 2, 5)
+    };
   }
 }
 

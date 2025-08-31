@@ -20,13 +20,15 @@ import {
   DollarSign,
   Briefcase,
   Zap,
-  CheckCircle
+  CheckCircle,
+  Lightbulb
 } from "lucide-react";
 import { GoalPlanning } from "@/components/wealth/goal-planning";
 import { ObligationMapping } from "@/components/wealth/obligation-mapping";
 import { RetirementPlanning } from "@/components/wealth/retirement-planning";
 import { RiskAssessment } from "@/components/wealth/risk-assessment";
 import { LoanDashboard } from "@/components/loan/loan-dashboard";
+import { InvestmentRecommendations } from "@/components/wealth/investment-recommendations";
 
 export default function WealthManagement() {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -60,10 +62,14 @@ export default function WealthManagement() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="dashboard" data-testid="tab-dashboard">
               <BarChart3 className="w-4 h-4 mr-2" />
               Dashboard
+            </TabsTrigger>
+            <TabsTrigger value="recommendations" data-testid="tab-recommendations">
+              <Lightbulb className="w-4 h-4 mr-2" />
+              Recommendations
             </TabsTrigger>
             <TabsTrigger value="goals" data-testid="tab-goals">
               <Target className="w-4 h-4 mr-2" />
@@ -193,6 +199,18 @@ export default function WealthManagement() {
                   >
                     <PieChart className="w-6 h-6" />
                     <span className="text-sm">Assess Risk</span>
+                  </Button>
+                </div>
+                
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                  <Button 
+                    variant="default" 
+                    className="h-20 flex flex-col gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                    onClick={() => setActiveTab("recommendations")}
+                    data-testid="button-view-recommendations"
+                  >
+                    <Lightbulb className="w-6 h-6" />
+                    <span className="text-sm">View Smart Recommendations</span>
                   </Button>
                 </div>
               </CardContent>
@@ -424,6 +442,14 @@ export default function WealthManagement() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Investment Recommendations Preview */}
+            <InvestmentRecommendations portfolioId="demo-portfolio-1" />
+          </TabsContent>
+
+          {/* Investment Recommendations Tab */}
+          <TabsContent value="recommendations">
+            <InvestmentRecommendations portfolioId="demo-portfolio-1" />
           </TabsContent>
 
           {/* Goal Planning Tab */}

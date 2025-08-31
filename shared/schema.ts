@@ -1044,6 +1044,41 @@ export const investmentProposalItems = pgTable("investment_proposal_items", {
 });
 
 // Payment integration tracking for investment proposals
+// Financial Goals table for goal-based investment planning
+export const financialGoals = pgTable("financial_goals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Goal details
+  name: varchar("name").notNull(),
+  description: text("description"),
+  goalType: varchar("goal_type").notNull(), // short_term, medium_term, long_term
+  category: varchar("category").notNull(), // home_purchase, education, retirement, emergency, travel, wedding
+  
+  // Financial targets
+  targetAmount: decimal("target_amount", { precision: 15, scale: 2 }).notNull(),
+  currentAmount: decimal("current_amount", { precision: 15, scale: 2 }).default("0"),
+  monthlyContribution: decimal("monthly_contribution", { precision: 10, scale: 2 }).default("0"),
+  targetDate: timestamp("target_date").notNull(),
+  
+  // Risk and investment preferences
+  riskProfile: varchar("risk_profile").notNull(), // conservative, moderate, aggressive
+  priority: varchar("priority").default("medium"), // low, medium, high
+  
+  // Recommendations and tracking
+  recommendedInvestments: text("recommended_investments").array(),
+  currentProgress: decimal("current_progress", { precision: 5, scale: 2 }).default("0"), // Percentage
+  isActive: boolean("is_active").default(true),
+  
+  // Metadata
+  tags: text("tags").array(),
+  notes: text("notes"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const proposalPayments = pgTable("proposal_payments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   proposalId: varchar("proposal_id").references(() => investmentProposals.id).notNull(),
@@ -2508,3 +2543,13 @@ export type CollateralValuation = typeof collateralValuations.$inferSelect;
 export type InsertCollateralValuation = z.infer<typeof insertCollateralValuationSchema>;
 export type InsuranceHolding = typeof insuranceHoldings.$inferSelect;
 export type InsertInsuranceHolding = z.infer<typeof insertInsuranceHoldingSchema>;
+
+// Financial Goals types and schema
+export const insertFinancialGoalSchema = createInsertSchema(financialGoals).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type FinancialGoal = typeof financialGoals.$inferSelect;
+export type InsertFinancialGoal = z.infer<typeof insertFinancialGoalSchema>;

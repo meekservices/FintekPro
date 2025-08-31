@@ -9,6 +9,9 @@ import { complianceMiddleware } from "./compliance-monitor";
 
 const app = express();
 
+// Trust proxy for Replit environment
+app.set('trust proxy', true);
+
 // Security middleware
 app.use(helmet({
   contentSecurityPolicy: process.env.NODE_ENV === 'development' ? false : {

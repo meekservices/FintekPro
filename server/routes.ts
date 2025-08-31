@@ -324,6 +324,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Financial Goals API endpoints
+  app.get("/api/financial-goals", async (req, res) => {
+    try {
+      const userId = "demo-user-1"; // Replace with actual user ID from auth
+      const goals = await storage.getFinancialGoals(userId);
+      res.json(goals);
+    } catch (error) {
+      console.error("Error fetching financial goals:", error);
+      res.status(500).json({ error: "Failed to fetch financial goals" });
+    }
+  });
+
+  app.post("/api/financial-goals", async (req, res) => {
+    try {
+      const goalData = req.body;
+      
+      // Validate required fields
+      if (!goalData.name || !goalData.targetAmount || !goalData.targetDate) {
+        return res.status(400).json({ error: "Name, target amount, and target date are required" });
+      }
+
+      // Set default userId if not provided
+      if (!goalData.userId) {
+        goalData.userId = "demo-user-1";
+      }
+
+      const goal = await storage.createFinancialGoal(goalData);
+      res.json(goal);
+    } catch (error) {
+      console.error("Error creating financial goal:", error);
+      res.status(500).json({ error: "Failed to create financial goal" });
+    }
+  });
+
+  app.put("/api/financial-goals/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      
+      const goal = await storage.updateFinancialGoal(id, updates);
+      
+      if (!goal) {
+        return res.status(404).json({ error: "Financial goal not found" });
+      }
+      
+      res.json(goal);
+    } catch (error) {
+      console.error("Error updating financial goal:", error);
+      res.status(500).json({ error: "Failed to update financial goal" });
+    }
+  });
+
+  app.delete("/api/financial-goals/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const deleted = await storage.deleteFinancialGoal(id);
+      
+      if (!deleted) {
+        return res.status(404).json({ error: "Financial goal not found" });
+      }
+      
+      res.json({ success: true, message: "Financial goal deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting financial goal:", error);
+      res.status(500).json({ error: "Failed to delete financial goal" });
+    }
+  });
+
+  // Investment Recommendations API endpoints
+  app.get("/api/recommendations/goal/:goalId", async (req, res) => {
+    try {
+      const { goalId } = req.params;
+      const recommendations = await storage.generateGoalBasedRecommendations(goalId);
+      res.json(recommendations);
+    } catch (error) {
+      console.error("Error generating goal-based recommendations:", error);
+      res.status(500).json({ error: "Failed to generate recommendations" });
+    }
+  });
+
+  app.get("/api/recommendations/portfolio/:portfolioId/rebalance", async (req, res) => {
+    try {
+      const { portfolioId } = req.params;
+      const userId = "demo-user-1"; // Replace with actual user ID from auth
+      
+      const goals = await storage.getFinancialGoals(userId);
+      const recommendations = await storage.generatePortfolioRebalanceRecommendations(portfolioId, goals);
+      
+      res.json(recommendations);
+    } catch (error) {
+      console.error("Error generating rebalance recommendations:", error);
+      res.status(500).json({ error: "Failed to generate rebalance recommendations" });
+    }
+  });
+
   // Client Auto-Populate API endpoint
   app.post("/api/client/auto-populate", async (req, res) => {
     try {
