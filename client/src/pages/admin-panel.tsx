@@ -34,9 +34,9 @@ function Probe42Intelligence() {
   const { toast } = useToast();
 
   // Get all agents for assignment
-  const { data: agents } = useQuery({
+  const { data: agents = [] } = useQuery({
     queryKey: ['/api/admin/users'],
-    select: (users) => users?.filter(user => user.role === 'agent') || []
+    select: (users: any[]) => users?.filter((user: any) => user.role === 'agent') || []
   });
 
   // Search companies using Probe42 API
@@ -45,19 +45,17 @@ function Probe42Intelligence() {
     
     setIsSearching(true);
     try {
-      const response = await apiRequest('/api/probe42/companies/search', {
-        method: 'POST',
-        body: {
-          name: searchType === 'company' ? searchQuery : undefined,
-          cin: searchType === 'cin' ? searchQuery : undefined,
-          pan: searchType === 'pan' ? searchQuery : undefined,
-          gst: searchType === 'gst' ? searchQuery : undefined
-        }
+      const response = await apiRequest('POST', '/api/probe42/companies/search', {
+        name: searchType === 'company' ? searchQuery : undefined,
+        cin: searchType === 'cin' ? searchQuery : undefined,
+        pan: searchType === 'pan' ? searchQuery : undefined,
+        gst: searchType === 'gst' ? searchQuery : undefined
       });
       
-      setSearchResults(response.data || []);
+      const data = await response.json();
+      setSearchResults(data?.data || []);
       
-      if (response.data?.length === 0) {
+      if (data?.data?.length === 0) {
         toast({
           title: "No Results",
           description: "No companies found matching your search criteria.",
@@ -82,18 +80,15 @@ function Probe42Intelligence() {
     if (!selectedCompany || selectedAgents.length === 0) return;
 
     try {
-      await apiRequest('/api/admin/assign-probed-client', {
-        method: 'POST',
-        body: {
-          clientData: selectedCompany,
-          agentIds: selectedAgents,
-          notes: assignmentNotes
-        }
+      await apiRequest('POST', '/api/admin/assign-probed-client', {
+        clientData: selectedCompany,
+        agentIds: selectedAgents,
+        notes: assignmentNotes
       });
 
       toast({
         title: "Assignment Successful",
-        description: `Company ${selectedCompany.name} assigned to ${selectedAgents.length} agent(s).`,
+        description: `Company ${(selectedCompany as any)?.name} assigned to ${selectedAgents.length} agent(s).`,
         variant: "default"
       });
 
@@ -279,7 +274,7 @@ function Probe42Intelligence() {
 
 // Enhanced API Status Panel Component
 function ApiStatusPanel() {
-  const { data: apiStatus, isLoading, error } = useQuery({
+  const { data: apiStatus = {}, isLoading, error } = useQuery({
     queryKey: ['/api/public/api-status'], // Using public endpoint for testing
     refetchInterval: 10000, // Refresh every 10 seconds for real-time monitoring
   });
@@ -427,25 +422,25 @@ function ApiStatusPanel() {
           <div className="grid grid-cols-4 gap-4 mb-6">
             <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
               <div className="text-2xl font-bold text-green-600">
-                {Object.values(apiStatus?.apis || {}).filter((api: any) => api.status === 'healthy' || api.status === 'configured').length}
+                {Object.values((apiStatus as any)?.apis || {}).filter((api: any) => api.status === 'healthy' || api.status === 'configured').length}
               </div>
               <div className="text-sm text-green-600 font-medium">Healthy</div>
             </div>
             <div className="p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg border border-yellow-200">
               <div className="text-2xl font-bold text-yellow-600">
-                {Object.values(apiStatus?.apis || {}).filter((api: any) => api.status === 'degraded').length}
+                {Object.values((apiStatus as any)?.apis || {}).filter((api: any) => api.status === 'degraded').length}
               </div>
               <div className="text-sm text-yellow-600 font-medium">Degraded</div>
             </div>
             <div className="p-4 bg-gradient-to-r from-red-50 to-pink-50 rounded-lg border border-red-200">
               <div className="text-2xl font-bold text-red-600">
-                {Object.values(apiStatus?.apis || {}).filter((api: any) => api.status === 'error').length}
+                {Object.values((apiStatus as any)?.apis || {}).filter((api: any) => api.status === 'error').length}
               </div>
               <div className="text-sm text-red-600 font-medium">Error</div>
             </div>
             <div className="p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-200">
               <div className="text-2xl font-bold text-blue-600">
-                {Object.values(apiStatus?.apis || {}).filter((api: any) => api.status === 'not_configured').length}
+                {Object.values((apiStatus as any)?.apis || {}).filter((api: any) => api.status === 'not_configured').length}
               </div>
               <div className="text-sm text-blue-600 font-medium">Not Configured</div>
             </div>
@@ -2217,7 +2212,7 @@ export default function AdminPanel() {
   });
 
   // Fetch dashboard data
-  const { data: dashboardData, isLoading: dashboardLoading } = useQuery({
+  const { data: dashboardData = {}, isLoading: dashboardLoading } = useQuery({
     queryKey: ["/api/admin/dashboard"],
     refetchInterval: 30000, // Refresh every 30 seconds
   });
@@ -2668,15 +2663,15 @@ export default function AdminPanel() {
                   </CardHeader>
                   <CardContent className="relative z-10">
                     <div className="text-4xl font-bold mb-3" data-testid="text-total-clients">
-                      {dashboardData?.totalClients?.toLocaleString() || '0'}
+                      {(dashboardData as any)?.totalClients?.toLocaleString() || '0'}
                     </div>
                     <div className="flex items-center justify-between">
                       <p className="text-sm text-blue-100 flex items-center">
                         <TrendingUp className="w-4 h-4 mr-1" />
-                        +{dashboardData?.newClientsToday || 0} today
+                        +{(dashboardData as any)?.newClientsToday || 0} today
                       </p>
                       <div className="text-xs text-blue-200">
-                        {dashboardData?.clientGrowthPercent || 0}% growth
+                        {(dashboardData as any)?.clientGrowthPercent || 0}% growth
                       </div>
                     </div>
                   </CardContent>
@@ -2695,7 +2690,7 @@ export default function AdminPanel() {
                   </CardHeader>
                   <CardContent className="relative z-10">
                     <div className="text-4xl font-bold mb-3" data-testid="text-active-clients">
-                      {dashboardData?.activeClients?.toLocaleString() || '0'}
+                      {(dashboardData as any)?.activeClients?.toLocaleString() || '0'}
                     </div>
                     <div className="flex items-center justify-between">
                       <p className="text-sm text-emerald-100 flex items-center">
@@ -2703,7 +2698,7 @@ export default function AdminPanel() {
                         Last 24 hours
                       </p>
                       <div className="h-2 w-16 bg-white/20 rounded-full overflow-hidden">
-                        <div className="h-full bg-white/60 rounded-full" style={{width: `${Math.min((dashboardData?.activeClients / dashboardData?.totalClients) * 100 || 0, 100)}%`}}></div>
+                        <div className="h-full bg-white/60 rounded-full" style={{width: `${Math.min(((dashboardData as any)?.activeClients / (dashboardData as any)?.totalClients) * 100 || 0, 100)}%`}}></div>
                       </div>
                     </div>
                   </CardContent>
@@ -2722,15 +2717,15 @@ export default function AdminPanel() {
                   </CardHeader>
                   <CardContent className="relative z-10">
                     <div className="text-4xl font-bold mb-3" data-testid="text-total-logins">
-                      {dashboardData?.totalLogins?.toLocaleString() || '0'}
+                      {(dashboardData as any)?.totalLogins?.toLocaleString() || '0'}
                     </div>
                     <div className="flex items-center justify-between">
                       <p className="text-sm text-purple-100 flex items-center">
                         <Calendar className="w-4 h-4 mr-1" />
-                        +{dashboardData?.loginsToday || 0} today
+                        +{(dashboardData as any)?.loginsToday || 0} today
                       </p>
                       <div className="text-xs text-purple-200">
-                        Peak: {dashboardData?.peakLogins || 0}/day
+                        Peak: {(dashboardData as any)?.peakLogins || 0}/day
                       </div>
                     </div>
                   </CardContent>
@@ -2749,7 +2744,7 @@ export default function AdminPanel() {
                   </CardHeader>
                   <CardContent className="relative z-10">
                     <div className="text-4xl font-bold mb-3" data-testid="text-avg-session">
-                      {dashboardData?.avgSessionTime || 0}m
+                      {(dashboardData as any)?.avgSessionTime || 0}m
                     </div>
                     <div className="flex items-center justify-between">
                       <p className="text-sm text-orange-100 flex items-center">
@@ -2757,7 +2752,7 @@ export default function AdminPanel() {
                         Per user
                       </p>
                       <div className="text-xs text-orange-200">
-                        Best: {dashboardData?.bestSessionTime || 0}m
+                        Best: {(dashboardData as any)?.bestSessionTime || 0}m
                       </div>
                     </div>
                   </CardContent>
