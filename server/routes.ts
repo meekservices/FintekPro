@@ -6541,6 +6541,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Government Scheme Consent Management endpoints
+  app.get("/api/government-schemes/consent/:panNumber/:schemeType", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { panNumber, schemeType } = req.params;
+      const hasConsent = await storage.checkGovernmentSchemeConsent(userId, panNumber, schemeType);
+      res.json({ hasConsent, panNumber, schemeType });
+    } catch (error) {
+      console.error("Error checking consent:", error);
+      res.status(500).json({ error: "Failed to check consent status" });
+    }
+  });
+
+  app.post("/api/government-schemes/consent", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { panNumber, schemeType, purpose } = req.body;
+      
+      const consentData = {
+        userId,
+        panNumber,
+        schemeType,
+        purpose: purpose || "Access government scheme holdings data for portfolio management",
+        consentGranted: true,
+        consentDate: new Date(),
+        consentExpiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        isActive: true
+      };
+      
+      const consent = await storage.createGovernmentSchemeConsent(consentData);
+      res.json(consent);
+    } catch (error) {
+      console.error("Error creating consent:", error);
+      res.status(500).json({ error: "Failed to create consent" });
+    }
+  });
+
+  app.get("/api/government-schemes/consents", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { panNumber } = req.query;
+      const consents = await storage.getGovernmentSchemeConsents(userId, panNumber as string);
+      res.json(consents);
+    } catch (error) {
+      console.error("Error fetching consents:", error);
+      res.status(500).json({ error: "Failed to fetch consents" });
+    }
+  });
+
+  app.delete("/api/government-schemes/consent/:panNumber/:schemeType", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { panNumber, schemeType } = req.params;
+      const revoked = await storage.revokeGovernmentSchemeConsent(userId, panNumber, schemeType);
+      res.json({ revoked, panNumber, schemeType });
+    } catch (error) {
+      console.error("Error revoking consent:", error);
+      res.status(500).json({ error: "Failed to revoke consent" });
+    }
+  });
+
   // Legacy endpoint for backwards compatibility
   app.get("/api/portfolios/:userId", async (req, res) => {
     try {

@@ -1752,6 +1752,34 @@ export const insertMarketStorySchema = createInsertSchema(marketStories).omit({
 export type MarketStory = typeof marketStories.$inferSelect;
 export type InsertMarketStory = z.infer<typeof insertMarketStorySchema>;
 
+// Government Scheme Consent Tracking
+export const governmentSchemeConsents = pgTable("government_scheme_consents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  panNumber: varchar("pan_number").notNull(),
+  schemeType: varchar("scheme_type").notNull(), // 'epf', 'ppf', 'eps', 'all'
+  consentGranted: boolean("consent_granted").default(false),
+  consentDate: timestamp("consent_date"),
+  consentExpiryDate: timestamp("consent_expiry_date"),
+  purpose: text("purpose"), // Purpose for accessing the data
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  isActive: boolean("is_active").default(true),
+  revokedAt: timestamp("revoked_at"),
+  revokedReason: text("revoked_reason"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type GovernmentSchemeConsent = typeof governmentSchemeConsents.$inferSelect;
+export type InsertGovernmentSchemeConsent = typeof governmentSchemeConsents.$inferInsert;
+
+export const insertGovernmentSchemeConsentSchema = createInsertSchema(governmentSchemeConsents).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // EPF Holdings types
 export type EpfHolding = typeof epfHoldings.$inferSelect;
 export type InsertEpfHolding = typeof epfHoldings.$inferInsert;

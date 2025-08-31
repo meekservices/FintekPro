@@ -14,22 +14,44 @@ import { usePortfoliosByPan, useEnhancedPortfolioHoldings, usePortfolioPerforman
 import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, TrendingUp, TrendingDown, RefreshCw, Bot, Coins, CreditCard, PiggyBank, Shield } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useConsent, type SchemeType } from "@/hooks/use-consent";
+import { ConsentDialog } from "@/components/ConsentDialog";
+import { ConsentAwareSchemeTab } from "@/components/ConsentAwareSchemeTab";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Portfolio() {
   // Get portfolios linked to user's PAN card for enhanced security
   const { data: portfolios, isLoading: portfoliosLoading, error: portfoliosError } = usePortfoliosByPan();
   const portfolioId = portfolios?.[0]?.id || "demo-portfolio-1";
+  const { user } = useAuth();
+
+  // Consent management state
+  const [consentDialogOpen, setConsentDialogOpen] = useState(false);
+  const [currentSchemeType, setCurrentSchemeType] = useState<SchemeType>("epf");
+  const { checkConsent, grantConsent } = useConsent();
 
   const { data: enhancedHoldings, isLoading: holdingsLoading, refetch: refetchHoldings } = useEnhancedPortfolioHoldings(portfolioId);
   const { data: performance, isLoading: performanceLoading } = usePortfolioPerformance(portfolioId);
 
-  // Government Scheme Holdings data
+  // Government Scheme Holdings data - will be conditionally fetched based on consent
   const { data: epfHoldings, isLoading: epfLoading } = useEpfHoldings();
   const { data: ppfHoldings, isLoading: ppfLoading } = usePpfHoldings();
   const { data: epsHoldings, isLoading: epsLoading } = useEpsHoldings();
   
   const isLoading = portfoliosLoading || holdingsLoading || performanceLoading;
   const totalValue = performance ? parseFloat(performance.totalCurrentValue) : 1250000;
+
+  // Handle consent request for government scheme access
+  const handleRequestConsent = (schemeType: SchemeType) => {
+    setCurrentSchemeType(schemeType);
+    setConsentDialogOpen(true);
+  };
+
+  const handleConsentGranted = () => {
+    // Refresh the government scheme data after consent is granted
+    window.location.reload(); // Simple refresh for now
+  };
 
   // Handle PAN-related errors
   if (portfoliosError && !portfoliosLoading) {
@@ -707,18 +729,22 @@ export default function Portfolio() {
           </TabsContent>
 
           <TabsContent value="epf" className="space-y-8">
-            {epfLoading ? (
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-                <div className="space-y-4">
-                  <Skeleton className="h-8 w-48" />
-                  <Skeleton className="h-64 w-full" />
+            <ConsentAwareSchemeTab 
+              schemeType="epf" 
+              onRequestConsent={handleRequestConsent}
+            >
+              {epfLoading ? (
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <Skeleton className="h-8 w-48" />
+                    <Skeleton className="h-64 w-full" />
+                  </div>
+                  <div className="space-y-4">
+                    <Skeleton className="h-8 w-48" />
+                    <Skeleton className="h-64 w-full" />
+                  </div>
                 </div>
-                <div className="space-y-4">
-                  <Skeleton className="h-8 w-48" />
-                  <Skeleton className="h-64 w-full" />
-                </div>
-              </div>
-            ) : (
+              ) : (
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
                 {epfHoldings?.map((epf) => (
                   <div key={epf.id} className="contents">
@@ -953,11 +979,16 @@ export default function Portfolio() {
                   </div>
                 ))}
               </div>
-            )}
+              )}
+            </ConsentAwareSchemeTab>
           </TabsContent>
 
           <TabsContent value="ppf" className="space-y-8">
-            {ppfLoading ? (
+            <ConsentAwareSchemeTab 
+              schemeType="ppf" 
+              onRequestConsent={handleRequestConsent}
+            >
+              {ppfLoading ? (
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
                 <div className="space-y-4">
                   <Skeleton className="h-8 w-48" />
@@ -1273,11 +1304,16 @@ export default function Portfolio() {
                   </div>
                 ))}
               </div>
-            )}
+              )}
+            </ConsentAwareSchemeTab>
           </TabsContent>
 
           <TabsContent value="eps" className="space-y-8">
-            {epsLoading ? (
+            <ConsentAwareSchemeTab 
+              schemeType="eps" 
+              onRequestConsent={handleRequestConsent}
+            >
+              {epsLoading ? (
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
                 <div className="space-y-4">
                   <Skeleton className="h-8 w-48" />
@@ -1895,7 +1931,8 @@ export default function Portfolio() {
                   </div>
                 ))}
               </div>
-            )}
+              )}
+            </ConsentAwareSchemeTab>
           </TabsContent>
 
           <TabsContent value="rebalance" className="space-y-8">
@@ -1909,6 +1946,17 @@ export default function Portfolio() {
       </main>
 
       <Footer />
+
+      {/* Consent Dialog */}
+      {user?.panNumber && (
+        <ConsentDialog
+          isOpen={consentDialogOpen}
+          onOpenChange={setConsentDialogOpen}
+          panNumber={user.panNumber}
+          schemeType={currentSchemeType}
+          onConsentGranted={handleConsentGranted}
+        />
+      )}
     </div>
   );
 }

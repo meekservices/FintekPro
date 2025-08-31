@@ -1,0 +1,171 @@
+import { useState, useEffect } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { useConsent, type SchemeType } from "@/hooks/use-consent";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Shield, Lock, CheckCircle } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+
+interface ConsentAwareSchemeTabProps {
+  schemeType: SchemeType;
+  children: React.ReactNode;
+  onRequestConsent: (schemeType: SchemeType) => void;
+}
+
+const SCHEME_NAMES = {
+  epf: "Employee Provident Fund (EPF)",
+  ppf: "Public Provident Fund (PPF)",
+  eps: "Employee Pension Scheme (EPS)"
+};
+
+const SCHEME_DESCRIPTIONS = {
+  epf: "Access your EPF account balance, contribution history, and withdrawal options",
+  ppf: "View your PPF account details, maturity information, and investment tracking",
+  eps: "Check your pension benefits, monthly amounts, and service records"
+};
+
+export function ConsentAwareSchemeTab({ 
+  schemeType, 
+  children, 
+  onRequestConsent 
+}: ConsentAwareSchemeTabProps) {
+  const { user } = useAuth();
+  const { checkConsent } = useConsent();
+  const [hasConsent, setHasConsent] = useState(false);
+  const [isCheckingConsent, setIsCheckingConsent] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const checkConsentStatus = async () => {
+      if (!user?.panNumber) {
+        setError("PAN number not available");
+        setIsCheckingConsent(false);
+        return;
+      }
+
+      try {
+        setIsCheckingConsent(true);
+        const consentStatus = await checkConsent(user.panNumber, schemeType);
+        setHasConsent(consentStatus.hasConsent);
+        setError(null);
+      } catch (err) {
+        console.error("Error checking consent:", err);
+        setHasConsent(false);
+        setError("Unable to verify consent status");
+      } finally {
+        setIsCheckingConsent(false);
+      }
+    };
+
+    checkConsentStatus();
+  }, [user?.panNumber, schemeType, checkConsent]);
+
+  if (isCheckingConsent) {
+    return (
+      <div className="space-y-8">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+          <div className="space-y-4">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-64 w-full" />
+          </div>
+          <div className="space-y-4">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-64 w-full" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user?.panNumber) {
+    return (
+      <div className="space-y-8">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Shield className="h-5 w-5 text-orange-600" />
+              <span>PAN Verification Required</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center py-8">
+              <Lock className="h-12 w-12 text-orange-500 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">PAN Number Required</h3>
+              <p className="text-gray-600 mb-4">
+                To access {SCHEME_NAMES[schemeType]} data, please complete your KYC 
+                by adding your PAN card in your profile.
+              </p>
+              <Button variant="outline" onClick={() => window.location.href = "/profile"}>
+                Update Profile
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!hasConsent) {
+    return (
+      <div className="space-y-8">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Shield className="h-5 w-5 text-blue-600" />
+              <span>Consent Required</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center py-8">
+              <Lock className="h-12 w-12 text-blue-500 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Data Access Permission Needed
+              </h3>
+              <p className="text-gray-600 mb-4 max-w-md mx-auto">
+                {SCHEME_DESCRIPTIONS[schemeType]} for PAN number {user.panNumber}.
+              </p>
+              <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+                <div className="flex items-start gap-3">
+                  <Shield className="h-5 w-5 text-blue-600 mt-0.5" />
+                  <div className="text-left">
+                    <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-1">
+                      Secure & Compliant Access
+                    </h4>
+                    <p className="text-sm text-blue-800 dark:text-blue-200">
+                      Your data is accessed through secure government APIs. We only retrieve 
+                      the information necessary for portfolio management and never store sensitive data.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <Button 
+                onClick={() => onRequestConsent(schemeType)}
+                className="bg-blue-600 hover:bg-blue-700"
+                data-testid={`button-request-consent-${schemeType}`}
+              >
+                Grant Permission to Access {SCHEME_NAMES[schemeType]}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Consent granted - show the actual scheme data
+  return (
+    <div className="space-y-8">
+      {/* Consent Status Indicator */}
+      <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
+        <div className="flex items-center gap-2 text-green-800 dark:text-green-200">
+          <CheckCircle className="h-4 w-4" />
+          <span className="text-sm font-medium">
+            Authorized access to {SCHEME_NAMES[schemeType]} data for PAN {user.panNumber}
+          </span>
+        </div>
+      </div>
+      
+      {children}
+    </div>
+  );
+}

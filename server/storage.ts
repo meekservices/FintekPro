@@ -1,4 +1,4 @@
-import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type CkycNotificationTrigger, type CkycProgressStep, type CkycActionLog, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Supplier, type InsertSupplier, type SupplierProduct, type InsertSupplierProduct, type ProductPerformanceMetric, type InsertProductPerformanceMetric, type EpfHolding, type PpfHolding, type EpsHolding } from "@shared/schema";
+import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type CkycNotificationTrigger, type CkycProgressStep, type CkycActionLog, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Supplier, type InsertSupplier, type SupplierProduct, type InsertSupplierProduct, type ProductPerformanceMetric, type InsertProductPerformanceMetric, type EpfHolding, type PpfHolding, type EpsHolding, type GovernmentSchemeConsent, type InsertGovernmentSchemeConsent } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 // We'll import hashPassword later to avoid circular dependency
@@ -29,6 +29,12 @@ export interface IStorage {
   getEpfHoldings(userId: string): Promise<EpfHolding[]>;
   getPpfHoldings(userId: string): Promise<PpfHolding[]>;
   getEpsHoldings(userId: string): Promise<EpsHolding[]>;
+  
+  // Government Scheme Consent methods
+  checkGovernmentSchemeConsent(userId: string, panNumber: string, schemeType: string): Promise<boolean>;
+  createGovernmentSchemeConsent(consent: InsertGovernmentSchemeConsent): Promise<GovernmentSchemeConsent>;
+  getGovernmentSchemeConsents(userId: string, panNumber?: string): Promise<GovernmentSchemeConsent[]>;
+  revokeGovernmentSchemeConsent(userId: string, panNumber: string, schemeType: string): Promise<boolean>;
   createPortfolio(portfolio: InsertPortfolio): Promise<Portfolio>;
   updatePortfolio(id: string, updates: Partial<Portfolio>): Promise<Portfolio | undefined>;
   
@@ -334,6 +340,7 @@ export class MemStorage implements IStorage {
   private epfHoldings: Map<string, EpfHolding[]>;
   private ppfHoldings: Map<string, PpfHolding[]>;
   private epsHoldings: Map<string, EpsHolding[]>;
+  private governmentSchemeConsents: Map<string, GovernmentSchemeConsent[]>;
 
   constructor() {
     this.users = new Map();
@@ -378,6 +385,7 @@ export class MemStorage implements IStorage {
     this.epfHoldings = new Map();
     this.ppfHoldings = new Map();
     this.epsHoldings = new Map();
+    this.governmentSchemeConsents = new Map();
     
     // Initialize with sample data
     this.initializeSampleData();
@@ -2885,6 +2893,61 @@ export class MemStorage implements IStorage {
 
   async getEpsHoldings(userId: string): Promise<EpsHolding[]> {
     return this.epsHoldings.get(userId) || [];
+  }
+
+  // Government Scheme Consent methods
+  async checkGovernmentSchemeConsent(userId: string, panNumber: string, schemeType: string): Promise<boolean> {
+    const consents = this.governmentSchemeConsents.get(userId) || [];
+    const activeConsent = consents.find(consent => 
+      consent.panNumber === panNumber && 
+      (consent.schemeType === schemeType || consent.schemeType === 'all') &&
+      consent.consentGranted &&
+      consent.isActive &&
+      (!consent.consentExpiryDate || consent.consentExpiryDate > new Date())
+    );
+    return !!activeConsent;
+  }
+
+  async createGovernmentSchemeConsent(consentData: InsertGovernmentSchemeConsent): Promise<GovernmentSchemeConsent> {
+    const id = randomUUID();
+    const consent: GovernmentSchemeConsent = {
+      ...consentData,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    const userConsents = this.governmentSchemeConsents.get(consent.userId) || [];
+    userConsents.push(consent);
+    this.governmentSchemeConsents.set(consent.userId, userConsents);
+    
+    return consent;
+  }
+
+  async getGovernmentSchemeConsents(userId: string, panNumber?: string): Promise<GovernmentSchemeConsent[]> {
+    const consents = this.governmentSchemeConsents.get(userId) || [];
+    if (panNumber) {
+      return consents.filter(consent => consent.panNumber === panNumber);
+    }
+    return consents;
+  }
+
+  async revokeGovernmentSchemeConsent(userId: string, panNumber: string, schemeType: string): Promise<boolean> {
+    const consents = this.governmentSchemeConsents.get(userId) || [];
+    const consentIndex = consents.findIndex(consent => 
+      consent.panNumber === panNumber && 
+      (consent.schemeType === schemeType || consent.schemeType === 'all') &&
+      consent.isActive
+    );
+    
+    if (consentIndex >= 0) {
+      consents[consentIndex].isActive = false;
+      consents[consentIndex].revokedAt = new Date();
+      consents[consentIndex].updatedAt = new Date();
+      this.governmentSchemeConsents.set(userId, consents);
+      return true;
+    }
+    return false;
   }
 
   private initializeGovernmentSchemeHoldings() {
