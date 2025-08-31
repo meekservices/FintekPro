@@ -622,6 +622,151 @@ export const productApplications = pgTable("product_applications", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Investment proposals table for agent portfolio improvement suggestions
+export const investmentProposals = pgTable("investment_proposals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // Core relationships
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  agentId: varchar("agent_id").references(() => users.id).notNull(),
+  portfolioId: varchar("portfolio_id").references(() => portfolios.id),
+  
+  // Proposal details
+  title: varchar("title").notNull(),
+  description: text("description").notNull(),
+  analysisRationale: text("analysis_rationale"), // Agent's detailed reasoning
+  currentAllocation: jsonb("current_allocation"), // Current portfolio breakdown
+  targetAllocation: jsonb("target_allocation"), // Proposed allocation
+  
+  // Investment recommendations
+  recommendations: jsonb("recommendations").notNull(), // Array of investment products
+  totalInvestmentAmount: decimal("total_investment_amount", { precision: 15, scale: 2 }).notNull(),
+  riskProfile: varchar("risk_profile"), // conservative, moderate, aggressive
+  timeHorizon: varchar("time_horizon"), // short_term, medium_term, long_term
+  
+  // Expected outcomes
+  expectedReturns: decimal("expected_returns", { precision: 5, scale: 2 }), // Annual % return
+  expectedRisk: varchar("expected_risk"), // low, medium, high
+  projectedValue: decimal("projected_value", { precision: 15, scale: 2 }), // After time horizon
+  
+  // Status and approval workflow
+  status: varchar("status").default("pending"), // pending, approved, rejected, executed, cancelled
+  clientResponse: text("client_response"), // Client's approval/rejection reason
+  approvedAt: timestamp("approved_at"),
+  rejectedAt: timestamp("rejected_at"),
+  executedAt: timestamp("executed_at"),
+  
+  // Payment and execution tracking
+  paymentMethod: varchar("payment_method"), // mf_central, cams, kfintech
+  paymentStatus: varchar("payment_status"), // pending, processing, completed, failed
+  paymentId: varchar("payment_id"), // External payment reference
+  executionStatus: varchar("execution_status"), // pending, processing, completed, failed
+  executionDetails: jsonb("execution_details"), // Transaction IDs, confirmation numbers
+  
+  // Metadata
+  priority: varchar("priority").default("medium"), // low, medium, high
+  validUntil: timestamp("valid_until"), // Proposal expiry date
+  remindersSent: integer("reminders_sent").default(0),
+  lastReminderAt: timestamp("last_reminder_at"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Investment proposal items for detailed product recommendations
+export const investmentProposalItems = pgTable("investment_proposal_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  proposalId: varchar("proposal_id").references(() => investmentProposals.id).notNull(),
+  
+  // Product details
+  productType: varchar("product_type").notNull(), // mutual_fund, etf, bond, equity, ulip
+  productCode: varchar("product_code").notNull(), // Scheme code, ISIN, etc.
+  productName: varchar("product_name").notNull(),
+  amc: varchar("amc"), // Asset Management Company
+  category: varchar("category"), // Large Cap, Mid Cap, Debt, etc.
+  subCategory: varchar("sub_category"),
+  
+  // Investment details
+  recommendedAmount: decimal("recommended_amount", { precision: 15, scale: 2 }).notNull(),
+  allocationPercentage: decimal("allocation_percentage", { precision: 5, scale: 2 }).notNull(),
+  investmentType: varchar("investment_type"), // lumpsum, sip
+  sipAmount: decimal("sip_amount", { precision: 10, scale: 2 }),
+  sipFrequency: varchar("sip_frequency"), // monthly, quarterly
+  sipDuration: integer("sip_duration_months"),
+  
+  // Performance and rationale
+  nav: decimal("nav", { precision: 10, scale: 4 }), // Current NAV
+  oneYearReturns: decimal("one_year_returns", { precision: 5, scale: 2 }),
+  threeYearReturns: decimal("three_year_returns", { precision: 5, scale: 2 }),
+  fiveYearReturns: decimal("five_year_returns", { precision: 5, scale: 2 }),
+  expenseRatio: decimal("expense_ratio", { precision: 5, scale: 2 }),
+  exitLoad: decimal("exit_load", { precision: 5, scale: 2 }),
+  
+  // Risk metrics
+  riskRating: varchar("risk_rating"), // Very Low, Low, Moderate, High, Very High
+  volatility: decimal("volatility", { precision: 5, scale: 2 }),
+  beta: decimal("beta", { precision: 5, scale: 4 }),
+  sharpeRatio: decimal("sharpe_ratio", { precision: 5, scale: 4 }),
+  
+  // Agent's reasoning
+  selectionReason: text("selection_reason").notNull(),
+  expectedOutcome: text("expected_outcome"),
+  suitabilityScore: integer("suitability_score"), // 1-10 scale
+  
+  // Execution tracking
+  isExecuted: boolean("is_executed").default(false),
+  executedAmount: decimal("executed_amount", { precision: 15, scale: 2 }),
+  executedAt: timestamp("executed_at"),
+  transactionId: varchar("transaction_id"),
+  folioNumber: varchar("folio_number"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Payment integration tracking for investment proposals
+export const proposalPayments = pgTable("proposal_payments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  proposalId: varchar("proposal_id").references(() => investmentProposals.id).notNull(),
+  proposalItemId: varchar("proposal_item_id").references(() => investmentProposalItems.id),
+  
+  // Payment gateway details
+  gateway: varchar("gateway").notNull(), // mf_central, cams, kfintech
+  gatewayTransactionId: varchar("gateway_transaction_id"),
+  paymentMethod: varchar("payment_method"), // netbanking, upi, card, wallet
+  
+  // Amount and currency
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
+  currency: varchar("currency").default("INR"),
+  
+  // Status tracking
+  status: varchar("status").default("initiated"), // initiated, processing, success, failed, cancelled
+  statusMessage: text("status_message"),
+  gatewayResponse: jsonb("gateway_response"), // Full gateway response
+  
+  // Client and agent info
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  agentId: varchar("agent_id").references(() => users.id).notNull(),
+  
+  // Bank and settlement details
+  bankAccount: varchar("bank_account"), // Masked account number
+  ifscCode: varchar("ifsc_code"),
+  settlementStatus: varchar("settlement_status"), // pending, completed, failed
+  settlementDate: timestamp("settlement_date"),
+  
+  // Metadata
+  metadata: jsonb("metadata"), // Additional gateway-specific data
+  retryCount: integer("retry_count").default(0),
+  maxRetries: integer("max_retries").default(3),
+  
+  // Timestamps
+  initiatedAt: timestamp("initiated_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const mutualFunds = pgTable("mutual_funds", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   schemeCode: text("scheme_code").notNull().unique(),
@@ -1539,6 +1684,14 @@ export type CkycDocument = typeof ckycDocuments.$inferSelect;
 export type InsertCkycDocument = z.infer<typeof insertCkycDocumentSchema>;
 export type CkycStatusHistory = typeof ckycStatusHistory.$inferSelect;
 export type InsertCkycStatusHistory = z.infer<typeof insertCkycStatusHistorySchema>;
+
+// Investment proposal types
+export type InvestmentProposal = typeof investmentProposals.$inferSelect;
+export type InsertInvestmentProposal = typeof investmentProposals.$inferInsert;
+export type InvestmentProposalItem = typeof investmentProposalItems.$inferSelect;
+export type InsertInvestmentProposalItem = typeof investmentProposalItems.$inferInsert;
+export type ProposalPayment = typeof proposalPayments.$inferSelect;
+export type InsertProposalPayment = typeof proposalPayments.$inferInsert;
 
 // CKYC Progress Monitoring and Notification System
 export const ckycNotificationTriggers = pgTable("ckyc_notification_triggers", {

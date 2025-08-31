@@ -28,7 +28,15 @@ import {
   FileText,
   Filter,
   User,
-  Loader2
+  Loader2,
+  TrendingUp,
+  DollarSign,
+  PieChart,
+  Target,
+  ArrowRight,
+  Calendar,
+  Edit,
+  Trash2
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -64,6 +72,55 @@ interface NotificationTrigger {
   createdAt: string;
 }
 
+interface InvestmentProposal {
+  id: string;
+  agentId: string;
+  clientId: string;
+  title: string;
+  description: string;
+  totalAmount: number;
+  status: 'draft' | 'sent' | 'approved' | 'rejected' | 'partially_approved';
+  submittedAt?: string;
+  reviewedAt?: string;
+  expiresAt?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  items: ProposalItem[];
+  client?: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+  };
+}
+
+interface ProposalItem {
+  id: string;
+  proposalId: string;
+  productType: string;
+  productName: string;
+  symbol?: string;
+  recommendedAmount: number;
+  currentPrice?: number;
+  targetPrice?: number;
+  rationale: string;
+  riskLevel: string;
+  expectedReturn?: number;
+  timeHorizon?: string;
+  priority: number;
+}
+
+interface Client {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  riskProfile?: string;
+  investmentGoals?: string;
+}
+
 export default function AgentDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -71,6 +128,11 @@ export default function AgentDashboard() {
   const [notificationDialog, setNotificationDialog] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
+  
+  // Investment proposal states
+  const [proposalDialog, setProposalDialog] = useState(false);
+  const [selectedProposal, setSelectedProposal] = useState<InvestmentProposal | null>(null);
+  const [proposalFilter, setProposalFilter] = useState<string>("all");
 
   // Fetch CKYC clients for care agents
   const { data: ckycClients, isLoading: clientsLoading } = useQuery<CkycClient[]>({
@@ -90,6 +152,28 @@ export default function AgentDashboard() {
     }
   });
 
+  // Fetch investment proposals
+  const { data: proposals, isLoading: proposalsLoading } = useQuery<InvestmentProposal[]>({
+    queryKey: ["/api/proposals"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/proposals", {
+        headers: { Authorization: "Bearer demo-token" }
+      });
+      return response.json();
+    }
+  });
+
+  // Fetch available clients for proposals
+  const { data: clients, isLoading: clientsForProposalsLoading } = useQuery<Client[]>({
+    queryKey: ["/api/clients"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/clients", {
+        headers: { Authorization: "Bearer demo-token" }
+      });
+      return response.json();
+    }
+  });
+
   // Create notification trigger mutation
   const createNotificationMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -101,6 +185,43 @@ export default function AgentDashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/agent/notifications"] });
       setNotificationDialog(false);
       setSelectedClient(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  });
+
+  // Create investment proposal mutation
+  const createProposalMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiRequest("POST", "/api/proposals", {
+        body: data,
+        headers: { Authorization: "Bearer demo-token" }
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Investment proposal created successfully" });
+      queryClient.invalidateQueries({ queryKey: ["/api/proposals"] });
+      setProposalDialog(false);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  });
+
+  // Update proposal status mutation
+  const updateProposalMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const response = await apiRequest("PATCH", `/api/proposals/${id}`, {
+        body: data,
+        headers: { Authorization: "Bearer demo-token" }
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Proposal updated successfully" });
+      queryClient.invalidateQueries({ queryKey: ["/api/proposals"] });
     },
     onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -144,6 +265,26 @@ export default function AgentDashboard() {
     );
   };
 
+  const getProposalStatusBadge = (status: string) => {
+    const statusConfig: Record<string, { variant: "default" | "secondary" | "destructive" | "outline", icon: any }> = {
+      draft: { variant: "outline", icon: FileText },
+      sent: { variant: "secondary", icon: Send },
+      approved: { variant: "default", icon: CheckCircle },
+      rejected: { variant: "destructive", icon: XCircle },
+      partially_approved: { variant: "outline", icon: AlertCircle }
+    };
+
+    const config = statusConfig[status] || { variant: "outline", icon: AlertCircle };
+    const Icon = config.icon;
+
+    return (
+      <Badge variant={config.variant} className="flex items-center gap-1">
+        <Icon size={12} />
+        {status.replace("_", " ").toUpperCase()}
+      </Badge>
+    );
+  };
+
   const filteredClients = ckycClients?.filter(client => {
     const matchesStatus = statusFilter === "all" || client.verificationStatus === statusFilter;
     const matchesSearch = !searchTerm || 
@@ -156,9 +297,19 @@ export default function AgentDashboard() {
     return matchesStatus && matchesSearch;
   }) || [];
 
+  const filteredProposals = proposals?.filter(proposal => {
+    const matchesStatus = proposalFilter === "all" || proposal.status === proposalFilter;
+    return matchesStatus;
+  }) || [];
+
   const pendingNotifications = notificationTriggers?.filter(trigger => trigger.status === "pending").length || 0;
   const sentNotifications = notificationTriggers?.filter(trigger => trigger.status === "sent").length || 0;
   const failedNotifications = notificationTriggers?.filter(trigger => trigger.status === "failed").length || 0;
+  
+  const draftProposals = proposals?.filter(p => p.status === "draft").length || 0;
+  const sentProposals = proposals?.filter(p => p.status === "sent").length || 0;
+  const approvedProposals = proposals?.filter(p => p.status === "approved").length || 0;
+  const totalProposalValue = proposals?.reduce((sum, p) => sum + p.totalAmount, 0) || 0;
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -220,8 +371,12 @@ export default function AgentDashboard() {
         </Card>
       </div>
 
-      <Tabs defaultValue="clients" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2">
+      <Tabs defaultValue="proposals" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="proposals" className="flex items-center gap-2">
+            <TrendingUp size={16} />
+            Investment Proposals
+          </TabsTrigger>
           <TabsTrigger value="clients" className="flex items-center gap-2">
             <Users size={16} />
             CKYC Clients
@@ -231,6 +386,182 @@ export default function AgentDashboard() {
             Notifications History
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="proposals" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Investment Proposals</CardTitle>
+                  <CardDescription>Create and manage portfolio improvement proposals for clients</CardDescription>
+                </div>
+                <Button 
+                  onClick={() => setProposalDialog(true)}
+                  className="flex items-center gap-2"
+                  data-testid="button-create-proposal"
+                >
+                  <Plus size={16} />
+                  Create Proposal
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Proposal Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center space-x-2">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-2xl font-bold">{draftProposals}</p>
+                        <p className="text-xs text-muted-foreground">Draft Proposals</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center space-x-2">
+                      <Send className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-2xl font-bold">{sentProposals}</p>
+                        <p className="text-xs text-muted-foreground">Sent Proposals</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center space-x-2">
+                      <CheckCircle className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-2xl font-bold">{approvedProposals}</p>
+                        <p className="text-xs text-muted-foreground">Approved</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center space-x-2">
+                      <DollarSign className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-2xl font-bold">₹{totalProposalValue.toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground">Total Value</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Proposal Filters */}
+              <div className="flex items-center gap-4">
+                <div className="w-40">
+                  <Label htmlFor="proposal-filter">Filter by Status</Label>
+                  <Select value={proposalFilter} onValueChange={setProposalFilter}>
+                    <SelectTrigger data-testid="select-proposal-filter">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="draft">Draft</SelectItem>
+                      <SelectItem value="sent">Sent</SelectItem>
+                      <SelectItem value="approved">Approved</SelectItem>
+                      <SelectItem value="rejected">Rejected</SelectItem>
+                      <SelectItem value="partially_approved">Partially Approved</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Proposal List */}
+              {proposalsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+              ) : filteredProposals.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  No investment proposals found. Create your first proposal to get started.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {filteredProposals.map((proposal) => (
+                    <div 
+                      key={proposal.id} 
+                      className="border rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                      data-testid={`card-proposal-${proposal.id}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold">{proposal.title}</h3>
+                            {getProposalStatusBadge(proposal.status)}
+                          </div>
+                          <p className="text-sm text-gray-600">{proposal.description}</p>
+                          <div className="text-sm text-gray-600 space-y-1">
+                            <div className="flex items-center gap-4">
+                              <span className="flex items-center gap-1">
+                                <User size={14} />
+                                {proposal.client ? `${proposal.client.firstName} ${proposal.client.lastName}` : 'Client ID: ' + proposal.clientId}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <DollarSign size={14} />
+                                ₹{proposal.totalAmount.toLocaleString()}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <PieChart size={14} />
+                                {proposal.items.length} investment{proposal.items.length !== 1 ? 's' : ''}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <span>Created: {new Date(proposal.createdAt).toLocaleDateString()}</span>
+                              {proposal.submittedAt && (
+                                <span>Submitted: {new Date(proposal.submittedAt).toLocaleDateString()}</span>
+                              )}
+                              {proposal.expiresAt && (
+                                <span className="text-orange-600">
+                                  Expires: {new Date(proposal.expiresAt).toLocaleDateString()}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelectedProposal(proposal)}
+                            data-testid={`button-view-proposal-${proposal.id}`}
+                          >
+                            <Eye size={16} className="mr-1" />
+                            View
+                          </Button>
+                          {proposal.status === 'draft' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                updateProposalMutation.mutate({
+                                  id: proposal.id,
+                                  data: { status: 'sent', submittedAt: new Date().toISOString() }
+                                });
+                              }}
+                              disabled={updateProposalMutation.isPending}
+                              data-testid={`button-send-proposal-${proposal.id}`}
+                            >
+                              <Send size={16} className="mr-1" />
+                              Send
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="clients" className="space-y-4">
           <Card>
@@ -392,6 +723,21 @@ export default function AgentDashboard() {
         </TabsContent>
       </Tabs>
 
+      {/* Investment Proposal Dialogs */}
+      <CreateProposalDialog 
+        open={proposalDialog}
+        onOpenChange={setProposalDialog}
+        clients={clients || []}
+        onSubmit={(data) => createProposalMutation.mutate(data)}
+        isLoading={createProposalMutation.isPending}
+      />
+
+      <ViewProposalDialog 
+        proposal={selectedProposal}
+        open={!!selectedProposal}
+        onOpenChange={(open) => !open && setSelectedProposal(null)}
+      />
+
       {/* Notification Dialog */}
       <NotificationDialog 
         open={notificationDialog}
@@ -403,6 +749,484 @@ export default function AgentDashboard() {
     </div>
   );
 }
+
+// Investment Proposal Dialog Components
+interface CreateProposalDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  clients: Client[];
+  onSubmit: (data: any) => void;
+  isLoading: boolean;
+}
+
+interface ViewProposalDialogProps {
+  proposal: InvestmentProposal | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+function CreateProposalDialog({ open, onOpenChange, clients, onSubmit, isLoading }: CreateProposalDialogProps) {
+  const [formData, setFormData] = useState({
+    clientId: "",
+    title: "",
+    description: "",
+    expiresInDays: "30",
+    items: [
+      {
+        productType: "mutual_fund",
+        productName: "",
+        symbol: "",
+        recommendedAmount: "",
+        rationale: "",
+        riskLevel: "moderate",
+        expectedReturn: "",
+        timeHorizon: "1-3 years",
+        priority: 1
+      }
+    ]
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const totalAmount = formData.items.reduce((sum, item) => sum + parseFloat(item.recommendedAmount || "0"), 0);
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + parseInt(formData.expiresInDays));
+
+    onSubmit({
+      agentId: "demo-agent-1",
+      clientId: formData.clientId,
+      title: formData.title,
+      description: formData.description,
+      totalAmount,
+      status: "draft",
+      expiresAt: expiresAt.toISOString(),
+      items: formData.items.map((item, index) => ({
+        productType: item.productType,
+        productName: item.productName,
+        symbol: item.symbol || undefined,
+        recommendedAmount: parseFloat(item.recommendedAmount || "0"),
+        rationale: item.rationale,
+        riskLevel: item.riskLevel,
+        expectedReturn: item.expectedReturn ? parseFloat(item.expectedReturn) : undefined,
+        timeHorizon: item.timeHorizon,
+        priority: index + 1
+      }))
+    });
+  };
+
+  const addItem = () => {
+    setFormData(prev => ({
+      ...prev,
+      items: [...prev.items, {
+        productType: "mutual_fund",
+        productName: "",
+        symbol: "",
+        recommendedAmount: "",
+        rationale: "",
+        riskLevel: "moderate",
+        expectedReturn: "",
+        timeHorizon: "1-3 years",
+        priority: prev.items.length + 1
+      }]
+    }));
+  };
+
+  const removeItem = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      items: prev.items.filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateItem = (index: number, field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      items: prev.items.map((item, i) => 
+        i === index ? { ...item, [field]: value } : item
+      )
+    }));
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Create Investment Proposal</DialogTitle>
+          <DialogDescription>
+            Create a new portfolio improvement proposal for your client
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="clientId">Select Client</Label>
+              <Select 
+                value={formData.clientId} 
+                onValueChange={(value) => setFormData(prev => ({ ...prev, clientId: value }))}
+                required
+              >
+                <SelectTrigger data-testid="select-client">
+                  <SelectValue placeholder="Choose a client" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clients.map((client) => (
+                    <SelectItem key={client.id} value={client.id}>
+                      {client.firstName} {client.lastName} ({client.email})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="expiresInDays">Expires In (Days)</Label>
+              <Input 
+                id="expiresInDays"
+                type="number"
+                value={formData.expiresInDays}
+                onChange={(e) => setFormData(prev => ({ ...prev, expiresInDays: e.target.value }))}
+                min="1"
+                max="365"
+                data-testid="input-expires-days"
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="title">Proposal Title</Label>
+            <Input 
+              id="title"
+              value={formData.title}
+              onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+              required
+              placeholder="e.g., Portfolio Diversification Strategy"
+              data-testid="input-proposal-title"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="description">Description</Label>
+            <Textarea 
+              id="description"
+              value={formData.description}
+              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+              required
+              placeholder="Describe the investment strategy and rationale..."
+              rows={3}
+              data-testid="textarea-proposal-description"
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <Label>Investment Recommendations</Label>
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="sm" 
+                onClick={addItem}
+                data-testid="button-add-investment"
+              >
+                <Plus size={16} className="mr-1" />
+                Add Investment
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              {formData.items.map((item, index) => (
+                <Card key={index} className="p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="font-medium">Investment #{index + 1}</h4>
+                    {formData.items.length > 1 && (
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => removeItem(index)}
+                        data-testid={`button-remove-investment-${index}`}
+                      >
+                        <Trash2 size={16} />
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                      <Label>Product Type</Label>
+                      <Select 
+                        value={item.productType} 
+                        onValueChange={(value) => updateItem(index, "productType", value)}
+                      >
+                        <SelectTrigger data-testid={`select-product-type-${index}`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="mutual_fund">Mutual Fund</SelectItem>
+                          <SelectItem value="equity">Equity</SelectItem>
+                          <SelectItem value="bond">Bond</SelectItem>
+                          <SelectItem value="etf">ETF</SelectItem>
+                          <SelectItem value="sip">SIP</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label>Product Name</Label>
+                      <Input 
+                        value={item.productName}
+                        onChange={(e) => updateItem(index, "productName", e.target.value)}
+                        required
+                        placeholder="e.g., Axis Bluechip Fund"
+                        data-testid={`input-product-name-${index}`}
+                      />
+                    </div>
+
+                    <div>
+                      <Label>Symbol (Optional)</Label>
+                      <Input 
+                        value={item.symbol}
+                        onChange={(e) => updateItem(index, "symbol", e.target.value)}
+                        placeholder="e.g., RELIANCE"
+                        data-testid={`input-symbol-${index}`}
+                      />
+                    </div>
+
+                    <div>
+                      <Label>Recommended Amount (₹)</Label>
+                      <Input 
+                        type="number"
+                        value={item.recommendedAmount}
+                        onChange={(e) => updateItem(index, "recommendedAmount", e.target.value)}
+                        required
+                        min="100"
+                        placeholder="50000"
+                        data-testid={`input-amount-${index}`}
+                      />
+                    </div>
+
+                    <div>
+                      <Label>Risk Level</Label>
+                      <Select 
+                        value={item.riskLevel} 
+                        onValueChange={(value) => updateItem(index, "riskLevel", value)}
+                      >
+                        <SelectTrigger data-testid={`select-risk-level-${index}`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="low">Low</SelectItem>
+                          <SelectItem value="moderate">Moderate</SelectItem>
+                          <SelectItem value="high">High</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label>Expected Return (%)</Label>
+                      <Input 
+                        type="number"
+                        value={item.expectedReturn}
+                        onChange={(e) => updateItem(index, "expectedReturn", e.target.value)}
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        placeholder="12.5"
+                        data-testid={`input-expected-return-${index}`}
+                      />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <Label>Time Horizon</Label>
+                      <Select 
+                        value={item.timeHorizon} 
+                        onValueChange={(value) => updateItem(index, "timeHorizon", value)}
+                      >
+                        <SelectTrigger data-testid={`select-time-horizon-${index}`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="< 1 year">Less than 1 year</SelectItem>
+                          <SelectItem value="1-3 years">1-3 years</SelectItem>
+                          <SelectItem value="3-5 years">3-5 years</SelectItem>
+                          <SelectItem value="> 5 years">More than 5 years</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="md:col-span-3">
+                      <Label>Investment Rationale</Label>
+                      <Textarea 
+                        value={item.rationale}
+                        onChange={(e) => updateItem(index, "rationale", e.target.value)}
+                        required
+                        placeholder="Explain why this investment is recommended..."
+                        rows={2}
+                        data-testid={`textarea-rationale-${index}`}
+                      />
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-end space-x-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel-proposal">
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isLoading} data-testid="button-save-proposal">
+              {isLoading ? "Creating..." : "Save as Draft"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ViewProposalDialog({ proposal, open, onOpenChange }: ViewProposalDialogProps) {
+  if (!proposal) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            {proposal.title}
+            {getProposalStatusBadge(proposal.status)}
+          </DialogTitle>
+          <DialogDescription>
+            Investment proposal details and recommendations
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          {/* Proposal Summary */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Proposal Summary</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium">Client</Label>
+                  <p className="text-sm">
+                    {proposal.client ? 
+                      `${proposal.client.firstName} ${proposal.client.lastName}` : 
+                      `Client ID: ${proposal.clientId}`
+                    }
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Total Investment Amount</Label>
+                  <p className="text-lg font-semibold">₹{proposal.totalAmount.toLocaleString()}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Created Date</Label>
+                  <p className="text-sm">{new Date(proposal.createdAt).toLocaleDateString()}</p>
+                </div>
+                {proposal.expiresAt && (
+                  <div>
+                    <Label className="text-sm font-medium">Expires On</Label>
+                    <p className="text-sm text-orange-600">{new Date(proposal.expiresAt).toLocaleDateString()}</p>
+                  </div>
+                )}
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Description</Label>
+                <p className="text-sm text-gray-600">{proposal.description}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Investment Items */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Investment Recommendations ({proposal.items.length})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {proposal.items.map((item, index) => (
+                  <Card key={index} className="p-4 bg-gray-50">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div>
+                        <Label className="text-xs font-medium text-gray-500">Product Type</Label>
+                        <p className="text-sm font-medium">{item.productType.replace("_", " ").toUpperCase()}</p>
+                      </div>
+                      <div>
+                        <Label className="text-xs font-medium text-gray-500">Product Name</Label>
+                        <p className="text-sm font-medium">{item.productName}</p>
+                      </div>
+                      {item.symbol && (
+                        <div>
+                          <Label className="text-xs font-medium text-gray-500">Symbol</Label>
+                          <p className="text-sm">{item.symbol}</p>
+                        </div>
+                      )}
+                      <div>
+                        <Label className="text-xs font-medium text-gray-500">Recommended Amount</Label>
+                        <p className="text-sm font-semibold">₹{item.recommendedAmount.toLocaleString()}</p>
+                      </div>
+                      <div>
+                        <Label className="text-xs font-medium text-gray-500">Risk Level</Label>
+                        <Badge variant={item.riskLevel === 'high' ? 'destructive' : item.riskLevel === 'moderate' ? 'secondary' : 'outline'}>
+                          {item.riskLevel.toUpperCase()}
+                        </Badge>
+                      </div>
+                      {item.expectedReturn && (
+                        <div>
+                          <Label className="text-xs font-medium text-gray-500">Expected Return</Label>
+                          <p className="text-sm">{item.expectedReturn}% p.a.</p>
+                        </div>
+                      )}
+                      <div>
+                        <Label className="text-xs font-medium text-gray-500">Time Horizon</Label>
+                        <p className="text-sm">{item.timeHorizon}</p>
+                      </div>
+                      <div className="md:col-span-2 lg:col-span-3">
+                        <Label className="text-xs font-medium text-gray-500">Investment Rationale</Label>
+                        <p className="text-sm text-gray-600">{item.rationale}</p>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="flex justify-end">
+            <Button onClick={() => onOpenChange(false)} data-testid="button-close-proposal">
+              Close
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Helper function for proposal status badges
+const getProposalStatusBadge = (status: string) => {
+  const statusConfig: Record<string, { variant: "default" | "secondary" | "destructive" | "outline", icon: any }> = {
+    draft: { variant: "outline", icon: FileText },
+    sent: { variant: "secondary", icon: Send },
+    approved: { variant: "default", icon: CheckCircle },
+    rejected: { variant: "destructive", icon: XCircle },
+    partially_approved: { variant: "outline", icon: AlertCircle }
+  };
+
+  const config = statusConfig[status] || { variant: "outline", icon: AlertCircle };
+  const Icon = config.icon;
+
+  return (
+    <Badge variant={config.variant} className="flex items-center gap-1">
+      <Icon size={12} />
+      {status.replace("_", " ").toUpperCase()}
+    </Badge>
+  );
+};
 
 // Notification Dialog Component
 interface NotificationDialogProps {

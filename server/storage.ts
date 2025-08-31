@@ -1,4 +1,4 @@
-import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type CkycNotificationTrigger, type InsertCkycNotificationTrigger, type CkycProgressStep, type InsertCkycProgressStep, type CkycActionLog, type InsertCkycActionLog, type ClientAgentRelationship, type InsertClientAgentRelationship } from "@shared/schema";
+import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type CkycNotificationTrigger, type InsertCkycNotificationTrigger, type CkycProgressStep, type InsertCkycProgressStep, type CkycActionLog, type InsertCkycActionLog, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 // We'll import hashPassword later to avoid circular dependency
@@ -180,6 +180,28 @@ export interface IStorage {
   deleteClientAgentRelationship(id: string): Promise<boolean>;
   getAgentForClient(clientId: string, relationshipType?: string): Promise<ClientAgentRelationship | undefined>;
   getClientsForAgent(agentId: string): Promise<ClientAgentRelationship[]>;
+
+  // Investment proposal methods for portfolio improvement suggestions
+  getInvestmentProposals(options?: { clientId?: string; agentId?: string; status?: string }): Promise<InvestmentProposal[]>;
+  getInvestmentProposal(id: string): Promise<InvestmentProposal | undefined>;
+  createInvestmentProposal(proposal: InsertInvestmentProposal): Promise<InvestmentProposal>;
+  updateInvestmentProposal(id: string, updates: Partial<InvestmentProposal>): Promise<InvestmentProposal | undefined>;
+  deleteInvestmentProposal(id: string): Promise<boolean>;
+
+  // Investment proposal items methods
+  getProposalItems(proposalId: string): Promise<InvestmentProposalItem[]>;
+  createProposalItem(item: InsertInvestmentProposalItem): Promise<InvestmentProposalItem>;
+  updateProposalItem(id: string, updates: Partial<InvestmentProposalItem>): Promise<InvestmentProposalItem | undefined>;
+  deleteProposalItem(id: string): Promise<boolean>;
+
+  // Proposal approval and client actions
+  approveProposal(proposalId: string, clientResponse?: string): Promise<InvestmentProposal | undefined>;
+  rejectProposal(proposalId: string, clientResponse: string): Promise<InvestmentProposal | undefined>;
+
+  // Payment integration methods
+  createProposalPayment(payment: InsertProposalPayment): Promise<ProposalPayment>;
+  getProposalPayments(proposalId?: string, status?: string): Promise<ProposalPayment[]>;
+  updateProposalPayment(id: string, updates: Partial<ProposalPayment>): Promise<ProposalPayment | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -209,6 +231,9 @@ export class MemStorage implements IStorage {
   private ckycProgressSteps: Map<string, CkycProgressStep[]>;
   private ckycActionLogs: Map<string, CkycActionLog[]>;
   private clientAgentRelationships: Map<string, ClientAgentRelationship>;
+  private investmentProposals: Map<string, InvestmentProposal>;
+  private investmentProposalItems: Map<string, InvestmentProposalItem[]>;
+  private proposalPayments: Map<string, ProposalPayment>;
 
   constructor() {
     this.users = new Map();
@@ -237,6 +262,9 @@ export class MemStorage implements IStorage {
     this.ckycProgressSteps = new Map();
     this.ckycActionLogs = new Map();
     this.clientAgentRelationships = new Map();
+    this.investmentProposals = new Map();
+    this.investmentProposalItems = new Map();
+    this.proposalPayments = new Map();
     
     // Initialize with sample data
     this.initializeSampleData();
@@ -1936,6 +1964,177 @@ export class MemStorage implements IStorage {
   async getClientsForAgent(agentId: string): Promise<ClientAgentRelationship[]> {
     return Array.from(this.clientAgentRelationships.values())
       .filter(rel => rel.agentId === agentId && rel.isActive);
+  }
+
+  // Investment proposal methods
+  async getInvestmentProposals(options?: { clientId?: string; agentId?: string; status?: string }): Promise<InvestmentProposal[]> {
+    let proposals = Array.from(this.investmentProposals.values());
+    
+    if (options?.clientId) {
+      proposals = proposals.filter(p => p.clientId === options.clientId);
+    }
+    if (options?.agentId) {
+      proposals = proposals.filter(p => p.agentId === options.agentId);
+    }
+    if (options?.status) {
+      proposals = proposals.filter(p => p.status === options.status);
+    }
+    
+    return proposals.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async getInvestmentProposal(id: string): Promise<InvestmentProposal | undefined> {
+    return this.investmentProposals.get(id);
+  }
+
+  async createInvestmentProposal(proposal: InsertInvestmentProposal): Promise<InvestmentProposal> {
+    const id = randomUUID();
+    const newProposal: InvestmentProposal = {
+      id,
+      ...proposal,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.investmentProposals.set(id, newProposal);
+    return newProposal;
+  }
+
+  async updateInvestmentProposal(id: string, updates: Partial<InvestmentProposal>): Promise<InvestmentProposal | undefined> {
+    const proposal = this.investmentProposals.get(id);
+    if (!proposal) return undefined;
+    
+    const updated = { 
+      ...proposal, 
+      ...updates, 
+      updatedAt: new Date() 
+    };
+    this.investmentProposals.set(id, updated);
+    return updated;
+  }
+
+  async deleteInvestmentProposal(id: string): Promise<boolean> {
+    // Also delete related proposal items
+    this.investmentProposalItems.delete(id);
+    return this.investmentProposals.delete(id);
+  }
+
+  // Investment proposal items methods
+  async getProposalItems(proposalId: string): Promise<InvestmentProposalItem[]> {
+    return this.investmentProposalItems.get(proposalId) || [];
+  }
+
+  async createProposalItem(item: InsertInvestmentProposalItem): Promise<InvestmentProposalItem> {
+    const id = randomUUID();
+    const newItem: InvestmentProposalItem = {
+      id,
+      ...item,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    const items = this.investmentProposalItems.get(item.proposalId) || [];
+    items.push(newItem);
+    this.investmentProposalItems.set(item.proposalId, items);
+    return newItem;
+  }
+
+  async updateProposalItem(id: string, updates: Partial<InvestmentProposalItem>): Promise<InvestmentProposalItem | undefined> {
+    for (const [proposalId, items] of this.investmentProposalItems.entries()) {
+      const itemIndex = items.findIndex(item => item.id === id);
+      if (itemIndex >= 0) {
+        const updated = { 
+          ...items[itemIndex], 
+          ...updates, 
+          updatedAt: new Date() 
+        };
+        items[itemIndex] = updated;
+        this.investmentProposalItems.set(proposalId, items);
+        return updated;
+      }
+    }
+    return undefined;
+  }
+
+  async deleteProposalItem(id: string): Promise<boolean> {
+    for (const [proposalId, items] of this.investmentProposalItems.entries()) {
+      const itemIndex = items.findIndex(item => item.id === id);
+      if (itemIndex >= 0) {
+        items.splice(itemIndex, 1);
+        this.investmentProposalItems.set(proposalId, items);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Proposal approval and client actions
+  async approveProposal(proposalId: string, clientResponse?: string): Promise<InvestmentProposal | undefined> {
+    const proposal = this.investmentProposals.get(proposalId);
+    if (!proposal) return undefined;
+    
+    const updated = {
+      ...proposal,
+      status: "approved" as const,
+      clientResponse: clientResponse || "Approved by client",
+      approvedAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.investmentProposals.set(proposalId, updated);
+    return updated;
+  }
+
+  async rejectProposal(proposalId: string, clientResponse: string): Promise<InvestmentProposal | undefined> {
+    const proposal = this.investmentProposals.get(proposalId);
+    if (!proposal) return undefined;
+    
+    const updated = {
+      ...proposal,
+      status: "rejected" as const,
+      clientResponse,
+      rejectedAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.investmentProposals.set(proposalId, updated);
+    return updated;
+  }
+
+  // Payment integration methods
+  async createProposalPayment(payment: InsertProposalPayment): Promise<ProposalPayment> {
+    const id = randomUUID();
+    const newPayment: ProposalPayment = {
+      id,
+      ...payment,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.proposalPayments.set(id, newPayment);
+    return newPayment;
+  }
+
+  async getProposalPayments(proposalId?: string, status?: string): Promise<ProposalPayment[]> {
+    let payments = Array.from(this.proposalPayments.values());
+    
+    if (proposalId) {
+      payments = payments.filter(p => p.proposalId === proposalId);
+    }
+    if (status) {
+      payments = payments.filter(p => p.status === status);
+    }
+    
+    return payments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async updateProposalPayment(id: string, updates: Partial<ProposalPayment>): Promise<ProposalPayment | undefined> {
+    const payment = this.proposalPayments.get(id);
+    if (!payment) return undefined;
+    
+    const updated = { 
+      ...payment, 
+      ...updates, 
+      updatedAt: new Date() 
+    };
+    this.proposalPayments.set(id, updated);
+    return updated;
   }
 }
 

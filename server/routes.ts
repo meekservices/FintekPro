@@ -10659,6 +10659,23 @@ System Security Data:`;
     }
   };
 
+  // Basic user authentication middleware for investment proposals
+  const authenticateUser = async (req: any, res: any, next: any) => {
+    // For now, add a basic check. In a real app, this would verify JWT tokens or sessions
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+    
+    // Mock user for demo purposes - in production, verify the token
+    req.user = {
+      id: "demo-user-1",
+      role: "client",
+      email: "demo@fintekpro.com"
+    };
+    next();
+  };
+
   // Partner Dashboard
   app.get("/api/partner/dashboard", requirePartner, async (req, res) => {
     try {
@@ -12392,6 +12409,300 @@ System Security Data:`;
     } catch (error) {
       console.error('KFintech scheme details error:', error);
       res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  });
+
+  // Investment Proposal API Routes for Portfolio Improvement System
+  
+  // Get investment proposals (for agents and clients)
+  app.get("/api/proposals", authenticateUser, async (req, res) => {
+    try {
+      const { clientId, agentId, status } = req.query as any;
+      
+      // If user is not admin, restrict to their own proposals
+      let filteredOptions: any = {};
+      if (req.user.role !== 'admin') {
+        if (req.user.role === 'agent') {
+          filteredOptions.agentId = req.user.id;
+        } else {
+          filteredOptions.clientId = req.user.id;
+        }
+      } else {
+        // Admin can filter by any client or agent
+        if (clientId) filteredOptions.clientId = clientId;
+        if (agentId) filteredOptions.agentId = agentId;
+      }
+      
+      if (status) filteredOptions.status = status;
+      
+      const proposals = await storage.getInvestmentProposals(filteredOptions);
+      res.json(proposals);
+    } catch (error) {
+      console.error("Error fetching investment proposals:", error);
+      res.status(500).json({ error: "Failed to fetch proposals" });
+    }
+  });
+
+  // Get specific proposal details
+  app.get("/api/proposals/:proposalId", authenticateUser, async (req, res) => {
+    try {
+      const { proposalId } = req.params;
+      const proposal = await storage.getInvestmentProposal(proposalId);
+      
+      if (!proposal) {
+        return res.status(404).json({ error: "Proposal not found" });
+      }
+      
+      // Check if user has access to this proposal
+      if (req.user.role !== 'admin' && 
+          proposal.clientId !== req.user.id && 
+          proposal.agentId !== req.user.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      // Get proposal items
+      const items = await storage.getProposalItems(proposalId);
+      
+      res.json({ ...proposal, items });
+    } catch (error) {
+      console.error("Error fetching proposal details:", error);
+      res.status(500).json({ error: "Failed to fetch proposal details" });
+    }
+  });
+
+  // Create new investment proposal (agents only)
+  app.post("/api/proposals", authenticateUser, async (req, res) => {
+    try {
+      // Only agents can create proposals
+      if (req.user.role !== 'agent' && req.user.role !== 'admin') {
+        return res.status(403).json({ error: "Only agents can create investment proposals" });
+      }
+      
+      const proposalData = {
+        ...req.body,
+        agentId: req.user.id, // Always use authenticated agent's ID
+      };
+      
+      const proposal = await storage.createInvestmentProposal(proposalData);
+      res.status(201).json(proposal);
+    } catch (error) {
+      console.error("Error creating investment proposal:", error);
+      res.status(500).json({ error: "Failed to create proposal" });
+    }
+  });
+
+  // Update investment proposal
+  app.patch("/api/proposals/:proposalId", authenticateUser, async (req, res) => {
+    try {
+      const { proposalId } = req.params;
+      const proposal = await storage.getInvestmentProposal(proposalId);
+      
+      if (!proposal) {
+        return res.status(404).json({ error: "Proposal not found" });
+      }
+      
+      // Only the agent who created it or admin can update
+      if (req.user.role !== 'admin' && proposal.agentId !== req.user.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      // Prevent updating if already approved or executed
+      if (proposal.status === 'approved' || proposal.status === 'executed') {
+        return res.status(400).json({ error: "Cannot update approved or executed proposals" });
+      }
+      
+      const updated = await storage.updateInvestmentProposal(proposalId, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating investment proposal:", error);
+      res.status(500).json({ error: "Failed to update proposal" });
+    }
+  });
+
+  // Client approval actions
+  app.post("/api/proposals/:proposalId/approve", authenticateUser, async (req, res) => {
+    try {
+      const { proposalId } = req.params;
+      const { clientResponse } = req.body;
+      
+      const proposal = await storage.getInvestmentProposal(proposalId);
+      if (!proposal) {
+        return res.status(404).json({ error: "Proposal not found" });
+      }
+      
+      // Only the client can approve their proposal
+      if (proposal.clientId !== req.user.id && req.user.role !== 'admin') {
+        return res.status(403).json({ error: "Only the client can approve this proposal" });
+      }
+      
+      if (proposal.status !== 'pending') {
+        return res.status(400).json({ error: "Proposal is not in pending status" });
+      }
+      
+      const approved = await storage.approveProposal(proposalId, clientResponse);
+      res.json(approved);
+    } catch (error) {
+      console.error("Error approving proposal:", error);
+      res.status(500).json({ error: "Failed to approve proposal" });
+    }
+  });
+
+  app.post("/api/proposals/:proposalId/reject", authenticateUser, async (req, res) => {
+    try {
+      const { proposalId } = req.params;
+      const { clientResponse } = req.body;
+      
+      if (!clientResponse) {
+        return res.status(400).json({ error: "Client response is required for rejection" });
+      }
+      
+      const proposal = await storage.getInvestmentProposal(proposalId);
+      if (!proposal) {
+        return res.status(404).json({ error: "Proposal not found" });
+      }
+      
+      // Only the client can reject their proposal
+      if (proposal.clientId !== req.user.id && req.user.role !== 'admin') {
+        return res.status(403).json({ error: "Only the client can reject this proposal" });
+      }
+      
+      if (proposal.status !== 'pending') {
+        return res.status(400).json({ error: "Proposal is not in pending status" });
+      }
+      
+      const rejected = await storage.rejectProposal(proposalId, clientResponse);
+      res.json(rejected);
+    } catch (error) {
+      console.error("Error rejecting proposal:", error);
+      res.status(500).json({ error: "Failed to reject proposal" });
+    }
+  });
+
+  // Proposal Items API
+  app.get("/api/proposals/:proposalId/items", authenticateUser, async (req, res) => {
+    try {
+      const { proposalId } = req.params;
+      
+      // Verify user has access to this proposal
+      const proposal = await storage.getInvestmentProposal(proposalId);
+      if (!proposal) {
+        return res.status(404).json({ error: "Proposal not found" });
+      }
+      
+      if (req.user.role !== 'admin' && 
+          proposal.clientId !== req.user.id && 
+          proposal.agentId !== req.user.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const items = await storage.getProposalItems(proposalId);
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching proposal items:", error);
+      res.status(500).json({ error: "Failed to fetch proposal items" });
+    }
+  });
+
+  app.post("/api/proposals/:proposalId/items", authenticateUser, async (req, res) => {
+    try {
+      const { proposalId } = req.params;
+      
+      // Verify user is the agent who created the proposal
+      const proposal = await storage.getInvestmentProposal(proposalId);
+      if (!proposal) {
+        return res.status(404).json({ error: "Proposal not found" });
+      }
+      
+      if (req.user.role !== 'admin' && proposal.agentId !== req.user.id) {
+        return res.status(403).json({ error: "Only the agent can add items to their proposals" });
+      }
+      
+      if (proposal.status !== 'pending') {
+        return res.status(400).json({ error: "Cannot add items to non-pending proposals" });
+      }
+      
+      const itemData = { ...req.body, proposalId };
+      const item = await storage.createProposalItem(itemData);
+      res.status(201).json(item);
+    } catch (error) {
+      console.error("Error creating proposal item:", error);
+      res.status(500).json({ error: "Failed to create proposal item" });
+    }
+  });
+
+  // Payment Integration Routes
+  app.get("/api/proposals/:proposalId/payments", authenticateUser, async (req, res) => {
+    try {
+      const { proposalId } = req.params;
+      
+      // Verify user has access to this proposal
+      const proposal = await storage.getInvestmentProposal(proposalId);
+      if (!proposal) {
+        return res.status(404).json({ error: "Proposal not found" });
+      }
+      
+      if (req.user.role !== 'admin' && 
+          proposal.clientId !== req.user.id && 
+          proposal.agentId !== req.user.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const payments = await storage.getProposalPayments(proposalId);
+      res.json(payments);
+    } catch (error) {
+      console.error("Error fetching proposal payments:", error);
+      res.status(500).json({ error: "Failed to fetch payments" });
+    }
+  });
+
+  // Initiate payment for approved proposals
+  app.post("/api/proposals/:proposalId/payments", authenticateUser, async (req, res) => {
+    try {
+      const { proposalId } = req.params;
+      const { gateway, paymentMethod, amount } = req.body;
+      
+      const proposal = await storage.getInvestmentProposal(proposalId);
+      if (!proposal) {
+        return res.status(404).json({ error: "Proposal not found" });
+      }
+      
+      // Only approved proposals can have payments initiated
+      if (proposal.status !== 'approved') {
+        return res.status(400).json({ error: "Only approved proposals can have payments initiated" });
+      }
+      
+      // Only the client can initiate payment
+      if (proposal.clientId !== req.user.id && req.user.role !== 'admin') {
+        return res.status(403).json({ error: "Only the client can initiate payment" });
+      }
+      
+      if (!gateway || !['mf_central', 'cams', 'kfintech'].includes(gateway)) {
+        return res.status(400).json({ error: "Valid payment gateway is required" });
+      }
+      
+      const paymentData = {
+        proposalId,
+        gateway,
+        paymentMethod: paymentMethod || 'netbanking',
+        amount: amount || proposal.totalInvestmentAmount,
+        clientId: proposal.clientId,
+        agentId: proposal.agentId,
+        status: 'initiated'
+      };
+      
+      const payment = await storage.createProposalPayment(paymentData);
+      
+      // Update proposal payment status
+      await storage.updateInvestmentProposal(proposalId, {
+        paymentMethod: gateway,
+        paymentStatus: 'processing',
+        paymentId: payment.id
+      });
+      
+      res.status(201).json(payment);
+    } catch (error) {
+      console.error("Error initiating payment:", error);
+      res.status(500).json({ error: "Failed to initiate payment" });
     }
   });
 
