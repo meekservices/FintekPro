@@ -298,6 +298,11 @@ export interface IStorage {
   createProductPerformanceMetric(metric: InsertProductPerformanceMetric): Promise<ProductPerformanceMetric>;
   updateProductPerformanceMetric(id: string, updates: Partial<ProductPerformanceMetric>): Promise<ProductPerformanceMetric | undefined>;
   deleteProductPerformanceMetric(id: string): Promise<boolean>;
+  
+  // Profit Optimization methods
+  getOptimalSupplier(productId: string): Promise<any>;
+  getProfitAnalysis(productId: string): Promise<any>;
+  getSupplierComparison(productId: string): Promise<any[]>;
 
   // Client Assignment methods
   createClientAssignment(assignment: any): Promise<any>;
@@ -2730,6 +2735,118 @@ export class MemStorage implements IStorage {
 
   async deleteProductPerformanceMetric(id: string): Promise<boolean> {
     return this.productPerformanceMetrics.delete(id);
+  }
+
+  // Profit Optimization methods
+  async getOptimalSupplier(productId: string): Promise<any> {
+    const suppliers = await this.getSupplierComparison(productId);
+    if (suppliers.length === 0) return null;
+    
+    // Sort by profit score (weighted combination of profit margin, performance, and cost)
+    return suppliers.sort((a, b) => b.profitScore - a.profitScore)[0];
+  }
+
+  async getProfitAnalysis(productId: string): Promise<any> {
+    const suppliers = await this.getSupplierComparison(productId);
+    
+    if (suppliers.length === 0) {
+      return {
+        productId,
+        totalSuppliers: 0,
+        avgProfitMargin: 0,
+        bestMargin: 0,
+        worstMargin: 0,
+        totalRevenue: 0,
+        recommendations: []
+      };
+    }
+
+    const margins = suppliers.map(s => s.profitMargin);
+    const revenues = suppliers.map(s => s.revenue);
+    
+    return {
+      productId,
+      totalSuppliers: suppliers.length,
+      avgProfitMargin: margins.reduce((a, b) => a + b, 0) / margins.length,
+      bestMargin: Math.max(...margins),
+      worstMargin: Math.min(...margins),
+      totalRevenue: revenues.reduce((a, b) => a + b, 0),
+      optimalSupplier: suppliers[0],
+      recommendations: this.generateProfitRecommendations(suppliers)
+    };
+  }
+
+  async getSupplierComparison(productId: string): Promise<any[]> {
+    const suppliers = Array.from(this.suppliers.values());
+    const performances = Array.from(this.productPerformanceMetrics.values())
+      .filter(p => p.productId === productId);
+
+    return suppliers.map(supplier => {
+      const performance = performances.find(p => p.supplierId === supplier.id);
+      if (!performance) return null;
+
+      const costPrice = parseFloat(performance.costPrice);
+      const sellingPrice = parseFloat(performance.sellingPrice);
+      const profitMargin = ((sellingPrice - costPrice) / costPrice) * 100;
+      const revenue = parseFloat(performance.revenue || "0");
+      const salesVolume = performance.salesVolume || 0;
+      
+      // Calculate weighted profit score (combines margin, volume, and performance)
+      const profitScore = (
+        (profitMargin * 0.4) + 
+        (salesVolume * 0.3) + 
+        (parseFloat(supplier.performanceRating || "0") * 10 * 0.3)
+      );
+
+      return {
+        supplierId: supplier.id,
+        supplierName: supplier.name,
+        costPrice,
+        sellingPrice,
+        profitMargin,
+        revenue,
+        salesVolume,
+        performanceRating: parseFloat(supplier.performanceRating || "0"),
+        commissionRate: parseFloat(supplier.commissionRate || "0"),
+        profitScore,
+        isActive: supplier.isActive,
+        lastSaleDate: performance.lastSaleDate,
+        notes: performance.notes
+      };
+    }).filter(Boolean).sort((a, b) => b.profitScore - a.profitScore);
+  }
+
+  private generateProfitRecommendations(suppliers: any[]): string[] {
+    const recommendations = [];
+    
+    if (suppliers.length < 2) {
+      recommendations.push("Consider adding more suppliers for better price competition");
+      return recommendations;
+    }
+
+    const best = suppliers[0];
+    const worst = suppliers[suppliers.length - 1];
+    const marginDiff = best.profitMargin - worst.profitMargin;
+
+    if (marginDiff > 10) {
+      recommendations.push(`Switch to ${best.supplierName} for ${marginDiff.toFixed(1)}% better margin`);
+    }
+
+    const lowPerformers = suppliers.filter(s => s.performanceRating < 3);
+    if (lowPerformers.length > 0) {
+      recommendations.push(`Review ${lowPerformers.length} suppliers with low performance ratings`);
+    }
+
+    const highCommission = suppliers.filter(s => s.commissionRate > 5);
+    if (highCommission.length > 0) {
+      recommendations.push(`Negotiate lower commission rates with ${highCommission.length} suppliers`);
+    }
+
+    if (recommendations.length === 0) {
+      recommendations.push("Your supplier portfolio is well optimized");
+    }
+
+    return recommendations;
   }
 
   private initializeSampleSuppliers() {

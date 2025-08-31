@@ -15662,6 +15662,45 @@ System Security Data:`;
     }
   });
 
+  // Profit Optimization endpoints
+  app.get("/api/products/:productId/optimal-supplier", async (req, res) => {
+    try {
+      const { productId } = req.params;
+      const optimalSupplier = await storage.getOptimalSupplier(productId);
+      
+      if (!optimalSupplier) {
+        return res.status(404).json({ error: "No suppliers found for this product" });
+      }
+
+      res.json({ optimalSupplier });
+    } catch (error) {
+      console.error("Error finding optimal supplier:", error);
+      res.status(500).json({ error: "Failed to find optimal supplier" });
+    }
+  });
+
+  app.get("/api/products/:productId/profit-analysis", async (req, res) => {
+    try {
+      const { productId } = req.params;
+      const analysis = await storage.getProfitAnalysis(productId);
+      res.json({ analysis });
+    } catch (error) {
+      console.error("Error generating profit analysis:", error);
+      res.status(500).json({ error: "Failed to generate profit analysis" });
+    }
+  });
+
+  app.get("/api/products/:productId/supplier-comparison", async (req, res) => {
+    try {
+      const { productId } = req.params;
+      const comparison = await storage.getSupplierComparison(productId);
+      res.json({ suppliers: comparison });
+    } catch (error) {
+      console.error("Error generating supplier comparison:", error);
+      res.status(500).json({ error: "Failed to generate supplier comparison" });
+    }
+  });
+
   // Product Performance Metrics API endpoints
   app.get("/api/product-performance", async (req, res) => {
     try {

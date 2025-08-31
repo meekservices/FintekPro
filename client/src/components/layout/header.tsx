@@ -27,6 +27,7 @@ export function Header() {
     { name: "Markets", href: "/markets" },
     { name: "Portfolio", href: "/portfolio" },
     { name: "Wealth Management", href: "/wealth-management" },
+    { name: "Suppliers", href: "/suppliers" },
     { name: "Calculators", href: "/calculators" },
     { name: "Support", href: "/support" },
   ];
