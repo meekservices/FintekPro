@@ -1,9 +1,10 @@
 import { Link } from "wouter";
-import { Facebook, Twitter, Linkedin, Instagram, Store, Package, ShoppingCart } from "lucide-react";
+import { Facebook, Twitter, Linkedin, Instagram, Store, Package, ShoppingCart, Building2 } from "lucide-react";
 
 
 export function Footer() {
   const investmentLinks = [
+    { name: "Wealth Management", href: "/wealth-management", icon: Building2 },
     { name: "Stocks", href: "/markets" },
     { name: "Mutual Funds", href: "/mutual-funds" },
     { name: "IPO", href: "/ipo" },
@@ -65,9 +66,10 @@ export function Footer() {
                 <li key={link.name}>
                   <Link href={link.href}>
                     <span 
-                      className="hover:text-white transition-colors cursor-pointer"
+                      className="hover:text-white transition-colors cursor-pointer flex items-center gap-2"
                       data-testid={`footer-investment-${link.name.toLowerCase().replace(" ", "-")}`}
                     >
+                      {link.icon && <link.icon className="h-4 w-4 text-finance-blue" />}
                       {link.name}
                     </span>
                   </Link>
