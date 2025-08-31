@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { GDPRConsent } from "@/components/gdpr-consent";
 import Home from "@/pages/home";
 import Portfolio from "@/pages/portfolio";
 import Markets from "@/pages/markets";
@@ -34,6 +35,8 @@ import ApiMonitorDemo from "@/pages/api-monitor-demo";
 import ICICIBanking from "@/pages/icici-banking";
 import HDFCBanking from "@/pages/hdfc-banking";
 import ClientAutoPopulate from "@/pages/client-auto-populate";
+import Privacy from "@/pages/privacy";
+import Terms from "@/pages/terms";
 
 function Router() {
   return (
@@ -69,6 +72,8 @@ function Router() {
       <Route path="/icici-banking" component={ICICIBanking} />
       <Route path="/hdfc-banking" component={HDFCBanking} />
       <Route path="/client-auto-populate" component={ClientAutoPopulate} />
+      <Route path="/privacy" component={Privacy} />
+      <Route path="/terms" component={Terms} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -80,6 +85,7 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <Toaster />
+          <GDPRConsent />
           <Router />
         </TooltipProvider>
       </QueryClientProvider>

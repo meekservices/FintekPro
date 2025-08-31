@@ -19,6 +19,7 @@ import { kfintechApi } from './kfintech-api';
 import { iciciBankAPI } from './icici-bank-api';
 import { hdfcBankAPI } from './hdfc-bank-api';
 import './notification-service'; // Initialize notification service with auto-processing
+import { complianceMonitor } from './compliance-monitor';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const API = require('indian-stock-exchange');
@@ -63,6 +64,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     next();
   };
+
+  // GDPR Consent endpoint
+  app.post("/api/consent", async (req, res) => {
+    try {
+      const { preferences, timestamp, version } = req.body;
+      
+      // Log consent for audit trail
+      complianceMonitor.logEvent({
+        userId: (req as any).user?.id,
+        eventType: 'consent_change',
+        action: 'GDPR consent recorded',
+        ipAddress: req.ip || req.connection.remoteAddress,
+        userAgent: req.get('User-Agent'),
+        outcome: 'success',
+        riskLevel: 'low',
+        details: { preferences, timestamp, version }
+      });
+      
+      res.json({ 
+        success: true, 
+        message: "Consent preferences recorded successfully" 
+      });
+    } catch (error) {
+      console.error("Error recording consent:", error);
+      res.status(500).json({ error: "Failed to record consent preferences" });
+    }
+  });
+
+  // Compliance monitoring endpoints
+  app.get("/api/admin/compliance/events", requireAdmin, async (req, res) => {
+    try {
+      const { userId, eventType, startDate, endDate, riskLevel, limit = "100" } = req.query;
+      
+      const filters: any = {};
+      if (userId) filters.userId = userId as string;
+      if (eventType) filters.eventType = eventType as string;
+      if (startDate) filters.startDate = new Date(startDate as string);
+      if (endDate) filters.endDate = new Date(endDate as string);
+      if (riskLevel) filters.riskLevel = riskLevel as string;
+      
+      const events = complianceMonitor.getEvents(filters);
+      const limitedEvents = events.slice(0, parseInt(limit as string));
+      
+      res.json({
+        events: limitedEvents,
+        total: events.length,
+        filters
+      });
+    } catch (error) {
+      console.error("Error fetching compliance events:", error);
+      res.status(500).json({ error: "Failed to fetch compliance events" });
+    }
+  });
+
+  app.get("/api/admin/compliance/alerts", requireAdmin, async (req, res) => {
+    try {
+      const { resolved } = req.query;
+      const resolvedFilter = resolved === 'true' ? true : resolved === 'false' ? false : undefined;
+      
+      const alerts = complianceMonitor.getAlerts(resolvedFilter);
+      
+      res.json({
+        alerts,
+        total: alerts.length,
+        unresolved: alerts.filter(a => !a.resolved).length
+      });
+    } catch (error) {
+      console.error("Error fetching security alerts:", error);
+      res.status(500).json({ error: "Failed to fetch security alerts" });
+    }
+  });
+
+  app.post("/api/admin/compliance/alerts/:alertId/resolve", requireAdmin, async (req, res) => {
+    try {
+      const { alertId } = req.params;
+      const resolved = complianceMonitor.resolveAlert(alertId);
+      
+      if (resolved) {
+        // Log the admin action
+        complianceMonitor.logEvent({
+          userId: (req as any).user?.id,
+          eventType: 'admin_action',
+          action: `Resolved security alert: ${alertId}`,
+          ipAddress: req.ip || req.connection.remoteAddress,
+          userAgent: req.get('User-Agent'),
+          outcome: 'success',
+          riskLevel: 'medium',
+          details: { alertId }
+        });
+        
+        res.json({ success: true, message: "Alert resolved successfully" });
+      } else {
+        res.status(404).json({ error: "Alert not found" });
+      }
+    } catch (error) {
+      console.error("Error resolving alert:", error);
+      res.status(500).json({ error: "Failed to resolve alert" });
+    }
+  });
+
+  app.get("/api/admin/compliance/report", requireAdmin, async (req, res) => {
+    try {
+      const { timeframe = 'day' } = req.query;
+      const report = complianceMonitor.getComplianceReport(timeframe as 'day' | 'week' | 'month');
+      
+      res.json(report);
+    } catch (error) {
+      console.error("Error generating compliance report:", error);
+      res.status(500).json({ error: "Failed to generate compliance report" });
+    }
+  });
 
   // WhatsApp Authentication API endpoints
   app.post("/api/whatsapp/auth/initiate", async (req, res) => {
