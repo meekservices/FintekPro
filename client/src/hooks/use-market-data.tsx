@@ -46,7 +46,7 @@ export interface CompanyProfile {
   ticker: string;
   weburl: string;
   logo: string;
-  finnhubIndustry: string;
+  industry: string;
 }
 
 export interface MarketNews {

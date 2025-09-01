@@ -432,7 +432,7 @@ export const marketData = pgTable("market_data", {
   changePercent: decimal("change_percent", { precision: 8, scale: 4 }),
   volume: decimal("volume", { precision: 20, scale: 0 }),
   marketCap: decimal("market_cap", { precision: 20, scale: 0 }),
-  data: jsonb("data"), // Additional market data from Finnhub
+  data: jsonb("data"), // Additional market data from external sources
   lastUpdated: timestamp("last_updated").defaultNow(),
 });
 

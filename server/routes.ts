@@ -1014,7 +1014,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           try {
             // Use Yahoo Finance API for Indian stocks
             const yahooSymbol = `${holding.symbol}.NS`;
-            // Use mock data since Finnhub API is removed
+            // Using mock market data
             const data = { c: 100, d: 2.5, dp: 2.5, pc: 97.5, o: 98, h: 102, l: 96 };
             
             const currentPrice = data.c || holding.avgPrice || 100;
@@ -6210,7 +6210,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { symbol } = req.params;
       const { resolution = "D", from, to } = req.query;
       
-      // Use mock candle data since Finnhub API is removed
+      // Using mock candle data
       const data = {
         c: [100, 101, 99, 102],
         h: [102, 103, 101, 104],
@@ -6257,8 +6257,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const promises = globalIndices.map(async (index) => {
         try {
-          // Try to fetch real data from Finnhub
-          // Use mock data since Finnhub API is removed
+          // Using mock data for market analysis
           const data = { c: 100, d: 2.5, dp: 2.5, pc: 97.5, o: 98, h: 102, l: 96 };
           
           // Check if we got valid data
@@ -6847,7 +6846,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/market/company/:symbol", async (req, res) => {
     try {
       const { symbol } = req.params;
-      // Use mock company data since Finnhub API is removed
+      // Using mock company data
       const data = {
         country: 'IN',
         currency: 'INR',
@@ -6866,13 +6865,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Advanced Finnhub Features
+  // Advanced Market Data Features
 
   // Company Earnings
   app.get("/api/market/earnings/:symbol", async (req, res) => {
     try {
       const { symbol } = req.params;
-      // Use mock earnings data since Finnhub API is removed
+      // Using mock earnings data
       const data = [
         {
           actual: 1.25,
@@ -6892,7 +6891,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/market/recommendations/:symbol", async (req, res) => {
     try {
       const { symbol } = req.params;
-      // Use mock recommendation data since Finnhub API is removed
+      // Using mock recommendation data
       const data = [
         {
           period: '2024-01',
@@ -6915,7 +6914,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/market/metrics/:symbol", async (req, res) => {
     try {
       const { symbol } = req.params;
-      // Use mock metrics data since Finnhub API is removed
+      // Using mock metrics data
       const data = {
         metric: {
           '10DayAverageTradingVolume': 1000000,
@@ -6938,7 +6937,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const fromDate = new Date().toISOString().split('T')[0];
       const toDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      // Use mock IPO data since Finnhub API is removed
+      // Using mock IPO data
       const data = {
         ipoCalendar: [
           {
@@ -6962,7 +6961,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Economic Calendar
   app.get("/api/market/economic-calendar", async (req, res) => {
     try {
-      // Use mock economic calendar data since Finnhub API is removed
+      // Using mock economic calendar data
       const data = {
         economicCalendar: [
           {
@@ -6983,7 +6982,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Sector Performance
   app.get("/api/market/sector-performance", async (req, res) => {
     try {
-      // Use mock sector performance data since Finnhub API is removed
+      // Using mock sector performance data
       const data = [
         {
           sector: 'Technology',
@@ -16452,7 +16451,7 @@ System Security Data:`;
       // Return available API keys without exposing actual values
       const apiKeys = {
         GEMINI_API_KEY: process.env.GEMINI_API_KEY ? 'configured' : 'not_configured',
-        FINNHUB_API_KEY: process.env.FINNHUB_API_KEY ? 'configured' : 'not_configured', 
+ 
         ALPHA_VANTAGE_API_KEY: process.env.ALPHA_VANTAGE_API_KEY ? 'configured' : 'not_configured',
         OPENAI_API_KEY: process.env.OPENAI_API_KEY ? 'configured' : 'not_configured',
         ICICI_BANK_API_KEY: process.env.ICICI_BANK_API_KEY ? 'configured' : 'not_configured',
@@ -16481,7 +16480,7 @@ System Security Data:`;
 
       // Validate that the key name is allowed
       const allowedKeys = [
-        'GEMINI_API_KEY', 'FINNHUB_API_KEY', 'ALPHA_VANTAGE_API_KEY', 
+        'GEMINI_API_KEY', 'ALPHA_VANTAGE_API_KEY', 
         'OPENAI_API_KEY', 'ICICI_BANK_API_KEY', 'HDFC_BANK_API_KEY',
         'JM_FINANCIAL_API_KEY', 'PROBE42_API_KEY'
       ];

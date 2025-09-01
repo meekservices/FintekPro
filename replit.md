@@ -48,7 +48,6 @@ Preferred communication style: Simple, everyday language.
 ## External Dependencies
 
 ### Third-Party APIs
-- **Finnhub API**: Stock market data, quotes, candles, and financial news
 - **Market Data Sources**: Real-time and historical market information for global indices
 
 ### Database Services

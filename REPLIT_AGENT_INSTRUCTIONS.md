@@ -26,7 +26,6 @@ This document provides comprehensive instructions for Replit Agent to optimize a
 - **Add**: Global error middleware for unhandled errors
 
 #### Task 1.3: API Integration Reliability  
-- **Current Issue**: Finnhub API 403 errors
 - **Solution**: Multi-source failover system (Alpha Vantage → Yahoo Finance → Fallback)
 - **Status**: ✅ Implemented but needs optimization
 - **Action**: Add circuit breaker pattern for failing APIs
@@ -59,7 +58,7 @@ This document provides comprehensive instructions for Replit Agent to optimize a
 ### **Phase 3: Live Data Integration (CRITICAL)**
 
 #### Task 3.1: Real-time Market Data
-- **APIs**: Finnhub, Alpha Vantage, Yahoo Finance
+- **APIs**: Alpha Vantage, Yahoo Finance
 - **Implementation**: WebSocket connections for real-time updates
 - **Fallback**: Polling with intelligent retry logic
 - **Caching**: 30-second cache for market data

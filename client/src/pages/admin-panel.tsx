@@ -558,7 +558,6 @@ function ApiStatusPanel() {
                         {getStatusIcon(api.status)}
                         {/* Add edit button for configurable API keys */}
                         {(key.toUpperCase().includes('GEMINI') || 
-                          key.toUpperCase().includes('FINNHUB') || 
                           key.toUpperCase().includes('ALPHA_VANTAGE') ||
                           key.toUpperCase().includes('OPENAI') ||
                           key.toUpperCase().includes('ICICI') ||

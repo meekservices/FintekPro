@@ -66,7 +66,7 @@ export const FINANCIAL_SERVICES = [
   {
     id: 'markets',
     name: 'Live Market Data',
-    description: 'Real-time stock prices, global indices powered by Finnhub API',
+    description: 'Real-time stock prices, global indices and market data',
     icon: 'fas fa-chart-line',
     color: 'blue',
     stats: ['Global stocks', 'Real-time quotes', 'Market news'],
