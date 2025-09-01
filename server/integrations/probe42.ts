@@ -393,3 +393,67 @@ export interface Probe42Compliance {
   penaltyAmount: number;
   lastAssessment: string;
 }
+
+// Integration wrapper for the Probe42API
+export class Probe42Integration {
+  private api: Probe42API;
+
+  constructor() {
+    this.api = new Probe42API({
+      apiKey: process.env.PROBE42_API_KEY || ''
+    });
+  }
+
+  async searchCompany(filters: {
+    pan?: string;
+    cin?: string;
+    name?: string;
+    gst?: string;
+  }): Promise<{ success: boolean; data: any }> {
+    try {
+      const searchFilters: any = {};
+      
+      if (filters.pan) {
+        searchFilters.pan = filters.pan;
+      }
+      if (filters.cin) {
+        searchFilters.cin = filters.cin;
+      }
+      if (filters.name) {
+        searchFilters.nameContains = filters.name;
+      }
+      if (filters.gst) {
+        searchFilters.gst = filters.gst;
+      }
+
+      const result = await this.api.searchCompanies(searchFilters);
+      return {
+        success: true,
+        data: { results: result.companies || [] }
+      };
+    } catch (error) {
+      console.error('Probe42 search error:', error);
+      return {
+        success: false,
+        data: { results: [] }
+      };
+    }
+  }
+
+  async getCompanyDetails(cin: string): Promise<{ success: boolean; data: any }> {
+    try {
+      const result = await this.api.getCompanyByCIN(cin);
+      return {
+        success: true,
+        data: result
+      };
+    } catch (error) {
+      console.error('Probe42 company details error:', error);
+      return {
+        success: false,
+        data: null
+      };
+    }
+  }
+}
+

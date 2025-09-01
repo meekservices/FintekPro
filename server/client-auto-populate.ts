@@ -2,7 +2,7 @@ import express from 'express';
 import { storage } from './storage';
 import { ICICIBankAPI } from './icici-bank-api';
 import { HDFCBankAPI } from './hdfc-bank-api';
-import { IBTradingAPI } from './ib-api';
+import { IBApiService } from './ib-api';
 import { Probe42Integration } from './integrations/probe42';
 import { ComprehensiveAIFPMSAPI } from './comprehensive-aif-pms-api';
 
@@ -27,14 +27,24 @@ interface AutoPopulatedResult {
 export class ClientAutoPopulateService {
   private iciciAPI: ICICIBankAPI;
   private hdfcAPI: HDFCBankAPI;
-  private ibAPI: IBTradingAPI;
+  private ibAPI: IBApiService;
   private probe42: Probe42Integration;
   private aifPmsAPI: ComprehensiveAIFPMSAPI;
 
   constructor() {
-    this.iciciAPI = new ICICIBankAPI();
-    this.hdfcAPI = new HDFCBankAPI();
-    this.ibAPI = new IBTradingAPI();
+    this.iciciAPI = new ICICIBankAPI({ 
+      environment: 'sandbox', 
+      appKey: process.env.ICICI_APP_KEY || '', 
+      secretKey: process.env.ICICI_SECRET_KEY || '', 
+      baseUrl: 'https://apigwuat.icicibank.com' 
+    });
+    this.hdfcAPI = new HDFCBankAPI({ 
+      environment: 'sandbox', 
+      clientId: process.env.HDFC_CLIENT_ID || '', 
+      clientSecret: process.env.HDFC_CLIENT_SECRET || '', 
+      baseUrl: 'https://api-sandbox.hdfcbank.com' 
+    });
+    this.ibAPI = new IBApiService({ host: '127.0.0.1', port: 7497, clientId: 1, paperTrading: true });
     this.probe42 = new Probe42Integration();
     this.aifPmsAPI = new ComprehensiveAIFPMSAPI();
   }
@@ -107,7 +117,7 @@ export class ClientAutoPopulateService {
       if (data.bankName === 'ICICI' && data.accountNumber) {
         // Fetch ICICI Bank data
         const balanceResult = await this.iciciAPI.getAccountBalance(data.accountNumber);
-        if (balanceResult.success) {
+        if (balanceResult.success && balanceResult.data) {
           bankingData.accounts.push({
             bank: 'ICICI',
             accountNumber: data.accountNumber,
@@ -125,7 +135,7 @@ export class ClientAutoPopulateService {
           100
         );
 
-        if (transactionResult.success) {
+        if (transactionResult.success && transactionResult.data) {
           bankingData.transactionPatterns = this.analyzeTransactionPatterns(transactionResult.data);
           bankingData.monthlyAverage = this.calculateMonthlyAverage(transactionResult.data);
         }
@@ -134,7 +144,7 @@ export class ClientAutoPopulateService {
       if (data.bankName === 'HDFC' && data.accountNumber) {
         // Fetch HDFC Bank data
         const balanceResult = await this.hdfcAPI.getAccountBalance(data.accountNumber);
-        if (balanceResult.success) {
+        if (balanceResult.success && balanceResult.data) {
           bankingData.accounts.push({
             bank: 'HDFC',
             accountNumber: data.accountNumber,
@@ -152,7 +162,7 @@ export class ClientAutoPopulateService {
           100
         );
 
-        if (transactionResult.success) {
+        if (transactionResult.success && transactionResult.data) {
           bankingData.transactionPatterns = this.analyzeTransactionPatterns(transactionResult.data);
           bankingData.monthlyAverage = this.calculateMonthlyAverage(transactionResult.data);
         }
@@ -242,8 +252,8 @@ export class ClientAutoPopulateService {
 
     try {
       // Fetch AIF and PMS recommendations
-      const aifData = await this.aifPmsAPI.getAllAIFs();
-      const pmsData = await this.aifPmsAPI.getAllPMS();
+      const aifData = await this.aifPmsAPI.getComprehensiveAIFData();
+      const pmsData = await this.aifPmsAPI.getComprehensivePMSData();
 
       // Filter and score products based on investment profile
       const allProducts = [...aifData, ...pmsData];
@@ -251,10 +261,11 @@ export class ClientAutoPopulateService {
       for (const product of allProducts.slice(0, 20)) {
         const matchScore = this.calculateProductMatch(product, investmentProfile);
         if (matchScore > 60) {
+          const isAIF = 'aifId' in product;
           recommendations.push({
-            id: product.aifId || product.pmsId,
+            id: isAIF ? (product as any).aifId : (product as any).pmsId,
             name: product.schemaName,
-            type: product.aifId ? 'AIF' : 'PMS',
+            type: isAIF ? 'AIF' : 'PMS',
             category: product.category,
             minimumInvestment: product.minimumInvestment,
             expectedReturns: product.pastPerformance?.['1Y'] || 0,
@@ -296,12 +307,9 @@ export class ClientAutoPopulateService {
     try {
       // Create portfolio in database
       await storage.createPortfolio({
-        id: portfolioData.portfolioId,
         userId: userId,
         name: portfolioData.name,
-        totalValue: portfolioData.totalValue,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        totalValue: portfolioData.totalValue.toString()
       });
 
     } catch (error) {
