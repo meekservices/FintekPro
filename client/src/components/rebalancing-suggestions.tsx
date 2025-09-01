@@ -114,7 +114,7 @@ export function RebalancingSuggestions({ portfolioId }: RebalancingSuggestionsPr
               <Target className="h-5 w-5 text-blue-600" />
               <span>Portfolio Rebalancing</span>
             </CardTitle>
-            {suggestions.summary.rebalanceNeeded && (
+            {suggestions?.summary?.rebalanceNeeded && (
               <Badge variant="destructive" className="mt-2">
                 Rebalancing Recommended
               </Badge>
@@ -123,19 +123,19 @@ export function RebalancingSuggestions({ portfolioId }: RebalancingSuggestionsPr
           <div className="text-right">
             <p className="text-sm text-gray-600">Portfolio Value</p>
             <p className="text-xl font-bold">
-              ₹{suggestions.summary.totalValue.toLocaleString()}
+              ₹{suggestions?.summary?.totalValue?.toLocaleString() || '0'}
             </p>
           </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Summary Alert */}
-        {suggestions.summary.rebalanceNeeded ? (
+        {suggestions?.summary?.rebalanceNeeded ? (
           <Alert>
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
-              Your portfolio has {suggestions.summary.highPrioritySuggestions} high-priority 
-              rebalancing opportunities worth ₹{suggestions.summary.totalRebalanceAmount.toLocaleString()}.
+              Your portfolio has {suggestions?.summary?.highPrioritySuggestions || 0} high-priority 
+              rebalancing opportunities worth ₹{suggestions?.summary?.totalRebalanceAmount?.toLocaleString() || '0'}.
             </AlertDescription>
           </Alert>
         ) : (
@@ -151,7 +151,7 @@ export function RebalancingSuggestions({ portfolioId }: RebalancingSuggestionsPr
         <div className="space-y-4">
           <h4 className="font-semibold text-gray-900">Asset Allocation Analysis</h4>
           
-          {suggestions.suggestions.map((suggestion, index) => (
+          {(suggestions?.suggestions || []).map((suggestion, index) => (
             <div 
               key={suggestion.assetType} 
               className="border rounded-lg p-4 space-y-3"
@@ -216,7 +216,7 @@ export function RebalancingSuggestions({ portfolioId }: RebalancingSuggestionsPr
         </div>
 
         {/* No Suggestions State */}
-        {suggestions.suggestions.length === 0 && (
+        {(suggestions?.suggestions || []).length === 0 && (
           <div className="text-center py-6">
             <CheckCircle className="h-12 w-12 text-green-600 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Portfolio Well Balanced</h3>
@@ -228,7 +228,7 @@ export function RebalancingSuggestions({ portfolioId }: RebalancingSuggestionsPr
 
         {/* Last Updated */}
         <p className="text-xs text-gray-500 text-center pt-4 border-t">
-          Last updated: {new Date(suggestions.summary.lastUpdated).toLocaleTimeString()}
+          Last updated: {suggestions?.summary?.lastUpdated ? new Date(suggestions.summary.lastUpdated).toLocaleTimeString() : 'Never'}
         </p>
       </CardContent>
     </Card>
