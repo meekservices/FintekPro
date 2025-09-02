@@ -111,7 +111,9 @@ export default function Loans() {
     blue: "bg-blue-100 text-finance-blue",
     green: "bg-green-100 text-finance-green",
     purple: "bg-purple-100 text-purple-600",
-    orange: "bg-orange-100 text-orange-600"
+    orange: "bg-orange-100 text-orange-600",
+    cyan: "bg-cyan-100 text-cyan-600",
+    indigo: "bg-indigo-100 text-indigo-600"
   };
 
   return (
