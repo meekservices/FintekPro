@@ -70,3 +70,33 @@ Preferred communication style: Simple, everyday language.
 - **Class Variance Authority**: Utility for creating variant-based component APIs
 - **Zod**: TypeScript-first schema validation
 - **Nanoid**: URL-safe unique string ID generator
+
+## Recent Changes
+
+### Latest modifications with dates
+- **September 2025**: Fixed TypeScript errors in IPO analysis page (Calculator icon imports and date formatting issues)
+- **September 2025**: Researched and confirmed absence of official Bajaj Finance public API
+- **September 2025**: Installed financial calculation libraries (financial, financejs) for accurate financial computations
+- **September 2025**: Created comprehensive Bajaj Finance API integration with EMI, personal loan, business loan, FD, insurance, and SIP calculators
+- **September 2025**: Built interactive Bajaj Finance web interface at /bajaj-finance with tabbed calculator sections
+- **September 2025**: Researched Tata Capital APIs and created complete integration with retail and commercial API capabilities
+- **September 2025**: Implemented Tata Capital API with comprehensive loan calculators, KYC verification, and financial services
+- **September 2025**: Built interactive Tata Capital web interface at /tata-capital with advanced loan calculation tools
+
+## Financial Institution Integrations
+
+### Bajaj Finance Integration
+- **API Services**: EMI Calculator, Personal Loan, Business Loan, Fixed Deposit, Two Wheeler Loan, Insurance Premium, SIP Calculator, Loan Eligibility Checker
+- **Interface**: Complete web interface at `/bajaj-finance` with tabbed calculator sections
+- **Implementation**: Custom API simulation using published rates and calculation methods
+
+### Tata Capital Integration  
+- **API Services**: Personal Loan, Home Loan, Business Loan, Used Car Loan, Loan Against Property, Loan Against Securities, Credit Eligibility Check, GST Verification, Bank Statement Analysis, CKYC Verification
+- **Interface**: Professional web interface at `/tata-capital` with comprehensive loan calculation tools
+- **Implementation**: Based on official Tata Capital API catalogue with retail and commercial services
+
+### Technical Implementation Notes
+- Both integrations use financial calculation libraries (financial, financejs) for accurate computations
+- APIs simulate official services using published rates and calculation methods from respective institutions
+- No official public developer APIs are available from either institution
+- Custom implementations provide equivalent functionality to official services

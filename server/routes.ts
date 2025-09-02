@@ -27,6 +27,7 @@ const require = createRequire(import.meta.url);
 const API = require('indian-stock-exchange');
 import { finnhubService } from './finnhub-service';
 import { bajajFinanceAPI } from './bajaj-finance-api';
+import { tataCapitalAPI } from './tata-capital-api';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -17286,6 +17287,333 @@ System Security Data:`;
     } catch (error) {
       console.error("Error checking loan eligibility:", error);
       res.status(500).json({ error: "Failed to check loan eligibility" });
+    }
+  });
+
+  // ===========================================
+  // TATA CAPITAL API ROUTES
+  // ===========================================
+
+  // Personal Loan Calculator
+  app.post("/api/tata-capital/personal-loan", async (req, res) => {
+    try {
+      const { principal, tenure, employmentType } = req.body;
+      
+      if (!principal || !tenure || !employmentType) {
+        return res.status(400).json({ error: "Missing required parameters: principal, tenure, employmentType" });
+      }
+
+      const result = tataCapitalAPI.calculatePersonalLoan(
+        Number(principal), 
+        Number(tenure),
+        employmentType as 'salaried' | 'self-employed'
+      );
+      
+      res.json({ success: true, data: result });
+    } catch (error) {
+      console.error("Error calculating personal loan:", error);
+      res.status(500).json({ error: "Failed to calculate personal loan" });
+    }
+  });
+
+  // Home Loan Calculator
+  app.post("/api/tata-capital/home-loan", async (req, res) => {
+    try {
+      const { principal, tenure, propertyType } = req.body;
+      
+      if (!principal || !tenure || !propertyType) {
+        return res.status(400).json({ error: "Missing required parameters: principal, tenure, propertyType" });
+      }
+
+      const result = tataCapitalAPI.calculateHomeLoan(
+        Number(principal), 
+        Number(tenure),
+        propertyType as 'ready' | 'under-construction'
+      );
+      
+      res.json({ success: true, data: result });
+    } catch (error) {
+      console.error("Error calculating home loan:", error);
+      res.status(500).json({ error: "Failed to calculate home loan" });
+    }
+  });
+
+  // Business Loan Calculator
+  app.post("/api/tata-capital/business-loan", async (req, res) => {
+    try {
+      const { principal, tenure, businessVintage, turnover } = req.body;
+      
+      if (!principal || !tenure || !businessVintage || !turnover) {
+        return res.status(400).json({ error: "Missing required parameters: principal, tenure, businessVintage, turnover" });
+      }
+
+      const result = tataCapitalAPI.calculateBusinessLoan(
+        Number(principal), 
+        Number(tenure),
+        Number(businessVintage),
+        Number(turnover)
+      );
+      
+      res.json({ success: true, data: result });
+    } catch (error) {
+      console.error("Error calculating business loan:", error);
+      res.status(500).json({ error: "Failed to calculate business loan" });
+    }
+  });
+
+  // Used Car Loan Calculator
+  app.post("/api/tata-capital/used-car-loan", async (req, res) => {
+    try {
+      const { vehiclePrice, vehicleAge, downPayment, tenure } = req.body;
+      
+      if (!vehiclePrice || vehicleAge === undefined || !downPayment || !tenure) {
+        return res.status(400).json({ error: "Missing required parameters: vehiclePrice, vehicleAge, downPayment, tenure" });
+      }
+
+      const result = tataCapitalAPI.calculateUsedCarLoan(
+        Number(vehiclePrice), 
+        Number(vehicleAge),
+        Number(downPayment),
+        Number(tenure)
+      );
+      
+      res.json({ success: true, data: result });
+    } catch (error) {
+      console.error("Error calculating used car loan:", error);
+      res.status(500).json({ error: "Failed to calculate used car loan" });
+    }
+  });
+
+  // Loan Against Property Calculator
+  app.post("/api/tata-capital/loan-against-property", async (req, res) => {
+    try {
+      const { propertyValue, loanAmount, tenure, propertyType } = req.body;
+      
+      if (!propertyValue || !loanAmount || !tenure || !propertyType) {
+        return res.status(400).json({ error: "Missing required parameters: propertyValue, loanAmount, tenure, propertyType" });
+      }
+
+      const result = tataCapitalAPI.calculateLoanAgainstProperty(
+        Number(propertyValue), 
+        Number(loanAmount),
+        Number(tenure),
+        propertyType as 'residential' | 'commercial'
+      );
+      
+      res.json({ success: true, data: result });
+    } catch (error) {
+      console.error("Error calculating loan against property:", error);
+      res.status(500).json({ error: "Failed to calculate loan against property" });
+    }
+  });
+
+  // Loan Against Securities Calculator
+  app.post("/api/tata-capital/loan-against-securities", async (req, res) => {
+    try {
+      const { portfolioValue, loanAmount, securityType } = req.body;
+      
+      if (!portfolioValue || !loanAmount || !securityType) {
+        return res.status(400).json({ error: "Missing required parameters: portfolioValue, loanAmount, securityType" });
+      }
+
+      const result = tataCapitalAPI.calculateLoanAgainstSecurities(
+        Number(portfolioValue), 
+        Number(loanAmount),
+        securityType as 'equity' | 'mutual-fund' | 'bonds'
+      );
+      
+      res.json({ success: true, data: result });
+    } catch (error) {
+      console.error("Error calculating loan against securities:", error);
+      res.status(500).json({ error: "Failed to calculate loan against securities" });
+    }
+  });
+
+  // Credit Eligibility Check
+  app.post("/api/tata-capital/check-eligibility", async (req, res) => {
+    try {
+      const { pan, income, loanType } = req.body;
+      
+      if (!pan || !income || !loanType) {
+        return res.status(400).json({ error: "Missing required parameters: pan, income, loanType" });
+      }
+
+      const result = await tataCapitalAPI.checkCreditEligibility(
+        String(pan), 
+        Number(income),
+        String(loanType)
+      );
+      
+      res.json({ success: true, data: result });
+    } catch (error) {
+      console.error("Error checking credit eligibility:", error);
+      res.status(500).json({ error: "Failed to check credit eligibility" });
+    }
+  });
+
+  // GST Verification
+  app.post("/api/tata-capital/verify-gst", async (req, res) => {
+    try {
+      const { gstin } = req.body;
+      
+      if (!gstin) {
+        return res.status(400).json({ error: "Missing required parameter: gstin" });
+      }
+
+      const result = await tataCapitalAPI.verifyGST(String(gstin));
+      
+      res.json({ success: true, data: result });
+    } catch (error) {
+      console.error("Error verifying GST:", error);
+      res.status(500).json({ error: "Failed to verify GST" });
+    }
+  });
+
+  // Bank Statement Analysis
+  app.post("/api/tata-capital/analyze-bank-statement", async (req, res) => {
+    try {
+      const { statements } = req.body;
+      
+      if (!statements) {
+        return res.status(400).json({ error: "Missing required parameter: statements" });
+      }
+
+      const result = tataCapitalAPI.analyzeBankStatement(statements);
+      
+      res.json({ success: true, data: result });
+    } catch (error) {
+      console.error("Error analyzing bank statement:", error);
+      res.status(500).json({ error: "Failed to analyze bank statement" });
+    }
+  });
+
+  // Outstanding Balance
+  app.get("/api/tata-capital/outstanding-balance/:loanAccountNumber", async (req, res) => {
+    try {
+      const { loanAccountNumber } = req.params;
+      
+      if (!loanAccountNumber) {
+        return res.status(400).json({ error: "Missing loan account number" });
+      }
+
+      const result = await tataCapitalAPI.getOutstandingBalance(loanAccountNumber);
+      
+      res.json({ success: true, data: result });
+    } catch (error) {
+      console.error("Error fetching outstanding balance:", error);
+      res.status(500).json({ error: "Failed to fetch outstanding balance" });
+    }
+  });
+
+  // Foreclosure Details
+  app.get("/api/tata-capital/foreclosure/:loanAccountNumber", async (req, res) => {
+    try {
+      const { loanAccountNumber } = req.params;
+      
+      if (!loanAccountNumber) {
+        return res.status(400).json({ error: "Missing loan account number" });
+      }
+
+      const result = await tataCapitalAPI.getForeclosureDetails(loanAccountNumber);
+      
+      res.json({ success: true, data: result });
+    } catch (error) {
+      console.error("Error fetching foreclosure details:", error);
+      res.status(500).json({ error: "Failed to fetch foreclosure details" });
+    }
+  });
+
+  // Account Aggregator Data
+  app.get("/api/tata-capital/account-aggregator/:customerId", async (req, res) => {
+    try {
+      const { customerId } = req.params;
+      
+      if (!customerId) {
+        return res.status(400).json({ error: "Missing customer ID" });
+      }
+
+      const result = await tataCapitalAPI.getAccountAggregatorData(customerId);
+      
+      res.json({ success: true, data: result });
+    } catch (error) {
+      console.error("Error fetching account aggregator data:", error);
+      res.status(500).json({ error: "Failed to fetch account aggregator data" });
+    }
+  });
+
+  // CKYC Verification
+  app.post("/api/tata-capital/ckyc-verification", async (req, res) => {
+    try {
+      const { ckycId } = req.body;
+      
+      if (!ckycId) {
+        return res.status(400).json({ error: "Missing required parameter: ckycId" });
+      }
+
+      const result = await tataCapitalAPI.performCKYC(String(ckycId));
+      
+      res.json({ success: true, data: result });
+    } catch (error) {
+      console.error("Error performing CKYC verification:", error);
+      res.status(500).json({ error: "Failed to perform CKYC verification" });
+    }
+  });
+
+  // Create Lead
+  app.post("/api/tata-capital/create-lead", async (req, res) => {
+    try {
+      const { name, mobile, email, loanType, loanAmount, city } = req.body;
+      
+      if (!name || !mobile || !email || !loanType || !loanAmount || !city) {
+        return res.status(400).json({ error: "Missing required parameters: name, mobile, email, loanType, loanAmount, city" });
+      }
+
+      const result = await tataCapitalAPI.createLead({
+        name: String(name),
+        mobile: String(mobile),
+        email: String(email),
+        loanType: String(loanType),
+        loanAmount: Number(loanAmount),
+        city: String(city)
+      });
+      
+      res.json({ success: true, data: result });
+    } catch (error) {
+      console.error("Error creating lead:", error);
+      res.status(500).json({ error: "Failed to create lead" });
+    }
+  });
+
+  // Instant Disbursement
+  app.post("/api/tata-capital/instant-disbursement", async (req, res) => {
+    try {
+      const { loanAccountNumber, amount, beneficiaryAccount } = req.body;
+      
+      if (!loanAccountNumber || !amount || !beneficiaryAccount) {
+        return res.status(400).json({ error: "Missing required parameters: loanAccountNumber, amount, beneficiaryAccount" });
+      }
+
+      const result = await tataCapitalAPI.instantDisbursement(
+        String(loanAccountNumber),
+        Number(amount),
+        String(beneficiaryAccount)
+      );
+      
+      res.json({ success: true, data: result });
+    } catch (error) {
+      console.error("Error processing instant disbursement:", error);
+      res.status(500).json({ error: "Failed to process instant disbursement" });
+    }
+  });
+
+  // Get Current Interest Rates
+  app.get("/api/tata-capital/interest-rates", async (req, res) => {
+    try {
+      const rates = tataCapitalAPI.getCurrentRates();
+      res.json({ success: true, data: rates });
+    } catch (error) {
+      console.error("Error fetching Tata Capital interest rates:", error);
+      res.status(500).json({ error: "Failed to fetch interest rates" });
     }
   });
 
