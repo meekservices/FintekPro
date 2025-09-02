@@ -46,6 +46,12 @@ export default function Cibil() {
   const { data: creditData, mutate: checkCreditScore, isPending: scorePending } = useMutation({
     mutationFn: async (data: any) => {
       return apiRequest("POST", "/api/cibil/credit-score", data);
+    },
+    onSuccess: (data) => {
+      // Save credit score to localStorage so it can be displayed in footer
+      if (data.success && data.data.creditScore) {
+        localStorage.setItem('userCreditScore', data.data.creditScore.toString());
+      }
     }
   });
 

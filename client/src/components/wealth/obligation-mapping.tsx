@@ -149,6 +149,10 @@ export function ObligationMapping() {
     onSuccess: (data: any) => {
       if (data.success) {
         setCibilData(data.data);
+        // Save credit score to localStorage
+        if (data.data.creditScore) {
+          localStorage.setItem('userCreditScore', data.data.creditScore.toString());
+        }
         // Get detailed report automatically
         getDetailedReport({ reportId: data.data.reportId, userConsent: true });
       }

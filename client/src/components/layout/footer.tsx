@@ -1,8 +1,39 @@
 import { Link } from "wouter";
-import { Facebook, Twitter, Linkedin, Instagram, Store, Package, ShoppingCart, Calculator } from "lucide-react";
+import { Facebook, Twitter, Linkedin, Instagram, Store, Package, ShoppingCart, Calculator, Shield } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 
 
 export function Footer() {
+  const { isAuthenticated, user } = useAuth();
+  const [creditScore, setCreditScore] = useState<number | null>(null);
+
+  // Load credit score from localStorage or fetch if needed
+  useEffect(() => {
+    const savedScore = localStorage.getItem('userCreditScore');
+    if (savedScore) {
+      setCreditScore(parseInt(savedScore));
+    }
+  }, []);
+
+  const getCreditScoreColor = (score: number) => {
+    if (score >= 800) return "text-green-500";
+    if (score >= 750) return "text-blue-500";
+    if (score >= 700) return "text-yellow-500";
+    if (score >= 650) return "text-orange-500";
+    return "text-red-500";
+  };
+
+  const getCreditGrade = (score: number) => {
+    if (score >= 800) return "Excellent";
+    if (score >= 750) return "Very Good";
+    if (score >= 700) return "Good";
+    if (score >= 650) return "Fair";
+    return "Poor";
+  };
+
   const investmentLinks = [
     { name: "Stocks", href: "/markets" },
     { name: "Mutual Funds", href: "/mutual-funds" },
@@ -174,6 +205,31 @@ export function Footer() {
         </div>
         
         
+        {/* Credit Score Widget */}
+        {isAuthenticated && creditScore && (
+          <div className="border-t border-gray-600 mt-8 pt-6">
+            <div className="flex flex-col md:flex-row justify-between items-center">
+              <div className="flex items-center space-x-4 mb-4 md:mb-0">
+                <div className="flex items-center space-x-2">
+                  <Shield className="h-5 w-5 text-blue-400" />
+                  <span className="text-gray-300 font-medium">Your Credit Score:</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className={`text-2xl font-bold ${getCreditScoreColor(creditScore)}`}>
+                    {creditScore}
+                  </span>
+                  <span className="text-gray-400">({getCreditGrade(creditScore)})</span>
+                </div>
+              </div>
+              <Link href="/cibil">
+                <span className="text-blue-400 hover:text-blue-300 transition-colors cursor-pointer text-sm">
+                  View Full Report →
+                </span>
+              </Link>
+            </div>
+          </div>
+        )}
+
         <div className="border-t border-gray-600 mt-8 pt-8 text-center text-gray-300">
           <p data-testid="footer-copyright">
             &copy; 2024 FinanceHub. All rights reserved. | SEBI Registered Investment Advisor
