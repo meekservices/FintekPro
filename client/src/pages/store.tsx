@@ -7,7 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ProductDetailsModal } from "@/components/product-details-modal";
-import { Heart, ShoppingCart, Filter, Search, Star, TrendingUp, Shield, Clock, Grid, List, SortAsc, SortDesc, X, Building2, Award } from "lucide-react";
+import { useCart } from "@/hooks/use-cart";
+import { useToast } from "@/hooks/use-toast";
+import { Heart, ShoppingCart, Filter, Search, Star, TrendingUp, Shield, Clock, Grid, List, SortAsc, SortDesc, X, Building2, Award, Plus } from "lucide-react";
 
 interface Product {
   id: string;
@@ -237,6 +239,31 @@ export default function Store() {
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  const { addToCart, isAddingToCart } = useCart();
+  const { toast } = useToast();
+
+  const handleAddToCart = (product: Product, investmentAmount?: number) => {
+    addToCart({
+      productId: product.id,
+      quantity: 1,
+      investmentAmount: investmentAmount ? investmentAmount.toString() : product.minimumInvestment.toString()
+    }, {
+      onSuccess: () => {
+        toast({
+          title: "Added to Cart",
+          description: `${product.name} has been added to your cart.`,
+        });
+      },
+      onError: (error: any) => {
+        toast({
+          title: "Error",
+          description: "Failed to add product to cart. Please try again.",
+          variant: "destructive",
+        });
+      }
+    });
+  };
 
   const filteredProducts = mockProducts.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -371,8 +398,17 @@ export default function Store() {
                   onClick={() => openProductDetails(product)}
                   data-testid={`button-invest-${product.id}`}
                 >
-                  <ShoppingCart className="h-4 w-4 mr-2" />
-                  Invest
+                  View Details
+                </Button>
+                <Button 
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleAddToCart(product)}
+                  disabled={isAddingToCart}
+                  data-testid={`button-add-to-cart-${product.id}`}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add to Cart
                 </Button>
               </div>
             </div>
@@ -446,14 +482,25 @@ export default function Store() {
                   </Badge>
                 )}
               </div>
-              <Button 
-                className="w-full bg-finance-blue hover:bg-finance-blue/90" 
-                onClick={() => openProductDetails(product)}
-                data-testid={`button-invest-${product.id}`}
-              >
-                <ShoppingCart className="h-4 w-4 mr-2" />
-                Invest Now
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  className="flex-1 bg-finance-blue hover:bg-finance-blue/90" 
+                  onClick={() => openProductDetails(product)}
+                  data-testid={`button-invest-${product.id}`}
+                >
+                  View Details
+                </Button>
+                <Button 
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => handleAddToCart(product)}
+                  disabled={isAddingToCart}
+                  data-testid={`button-add-to-cart-${product.id}`}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  {isAddingToCart ? "Adding..." : "Add to Cart"}
+                </Button>
+              </div>
             </div>
           </div>
         </CardContent>

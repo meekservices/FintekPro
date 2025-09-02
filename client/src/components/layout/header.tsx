@@ -3,8 +3,9 @@ import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, User as UserIcon, HelpCircle, LogOut, Shield, Store } from "lucide-react";
+import { Menu, User as UserIcon, HelpCircle, LogOut, Shield, Store, ShoppingCart } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useCart } from "@/hooks/use-cart";
 import { type User } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -12,6 +13,7 @@ export function Header() {
   const [location] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const { user, isAuthenticated, isLoading } = useAuth();
+  const { cart } = useCart();
 
   const handleLogout = async () => {
     try {
@@ -97,6 +99,26 @@ export function Header() {
                 Store
               </Button>
             </Link>
+            
+            {/* Cart Button */}
+            {isAuthenticated && (
+              <Link href="/cart">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="relative"
+                  data-testid="header-cart-button"
+                >
+                  <ShoppingCart className="h-4 w-4 mr-2" />
+                  Cart
+                  {cart && cart.totalItems > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                      {cart.totalItems}
+                    </span>
+                  )}
+                </Button>
+              </Link>
+            )}
 
             {/* Desktop Auth Button */}
             {isLoading ? (
@@ -198,6 +220,27 @@ export function Header() {
                         Product Store
                       </div>
                     </Link>
+                    {isAuthenticated && (
+                      <Link href="/cart">
+                        <div
+                          className={`block px-3 py-2 rounded-md font-medium transition-colors cursor-pointer flex items-center gap-2 ${
+                            location === "/cart"
+                              ? "bg-finance-blue text-white"
+                              : "text-gray-700 hover:bg-blue-50 hover:text-finance-blue"
+                          }`}
+                          onClick={() => setIsOpen(false)}
+                          data-testid="mobile-nav-cart"
+                        >
+                          <ShoppingCart className="h-4 w-4" />
+                          <span>Cart</span>
+                          {cart && cart.totalItems > 0 && (
+                            <span className="bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center ml-auto">
+                              {cart.totalItems}
+                            </span>
+                          )}
+                        </div>
+                      </Link>
+                    )}
                   </nav>
 
                   {/* Mobile Auth */}

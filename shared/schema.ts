@@ -2264,6 +2264,23 @@ export const userWishlist = pgTable("user_wishlist", {
   addedAt: timestamp("added_at").defaultNow(),
 });
 
+// User Cart Tables
+export const userCart = pgTable("user_cart", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const userCartItems = pgTable("user_cart_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  cartId: varchar("cart_id").references(() => userCart.id).notNull(),
+  productId: varchar("product_id").references(() => storeProducts.id).notNull(),
+  quantity: integer("quantity").notNull().default(1),
+  investmentAmount: decimal("investment_amount", { precision: 15, scale: 2 }),
+  addedAt: timestamp("added_at").defaultNow(),
+});
+
 // Product Store Zod schemas
 export const insertStoreCategorySchema = createInsertSchema(storeCategories).omit({
   id: true,
@@ -2297,6 +2314,17 @@ export const insertUserWishlistSchema = createInsertSchema(userWishlist).omit({
   addedAt: true,
 });
 
+export const insertUserCartSchema = createInsertSchema(userCart).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertUserCartItemSchema = createInsertSchema(userCartItems).omit({
+  id: true,
+  addedAt: true,
+});
+
 // Export types for Product Store
 export type StoreCategory = typeof storeCategories.$inferSelect;
 export type InsertStoreCategory = z.infer<typeof insertStoreCategorySchema>;
@@ -2310,6 +2338,10 @@ export type StoreProductTagMapping = typeof storeProductTagMappings.$inferSelect
 export type InsertStoreProductTagMapping = z.infer<typeof insertStoreProductTagMappingSchema>;
 export type UserWishlist = typeof userWishlist.$inferSelect;
 export type InsertUserWishlist = z.infer<typeof insertUserWishlistSchema>;
+export type UserCart = typeof userCart.$inferSelect;
+export type InsertUserCart = z.infer<typeof insertUserCartSchema>;
+export type UserCartItem = typeof userCartItems.$inferSelect;
+export type InsertUserCartItem = z.infer<typeof insertUserCartItemSchema>;
 
 // Supplier and Product Performance Tables
 export const suppliers = pgTable("suppliers", {

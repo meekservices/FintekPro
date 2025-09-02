@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
-import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema, insertCapitalGainsReportSchema, insertTransactionReportSchema, insertTransactionRecordSchema, insertCkycRecordSchema } from "@shared/schema";
+import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema, insertCapitalGainsReportSchema, insertTransactionReportSchema, insertTransactionRecordSchema, insertCkycRecordSchema, userCart, userCartItems, storeProducts, storeCategories } from "@shared/schema";
 import { marketStoryService, type MarketData as StoryMarketData } from "./market-story-service";
 import { generateMarketInsight, analyzePortfolio, generateInvestmentStory, explainFinancialConcept } from "./gemini";
 import { whatsappService } from "./whatsapp";
@@ -13386,6 +13386,244 @@ System Security Data:`;
   });
 
   // ============ END PARTNER PORTAL ROUTES ============
+
+  // ============ CART SYSTEM ROUTES ============
+
+  // Get user's cart
+  app.get("/api/cart", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      // Get or create user's cart
+      let [cart] = await db
+        .select()
+        .from(userCart)
+        .where(eq(userCart.userId, userId));
+
+      if (!cart) {
+        [cart] = await db
+          .insert(userCart)
+          .values({ userId })
+          .returning();
+      }
+
+      // Get cart items with product details
+      const cartItems = await db
+        .select({
+          id: userCartItems.id,
+          quantity: userCartItems.quantity,
+          investmentAmount: userCartItems.investmentAmount,
+          addedAt: userCartItems.addedAt,
+          product: {
+            id: storeProducts.id,
+            name: storeProducts.name,
+            shortDescription: storeProducts.shortDescription,
+            category: storeCategories.name,
+            productType: storeProducts.productType,
+            price: storeProducts.price,
+            minimumInvestment: storeProducts.minimumInvestment,
+            riskLevel: storeProducts.riskLevel,
+            expectedReturns: storeProducts.expectedReturns,
+            provider: storeProducts.provider,
+            features: storeProducts.features,
+          }
+        })
+        .from(userCartItems)
+        .innerJoin(storeProducts, eq(userCartItems.productId, storeProducts.id))
+        .leftJoin(storeCategories, eq(storeProducts.categoryId, storeCategories.id))
+        .where(eq(userCartItems.cartId, cart.id));
+
+      res.json({
+        cart: cart,
+        items: cartItems,
+        totalItems: cartItems.length,
+        totalValue: cartItems.reduce((sum, item) => sum + (parseFloat(item.investmentAmount || '0') || parseFloat(item.product.minimumInvestment || '0')), 0)
+      });
+    } catch (error) {
+      console.error("Error fetching cart:", error);
+      res.status(500).json({ error: "Failed to fetch cart" });
+    }
+  });
+
+  // Add product to cart
+  app.post("/api/cart/items", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      const { productId, quantity = 1, investmentAmount } = req.body;
+
+      if (!productId) {
+        return res.status(400).json({ error: "Product ID is required" });
+      }
+
+      // Verify product exists
+      const [product] = await db
+        .select()
+        .from(storeProducts)
+        .where(eq(storeProducts.id, productId));
+
+      if (!product) {
+        return res.status(404).json({ error: "Product not found" });
+      }
+
+      // Get or create user's cart
+      let [cart] = await db
+        .select()
+        .from(userCart)
+        .where(eq(userCart.userId, userId));
+
+      if (!cart) {
+        [cart] = await db
+          .insert(userCart)
+          .values({ userId })
+          .returning();
+      }
+
+      // Check if item already exists in cart
+      const [existingItem] = await db
+        .select()
+        .from(userCartItems)
+        .where(and(
+          eq(userCartItems.cartId, cart.id),
+          eq(userCartItems.productId, productId)
+        ));
+
+      if (existingItem) {
+        // Update existing item
+        const [updatedItem] = await db
+          .update(userCartItems)
+          .set({
+            quantity: existingItem.quantity + quantity,
+            investmentAmount: investmentAmount || existingItem.investmentAmount
+          })
+          .where(eq(userCartItems.id, existingItem.id))
+          .returning();
+
+        res.json(updatedItem);
+      } else {
+        // Add new item
+        const [newItem] = await db
+          .insert(userCartItems)
+          .values({
+            cartId: cart.id,
+            productId,
+            quantity,
+            investmentAmount: investmentAmount || product.minimumInvestment?.toString()
+          })
+          .returning();
+
+        res.json(newItem);
+      }
+    } catch (error) {
+      console.error("Error adding to cart:", error);
+      res.status(500).json({ error: "Failed to add item to cart" });
+    }
+  });
+
+  // Update cart item
+  app.put("/api/cart/items/:itemId", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      const { itemId } = req.params;
+      const { quantity, investmentAmount } = req.body;
+
+      // Verify user owns this cart item
+      const [cartItem] = await db
+        .select({
+          id: userCartItems.id,
+          cartId: userCartItems.cartId
+        })
+        .from(userCartItems)
+        .innerJoin(userCart, eq(userCartItems.cartId, userCart.id))
+        .where(and(
+          eq(userCartItems.id, itemId),
+          eq(userCart.userId, userId)
+        ));
+
+      if (!cartItem) {
+        return res.status(404).json({ error: "Cart item not found" });
+      }
+
+      const updates: any = {};
+      if (quantity !== undefined) updates.quantity = quantity;
+      if (investmentAmount !== undefined) updates.investmentAmount = investmentAmount;
+
+      const [updatedItem] = await db
+        .update(userCartItems)
+        .set(updates)
+        .where(eq(userCartItems.id, itemId))
+        .returning();
+
+      res.json(updatedItem);
+    } catch (error) {
+      console.error("Error updating cart item:", error);
+      res.status(500).json({ error: "Failed to update cart item" });
+    }
+  });
+
+  // Remove item from cart
+  app.delete("/api/cart/items/:itemId", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      const { itemId } = req.params;
+
+      // Verify user owns this cart item
+      const [cartItem] = await db
+        .select({
+          id: userCartItems.id
+        })
+        .from(userCartItems)
+        .innerJoin(userCart, eq(userCartItems.cartId, userCart.id))
+        .where(and(
+          eq(userCartItems.id, itemId),
+          eq(userCart.userId, userId)
+        ));
+
+      if (!cartItem) {
+        return res.status(404).json({ error: "Cart item not found" });
+      }
+
+      await db
+        .delete(userCartItems)
+        .where(eq(userCartItems.id, itemId));
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error removing from cart:", error);
+      res.status(500).json({ error: "Failed to remove item from cart" });
+    }
+  });
+
+  // Clear cart
+  app.delete("/api/cart", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+
+      const [cart] = await db
+        .select()
+        .from(userCart)
+        .where(eq(userCart.userId, userId));
+
+      if (cart) {
+        await db
+          .delete(userCartItems)
+          .where(eq(userCartItems.cartId, cart.id));
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error clearing cart:", error);
+      res.status(500).json({ error: "Failed to clear cart" });
+    }
+  });
+
+  // ============ END CART SYSTEM ROUTES ============
 
   // ============ ACHIEVEMENT SYSTEM ROUTES ============
 
