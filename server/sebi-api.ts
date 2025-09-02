@@ -235,7 +235,8 @@ export class SEBIAPIClient {
   }
 
   async getListedCompanies(exchange?: string): Promise<SEBICompanyDetails[]> {
-    const params = exchange ? { exchange } : {};
+    const params: Record<string, string> = {};
+    if (exchange) params.exchange = exchange;
     return this.makeRequest('/companies/listed', params);
   }
 
@@ -301,7 +302,8 @@ export class SEBIAPIClient {
 
   // Regulatory Filings and Compliance
   async getCompanyFilings(companyId: string, type?: string): Promise<any[]> {
-    const params = type ? { type } : {};
+    const params: Record<string, string> = {};
+    if (type) params.type = type;
     return this.makeRequest(`/companies/${companyId}/filings`, params);
   }
 
@@ -344,7 +346,8 @@ export class SEBIAPIClient {
 
   // Corporate Governance Reports
   async getCorporateGovernanceReport(companyId: string, year?: string): Promise<any> {
-    const params = year ? { year } : {};
+    const params: Record<string, string> = {};
+    if (year) params.year = year;
     return this.makeRequest(`/companies/${companyId}/corporate-governance`, params);
   }
 
