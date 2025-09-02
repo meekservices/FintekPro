@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { sql } from "drizzle-orm";
 import { setupAuth } from "./auth";
 import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema, insertCapitalGainsReportSchema, insertTransactionReportSchema, insertTransactionRecordSchema, insertCkycRecordSchema, userCart, userCartItems, storeProducts, storeCategories } from "@shared/schema";
 import { marketStoryService, type MarketData as StoryMarketData } from "./market-story-service";
@@ -869,6 +870,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching live bond rates:", error);
       res.status(500).json({ error: "Failed to fetch live bond rates" });
+    }
+  });
+
+  // IPO API endpoints
+  app.get("/api/ipos", async (req, res) => {
+    try {
+      const { status } = req.query;
+      
+      // Fetch IPOs from database table directly
+      let query = 'SELECT * FROM ipo_companies';
+      if (status) {
+        query += ` WHERE status = '${status}'`;
+      }
+      query += ' ORDER BY created_at DESC';
+      
+      const result = await storage.db.execute(query);
+      
+      // Map database columns to camelCase for frontend
+      const mappedRows = result.rows.map((row: any) => ({
+        id: row.id,
+        companyName: row.company_name,
+        sector: row.sector,
+        industry: row.industry,
+        logoUrl: row.logo_url,
+        ipoType: row.ipo_type,
+        issueType: row.issue_type,
+        priceBandMin: row.price_band_min,
+        priceBandMax: row.price_band_max,
+        issueSize: row.issue_size,
+        openDate: row.open_date,
+        closeDate: row.close_date,
+        listingDate: row.listing_date,
+        status: row.status,
+        subscriptionStatus: row.subscription_status,
+        listingPrice: row.listing_price,
+        listingGainPercent: row.listing_gain_percent,
+        currentPrice: row.current_price,
+        currentReturnPercent: row.current_return_percent,
+        rhpUrl: row.rhp_url,
+        drhpUrl: row.drhp_url,
+        description: row.description,
+        marketCap: row.market_cap,
+        lastUpdated: row.last_updated,
+        createdAt: row.created_at
+      }));
+      
+      res.json(mappedRows);
+    } catch (error) {
+      console.error("Error fetching IPOs:", error);
+      res.status(500).json({ error: "Failed to fetch IPO data" });
+    }
+  });
+
+  app.get("/api/ipo-news", async (req, res) => {
+    try {
+      // Mock IPO news data
+      const ipoNews = [
+        {
+          id: "news-1",
+          title: "Reliance Jio IPO Expected to be India's Largest Public Offering",
+          publishedAt: "2025-09-01",
+          category: "IPO News"
+        },
+        {
+          id: "news-2", 
+          title: "Groww Files for IPO, Targets ₹6,000 Crore Valuation",
+          publishedAt: "2025-08-30",
+          category: "Market News"
+        },
+        {
+          id: "news-3",
+          title: "SEBI Updates IPO Guidelines for Better Investor Protection",
+          publishedAt: "2025-08-28",
+          category: "Regulatory"
+        },
+        {
+          id: "news-4",
+          title: "Healthcare IPOs Gain Momentum Post-Pandemic Recovery",
+          publishedAt: "2025-08-25",
+          category: "Sector Analysis"
+        }
+      ];
+      
+      res.json(ipoNews);
+    } catch (error) {
+      console.error("Error fetching IPO news:", error);
+      res.status(500).json({ error: "Failed to fetch IPO news" });
     }
   });
 

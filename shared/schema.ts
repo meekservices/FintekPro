@@ -2052,6 +2052,114 @@ export type InsertPreIpoAnalytics = z.infer<typeof insertPreIpoAnalyticsSchema>;
 export type PreIpoMarketInsights = typeof preIpoMarketInsights.$inferSelect;
 export type InsertPreIpoMarketInsights = z.infer<typeof insertPreIpoMarketInsightsSchema>;
 
+// Mainboard & SME IPO Companies table
+export const ipoCompanies = pgTable("ipo_companies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyName: text("company_name").notNull(),
+  sector: varchar("sector").notNull(),
+  industry: varchar("industry").notNull(),
+  logoUrl: text("logo_url"),
+  
+  // IPO Details
+  ipoType: varchar("ipo_type").notNull(), // 'mainboard', 'sme'
+  issueType: varchar("issue_type"), // 'Book Built', 'Fixed Price', 'Offer for Sale'
+  priceBandMin: decimal("price_band_min", { precision: 10, scale: 2 }),
+  priceBandMax: decimal("price_band_max", { precision: 10, scale: 2 }),
+  issueSize: decimal("issue_size", { precision: 15, scale: 2 }), // in crores
+  
+  // Important Dates
+  openDate: date("open_date"),
+  closeDate: date("close_date"),
+  listingDate: date("listing_date"),
+  
+  // Status and Performance
+  status: varchar("status").notNull().default("upcoming"), // 'upcoming', 'ongoing', 'listed', 'withdrawn'
+  subscriptionStatus: decimal("subscription_status", { precision: 8, scale: 2 }), // times subscribed
+  
+  // Listing Performance (for listed IPOs)
+  listingPrice: decimal("listing_price", { precision: 10, scale: 2 }),
+  listingGainPercent: decimal("listing_gain_percent", { precision: 8, scale: 4 }),
+  currentPrice: decimal("current_price", { precision: 10, scale: 2 }),
+  currentReturnPercent: decimal("current_return_percent", { precision: 8, scale: 4 }),
+  
+  // Regulatory Documents
+  rhpUrl: text("rhp_url"), // Red Herring Prospectus
+  drhpUrl: text("drhp_url"), // Draft Red Herring Prospectus
+  
+  // Additional Information
+  description: text("description"),
+  marketCap: decimal("market_cap", { precision: 20, scale: 2 }),
+  
+  // Metadata
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// IPO Applications table - tracks user applications
+export const ipoApplications = pgTable("ipo_applications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  ipoId: varchar("ipo_id").references(() => ipoCompanies.id).notNull(),
+  
+  // Application Details
+  applicationAmount: decimal("application_amount", { precision: 15, scale: 2 }).notNull(),
+  bidPrice: decimal("bid_price", { precision: 10, scale: 2 }).notNull(),
+  quantity: integer("quantity").notNull(),
+  category: varchar("category").notNull(), // 'Retail', 'HNI', 'QIB'
+  
+  // Status Tracking
+  applicationStatus: varchar("application_status").notNull().default("applied"), // 'applied', 'confirmed', 'allotted', 'rejected'
+  allotmentQuantity: integer("allotment_quantity"),
+  allotmentAmount: decimal("allotment_amount", { precision: 15, scale: 2 }),
+  
+  // Dates
+  applicationDate: timestamp("application_date").defaultNow(),
+  allotmentDate: timestamp("allotment_date"),
+  
+  // Metadata
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// IPO News table
+export const ipoNews = pgTable("ipo_news", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  summary: text("summary"),
+  content: text("content"),
+  category: varchar("category").notNull(), // 'filing', 'approval', 'listing', 'analysis'
+  ipoId: varchar("ipo_id").references(() => ipoCompanies.id),
+  sourceUrl: text("source_url"),
+  publishedAt: timestamp("published_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Zod schemas for IPO
+export const insertIpoCompanySchema = createInsertSchema(ipoCompanies).omit({
+  id: true,
+  lastUpdated: true,
+  createdAt: true,
+});
+
+export const insertIpoApplicationSchema = createInsertSchema(ipoApplications).omit({
+  id: true,
+  lastUpdated: true,
+  createdAt: true,
+});
+
+export const insertIpoNewsSchema = createInsertSchema(ipoNews).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Export types for IPO
+export type IpoCompany = typeof ipoCompanies.$inferSelect;
+export type InsertIpoCompany = z.infer<typeof insertIpoCompanySchema>;
+export type IpoApplication = typeof ipoApplications.$inferSelect;
+export type InsertIpoApplication = z.infer<typeof insertIpoApplicationSchema>;
+export type IpoNews = typeof ipoNews.$inferSelect;
+export type InsertIpoNews = z.infer<typeof insertIpoNewsSchema>;
+
 
 // Investment proposal types
 export type InvestmentProposal = typeof investmentProposals.$inferSelect;
