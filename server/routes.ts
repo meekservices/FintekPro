@@ -28,6 +28,7 @@ const API = require('indian-stock-exchange');
 import { finnhubService } from './finnhub-service';
 import { bajajFinanceAPI } from './bajaj-finance-api';
 import { tataCapitalAPI } from './tata-capital-api';
+import { PolicyBazaarAPI } from './policybazaar-api';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -17281,6 +17282,15 @@ System Security Data:`;
       res.status(500).json({ error: "Failed to fetch interest rates" });
     }
   });
+
+  // PolicyBazaar API endpoints
+  app.post("/api/policybazaar/quotes", PolicyBazaarAPI.getInsuranceQuotes);
+  app.post("/api/policybazaar/health-calculator", PolicyBazaarAPI.calculateHealthInsurance);
+  app.post("/api/policybazaar/life-calculator", PolicyBazaarAPI.calculateLifeInsurance);
+  app.post("/api/policybazaar/motor-calculator", PolicyBazaarAPI.calculateMotorInsurance);
+  app.post("/api/policybazaar/travel-calculator", PolicyBazaarAPI.calculateTravelInsurance);
+  app.post("/api/policybazaar/purchase", PolicyBazaarAPI.purchasePolicy);
+  app.post("/api/policybazaar/status", PolicyBazaarAPI.getPolicyStatus);
 
   // Global error handler (must be last)
   app.use(globalErrorHandler);

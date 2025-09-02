@@ -41,6 +41,7 @@ export function Footer() {
     { name: "Tax Calculator", href: "/calculators?tab=tax" },
     { name: "Bajaj Finance", href: "/bajaj-finance" },
     { name: "Tata Capital", href: "/tata-capital" },
+    { name: "PolicyBazaar", href: "/policybazaar" },
   ];
 
   return (

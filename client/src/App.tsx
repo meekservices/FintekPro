@@ -41,6 +41,7 @@ import Terms from "@/pages/terms";
 import AIF from "@/pages/aif";
 import BajajFinance from "@/pages/bajaj-finance";
 import TataCapital from "@/pages/tata-capital";
+import PolicyBazaar from "@/pages/policybazaar";
 import { SupplierManagement } from "@/pages/supplier-management";
 
 function Router() {
@@ -83,6 +84,7 @@ function Router() {
       <Route path="/aif" component={AIF} />
       <Route path="/bajaj-finance" component={BajajFinance} />
       <Route path="/tata-capital" component={TataCapital} />
+      <Route path="/policybazaar" component={PolicyBazaar} />
       <Route path="/suppliers" component={SupplierManagement} />
       <Route component={NotFound} />
     </Switch>

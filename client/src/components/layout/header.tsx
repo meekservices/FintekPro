@@ -30,6 +30,7 @@ export function Header() {
     { name: "Portfolio", href: "/portfolio" },
     { name: "Wealth Management", href: "/wealth-management" },
     { name: "Loans", href: "/loans" },
+    { name: "Insurance", href: "/policybazaar" },
     { name: "Support", href: "/support" },
   ];
 
