@@ -3,8 +3,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, CheckCircle, Settings, ShieldAlert, Monitor, Globe, Server, TrendingUp, Building2, Brain, BarChart3, Lightbulb, Loader2 } from "lucide-react";
 
+interface ApiStatusData {
+  overall?: string;
+  timestamp?: string;
+  apis?: Record<string, any>;
+  systemHealth?: any;
+}
+
 export default function ApiMonitorDemo() {
-  const { data: apiStatus, isLoading, error } = useQuery({
+  const { data: apiStatus = {} as ApiStatusData, isLoading, error } = useQuery({
     queryKey: ['/api/public/api-status'],
     refetchInterval: 10000, // Refresh every 10 seconds for real-time monitoring
   });
@@ -141,20 +148,20 @@ export default function ApiMonitorDemo() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="p-2 rounded-full bg-white bg-opacity-50">
-                  {getStatusIcon(apiStatus?.overall || 'unknown')}
+                  {getStatusIcon((apiStatus as ApiStatusData)?.overall || 'unknown')}
                 </div>
                 <div>
                   <CardTitle className="text-2xl font-bold">
-                    System Status: {(apiStatus?.overall || 'Unknown').toUpperCase()}
+                    System Status: {((apiStatus as ApiStatusData)?.overall || 'Unknown').toUpperCase()}
                   </CardTitle>
                   <div className="text-sm opacity-80 mt-1">
-                    Last Updated: {apiStatus?.timestamp ? new Date(apiStatus.timestamp).toLocaleString() : 'Unknown'}
+                    Last Updated: {(apiStatus as ApiStatusData)?.timestamp ? new Date((apiStatus as ApiStatusData).timestamp!).toLocaleString() : 'Unknown'}
                   </div>
                 </div>
               </div>
               <div className="text-right">
                 <div className="text-sm opacity-80">Total APIs</div>
-                <div className="text-3xl font-bold">{Object.keys(apiStatus?.apis || {}).length}</div>
+                <div className="text-3xl font-bold">{Object.keys((apiStatus as ApiStatusData)?.apis || {}).length}</div>
               </div>
             </div>
           </CardHeader>
@@ -162,25 +169,25 @@ export default function ApiMonitorDemo() {
             <div className="grid grid-cols-4 gap-4 text-center">
               <div className="p-3 bg-green-50 rounded-lg">
                 <div className="text-2xl font-bold text-green-600">
-                  {Object.values(apiStatus?.apis || {}).filter((api: any) => api.status === 'healthy' || api.status === 'configured').length}
+                  {Object.values((apiStatus as ApiStatusData)?.apis || {}).filter((api: any) => api.status === 'healthy' || api.status === 'configured').length}
                 </div>
                 <div className="text-sm text-green-600">Healthy</div>
               </div>
               <div className="p-3 bg-yellow-50 rounded-lg">
                 <div className="text-2xl font-bold text-yellow-600">
-                  {Object.values(apiStatus?.apis || {}).filter((api: any) => api.status === 'degraded').length}
+                  {Object.values((apiStatus as ApiStatusData)?.apis || {}).filter((api: any) => api.status === 'degraded').length}
                 </div>
                 <div className="text-sm text-yellow-600">Degraded</div>
               </div>
               <div className="p-3 bg-red-50 rounded-lg">
                 <div className="text-2xl font-bold text-red-600">
-                  {Object.values(apiStatus?.apis || {}).filter((api: any) => api.status === 'error').length}
+                  {Object.values((apiStatus as ApiStatusData)?.apis || {}).filter((api: any) => api.status === 'error').length}
                 </div>
                 <div className="text-sm text-red-600">Error</div>
               </div>
               <div className="p-3 bg-blue-50 rounded-lg">
                 <div className="text-2xl font-bold text-blue-600">
-                  {Object.values(apiStatus?.apis || {}).filter((api: any) => api.status === 'not_configured').length}
+                  {Object.values((apiStatus as ApiStatusData)?.apis || {}).filter((api: any) => api.status === 'not_configured').length}
                 </div>
                 <div className="text-sm text-blue-600">Not Configured</div>
               </div>
@@ -193,7 +200,7 @@ export default function ApiMonitorDemo() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Monitor className="w-6 h-6 text-blue-600" />
-              Individual API Services ({Object.keys(apiStatus?.apis || {}).length})
+              Individual API Services ({Object.keys((apiStatus as ApiStatusData)?.apis || {}).length})
             </CardTitle>
             <CardDescription>
               Real-time status monitoring with detailed health metrics for each integrated service
@@ -201,7 +208,7 @@ export default function ApiMonitorDemo() {
           </CardHeader>
           <CardContent className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {Object.entries(apiStatus?.apis || {}).map(([key, api]: [string, any]) => (
+              {Object.entries((apiStatus as ApiStatusData)?.apis || {}).map(([key, api]: [string, any]) => (
                 <Card key={key} className={`transition-all duration-300 border-2 hover:shadow-lg hover:scale-[1.02] ${getStatusColor(api.status)}`}>
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
@@ -307,7 +314,7 @@ export default function ApiMonitorDemo() {
         </Card>
 
         {/* System Health */}
-        {apiStatus?.systemHealth && (
+        {(apiStatus as ApiStatusData)?.systemHealth && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -319,25 +326,25 @@ export default function ApiMonitorDemo() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center p-4 bg-gray-50 rounded-lg">
                   <div className="text-2xl font-bold text-blue-600">
-                    {Math.floor(apiStatus.systemHealth.uptime / 60)}m
+                    {Math.floor(((apiStatus as ApiStatusData).systemHealth?.uptime || 0) / 60)}m
                   </div>
                   <div className="text-sm text-gray-600 mt-1">Uptime</div>
                 </div>
                 <div className="text-center p-4 bg-gray-50 rounded-lg">
                   <div className="text-2xl font-bold text-green-600">
-                    {(apiStatus.systemHealth.memory.heapUsed / 1024 / 1024).toFixed(1)} MB
+                    {(((apiStatus as ApiStatusData).systemHealth?.memory?.heapUsed || 0) / 1024 / 1024).toFixed(1)} MB
                   </div>
                   <div className="text-sm text-gray-600 mt-1">Memory Used</div>
                 </div>
                 <div className="text-center p-4 bg-gray-50 rounded-lg">
                   <div className="text-2xl font-bold text-purple-600">
-                    {apiStatus.systemHealth.nodeVersion}
+                    {(apiStatus as ApiStatusData).systemHealth?.nodeVersion || 'Unknown'}
                   </div>
                   <div className="text-sm text-gray-600 mt-1">Node.js</div>
                 </div>
                 <div className="text-center p-4 bg-gray-50 rounded-lg">
                   <div className="text-2xl font-bold text-orange-600">
-                    {apiStatus.systemHealth.totalResponseTime}
+                    {(apiStatus as ApiStatusData).systemHealth?.totalResponseTime || 'Unknown'}
                   </div>
                   <div className="text-sm text-gray-600 mt-1">Check Duration</div>
                 </div>
