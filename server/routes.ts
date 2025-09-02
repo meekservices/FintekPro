@@ -29,6 +29,7 @@ import { finnhubService } from './finnhub-service';
 import { bajajFinanceAPI } from './bajaj-finance-api';
 import { tataCapitalAPI } from './tata-capital-api';
 import { PolicyBazaarAPI } from './policybazaar-api';
+import { CibilAPI } from './cibil-api';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -17291,6 +17292,14 @@ System Security Data:`;
   app.post("/api/policybazaar/travel-calculator", PolicyBazaarAPI.calculateTravelInsurance);
   app.post("/api/policybazaar/purchase", PolicyBazaarAPI.purchasePolicy);
   app.post("/api/policybazaar/status", PolicyBazaarAPI.getPolicyStatus);
+
+  // CIBIL API endpoints
+  app.post("/api/cibil/credit-score", CibilAPI.checkCreditScore);
+  app.post("/api/cibil/detailed-report", CibilAPI.getDetailedReport);
+  app.post("/api/cibil/monitoring", CibilAPI.setupCreditMonitoring);
+  app.post("/api/cibil/improvement-tips", CibilAPI.getCreditImprovementTips);
+  app.post("/api/cibil/loan-eligibility", CibilAPI.checkLoanEligibility);
+  app.post("/api/cibil/card-eligibility", CibilAPI.checkCreditCardEligibility);
 
   // Global error handler (must be last)
   app.use(globalErrorHandler);
