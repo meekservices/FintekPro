@@ -18,6 +18,7 @@ export function Footer() {
     { name: "Home Loan", href: "/loans/home" },
     { name: "Business Loan", href: "/loans/business" },
     { name: "Education Loan", href: "/loans/education" },
+    { name: "LAS", href: "/loans/las" },
   ];
 
   const supportLinks = [
