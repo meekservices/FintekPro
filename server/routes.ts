@@ -1021,6 +1021,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           processingFee: "1.0%",
           category: "education",
           color: "cyan"
+        },
+        {
+          loanType: "LAS (Loan Against Securities)",
+          bankName: "HDFC Bank",
+          interestRate: "8.75%",
+          minAmount: "₹1 Lakh",
+          maxAmount: "₹20 Crores",
+          tenure: "Up to 5 years",
+          processingFee: "0.5%",
+          category: "securities",
+          color: "indigo"
         }
       ];
 
