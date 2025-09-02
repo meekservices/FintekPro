@@ -21,7 +21,8 @@ import {
   Briefcase,
   Zap,
   CheckCircle,
-  Lightbulb
+  Lightbulb,
+  Clock
 } from "lucide-react";
 import { GoalPlanning } from "@/components/wealth/goal-planning";
 import { ObligationMapping } from "@/components/wealth/obligation-mapping";
@@ -32,14 +33,18 @@ import { InvestmentRecommendations } from "@/components/wealth/investment-recomm
 export default function WealthManagement() {
   const [activeTab, setActiveTab] = useState("dashboard");
 
-  // Sample portfolio data
-  const portfolioSummary = {
-    totalValue: 2850000,
-    totalInvestment: 2200000,
+  // Investment capacity analysis based on CIBIL obligations
+  const financialAnalysis = {
+    monthlyIncome: 180000,
+    monthlyObligations: 63000, // From CIBIL report
+    availableForInvestment: 117000, // Income - Obligations
+    currentInvestments: 45000,
+    additionalCapacity: 72000, // Available - Current
+    obligationRatio: 35, // Obligations as % of income
+    creditScore: 785,
+    totalPortfolioValue: 2850000,
     totalReturns: 650000,
-    returnPercentage: 29.5,
-    monthlyInvestment: 45000,
-    goalProgress: 68
+    returnPercentage: 29.5
   };
 
   const formatCurrency = (amount: number) => {
@@ -88,58 +93,105 @@ export default function WealthManagement() {
             </TabsTrigger>
           </TabsList>
 
-          {/* Wealth Dashboard */}
+          {/* Investment Opportunity Dashboard */}
           <TabsContent value="dashboard" className="space-y-6">
-            {/* Portfolio Overview */}
+            
+            {/* Investment Capacity Analysis */}
+            <Card data-testid="card-investment-capacity" className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-green-800">
+                  <TrendingUp className="w-6 h-6 text-green-600" />
+                  🚀 Your Investment Opportunity
+                </CardTitle>
+                <CardDescription className="text-green-700">
+                  Based on CIBIL analysis, you have significant untapped investment potential
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="text-center p-4 bg-white rounded-lg border border-green-200">
+                    <div className="text-3xl font-bold text-green-600 mb-2">{formatCurrency(financialAnalysis.additionalCapacity)}</div>
+                    <p className="text-sm font-medium text-green-800">Available for New Investments</p>
+                    <p className="text-xs text-green-600 mt-1">Monthly surplus after obligations</p>
+                  </div>
+                  
+                  <div className="text-center p-4 bg-white rounded-lg border border-blue-200">
+                    <div className="text-3xl font-bold text-blue-600 mb-2">{financialAnalysis.obligationRatio}%</div>
+                    <p className="text-sm font-medium text-blue-800">Obligation Ratio</p>
+                    <p className="text-xs text-blue-600 mt-1">Healthy debt-to-income ratio</p>
+                  </div>
+                  
+                  <div className="text-center p-4 bg-white rounded-lg border border-purple-200">
+                    <div className="text-3xl font-bold text-purple-600 mb-2">{financialAnalysis.creditScore}</div>
+                    <p className="text-sm font-medium text-purple-800">Credit Score</p>
+                    <p className="text-xs text-purple-600 mt-1">Excellent for investment loans</p>
+                  </div>
+                </div>
+                
+                <div className="mt-6 text-center">
+                  <Button 
+                    size="lg"
+                    className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
+                    onClick={() => setActiveTab("recommendations")}
+                    data-testid="button-start-investing"
+                  >
+                    <DollarSign className="w-5 h-5 mr-2" />
+                    Start Investing Your Surplus ₹72,000/month
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* Current Portfolio Performance */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <Card data-testid="card-total-portfolio-value">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Total Portfolio Value</p>
-                      <p className="text-2xl font-bold">{formatCurrency(portfolioSummary.totalValue)}</p>
-                      <p className="text-xs text-green-600">+{portfolioSummary.returnPercentage}% overall</p>
+                      <p className="text-sm font-medium text-muted-foreground">Current Portfolio</p>
+                      <p className="text-2xl font-bold">{formatCurrency(financialAnalysis.totalPortfolioValue)}</p>
+                      <p className="text-xs text-green-600">+{financialAnalysis.returnPercentage}% returns</p>
                     </div>
                     <TrendingUp className="w-8 h-8 text-green-500" />
                   </div>
                 </CardContent>
               </Card>
 
-              <Card data-testid="card-total-investment">
+              <Card data-testid="card-monthly-income" className="border-blue-200">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Total Investment</p>
-                      <p className="text-2xl font-bold">{formatCurrency(portfolioSummary.totalInvestment)}</p>
-                      <p className="text-xs text-blue-600">Principal amount</p>
+                      <p className="text-sm font-medium text-muted-foreground">Monthly Income</p>
+                      <p className="text-2xl font-bold text-blue-600">{formatCurrency(financialAnalysis.monthlyIncome)}</p>
+                      <p className="text-xs text-blue-600">Verified income</p>
                     </div>
-                    <DollarSign className="w-8 h-8 text-blue-500" />
+                    <Briefcase className="w-8 h-8 text-blue-500" />
                   </div>
                 </CardContent>
               </Card>
 
-              <Card data-testid="card-total-returns">
+              <Card data-testid="card-monthly-obligations" className="border-red-200">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Total Returns</p>
-                      <p className="text-2xl font-bold text-green-600">{formatCurrency(portfolioSummary.totalReturns)}</p>
-                      <p className="text-xs text-green-600">Profit earned</p>
+                      <p className="text-sm font-medium text-muted-foreground">Monthly Obligations</p>
+                      <p className="text-2xl font-bold text-red-600">{formatCurrency(financialAnalysis.monthlyObligations)}</p>
+                      <p className="text-xs text-red-600">From CIBIL report</p>
                     </div>
-                    <BarChart3 className="w-8 h-8 text-green-500" />
+                    <CreditCard className="w-8 h-8 text-red-500" />
                   </div>
                 </CardContent>
               </Card>
 
-              <Card data-testid="card-monthly-investment">
+              <Card data-testid="card-investment-surplus" className="border-green-200">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Monthly SIP</p>
-                      <p className="text-2xl font-bold">{formatCurrency(portfolioSummary.monthlyInvestment)}</p>
-                      <p className="text-xs text-purple-600">Active investments</p>
+                      <p className="text-sm font-medium text-muted-foreground">Investment Surplus</p>
+                      <p className="text-2xl font-bold text-green-600">{formatCurrency(financialAnalysis.availableForInvestment)}</p>
+                      <p className="text-xs text-green-600">Available monthly</p>
                     </div>
-                    <Calendar className="w-8 h-8 text-purple-500" />
+                    <DollarSign className="w-8 h-8 text-green-500" />
                   </div>
                 </CardContent>
               </Card>
@@ -329,186 +381,320 @@ export default function WealthManagement() {
               </CardContent>
             </Card>
 
-            {/* Goal Progress Overview */}
-            <Card data-testid="card-goal-progress-overview">
+            {/* Investment Opportunities to Accelerate Goals */}
+            <Card data-testid="card-investment-opportunities">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Target className="w-5 h-5 text-blue-600" />
-                  Goal Progress Overview
+                  <Target className="w-5 h-5 text-purple-600" />
+                  🏆 Accelerate Your Goals with Smart Investments
                 </CardTitle>
+                <CardDescription>
+                  With ₹72,000 monthly surplus, you can significantly boost your goal achievement timeline
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
+                  <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-blue-600 text-white rounded-lg">
                         <Home className="w-5 h-5" />
                       </div>
                       <div>
-                        <p className="font-medium">Home Purchase</p>
-                        <p className="text-sm text-muted-foreground">{formatCurrency(5000000)} by 2028</p>
+                        <p className="font-bold text-blue-900">Home Purchase Goal</p>
+                        <p className="text-sm text-blue-700">₹50L target by 2028</p>
                       </div>
                     </div>
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-sm">
-                        <span>Progress</span>
-                        <span>17%</span>
+                    <div className="space-y-3">
+                      <div className="bg-white p-3 rounded border">
+                        <p className="text-sm text-gray-600">Current Progress: 17%</p>
+                        <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+                          <div className="bg-blue-600 h-2 rounded-full" style={{ width: '17%' }}></div>
+                        </div>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div className="bg-blue-600 h-2 rounded-full" style={{ width: '17%' }}></div>
+                      <div className="bg-green-100 p-3 rounded border border-green-200">
+                        <p className="text-sm font-medium text-green-800">With additional ₹30K SIP:</p>
+                        <p className="text-lg font-bold text-green-900">Achieve goal 2 years earlier!</p>
+                        <p className="text-xs text-green-600">Projected completion: 2026</p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-green-100 text-green-600 rounded-lg">
+                  <div className="p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-lg border border-green-200">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-green-600 text-white rounded-lg">
                         <GraduationCap className="w-5 h-5" />
                       </div>
                       <div>
-                        <p className="font-medium">Child Education</p>
-                        <p className="text-sm text-muted-foreground">{formatCurrency(2500000)} by 2035</p>
+                        <p className="font-bold text-green-900">Child Education</p>
+                        <p className="text-sm text-green-700">₹25L target by 2035</p>
                       </div>
                     </div>
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-sm">
-                        <span>Progress</span>
-                        <span>13%</span>
+                    <div className="space-y-3">
+                      <div className="bg-white p-3 rounded border">
+                        <p className="text-sm text-gray-600">Current Progress: 13%</p>
+                        <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+                          <div className="bg-green-600 h-2 rounded-full" style={{ width: '13%' }}></div>
+                        </div>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div className="bg-green-600 h-2 rounded-full" style={{ width: '13%' }}></div>
+                      <div className="bg-blue-100 p-3 rounded border border-blue-200">
+                        <p className="text-sm font-medium text-blue-800">With additional ₹20K SIP:</p>
+                        <p className="text-lg font-bold text-blue-900">Ensure full coverage!</p>
+                        <p className="text-xs text-blue-600">Zero education loan needed</p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-purple-100 text-purple-600 rounded-lg">
+                  <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg border border-purple-200">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-purple-600 text-white rounded-lg">
                         <Shield className="w-5 h-5" />
                       </div>
                       <div>
-                        <p className="font-medium">Retirement Fund</p>
-                        <p className="text-sm text-muted-foreground">{formatCurrency(12000000)} by 2055</p>
+                        <p className="font-bold text-purple-900">Retirement Fund</p>
+                        <p className="text-sm text-purple-700">₹1.2Cr target by 2055</p>
                       </div>
                     </div>
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-sm">
-                        <span>Progress</span>
-                        <span>4%</span>
+                    <div className="space-y-3">
+                      <div className="bg-white p-3 rounded border">
+                        <p className="text-sm text-gray-600">Current Progress: 4%</p>
+                        <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+                          <div className="bg-purple-600 h-2 rounded-full" style={{ width: '4%' }}></div>
+                        </div>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div className="bg-purple-600 h-2 rounded-full" style={{ width: '4%' }}></div>
+                      <div className="bg-orange-100 p-3 rounded border border-orange-200">
+                        <p className="text-sm font-medium text-orange-800">With additional ₹22K SIP:</p>
+                        <p className="text-lg font-bold text-orange-900">Retire comfortably!</p>
+                        <p className="text-xs text-orange-600">Maintain current lifestyle</p>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-6 text-center">
-                  <Button onClick={() => setActiveTab("goals")} data-testid="button-view-all-goals">
-                    <Target className="w-4 h-4 mr-2" />
-                    View All Goals
+                <div className="mt-6 p-6 bg-gradient-to-r from-emerald-600 to-green-600 rounded-lg text-white">
+                  <div className="text-center space-y-4">
+                    <h3 className="text-xl font-bold">💰 Start Your Wealth Acceleration Today!</h3>
+                    <p className="text-emerald-100">Your excellent credit profile and surplus income make this the perfect time to invest</p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                      <Button 
+                        size="lg"
+                        variant="secondary"
+                        onClick={() => setActiveTab("goals")}
+                        data-testid="button-set-investment-goals"
+                        className="bg-white text-green-700 hover:bg-gray-100"
+                      >
+                        <Target className="w-4 h-4 mr-2" />
+                        Set Investment Goals
+                      </Button>
+                      <Button 
+                        size="lg"
+                        variant="secondary"
+                        onClick={() => setActiveTab("recommendations")}
+                        data-testid="button-get-recommendations"
+                        className="bg-white text-green-700 hover:bg-gray-100"
+                      >
+                        <Lightbulb className="w-4 h-4 mr-2" />
+                        Get AI Recommendations
+                      </Button>
+                      <Button 
+                        size="lg"
+                        variant="secondary"
+                        onClick={() => setActiveTab("risk")}
+                        data-testid="button-assess-risk-profile"
+                        className="bg-white text-green-700 hover:bg-gray-100"
+                      >
+                        <PieChart className="w-4 h-4 mr-2" />
+                        Assess Risk Profile
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* High-Impact Investment Opportunities */}
+            <Card data-testid="card-high-impact-investments">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-emerald-600" />
+                  🚀 High-Impact Investment Opportunities
+                </CardTitle>
+                <CardDescription>
+                  Maximize your ₹72,000 monthly surplus with these proven wealth-building strategies
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <h4 className="font-bold text-emerald-800">🎯 Recommended Investment Mix</h4>
+                    <div className="space-y-3">
+                      <div className="p-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="font-bold">Large Cap Equity Funds</span>
+                          <span className="font-bold">₹25,000/month</span>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-sm opacity-90">Expected Return: 12-15% annually</p>
+                          <p className="text-sm opacity-90">Risk: Moderate | Perfect for your credit profile</p>
+                        </div>
+                      </div>
+                      
+                      <div className="p-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="font-bold">Mid Cap Growth Funds</span>
+                          <span className="font-bold">₹20,000/month</span>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-sm opacity-90">Expected Return: 15-18% annually</p>
+                          <p className="text-sm opacity-90">Risk: Higher | Ideal for long-term goals</p>
+                        </div>
+                      </div>
+                      
+                      <div className="p-4 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="font-bold">Hybrid Debt Funds</span>
+                          <span className="font-bold">₹15,000/month</span>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-sm opacity-90">Expected Return: 8-10% annually</p>
+                          <p className="text-sm opacity-90">Risk: Low | Stable wealth building</p>
+                        </div>
+                      </div>
+                      
+                      <div className="p-4 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-lg">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="font-bold">Gold/REIT Funds</span>
+                          <span className="font-bold">₹12,000/month</span>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-sm opacity-90">Expected Return: 10-12% annually</p>
+                          <p className="text-sm opacity-90">Risk: Moderate | Inflation hedge</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h4 className="font-bold text-emerald-800">💰 Projected Wealth Growth</h4>
+                    <div className="space-y-3">
+                      <div className="p-4 bg-gradient-to-br from-emerald-50 to-green-100 rounded-lg border border-emerald-200">
+                        <div className="text-center mb-3">
+                          <div className="text-3xl font-bold text-emerald-700">₹4.2 Crores</div>
+                          <p className="text-sm text-emerald-600 font-medium">Projected wealth in 10 years</p>
+                          <p className="text-xs text-emerald-500">vs ₹1.8 Cr with current investments only</p>
+                        </div>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span>Total Investment</span>
+                            <span className="font-medium">₹1.38 Cr</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Expected Returns</span>
+                            <span className="font-bold text-emerald-700">₹2.82 Cr</span>
+                          </div>
+                          <div className="flex justify-between border-t pt-1 font-bold">
+                            <span className="text-emerald-800">Extra Wealth Created</span>
+                            <span className="text-emerald-700">₹2.4 Cr</span>
+                          </div>
+                        </div>
+                        <div className="mt-3 p-2 bg-yellow-100 rounded text-center">
+                          <p className="text-xs font-bold text-yellow-800">🔥 204% additional wealth with smart investing!</p>
+                        </div>
+                      </div>
+                      
+                      <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200">
+                        <h5 className="font-bold text-blue-800 mb-2">Why Start Now?</h5>
+                        <div className="space-y-2 text-sm text-blue-700">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="w-4 h-4 text-blue-600" />
+                            <span>Credit score of 785 = Best fund options</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="w-4 h-4 text-blue-600" />
+                            <span>Low obligation ratio = High investment capacity</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="w-4 h-4 text-blue-600" />
+                            <span>Market timing = Favorable for SIP entry</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="w-4 h-4 text-blue-600" />
+                            <span>Tax benefits = Section 80C, ELSS savings</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Button 
+                    size="lg"
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+                    onClick={() => setActiveTab("recommendations")}
+                    data-testid="button-get-personalized-plan"
+                  >
+                    <Lightbulb className="w-5 h-5 mr-2" />
+                    Get My Personalized Investment Plan
+                  </Button>
+                  
+                  <Button 
+                    size="lg"
+                    variant="outline"
+                    className="border-2 border-emerald-600 text-emerald-700 hover:bg-emerald-50"
+                    onClick={() => setActiveTab("goals")}
+                    data-testid="button-start-goal-planning"
+                  >
+                    <Target className="w-5 h-5 mr-2" />
+                    Start Goal-Based Investing
                   </Button>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Obligation-Based Wealth Recommendations */}
-            <Card data-testid="card-obligation-wealth-recommendations">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-green-600" />
-                  Obligation-Optimized Wealth Strategy
-                </CardTitle>
-                <CardDescription>Smart recommendations based on your CIBIL obligations and credit profile</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <h4 className="font-medium">Debt Optimization Actions</h4>
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-3 p-3 bg-red-50 rounded-lg border border-red-200">
-                        <CreditCard className="w-5 h-5 text-red-600" />
-                        <div className="flex-1">
-                          <p className="font-medium text-red-800">High Credit Card Utilization</p>
-                          <p className="text-sm text-red-700">Reduce utilization from 78% to below 30%</p>
-                        </div>
-                        <Button size="sm" variant="outline" className="border-red-300 text-red-700 hover:bg-red-100" data-testid="button-reduce-utilization">
-                          Optimize
-                        </Button>
-                      </div>
-                      
-                      <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-lg border border-orange-200">
-                        <Building2 className="w-5 h-5 text-orange-600" />
-                        <div className="flex-1">
-                          <p className="font-medium text-orange-800">Loan Consolidation Opportunity</p>
-                          <p className="text-sm text-orange-700">Save ₹8,500/month by consolidating 3 loans</p>
-                        </div>
-                        <Button size="sm" variant="outline" className="border-orange-300 text-orange-700 hover:bg-orange-100" data-testid="button-consolidate-loans">
-                          Analyze
-                        </Button>
-                      </div>
-                      
-                      <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                        <Calendar className="w-5 h-5 text-blue-600" />
-                        <div className="flex-1">
-                          <p className="font-medium text-blue-800">EMI Restructuring</p>
-                          <p className="text-sm text-blue-700">Optimize payment schedules for better cash flow</p>
-                        </div>
-                        <Button size="sm" variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-100" data-testid="button-restructure-emi">
-                          Plan
-                        </Button>
-                      </div>
+            {/* Urgent Investment Call-to-Action */}
+            <Card data-testid="card-investment-urgency" className="bg-gradient-to-r from-red-50 to-orange-50 border-red-200">
+              <CardContent className="p-6">
+                <div className="text-center space-y-4">
+                  <div className="flex items-center justify-center gap-2 mb-4">
+                    <Clock className="w-6 h-6 text-red-600" />
+                    <h3 className="text-2xl font-bold text-red-800">⚡ Time is Money!</h3>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="p-4 bg-white rounded-lg border border-red-200">
+                      <h4 className="font-bold text-red-800 mb-2">Delaying 1 Year</h4>
+                      <div className="text-2xl font-bold text-red-600">-₹18 Lakhs</div>
+                      <p className="text-sm text-red-600">Lost compound growth</p>
+                    </div>
+                    
+                    <div className="p-4 bg-white rounded-lg border border-orange-200">
+                      <h4 className="font-bold text-orange-800 mb-2">Delaying 3 Years</h4>
+                      <div className="text-2xl font-bold text-orange-600">-₹65 Lakhs</div>
+                      <p className="text-sm text-orange-600">Massive opportunity loss</p>
+                    </div>
+                    
+                    <div className="p-4 bg-white rounded-lg border border-green-200">
+                      <h4 className="font-bold text-green-800 mb-2">Starting Today</h4>
+                      <div className="text-2xl font-bold text-green-600">+₹2.4 Cr</div>
+                      <p className="text-sm text-green-600">Extra wealth in 10 years</p>
                     </div>
                   </div>
-
-                  <div className="space-y-4">
-                    <h4 className="font-medium">Investment Strategy Based on Obligations</h4>
-                    <div className="space-y-3">
-                      <div className="p-3 border rounded-lg bg-green-50">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="font-medium text-green-800">Recommended Allocation</span>
-                          <Badge variant="outline" className="border-green-300 text-green-700">Obligation-Adjusted</Badge>
-                        </div>
-                        <div className="space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span>Emergency Fund (Priority 1)</span>
-                            <span className="font-medium text-green-700">25%</span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span>Debt Mutual Funds</span>
-                            <span className="font-medium text-green-700">35%</span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span>Equity (Conservative)</span>
-                            <span className="font-medium text-green-700">35%</span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span>Gold/Alternative</span>
-                            <span className="font-medium text-green-700">5%</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                        <div className="flex items-start gap-2">
-                          <TrendingUp className="w-4 h-4 text-yellow-600 mt-0.5" />
-                          <div>
-                            <p className="font-medium text-yellow-800">Priority: Debt Management</p>
-                            <p className="text-sm text-yellow-700">Focus on reducing high-interest obligations before aggressive investing</p>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                        <div className="flex items-start gap-2">
-                          <Shield className="w-4 h-4 text-blue-600 mt-0.5" />
-                          <div>
-                            <p className="font-medium text-blue-800">Conservative Strategy</p>
-                            <p className="text-sm text-blue-700">Given obligation ratio of 35%, prioritize stability over growth</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                  
+                  <div className="mt-6 p-4 bg-gradient-to-r from-emerald-600 to-green-600 text-white rounded-lg">
+                    <p className="text-lg font-bold mb-2">🎯 Your CIBIL Profile is Perfect for Wealth Building!</p>
+                    <p className="text-emerald-100 mb-4">
+                      With 785 credit score and only 35% obligation ratio, you're in the top 5% of investors. 
+                      Start your ₹72,000 monthly SIP today and secure your financial future.
+                    </p>
+                    <Button 
+                      size="lg"
+                      variant="secondary"
+                      className="bg-white text-green-700 hover:bg-gray-100 font-bold"
+                      onClick={() => setActiveTab("recommendations")}
+                      data-testid="button-start-investing-now"
+                    >
+                      🚀 Start My Investment Journey Now
+                    </Button>
                   </div>
                 </div>
               </CardContent>
