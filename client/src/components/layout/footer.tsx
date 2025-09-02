@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Facebook, Twitter, Linkedin, Instagram, Store, Package, ShoppingCart } from "lucide-react";
+import { Facebook, Twitter, Linkedin, Instagram, Store, Package, ShoppingCart, Calculator } from "lucide-react";
 
 
 export function Footer() {
@@ -35,10 +35,18 @@ export function Footer() {
     { name: "Premium Services", href: "/store?category=premium" },
   ];
 
+  const calculatorLinks = [
+    { name: "EMI Calculator", href: "/calculators" },
+    { name: "SIP Calculator", href: "/calculators?tab=sip" },
+    { name: "Tax Calculator", href: "/calculators?tab=tax" },
+    { name: "Bajaj Finance", href: "/bajaj-finance" },
+    { name: "Tata Capital", href: "/tata-capital" },
+  ];
+
   return (
     <footer className="bg-finance-gray text-white py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-8">
           
           {/* Company Info */}
           <div>
@@ -111,6 +119,28 @@ export function Footer() {
                     <span 
                       className="hover:text-white transition-colors cursor-pointer"
                       data-testid={`footer-loan-${link.name.toLowerCase().replace(" ", "-")}`}
+                    >
+                      {link.name}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+          
+          {/* Calculators */}
+          <div>
+            <h4 className="font-semibold mb-4 flex items-center gap-2" data-testid="footer-calculators-title">
+              <Calculator className="h-4 w-4 text-blue-400" />
+              Calculators
+            </h4>
+            <ul className="space-y-2 text-gray-300">
+              {calculatorLinks.map((link) => (
+                <li key={link.name}>
+                  <Link href={link.href}>
+                    <span 
+                      className="hover:text-blue-400 transition-colors cursor-pointer"
+                      data-testid={`footer-calculator-${link.name.toLowerCase().replace(" ", "-")}`}
                     >
                       {link.name}
                     </span>
