@@ -12,7 +12,7 @@ import { Search, TrendingUp, TrendingDown, Star, Filter, Calculator, RefreshCw, 
 import { useMutualFunds, usePopularMutualFunds, useSearchMutualFunds, type MutualFundData } from "@/hooks/use-mutual-funds";
 import { useQuery } from "@tanstack/react-query";
 
-function FundCard({ fund, sebiData }: { fund: MutualFundData; sebiData?: any[] }) {
+function FundCard({ fund, sebiData, onInvestClick }: { fund: MutualFundData; sebiData?: any[]; onInvestClick: (fund: MutualFundData) => void }) {
   const navValue = parseFloat(fund.nav || "0");
   const changeValue = parseFloat(fund.change || "0");
   const changePercent = parseFloat(fund.changePercent || "0");
@@ -65,7 +65,7 @@ function FundCard({ fund, sebiData }: { fund: MutualFundData; sebiData?: any[] }
         </div>
         
         <div className="mt-4 pt-4 border-t border-gray-100 flex gap-2">
-          <Button size="sm" className="flex-1 bg-finance-blue hover:bg-blue-700" data-testid={`invest-${fund.schemeCode}`}>
+          <Button size="sm" className="flex-1 bg-finance-blue hover:bg-blue-700" data-testid={`invest-${fund.schemeCode}`} onClick={() => onInvestClick(fund)}>
             Invest Now
           </Button>
           <Button size="sm" variant="outline" className="flex-1" data-testid={`details-${fund.schemeCode}`}>
@@ -125,6 +125,39 @@ export default function MutualFunds() {
     refetchInterval: 3600000, // Refresh every hour
   });
 
+  // SIP calculator state
+  const [sipAmount, setSipAmount] = useState("");
+  const [sipYears, setSipYears] = useState("");
+  const [sipReturns, setSipReturns] = useState("");
+  const [calculatedSip, setCalculatedSip] = useState<{ invested: number; returns: number; total: number } | null>(null);
+
+
+  // Handle SIP calculation
+  const calculateSIP = () => {
+    const monthlyAmount = parseFloat(sipAmount);
+    const years = parseFloat(sipYears);
+    const expectedReturns = parseFloat(sipReturns);
+    
+    if (!monthlyAmount || !years || !expectedReturns) {
+      alert('Please fill in all fields');
+      return;
+    }
+    
+    const monthlyRate = expectedReturns / 12 / 100;
+    const totalMonths = years * 12;
+    const totalInvested = monthlyAmount * totalMonths;
+    
+    // SIP future value formula
+    const futureValue = monthlyAmount * (((Math.pow(1 + monthlyRate, totalMonths) - 1) / monthlyRate) * (1 + monthlyRate));
+    const totalReturns = futureValue - totalInvested;
+    
+    setCalculatedSip({
+      invested: totalInvested,
+      returns: totalReturns,
+      total: futureValue
+    });
+  };
+
   const categories = [
     "All Categories",
     "Equity",
@@ -145,6 +178,11 @@ export default function MutualFunds() {
   ) || [];
 
   const isLoading = isLoadingAll || isLoadingPopular || (searchTerm.length > 2 && isSearching);
+
+  // Handle invest button click
+  const handleInvestClick = (fund: MutualFundData) => {
+    alert(`Redirecting to invest in ${fund.schemeName}...`);
+  };
 
   return (
     <div className="min-h-screen bg-finance-light" data-testid="mutual-funds-page">
@@ -261,7 +299,7 @@ export default function MutualFunds() {
               ) : popularFunds && popularFunds.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {popularFunds.map((fund) => (
-                    <FundCard key={fund.schemeCode} fund={fund} sebiData={sebiMutualFunds} />
+                    <FundCard key={fund.schemeCode} fund={fund} sebiData={Array.isArray(sebiMutualFunds) ? sebiMutualFunds : undefined} onInvestClick={handleInvestClick} />
                   ))}
                 </div>
               ) : (
@@ -287,7 +325,7 @@ export default function MutualFunds() {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredFunds.map((fund) => (
-                    <FundCard key={fund.schemeCode} fund={fund} sebiData={sebiMutualFunds} />
+                    <FundCard key={fund.schemeCode} fund={fund} sebiData={Array.isArray(sebiMutualFunds) ? sebiMutualFunds : undefined} onInvestClick={handleInvestClick} />
                   ))}
                 </div>
               </section>
@@ -330,7 +368,7 @@ export default function MutualFunds() {
                           <p className="text-sm text-green-600">SEBI compliant fund houses</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-2xl font-bold text-green-600">{sebiMutualFunds?.length || 42}</p>
+                          <p className="text-2xl font-bold text-green-600">{Array.isArray(sebiMutualFunds) ? sebiMutualFunds.length : 42}</p>
                           <p className="text-xs text-green-600">Active</p>
                         </div>
                       </div>
@@ -338,7 +376,7 @@ export default function MutualFunds() {
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
                           <span className="text-gray-600">Total Schemes:</span>
-                          <span className="font-medium">{sebiMutualFunds?.reduce((sum: number, amc: any) => sum + (amc.schemes?.length || 0), 0) || '2,847'}</span>
+                          <span className="font-medium">{Array.isArray(sebiMutualFunds) ? sebiMutualFunds.reduce((sum: number, amc: any) => sum + (amc.schemes?.length || 0), 0) : '2,847'}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">Total AUM:</span>
@@ -364,7 +402,7 @@ export default function MutualFunds() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {(sebiMutualFunds?.slice(0, 5) || [
+                    {(Array.isArray(sebiMutualFunds) ? sebiMutualFunds.slice(0, 5) : [
                       { amcName: 'SBI Mutual Fund', sebiRegistrationNumber: 'INZ000123456', schemes: Array(186) },
                       { amcName: 'ICICI Prudential MF', sebiRegistrationNumber: 'INZ000123457', schemes: Array(154) },
                       { amcName: 'HDFC Mutual Fund', sebiRegistrationNumber: 'INZ000123458', schemes: Array(142) },
@@ -483,23 +521,43 @@ export default function MutualFunds() {
                     <label className="text-sm font-medium text-gray-700 mb-2 block">
                       Monthly Investment Amount
                     </label>
-                    <Input type="number" placeholder="₹5,000" data-testid="sip-amount" />
+                    <Input type="number" placeholder="₹5,000" value={sipAmount} onChange={(e) => setSipAmount(e.target.value)} data-testid="sip-amount" />
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-700 mb-2 block">
                       Investment Period (Years)
                     </label>
-                    <Input type="number" placeholder="10" data-testid="sip-years" />
+                    <Input type="number" placeholder="10" value={sipYears} onChange={(e) => setSipYears(e.target.value)} data-testid="sip-years" />
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-700 mb-2 block">
                       Expected Returns (% p.a.)
                     </label>
-                    <Input type="number" placeholder="12" data-testid="sip-returns" />
+                    <Input type="number" placeholder="12" value={sipReturns} onChange={(e) => setSipReturns(e.target.value)} data-testid="sip-returns" />
                   </div>
-                  <Button className="w-full bg-finance-blue hover:bg-blue-700" data-testid="calculate-sip">
+                  <Button className="w-full bg-finance-blue hover:bg-blue-700" onClick={calculateSIP} data-testid="calculate-sip">
                     Calculate SIP Returns
                   </Button>
+                  
+                  {calculatedSip && (
+                    <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                      <h4 className="font-semibold text-green-800 mb-3">Calculation Results</h4>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Total Investment:</span>
+                          <span className="font-medium">₹{calculatedSip.invested.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Expected Returns:</span>
+                          <span className="font-medium text-green-600">₹{calculatedSip.returns.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between border-t pt-2">
+                          <span className="text-gray-800 font-semibold">Maturity Value:</span>
+                          <span className="font-bold text-green-600">₹{calculatedSip.total.toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -514,7 +572,7 @@ export default function MutualFunds() {
                     <p className="text-gray-600 mb-4">
                       Start your SIP with as little as ₹500 per month
                     </p>
-                    <Button className="bg-finance-green hover:bg-green-700" data-testid="start-sip-button">
+                    <Button className="bg-finance-green hover:bg-green-700" onClick={() => alert('Redirecting to SIP setup...')} data-testid="start-sip-button">
                       Start SIP Now
                     </Button>
                   </div>
@@ -532,7 +590,7 @@ export default function MutualFunds() {
                 <p className="text-gray-500 text-center mb-4">
                   Your mutual fund investments will appear here
                 </p>
-                <Button variant="outline">Invest Now</Button>
+                <Button variant="outline" onClick={() => alert('Please select a fund from the Explore Funds tab to start investing')}>Invest Now</Button>
               </CardContent>
             </Card>
           </TabsContent>

@@ -57,8 +57,8 @@ export default function AIF() {
     refetchInterval: 3600000, // Refresh every hour
   });
 
-  const displayData = filteredAIF?.data || aifData || [];
-  const statistics = aifData?.statistics || {
+  const displayData = (filteredAIF as any)?.data || (aifData as any) || [];
+  const statistics = (aifData as any)?.statistics || {
     totalFunds: 0,
     totalAUM: 0,
     averageReturns: { "1Y": 0, "3Y": 0, "5Y": 0 },
@@ -366,15 +366,15 @@ export default function AIF() {
                         </div>
                         
                         {/* SEBI Compliance Status */}
-                        {sebiAIF && sebiAIF.find((s: any) => s.aifId === fund.id || s.schemaName === fund.schemaName) && (
+                        {Array.isArray(sebiAIF) && sebiAIF.find((s: any) => s.aifId === fund.id || s.schemaName === fund.schemaName) && (
                           <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
                             <div className="flex items-center gap-2 mb-2">
                               <Shield className="w-4 h-4 text-green-600" />
                               <span className="text-sm font-medium text-green-800">SEBI Compliant</span>
                             </div>
                             <div className="text-xs text-green-700 space-y-1">
-                              <div>Reg. No: {sebiAIF.find((s: any) => s.aifId === fund.id)?.sebiRegistrationNumber || 'INZ000123456'}</div>
-                              <div>Last Inspection: {sebiAIF.find((s: any) => s.aifId === fund.id)?.lastInspectionDate || 'Dec 2024'}</div>
+                              <div>Reg. No: {Array.isArray(sebiAIF) ? sebiAIF.find((s: any) => s.aifId === fund.id)?.sebiRegistrationNumber || 'INZ000123456' : 'INZ000123456'}</div>
+                              <div>Last Inspection: {Array.isArray(sebiAIF) ? sebiAIF.find((s: any) => s.aifId === fund.id)?.lastInspectionDate || 'Dec 2024' : 'Dec 2024'}</div>
                             </div>
                           </div>
                         )}
@@ -387,6 +387,7 @@ export default function AIF() {
                           <Button 
                             size="sm" 
                             className="bg-finance-blue hover:bg-blue-700 group-hover:bg-blue-700 transition-colors"
+                            onClick={() => alert(`Redirecting to invest in ${fund.schemaName}...`)}
                             data-testid={`invest-${fund.id || index}`}
                           >
                             <Zap className="w-4 h-4 mr-1" />
@@ -621,7 +622,7 @@ export default function AIF() {
                           <p className="text-sm text-green-600">Regulatory compliant</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-2xl font-bold text-green-600">{sebiAIF?.length || 532}</p>
+                          <p className="text-2xl font-bold text-green-600">{Array.isArray(sebiAIF) ? sebiAIF.length : 532}</p>
                           <p className="text-xs text-green-600">Registered</p>
                         </div>
                       </div>
@@ -629,15 +630,15 @@ export default function AIF() {
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
                           <span className="text-gray-600">Category I Funds:</span>
-                          <span className="font-medium">{sebiAIF?.filter((f: any) => f.category === 'Category I').length || 156}</span>
+                          <span className="font-medium">{Array.isArray(sebiAIF) ? sebiAIF.filter((f: any) => f.category === 'Category I').length : 156}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">Category II Funds:</span>
-                          <span className="font-medium">{sebiAIF?.filter((f: any) => f.category === 'Category II').length || 287}</span>
+                          <span className="font-medium">{Array.isArray(sebiAIF) ? sebiAIF.filter((f: any) => f.category === 'Category II').length : 287}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">Category III Funds:</span>
-                          <span className="font-medium">{sebiAIF?.filter((f: any) => f.category === 'Category III').length || 89}</span>
+                          <span className="font-medium">{Array.isArray(sebiAIF) ? sebiAIF.filter((f: any) => f.category === 'Category III').length : 89}</span>
                         </div>
                       </div>
                     </div>
@@ -654,9 +655,9 @@ export default function AIF() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {complianceData?.length > 0 ? (
+                  {Array.isArray(complianceData) && complianceData.length > 0 ? (
                     <div className="space-y-3">
-                      {complianceData.slice(0, 5).map((action: any, index: number) => (
+                      {(complianceData as any[]).slice(0, 5).map((action: any, index: number) => (
                         <div key={index} className="p-3 border border-orange-200 bg-orange-50 rounded-lg">
                           <div className="flex justify-between items-start mb-2">
                             <p className="font-medium text-orange-800 text-sm">{action.entity || 'AIF Entity'}</p>
