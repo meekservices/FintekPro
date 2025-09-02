@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, TrendingUp, Clock, DollarSign, Building2, FileText, ExternalLink, Bell, BookOpen, Newspaper } from "lucide-react";
+import { Calendar, TrendingUp, Clock, DollarSign, Building2, FileText, ExternalLink, Bell, BookOpen, Newspaper, Target, BarChart3, AlertTriangle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import type { IpoCompany, IpoNews } from "@shared/schema";
@@ -40,9 +40,10 @@ export default function IPO() {
     }).format(amount);
   };
 
-  const formatDate = (date: string | null | undefined) => {
+  const formatDate = (date: string | Date | null | undefined) => {
     if (!date) return 'Not Issued';
-    return format(new Date(date), 'dd MMM yyyy');
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    return format(dateObj, 'dd MMM yyyy');
   };
 
   const formatReturn = (returnPercent: number | null | undefined) => {
@@ -340,24 +341,192 @@ export default function IPO() {
                 <BookOpen className="h-6 w-6 mr-2 text-finance-blue" />
                 IPO Analysis & Review
               </h2>
-              <Card className="hover:shadow-md transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-start space-x-4">
-                    <div className="w-20 h-14 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                      <BookOpen className="h-8 w-8 text-white" />
+              
+              {/* Active IPO Analysis Section */}
+              <div className="space-y-4">
+                {/* Featured Analysis Card */}
+                <Card className="border-blue-200 bg-blue-50">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                          <BookOpen className="h-6 w-6 text-white" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-blue-900">Amanta Healthcare IPO Analysis</CardTitle>
+                          <p className="text-blue-700 text-sm">Price Band: ₹120 - ₹126 | Issue Size: ₹126 Cr</p>
+                        </div>
+                      </div>
+                      <Badge className="bg-green-100 text-green-800">Recommended</Badge>
                     </div>
-                    <div className="flex-1">
-                      <h3 className="font-bold text-gray-900 mb-2">Comprehensive IPO Analysis</h3>
-                      <p className="text-gray-600 text-sm mb-3">
-                        Get detailed analysis including financials, SWOT, business model and investment recommendations for upcoming IPOs.
-                      </p>
-                      <Button size="sm" className="bg-finance-blue hover:bg-blue-700" data-testid="view-analysis">
-                        View IPO Analysis
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="bg-white p-4 rounded-lg">
+                        <h4 className="font-semibold text-gray-900 mb-2">Financial Metrics</h4>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span>Revenue Growth:</span>
+                            <span className="font-medium text-green-600">+28.5%</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Net Margin:</span>
+                            <span className="font-medium">12.3%</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>ROE:</span>
+                            <span className="font-medium">18.2%</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Debt/Equity:</span>
+                            <span className="font-medium text-green-600">0.45</span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="bg-white p-4 rounded-lg">
+                        <h4 className="font-semibold text-gray-900 mb-2">SWOT Analysis</h4>
+                        <div className="space-y-2 text-sm">
+                          <div>
+                            <span className="font-medium text-green-600">Strengths:</span>
+                            <p className="text-gray-600">Strong market position, experienced management</p>
+                          </div>
+                          <div>
+                            <span className="font-medium text-orange-600">Weaknesses:</span>
+                            <p className="text-gray-600">High customer concentration</p>
+                          </div>
+                          <div>
+                            <span className="font-medium text-blue-600">Opportunities:</span>
+                            <p className="text-gray-600">Expanding healthcare market</p>
+                          </div>
+                          <div>
+                            <span className="font-medium text-red-600">Threats:</span>
+                            <p className="text-gray-600">Regulatory changes</p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="bg-white p-4 rounded-lg">
+                        <h4 className="font-semibold text-gray-900 mb-2">Investment Recommendation</h4>
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                            <span className="text-sm font-medium text-green-700">SUBSCRIBE</span>
+                          </div>
+                          <p className="text-sm text-gray-600">
+                            Strong fundamentals with good growth prospects. Recommended for long-term investors.
+                          </p>
+                          <div className="text-xs text-gray-500">
+                            Target Price: ₹145-160 (1 Year)
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-3">
+                      <Button size="sm" className="bg-finance-blue hover:bg-blue-700" data-testid="download-analysis">
+                        <FileText className="h-4 w-4 mr-2" />
+                        Download Full Report
+                      </Button>
+                      <Button variant="outline" size="sm" data-testid="compare-ipos">
+                        Compare IPOs
+                      </Button>
+                      <Button variant="outline" size="sm" data-testid="set-price-alert">
+                        <Bell className="h-4 w-4 mr-2" />
+                        Set Price Alert
                       </Button>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+
+                {/* Quick Analysis Cards for Other IPOs */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Card className="hover:shadow-md transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="flex items-start space-x-3 mb-3">
+                        <img 
+                          src="https://d3po6s2ufk88fh.cloudfront.net/200x200/Ticker/7d481e6012094c8aaac82f289cced11f.jpg" 
+                          alt="Anlon Healthcare"
+                          className="w-10 h-10 rounded-lg object-cover"
+                        />
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-gray-900">Anlon Healthcare</h4>
+                          <p className="text-sm text-gray-600">₹86 - ₹91 | ₹121 Cr</p>
+                        </div>
+                        <Badge variant="outline" className="text-orange-600 border-orange-300">Neutral</Badge>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div className="bg-gray-50 p-2 rounded">
+                          <span className="text-gray-600">Revenue Growth:</span>
+                          <div className="font-medium">+15.2%</div>
+                        </div>
+                        <div className="bg-gray-50 p-2 rounded">
+                          <span className="text-gray-600">Net Margin:</span>
+                          <div className="font-medium">8.7%</div>
+                        </div>
+                      </div>
+                      <Button variant="outline" size="sm" className="w-full mt-3" data-testid="view-anlon-analysis">
+                        View Analysis
+                      </Button>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="hover:shadow-md transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="flex items-start space-x-3 mb-3">
+                        <img 
+                          src="https://d3po6s2ufk88fh.cloudfront.net/200x200/Ticker/0f21710ba02e408ab6d40be0f5515d9e.jpg" 
+                          alt="Fractal Analytics"
+                          className="w-10 h-10 rounded-lg object-cover"
+                        />
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-gray-900">Fractal Analytics</h4>
+                          <p className="text-sm text-gray-600">Price TBA | ₹4,900 Cr</p>
+                        </div>
+                        <Badge className="bg-green-100 text-green-800">Subscribe</Badge>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div className="bg-gray-50 p-2 rounded">
+                          <span className="text-gray-600">AI/Analytics:</span>
+                          <div className="font-medium">High Growth</div>
+                        </div>
+                        <div className="bg-gray-50 p-2 rounded">
+                          <span className="text-gray-600">Market Leader:</span>
+                          <div className="font-medium">Yes</div>
+                        </div>
+                      </div>
+                      <Button variant="outline" size="sm" className="w-full mt-3" data-testid="view-fractal-analysis">
+                        View Analysis
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Analysis Tools */}
+                <Card>
+                  <CardContent className="p-4">
+                    <h4 className="font-semibold text-gray-900 mb-3">IPO Analysis Tools</h4>
+                    <div className="flex flex-wrap gap-2">
+                      <Button variant="outline" size="sm" data-testid="valuation-calculator">
+                        <Target className="h-4 w-4 mr-2" />
+                        Valuation Calculator
+                      </Button>
+                      <Button variant="outline" size="sm" data-testid="peer-comparison">
+                        <BarChart3 className="h-4 w-4 mr-2" />
+                        Peer Comparison
+                      </Button>
+                      <Button variant="outline" size="sm" data-testid="risk-analyzer">
+                        <AlertTriangle className="h-4 w-4 mr-2" />
+                        Risk Analyzer
+                      </Button>
+                      <Button variant="outline" size="sm" data-testid="subscription-tracker">
+                        <TrendingUp className="h-4 w-4 mr-2" />
+                        Subscription Tracker
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
 
             {/* IPO News */}
