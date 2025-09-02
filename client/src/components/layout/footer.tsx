@@ -73,6 +73,7 @@ export function Footer() {
     { name: "Bajaj Finance", href: "/bajaj-finance" },
     { name: "Tata Capital", href: "/tata-capital" },
     { name: "PolicyBazaar", href: "/policybazaar" },
+    { name: "Credit Score", href: "/cibil" },
   ];
 
   return (

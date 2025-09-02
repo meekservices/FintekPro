@@ -31,7 +31,6 @@ export function Header() {
     { name: "Wealth Management", href: "/wealth-management" },
     { name: "Loans", href: "/loans" },
     { name: "Insurance", href: "/policybazaar" },
-    { name: "Credit Score", href: "/cibil" },
     { name: "Support", href: "/support" },
   ];
 
