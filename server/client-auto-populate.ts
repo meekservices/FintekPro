@@ -3,7 +3,6 @@ import { storage } from './storage';
 import { ICICIBankAPI } from './icici-bank-api';
 import { HDFCBankAPI } from './hdfc-bank-api';
 import { IBApiService } from './ib-api';
-import { Probe42Integration } from './integrations/probe42';
 import { ComprehensiveAIFPMSAPI } from './comprehensive-aif-pms-api';
 
 interface MinimalClientData {
@@ -28,7 +27,6 @@ export class ClientAutoPopulateService {
   private iciciAPI: ICICIBankAPI;
   private hdfcAPI: HDFCBankAPI;
   private ibAPI: IBApiService;
-  private probe42: Probe42Integration;
   private aifPmsAPI: ComprehensiveAIFPMSAPI;
 
   constructor() {
@@ -45,7 +43,6 @@ export class ClientAutoPopulateService {
       baseUrl: 'https://api-sandbox.hdfcbank.com' 
     });
     this.ibAPI = new IBApiService({ host: '127.0.0.1', port: 7497, clientId: 1, paperTrading: true });
-    this.probe42 = new Probe42Integration();
     this.aifPmsAPI = new ComprehensiveAIFPMSAPI();
   }
 
@@ -187,27 +184,9 @@ export class ClientAutoPopulateService {
     };
 
     try {
-      // Use Probe42 API to fetch comprehensive data using PAN
-      const probe42Result = await this.probe42.searchCompany({
-        pan: panNumber
-      });
-
-      if (probe42Result.success && probe42Result.data.results?.length > 0) {
-        const companyData = probe42Result.data.results[0];
-        
-        personalInfo.companyDetails = {
-          name: companyData.company_name,
-          pan: companyData.pan,
-          cin: companyData.cin,
-          gst: companyData.gst_number,
-          address: companyData.registered_address,
-          status: companyData.company_status,
-          incorporationDate: companyData.date_of_incorporation
-        };
-        
-        personalInfo.dataPoints += 7;
-        personalInfo.sources.push('Probe42-Company');
-      }
+      // Additional PAN-based data enrichment could be added here
+      // (from other APIs like income tax, credit bureaus, etc.)
+      personalInfo.sources.push('PAN-Registry');
 
       // Additional PAN-based data enrichment could be added here
       // (from other APIs like income tax, credit bureaus, etc.)

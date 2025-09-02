@@ -48,7 +48,6 @@ export default function ApiMonitorDemo() {
     if (name.includes('database') || name.includes('postgresql')) return <Server className="w-5 h-5" />;
     if (name.includes('yahoo') || name.includes('finance')) return <TrendingUp className="w-5 h-5" />;
     if (name.includes('jm financial')) return <Building2 className="w-5 h-5" />;
-    if (name.includes('probe42')) return <Brain className="w-5 h-5" />;
     if (name.includes('interactive') || name.includes('brokers')) return <BarChart3 className="w-5 h-5" />;
     return <Globe className="w-5 h-5" />;
   };

@@ -439,7 +439,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = {
         personalInfo: {
           dataPoints: 12,
-          sources: ['Probe42-Company', 'PAN-Registry']
+          sources: ['PAN-Registry']
         },
         bankingData: {
           accounts: minimalData.accountNumber ? [
@@ -11724,16 +11724,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         recommendations: "Configure JM_FINANCIAL_API_KEY and JM_FINANCIAL_SECRET environment variables"
       };
 
-      // Probe42 Intelligence API Status Check
-      status.apis.probe42 = {
-        name: "Probe42 Intelligence",
-        status: process.env.PROBE42_API_KEY ? "configured" : "not_configured",
-        responseTime: "25ms",
-        lastChecked: new Date().toISOString(),
-        details: process.env.PROBE42_API_KEY ? "Company intelligence service available" : "API key not configured",
-        endpoint: "Probe42 Intelligence API",
-        recommendations: process.env.PROBE42_API_KEY ? "" : "Configure PROBE42_API_KEY environment variable"
-      };
 
       // ICICI Bank API Status Check
       try {
@@ -11967,45 +11957,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Probe42 API Status Check
-      if (process.env.PROBE42_API_KEY) {
-        try {
-          status.apis.probe42 = {
-            name: "Probe42 Intelligence API",
-            status: "configured",
-            responseTime: "N/A",
-            lastChecked: new Date().toISOString(),
-            details: "API key configured - Company intelligence features available"
-          };
-        } catch (error) {
-          status.apis.probe42 = {
-            name: "Probe42 Intelligence API",
-            status: "error",
-            responseTime: "N/A",
-            lastChecked: new Date().toISOString(),
-            error: "Configuration error",
-            details: "Probe42 API key invalid or expired"
-          };
-          status.recommendations.push({
-            severity: "medium",
-            message: "Probe42 API key is invalid or expired",
-            action: "Update PROBE42_API_KEY environment variable with valid credentials"
-          });
-        }
-      } else {
-        status.apis.probe42 = {
-          name: "Probe42 Intelligence API",
-          status: "not_configured",
-          responseTime: "N/A",
-          lastChecked: new Date().toISOString(),
-          details: "API key not provided - Company intelligence features disabled"
-        };
-        status.recommendations.push({
-          severity: "low",
-          message: "Probe42 API not configured - Company intelligence features are disabled",
-          action: "Add PROBE42_API_KEY environment variable to enable company research capabilities"
-        });
-      }
 
       // Interactive Brokers API Status
       try {
@@ -16322,304 +16273,8 @@ System Security Data:`;
     }
   });
 
-  // Probe42 API Integration Routes
-  const { createProbe42API } = require('./integrations/probe42');
-  
-  let probe42API: any = null;
-  
-  // Initialize Probe42 API if credentials are available
-  if (process.env.PROBE42_API_KEY) {
-    probe42API = createProbe42API({
-      apiKey: process.env.PROBE42_API_KEY
-    });
-  }
 
-  // Search companies endpoint (Admin only)
-  app.post("/api/probe42/companies/search", requireAdmin, async (req, res) => {
-    try {
-      if (!probe42API) {
-        return res.status(503).json({ error: "Probe42 API not configured" });
-      }
 
-      const filters = req.body;
-      const companies = await probe42API.searchCompanies(filters);
-      
-      res.json({
-        status: "success",
-        data: companies
-      });
-    } catch (error) {
-      console.error("Error searching companies:", error);
-      res.status(500).json({ 
-        status: "error", 
-        error: "Failed to search companies" 
-      });
-    }
-  });
-
-  // Get company by CIN endpoint (Admin only)
-  app.get("/api/probe42/companies/:cin", requireAdmin, async (req, res) => {
-    try {
-      if (!probe42API) {
-        return res.status(503).json({ error: "Probe42 API not configured" });
-      }
-
-      const { cin } = req.params;
-      const company = await probe42API.getCompanyByCIN(cin);
-      
-      res.json({
-        status: "success",
-        data: company
-      });
-    } catch (error) {
-      console.error("Error fetching company details:", error);
-      res.status(500).json({ 
-        status: "error", 
-        error: "Failed to fetch company details" 
-      });
-    }
-  });
-
-  // Get company directors endpoint (Admin only)
-  app.get("/api/probe42/companies/:cin/directors", requireAdmin, async (req, res) => {
-    try {
-      if (!probe42API) {
-        return res.status(503).json({ error: "Probe42 API not configured" });
-      }
-
-      const { cin } = req.params;
-      const directors = await probe42API.getCompanyDirectors(cin);
-      
-      res.json({
-        status: "success",
-        data: directors
-      });
-    } catch (error) {
-      console.error("Error fetching company directors:", error);
-      res.status(500).json({ 
-        status: "error", 
-        error: "Failed to fetch company directors" 
-      });
-    }
-  });
-
-  // Get company charges endpoint (Admin only)
-  app.get("/api/probe42/companies/:cin/charges", requireAdmin, async (req, res) => {
-    try {
-      if (!probe42API) {
-        return res.status(503).json({ error: "Probe42 API not configured" });
-      }
-
-      const { cin } = req.params;
-      const charges = await probe42API.getCompanyCharges(cin);
-      
-      res.json({
-        status: "success",
-        data: charges
-      });
-    } catch (error) {
-      console.error("Error fetching company charges:", error);
-      res.status(500).json({ 
-        status: "error", 
-        error: "Failed to fetch company charges" 
-      });
-    }
-  });
-
-  // Get company filings endpoint (Admin only)
-  app.get("/api/probe42/companies/:cin/filings", requireAdmin, async (req, res) => {
-    try {
-      if (!probe42API) {
-        return res.status(503).json({ error: "Probe42 API not configured" });
-      }
-
-      const { cin } = req.params;
-      const { type } = req.query;
-      const filings = await probe42API.getCompanyFilings(cin, type as string);
-      
-      res.json({
-        status: "success",
-        data: filings
-      });
-    } catch (error) {
-      console.error("Error fetching company filings:", error);
-      res.status(500).json({ 
-        status: "error", 
-        error: "Failed to fetch company filings" 
-      });
-    }
-  });
-
-  // Get GST information endpoint (Admin only)
-  app.get("/api/probe42/gst/:gstNumber", requireAdmin, async (req, res) => {
-    try {
-      if (!probe42API) {
-        return res.status(503).json({ error: "Probe42 API not configured" });
-      }
-
-      const { gstNumber } = req.params;
-      const gstInfo = await probe42API.getGSTInformation(gstNumber);
-      
-      res.json({
-        status: "success",
-        data: gstInfo
-      });
-    } catch (error) {
-      console.error("Error fetching GST information:", error);
-      res.status(500).json({ 
-        status: "error", 
-        error: "Failed to fetch GST information" 
-      });
-    }
-  });
-
-  // Search signatories by PAN endpoint (Admin only)
-  app.post("/api/probe42/signatories/search", requireAdmin, async (req, res) => {
-    try {
-      if (!probe42API) {
-        return res.status(503).json({ error: "Probe42 API not configured" });
-      }
-
-      const { pan } = req.body;
-      const signatories = await probe42API.searchSignatoriesByPAN(pan);
-      
-      res.json({
-        status: "success",
-        data: signatories
-      });
-    } catch (error) {
-      console.error("Error searching signatories:", error);
-      res.status(500).json({ 
-        status: "error", 
-        error: "Failed to search signatories" 
-      });
-    }
-  });
-
-  // Get compliance data endpoint (Admin only)
-  app.get("/api/probe42/companies/:cin/compliance", requireAdmin, async (req, res) => {
-    try {
-      if (!probe42API) {
-        return res.status(503).json({ error: "Probe42 API not configured" });
-      }
-
-      const { cin } = req.params;
-      const compliance = await probe42API.getComplianceData(cin);
-      
-      res.json({
-        status: "success",
-        data: compliance
-      });
-    } catch (error) {
-      console.error("Error fetching compliance data:", error);
-      res.status(500).json({ 
-        status: "error", 
-        error: "Failed to fetch compliance data" 
-      });
-    }
-  });
-
-  // Get credit risk assessment endpoint (Admin only)
-  app.get("/api/probe42/companies/:cin/credit-risk", requireAdmin, async (req, res) => {
-    try {
-      if (!probe42API) {
-        return res.status(503).json({ error: "Probe42 API not configured" });
-      }
-
-      const { cin } = req.params;
-      const creditRisk = await probe42API.getCreditRiskAssessment(cin);
-      
-      res.json({
-        status: "success",
-        data: creditRisk
-      });
-    } catch (error) {
-      console.error("Error fetching credit risk assessment:", error);
-      res.status(500).json({ 
-        status: "error", 
-        error: "Failed to fetch credit risk assessment" 
-      });
-    }
-  });
-
-  // Bulk verify companies endpoint (Admin only)
-  app.post("/api/probe42/companies/bulk-verify", requireAdmin, async (req, res) => {
-    try {
-      if (!probe42API) {
-        return res.status(503).json({ error: "Probe42 API not configured" });
-      }
-
-      const { companies } = req.body;
-      const verification = await probe42API.bulkVerifyCompanies(companies);
-      
-      res.json({
-        status: "success",
-        data: verification
-      });
-    } catch (error) {
-      console.error("Error bulk verifying companies:", error);
-      res.status(500).json({ 
-        status: "error", 
-        error: "Failed to bulk verify companies" 
-      });
-    }
-  });
-
-  // Admin endpoint to assign probed client to agent(s)
-  app.post("/api/admin/assign-probed-client", requireAdmin, async (req, res) => {
-    try {
-      const { clientData, agentIds, notes } = req.body;
-
-      if (!clientData || !agentIds || !Array.isArray(agentIds)) {
-        return res.status(400).json({ error: "Client data and agent IDs are required" });
-      }
-
-      // Create the client assignment record
-      const assignment = {
-        id: `assignment-${Date.now()}`,
-        clientCIN: clientData.cin,
-        clientName: clientData.name,
-        clientData: clientData,
-        assignedAgentIds: agentIds,
-        assignedBy: req.user.id,
-        assignedAt: new Date(),
-        status: 'assigned',
-        notes: notes || '',
-        probeData: {
-          complianceScore: clientData.complianceScore,
-          creditRisk: clientData.creditRisk,
-          lastProbed: new Date()
-        }
-      };
-
-      // Store the assignment (you can extend storage to save this)
-      await storage.createClientAssignment(assignment);
-
-      // Log the assignment activity
-      await adminService.logActivity({
-        userId: req.user.id,
-        action: 'assign_probed_client',
-        resource: `client:${clientData.cin}`,
-        details: {
-          clientName: clientData.name,
-          agentIds: agentIds,
-          assignmentId: assignment.id
-        }
-      });
-
-      res.json({
-        status: "success",
-        data: assignment,
-        message: `Client ${clientData.name} assigned to ${agentIds.length} agent(s)`
-      });
-    } catch (error) {
-      console.error("Error assigning probed client:", error);
-      res.status(500).json({ 
-        status: "error", 
-        error: "Failed to assign probed client to agents" 
-      });
-    }
-  });
 
   // Admin endpoint to get all client assignments
   app.get("/api/admin/client-assignments", requireAdmin, async (req, res) => {
@@ -17041,7 +16696,6 @@ System Security Data:`;
         ICICI_BANK_API_KEY: process.env.ICICI_BANK_API_KEY ? 'configured' : 'not_configured',
         HDFC_BANK_API_KEY: process.env.HDFC_BANK_API_KEY ? 'configured' : 'not_configured',
         JM_FINANCIAL_API_KEY: process.env.JM_FINANCIAL_API_KEY ? 'configured' : 'not_configured',
-        PROBE42_API_KEY: process.env.PROBE42_API_KEY ? 'configured' : 'not_configured'
       };
 
       res.json({ success: true, data: apiKeys });
@@ -17066,7 +16720,7 @@ System Security Data:`;
       const allowedKeys = [
         'GEMINI_API_KEY', 'ALPHA_VANTAGE_API_KEY', 
         'OPENAI_API_KEY', 'ICICI_BANK_API_KEY', 'HDFC_BANK_API_KEY',
-        'JM_FINANCIAL_API_KEY', 'PROBE42_API_KEY'
+        'JM_FINANCIAL_API_KEY'
       ];
 
       if (!allowedKeys.includes(keyName)) {
