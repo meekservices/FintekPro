@@ -26,6 +26,7 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const API = require('indian-stock-exchange');
 import { finnhubService } from './finnhub-service';
+import { bajajFinanceAPI } from './bajaj-finance-api';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -17095,6 +17096,196 @@ System Security Data:`;
     } catch (error) {
       console.error("Error updating API key:", error);
       res.status(500).json({ success: false, error: "Failed to update API key" });
+    }
+  });
+
+  // ========================
+  // BAJAJ FINANCE API ROUTES
+  // ========================
+
+  // EMI Calculator
+  app.post("/api/bajaj-finance/calculate-emi", async (req, res) => {
+    try {
+      const { principal, interestRate, tenure } = req.body;
+      
+      if (!principal || !interestRate || !tenure) {
+        return res.status(400).json({ error: "Missing required parameters: principal, interestRate, tenure" });
+      }
+
+      const result = bajajFinanceAPI.calculateEMI(
+        Number(principal), 
+        Number(interestRate), 
+        Number(tenure)
+      );
+      
+      res.json({ success: true, data: result });
+    } catch (error) {
+      console.error("Error calculating EMI:", error);
+      res.status(500).json({ error: "Failed to calculate EMI" });
+    }
+  });
+
+  // Personal Loan Calculator
+  app.post("/api/bajaj-finance/personal-loan", async (req, res) => {
+    try {
+      const { amount, tenure } = req.body;
+      
+      if (!amount || !tenure) {
+        return res.status(400).json({ error: "Missing required parameters: amount, tenure" });
+      }
+
+      const result = bajajFinanceAPI.calculatePersonalLoan(
+        Number(amount), 
+        Number(tenure)
+      );
+      
+      res.json({ success: true, data: result });
+    } catch (error) {
+      console.error("Error calculating personal loan:", error);
+      res.status(500).json({ error: "Failed to calculate personal loan" });
+    }
+  });
+
+  // Business Loan Calculator
+  app.post("/api/bajaj-finance/business-loan", async (req, res) => {
+    try {
+      const { amount, tenure, businessType } = req.body;
+      
+      if (!amount || !tenure || !businessType) {
+        return res.status(400).json({ error: "Missing required parameters: amount, tenure, businessType" });
+      }
+
+      const result = bajajFinanceAPI.calculateBusinessLoan(
+        Number(amount), 
+        Number(tenure),
+        String(businessType)
+      );
+      
+      res.json({ success: true, data: result });
+    } catch (error) {
+      console.error("Error calculating business loan:", error);
+      res.status(500).json({ error: "Failed to calculate business loan" });
+    }
+  });
+
+  // Fixed Deposit Calculator
+  app.post("/api/bajaj-finance/fixed-deposit", async (req, res) => {
+    try {
+      const { amount, tenure, fdType = 'regular' } = req.body;
+      
+      if (!amount || !tenure) {
+        return res.status(400).json({ error: "Missing required parameters: amount, tenure" });
+      }
+
+      const result = bajajFinanceAPI.calculateFD(
+        Number(amount), 
+        Number(tenure),
+        fdType as 'regular' | 'senior-citizen'
+      );
+      
+      res.json({ success: true, data: result });
+    } catch (error) {
+      console.error("Error calculating FD:", error);
+      res.status(500).json({ error: "Failed to calculate fixed deposit" });
+    }
+  });
+
+  // Two Wheeler Loan Calculator
+  app.post("/api/bajaj-finance/two-wheeler-loan", async (req, res) => {
+    try {
+      const { vehiclePrice, downPayment, tenure } = req.body;
+      
+      if (!vehiclePrice || !downPayment || !tenure) {
+        return res.status(400).json({ error: "Missing required parameters: vehiclePrice, downPayment, tenure" });
+      }
+
+      const result = bajajFinanceAPI.calculateTwoWheelerLoan(
+        Number(vehiclePrice), 
+        Number(downPayment),
+        Number(tenure)
+      );
+      
+      res.json({ success: true, data: result });
+    } catch (error) {
+      console.error("Error calculating two wheeler loan:", error);
+      res.status(500).json({ error: "Failed to calculate two wheeler loan" });
+    }
+  });
+
+  // Insurance Premium Calculator
+  app.post("/api/bajaj-finance/insurance-premium", async (req, res) => {
+    try {
+      const { age, sumAssured, policyType } = req.body;
+      
+      if (!age || !sumAssured || !policyType) {
+        return res.status(400).json({ error: "Missing required parameters: age, sumAssured, policyType" });
+      }
+
+      const result = bajajFinanceAPI.calculateInsurancePremium(
+        Number(age), 
+        Number(sumAssured),
+        policyType as 'life' | 'health' | 'motor'
+      );
+      
+      res.json({ success: true, data: result });
+    } catch (error) {
+      console.error("Error calculating insurance premium:", error);
+      res.status(500).json({ error: "Failed to calculate insurance premium" });
+    }
+  });
+
+  // SIP Calculator
+  app.post("/api/bajaj-finance/sip-calculator", async (req, res) => {
+    try {
+      const { monthlyAmount, annualReturn, tenure } = req.body;
+      
+      if (!monthlyAmount || !annualReturn || !tenure) {
+        return res.status(400).json({ error: "Missing required parameters: monthlyAmount, annualReturn, tenure" });
+      }
+
+      const result = bajajFinanceAPI.calculateSIP(
+        Number(monthlyAmount), 
+        Number(annualReturn),
+        Number(tenure)
+      );
+      
+      res.json({ success: true, data: result });
+    } catch (error) {
+      console.error("Error calculating SIP:", error);
+      res.status(500).json({ error: "Failed to calculate SIP" });
+    }
+  });
+
+  // Get Current Interest Rates
+  app.get("/api/bajaj-finance/interest-rates", async (req, res) => {
+    try {
+      const rates = bajajFinanceAPI.getCurrentRates();
+      res.json({ success: true, data: rates });
+    } catch (error) {
+      console.error("Error fetching interest rates:", error);
+      res.status(500).json({ error: "Failed to fetch interest rates" });
+    }
+  });
+
+  // Loan Eligibility Checker
+  app.post("/api/bajaj-finance/check-eligibility", async (req, res) => {
+    try {
+      const { salary, age, loanType } = req.body;
+      
+      if (!salary || !age || !loanType) {
+        return res.status(400).json({ error: "Missing required parameters: salary, age, loanType" });
+      }
+
+      const result = bajajFinanceAPI.checkLoanEligibility(
+        Number(salary), 
+        Number(age),
+        String(loanType)
+      );
+      
+      res.json({ success: true, data: result });
+    } catch (error) {
+      console.error("Error checking loan eligibility:", error);
+      res.status(500).json({ error: "Failed to check loan eligibility" });
     }
   });
 
