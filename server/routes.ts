@@ -24,6 +24,7 @@ import { errorMonitor, errorMonitoringMiddleware, globalErrorHandler } from './e
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const API = require('indian-stock-exchange');
+import { finnhubService } from './finnhub-service';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -6187,6 +6188,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/market/quote/:symbol", async (req, res) => {
     try {
       const { symbol } = req.params;
+      
+      // Try Finnhub first for US stocks
+      try {
+        const finnhubQuote = await finnhubService.getQuote(symbol.toUpperCase());
+        const data = finnhubService.transformQuoteToMarketData(symbol.toUpperCase(), finnhubQuote);
+        
+        // Store in local cache
+        await storage.upsertMarketData(symbol, {
+          symbol: symbol.toUpperCase(),
+          price: data.price?.toString(),
+          change: data.change?.toString(),
+          changePercent: data.changePercent?.toString(),
+          data: data
+        });
+        
+        res.json(data);
+        return;
+      } catch (finnhubError) {
+        console.log("Finnhub failed for", symbol, "trying fallback");
+      }
+      
+      // Fallback to existing fetchMarketData
       const data = await fetchMarketData(symbol.toUpperCase());
       
       // Store in local cache
@@ -6210,7 +6233,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { symbol } = req.params;
       const { resolution = "D", from, to } = req.query;
       
-      // Using mock candle data
+      // Try Finnhub first for US stocks
+      try {
+        const fromTimestamp = from ? parseInt(from as string) : Math.floor((Date.now() - 30 * 24 * 60 * 60 * 1000) / 1000);
+        const toTimestamp = to ? parseInt(to as string) : Math.floor(Date.now() / 1000);
+        
+        const finnhubCandles = await finnhubService.getCandles(
+          symbol.toUpperCase(), 
+          resolution as string, 
+          fromTimestamp, 
+          toTimestamp
+        );
+        
+        const data = finnhubService.transformCandlesToMarketCandles(finnhubCandles);
+        res.json(data);
+        return;
+      } catch (finnhubError) {
+        console.log("Finnhub candles failed for", symbol, "using fallback");
+      }
+      
+      // Fallback to mock data
       const data = {
         c: [100, 101, 99, 102],
         h: [102, 103, 101, 104],
@@ -6225,6 +6267,220 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching candles:", error);
       res.status(500).json({ error: "Failed to fetch market candles" });
+    }
+  });
+
+  // Enhanced market data endpoint with multiple sources
+  app.get("/api/market/enhanced-quote/:symbol", async (req, res) => {
+    try {
+      const { symbol } = req.params;
+      
+      // Try Finnhub first, fallback to Yahoo Finance
+      let data: any = {
+        symbol,
+        source: 'fallback',
+        timestamp: new Date().toISOString()
+      };
+      
+      try {
+        if (process.env.FINNHUB_API_KEY) {
+          const response = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${process.env.FINNHUB_API_KEY}`);
+          const finnhubQuote = await response.json();
+          
+          if (!finnhubQuote.error && finnhubQuote.c) {
+            data = {
+              symbol,
+              price: finnhubQuote.c,
+              change: finnhubQuote.d,
+              changePercent: finnhubQuote.dp,
+              high: finnhubQuote.h,
+              low: finnhubQuote.l,
+              open: finnhubQuote.o,
+              previousClose: finnhubQuote.pc,
+              source: 'finnhub',
+              timestamp: new Date().toISOString()
+            };
+          }
+        }
+      } catch (finnhubError) {
+        console.log("Finnhub unavailable, using fallback data");
+      }
+      
+      // If Finnhub failed, use Yahoo Finance fallback
+      if (data.source === 'fallback') {
+        try {
+          const yahooResponse = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`);
+          const yahooData = await yahooResponse.json();
+          
+          if (yahooData.chart?.result?.[0]?.meta) {
+            const meta = yahooData.chart.result[0].meta;
+            data = {
+              symbol,
+              price: meta.regularMarketPrice || 0,
+              change: (meta.regularMarketPrice - meta.previousClose) || 0,
+              changePercent: ((meta.regularMarketPrice - meta.previousClose) / meta.previousClose * 100) || 0,
+              high: meta.regularMarketDayHigh || 0,
+              low: meta.regularMarketDayLow || 0,
+              open: meta.regularMarketOpen || 0,
+              previousClose: meta.previousClose || 0,
+              source: 'yahoo',
+              timestamp: new Date().toISOString()
+            };
+          }
+        } catch (yahooError) {
+          console.log("Yahoo Finance also failed, using mock data");
+        }
+      }
+      
+      res.json({
+        success: true,
+        data
+      });
+    } catch (error: any) {
+      console.error("Enhanced quote error:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message || "Unknown error"
+      });
+    }
+  });
+
+  // Enhanced company profile endpoint
+  app.get("/api/market/company-profile/:symbol", async (req, res) => {
+    try {
+      const { symbol } = req.params;
+      
+      let profile: any = {
+        symbol,
+        name: symbol,
+        source: 'fallback',
+        timestamp: new Date().toISOString()
+      };
+      
+      try {
+        if (process.env.FINNHUB_API_KEY) {
+          const response = await fetch(`https://finnhub.io/api/v1/stock/profile2?symbol=${symbol}&token=${process.env.FINNHUB_API_KEY}`);
+          const finnhubProfile = await response.json();
+          
+          if (!finnhubProfile.error && finnhubProfile.name) {
+            profile = {
+              symbol,
+              name: finnhubProfile.name,
+              description: finnhubProfile.description,
+              industry: finnhubProfile.finnhubIndustry,
+              marketCap: finnhubProfile.marketCapitalization,
+              exchange: finnhubProfile.exchange,
+              country: finnhubProfile.country,
+              currency: finnhubProfile.currency,
+              website: finnhubProfile.weburl,
+              logo: finnhubProfile.logo,
+              source: 'finnhub',
+              timestamp: new Date().toISOString()
+            };
+          }
+        }
+      } catch (finnhubError) {
+        console.log("Finnhub profile unavailable, using fallback");
+      }
+      
+      // If Finnhub failed, use basic company data
+      if (profile.source === 'fallback') {
+        const companyNames: { [key: string]: string } = {
+          'AAPL': 'Apple Inc.',
+          'GOOGL': 'Alphabet Inc.',
+          'MSFT': 'Microsoft Corporation',
+          'TSLA': 'Tesla Inc.',
+          'AMZN': 'Amazon.com Inc.',
+          'NVDA': 'NVIDIA Corporation',
+          'META': 'Meta Platforms Inc.',
+          'NFLX': 'Netflix Inc.'
+        };
+        
+        profile.name = companyNames[symbol] || `${symbol} Corporation`;
+        profile.description = `${profile.name} is a publicly traded company.`;
+        profile.source = 'static';
+      }
+      
+      res.json({
+        success: true,
+        data: profile
+      });
+    } catch (error: any) {
+      console.error("Company profile error:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message || "Unknown error"
+      });
+    }
+  });
+
+  // Enhanced market news endpoint
+  app.get("/api/market/enhanced-news", async (req, res) => {
+    try {
+      const { symbol } = req.query;
+      
+      let news: any[] = [];
+      
+      try {
+        if (process.env.FINNHUB_API_KEY && symbol) {
+          const response = await fetch(`https://finnhub.io/api/v1/company-news?symbol=${symbol}&from=${new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}&to=${new Date().toISOString().split('T')[0]}&token=${process.env.FINNHUB_API_KEY}`);
+          const finnhubNews = await response.json();
+          
+          if (Array.isArray(finnhubNews) && !finnhubNews.error) {
+            news = finnhubNews.slice(0, 10).map((item: any) => ({
+              id: item.id,
+              title: item.headline,
+              summary: item.summary,
+              url: item.url,
+              image: item.image,
+              datetime: new Date(item.datetime * 1000).toISOString(),
+              source: item.source,
+              category: 'company',
+              provider: 'finnhub'
+            }));
+          }
+        }
+      } catch (finnhubError) {
+        console.log("Finnhub news unavailable, using fallback");
+      }
+      
+      // If no Finnhub news, provide general market news
+      if (news.length === 0) {
+        news = [
+          {
+            id: Date.now(),
+            title: "Market Analysis: Technology Stocks Show Mixed Performance",
+            summary: "Technology sector continues to show volatility as investors react to earnings reports and economic indicators.",
+            url: "#",
+            datetime: new Date().toISOString(),
+            source: "Market Analysis",
+            category: "market",
+            provider: 'static'
+          },
+          {
+            id: Date.now() + 1,
+            title: "Federal Reserve Maintains Interest Rate Policy",
+            summary: "The Federal Reserve announced it will maintain current interest rates amid ongoing economic monitoring.",
+            url: "#",
+            datetime: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+            source: "Economic News",
+            category: "economic",
+            provider: 'static'
+          }
+        ];
+      }
+      
+      res.json({
+        success: true,
+        data: news,
+        count: news.length
+      });
+    } catch (error: any) {
+      console.error("Enhanced news error:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message || "Unknown error"
+      });
     }
   });
 
