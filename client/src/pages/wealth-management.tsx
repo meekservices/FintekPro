@@ -27,7 +27,6 @@ import { GoalPlanning } from "@/components/wealth/goal-planning";
 import { ObligationMapping } from "@/components/wealth/obligation-mapping";
 import { RetirementPlanning } from "@/components/wealth/retirement-planning";
 import { RiskAssessment } from "@/components/wealth/risk-assessment";
-import { LoanDashboard } from "@/components/loan/loan-dashboard";
 import { InvestmentRecommendations } from "@/components/wealth/investment-recommendations";
 
 export default function WealthManagement() {
@@ -62,22 +61,22 @@ export default function WealthManagement() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-7">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="dashboard" data-testid="tab-dashboard">
               <BarChart3 className="w-4 h-4 mr-2" />
               Dashboard
             </TabsTrigger>
+            <TabsTrigger value="obligations" data-testid="tab-obligations">
+              <CreditCard className="w-4 h-4 mr-2" />
+              Credit Obligations
+            </TabsTrigger>
             <TabsTrigger value="recommendations" data-testid="tab-recommendations">
               <Lightbulb className="w-4 h-4 mr-2" />
-              Recommendations
+              Smart Recommendations
             </TabsTrigger>
             <TabsTrigger value="goals" data-testid="tab-goals">
               <Target className="w-4 h-4 mr-2" />
               Goal Planning
-            </TabsTrigger>
-            <TabsTrigger value="obligations" data-testid="tab-obligations">
-              <CreditCard className="w-4 h-4 mr-2" />
-              Obligations
             </TabsTrigger>
             <TabsTrigger value="retirement" data-testid="tab-retirement">
               <Shield className="w-4 h-4 mr-2" />
@@ -86,10 +85,6 @@ export default function WealthManagement() {
             <TabsTrigger value="risk" data-testid="tab-risk">
               <PieChart className="w-4 h-4 mr-2" />
               Risk Profile
-            </TabsTrigger>
-            <TabsTrigger value="loans" data-testid="tab-loans">
-              <Building2 className="w-4 h-4 mr-2" />
-              Loans
             </TabsTrigger>
           </TabsList>
 
@@ -150,17 +145,98 @@ export default function WealthManagement() {
               </Card>
             </div>
 
-            {/* Quick Actions */}
-            <Card data-testid="card-quick-actions">
+            {/* Credit & Obligations Overview */}
+            <Card data-testid="card-credit-obligations">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CreditCard className="w-5 h-5 text-blue-600" />
+                  Credit Obligations Overview
+                </CardTitle>
+                <CardDescription>Real-time CIBIL data integration for comprehensive obligation tracking</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+                    <div className="flex items-center gap-3 mb-3">
+                      <CreditCard className="w-6 h-6 text-blue-600" />
+                      <div>
+                        <p className="font-semibold text-blue-900">Credit Cards</p>
+                        <p className="text-sm text-blue-700">Active accounts & utilization</p>
+                      </div>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setActiveTab("obligations")}
+                      data-testid="button-view-credit-cards"
+                      className="w-full border-blue-300 text-blue-700 hover:bg-blue-100"
+                    >
+                      View Details
+                    </Button>
+                  </div>
+                  
+                  <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+                    <div className="flex items-center gap-3 mb-3">
+                      <Building2 className="w-6 h-6 text-green-600" />
+                      <div>
+                        <p className="font-semibold text-green-900">Loans & EMIs</p>
+                        <p className="text-sm text-green-700">Active loans from CIBIL</p>
+                      </div>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setActiveTab("obligations")}
+                      data-testid="button-view-loans"
+                      className="w-full border-green-300 text-green-700 hover:bg-green-100"
+                    >
+                      Sync CIBIL Data
+                    </Button>
+                  </div>
+                  
+                  <div className="p-4 bg-gradient-to-r from-purple-50 to-violet-50 rounded-lg border border-purple-200">
+                    <div className="flex items-center gap-3 mb-3">
+                      <Shield className="w-6 h-6 text-purple-600" />
+                      <div>
+                        <p className="font-semibold text-purple-900">Credit Health</p>
+                        <p className="text-sm text-purple-700">Score & payment history</p>
+                      </div>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setActiveTab("obligations")}
+                      data-testid="button-view-credit-health"
+                      className="w-full border-purple-300 text-purple-700 hover:bg-purple-100"
+                    >
+                      Check Score
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* Wealth Management Actions */}
+            <Card data-testid="card-wealth-actions">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Zap className="w-5 h-5 text-yellow-600" />
-                  Quick Actions
+                  Smart Wealth Actions
                 </CardTitle>
-                <CardDescription>Common wealth management tasks</CardDescription>
+                <CardDescription>AI-powered recommendations based on your CIBIL obligations</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Button 
+                    variant="default" 
+                    className="h-20 flex flex-col gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                    onClick={() => setActiveTab("recommendations")}
+                    data-testid="button-smart-recommendations"
+                  >
+                    <Lightbulb className="w-6 h-6" />
+                    <span className="text-sm">Smart Recommendations</span>
+                  </Button>
+                  
                   <Button 
                     variant="outline" 
                     className="h-20 flex flex-col gap-2"
@@ -168,27 +244,7 @@ export default function WealthManagement() {
                     data-testid="button-plan-goals"
                   >
                     <Target className="w-6 h-6" />
-                    <span className="text-sm">Plan Goals</span>
-                  </Button>
-                  
-                  <Button 
-                    variant="outline" 
-                    className="h-20 flex flex-col gap-2"
-                    onClick={() => setActiveTab("obligations")}
-                    data-testid="button-track-obligations"
-                  >
-                    <CreditCard className="w-6 h-6" />
-                    <span className="text-sm">Track Obligations</span>
-                  </Button>
-                  
-                  <Button 
-                    variant="outline" 
-                    className="h-20 flex flex-col gap-2"
-                    onClick={() => setActiveTab("retirement")}
-                    data-testid="button-retirement-plan"
-                  >
-                    <Shield className="w-6 h-6" />
-                    <span className="text-sm">Retirement Plan</span>
+                    <span className="text-sm">Financial Goals</span>
                   </Button>
                   
                   <Button 
@@ -198,76 +254,76 @@ export default function WealthManagement() {
                     data-testid="button-assess-risk"
                   >
                     <PieChart className="w-6 h-6" />
-                    <span className="text-sm">Assess Risk</span>
-                  </Button>
-                </div>
-                
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-                  <Button 
-                    variant="default" 
-                    className="h-20 flex flex-col gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                    onClick={() => setActiveTab("recommendations")}
-                    data-testid="button-view-recommendations"
-                  >
-                    <Lightbulb className="w-6 h-6" />
-                    <span className="text-sm">View Smart Recommendations</span>
+                    <span className="text-sm">Risk Assessment</span>
                   </Button>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Financial Health Score */}
-            <Card data-testid="card-financial-health">
+            {/* CIBIL-Based Financial Health */}
+            <Card data-testid="card-cibil-financial-health">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-green-600" />
-                  Financial Health Score
+                  <Shield className="w-5 h-5 text-blue-600" />
+                  CIBIL-Based Financial Health
                 </CardTitle>
-                <CardDescription>Overall assessment of your financial well-being</CardDescription>
+                <CardDescription>Real-time credit health analysis from your CIBIL report</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
                   <div className="text-center">
-                    <div className="text-4xl font-bold text-green-600 mb-2">78/100</div>
-                    <Badge variant="default" className="text-sm">Good Financial Health</Badge>
+                    <div className="text-4xl font-bold text-blue-600 mb-2">785</div>
+                    <Badge variant="default" className="text-sm bg-blue-600">Very Good Credit Score</Badge>
+                    <p className="text-sm text-gray-600 mt-2">Based on latest CIBIL report</p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-4">
-                      <h4 className="font-medium">Strengths</h4>
+                      <h4 className="font-medium">Credit Strengths</h4>
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 p-2 bg-green-50 rounded">
                           <CheckCircle className="w-4 h-4 text-green-600" />
-                          <span className="text-sm">Diversified investment portfolio</span>
+                          <span className="text-sm">Excellent payment history (100%)</span>
                         </div>
                         <div className="flex items-center gap-2 p-2 bg-green-50 rounded">
                           <CheckCircle className="w-4 h-4 text-green-600" />
-                          <span className="text-sm">Regular SIP investments</span>
+                          <span className="text-sm">Low credit utilization (28%)</span>
                         </div>
                         <div className="flex items-center gap-2 p-2 bg-green-50 rounded">
                           <CheckCircle className="w-4 h-4 text-green-600" />
-                          <span className="text-sm">Good savings rate (20%+)</span>
+                          <span className="text-sm">Diverse credit mix</span>
                         </div>
                       </div>
                     </div>
 
                     <div className="space-y-4">
-                      <h4 className="font-medium">Areas for Improvement</h4>
+                      <h4 className="font-medium">Obligation Insights</h4>
                       <div className="space-y-2">
-                        <div className="flex items-center gap-2 p-2 bg-orange-50 rounded">
-                          <Target className="w-4 h-4 text-orange-600" />
-                          <span className="text-sm">Increase emergency fund to 8 months</span>
+                        <div className="flex items-center gap-2 p-2 bg-blue-50 rounded">
+                          <CreditCard className="w-4 h-4 text-blue-600" />
+                          <span className="text-sm">₹2.4L total monthly obligations</span>
                         </div>
-                        <div className="flex items-center gap-2 p-2 bg-orange-50 rounded">
-                          <Shield className="w-4 h-4 text-orange-600" />
-                          <span className="text-sm">Add term insurance coverage</span>
+                        <div className="flex items-center gap-2 p-2 bg-blue-50 rounded">
+                          <Calendar className="w-4 h-4 text-blue-600" />
+                          <span className="text-sm">5 active credit accounts</span>
                         </div>
-                        <div className="flex items-center gap-2 p-2 bg-orange-50 rounded">
-                          <Calculator className="w-4 h-4 text-orange-600" />
-                          <span className="text-sm">Start retirement planning</span>
+                        <div className="flex items-center gap-2 p-2 bg-blue-50 rounded">
+                          <TrendingUp className="w-4 h-4 text-blue-600" />
+                          <span className="text-sm">Obligation ratio: 35% of income</span>
                         </div>
                       </div>
                     </div>
+                  </div>
+                  
+                  <div className="text-center">
+                    <Button 
+                      onClick={() => setActiveTab("obligations")}
+                      data-testid="button-view-full-obligations"
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <CreditCard className="w-4 h-4 mr-2" />
+                      View Complete Obligation Analysis
+                    </Button>
                   </div>
                 </div>
               </CardContent>
@@ -356,74 +412,79 @@ export default function WealthManagement() {
               </CardContent>
             </Card>
 
-            {/* Wealth Building Recommendations */}
-            <Card data-testid="card-wealth-recommendations">
+            {/* Obligation-Based Wealth Recommendations */}
+            <Card data-testid="card-obligation-wealth-recommendations">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <TrendingUp className="w-5 h-5 text-green-600" />
-                  Personalized Wealth Building Recommendations
+                  Obligation-Optimized Wealth Strategy
                 </CardTitle>
+                <CardDescription>Smart recommendations based on your CIBIL obligations and credit profile</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4">
-                    <h4 className="font-medium">Immediate Actions</h4>
+                    <h4 className="font-medium">Debt Optimization Actions</h4>
                     <div className="space-y-3">
-                      <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
-                        <Calculator className="w-5 h-5 text-blue-600" />
-                        <div>
-                          <p className="font-medium">Complete Risk Assessment</p>
-                          <p className="text-sm text-muted-foreground">Get personalized investment recommendations</p>
+                      <div className="flex items-center gap-3 p-3 bg-red-50 rounded-lg border border-red-200">
+                        <CreditCard className="w-5 h-5 text-red-600" />
+                        <div className="flex-1">
+                          <p className="font-medium text-red-800">High Credit Card Utilization</p>
+                          <p className="text-sm text-red-700">Reduce utilization from 78% to below 30%</p>
                         </div>
-                        <Button size="sm" onClick={() => setActiveTab("risk")} data-testid="button-start-risk-assessment">
-                          Start
+                        <Button size="sm" variant="outline" className="border-red-300 text-red-700 hover:bg-red-100" data-testid="button-reduce-utilization">
+                          Optimize
                         </Button>
                       </div>
                       
-                      <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
-                        <Target className="w-5 h-5 text-green-600" />
-                        <div>
-                          <p className="font-medium">Set Financial Goals</p>
-                          <p className="text-sm text-muted-foreground">Define clear objectives with timelines</p>
+                      <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-lg border border-orange-200">
+                        <Building2 className="w-5 h-5 text-orange-600" />
+                        <div className="flex-1">
+                          <p className="font-medium text-orange-800">Loan Consolidation Opportunity</p>
+                          <p className="text-sm text-orange-700">Save ₹8,500/month by consolidating 3 loans</p>
                         </div>
-                        <Button size="sm" onClick={() => setActiveTab("goals")} data-testid="button-set-goals">
+                        <Button size="sm" variant="outline" className="border-orange-300 text-orange-700 hover:bg-orange-100" data-testid="button-consolidate-loans">
+                          Analyze
+                        </Button>
+                      </div>
+                      
+                      <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                        <Calendar className="w-5 h-5 text-blue-600" />
+                        <div className="flex-1">
+                          <p className="font-medium text-blue-800">EMI Restructuring</p>
+                          <p className="text-sm text-blue-700">Optimize payment schedules for better cash flow</p>
+                        </div>
+                        <Button size="sm" variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-100" data-testid="button-restructure-emi">
                           Plan
-                        </Button>
-                      </div>
-                      
-                      <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-lg">
-                        <Shield className="w-5 h-5 text-purple-600" />
-                        <div>
-                          <p className="font-medium">Plan Retirement</p>
-                          <p className="text-sm text-muted-foreground">Ensure comfortable retirement lifestyle</p>
-                        </div>
-                        <Button size="sm" onClick={() => setActiveTab("retirement")} data-testid="button-plan-retirement">
-                          Calculate
                         </Button>
                       </div>
                     </div>
                   </div>
 
                   <div className="space-y-4">
-                    <h4 className="font-medium">Portfolio Optimization</h4>
+                    <h4 className="font-medium">Investment Strategy Based on Obligations</h4>
                     <div className="space-y-3">
-                      <div className="p-3 border rounded-lg">
+                      <div className="p-3 border rounded-lg bg-green-50">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="font-medium">Asset Allocation</span>
-                          <Badge variant="outline">Recommended</Badge>
+                          <span className="font-medium text-green-800">Recommended Allocation</span>
+                          <Badge variant="outline" className="border-green-300 text-green-700">Obligation-Adjusted</Badge>
                         </div>
                         <div className="space-y-2">
                           <div className="flex justify-between text-sm">
-                            <span>Equity</span>
-                            <span className="font-medium">60%</span>
+                            <span>Emergency Fund (Priority 1)</span>
+                            <span className="font-medium text-green-700">25%</span>
                           </div>
                           <div className="flex justify-between text-sm">
-                            <span>Debt</span>
-                            <span className="font-medium">35%</span>
+                            <span>Debt Mutual Funds</span>
+                            <span className="font-medium text-green-700">35%</span>
                           </div>
                           <div className="flex justify-between text-sm">
-                            <span>Gold</span>
-                            <span className="font-medium">5%</span>
+                            <span>Equity (Conservative)</span>
+                            <span className="font-medium text-green-700">35%</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span>Gold/Alternative</span>
+                            <span className="font-medium text-green-700">5%</span>
                           </div>
                         </div>
                       </div>
@@ -432,8 +493,18 @@ export default function WealthManagement() {
                         <div className="flex items-start gap-2">
                           <TrendingUp className="w-4 h-4 text-yellow-600 mt-0.5" />
                           <div>
-                            <p className="font-medium text-yellow-800">Rebalancing Needed</p>
-                            <p className="text-sm text-yellow-700">Your equity allocation is 75%. Consider moving some to debt funds.</p>
+                            <p className="font-medium text-yellow-800">Priority: Debt Management</p>
+                            <p className="text-sm text-yellow-700">Focus on reducing high-interest obligations before aggressive investing</p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="flex items-start gap-2">
+                          <Shield className="w-4 h-4 text-blue-600 mt-0.5" />
+                          <div>
+                            <p className="font-medium text-blue-800">Conservative Strategy</p>
+                            <p className="text-sm text-blue-700">Given obligation ratio of 35%, prioritize stability over growth</p>
                           </div>
                         </div>
                       </div>
@@ -472,10 +543,6 @@ export default function WealthManagement() {
             <RiskAssessment />
           </TabsContent>
 
-          {/* Loans Tab */}
-          <TabsContent value="loans">
-            <LoanDashboard />
-          </TabsContent>
         </Tabs>
       </div>
     </div>
