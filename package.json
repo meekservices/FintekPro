@@ -96,6 +96,7 @@
     "stock-nse-india": "^1.2.2",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
+    "taxcloudjs": "^1.0.3",
     "tw-animate-css": "^1.2.5",
     "uuid": "^11.1.0",
     "validator": "^13.15.15",
