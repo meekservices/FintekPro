@@ -347,15 +347,10 @@ export default function Support() {
                 <div>
                   <h3 className="text-lg font-semibold text-red-900">Emergency Support</h3>
                   <p className="text-red-700">For urgent account issues, unauthorized transactions, or security concerns:</p>
-                  <div className="flex items-center gap-4 mt-2">
-                    <p className="font-semibold text-red-900">
-                      📞 Emergency Hotline: 1800-FINTEK-911
-                    </p>
-                    <p className="font-semibold text-red-900 flex items-center gap-1">
-                      <SiWhatsapp className="h-4 w-4 text-green-600" />
-                      WhatsApp: 9686854321
-                    </p>
-                  </div>
+                  <p className="font-semibold text-red-900 flex items-center gap-1 mt-2">
+                    <SiWhatsapp className="h-4 w-4 text-green-600" />
+                    WhatsApp: 9686854321
+                  </p>
                 </div>
               </div>
             </CardContent>
