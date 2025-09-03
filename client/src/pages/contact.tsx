@@ -119,7 +119,7 @@ export default function Contact() {
       description: "Business partnerships and institutional services",
       icon: MessageSquare,
       contact: "partners@fintekpro.com",
-      phone: "+91 1800 123 4569"
+      phone: "WhatsApp: 9686854321"
     }
   ];
 
