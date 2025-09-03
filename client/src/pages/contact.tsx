@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, Phone, MapPin, Clock, Building, Send, MessageSquare, HeadphonesIcon } from "lucide-react";
+import { SiWhatsapp } from "react-icons/si";
 import { useMutation } from "@tanstack/react-query";
 
 const contactSchema = z.object({
@@ -119,7 +120,7 @@ export default function Contact() {
       description: "Business partnerships and institutional services",
       icon: MessageSquare,
       contact: "partners@fintekpro.com",
-      phone: "WhatsApp: 9686854321"
+      phone: "9686854321"
     }
   ];
 
@@ -346,7 +347,11 @@ export default function Contact() {
                             {method.contact}
                           </p>
                           <p className="text-sm">
-                            <Phone className="h-4 w-4 inline mr-1" />
+                            {method.title === 'Partnership' ? (
+                              <SiWhatsapp className="h-4 w-4 inline mr-1 text-green-500" />
+                            ) : (
+                              <Phone className="h-4 w-4 inline mr-1" />
+                            )}
                             {method.phone}
                           </p>
                         </div>
