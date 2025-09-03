@@ -53,8 +53,8 @@ export function Footer() {
   ];
 
   const supportLinks = [
-    { name: "Help Center", href: "/help" },
     { name: "Contact Us", href: "/contact" },
+    { name: "Help Center", href: "/help" },
     { name: "Terms & Conditions", href: "/terms" },
     { name: "Privacy Policy", href: "/privacy" },
   ];
