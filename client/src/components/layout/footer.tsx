@@ -87,7 +87,7 @@ export function Footer() {
               FintekPro
             </h3>
             <p className="text-gray-300 mb-4" data-testid="footer-company-description">
-              Your complete financial services platform for investments, loans, and wealth management.
+              Your complete financial services platform for investments, loans, and smart investment solutions.
             </p>
             <div className="flex space-x-4">
               <Facebook className="text-gray-300 hover:text-white cursor-pointer h-5 w-5" data-testid="social-facebook" />

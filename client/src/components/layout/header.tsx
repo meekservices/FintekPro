@@ -28,7 +28,7 @@ export function Header() {
   const navigation = [
     { name: "Markets", href: "/markets" },
     { name: "Portfolio", href: "/portfolio" },
-    { name: "Invest Smart", href: "/wealth-management" },
+    { name: "InvestSmart", href: "/wealth-management" },
     { name: "Loans", href: "/loans" },
     { name: "Insurance", href: "/policybazaar" },
     { name: "Support", href: "/support" },
