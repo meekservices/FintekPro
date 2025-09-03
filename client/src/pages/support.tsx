@@ -147,7 +147,7 @@ export default function Support() {
       description: "Speak with our experts",
       icon: Phone,
       contact: "1800-FINTEK-PRO",
-      timing: "Mon-Sat: 8 AM - 8 PM",
+      timing: "Mon-Fri: 8 AM - 8 PM",
       bgColor: "bg-purple-50",
       iconColor: "text-purple-600"
     }
@@ -332,8 +332,9 @@ export default function Support() {
                 </div>
                 <div className="text-right">
                   <p className="text-lg font-semibold">WhatsApp: 24/7 Available</p>
-                  <p className="opacity-90">Phone & Email: Monday - Saturday, 8 AM - 8 PM</p>
-                  <p className="opacity-90">Emergency Support: Available 24/7</p>
+                  <p className="opacity-90">Phone & Email: Monday - Friday, 8 AM - 8 PM</p>
+                  <p className="opacity-90">Weekend: Closed (Sat-Sun) - WhatsApp Only</p>
+                  <p className="opacity-90">Emergency Support: WhatsApp Available 24/7</p>
                 </div>
               </div>
             </CardContent>
