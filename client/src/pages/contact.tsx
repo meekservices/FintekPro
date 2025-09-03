@@ -106,14 +106,14 @@ export default function Contact() {
       description: "New investment opportunities and portfolio services",
       icon: Building,
       contact: "sales@fintekpro.com",
-      phone: "+91 1800 123 4567"
+      phone: "9686854321"
     },
     {
       title: "Customer Support",
       description: "Account assistance and technical support",
       icon: HeadphonesIcon,
       contact: "support@fintekpro.com", 
-      phone: "+91 1800 123 4568"
+      phone: "9686854321"
     },
     {
       title: "Partnership",
@@ -347,11 +347,7 @@ export default function Contact() {
                             {method.contact}
                           </p>
                           <p className="text-sm">
-                            {method.title === 'Partnership' ? (
-                              <SiWhatsapp className="h-4 w-4 inline mr-1 text-green-500" />
-                            ) : (
-                              <Phone className="h-4 w-4 inline mr-1" />
-                            )}
+                            <SiWhatsapp className="h-4 w-4 inline mr-1 text-green-500" />
                             {method.phone}
                           </p>
                         </div>
