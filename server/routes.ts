@@ -2172,7 +2172,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             hni: "15%",
             institutional: "50%"
           },
-          aboutCompany: "Diversified financial services company offering broking, wealth management, and investment banking services."
+          aboutCompany: "Diversified financial services company offering broking, investsmart solutions, and investment banking services."
         },
         {
           id: "ipo-3",

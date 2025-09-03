@@ -268,7 +268,7 @@ export default function WealthManagement() {
               </CardContent>
             </Card>
             
-            {/* Wealth Management Actions */}
+            {/* InvestSmart Actions */}
             <Card data-testid="card-wealth-actions">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">

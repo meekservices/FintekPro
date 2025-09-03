@@ -55,7 +55,7 @@ export default function WhatsAppAuthPage() {
               </span>
             </h1>
             <p className="text-xl text-gray-600 dark:text-gray-300 max-w-md lg:max-w-lg">
-              Your comprehensive financial services platform for smart investing and wealth management.
+              Your comprehensive financial services platform for smart investing and investsmart solutions.
             </p>
           </div>
 

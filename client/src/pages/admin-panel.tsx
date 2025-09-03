@@ -3902,7 +3902,7 @@ export default function AdminPanel() {
                           WM
                         </div>
                         <div>
-                          <div className="font-medium" data-testid="text-partner-name-4">Wealth Management Co</div>
+                          <div className="font-medium" data-testid="text-partner-name-4">InvestSmart Co</div>
                           <div className="text-sm text-muted-foreground">contact@wealthmgmt.com</div>
                         </div>
                       </div>
