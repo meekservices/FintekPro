@@ -147,14 +147,6 @@ export default function Portfolio() {
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList className="grid w-full grid-cols-8">
             <TabsTrigger value="overview">Portfolio Overview</TabsTrigger>
-            <TabsTrigger value="pi-chat" className="flex items-center space-x-1">
-              <Bot className="h-4 w-4" />
-              <span>Pi Chat Insights</span>
-            </TabsTrigger>
-            <TabsTrigger value="commodities" className="flex items-center space-x-1">
-              <Coins className="h-4 w-4" />
-              <span>Commodities</span>
-            </TabsTrigger>
             <TabsTrigger value="insurance" className="flex items-center space-x-1">
               <Shield className="h-4 w-4" />
               <span>Insurance</span>
@@ -170,6 +162,14 @@ export default function Portfolio() {
             <TabsTrigger value="eps" className="flex items-center space-x-1">
               <Shield className="h-4 w-4" />
               <span>EPS Pension</span>
+            </TabsTrigger>
+            <TabsTrigger value="commodities" className="flex items-center space-x-1">
+              <Coins className="h-4 w-4" />
+              <span>Commodities</span>
+            </TabsTrigger>
+            <TabsTrigger value="pi-chat" className="flex items-center space-x-1">
+              <Bot className="h-4 w-4" />
+              <span>AI Insights</span>
             </TabsTrigger>
             <TabsTrigger value="rebalance">AI Rebalancing</TabsTrigger>
           </TabsList>
@@ -209,9 +209,16 @@ export default function Portfolio() {
             <div className="mb-8">
               <h2 className="text-2xl font-bold text-gray-900 mb-6">Complete Investment Portfolio</h2>
               
-              {/* Total Portfolio Value Card */}
+              {/* Total Portfolio Value Card - PAN Verified */}
               <Card className="mb-6 bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-200">
                 <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-2">
+                      <Shield className="h-4 w-4 text-green-600" />
+                      <span className="text-sm text-green-700 font-medium">PAN Verified Portfolio</span>
+                    </div>
+                    <Badge className="bg-green-100 text-green-800 border-green-300">Secure Access</Badge>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                     <div className="md:col-span-2">
                       <h3 className="text-xl font-semibold text-gray-900 mb-2 flex items-center">
@@ -740,6 +747,14 @@ export default function Portfolio() {
               schemeType="insurance" 
               onRequestConsent={handleRequestConsent}
             >
+              {/* PAN Verification Banner */}
+              <div className="flex items-center mb-6 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <Shield className="h-4 w-4 text-green-600 mr-2" />
+                <span className="text-sm text-green-700">
+                  Insurance holdings verified with your PAN card for secure access
+                </span>
+              </div>
+              
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
                 {/* Insurance Holdings Overview */}
                 <Card>
@@ -993,6 +1008,14 @@ export default function Portfolio() {
               schemeType="epf" 
               onRequestConsent={handleRequestConsent}
             >
+              {/* PAN Verification Banner */}
+              <div className="flex items-center mb-6 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <Shield className="h-4 w-4 text-green-600 mr-2" />
+                <span className="text-sm text-green-700">
+                  EPF data verified with your PAN card and UAN for secure access
+                </span>
+              </div>
+              
               {epfLoading ? (
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
                   <div className="space-y-4">
@@ -1248,6 +1271,14 @@ export default function Portfolio() {
               schemeType="ppf" 
               onRequestConsent={handleRequestConsent}
             >
+              {/* PAN Verification Banner */}
+              <div className="flex items-center mb-6 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <Shield className="h-4 w-4 text-green-600 mr-2" />
+                <span className="text-sm text-green-700">
+                  PPF data verified with your PAN card and PPF account number for secure access
+                </span>
+              </div>
+              
               {ppfLoading ? (
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
                 <div className="space-y-4">
@@ -1573,6 +1604,14 @@ export default function Portfolio() {
               schemeType="eps" 
               onRequestConsent={handleRequestConsent}
             >
+              {/* PAN Verification Banner */}
+              <div className="flex items-center mb-6 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <Shield className="h-4 w-4 text-green-600 mr-2" />
+                <span className="text-sm text-green-700">
+                  EPS pension data verified with your PAN card and UAN for secure access
+                </span>
+              </div>
+              
               {epsLoading ? (
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
                 <div className="space-y-4">
