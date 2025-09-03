@@ -31,6 +31,7 @@ export function Header() {
     { name: "Invest Smart", href: "/wealth-management" },
     { name: "Loans", href: "/loans" },
     { name: "Insurance", href: "/policybazaar" },
+    { name: "Contact", href: "/contact" },
     { name: "Support", href: "/support" },
   ];
 

@@ -43,6 +43,7 @@ import BajajFinance from "@/pages/bajaj-finance";
 import TataCapital from "@/pages/tata-capital";
 import PolicyBazaar from "@/pages/policybazaar";
 import Cibil from "@/pages/cibil";
+import Contact from "@/pages/contact";
 import { SupplierManagement } from "@/pages/supplier-management";
 
 function Router() {
@@ -87,6 +88,7 @@ function Router() {
       <Route path="/tata-capital" component={TataCapital} />
       <Route path="/policybazaar" component={PolicyBazaar} />
       <Route path="/cibil" component={Cibil} />
+      <Route path="/contact" component={Contact} />
       <Route path="/suppliers" component={SupplierManagement} />
       <Route component={NotFound} />
     </Switch>

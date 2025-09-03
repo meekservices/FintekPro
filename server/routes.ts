@@ -13400,6 +13400,44 @@ System Security Data:`;
     }
   });
 
+  // Handle contact form submissions
+  app.post("/api/contact/submit", async (req, res) => {
+    try {
+      const { fullName, email, phone, company, inquiryType, subject, message } = req.body;
+      
+      // Validate required fields
+      if (!fullName || !email || !phone || !inquiryType || !subject || !message) {
+        return res.status(400).json({ error: "All required fields must be provided" });
+      }
+
+      // Create a support ticket from the contact form
+      const contactTicketData = {
+        clientName: fullName,
+        clientEmail: email,
+        clientPhone: phone,
+        subject: `Contact Form: ${subject}`,
+        description: `Company: ${company || 'Not specified'}\nInquiry Type: ${inquiryType}\n\nMessage:\n${message}`,
+        category: inquiryType,
+        priority: 'medium',
+        assignedTo: null
+      };
+
+      const ticket = await partnerService.createSupportTicket(contactTicketData);
+      
+      // Log the contact form submission for analytics
+      console.log(`[CONTACT] New contact form submission: ${inquiryType} from ${email}`);
+      
+      res.status(201).json({ 
+        success: true, 
+        message: "Contact form submitted successfully",
+        ticketId: ticket.id 
+      });
+    } catch (error) {
+      console.error("Error processing contact form:", error);
+      res.status(500).json({ error: "Failed to submit contact form" });
+    }
+  });
+
   // ============ PUBLIC PRODUCT CATALOG ROUTES ============
 
   // Get all public products

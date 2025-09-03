@@ -1,3 +1,5 @@
-2025/09/02-19:51:28.927 1f24 Reusing MANIFEST /home/runner/workspace/whatsapp-session/session/Default/Local Storage/leveldb/MANIFEST-000001
-2025/09/02-19:51:28.947 1f24 Recovering log #22
-2025/09/02-19:51:28.948 1f24 Reusing old log /home/runner/workspace/whatsapp-session/session/Default/Local Storage/leveldb/000022.log 
+2025/09/03-15:50:51.150 715 Reusing MANIFEST /home/runner/workspace/whatsapp-session/session/Default/Local Storage/leveldb/MANIFEST-000001
+2025/09/03-15:50:51.165 715 Recovering log #22
+2025/09/03-15:50:51.175 715 Reusing old log /home/runner/workspace/whatsapp-session/session/Default/Local Storage/leveldb/000022.log 
+2025/09/03-15:51:30.556 71b Level-0 table #26: started
+2025/09/03-15:51:30.566 71b Level-0 table #26: 24368 bytes OK
