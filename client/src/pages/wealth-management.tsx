@@ -61,8 +61,8 @@ export default function WealthManagement() {
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
         <div className="text-center space-y-2">
-          <h1 className="text-4xl font-bold text-gray-900">FintekPro Wealth Management</h1>
-          <p className="text-xl text-muted-foreground">Comprehensive financial planning for your future</p>
+          <h1 className="text-4xl font-bold text-gray-900">FintekPro Invest Smart</h1>
+          <p className="text-xl text-muted-foreground">Transform your ₹72,000 monthly surplus into ₹4.2 crores - Your CIBIL profile is perfect for wealth building</p>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
