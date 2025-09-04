@@ -38,18 +38,26 @@ const profileFormSchema = z.object({
   voterIdNumber: z.string().optional(),
   
   // Personal Details
-  gender: z.enum(["male", "female", "other"]),
-  maritalStatus: z.enum(["single", "married", "divorced", "widowed"]).optional(),
+  gender: z.enum(["male", "female", "other", "prefer_not_to_say"]),
+  maritalStatus: z.enum(["single", "married", "divorced", "widowed", "separated"]).optional(),
   fatherName: z.string().min(1, "Father's name is required"),
   motherName: z.string().min(1, "Mother's name is required"),
   spouseName: z.string().optional(),
   
-  // Address Information
-  address: z.string().min(1, "Address is required"),
-  city: z.string().min(1, "City is required"),
-  state: z.string().min(1, "State is required"),
-  pincode: z.string().regex(/^[0-9]{6}$/, "Pincode must be 6 digits"),
-  country: z.string().default("India"),
+  // Present Address Information
+  presentAddress: z.string().min(1, "Present address is required"),
+  presentCity: z.string().min(1, "City is required"),
+  presentState: z.string().min(1, "State is required"),
+  presentPincode: z.string().regex(/^[0-9]{6}$/, "PIN code must be 6 digits"),
+  presentCountry: z.string().default("India"),
+  
+  // Permanent Address Information
+  permanentAddress: z.string().optional(),
+  permanentCity: z.string().optional(),
+  permanentState: z.string().optional(),
+  permanentPincode: z.string().optional(),
+  permanentCountry: z.string().optional(),
+  isAddressSame: z.boolean().default(false),
   
   // Financial Information
   occupation: z.string().min(1, "Occupation is required"),
@@ -159,11 +167,17 @@ export default function ProfilePage() {
       fatherName: profile?.fatherName || "",
       motherName: profile?.motherName || "",
       spouseName: profile?.spouseName || "",
-      address: profile?.address || "",
-      city: profile?.city || "",
-      state: profile?.state || "",
-      pincode: profile?.pincode || "",
-      country: profile?.country || "India",
+      presentAddress: profile?.presentAddress || "",
+      presentCity: profile?.presentCity || "",
+      presentState: profile?.presentState || "",
+      presentPincode: profile?.presentPincode || "",
+      presentCountry: profile?.presentCountry || "India",
+      permanentAddress: profile?.permanentAddress || "",
+      permanentCity: profile?.permanentCity || "",
+      permanentState: profile?.permanentState || "",
+      permanentPincode: profile?.permanentPincode || "",
+      permanentCountry: profile?.permanentCountry || "India",
+      isAddressSame: profile?.isAddressSame || false,
       occupation: profile?.occupation || "",
       annualIncome: profile?.annualIncome || "",
       sourceOfWealth: profile?.sourceOfWealth || "",
@@ -623,7 +637,7 @@ export default function ProfilePage() {
                     name="mobile"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Mobile Number</FormLabel>
+                        <FormLabel>Mobile Number *</FormLabel>
                         <FormControl>
                           <Input placeholder="+91 XXXXX XXXXX" {...field} data-testid="input-mobile" />
                         </FormControl>
@@ -637,7 +651,7 @@ export default function ProfilePage() {
                     name="dateOfBirth"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Date of Birth</FormLabel>
+                        <FormLabel>Date of Birth *</FormLabel>
                         <FormControl>
                           <Input type="date" {...field} data-testid="input-date-of-birth" />
                         </FormControl>
@@ -646,6 +660,289 @@ export default function ProfilePage() {
                       </FormItem>
                     )}
                   />
+                </div>
+                
+                <Separator />
+                
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Demographic Information
+                  </h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <FormField
+                      control={form.control}
+                      name="gender"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Gender *</FormLabel>
+                          <FormControl>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <SelectTrigger data-testid="select-gender">
+                                <SelectValue placeholder="Select gender" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="male">Male</SelectItem>
+                                <SelectItem value="female">Female</SelectItem>
+                                <SelectItem value="other">Other</SelectItem>
+                                <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="maritalStatus"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Marital Status *</FormLabel>
+                          <FormControl>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <SelectTrigger data-testid="select-marital-status">
+                                <SelectValue placeholder="Select marital status" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="single">Single</SelectItem>
+                                <SelectItem value="married">Married</SelectItem>
+                                <SelectItem value="divorced">Divorced</SelectItem>
+                                <SelectItem value="widowed">Widowed</SelectItem>
+                                <SelectItem value="separated">Separated</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  
+                  {form.watch('maritalStatus') === 'married' && (
+                    <FormField
+                      control={form.control}
+                      name="spouseName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Spouse Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter spouse's full name" {...field} data-testid="input-spouse-name" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                </div>
+                
+                <Separator />
+                
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold flex items-center gap-2">
+                    <Heart className="h-5 w-5" />
+                    Family Details
+                  </h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <FormField
+                      control={form.control}
+                      name="fatherName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Father's Name *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter father's full name" {...field} data-testid="input-father-name" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="motherName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Mother's Name *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter mother's full name" {...field} data-testid="input-mother-name" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+                
+                <Separator />
+                
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold flex items-center gap-2">
+                    <MapPin className="h-5 w-5" />
+                    Address Information
+                  </h4>
+                  
+                  <div className="space-y-6">
+                    <div className="space-y-4">
+                      <h5 className="font-semibold text-gray-900 dark:text-gray-100">Present Address</h5>
+                      
+                      <FormField
+                        control={form.control}
+                        name="presentAddress"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Present Address *</FormLabel>
+                            <FormControl>
+                              <Textarea 
+                                placeholder="Enter your current residential address"
+                                {...field}
+                                data-testid="input-present-address"
+                                rows={3}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <FormField
+                          control={form.control}
+                          name="presentCity"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>City *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="City" {...field} data-testid="input-present-city" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="presentState"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>State *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="State" {...field} data-testid="input-present-state" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="presentPincode"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>PIN Code *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="PIN Code" {...field} data-testid="input-present-pincode" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      <FormField
+                        control={form.control}
+                        name="isAddressSame"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                data-testid="checkbox-same-address"
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel>Permanent address is same as present address</FormLabel>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    
+                    {!form.watch('isAddressSame') && (
+                      <div className="space-y-4">
+                        <h5 className="font-semibold text-gray-900 dark:text-gray-100">Permanent Address</h5>
+                        
+                        <FormField
+                          control={form.control}
+                          name="permanentAddress"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Permanent Address *</FormLabel>
+                              <FormControl>
+                                <Textarea 
+                                  placeholder="Enter your permanent address"
+                                  {...field}
+                                  data-testid="input-permanent-address"
+                                  rows={3}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                          <FormField
+                            control={form.control}
+                            name="permanentCity"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>City *</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="City" {...field} data-testid="input-permanent-city" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="permanentState"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>State *</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="State" {...field} data-testid="input-permanent-state" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="permanentPincode"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>PIN Code *</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="PIN Code" {...field} data-testid="input-permanent-pincode" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
