@@ -247,7 +247,7 @@ export default function Contact() {
                             </FormControl>
                             <SelectContent>
                               <SelectItem value="investment">Investment Services</SelectItem>
-                              <SelectItem value="wealth-management">InvestSmart</SelectItem>
+                              <SelectItem value="investsmart">InvestSmart</SelectItem>
                               <SelectItem value="loan-services">Loan Services</SelectItem>
                               <SelectItem value="insurance">Insurance Products</SelectItem>
                               <SelectItem value="trading">Trading & Demat</SelectItem>

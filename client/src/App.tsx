@@ -70,6 +70,7 @@ function Router() {
       <Route path="/partner" component={PartnerPortal} />
       <Route path="/support" component={Support} />
       <Route path="/wealth" component={InvestSmart} />
+      <Route path="/investsmart" component={InvestSmart} />
       <Route path="/wealth-management" component={InvestSmart} />
       <Route path="/achievements" component={Achievements} />
       <Route path="/capital-gains" component={CapitalGainsReports} />
