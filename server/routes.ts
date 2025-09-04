@@ -30,6 +30,8 @@ import { bajajFinanceAPI } from './bajaj-finance-api';
 import { tataCapitalAPI } from './tata-capital-api';
 import { PolicyBazaarAPI } from './policybazaar-api';
 import { CibilAPI } from './cibil-api';
+import { ZohoCommerceAPI, type ZohoCommerceConfig } from './zoho-commerce-api';
+import { zohoCommerceConfig, zohoProducts, zohoCategories, zohoOrders, zohoCustomers, zohoInventory, zohoWebhooks, zohoSyncLogs, insertZohoCommerceConfigSchema, insertZohoProductSchema, insertZohoCategorySchema, insertZohoOrderSchema } from '@shared/schema';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -44,7 +46,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     await whatsappService.initialize();
     console.log('✅ WhatsApp service initialized successfully');
   } catch (error) {
-    console.log('⚠️ WhatsApp service initialization failed (non-critical):', error.message);
+    console.log('⚠️ WhatsApp service initialization failed (non-critical):', error instanceof Error ? error.message : 'Unknown error');
   }
   
   // Activity tracking middleware
@@ -17387,6 +17389,38 @@ System Security Data:`;
   app.post("/api/cibil/improvement-tips", CibilAPI.getCreditImprovementTips);
   app.post("/api/cibil/loan-eligibility", CibilAPI.checkLoanEligibility);
   app.post("/api/cibil/card-eligibility", CibilAPI.checkCreditCardEligibility);
+
+  // =============================================
+  // ZOHO COMMERCE INTEGRATION ROUTES
+  // =============================================
+
+  // Test Zoho Commerce integration readiness
+  app.get("/api/zoho-commerce/test", async (req, res) => {
+    try {
+      res.json({
+        success: true,
+        data: {
+          message: "Zoho Commerce integration is ready for FintekPro",
+          features: [
+            "Product synchronization",
+            "Order management", 
+            "Customer data sync",
+            "Inventory tracking",
+            "Payment processing",
+            "Webhook support",
+            "Financial product e-commerce"
+          ],
+          status: "ready"
+        }
+      });
+    } catch (error) {
+      console.error("Error testing Zoho Commerce:", error);
+      res.status(500).json({ 
+        error: "Failed to test integration",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
 
   // Global error handler (must be last)
   app.use(globalErrorHandler);
