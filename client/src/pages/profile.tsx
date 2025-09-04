@@ -1690,6 +1690,394 @@ export default function ProfilePage() {
             </Card>
           )}
 
+          {/* Documents Tab */}
+          {activeTab === "documents" && (
+            <Card data-testid="documents-card">
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <FileText className="h-5 w-5" />
+                  <span>Document Verification</span>
+                </CardTitle>
+                <CardDescription>
+                  Upload required documents for KYC verification based on your profile
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                
+                {/* Document Requirements Summary */}
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <h4 className="font-semibold text-blue-900 dark:text-blue-200 mb-3 flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4" />
+                    Required Documents Based on Your Profile
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* Always required */}
+                    <div className="flex items-center gap-2 text-sm text-blue-800 dark:text-blue-300">
+                      <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                      <span>PAN Card (Mandatory)</span>
+                    </div>
+                    
+                    {/* Based on address proof */}
+                    <div className="flex items-center gap-2 text-sm text-blue-800 dark:text-blue-300">
+                      <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                      <span>Address Proof (Mandatory)</span>
+                    </div>
+                    
+                    {/* Based on age verification */}
+                    {form.watch("dateOfBirth") && (
+                      <div className="flex items-center gap-2 text-sm text-blue-800 dark:text-blue-300">
+                        <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                        <span>Age Proof (DOB provided)</span>
+                      </div>
+                    )}
+                    
+                    {/* Based on income */}
+                    {form.watch("annualIncome") && parseInt(form.watch("annualIncome")?.replace(/\D/g, "") || "0") > 1000000 && (
+                      <div className="flex items-center gap-2 text-sm text-blue-800 dark:text-blue-300">
+                        <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                        <span>Income Proof (High income)</span>
+                      </div>
+                    )}
+                    
+                    {/* Based on residency status */}
+                    {form.watch("residentStatus") && form.watch("residentStatus") !== "resident" && (
+                      <div className="flex items-center gap-2 text-sm text-blue-800 dark:text-blue-300">
+                        <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                        <span>Passport (Non-resident)</span>
+                      </div>
+                    )}
+                    
+                    {/* Based on FATCA status */}
+                    {form.watch("fatcaStatus") === "us_person" && (
+                      <div className="flex items-center gap-2 text-sm text-blue-800 dark:text-blue-300">
+                        <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                        <span>US Tax Documents</span>
+                      </div>
+                    )}
+                    
+                    {/* Based on PEP status */}
+                    {form.watch("pepStatus") === "yes" && (
+                      <div className="flex items-center gap-2 text-sm text-blue-800 dark:text-blue-300">
+                        <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                        <span>PEP Declaration & Proof</span>
+                      </div>
+                    )}
+                    
+                    {/* Based on demat accounts */}
+                    {(form.watch("nsdlDpId") || form.watch("cdslBoId")) && (
+                      <div className="flex items-center gap-2 text-sm text-blue-800 dark:text-blue-300">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span>Demat Account Statements</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-4 mt-3 text-xs">
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                      <span>Mandatory</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                      <span>Recommended</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <span>Optional</span>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Identity Documents */}
+                <div className="space-y-4">
+                  <h4 className="font-semibold flex items-center gap-2">
+                    <CreditCard className="h-4 w-4" />
+                    Identity Documents
+                  </h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* PAN Card */}
+                    <div className="border rounded-lg p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="font-medium">PAN Card</Label>
+                        <Badge variant="destructive" className="text-xs">Required</Badge>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Upload clear image of your PAN card for tax identification
+                      </p>
+                      <div className="space-y-2">
+                        <Input
+                          type="file"
+                          accept="image/*,.pdf"
+                          data-testid="upload-pan-card"
+                          className="cursor-pointer"
+                        />
+                        {form.watch("panNumber") && (
+                          <p className="text-xs text-green-600">
+                            ✓ PAN Number provided: {form.watch("panNumber")}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Aadhaar Card */}
+                    <div className="border rounded-lg p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="font-medium">Aadhaar Card</Label>
+                        <Badge variant="secondary" className="text-xs">Address Proof</Badge>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Upload Aadhaar card for address verification (mask first 8 digits)
+                      </p>
+                      <div className="space-y-2">
+                        <Input
+                          type="file"
+                          accept="image/*,.pdf"
+                          data-testid="upload-aadhaar"
+                          className="cursor-pointer"
+                        />
+                        {form.watch("aadharNumber") && (
+                          <p className="text-xs text-green-600">
+                            ✓ Aadhaar Number provided
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Passport - Conditional based on residency */}
+                    {(form.watch("residentStatus") !== "resident" || form.watch("passportNumber")) && (
+                      <div className="border rounded-lg p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label className="font-medium">Passport</Label>
+                          <Badge variant={form.watch("residentStatus") !== "resident" ? "destructive" : "outline"} className="text-xs">
+                            {form.watch("residentStatus") !== "resident" ? "Required" : "Optional"}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {form.watch("residentStatus") !== "resident" 
+                            ? "Required for non-resident status verification"
+                            : "Upload passport for additional identity verification"
+                          }
+                        </p>
+                        <div className="space-y-2">
+                          <Input
+                            type="file"
+                            accept="image/*,.pdf"
+                            data-testid="upload-passport"
+                            className="cursor-pointer"
+                          />
+                          {form.watch("passportNumber") && (
+                            <p className="text-xs text-green-600">
+                              ✓ Passport Number provided: {form.watch("passportNumber")}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Driving License - Optional */}
+                    <div className="border rounded-lg p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="font-medium">Driving License</Label>
+                        <Badge variant="outline" className="text-xs">Optional</Badge>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Additional identity proof with address verification
+                      </p>
+                      <div className="space-y-2">
+                        <Input
+                          type="file"
+                          accept="image/*,.pdf"
+                          data-testid="upload-driving-license"
+                          className="cursor-pointer"
+                        />
+                        {form.watch("drivingLicense") && (
+                          <p className="text-xs text-green-600">
+                            ✓ License Number provided
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <Separator />
+                
+                {/* Financial Documents */}
+                <div className="space-y-4">
+                  <h4 className="font-semibold flex items-center gap-2">
+                    <Banknote className="h-4 w-4" />
+                    Financial Documents
+                  </h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Bank Statement */}
+                    <div className="border rounded-lg p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="font-medium">Bank Statement</Label>
+                        <Badge variant="secondary" className="text-xs">Address Proof</Badge>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Latest 3 months bank statement for address and financial verification
+                      </p>
+                      <div className="space-y-2">
+                        <Input
+                          type="file"
+                          accept=".pdf"
+                          data-testid="upload-bank-statement"
+                          className="cursor-pointer"
+                        />
+                        {form.watch("bankAccountNumber") && (
+                          <p className="text-xs text-green-600">
+                            ✓ Bank account details provided
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Income Proof - Conditional based on income range */}
+                    {form.watch("annualIncome") && parseInt(form.watch("annualIncome")?.replace(/\D/g, "") || "0") > 1000000 && (
+                      <div className="border rounded-lg p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label className="font-medium">Income Proof</Label>
+                          <Badge variant="destructive" className="text-xs">Required</Badge>
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          Salary slips, ITR, or income certificate for high income verification
+                        </p>
+                        <Input
+                          type="file"
+                          accept="image/*,.pdf"
+                          data-testid="upload-income-proof"
+                          className="cursor-pointer"
+                        />
+                      </div>
+                    )}
+                    
+                    {/* ITR Documents - Optional */}
+                    <div className="border rounded-lg p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="font-medium">ITR Documents</Label>
+                        <Badge variant="outline" className="text-xs">Recommended</Badge>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Latest Income Tax Return for financial profile verification
+                      </p>
+                      <Input
+                        type="file"
+                        accept=".pdf"
+                        data-testid="upload-itr"
+                        className="cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                <Separator />
+                
+                {/* Regulatory Documents */}
+                <div className="space-y-4">
+                  <h4 className="font-semibold flex items-center gap-2">
+                    <Shield className="h-4 w-4" />
+                    Regulatory & Compliance Documents
+                  </h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* FATCA Documents - Conditional */}
+                    {form.watch("fatcaStatus") === "us_person" && (
+                      <div className="border rounded-lg p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label className="font-medium">US Tax Documents</Label>
+                          <Badge variant="destructive" className="text-xs">Required</Badge>
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          W-9 form or US tax return for FATCA compliance
+                        </p>
+                        <Input
+                          type="file"
+                          accept=".pdf"
+                          data-testid="upload-fatca-documents"
+                          className="cursor-pointer"
+                        />
+                      </div>
+                    )}
+                    
+                    {/* PEP Declaration - Conditional */}
+                    {form.watch("pepStatus") === "yes" && (
+                      <div className="border rounded-lg p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label className="font-medium">PEP Declaration</Label>
+                          <Badge variant="destructive" className="text-xs">Required</Badge>
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          Official documents supporting PEP status declaration
+                        </p>
+                        <Input
+                          type="file"
+                          accept="image/*,.pdf"
+                          data-testid="upload-pep-documents"
+                          className="cursor-pointer"
+                        />
+                      </div>
+                    )}
+                    
+                    {/* Demat Account Statements - Conditional */}
+                    {(form.watch("nsdlDpId") || form.watch("cdslBoId")) && (
+                      <div className="border rounded-lg p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label className="font-medium">Demat Statements</Label>
+                          <Badge variant="secondary" className="text-xs">Optional</Badge>
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          Latest demat account statements for portfolio verification
+                        </p>
+                        <Input
+                          type="file"
+                          accept=".pdf"
+                          data-testid="upload-demat-statement"
+                          className="cursor-pointer"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <Separator />
+                
+                {/* Upload Guidelines */}
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">
+                  <h5 className="font-medium text-gray-900 dark:text-white">Document Upload Guidelines</h5>
+                  <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1 ml-4">
+                    <li>• Upload clear, readable images or PDF files</li>
+                    <li>• Ensure all four corners of the document are visible</li>
+                    <li>• File size should not exceed 5MB per document</li>
+                    <li>• Accepted formats: JPG, PNG, PDF</li>
+                    <li>• For Aadhaar, mask the first 8 digits for privacy</li>
+                    <li>• Documents should be recent and not expired</li>
+                  </ul>
+                </div>
+                
+                {/* Upload Status Summary */}
+                <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                  <h5 className="font-medium mb-3">Document Verification Status</h5>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded">
+                      <span className="text-sm">Identity Proof</span>
+                      <Badge variant="outline" className="text-xs">Pending</Badge>
+                    </div>
+                    <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded">
+                      <span className="text-sm">Address Proof</span>
+                      <Badge variant="outline" className="text-xs">Pending</Badge>
+                    </div>
+                    <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded">
+                      <span className="text-sm">Financial Proof</span>
+                      <Badge variant="outline" className="text-xs">Pending</Badge>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Save Button */}
           <div className="flex justify-end pt-6" data-testid="save-section">
             <Button
