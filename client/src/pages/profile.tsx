@@ -855,49 +855,244 @@ export default function ProfilePage() {
             </Card>
           )}
 
-          {/* Preferences */}
-          {activeTab === "preferences" && (
+          {/* Compliance */}
+          {activeTab === "compliance" && (
             <Card data-testid="preferences-card">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
-                  <Settings className="h-5 w-5" />
-                  <span>Platform Preferences</span>
+                  <Shield className="h-5 w-5" />
+                  <span>Regulatory Compliance</span>
                 </CardTitle>
                 <CardDescription>
-                  Customize your platform experience and notification settings
+                  Mandatory regulatory information for investment services compliance
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="preferredCurrency"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Preferred Currency</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-currency">
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="INR">INR (₹) - Indian Rupee</SelectItem>
-                          <SelectItem value="USD">USD ($) - US Dollar</SelectItem>
-                          <SelectItem value="EUR">EUR (€) - Euro</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
+                <div className="space-y-4">
+                  <h4 className="font-semibold flex items-center gap-2">
+                    <Globe className="h-4 w-4" />
+                    FATCA & CRS Declaration
+                  </h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <FormField
+                      control={form.control}
+                      name="fatcaStatus"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>FATCA Status</FormLabel>
+                          <FormControl>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <SelectTrigger data-testid="select-fatca-status">
+                                <SelectValue placeholder="Select FATCA status" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="us_person">US Person</SelectItem>
+                                <SelectItem value="non_us_person">Non-US Person</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </FormControl>
+                          <FormDescription>Required for US tax compliance</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="taxResidencyCountry"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Tax Residency Country</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g., India" {...field} data-testid="input-tax-country" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  
+                  {form.watch('fatcaStatus') === 'us_person' && (
+                    <FormField
+                      control={form.control}
+                      name="fatcaTinNumber"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>US TIN Number</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter US Tax Identification Number" {...field} data-testid="input-tin" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   )}
-                />
+                </div>
+                
+                <Separator />
                 
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Notification Preferences</h3>
-                  <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-                    <p className="text-sm text-blue-800 dark:text-blue-200">
-                      Notification settings will be available in the next version. You'll be able to configure
-                      alerts for portfolio changes, market movements, and investment opportunities.
-                    </p>
+                  <h4 className="font-semibold flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    PEP Declaration
+                  </h4>
+                  
+                  <FormField
+                    control={form.control}
+                    name="pepStatus"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Are you a Politically Exposed Person (PEP)? *</FormLabel>
+                        <FormControl>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <SelectTrigger data-testid="select-pep-status">
+                              <SelectValue placeholder="Select PEP status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="no">No</SelectItem>
+                              <SelectItem value="yes">Yes</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
+                        <FormDescription>
+                          PEP includes senior government officials, their family members, and close associates
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  {form.watch('pepStatus') === 'yes' && (
+                    <FormField
+                      control={form.control}
+                      name="pepDetails"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>PEP Details</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              placeholder="Please provide details about your political exposure" 
+                              {...field} 
+                              data-testid="input-pep-details"
+                              rows={3}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                </div>
+                
+                <Separator />
+                
+                <div className="space-y-4">
+                  <h4 className="font-semibold flex items-center gap-2">
+                    <Lock className="h-4 w-4" />
+                    Consent & Declarations
+                  </h4>
+                  
+                  <div className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="kycConsent"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              data-testid="checkbox-kyc-consent"
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel className="text-sm font-normal">
+                              I consent to KYC verification and data processing *
+                            </FormLabel>
+                            <FormDescription>
+                              I authorize the collection and verification of my identity documents for regulatory compliance.
+                            </FormDescription>
+                            <FormMessage />
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="fatcaDeclaration"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              data-testid="checkbox-fatca-declaration"
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel className="text-sm font-normal">
+                              I confirm the accuracy of FATCA declaration *
+                            </FormLabel>
+                            <FormDescription>
+                              I declare that the information provided for FATCA compliance is true and accurate.
+                            </FormDescription>
+                            <FormMessage />
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="investmentRiskConsent"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              data-testid="checkbox-risk-consent"
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel className="text-sm font-normal">
+                              I understand investment risks *
+                            </FormLabel>
+                            <FormDescription>
+                              I acknowledge that investments are subject to market risks and may lose value.
+                            </FormDescription>
+                            <FormMessage />
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="termsConditions"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              data-testid="checkbox-terms"
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel className="text-sm font-normal">
+                              I agree to Terms & Conditions *
+                            </FormLabel>
+                            <FormDescription>
+                              I have read and agree to the platform's terms of service and privacy policy.
+                            </FormDescription>
+                            <FormMessage />
+                          </div>
+                        </FormItem>
+                      )}
+                    />
                   </div>
                 </div>
               </CardContent>
