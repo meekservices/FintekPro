@@ -2693,3 +2693,225 @@ export const insertFinancialGoalSchema = createInsertSchema(financialGoals).omit
 
 export type FinancialGoal = typeof financialGoals.$inferSelect;
 export type InsertFinancialGoal = z.infer<typeof insertFinancialGoalSchema>;
+
+// Zoho Commerce Integration Tables
+export const zohoCommerceConfig = pgTable("zoho_commerce_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  clientId: varchar("client_id").notNull(),
+  clientSecret: varchar("client_secret").notNull(),
+  redirectUri: varchar("redirect_uri").notNull(),
+  baseUrl: varchar("base_url").notNull(), // e.g., 'https://commerce.zoho.com'
+  scope: jsonb("scope").notNull(), // array of scopes
+  accessToken: text("access_token"),
+  refreshToken: text("refresh_token"),
+  tokenExpiry: timestamp("token_expiry"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const zohoCategories = pgTable("zoho_categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  zohoCategoryId: varchar("zoho_category_id"), // ID from Zoho Commerce
+  localCategoryId: varchar("local_category_id").references(() => storeCategories.id),
+  name: varchar("name").notNull(),
+  description: text("description"),
+  parentId: varchar("parent_id").references((): any => zohoCategories.id),
+  sortOrder: integer("sort_order").default(0),
+  isActive: boolean("is_active").default(true),
+  seoTitle: varchar("seo_title"),
+  seoDescription: text("seo_description"),
+  imageUrl: varchar("image_url"),
+  syncStatus: varchar("sync_status").default('pending'),
+  lastSyncAt: timestamp("last_sync_at"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const zohoProducts = pgTable("zoho_products", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  zohoProductId: varchar("zoho_product_id"), // ID from Zoho Commerce
+  localProductId: varchar("local_product_id").references(() => storeProducts.id),
+  name: varchar("name").notNull(),
+  description: text("description"),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  comparePrice: decimal("compare_price", { precision: 10, scale: 2 }),
+  sku: varchar("sku"),
+  weight: decimal("weight", { precision: 8, scale: 2 }),
+  weightUnit: varchar("weight_unit").default('kg'),
+  trackQuantity: boolean("track_quantity").default(true),
+  quantity: integer("quantity").default(0),
+  categoryId: varchar("category_id").references(() => zohoCategories.id),
+  brand: varchar("brand"),
+  tags: jsonb("tags"), // array of tags
+  images: jsonb("images"), // array of image objects
+  variants: jsonb("variants"), // array of variant objects
+  seoTitle: varchar("seo_title"),
+  seoDescription: text("seo_description"),
+  status: varchar("status").default('active'), // active, inactive, draft
+  syncStatus: varchar("sync_status").default('pending'), // pending, synced, error
+  lastSyncAt: timestamp("last_sync_at"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const zohoOrders = pgTable("zoho_orders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  zohoOrderId: varchar("zoho_order_id"), // ID from Zoho Commerce
+  orderNumber: varchar("order_number"),
+  customerId: varchar("customer_id"),
+  customerEmail: varchar("customer_email"),
+  billingAddress: jsonb("billing_address"),
+  shippingAddress: jsonb("shipping_address"),
+  lineItems: jsonb("line_items"), // array of line items
+  subtotal: decimal("subtotal", { precision: 10, scale: 2 }),
+  totalTax: decimal("total_tax", { precision: 10, scale: 2 }),
+  totalPrice: decimal("total_price", { precision: 10, scale: 2 }),
+  currency: varchar("currency").default('INR'),
+  orderStatus: varchar("order_status").default('pending'), // pending, confirmed, shipped, delivered, cancelled
+  paymentStatus: varchar("payment_status").default('pending'), // pending, paid, failed, refunded
+  fulfillmentStatus: varchar("fulfillment_status").default('unfulfilled'), // unfulfilled, partial, fulfilled
+  notes: text("notes"),
+  syncStatus: varchar("sync_status").default('pending'),
+  lastSyncAt: timestamp("last_sync_at"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const zohoCustomers = pgTable("zoho_customers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  zohoCustomerId: varchar("zoho_customer_id"), // ID from Zoho Commerce
+  localUserId: varchar("local_user_id").references(() => users.id),
+  email: varchar("email").notNull(),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  phone: varchar("phone"),
+  addresses: jsonb("addresses"), // array of address objects
+  orderCount: integer("order_count").default(0),
+  totalSpent: decimal("total_spent", { precision: 10, scale: 2 }).default('0.00'),
+  lastOrderDate: timestamp("last_order_date"),
+  acceptsMarketing: boolean("accepts_marketing").default(false),
+  syncStatus: varchar("sync_status").default('pending'),
+  lastSyncAt: timestamp("last_sync_at"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const zohoInventory = pgTable("zoho_inventory", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  productId: varchar("product_id").references(() => zohoProducts.id).notNull(),
+  variantId: varchar("variant_id"), // Zoho variant ID
+  sku: varchar("sku"),
+  quantity: integer("quantity").default(0),
+  reservedQuantity: integer("reserved_quantity").default(0),
+  availableQuantity: integer("available_quantity").default(0),
+  reorderLevel: integer("reorder_level").default(0),
+  reorderQuantity: integer("reorder_quantity").default(0),
+  cost: decimal("cost", { precision: 10, scale: 2 }),
+  location: varchar("location"),
+  syncStatus: varchar("sync_status").default('pending'),
+  lastSyncAt: timestamp("last_sync_at"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const zohoWebhooks = pgTable("zoho_webhooks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  zohoWebhookId: varchar("zoho_webhook_id"), // ID from Zoho Commerce
+  eventType: varchar("event_type").notNull(), // order.created, product.updated, etc.
+  targetUrl: varchar("target_url").notNull(),
+  isActive: boolean("is_active").default(true),
+  secretKey: varchar("secret_key"), // for webhook verification
+  lastTriggered: timestamp("last_triggered"),
+  successCount: integer("success_count").default(0),
+  failureCount: integer("failure_count").default(0),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const zohoSyncLogs = pgTable("zoho_sync_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  syncType: varchar("sync_type").notNull(), // products, orders, customers, inventory
+  status: varchar("status").notNull(), // success, error, warning
+  recordsProcessed: integer("records_processed").default(0),
+  recordsSuccess: integer("records_success").default(0),
+  recordsError: integer("records_error").default(0),
+  errorDetails: jsonb("error_details"),
+  startedAt: timestamp("started_at").default(sql`CURRENT_TIMESTAMP`),
+  completedAt: timestamp("completed_at"),
+  duration: integer("duration"), // in milliseconds
+});
+
+// Zoho Commerce insert schemas
+export const insertZohoCommerceConfigSchema = createInsertSchema(zohoCommerceConfig).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertZohoCategorySchema = createInsertSchema(zohoCategories).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertZohoProductSchema = createInsertSchema(zohoProducts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertZohoOrderSchema = createInsertSchema(zohoOrders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertZohoCustomerSchema = createInsertSchema(zohoCustomers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertZohoInventorySchema = createInsertSchema(zohoInventory).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertZohoWebhookSchema = createInsertSchema(zohoWebhooks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertZohoSyncLogSchema = createInsertSchema(zohoSyncLogs).omit({
+  id: true,
+  startedAt: true,
+});
+
+// Zoho Commerce types
+export type ZohoCommerceConfig = typeof zohoCommerceConfig.$inferSelect;
+export type InsertZohoCommerceConfig = z.infer<typeof insertZohoCommerceConfigSchema>;
+export type ZohoCategory = typeof zohoCategories.$inferSelect;
+export type InsertZohoCategory = z.infer<typeof insertZohoCategorySchema>;
+export type ZohoProduct = typeof zohoProducts.$inferSelect;
+export type InsertZohoProduct = z.infer<typeof insertZohoProductSchema>;
+export type ZohoOrder = typeof zohoOrders.$inferSelect;
+export type InsertZohoOrder = z.infer<typeof insertZohoOrderSchema>;
+export type ZohoCustomer = typeof zohoCustomers.$inferSelect;
+export type InsertZohoCustomer = z.infer<typeof insertZohoCustomerSchema>;
+export type ZohoInventory = typeof zohoInventory.$inferSelect;
+export type InsertZohoInventory = z.infer<typeof insertZohoInventorySchema>;
+export type ZohoWebhook = typeof zohoWebhooks.$inferSelect;
+export type InsertZohoWebhook = z.infer<typeof insertZohoWebhookSchema>;
+export type ZohoSyncLog = typeof zohoSyncLogs.$inferSelect;
+export type InsertZohoSyncLog = z.infer<typeof insertZohoSyncLogSchema>;
