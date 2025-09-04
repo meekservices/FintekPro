@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -11,26 +11,31 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { insertUserProfileSchema, type UserProfile } from "@shared/schema";
-import { User, Settings, CreditCard, Target, TrendingUp, Building2 } from "lucide-react";
+import { User, Settings, CreditCard, Target, TrendingUp, Building2, CheckCircle, Shield, AlertCircle } from "lucide-react";
 
-// Create a simplified form schema for the profile form
+// Create a simplified form schema for the profile form based on the users table schema
 const profileFormSchema = z.object({
   clientId: z.string(),
-  fullName: z.string().min(2, "Full name must be at least 2 characters").optional(),
+  firstName: z.string().min(1, "First name is required").optional(),
+  middleName: z.string().optional(),
+  lastName: z.string().min(1, "Last name is required").optional(),
   email: z.string().email("Invalid email address").optional(),
-  phone: z.string().min(10, "Phone number must be at least 10 digits").optional(),
+  mobile: z.string().min(10, "Mobile number must be at least 10 digits").optional(),
   dateOfBirth: z.string().optional(),
   panNumber: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Invalid PAN number format").optional().or(z.literal("")),
   riskTolerance: z.enum(["conservative", "moderate", "aggressive"]).optional(),
   investmentExperience: z.enum(["beginner", "intermediate", "experienced"]).optional(),
-  investmentHorizon: z.enum(["short", "medium", "long"]).optional(),
-  annualIncome: z.number().optional(),
-  investmentGoals: z.array(z.string()).optional(),
-  mutualFundDistributor: z.string().optional(),
-  preferredCurrency: z.string().default("INR"),
+  annualIncome: z.string().optional(),
+  occupation: z.string().optional(),
+  address: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  pincode: z.string().optional(),
+  country: z.string().optional(),
 });
 
 type ProfileFormData = z.infer<typeof profileFormSchema>;
@@ -47,10 +52,19 @@ const investmentGoalsOptions = [
 
 export default function ProfilePage() {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<"personal" | "investment" | "api" | "preferences">("personal");
+  const [activeTab, setActiveTab] = useState<"personal" | "investment" | "kyc" | "preferences">("personal");
+  const [panVerifiedName, setPanVerifiedName] = useState<string | null>(null);
+  const [isVerifyingPan, setIsVerifyingPan] = useState(false);
 
-  const { data: profile, isLoading } = useQuery<UserProfile | undefined>({
+  const { data: profile, isLoading } = useQuery<any>({
     queryKey: ["/api/profile"],
+    retry: false,
+  });
+
+  // Query to get PAN verified name
+  const { data: panNameData } = useQuery({
+    queryKey: ["/api/pan/verify-name", profile?.panNumber],
+    enabled: !!profile?.panNumber,
     retry: false,
   });
 
@@ -58,20 +72,31 @@ export default function ProfilePage() {
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
       clientId: "demo-user-1", // Temporary demo client ID
-      fullName: profile?.fullName || "",
+      firstName: profile?.firstName || "",
+      middleName: profile?.middleName || "",
+      lastName: profile?.lastName || "",
       email: profile?.email || "",
-      phone: profile?.phone || "",
+      mobile: profile?.mobile || "",
       dateOfBirth: profile?.dateOfBirth || "",
       panNumber: profile?.panNumber || "",
-      riskTolerance: profile?.riskTolerance as any || "moderate",
-      investmentExperience: profile?.investmentExperience as any || "beginner",
-      investmentHorizon: profile?.investmentHorizon as any || "medium",
-      annualIncome: profile?.annualIncome ? parseFloat(profile.annualIncome.toString()) : undefined,
-      investmentGoals: profile?.investmentGoals || [],
-      mutualFundDistributor: profile?.mutualFundDistributor || "",
-      preferredCurrency: profile?.preferredCurrency || "INR",
+      riskTolerance: profile?.riskTolerance || "moderate",
+      investmentExperience: profile?.investmentExperience || "beginner",
+      annualIncome: profile?.annualIncome || "",
+      occupation: profile?.occupation || "",
+      address: profile?.address || "",
+      city: profile?.city || "",
+      state: profile?.state || "",
+      pincode: profile?.pincode || "",
+      country: profile?.country || "India",
     },
   });
+
+  // Update pan verified name when data is available
+  useEffect(() => {
+    if (panNameData?.success && panNameData?.verifiedName) {
+      setPanVerifiedName(panNameData.verifiedName);
+    }
+  }, [panNameData]);
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: ProfileFormData) => {
@@ -110,14 +135,50 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="container mx-auto py-8 max-w-6xl" data-testid="profile-page">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      <div className="container mx-auto py-8 max-w-6xl" data-testid="profile-page">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2" data-testid="profile-title">
-          Client Profile
-        </h1>
-        <p className="text-gray-600 dark:text-gray-400" data-testid="profile-description">
-          Manage your profile information and API integrations for personalized portfolio data
-        </p>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2" data-testid="profile-title">
+              Client Profile
+            </h1>
+            {panVerifiedName && (
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+                <span className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {panVerifiedName}
+                </span>
+                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                  PAN Verified
+                </Badge>
+              </div>
+            )}
+            <p className="text-gray-600 dark:text-gray-400" data-testid="profile-description">
+              Manage your profile information and API integrations for personalized portfolio data
+            </p>
+          </div>
+          
+          {profile?.panNumber && (
+            <div className="text-right">
+              <div className="flex items-center gap-2 mb-1">
+                <Shield className="h-4 w-4 text-blue-600" />
+                <span className="text-sm font-medium text-gray-900 dark:text-white">PAN: {profile.panNumber}</span>
+              </div>
+              {panVerifiedName ? (
+                <Badge className="bg-green-100 text-green-800 border border-green-200">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  Verified Identity
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                  <AlertCircle className="h-3 w-3 mr-1" />
+                  Pending Verification
+                </Badge>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Tab Navigation */}
@@ -125,7 +186,7 @@ export default function ProfilePage() {
         {[
           { key: "personal", label: "Personal Info", icon: User },
           { key: "investment", label: "Investment Profile", icon: TrendingUp },
-          { key: "api", label: "API Integration", icon: Building2 },
+          { key: "kyc", label: "KYC & Identity", icon: Shield },
           { key: "preferences", label: "Preferences", icon: Settings },
         ].map(({ key, label, icon: Icon }) => (
           <button
@@ -159,15 +220,43 @@ export default function ProfilePage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
+                {panVerifiedName && (
+                  <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                      <span className="font-semibold text-green-800 dark:text-green-200">PAN Verified Name</span>
+                    </div>
+                    <p className="text-2xl font-bold text-green-900 dark:text-green-100 mb-1">
+                      {panVerifiedName}
+                    </p>
+                    <p className="text-sm text-green-700 dark:text-green-300">
+                      This name is verified against your PAN card records and will be used for all official communications.
+                    </p>
+                  </div>
+                )}
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FormField
                     control={form.control}
-                    name="fullName"
+                    name="firstName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Full Name *</FormLabel>
+                        <FormLabel>First Name *</FormLabel>
                         <FormControl>
-                          <Input placeholder="Enter your full name" {...field} data-testid="input-full-name" />
+                          <Input placeholder="Enter your first name" {...field} data-testid="input-first-name" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="lastName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Last Name *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter your last name" {...field} data-testid="input-last-name" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -187,15 +276,28 @@ export default function ProfilePage() {
                     )}
                   />
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <FormField
                     control={form.control}
-                    name="phone"
+                    name="middleName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Phone Number</FormLabel>
+                        <FormLabel>Middle Name</FormLabel>
                         <FormControl>
-                          <Input placeholder="+91 XXXXX XXXXX" {...field} data-testid="input-phone" />
+                          <Input placeholder="Middle name (optional)" {...field} data-testid="input-middle-name" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="mobile"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Mobile Number</FormLabel>
+                        <FormControl>
+                          <Input placeholder="+91 XXXXX XXXXX" {...field} data-testid="input-mobile" />
                         </FormControl>
                         <FormDescription>Used for account security and notifications</FormDescription>
                         <FormMessage />
@@ -308,17 +410,44 @@ export default function ProfilePage() {
                     name="annualIncome"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Annual Income (₹)</FormLabel>
+                        <FormLabel>Annual Income</FormLabel>
                         <FormControl>
                           <Input
-                            type="number"
-                            placeholder="e.g., 500000"
+                            placeholder="e.g., 5,00,000"
                             {...field}
-                            onChange={(e) => field.onChange(parseFloat(e.target.value) || undefined)}
                             data-testid="input-annual-income"
                           />
                         </FormControl>
-                        <FormDescription>Used to suggest appropriate investment amounts</FormDescription>
+                        <FormDescription>Your yearly income in rupees</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <FormField
+                    control={form.control}
+                    name="occupation"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Occupation</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., Software Engineer" {...field} data-testid="input-occupation" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="city"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>City</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., Mumbai" {...field} data-testid="input-city" />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -328,20 +457,21 @@ export default function ProfilePage() {
             </Card>
           )}
 
-          {/* API Integration */}
-          {activeTab === "api" && (
-            <Card data-testid="api-integration-card">
+          {/* KYC & Identity */}
+          {activeTab === "kyc" && (
+            <Card data-testid="kyc-integration-card">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
-                  <Building2 className="h-5 w-5" />
-                  <span>API Integration Data</span>
+                  <Shield className="h-5 w-5" />
+                  <span>KYC & Identity Verification</span>
                 </CardTitle>
                 <CardDescription>
-                  Connect your financial accounts to get real portfolio data instead of demo information
+                  Complete your KYC verification for regulatory compliance and enhanced services
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Identity Verification</h3>
                   <FormField
                     control={form.control}
                     name="panNumber"
@@ -357,25 +487,26 @@ export default function ProfilePage() {
                             data-testid="input-pan-number"
                           />
                         </FormControl>
-                        <FormDescription>Required for mutual fund and stock investments</FormDescription>
+                        <FormDescription>Required for KYC compliance and investment services</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  <FormField
-                    control={form.control}
-                    name="mutualFundDistributor"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Mutual Fund Distributor Code</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., ARN-12345" {...field} data-testid="input-mf-distributor" />
-                        </FormControl>
-                        <FormDescription>Your mutual fund distributor's ARN code</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  
+                  {panVerifiedName && (
+                    <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800 mt-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <CheckCircle className="h-5 w-5 text-green-600" />
+                        <span className="font-semibold text-green-800 dark:text-green-200">PAN Verification Status</span>
+                      </div>
+                      <p className="text-lg font-bold text-green-900 dark:text-green-100 mb-1">
+                        Verified Name: {panVerifiedName}
+                      </p>
+                      <p className="text-sm text-green-700 dark:text-green-300">
+                        Your identity has been successfully verified with the Income Tax Department.
+                      </p>
+                    </div>
+                  )}
                 </div>
                 
                 <Separator />
@@ -458,6 +589,7 @@ export default function ProfilePage() {
           </div>
         </form>
       </Form>
+      </div>
     </div>
   );
 }
