@@ -30,7 +30,7 @@ import { RetirementPlanning } from "@/components/wealth/retirement-planning";
 import { RiskAssessment } from "@/components/wealth/risk-assessment";
 import { InvestmentRecommendations } from "@/components/wealth/investment-recommendations";
 
-export default function WealthManagement() {
+export default function InvestSmart() {
   const [activeTab, setActiveTab] = useState("dashboard");
 
   // Investment capacity analysis based on CIBIL obligations

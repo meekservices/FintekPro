@@ -23,7 +23,7 @@ import ProfilePage from "@/pages/profile";
 import AdminPanel from "@/pages/admin-panel";
 import PartnerPortal from "@/pages/partner-portal";
 import Support from "@/pages/support";
-import WealthManagement from "@/pages/wealth-management";
+import InvestSmart from "@/pages/wealth-management";
 import Achievements from "@/pages/achievements";
 import CapitalGainsReports from "@/pages/capital-gains-reports";
 import WhatsAppAuthPage from "@/pages/whatsapp-auth-page";
@@ -69,8 +69,8 @@ function Router() {
       <Route path="/agent" component={AgentDashboard} />
       <Route path="/partner" component={PartnerPortal} />
       <Route path="/support" component={Support} />
-      <Route path="/wealth" component={WealthManagement} />
-      <Route path="/wealth-management" component={WealthManagement} />
+      <Route path="/wealth" component={InvestSmart} />
+      <Route path="/wealth-management" component={InvestSmart} />
       <Route path="/achievements" component={Achievements} />
       <Route path="/capital-gains" component={CapitalGainsReports} />
       <Route path="/ckyc" component={CkycVerification} />
