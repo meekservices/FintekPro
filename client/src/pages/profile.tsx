@@ -76,6 +76,12 @@ const profileFormSchema = z.object({
   ifscCode: z.string().optional(),
   bankName: z.string().optional(),
   
+  // Demat Account Information
+  nsdlDpId: z.string().optional(),
+  nsdlClientId: z.string().optional(),
+  cdslBoId: z.string().optional(),
+  cdslDpId: z.string().optional(),
+  
   // Regulatory Compliance
   residentStatus: z.enum(["resident", "nri", "pio", "oci"]),
   countryOfResidence: z.string().optional(),
@@ -189,6 +195,10 @@ export default function ProfilePage() {
       bankAccountNumber: profile?.bankAccountNumber || "",
       ifscCode: profile?.ifscCode || "",
       bankName: profile?.bankName || "",
+      nsdlDpId: profile?.nsdlDpId || "",
+      nsdlClientId: profile?.nsdlClientId || "",
+      cdslBoId: profile?.cdslBoId || "",
+      cdslDpId: profile?.cdslDpId || "",
       residentStatus: profile?.residentStatus || "resident",
       countryOfResidence: profile?.countryOfResidence || "",
       taxResidencyCountry: profile?.taxResidencyCountry || "",
@@ -234,6 +244,92 @@ export default function ProfilePage() {
       });
     },
   });
+
+  // NSDL Account Verification Handler
+  const handleNsdlVerification = async () => {
+    const nsdlDpId = form.getValues("nsdlDpId");
+    const nsdlClientId = form.getValues("nsdlClientId");
+    
+    if (!nsdlDpId || !nsdlClientId) {
+      toast({
+        title: "Missing Information",
+        description: "Please enter both NSDL DP ID and Client ID",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      const response = await apiRequest("POST", "/api/nsdl/verify-account", {
+        dpId: nsdlDpId,
+        clientId: nsdlClientId,
+      });
+      
+      const result = await response.json();
+      
+      if (result.verified) {
+        toast({
+          title: "NSDL Account Verified",
+          description: `Account verified successfully. Holdings: ${result.holdingsCount} securities`,
+        });
+      } else {
+        toast({
+          title: "Verification Failed",
+          description: result.message || "Unable to verify NSDL account details",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Verification Error",
+        description: "Failed to connect to NSDL verification service",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // CDSL Account Verification Handler
+  const handleCdslVerification = async () => {
+    const cdslBoId = form.getValues("cdslBoId");
+    const cdslDpId = form.getValues("cdslDpId");
+    
+    if (!cdslBoId || !cdslDpId) {
+      toast({
+        title: "Missing Information",
+        description: "Please enter both CDSL BO ID and DP ID",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      const response = await apiRequest("POST", "/api/cdsl/verify-account", {
+        boId: cdslBoId,
+        dpId: cdslDpId,
+      });
+      
+      const result = await response.json();
+      
+      if (result.verified) {
+        toast({
+          title: "CDSL Account Verified",
+          description: `Account verified successfully. Holdings: ${result.holdingsCount} securities`,
+        });
+      } else {
+        toast({
+          title: "Verification Failed",
+          description: result.message || "Unable to verify CDSL account details",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Verification Error",
+        description: "Failed to connect to CDSL verification service",
+        variant: "destructive",
+      });
+    }
+  };
 
   const onSubmit = (data: ProfileFormData) => {
     updateProfileMutation.mutate(data);
@@ -1140,16 +1236,210 @@ export default function ProfilePage() {
                 
                 <Separator />
                 
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Demat Account Information</h3>
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold flex items-center gap-2">
+                      <Building2 className="h-5 w-5" />
+                      Demat Account Verification
+                    </h3>
+                  </div>
+                  
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Add your demat account details to fetch real holdings data from your broker
+                    Connect your demat accounts with NSDL and CDSL to verify holdings, track portfolio performance, and enable seamless trading operations.
                   </p>
-                  <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg">
-                    <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                      <strong>Note:</strong> This feature will be available soon. We're working on integrations with major brokers
-                      to fetch your actual holdings and portfolio data.
-                    </p>
+                  
+                  {/* NSDL Account Section */}
+                  <div className="border rounded-lg p-6 space-y-4">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-12 h-8 bg-blue-100 rounded flex items-center justify-center">
+                        <span className="text-blue-800 font-bold text-sm">NSDL</span>
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-lg">National Securities Depository Limited</h4>
+                        <p className="text-sm text-gray-600">India's first and largest securities depository</p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="nsdlDpId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>NSDL DP ID</FormLabel>
+                            <FormControl>
+                              <Input placeholder="IN300***" {...field} data-testid="input-nsdl-dp-id" />
+                            </FormControl>
+                            <FormDescription>8-digit Depository Participant ID</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="nsdlClientId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>NSDL Client ID</FormLabel>
+                            <FormControl>
+                              <Input placeholder="12345678" {...field} data-testid="input-nsdl-client-id" />
+                            </FormControl>
+                            <FormDescription>8-digit Client ID assigned by DP</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      className="w-full"
+                      data-testid="button-verify-nsdl"
+                      onClick={() => handleNsdlVerification()}
+                    >
+                      <Shield className="mr-2 h-4 w-4" />
+                      Verify NSDL Account & Fetch Holdings
+                    </Button>
+                  </div>
+                  
+                  {/* CDSL Account Section */}
+                  <div className="border rounded-lg p-6 space-y-4">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-12 h-8 bg-green-100 rounded flex items-center justify-center">
+                        <span className="text-green-800 font-bold text-sm">CDSL</span>
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-lg">Central Depository Services Limited</h4>
+                        <p className="text-sm text-gray-600">Leading securities depository in India</p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="cdslBoId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>CDSL BO ID</FormLabel>
+                            <FormControl>
+                              <Input placeholder="1201******" {...field} data-testid="input-cdsl-bo-id" />
+                            </FormControl>
+                            <FormDescription>16-digit Beneficial Owner ID</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="cdslDpId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>CDSL DP ID</FormLabel>
+                            <FormControl>
+                              <Input placeholder="12018000" {...field} data-testid="input-cdsl-dp-id" />
+                            </FormControl>
+                            <FormDescription>8-digit Depository Participant ID</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      className="w-full"
+                      data-testid="button-verify-cdsl"
+                      onClick={() => handleCdslVerification()}
+                    >
+                      <Shield className="mr-2 h-4 w-4" />
+                      Verify CDSL Account & Fetch Holdings
+                    </Button>
+                  </div>
+                  
+                  {/* Account Status Section */}
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 space-y-4">
+                    <h4 className="font-semibold flex items-center gap-2">
+                      <CheckCircle className="h-5 w-5 text-blue-600" />
+                      Account Verification Status
+                    </h4>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-3">
+                        <p className="text-sm font-medium">NSDL Account Status</p>
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                          <span className="text-sm text-gray-600">Pending Verification</span>
+                        </div>
+                        {form.watch("nsdlDpId") && form.watch("nsdlClientId") && (
+                          <div className="bg-white dark:bg-gray-700 p-3 rounded border text-xs">
+                            <p className="text-gray-500 dark:text-gray-400">Account Details:</p>
+                            <p><strong>DP ID:</strong> {form.watch("nsdlDpId")}</p>
+                            <p><strong>Client ID:</strong> {form.watch("nsdlClientId")}</p>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <p className="text-sm font-medium">CDSL Account Status</p>
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                          <span className="text-sm text-gray-600">Pending Verification</span>
+                        </div>
+                        {form.watch("cdslBoId") && form.watch("cdslDpId") && (
+                          <div className="bg-white dark:bg-gray-700 p-3 rounded border text-xs">
+                            <p className="text-gray-500 dark:text-gray-400">Account Details:</p>
+                            <p><strong>BO ID:</strong> {form.watch("cdslBoId")}</p>
+                            <p><strong>DP ID:</strong> {form.watch("cdslDpId")}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Holdings Summary */}
+                    <div className="border-t pt-4 mt-4">
+                      <h5 className="font-medium text-sm mb-3 flex items-center gap-2">
+                        <TrendingUp className="h-4 w-4 text-green-600" />
+                        Holdings Summary (Post Verification)
+                      </h5>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                        <div className="bg-white dark:bg-gray-700 p-3 rounded">
+                          <p className="text-xs text-gray-500">Total Holdings</p>
+                          <p className="text-lg font-semibold text-gray-400">--</p>
+                        </div>
+                        <div className="bg-white dark:bg-gray-700 p-3 rounded">
+                          <p className="text-xs text-gray-500">Market Value</p>
+                          <p className="text-lg font-semibold text-gray-400">--</p>
+                        </div>
+                        <div className="bg-white dark:bg-gray-700 p-3 rounded">
+                          <p className="text-xs text-gray-500">Equity Shares</p>
+                          <p className="text-lg font-semibold text-gray-400">--</p>
+                        </div>
+                        <div className="bg-white dark:bg-gray-700 p-3 rounded">
+                          <p className="text-xs text-gray-500">MF Units</p>
+                          <p className="text-lg font-semibold text-gray-400">--</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded border border-blue-200 dark:border-blue-800">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium text-blue-900 dark:text-blue-200">
+                            Benefits of Demat Account Verification:
+                          </p>
+                          <ul className="text-sm text-blue-800 dark:text-blue-300 space-y-1 ml-4">
+                            <li>• Real-time portfolio tracking across all accounts</li>
+                            <li>• Consolidated view of holdings and transactions</li>
+                            <li>• Enhanced security with 2FA verification</li>
+                            <li>• Direct integration with eDIS for seamless trading</li>
+                            <li>• Automated corporate actions and dividend tracking</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </CardContent>

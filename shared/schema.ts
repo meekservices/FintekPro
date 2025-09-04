@@ -210,6 +210,12 @@ export const users = pgTable("users", {
   enableKfintechApi: boolean("enable_kfintech_api").default(false),
   enableNsdlApi: boolean("enable_nsdl_api").default(false),
   enableCdslApi: boolean("enable_cdsl_api").default(false),
+  
+  // Demat Account Information
+  nsdlDpId: varchar("nsdl_dp_id"), // NSDL Depository Participant ID (8-digit)
+  nsdlClientId: varchar("nsdl_client_id"), // NSDL Client ID (8-digit)
+  cdslBoId: varchar("cdsl_bo_id"), // CDSL Beneficial Owner ID (16-digit)
+  cdslDpId: varchar("cdsl_dp_id"), // CDSL Depository Participant ID (8-digit)
 
   // PAN Verification Consent - One-time collection
   panVerificationConsent: boolean("pan_verification_consent").default(false),
