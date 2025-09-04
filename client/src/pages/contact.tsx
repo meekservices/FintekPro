@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, Phone, MapPin, Clock, Building, Send, MessageSquare, HeadphonesIcon } from "lucide-react";
+import { Mail, MapPin, Clock, Building, Send, MessageSquare, HeadphonesIcon } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 import { useMutation } from "@tanstack/react-query";
 
@@ -83,19 +83,16 @@ export default function Contact() {
     {
       city: "Mumbai",
       address: "FintekPro Tower, Bandra Kurla Complex, Mumbai - 400051",
-      phone: "+91 22 4567 8900",
       email: "mumbai@fintekpro.com"
     },
     {
       city: "Delhi",
       address: "FintekPro Plaza, Connaught Place, New Delhi - 110001", 
-      phone: "+91 11 4567 8900",
       email: "delhi@fintekpro.com"
     },
     {
       city: "Bangalore",
       address: "FintekPro Campus, Electronic City Phase 1, Bangalore - 560100",
-      phone: "+91 80 4567 8900", 
       email: "bangalore@fintekpro.com"
     }
   ];
@@ -106,21 +103,21 @@ export default function Contact() {
       description: "New investment opportunities and portfolio services",
       icon: Building,
       contact: "sales@fintekpro.com",
-      phone: "9686854321"
+      whatsapp: "9686854321"
     },
     {
       title: "Customer Support",
       description: "Account assistance and technical support",
       icon: HeadphonesIcon,
       contact: "support@fintekpro.com", 
-      phone: "9686854321"
+      whatsapp: "9686854321"
     },
     {
       title: "Partnership",
       description: "Business partnerships and institutional services",
       icon: MessageSquare,
       contact: "partners@fintekpro.com",
-      phone: "9686854321"
+      whatsapp: "9686854321"
     }
   ];
 
@@ -348,7 +345,7 @@ export default function Contact() {
                           </p>
                           <p className="text-sm">
                             <SiWhatsapp className="h-4 w-4 inline mr-1 text-green-500" />
-                            {method.phone}
+                            {method.whatsapp}
                           </p>
                         </div>
                       </div>
@@ -416,10 +413,6 @@ export default function Contact() {
                     </p>
                     <div className="space-y-2">
                       <p className="text-sm flex items-center gap-2">
-                        <Phone className="h-4 w-4 text-finance-blue" />
-                        {office.phone}
-                      </p>
-                      <p className="text-sm flex items-center gap-2">
                         <Mail className="h-4 w-4 text-finance-blue" />
                         {office.email}
                       </p>
@@ -451,10 +444,10 @@ export default function Contact() {
                   size="lg" 
                   variant="secondary"
                   className="bg-white text-finance-blue hover:bg-gray-100"
-                  data-testid="button-call-now"
+                  data-testid="button-whatsapp-now"
                 >
-                  <Phone className="h-5 w-5 mr-2" />
-                  Call Now: 1800 123 FINTEK
+                  <SiWhatsapp className="h-5 w-5 mr-2" />
+                  WhatsApp Now: 9686854321
                 </Button>
                 <Button 
                   size="lg" 
