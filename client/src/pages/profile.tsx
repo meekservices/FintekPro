@@ -14,59 +14,86 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { insertUserProfileSchema, type UserProfile } from "@shared/schema";
-import { User, Settings, CreditCard, Target, TrendingUp, Building2, CheckCircle, Shield, AlertCircle, FileText, Users, Banknote, Calendar, MapPin, Phone, Mail, Globe, Star, Award, Lock, Heart } from "lucide-react";
+import { User, Shield, AlertTriangle, CheckCircle, FileText, Building2, Globe, Star, Award, Lock, Heart, MapPin, Phone, Mail, CreditCard, Banknote, Users, Calendar } from "lucide-react";
 
-// Comprehensive profile form schema for regulatory compliance
+// Enhanced profile form schema for comprehensive KYC compliance
 const profileFormSchema = z.object({
-  // Client Type Selection
-  clientType: z.enum(["individual", "non_individual"]),
-  entityType: z.enum(["company", "partnership", "trust", "society", "huf", "llp"]).optional(),
+  // Client Type Selection - First Decision Point
+  clientType: z.enum(["individual", "non_individual"], {
+    required_error: "Please select client type",
+  }),
   
-  // Basic Information (conditional based on client type)
-  clientId: z.string(),
+  // Individual Information (conditional)
+  firstName: z.string().optional(),
+  middleName: z.string().optional(), 
+  lastName: z.string().optional(),
+  dateOfBirth: z.string().optional(),
+  gender: z.enum(["male", "female", "other", "prefer_not_to_say"]).optional(),
+  fatherName: z.string().optional(),
+  motherName: z.string().optional(),
+  spouseName: z.string().optional(),
+  maritalStatus: z.enum(["single", "married", "divorced", "widowed", "separated"]).optional(),
   
-  // Individual Information
-  firstName: z.string().optional(), // Required only for individuals
-  middleName: z.string().optional(),
-  lastName: z.string().optional(), // Required only for individuals
-  
-  // Non-Individual Information
-  companyName: z.string().optional(), // Required only for non-individuals
+  // Non-Individual Entity Information (conditional)
+  entityType: z.enum(["company", "partnership", "trust", "society", "huf", "llp", "cooperative", "foundation", "association"]).optional(),
+  companyName: z.string().optional(),
   entityRegistrationNumber: z.string().optional(),
   incorporationDate: z.string().optional(),
   businessNature: z.string().optional(),
   companyPanNumber: z.string().optional(),
   
-  // Common Information
+  // Common Contact Information
   email: z.string().email("Invalid email address"),
   mobile: z.string().min(10, "Mobile number must be at least 10 digits"),
-  dateOfBirth: z.string().optional(), // Only for individuals
+  alternateContactNumber: z.string().optional(),
   
-  // Identity Documents - KYC Required
+  // Identity Documents - Universal KYC Requirements
   panNumber: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Invalid PAN number format"),
   aadharNumber: z.string().regex(/^[0-9]{12}$/, "Aadhaar must be 12 digits").optional(),
   passportNumber: z.string().optional(),
+  passportCountry: z.string().optional(),
+  passportExpiryDate: z.string().optional(),
   drivingLicense: z.string().optional(),
   voterIdNumber: z.string().optional(),
   
-  // Personal Details
-  gender: z.enum(["male", "female", "other", "prefer_not_to_say"]),
-  maritalStatus: z.enum(["single", "married", "divorced", "widowed", "separated"]).optional(),
-  fatherName: z.string().min(1, "Father's name is required"),
-  motherName: z.string().min(1, "Mother's name is required"),
-  spouseName: z.string().optional(),
+  // Comprehensive Residency Status Classification
+  residentStatus: z.enum([
+    "resident_indian",
+    "nri_ordinary", 
+    "nri_non_ordinary",
+    "oci",
+    "pio",
+    "foreign_national"
+  ], {
+    required_error: "Please select residency status",
+  }),
   
-  // Present Address Information
+  // Country Classifications
+  countryOfResidence: z.string().min(1, "Country of residence is required"),
+  countryOfCitizenship: z.string().min(1, "Country of citizenship is required"),
+  countryOfBirth: z.string().optional(),
+  taxResidencyCountry: z.string().optional(),
+  
+  // NRI and Foreign National Specific Information
+  nriSubType: z.enum(["usa", "canada", "australia", "uk", "singapore", "uae", "germany", "france", "japan", "other"]).optional(),
+  visaType: z.string().optional(),
+  permanentResidenceStatus: z.enum(["green_card", "pr_card", "citizenship", "work_permit", "other", "none"]).optional(),
+  nriRepatriationType: z.enum(["repatriable", "non_repatriable"]).optional(),
+  overseasTaxId: z.string().optional(),
+  
+  // Address Information - Enhanced for Global Compliance
   presentAddress: z.string().min(1, "Present address is required"),
   presentCity: z.string().min(1, "City is required"),
-  presentState: z.string().min(1, "State is required"),
-  presentPincode: z.string().regex(/^[0-9]{6}$/, "PIN code must be 6 digits"),
-  presentCountry: z.string().default("India"),
+  presentState: z.string().min(1, "State/Province is required"), 
+  presentPincode: z.string().min(1, "PIN/ZIP code is required"),
+  presentCountry: z.string().min(1, "Country is required"),
   
-  // Permanent Address Information
+  // Permanent Address
   permanentAddress: z.string().optional(),
   permanentCity: z.string().optional(),
   permanentState: z.string().optional(),
@@ -74,1153 +101,949 @@ const profileFormSchema = z.object({
   permanentCountry: z.string().optional(),
   isAddressSame: z.boolean().default(false),
   
-  // Financial Information
+  // Financial Profile - Enhanced for AML Compliance
   occupation: z.string().min(1, "Occupation is required"),
-  annualIncome: z.string().min(1, "Annual income is required"),
-  sourceOfWealth: z.string().optional(),
+  employer: z.string().optional(),
+  designation: z.string().optional(),
+  workExperience: z.string().optional(),
+  annualIncome: z.enum([
+    "below_1_lakh",
+    "1_to_5_lakh", 
+    "5_to_10_lakh",
+    "10_to_25_lakh",
+    "25_to_50_lakh",
+    "50_lakh_to_1_crore",
+    "above_1_crore"
+  ], {
+    required_error: "Please select annual income range",
+  }),
+  sourceOfWealth: z.string().min(1, "Source of wealth is required"),
   netWorth: z.string().optional(),
   
   // Investment Profile
-  riskTolerance: z.enum(["conservative", "moderate", "aggressive"]),
-  investmentExperience: z.enum(["beginner", "intermediate", "experienced"]),
-  investmentObjective: z.enum(["capital_appreciation", "income", "balanced"]),
-  investmentHorizon: z.enum(["short", "medium", "long"]),
+  riskTolerance: z.enum(["conservative", "moderate", "aggressive"], {
+    required_error: "Please select risk tolerance",
+  }),
+  investmentExperience: z.enum(["beginner", "intermediate", "experienced"], {
+    required_error: "Please select investment experience",
+  }),
+  investmentObjective: z.enum(["capital_appreciation", "income", "balanced", "speculation"], {
+    required_error: "Please select investment objective",
+  }),
+  investmentHorizon: z.enum(["short", "medium", "long"], {
+    required_error: "Please select investment horizon",
+  }),
   
-  // Banking Details
+  // Banking and Account Details
   bankAccountNumber: z.string().optional(),
   ifscCode: z.string().optional(),
   bankName: z.string().optional(),
+  branchAddress: z.string().optional(),
+  accountType: z.enum(["savings", "current", "nro", "nre", "fcnr"]).optional(),
   
-  // Demat Account Information
+  // Demat Account Information - CVL/KRA Integration
   nsdlDpId: z.string().optional(),
   nsdlClientId: z.string().optional(),
   cdslBoId: z.string().optional(),
   cdslDpId: z.string().optional(),
+  krvNumber: z.string().optional(), // KRA Registration Number
+  cvlKycNumber: z.string().optional(), // CVL KYC Number
   
-  // Comprehensive Residency Status
-  residentStatus: z.enum([
-    "resident_indian", 
-    "nri_ordinary", 
-    "nri_non_ordinary", 
-    "oci", 
-    "pio", 
-    "foreign_national"
-  ]),
-  nriSubType: z.enum(["us", "canada", "australia", "uk", "singapore", "uae", "other"]).optional(),
-  countryOfResidence: z.string().default("India"),
-  countryOfCitizenship: z.string().default("India"),
-  passportCountry: z.string().optional(),
-  visaType: z.string().optional(),
-  permanentResidenceStatus: z.enum(["green_card", "pr_card", "other"]).optional(),
-  nriRepatriationType: z.enum(["repatriable", "non_repatriable"]).optional(),
-  taxResidencyCountry: z.string().optional(),
-  
-  // FATCA & CRS
-  fatcaStatus: z.enum(["us_person", "non_us_person"]).optional(),
+  // Regulatory Compliance - FATCA & CRS
+  fatcaStatus: z.enum(["us_person", "non_us_person", "specified_us_person"], {
+    required_error: "FATCA status is required",
+  }),
   fatcaTinNumber: z.string().optional(),
+  fatcaCountryOfTaxResidence: z.string().optional(),
   
-  // PEP Declaration
-  pepStatus: z.enum(["yes", "no"]),
+  // CRS (Common Reporting Standard)
+  crsStatus: z.enum(["applicable", "not_applicable"]).optional(),
+  crsTaxResidentCountries: z.array(z.string()).optional(),
+  crsTinNumbers: z.array(z.string()).optional(),
+  
+  // PEP (Politically Exposed Person) Declaration
+  pepStatus: z.enum(["yes", "no"], {
+    required_error: "PEP status declaration is required",
+  }),
   pepDetails: z.string().optional(),
+  pepRelatedPersonStatus: z.enum(["yes", "no"]).optional(),
+  pepRelationshipDetails: z.string().optional(),
+  
+  // UBO (Ultimate Beneficial Owner) - For Non-Individuals
+  isUbo: z.boolean().default(false),
+  uboDetails: z.string().optional(),
+  beneficialOwnershipPercentage: z.string().optional(),
   
   // Nominee Information
   nomineeDetails: z.string().optional(),
   nomineeRelation: z.string().optional(),
+  nomineeContactNumber: z.string().optional(),
+  guardianDetails: z.string().optional(), // For minors
   
-  // Consent & Declarations
-  kycConsent: z.boolean().refine(val => val === true, "KYC consent is required"),
-  fatcaDeclaration: z.boolean().refine(val => val === true, "FATCA declaration is required"),
-  investmentRiskConsent: z.boolean().refine(val => val === true, "Investment risk consent is required"),
-  termsConditions: z.boolean().refine(val => val === true, "Terms and conditions acceptance is required")
+  // Professional Qualifications
+  educationalQualifications: z.string().optional(),
+  professionalCertifications: z.string().optional(),
+  
+  // Consent and Declarations
+  panVerificationConsent: z.boolean().default(false),
+  amlScreeningConsent: z.boolean().default(false),
+  fatcaDeclarationConsent: z.boolean().default(false),
+  termsAndConditionsConsent: z.boolean().default(false),
+  dataProcessingConsent: z.boolean().default(false),
+  regulatoryReportingConsent: z.boolean().default(false),
+}).refine((data) => {
+  // Individual specific validations
+  if (data.clientType === "individual") {
+    return data.firstName && data.lastName && data.dateOfBirth && 
+           data.fatherName && data.motherName && data.gender;
+  }
+  // Non-individual specific validations
+  if (data.clientType === "non_individual") {
+    return data.companyName && data.entityType && data.entityRegistrationNumber &&
+           data.businessNature && data.companyPanNumber;
+  }
+  return true;
+}, {
+  message: "Required fields based on client type are missing",
 });
 
 type ProfileFormData = z.infer<typeof profileFormSchema>;
 
-const investmentGoalsOptions = [
-  "retirement",
-  "wealth_creation",
-  "tax_saving",
-  "child_education", 
-  "emergency_fund",
-  "house_purchase",
-  "short_term_goals"
+// Country list for dropdowns
+const countries = [
+  "India", "United States", "Canada", "Australia", "United Kingdom", "Singapore", 
+  "United Arab Emirates", "Germany", "France", "Japan", "Switzerland", "Netherlands",
+  "Sweden", "Norway", "Denmark", "New Zealand", "South Africa", "Hong Kong", "Other"
 ];
 
-// KYC Status Types
-type KYCStatus = "pending" | "in_progress" | "completed" | "rejected";
-
-interface KYCStatusData {
-  mutualFundKyc: KYCStatus;
-  brokingKyc: KYCStatus;
-  kraKyc: KYCStatus;
-  lastUpdated: string;
-  completionPercentage: number;
-}
+// Enhanced states/provinces for global coverage
+const statesProvinces = {
+  "India": [
+    "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa",
+    "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala",
+    "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland",
+    "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura",
+    "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi", "Jammu and Kashmir", "Ladakh"
+  ],
+  "United States": [
+    "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado", "Connecticut",
+    "Delaware", "Florida", "Georgia", "Hawaii", "Idaho", "Illinois", "Indiana", "Iowa",
+    "Kansas", "Kentucky", "Louisiana", "Maine", "Maryland", "Massachusetts", "Michigan",
+    "Minnesota", "Mississippi", "Missouri", "Montana", "Nebraska", "Nevada", "New Hampshire",
+    "New Jersey", "New Mexico", "New York", "North Carolina", "North Dakota", "Ohio",
+    "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", "South Carolina", "South Dakota",
+    "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington", "West Virginia",
+    "Wisconsin", "Wyoming"
+  ],
+  "Canada": [
+    "Alberta", "British Columbia", "Manitoba", "New Brunswick", "Newfoundland and Labrador",
+    "Northwest Territories", "Nova Scotia", "Nunavut", "Ontario", "Prince Edward Island",
+    "Quebec", "Saskatchewan", "Yukon"
+  ],
+  // Add more as needed
+  "Other": ["Other"]
+};
 
 export default function ProfilePage() {
+  const [activeTab, setActiveTab] = useState("basic");
+  const [profileCompleteness, setProfileCompleteness] = useState(0);
+  const [isAmlScreening, setIsAmlScreening] = useState(false);
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<"overview" | "personal" | "financial" | "compliance" | "documents">("overview");
-  const [panVerifiedName, setPanVerifiedName] = useState<string | null>(null);
-  const [isVerifyingPan, setIsVerifyingPan] = useState(false);
 
-  const { data: profile, isLoading } = useQuery<any>({
+  // Fetch existing profile data
+  const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ["/api/profile"],
-    retry: false,
-  });
-
-  // Query to get PAN verified name
-  const { data: panNameData } = useQuery({
-    queryKey: ["/api/pan/verify-name", profile?.panNumber],
-    enabled: !!profile?.panNumber,
-    retry: false,
-  });
-
-  // Query to get KYC status data
-  const { data: kycStatusData, isLoading: isKycLoading } = useQuery<KYCStatusData>({
-    queryKey: ["/api/kyc/status"],
     retry: false,
   });
 
   const form = useForm<ProfileFormData>({
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
-      clientId: "demo-user-1",
-      firstName: profile?.firstName || "",
-      middleName: profile?.middleName || "",
-      lastName: profile?.lastName || "",
-      email: profile?.email || "",
-      mobile: profile?.mobile || "",
-      dateOfBirth: profile?.dateOfBirth || "",
-      panNumber: profile?.panNumber || "",
-      aadharNumber: profile?.aadharNumber || "",
-      passportNumber: profile?.passportNumber || "",
-      drivingLicense: profile?.drivingLicense || "",
-      voterIdNumber: profile?.voterIdNumber || "",
-      gender: profile?.gender || "male",
-      maritalStatus: profile?.maritalStatus || "single",
-      fatherName: profile?.fatherName || "",
-      motherName: profile?.motherName || "",
-      spouseName: profile?.spouseName || "",
-      presentAddress: profile?.presentAddress || "",
-      presentCity: profile?.presentCity || "",
-      presentState: profile?.presentState || "",
-      presentPincode: profile?.presentPincode || "",
-      presentCountry: profile?.presentCountry || "India",
-      permanentAddress: profile?.permanentAddress || "",
-      permanentCity: profile?.permanentCity || "",
-      permanentState: profile?.permanentState || "",
-      permanentPincode: profile?.permanentPincode || "",
-      permanentCountry: profile?.permanentCountry || "India",
-      isAddressSame: profile?.isAddressSame || false,
-      occupation: profile?.occupation || "",
-      annualIncome: profile?.annualIncome || "",
-      sourceOfWealth: profile?.sourceOfWealth || "",
-      netWorth: profile?.netWorth || "",
-      riskTolerance: profile?.riskTolerance || "moderate",
-      investmentExperience: profile?.investmentExperience || "beginner",
-      investmentObjective: profile?.investmentObjective || "balanced",
-      investmentHorizon: profile?.investmentHorizon || "medium",
-      bankAccountNumber: profile?.bankAccountNumber || "",
-      ifscCode: profile?.ifscCode || "",
-      bankName: profile?.bankName || "",
-      nsdlDpId: profile?.nsdlDpId || "",
-      nsdlClientId: profile?.nsdlClientId || "",
-      cdslBoId: profile?.cdslBoId || "",
-      cdslDpId: profile?.cdslDpId || "",
-      // Client Type and Entity
-      clientType: profile?.clientType || "individual",
-      entityType: profile?.entityType || "",
-      
-      // Comprehensive Residency Status
-      residentStatus: profile?.residentStatus || "resident_indian",
-      nriSubType: profile?.nriSubType || "",
-      countryOfResidence: profile?.countryOfResidence || "India",
-      countryOfCitizenship: profile?.countryOfCitizenship || "India",
-      passportCountry: profile?.passportCountry || "",
-      visaType: profile?.visaType || "",
-      permanentResidenceStatus: profile?.permanentResidenceStatus || "",
-      nriRepatriationType: profile?.nriRepatriationType || "",
-      taxResidencyCountry: profile?.taxResidencyCountry || "",
-      fatcaStatus: profile?.fatcaStatus || "non_us_person",
-      fatcaTinNumber: profile?.fatcaTinNumber || "",
-      pepStatus: profile?.pepStatus || "no",
-      pepDetails: profile?.pepDetails || "",
-      nomineeDetails: profile?.nomineeDetails || "",
-      nomineeRelation: profile?.nomineeRelation || "",
-      kycConsent: false,
-      fatcaDeclaration: false,
-      investmentRiskConsent: false,
-      termsConditions: false
-    },
+      clientType: "individual",
+      residentStatus: "resident_indian",
+      countryOfResidence: "India",
+      countryOfCitizenship: "India",
+      presentCountry: "India",
+      fatcaStatus: "non_us_person",
+      pepStatus: "no",
+      riskTolerance: "moderate",
+      investmentExperience: "beginner",
+      investmentObjective: "balanced",
+      investmentHorizon: "medium",
+      isAddressSame: false,
+      panVerificationConsent: false,
+      amlScreeningConsent: false,
+      fatcaDeclarationConsent: false,
+      termsAndConditionsConsent: false,
+      dataProcessingConsent: false,
+      regulatoryReportingConsent: false,
+    }
   });
 
-  // Update pan verified name when data is available
-  useEffect(() => {
-    if (panNameData && typeof panNameData === 'object' && 'success' in panNameData && 'verifiedName' in panNameData) {
-      if (panNameData.success && panNameData.verifiedName) {
-        setPanVerifiedName(panNameData.verifiedName as string);
-      }
-    }
-  }, [panNameData]);
+  const clientType = form.watch("clientType");
+  const residentStatus = form.watch("residentStatus");
+  const presentCountry = form.watch("presentCountry");
+  const isAddressSame = form.watch("isAddressSame");
 
-  const updateProfileMutation = useMutation({
-    mutationFn: async (data: ProfileFormData) => {
-      const response = await apiRequest("POST", "/api/profile", data);
-      return response.json();
-    },
+  // Profile update mutation
+  const profileMutation = useMutation({
+    mutationFn: (data: ProfileFormData) => apiRequest("/api/profile", "PUT", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
       toast({
-        title: "Profile updated successfully",
-        description: "Your profile information has been saved.",
+        title: "Profile Updated",
+        description: "Your profile has been updated successfully.",
       });
+      queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
+      calculateCompleteness();
     },
-    onError: (error: Error) => {
+    onError: (error) => {
       toast({
-        title: "Failed to update profile",
-        description: error.message,
+        title: "Update Failed",
+        description: "Failed to update profile. Please try again.",
         variant: "destructive",
       });
     },
   });
 
-  // NSDL Account Verification Handler
-  const handleNsdlVerification = async () => {
-    const nsdlDpId = form.getValues("nsdlDpId");
-    const nsdlClientId = form.getValues("nsdlClientId");
-    
-    if (!nsdlDpId || !nsdlClientId) {
+  // AML Screening mutation
+  const amlScreeningMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("/api/aml/screen", "POST", data),
+    onSuccess: () => {
       toast({
-        title: "Missing Information",
-        description: "Please enter both NSDL DP ID and Client ID",
+        title: "AML Screening Complete",
+        description: "Customer screening completed successfully.",
+      });
+      setIsAmlScreening(false);
+    },
+    onError: () => {
+      toast({
+        title: "AML Screening Failed",
+        description: "AML screening could not be completed.",
         variant: "destructive",
       });
-      return;
+      setIsAmlScreening(false);
+    },
+  });
+
+  // Calculate profile completeness
+  const calculateCompleteness = () => {
+    const values = form.getValues();
+    const requiredFields = [
+      'clientType', 'email', 'mobile', 'panNumber', 'residentStatus',
+      'countryOfResidence', 'countryOfCitizenship', 'presentAddress',
+      'presentCity', 'presentState', 'presentPincode', 'presentCountry',
+      'occupation', 'annualIncome', 'sourceOfWealth', 'riskTolerance',
+      'investmentExperience', 'investmentObjective', 'investmentHorizon',
+      'fatcaStatus', 'pepStatus'
+    ];
+    
+    // Add conditional required fields
+    if (values.clientType === 'individual') {
+      requiredFields.push('firstName', 'lastName', 'dateOfBirth', 'fatherName', 'motherName', 'gender');
     }
     
+    if (values.clientType === 'non_individual') {
+      requiredFields.push('companyName', 'entityType', 'entityRegistrationNumber', 'businessNature', 'companyPanNumber');
+    }
+
+    const filledFields = requiredFields.filter(field => {
+      const value = (values as any)[field];
+      return value && value !== "" && value !== false;
+    });
+
+    const percentage = Math.round((filledFields.length / requiredFields.length) * 100);
+    setProfileCompleteness(percentage);
+  };
+
+  // Handle form submission
+  const onSubmit = async (data: ProfileFormData) => {
     try {
-      const response = await apiRequest("POST", "/api/nsdl/verify-account", {
-        dpId: nsdlDpId,
-        clientId: nsdlClientId,
-      });
+      await profileMutation.mutateAsync(data);
       
-      const result = await response.json();
-      
-      if (result.verified) {
-        toast({
-          title: "NSDL Account Verified",
-          description: `Account verified successfully. Holdings: ${result.holdingsCount} securities`,
-        });
-      } else {
-        toast({
-          title: "Verification Failed",
-          description: result.message || "Unable to verify NSDL account details",
-          variant: "destructive",
-        });
+      // Trigger AML screening if consent given
+      if (data.amlScreeningConsent) {
+        setIsAmlScreening(true);
+        const screeningData = {
+          firstName: data.firstName || data.companyName?.split(' ')[0] || '',
+          lastName: data.lastName || data.companyName?.split(' ').slice(1).join(' ') || '',
+          dateOfBirth: data.dateOfBirth || data.incorporationDate || '',
+          nationality: data.countryOfCitizenship,
+          countryOfResidence: data.countryOfResidence,
+          passportNumber: data.passportNumber || ''
+        };
+        
+        await amlScreeningMutation.mutateAsync(screeningData);
       }
     } catch (error) {
-      toast({
-        title: "Verification Error",
-        description: "Failed to connect to NSDL verification service",
-        variant: "destructive",
-      });
+      console.error("Profile update error:", error);
     }
   };
 
-  // CDSL Account Verification Handler
-  const handleCdslVerification = async () => {
-    const cdslBoId = form.getValues("cdslBoId");
-    const cdslDpId = form.getValues("cdslDpId");
-    
-    if (!cdslBoId || !cdslDpId) {
-      toast({
-        title: "Missing Information",
-        description: "Please enter both CDSL BO ID and DP ID",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    try {
-      const response = await apiRequest("POST", "/api/cdsl/verify-account", {
-        boId: cdslBoId,
-        dpId: cdslDpId,
-      });
-      
-      const result = await response.json();
-      
-      if (result.verified) {
-        toast({
-          title: "CDSL Account Verified",
-          description: `Account verified successfully. Holdings: ${result.holdingsCount} securities`,
-        });
-      } else {
-        toast({
-          title: "Verification Failed",
-          description: result.message || "Unable to verify CDSL account details",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Verification Error",
-        description: "Failed to connect to CDSL verification service",
-        variant: "destructive",
-      });
-    }
-  };
+  // Auto-calculate completeness on form changes
+  useEffect(() => {
+    calculateCompleteness();
+  }, [form.watch()]);
 
-  const onSubmit = (data: ProfileFormData) => {
-    updateProfileMutation.mutate(data);
-  };
+  // Load profile data when available
+  useEffect(() => {
+    if (profile && !profileLoading) {
+      Object.keys(profile).forEach(key => {
+        if (profile[key] !== null && profile[key] !== undefined) {
+          form.setValue(key as any, profile[key]);
+        }
+      });
+      calculateCompleteness();
+    }
+  }, [profile, profileLoading]);
 
-  if (isLoading) {
+  if (profileLoading) {
     return (
-      <div className="container mx-auto py-8">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-          <div className="h-64 bg-gray-200 rounded"></div>
+      <div className="container mx-auto p-6">
+        <div className="space-y-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i} className="animate-pulse">
+              <CardContent className="p-6">
+                <div className="h-8 bg-gray-200 rounded mb-4"></div>
+                <div className="space-y-2">
+                  <div className="h-4 bg-gray-200 rounded"></div>
+                  <div className="h-4 bg-gray-200 rounded"></div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-      <div className="container mx-auto py-8 max-w-6xl" data-testid="profile-page">
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex-1">
-            <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2" data-testid="profile-title">
-              Client Onboarding & KYC
-            </h1>
-            {panVerifiedName && (
-              <div className="flex items-center gap-2 mb-2">
-                <CheckCircle className="h-5 w-5 text-green-600" />
-                <span className="text-xl font-semibold text-gray-900 dark:text-white">
-                  {panVerifiedName}
-                </span>
-                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                  <Shield className="h-3 w-3 mr-1" />
-                  Identity Verified
-                </Badge>
-              </div>
-            )}
-            <p className="text-gray-600 dark:text-gray-400 text-lg" data-testid="profile-description">
-              Complete your regulatory compliance and KYC verification for seamless investment services
-            </p>
-          </div>
-          
-          {profile?.panNumber && (
-            <div className="text-right">
-              <div className="flex items-center gap-2 mb-1">
-                <Shield className="h-4 w-4 text-blue-600" />
-                <span className="text-sm font-medium text-gray-900 dark:text-white">PAN: {profile.panNumber}</span>
-              </div>
-              {panVerifiedName ? (
-                <Badge className="bg-green-100 text-green-800 border border-green-200">
-                  <CheckCircle className="h-3 w-3 mr-1" />
-                  Verified Identity
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
-                  <AlertCircle className="h-3 w-3 mr-1" />
-                  Pending Verification
-                </Badge>
-              )}
+    <div className="container mx-auto p-6 space-y-6">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-3xl font-bold flex items-center gap-3">
+            <User className="h-8 w-8" />
+            Client Profile & KYC Onboarding
+          </h1>
+          <p className="text-gray-600 mt-2">
+            Complete your profile for regulatory compliance and enhanced services
+          </p>
+        </div>
+        
+        <div className="flex items-center gap-4">
+          <div className="text-right">
+            <p className="text-sm text-gray-600">Profile Completeness</p>
+            <div className="flex items-center gap-2 mt-1">
+              <Progress value={profileCompleteness} className="w-32" />
+              <span className="text-sm font-medium">{profileCompleteness}%</span>
             </div>
-          )}
+          </div>
         </div>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg mb-8" data-testid="profile-tabs">
-        {[
-          { key: "overview", label: "KYC Overview", icon: Award },
-          { key: "personal", label: "Personal Info", icon: User },
-          { key: "financial", label: "Financial Profile", icon: Banknote },
-          { key: "compliance", label: "Compliance", icon: Shield },
-          { key: "documents", label: "Documents", icon: FileText },
-        ].map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            onClick={() => setActiveTab(key as any)}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              activeTab === key
-                ? "bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow"
-                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-            }`}
-            data-testid={`tab-${key}`}
-          >
-            <Icon className="h-4 w-4" />
-            <span>{label}</span>
-          </button>
-        ))}
-      </div>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+            <TabsList className="grid w-full grid-cols-6">
+              <TabsTrigger value="basic" data-testid="tab-basic">
+                <User className="h-4 w-4 mr-2" />
+                Basic Info
+              </TabsTrigger>
+              <TabsTrigger value="identity" data-testid="tab-identity">
+                <FileText className="h-4 w-4 mr-2" />
+                Identity & KYC
+              </TabsTrigger>
+              <TabsTrigger value="address" data-testid="tab-address">
+                <MapPin className="h-4 w-4 mr-2" />
+                Address Details
+              </TabsTrigger>
+              <TabsTrigger value="financial" data-testid="tab-financial">
+                <Banknote className="h-4 w-4 mr-2" />
+                Financial Profile
+              </TabsTrigger>
+              <TabsTrigger value="compliance" data-testid="tab-compliance">
+                <Shield className="h-4 w-4 mr-2" />
+                Compliance
+              </TabsTrigger>
+              <TabsTrigger value="banking" data-testid="tab-banking">
+                <CreditCard className="h-4 w-4 mr-2" />
+                Banking & Demat
+              </TabsTrigger>
+            </TabsList>
 
-      <div className="space-y-8">
-        {/* KYC Overview Dashboard */}
-        {activeTab === "overview" && (
-          <div className="space-y-6">
-            {/* KYC Status Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-blue-900 flex items-center gap-2">
-                    <Building2 className="h-5 w-5" />
-                    Mutual Fund KYC
-                  </CardTitle>
+            {/* Basic Information Tab */}
+            <TabsContent value="basic" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Client Type Selection</CardTitle>
+                  <CardDescription>
+                    Select whether you are registering as an individual or representing a business entity
+                  </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between mb-2">
-                    <Badge 
-                      variant={kycStatusData?.mutualFundKyc === 'completed' ? 'default' : 'secondary'}
-                      className={kycStatusData?.mutualFundKyc === 'completed' ? 'bg-green-100 text-green-800' : ''}
-                    >
-                      {kycStatusData?.mutualFundKyc === 'completed' ? 'Completed' : 
-                       kycStatusData?.mutualFundKyc === 'in_progress' ? 'In Progress' :
-                       kycStatusData?.mutualFundKyc === 'rejected' ? 'Rejected' : 'Pending'}
-                    </Badge>
-                    {kycStatusData?.mutualFundKyc === 'completed' && (
-                      <CheckCircle className="h-5 w-5 text-green-600" />
+                <CardContent className="space-y-6">
+                  <FormField
+                    control={form.control}
+                    name="clientType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Client Type *</FormLabel>
+                        <FormControl>
+                          <RadioGroup
+                            onValueChange={field.onChange}
+                            value={field.value}
+                            className="grid grid-cols-2 gap-4"
+                          >
+                            <div className="flex items-center space-x-2 border rounded-lg p-4">
+                              <RadioGroupItem value="individual" id="individual" />
+                              <Label htmlFor="individual" className="cursor-pointer">
+                                <div>
+                                  <div className="font-medium">Individual</div>
+                                  <div className="text-sm text-gray-500">Personal account</div>
+                                </div>
+                              </Label>
+                            </div>
+                            <div className="flex items-center space-x-2 border rounded-lg p-4">
+                              <RadioGroupItem value="non_individual" id="non_individual" />
+                              <Label htmlFor="non_individual" className="cursor-pointer">
+                                <div>
+                                  <div className="font-medium">Non-Individual</div>
+                                  <div className="text-sm text-gray-500">Business/Entity account</div>
+                                </div>
+                              </Label>
+                            </div>
+                          </RadioGroup>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
                     )}
-                  </div>
-                  <p className="text-sm text-gray-600">Required for mutual fund investments</p>
-                </CardContent>
-              </Card>
-              
-              <Card className="bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-purple-900 flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5" />
-                    Broking KYC
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between mb-2">
-                    <Badge 
-                      variant={kycStatusData?.brokingKyc === 'completed' ? 'default' : 'secondary'}
-                      className={kycStatusData?.brokingKyc === 'completed' ? 'bg-green-100 text-green-800' : ''}
-                    >
-                      {kycStatusData?.brokingKyc === 'completed' ? 'Completed' : 
-                       kycStatusData?.brokingKyc === 'in_progress' ? 'In Progress' :
-                       kycStatusData?.brokingKyc === 'rejected' ? 'Rejected' : 'Pending'}
-                    </Badge>
-                    {kycStatusData?.brokingKyc === 'completed' && (
-                      <CheckCircle className="h-5 w-5 text-green-600" />
-                    )}
-                  </div>
-                  <p className="text-sm text-gray-600">Required for equity trading</p>
-                </CardContent>
-              </Card>
-              
-              <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-green-900 flex items-center gap-2">
-                    <Shield className="h-5 w-5" />
-                    KRA CKYC
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between mb-2">
-                    <Badge 
-                      variant={kycStatusData?.kraKyc === 'completed' ? 'default' : 'secondary'}
-                      className={kycStatusData?.kraKyc === 'completed' ? 'bg-green-100 text-green-800' : ''}
-                    >
-                      {kycStatusData?.kraKyc === 'completed' ? 'Completed' : 
-                       kycStatusData?.kraKyc === 'in_progress' ? 'In Progress' :
-                       kycStatusData?.kraKyc === 'rejected' ? 'Rejected' : 'Pending'}
-                    </Badge>
-                    {kycStatusData?.kraKyc === 'completed' && (
-                      <CheckCircle className="h-5 w-5 text-green-600" />
-                    )}
-                  </div>
-                  <p className="text-sm text-gray-600">Centralized KYC verification</p>
-                </CardContent>
-              </Card>
-            </div>
-            
-            {/* Overall Progress */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Award className="h-5 w-5 text-orange-600" />
-                  KYC Completion Progress
-                </CardTitle>
-                <CardDescription>
-                  Complete your KYC verification to access all investment services
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Overall Progress</span>
-                    <span className="font-semibold">{kycStatusData?.completionPercentage || 0}%</span>
-                  </div>
-                  <Progress value={kycStatusData?.completionPercentage || 0} className="h-3" />
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-                  <div className="space-y-2">
-                    <h4 className="font-semibold flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
-                      Completed Steps
-                    </h4>
-                    <ul className="text-sm space-y-1 text-gray-600">
-                      {panVerifiedName && (
-                        <li className="flex items-center gap-2">
-                          <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                          PAN Verification
-                        </li>
-                      )}
-                      {kycStatusData?.mutualFundKyc === 'completed' && (
-                        <li className="flex items-center gap-2">
-                          <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                          Mutual Fund KYC
-                        </li>
-                      )}
-                      {kycStatusData?.brokingKyc === 'completed' && (
-                        <li className="flex items-center gap-2">
-                          <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                          Broking KYC
-                        </li>
-                      )}
-                      {kycStatusData?.kraKyc === 'completed' && (
-                        <li className="flex items-center gap-2">
-                          <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                          KRA CKYC
-                        </li>
-                      )}
-                    </ul>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <h4 className="font-semibold flex items-center gap-2">
-                      <AlertCircle className="h-4 w-4 text-orange-600" />
-                      Pending Actions
-                    </h4>
-                    <ul className="text-sm space-y-1 text-gray-600">
-                      {!panVerifiedName && (
-                        <li className="flex items-center gap-2">
-                          <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
-                          Complete PAN Verification
-                        </li>
-                      )}
-                      {kycStatusData?.mutualFundKyc !== 'completed' && (
-                        <li className="flex items-center gap-2">
-                          <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
-                          Submit Mutual Fund KYC
-                        </li>
-                      )}
-                      {kycStatusData?.brokingKyc !== 'completed' && (
-                        <li className="flex items-center gap-2">
-                          <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
-                          Complete Broking KYC
-                        </li>
-                      )}
-                      {kycStatusData?.kraKyc !== 'completed' && (
-                        <li className="flex items-center gap-2">
-                          <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
-                          Verify KRA CKYC
-                        </li>
-                      )}
-                    </ul>
-                  </div>
-                </div>
-                
-                {kycStatusData?.lastUpdated && (
-                  <div className="text-xs text-gray-500 mt-4">
-                    Last updated: {new Date(kycStatusData.lastUpdated).toLocaleDateString()}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-            
-            {/* Quick Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
-                <CardDescription>
-                  Complete these actions to expedite your KYC verification
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <Button 
-                    variant="outline" 
-                    className="h-auto p-4 flex flex-col items-center space-y-2"
-                    onClick={() => setActiveTab("personal")}
-                  >
-                    <User className="h-6 w-6" />
-                    <span className="text-sm">Update Profile</span>
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="h-auto p-4 flex flex-col items-center space-y-2"
-                    onClick={() => setActiveTab("documents")}
-                  >
-                    <FileText className="h-6 w-6" />
-                    <span className="text-sm">Upload Documents</span>
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="h-auto p-4 flex flex-col items-center space-y-2"
-                    onClick={() => setActiveTab("financial")}
-                  >
-                    <Banknote className="h-6 w-6" />
-                    <span className="text-sm">Financial Info</span>
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="h-auto p-4 flex flex-col items-center space-y-2"
-                    onClick={() => setActiveTab("compliance")}
-                  >
-                    <Shield className="h-6 w-6" />
-                    <span className="text-sm">Compliance</span>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-        
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            {/* Personal Information */}
-            {activeTab === "personal" && (
-            <Card data-testid="personal-info-card">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <User className="h-5 w-5" />
-                  <span>Personal Information</span>
-                </CardTitle>
-                <CardDescription>
-                  Basic information used for account identification and communication
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                
-                {/* Client Type Selection */}
-                <div className="space-y-4">
-                  <h4 className="font-semibold text-lg flex items-center gap-2">
-                    <Building2 className="h-4 w-4" />
-                    Client Classification
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <FormField
-                      control={form.control}
-                      name="clientType"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Client Type *</FormLabel>
-                          <FormControl>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <SelectTrigger data-testid="select-client-type">
-                                <SelectValue placeholder="Select client type" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="individual">Individual</SelectItem>
-                                <SelectItem value="non_individual">Non-Individual</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </FormControl>
-                          <FormDescription>Select if you're applying as an individual or on behalf of an entity</FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    {form.watch("clientType") === "non_individual" && (
+                  />
+
+                  {/* Individual Information */}
+                  {clientType === "individual" && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="firstName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>First Name *</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="Enter first name" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="middleName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Middle Name</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="Enter middle name" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="lastName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Last Name *</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="Enter last name" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  )}
+
+                  {/* Non-Individual Information */}
+                  {clientType === "non_individual" && (
+                    <div className="space-y-4">
                       <FormField
                         control={form.control}
                         name="entityType"
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Entity Type *</FormLabel>
-                            <FormControl>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <SelectTrigger data-testid="select-entity-type">
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
                                   <SelectValue placeholder="Select entity type" />
                                 </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="company">Private Limited Company</SelectItem>
-                                  <SelectItem value="partnership">Partnership Firm</SelectItem>
-                                  <SelectItem value="trust">Trust</SelectItem>
-                                  <SelectItem value="society">Society</SelectItem>
-                                  <SelectItem value="huf">Hindu Undivided Family (HUF)</SelectItem>
-                                  <SelectItem value="llp">Limited Liability Partnership (LLP)</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </FormControl>
-                            <FormDescription>Type of legal entity you represent</FormDescription>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="company">Company</SelectItem>
+                                <SelectItem value="partnership">Partnership</SelectItem>
+                                <SelectItem value="trust">Trust</SelectItem>
+                                <SelectItem value="society">Society</SelectItem>
+                                <SelectItem value="huf">Hindu Undivided Family (HUF)</SelectItem>
+                                <SelectItem value="llp">Limited Liability Partnership</SelectItem>
+                                <SelectItem value="cooperative">Cooperative Society</SelectItem>
+                                <SelectItem value="foundation">Foundation</SelectItem>
+                                <SelectItem value="association">Association</SelectItem>
+                              </SelectContent>
+                            </Select>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                    )}
-                  </div>
-                </div>
-                
-                <Separator />
-                
-                {/* Residency Status */}
-                <div className="space-y-4">
-                  <h4 className="font-semibold text-lg flex items-center gap-2">
-                    <Globe className="h-4 w-4" />
-                    Residency Status
-                  </h4>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="companyName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Company/Entity Name *</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="Enter entity name" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="entityRegistrationNumber"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Registration Number *</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="Enter registration number" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Common Contact Information */}
+                  <Separator />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
-                      name="residentStatus"
+                      name="email"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Residency Classification *</FormLabel>
+                          <FormLabel>Email Address *</FormLabel>
                           <FormControl>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <SelectTrigger data-testid="select-resident-status">
-                                <SelectValue placeholder="Select residency status" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="resident_indian">Resident Indian</SelectItem>
-                                <SelectItem value="nri_ordinary">NRI (Ordinary Resident)</SelectItem>
-                                <SelectItem value="nri_non_ordinary">NRI (Non-Ordinary Resident)</SelectItem>
-                                <SelectItem value="oci">Overseas Citizen of India (OCI)</SelectItem>
-                                <SelectItem value="pio">Person of Indian Origin (PIO)</SelectItem>
-                                <SelectItem value="foreign_national">Foreign National</SelectItem>
-                              </SelectContent>
-                            </Select>
+                            <Input {...field} type="email" placeholder="Enter email address" />
                           </FormControl>
-                          <FormDescription>Your tax residency and citizenship status</FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                    
-                    {(form.watch("residentStatus") === "nri_ordinary" || form.watch("residentStatus") === "nri_non_ordinary") && (
-                      <FormField
-                        control={form.control}
-                        name="nriSubType"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Country of Residence *</FormLabel>
-                            <FormControl>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <SelectTrigger data-testid="select-nri-sub-type">
-                                  <SelectValue placeholder="Select country" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="us">United States</SelectItem>
-                                  <SelectItem value="canada">Canada</SelectItem>
-                                  <SelectItem value="australia">Australia</SelectItem>
-                                  <SelectItem value="uk">United Kingdom</SelectItem>
-                                  <SelectItem value="singapore">Singapore</SelectItem>
-                                  <SelectItem value="uae">United Arab Emirates</SelectItem>
-                                  <SelectItem value="other">Other</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </FormControl>
-                            <FormDescription>Your current country of residence</FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    )}
+                    <FormField
+                      control={form.control}
+                      name="mobile"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Mobile Number *</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Enter mobile number" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
-                  
-                  {/* Additional residency fields based on status */}
-                  {(form.watch("residentStatus") === "nri_ordinary" || form.watch("residentStatus") === "nri_non_ordinary" || form.watch("residentStatus") === "foreign_national") && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Identity & KYC Tab */}
+            <TabsContent value="identity" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Identity Documents & Residency Status</CardTitle>
+                  <CardDescription>
+                    Provide identity documents and residency information for KYC compliance
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Residency Status */}
+                  <FormField
+                    control={form.control}
+                    name="residentStatus"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Residency Status *</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select residency status" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="resident_indian">Resident Indian</SelectItem>
+                            <SelectItem value="nri_ordinary">NRI - Ordinary Resident</SelectItem>
+                            <SelectItem value="nri_non_ordinary">NRI - Non-Ordinary Resident</SelectItem>
+                            <SelectItem value="oci">Overseas Citizen of India (OCI)</SelectItem>
+                            <SelectItem value="pio">Person of Indian Origin (PIO)</SelectItem>
+                            <SelectItem value="foreign_national">Foreign National</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Country Information */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="countryOfResidence"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Country of Residence *</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select country" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {countries.map((country) => (
+                                <SelectItem key={country} value={country}>
+                                  {country}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="countryOfCitizenship"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Country of Citizenship *</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select country" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {countries.map((country) => (
+                                <SelectItem key={country} value={country}>
+                                  {country}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="taxResidencyCountry"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Tax Residency Country</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select country" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {countries.map((country) => (
+                                <SelectItem key={country} value={country}>
+                                  {country}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {/* Identity Documents */}
+                  <Separator />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="panNumber"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>PAN Number *</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="ABCDE1234F" className="uppercase" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="aadharNumber"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Aadhaar Number</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="123456789012" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {/* Additional identity documents for NRI/Foreign Nationals */}
+                  {(residentStatus !== "resident_indian") && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
-                        name="countryOfCitizenship"
+                        name="passportNumber"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Country of Citizenship</FormLabel>
+                            <FormLabel>Passport Number</FormLabel>
                             <FormControl>
-                              <Input placeholder="e.g., India, USA" {...field} data-testid="input-country-citizenship" />
+                              <Input {...field} placeholder="Enter passport number" />
                             </FormControl>
-                            <FormDescription>Your nationality/citizenship country</FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                      
                       <FormField
                         control={form.control}
                         name="passportCountry"
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Passport Issuing Country</FormLabel>
-                            <FormControl>
-                              <Input placeholder="e.g., India" {...field} data-testid="input-passport-country" />
-                            </FormControl>
-                            <FormDescription>Country that issued your passport</FormDescription>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select country" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {countries.map((country) => (
+                                  <SelectItem key={country} value={country}>
+                                    {country}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                      
-                      {(form.watch("nriSubType") === "us" || form.watch("nriSubType") === "canada" || form.watch("nriSubType") === "australia") && (
-                        <FormField
-                          control={form.control}
-                          name="permanentResidenceStatus"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Permanent Residence Status</FormLabel>
-                              <FormControl>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                  <SelectTrigger data-testid="select-pr-status">
-                                    <SelectValue placeholder="Select PR status" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="green_card">Green Card (USA)</SelectItem>
-                                    <SelectItem value="pr_card">PR Card (Canada/Australia)</SelectItem>
-                                    <SelectItem value="other">Other</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </FormControl>
-                              <FormDescription>Your permanent residency status</FormDescription>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      )}
-                      
-                      {form.watch("residentStatus") === "foreign_national" && (
-                        <FormField
-                          control={form.control}
-                          name="visaType"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Visa Type</FormLabel>
-                              <FormControl>
-                                <Input placeholder="e.g., Business Visa, Tourist Visa" {...field} data-testid="input-visa-type" />
-                              </FormControl>
-                              <FormDescription>Type of visa for your stay in India</FormDescription>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      )}
                     </div>
                   )}
-                  
-                  {/* NRI Investment Repatriation */}
-                  {(form.watch("residentStatus") === "nri_ordinary" || form.watch("residentStatus") === "nri_non_ordinary") && (
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Address Details Tab */}
+            <TabsContent value="address" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Address Information</CardTitle>
+                  <CardDescription>
+                    Provide your current and permanent address details
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Present Address */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">Present Address</h3>
                     <FormField
                       control={form.control}
-                      name="nriRepatriationType"
+                      name="presentAddress"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Investment Repatriation Type</FormLabel>
+                          <FormLabel>Address Line 1 *</FormLabel>
                           <FormControl>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <SelectTrigger data-testid="select-repatriation-type">
-                                <SelectValue placeholder="Select repatriation type" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="repatriable">Repatriable (NRE Route)</SelectItem>
-                                <SelectItem value="non_repatriable">Non-Repatriable (NRO Route)</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </FormControl>
-                          <FormDescription>Whether you want repatriable or non-repatriable investments</FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  )}
-                </div>
-                
-                <Separator />
-                
-                {panVerifiedName && (
-                  <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
-                    <div className="flex items-center gap-2 mb-2">
-                      <CheckCircle className="h-5 w-5 text-green-600" />
-                      <span className="font-semibold text-green-800 dark:text-green-200">PAN Verified Name</span>
-                    </div>
-                    <p className="text-2xl font-bold text-green-900 dark:text-green-100 mb-1">
-                      {panVerifiedName}
-                    </p>
-                    <p className="text-sm text-green-700 dark:text-green-300">
-                      This name is verified against your PAN card records and will be used for all official communications.
-                    </p>
-                  </div>
-                )}
-                
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="firstName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>First Name *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter your first name" {...field} data-testid="input-first-name" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="middleName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Middle Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Middle name (optional)" {...field} data-testid="input-middle-name" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="lastName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Last Name *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter your last name" {...field} data-testid="input-last-name" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email Address *</FormLabel>
-                        <FormControl>
-                          <Input type="email" placeholder="your.email@example.com" {...field} data-testid="input-email" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="mobile"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Mobile Number *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="+91 XXXXX XXXXX" {...field} data-testid="input-mobile" />
-                        </FormControl>
-                        <FormDescription>Used for account security and notifications</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="dateOfBirth"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Date of Birth *</FormLabel>
-                        <FormControl>
-                          <Input type="date" {...field} data-testid="input-date-of-birth" />
-                        </FormControl>
-                        <FormDescription>Required for investment compliance</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                
-                <Separator />
-                
-                <div className="space-y-4">
-                  <h4 className="text-lg font-semibold flex items-center gap-2">
-                    <Users className="h-5 w-5" />
-                    Demographic Information
-                  </h4>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <FormField
-                      control={form.control}
-                      name="gender"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Gender *</FormLabel>
-                          <FormControl>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <SelectTrigger data-testid="select-gender">
-                                <SelectValue placeholder="Select gender" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="male">Male</SelectItem>
-                                <SelectItem value="female">Female</SelectItem>
-                                <SelectItem value="other">Other</SelectItem>
-                                <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
-                              </SelectContent>
-                            </Select>
+                            <Textarea {...field} placeholder="Enter complete address" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
                     
-                    <FormField
-                      control={form.control}
-                      name="maritalStatus"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Marital Status *</FormLabel>
-                          <FormControl>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <SelectTrigger data-testid="select-marital-status">
-                                <SelectValue placeholder="Select marital status" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="single">Single</SelectItem>
-                                <SelectItem value="married">Married</SelectItem>
-                                <SelectItem value="divorced">Divorced</SelectItem>
-                                <SelectItem value="widowed">Widowed</SelectItem>
-                                <SelectItem value="separated">Separated</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  
-                  {form.watch('maritalStatus') === 'married' && (
-                    <FormField
-                      control={form.control}
-                      name="spouseName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Spouse Name</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter spouse's full name" {...field} data-testid="input-spouse-name" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  )}
-                </div>
-                
-                <Separator />
-                
-                <div className="space-y-4">
-                  <h4 className="text-lg font-semibold flex items-center gap-2">
-                    <Heart className="h-5 w-5" />
-                    Family Details
-                  </h4>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <FormField
-                      control={form.control}
-                      name="fatherName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Father's Name *</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter father's full name" {...field} data-testid="input-father-name" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="motherName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Mother's Name *</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter mother's full name" {...field} data-testid="input-mother-name" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </div>
-                
-                <Separator />
-                
-                <div className="space-y-4">
-                  <h4 className="text-lg font-semibold flex items-center gap-2">
-                    <MapPin className="h-5 w-5" />
-                    Address Information
-                  </h4>
-                  
-                  <div className="space-y-6">
-                    <div className="space-y-4">
-                      <h5 className="font-semibold text-gray-900 dark:text-gray-100">Present Address</h5>
-                      
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                       <FormField
                         control={form.control}
-                        name="presentAddress"
+                        name="presentCity"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Present Address *</FormLabel>
+                            <FormLabel>City *</FormLabel>
                             <FormControl>
-                              <Textarea 
-                                placeholder="Enter your current residential address"
-                                {...field}
-                                data-testid="input-present-address"
-                                rows={3}
-                              />
+                              <Input {...field} placeholder="Enter city" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="presentState"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>State/Province *</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select state" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {(statesProvinces[presentCountry as keyof typeof statesProvinces] || []).map((state) => (
+                                  <SelectItem key={state} value={state}>
+                                    {state}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="presentPincode"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>PIN/ZIP Code *</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="PIN/ZIP" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="presentCountry"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Country *</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select country" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {countries.map((country) => (
+                                  <SelectItem key={country} value={country}>
+                                    {country}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Same as Present Address Checkbox */}
+                  <FormField
+                    control={form.control}
+                    name="isAddressSame"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel>
+                            Permanent address is same as present address
+                          </FormLabel>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Permanent Address - only show if not same as present */}
+                  {!isAddressSame && (
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-medium">Permanent Address</h3>
+                      <FormField
+                        control={form.control}
+                        name="permanentAddress"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Address Line 1</FormLabel>
+                            <FormControl>
+                              <Textarea {...field} placeholder="Enter permanent address" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
                       
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <FormField
                           control={form.control}
-                          name="presentCity"
+                          name="permanentCity"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>City *</FormLabel>
+                              <FormLabel>City</FormLabel>
                               <FormControl>
-                                <Input placeholder="City" {...field} data-testid="input-present-city" />
+                                <Input {...field} placeholder="Enter city" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
-                        
                         <FormField
                           control={form.control}
-                          name="presentState"
+                          name="permanentState"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>State *</FormLabel>
+                              <FormLabel>State/Province</FormLabel>
                               <FormControl>
-                                <Input placeholder="State" {...field} data-testid="input-present-state" />
+                                <Input {...field} placeholder="Enter state" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
-                        
                         <FormField
                           control={form.control}
-                          name="presentPincode"
+                          name="permanentPincode"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>PIN Code *</FormLabel>
+                              <FormLabel>PIN/ZIP Code</FormLabel>
                               <FormControl>
-                                <Input placeholder="PIN Code" {...field} data-testid="input-present-pincode" />
+                                <Input {...field} placeholder="PIN/ZIP" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="permanentCountry"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Country</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="Enter country" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -1228,325 +1051,372 @@ export default function ProfilePage() {
                         />
                       </div>
                     </div>
-                    
-                    <div className="flex items-center space-x-2">
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Financial Profile Tab */}
+            <TabsContent value="financial" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Financial Profile</CardTitle>
+                  <CardDescription>
+                    Provide financial information for risk assessment and compliance
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="occupation"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Occupation *</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Enter occupation" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="annualIncome"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Annual Income *</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select income range" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="below_1_lakh">Below ₹1 Lakh</SelectItem>
+                              <SelectItem value="1_to_5_lakh">₹1 - 5 Lakh</SelectItem>
+                              <SelectItem value="5_to_10_lakh">₹5 - 10 Lakh</SelectItem>
+                              <SelectItem value="10_to_25_lakh">₹10 - 25 Lakh</SelectItem>
+                              <SelectItem value="25_to_50_lakh">₹25 - 50 Lakh</SelectItem>
+                              <SelectItem value="50_lakh_to_1_crore">₹50 Lakh - 1 Crore</SelectItem>
+                              <SelectItem value="above_1_crore">Above ₹1 Crore</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="sourceOfWealth"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Source of Wealth *</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Describe your source of wealth" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <Separator />
+                  
+                  {/* Investment Profile */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">Investment Profile</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
-                        name="isAddressSame"
+                        name="riskTolerance"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Risk Tolerance *</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select risk tolerance" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="conservative">Conservative</SelectItem>
+                                <SelectItem value="moderate">Moderate</SelectItem>
+                                <SelectItem value="aggressive">Aggressive</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="investmentExperience"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Investment Experience *</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select experience level" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="beginner">Beginner</SelectItem>
+                                <SelectItem value="intermediate">Intermediate</SelectItem>
+                                <SelectItem value="experienced">Experienced</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Compliance Tab */}
+            <TabsContent value="compliance" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Regulatory Compliance</CardTitle>
+                  <CardDescription>
+                    Complete regulatory declarations for FATCA, PEP status, and other compliance requirements
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* FATCA Declaration */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">FATCA Declaration</h3>
+                    <FormField
+                      control={form.control}
+                      name="fatcaStatus"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Are you a US Person for tax purposes? *</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select FATCA status" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="us_person">Yes, I am a US Person</SelectItem>
+                              <SelectItem value="non_us_person">No, I am not a US Person</SelectItem>
+                              <SelectItem value="specified_us_person">Specified US Person</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <Separator />
+
+                  {/* PEP Declaration */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">PEP Declaration</h3>
+                    <Alert>
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertTitle>Politically Exposed Person (PEP)</AlertTitle>
+                      <AlertDescription>
+                        A PEP is someone who holds a prominent public position or has family/close associates who do.
+                      </AlertDescription>
+                    </Alert>
+                    
+                    <FormField
+                      control={form.control}
+                      name="pepStatus"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Are you a Politically Exposed Person (PEP)? *</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select PEP status" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="no">No</SelectItem>
+                              <SelectItem value="yes">Yes</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <Separator />
+
+                  {/* Consent Declarations */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">Consent & Declarations</h3>
+                    <div className="space-y-3">
+                      <FormField
+                        control={form.control}
+                        name="amlScreeningConsent"
                         render={({ field }) => (
                           <FormItem className="flex flex-row items-start space-x-3 space-y-0">
                             <FormControl>
                               <Checkbox
                                 checked={field.value}
                                 onCheckedChange={field.onChange}
-                                data-testid="checkbox-same-address"
                               />
                             </FormControl>
-                            <div className="space-y-1 leading-none">
-                              <FormLabel>Permanent address is same as present address</FormLabel>
-                            </div>
+                            <FormLabel className="text-sm">
+                              I consent to AML screening and monitoring of my account for compliance purposes
+                            </FormLabel>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="panVerificationConsent"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <FormLabel className="text-sm">
+                              I authorize verification of my PAN details with income tax authorities
+                            </FormLabel>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="dataProcessingConsent"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <FormLabel className="text-sm">
+                              I consent to processing of my personal data for KYC and compliance purposes
+                            </FormLabel>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Banking & Demat Tab */}
+            <TabsContent value="banking" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Banking & Demat Account Details</CardTitle>
+                  <CardDescription>
+                    Provide your banking and demat account information for transactions
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Banking Details */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">Bank Account Details</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="bankAccountNumber"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Bank Account Number</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="Enter account number" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="ifscCode"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>IFSC Code</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="Enter IFSC code" />
+                            </FormControl>
+                            <FormMessage />
                           </FormItem>
                         )}
                       />
                     </div>
                     
-                    {!form.watch('isAddressSame') && (
-                      <div className="space-y-4">
-                        <h5 className="font-semibold text-gray-900 dark:text-gray-100">Permanent Address</h5>
-                        
-                        <FormField
-                          control={form.control}
-                          name="permanentAddress"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Permanent Address *</FormLabel>
-                              <FormControl>
-                                <Textarea 
-                                  placeholder="Enter your permanent address"
-                                  {...field}
-                                  data-testid="input-permanent-address"
-                                  rows={3}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                          <FormField
-                            control={form.control}
-                            name="permanentCity"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>City *</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="City" {...field} data-testid="input-permanent-city" />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name="permanentState"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>State *</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="State" {...field} data-testid="input-permanent-state" />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name="permanentPincode"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>PIN Code *</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="PIN Code" {...field} data-testid="input-permanent-pincode" />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-                      </div>
-                    )}
+                    <FormField
+                      control={form.control}
+                      name="bankName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Bank Name</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Enter bank name" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
 
-          {/* Financial Profile */}
-          {activeTab === "financial" && (
-            <Card data-testid="investment-profile-card">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Target className="h-5 w-5" />
-                  <span>Investment Profile</span>
-                </CardTitle>
-                <CardDescription>
-                  Help us personalize your portfolio recommendations based on your investment profile
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="riskTolerance"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Risk Tolerance</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-risk-tolerance">
-                              <SelectValue placeholder="Select your risk tolerance" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="conservative">Conservative - Low risk, stable returns</SelectItem>
-                            <SelectItem value="moderate">Moderate - Balanced risk and returns</SelectItem>
-                            <SelectItem value="aggressive">Aggressive - High risk, high returns</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="investmentExperience"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Investment Experience</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-investment-experience">
-                              <SelectValue placeholder="Select your experience level" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="beginner">Beginner - New to investing</SelectItem>
-                            <SelectItem value="intermediate">Intermediate - Some experience</SelectItem>
-                            <SelectItem value="experienced">Experienced - Well versed in markets</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="investmentHorizon"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Investment Horizon</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-investment-horizon">
-                              <SelectValue placeholder="Select your investment timeline" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="short">Short term - Less than 3 years</SelectItem>
-                            <SelectItem value="medium">Medium term - 3-10 years</SelectItem>
-                            <SelectItem value="long">Long term - More than 10 years</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="annualIncome"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Annual Income</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="e.g., 5,00,000"
-                            {...field}
-                            data-testid="input-annual-income"
-                          />
-                        </FormControl>
-                        <FormDescription>Your yearly income in rupees</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="occupation"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Occupation</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., Software Engineer" {...field} data-testid="input-occupation" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="sourceOfWealth"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Source of Wealth</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., Employment, Business, Investment" {...field} data-testid="input-source-wealth" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          )}
+                  <Separator />
 
-          {/* Compliance */}
-          {activeTab === "compliance" && (
-            <Card data-testid="kyc-integration-card">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Shield className="h-5 w-5" />
-                  <span>KYC & Identity Verification</span>
-                </CardTitle>
-                <CardDescription>
-                  Complete your KYC verification for regulatory compliance and enhanced services
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Identity Verification</h3>
-                  <FormField
-                    control={form.control}
-                    name="panNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>PAN Number</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="ABCDE1234F"
-                            className="uppercase"
-                            {...field}
-                            onChange={(e) => field.onChange(e.target.value.toUpperCase())}
-                            data-testid="input-pan-number"
-                          />
-                        </FormControl>
-                        <FormDescription>Required for KYC compliance and investment services</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  {panVerifiedName && (
-                    <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800 mt-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <CheckCircle className="h-5 w-5 text-green-600" />
-                        <span className="font-semibold text-green-800 dark:text-green-200">PAN Verification Status</span>
-                      </div>
-                      <p className="text-lg font-bold text-green-900 dark:text-green-100 mb-1">
-                        Verified Name: {panVerifiedName}
-                      </p>
-                      <p className="text-sm text-green-700 dark:text-green-300">
-                        Your identity has been successfully verified with the Income Tax Department.
-                      </p>
-                    </div>
-                  )}
-                </div>
-                
-                <Separator />
-                
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold flex items-center gap-2">
-                      <Building2 className="h-5 w-5" />
-                      Demat Account Verification
-                    </h3>
-                  </div>
-                  
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Connect your demat accounts with NSDL and CDSL to verify holdings, track portfolio performance, and enable seamless trading operations.
-                  </p>
-                  
-                  {/* NSDL Account Section */}
-                  <div className="border rounded-lg p-6 space-y-4">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-12 h-8 bg-blue-100 rounded flex items-center justify-center">
-                        <span className="text-blue-800 font-bold text-sm">NSDL</span>
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-lg">National Securities Depository Limited</h4>
-                        <p className="text-sm text-gray-600">India's first and largest securities depository</p>
-                      </div>
+                  {/* Demat Account Details */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">Demat Account Details (CVL/KRA)</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="krvNumber"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>KRA Registration Number</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="Enter KRA number" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="cvlKycNumber"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>CVL KYC Number</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="Enter CVL KYC number" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
-                        name="nsdlDpId"
+                        name="cdslBoId"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>NSDL DP ID</FormLabel>
+                            <FormLabel>CDSL BO ID</FormLabel>
                             <FormControl>
-                              <Input placeholder="IN300***" {...field} data-testid="input-nsdl-dp-id" />
+                              <Input {...field} placeholder="Enter CDSL BO ID" />
                             </FormControl>
-                            <FormDescription>8-digit Depository Participant ID</FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -1558,817 +1428,73 @@ export default function ProfilePage() {
                           <FormItem>
                             <FormLabel>NSDL Client ID</FormLabel>
                             <FormControl>
-                              <Input placeholder="12345678" {...field} data-testid="input-nsdl-client-id" />
+                              <Input {...field} placeholder="Enter NSDL Client ID" />
                             </FormControl>
-                            <FormDescription>8-digit Client ID assigned by DP</FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
                     </div>
-                    
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      className="w-full"
-                      data-testid="button-verify-nsdl"
-                      onClick={() => handleNsdlVerification()}
-                    >
-                      <Shield className="mr-2 h-4 w-4" />
-                      Verify NSDL Account & Fetch Holdings
-                    </Button>
                   </div>
-                  
-                  {/* CDSL Account Section */}
-                  <div className="border rounded-lg p-6 space-y-4">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-12 h-8 bg-green-100 rounded flex items-center justify-center">
-                        <span className="text-green-800 font-bold text-sm">CDSL</span>
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-lg">Central Depository Services Limited</h4>
-                        <p className="text-sm text-gray-600">Leading securities depository in India</p>
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="cdslBoId"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>CDSL BO ID</FormLabel>
-                            <FormControl>
-                              <Input placeholder="1201******" {...field} data-testid="input-cdsl-bo-id" />
-                            </FormControl>
-                            <FormDescription>16-digit Beneficial Owner ID</FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="cdslDpId"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>CDSL DP ID</FormLabel>
-                            <FormControl>
-                              <Input placeholder="12018000" {...field} data-testid="input-cdsl-dp-id" />
-                            </FormControl>
-                            <FormDescription>8-digit Depository Participant ID</FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      className="w-full"
-                      data-testid="button-verify-cdsl"
-                      onClick={() => handleCdslVerification()}
-                    >
-                      <Shield className="mr-2 h-4 w-4" />
-                      Verify CDSL Account & Fetch Holdings
-                    </Button>
-                  </div>
-                  
-                  {/* Account Status Section */}
-                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 space-y-4">
-                    <h4 className="font-semibold flex items-center gap-2">
-                      <CheckCircle className="h-5 w-5 text-blue-600" />
-                      Account Verification Status
-                    </h4>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-3">
-                        <p className="text-sm font-medium">NSDL Account Status</p>
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                          <span className="text-sm text-gray-600">Pending Verification</span>
-                        </div>
-                        {form.watch("nsdlDpId") && form.watch("nsdlClientId") && (
-                          <div className="bg-white dark:bg-gray-700 p-3 rounded border text-xs">
-                            <p className="text-gray-500 dark:text-gray-400">Account Details:</p>
-                            <p><strong>DP ID:</strong> {form.watch("nsdlDpId")}</p>
-                            <p><strong>Client ID:</strong> {form.watch("nsdlClientId")}</p>
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="space-y-3">
-                        <p className="text-sm font-medium">CDSL Account Status</p>
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                          <span className="text-sm text-gray-600">Pending Verification</span>
-                        </div>
-                        {form.watch("cdslBoId") && form.watch("cdslDpId") && (
-                          <div className="bg-white dark:bg-gray-700 p-3 rounded border text-xs">
-                            <p className="text-gray-500 dark:text-gray-400">Account Details:</p>
-                            <p><strong>BO ID:</strong> {form.watch("cdslBoId")}</p>
-                            <p><strong>DP ID:</strong> {form.watch("cdslDpId")}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
 
-                    {/* Holdings Summary */}
-                    <div className="border-t pt-4 mt-4">
-                      <h5 className="font-medium text-sm mb-3 flex items-center gap-2">
-                        <TrendingUp className="h-4 w-4 text-green-600" />
-                        Holdings Summary (Post Verification)
-                      </h5>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                        <div className="bg-white dark:bg-gray-700 p-3 rounded">
-                          <p className="text-xs text-gray-500">Total Holdings</p>
-                          <p className="text-lg font-semibold text-gray-400">--</p>
-                        </div>
-                        <div className="bg-white dark:bg-gray-700 p-3 rounded">
-                          <p className="text-xs text-gray-500">Market Value</p>
-                          <p className="text-lg font-semibold text-gray-400">--</p>
-                        </div>
-                        <div className="bg-white dark:bg-gray-700 p-3 rounded">
-                          <p className="text-xs text-gray-500">Equity Shares</p>
-                          <p className="text-lg font-semibold text-gray-400">--</p>
-                        </div>
-                        <div className="bg-white dark:bg-gray-700 p-3 rounded">
-                          <p className="text-xs text-gray-500">MF Units</p>
-                          <p className="text-lg font-semibold text-gray-400">--</p>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded border border-blue-200 dark:border-blue-800">
-                      <div className="flex items-start gap-2">
-                        <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                        <div className="space-y-2">
-                          <p className="text-sm font-medium text-blue-900 dark:text-blue-200">
-                            Benefits of Demat Account Verification:
-                          </p>
-                          <ul className="text-sm text-blue-800 dark:text-blue-300 space-y-1 ml-4">
-                            <li>• Real-time portfolio tracking across all accounts</li>
-                            <li>• Consolidated view of holdings and transactions</li>
-                            <li>• Enhanced security with 2FA verification</li>
-                            <li>• Direct integration with eDIS for seamless trading</li>
-                            <li>• Automated corporate actions and dividend tracking</li>
-                          </ul>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Compliance */}
-          {activeTab === "compliance" && (
-            <Card data-testid="preferences-card">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Shield className="h-5 w-5" />
-                  <span>Regulatory Compliance</span>
-                </CardTitle>
-                <CardDescription>
-                  Mandatory regulatory information for investment services compliance
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <h4 className="font-semibold flex items-center gap-2">
-                    <Globe className="h-4 w-4" />
-                    FATCA & CRS Declaration
-                  </h4>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <FormField
-                      control={form.control}
-                      name="fatcaStatus"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>FATCA Status</FormLabel>
-                          <FormControl>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <SelectTrigger data-testid="select-fatca-status">
-                                <SelectValue placeholder="Select FATCA status" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="us_person">US Person</SelectItem>
-                                <SelectItem value="non_us_person">Non-US Person</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </FormControl>
-                          <FormDescription>Required for US tax compliance</FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="taxResidencyCountry"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Tax Residency Country</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g., India" {...field} data-testid="input-tax-country" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  
-                  {form.watch('fatcaStatus') === 'us_person' && (
-                    <FormField
-                      control={form.control}
-                      name="fatcaTinNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>US TIN Number</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter US Tax Identification Number" {...field} data-testid="input-tin" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  )}
-                </div>
-                
-                <Separator />
-                
-                <div className="space-y-4">
-                  <h4 className="font-semibold flex items-center gap-2">
-                    <Users className="h-4 w-4" />
-                    PEP Declaration
-                  </h4>
-                  
-                  <FormField
-                    control={form.control}
-                    name="pepStatus"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Are you a Politically Exposed Person (PEP)? *</FormLabel>
-                        <FormControl>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <SelectTrigger data-testid="select-pep-status">
-                              <SelectValue placeholder="Select PEP status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="no">No</SelectItem>
-                              <SelectItem value="yes">Yes</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </FormControl>
-                        <FormDescription>
-                          PEP includes senior government officials, their family members, and close associates
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  {form.watch('pepStatus') === 'yes' && (
-                    <FormField
-                      control={form.control}
-                      name="pepDetails"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>PEP Details</FormLabel>
-                          <FormControl>
-                            <Textarea 
-                              placeholder="Please provide details about your political exposure" 
-                              {...field} 
-                              data-testid="input-pep-details"
-                              rows={3}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  )}
-                </div>
-                
-                <Separator />
-                
-                <div className="space-y-4">
-                  <h4 className="font-semibold flex items-center gap-2">
-                    <Lock className="h-4 w-4" />
-                    Consent & Declarations
-                  </h4>
-                  
-                  <div className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="kycConsent"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                              data-testid="checkbox-kyc-consent"
-                            />
-                          </FormControl>
-                          <div className="space-y-1 leading-none">
-                            <FormLabel className="text-sm font-normal">
-                              I consent to KYC verification and data processing *
-                            </FormLabel>
-                            <FormDescription>
-                              I authorize the collection and verification of my identity documents for regulatory compliance.
-                            </FormDescription>
-                            <FormMessage />
-                          </div>
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="fatcaDeclaration"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                              data-testid="checkbox-fatca-declaration"
-                            />
-                          </FormControl>
-                          <div className="space-y-1 leading-none">
-                            <FormLabel className="text-sm font-normal">
-                              I confirm the accuracy of FATCA declaration *
-                            </FormLabel>
-                            <FormDescription>
-                              I declare that the information provided for FATCA compliance is true and accurate.
-                            </FormDescription>
-                            <FormMessage />
-                          </div>
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="investmentRiskConsent"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                              data-testid="checkbox-risk-consent"
-                            />
-                          </FormControl>
-                          <div className="space-y-1 leading-none">
-                            <FormLabel className="text-sm font-normal">
-                              I understand investment risks *
-                            </FormLabel>
-                            <FormDescription>
-                              I acknowledge that investments are subject to market risks and may lose value.
-                            </FormDescription>
-                            <FormMessage />
-                          </div>
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="termsConditions"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                              data-testid="checkbox-terms"
-                            />
-                          </FormControl>
-                          <div className="space-y-1 leading-none">
-                            <FormLabel className="text-sm font-normal">
-                              I agree to Terms & Conditions *
-                            </FormLabel>
-                            <FormDescription>
-                              I have read and agree to the platform's terms of service and privacy policy.
-                            </FormDescription>
-                            <FormMessage />
-                          </div>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Documents Tab */}
-          {activeTab === "documents" && (
-            <Card data-testid="documents-card">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <FileText className="h-5 w-5" />
-                  <span>Document Verification</span>
-                </CardTitle>
-                <CardDescription>
-                  Upload required documents for KYC verification based on your profile
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                
-                {/* Document Requirements Summary */}
-                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                  <h4 className="font-semibold text-blue-900 dark:text-blue-200 mb-3 flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4" />
-                    Required Documents Based on Your Profile
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {/* Always required */}
-                    <div className="flex items-center gap-2 text-sm text-blue-800 dark:text-blue-300">
-                      <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                      <span>PAN Card (Mandatory)</span>
-                    </div>
-                    
-                    {/* Based on address proof */}
-                    <div className="flex items-center gap-2 text-sm text-blue-800 dark:text-blue-300">
-                      <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                      <span>Address Proof (Mandatory)</span>
-                    </div>
-                    
-                    {/* Based on age verification */}
-                    {form.watch("dateOfBirth") && (
-                      <div className="flex items-center gap-2 text-sm text-blue-800 dark:text-blue-300">
-                        <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                        <span>Age Proof (DOB provided)</span>
-                      </div>
-                    )}
-                    
-                    {/* Based on income */}
-                    {form.watch("annualIncome") && parseInt(form.watch("annualIncome")?.replace(/\D/g, "") || "0") > 1000000 && (
-                      <div className="flex items-center gap-2 text-sm text-blue-800 dark:text-blue-300">
-                        <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                        <span>Income Proof (High income)</span>
-                      </div>
-                    )}
-                    
-                    {/* Based on residency status */}
-                    {form.watch("residentStatus") && form.watch("residentStatus") !== "resident_indian" && (
-                      <div className="flex items-center gap-2 text-sm text-blue-800 dark:text-blue-300">
-                        <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                        <span>Passport (Non-resident)</span>
-                      </div>
-                    )}
-                    
-                    {/* Based on FATCA status */}
-                    {form.watch("fatcaStatus") === "us_person" && (
-                      <div className="flex items-center gap-2 text-sm text-blue-800 dark:text-blue-300">
-                        <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                        <span>US Tax Documents</span>
-                      </div>
-                    )}
-                    
-                    {/* Based on PEP status */}
-                    {form.watch("pepStatus") === "yes" && (
-                      <div className="flex items-center gap-2 text-sm text-blue-800 dark:text-blue-300">
-                        <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                        <span>PEP Declaration & Proof</span>
-                      </div>
-                    )}
-                    
-                    {/* Based on demat accounts */}
-                    {(form.watch("nsdlDpId") || form.watch("cdslBoId")) && (
-                      <div className="flex items-center gap-2 text-sm text-blue-800 dark:text-blue-300">
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                        <span>Demat Account Statements</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex gap-4 mt-3 text-xs">
-                    <div className="flex items-center gap-1">
-                      <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                      <span>Mandatory</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                      <span>Recommended</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <span>Optional</span>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Identity Documents */}
-                <div className="space-y-4">
-                  <h4 className="font-semibold flex items-center gap-2">
-                    <CreditCard className="h-4 w-4" />
-                    Identity Documents
-                  </h4>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* PAN Card */}
-                    <div className="border rounded-lg p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <Label className="font-medium">PAN Card</Label>
-                        <Badge variant="destructive" className="text-xs">Required</Badge>
-                      </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Upload clear image of your PAN card for tax identification
-                      </p>
-                      <div className="space-y-2">
-                        <Input
-                          type="file"
-                          accept="image/*,.pdf"
-                          data-testid="upload-pan-card"
-                          className="cursor-pointer"
-                        />
-                        {form.watch("panNumber") && (
-                          <p className="text-xs text-green-600">
-                            ✓ PAN Number provided: {form.watch("panNumber")}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {/* Aadhaar Card */}
-                    <div className="border rounded-lg p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <Label className="font-medium">Aadhaar Card</Label>
-                        <Badge variant="secondary" className="text-xs">Address Proof</Badge>
-                      </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Upload Aadhaar card for address verification (mask first 8 digits)
-                      </p>
-                      <div className="space-y-2">
-                        <Input
-                          type="file"
-                          accept="image/*,.pdf"
-                          data-testid="upload-aadhaar"
-                          className="cursor-pointer"
-                        />
-                        {form.watch("aadharNumber") && (
-                          <p className="text-xs text-green-600">
-                            ✓ Aadhaar Number provided
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {/* Passport - Conditional based on residency */}
-                    {(form.watch("residentStatus") !== "resident_indian" || form.watch("passportNumber")) && (
-                      <div className="border rounded-lg p-4 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <Label className="font-medium">Passport</Label>
-                          <Badge variant={form.watch("residentStatus") !== "resident_indian" ? "destructive" : "outline"} className="text-xs">
-                            {form.watch("residentStatus") !== "resident_indian" ? "Required" : "Optional"}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {form.watch("residentStatus") !== "resident_indian" 
-                            ? "Required for non-resident status verification"
-                            : "Upload passport for additional identity verification"
-                          }
-                        </p>
-                        <div className="space-y-2">
-                          <Input
-                            type="file"
-                            accept="image/*,.pdf"
-                            data-testid="upload-passport"
-                            className="cursor-pointer"
-                          />
-                          {form.watch("passportNumber") && (
-                            <p className="text-xs text-green-600">
-                              ✓ Passport Number provided: {form.watch("passportNumber")}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Driving License - Optional */}
-                    <div className="border rounded-lg p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <Label className="font-medium">Driving License</Label>
-                        <Badge variant="outline" className="text-xs">Optional</Badge>
-                      </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Additional identity proof with address verification
-                      </p>
-                      <div className="space-y-2">
-                        <Input
-                          type="file"
-                          accept="image/*,.pdf"
-                          data-testid="upload-driving-license"
-                          className="cursor-pointer"
-                        />
-                        {form.watch("drivingLicense") && (
-                          <p className="text-xs text-green-600">
-                            ✓ License Number provided
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <Separator />
-                
-                {/* Financial Documents */}
-                <div className="space-y-4">
-                  <h4 className="font-semibold flex items-center gap-2">
-                    <Banknote className="h-4 w-4" />
-                    Financial Documents
-                  </h4>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Bank Statement */}
-                    <div className="border rounded-lg p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <Label className="font-medium">Bank Statement</Label>
-                        <Badge variant="secondary" className="text-xs">Address Proof</Badge>
-                      </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Latest 3 months bank statement for address and financial verification
-                      </p>
-                      <div className="space-y-2">
-                        <Input
-                          type="file"
-                          accept=".pdf"
-                          data-testid="upload-bank-statement"
-                          className="cursor-pointer"
-                        />
-                        {form.watch("bankAccountNumber") && (
-                          <p className="text-xs text-green-600">
-                            ✓ Bank account details provided
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {/* Income Proof - Conditional based on income range */}
-                    {form.watch("annualIncome") && parseInt(form.watch("annualIncome")?.replace(/\D/g, "") || "0") > 1000000 && (
-                      <div className="border rounded-lg p-4 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <Label className="font-medium">Income Proof</Label>
-                          <Badge variant="destructive" className="text-xs">Required</Badge>
-                        </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          Salary slips, ITR, or income certificate for high income verification
-                        </p>
-                        <Input
-                          type="file"
-                          accept="image/*,.pdf"
-                          data-testid="upload-income-proof"
-                          className="cursor-pointer"
-                        />
-                      </div>
-                    )}
-                    
-                    {/* ITR Documents - Optional */}
-                    <div className="border rounded-lg p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <Label className="font-medium">ITR Documents</Label>
-                        <Badge variant="outline" className="text-xs">Recommended</Badge>
-                      </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Latest Income Tax Return for financial profile verification
-                      </p>
-                      <Input
-                        type="file"
-                        accept=".pdf"
-                        data-testid="upload-itr"
-                        className="cursor-pointer"
-                      />
-                    </div>
-                  </div>
-                </div>
-                
-                <Separator />
-                
-                {/* Regulatory Documents */}
-                <div className="space-y-4">
-                  <h4 className="font-semibold flex items-center gap-2">
-                    <Shield className="h-4 w-4" />
-                    Regulatory & Compliance Documents
-                  </h4>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* FATCA Documents - Conditional */}
-                    {form.watch("fatcaStatus") === "us_person" && (
-                      <div className="border rounded-lg p-4 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <Label className="font-medium">US Tax Documents</Label>
-                          <Badge variant="destructive" className="text-xs">Required</Badge>
-                        </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          W-9 form or US tax return for FATCA compliance
-                        </p>
-                        <Input
-                          type="file"
-                          accept=".pdf"
-                          data-testid="upload-fatca-documents"
-                          className="cursor-pointer"
-                        />
-                      </div>
-                    )}
-                    
-                    {/* PEP Declaration - Conditional */}
-                    {form.watch("pepStatus") === "yes" && (
-                      <div className="border rounded-lg p-4 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <Label className="font-medium">PEP Declaration</Label>
-                          <Badge variant="destructive" className="text-xs">Required</Badge>
-                        </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          Official documents supporting PEP status declaration
-                        </p>
-                        <Input
-                          type="file"
-                          accept="image/*,.pdf"
-                          data-testid="upload-pep-documents"
-                          className="cursor-pointer"
-                        />
-                      </div>
-                    )}
-                    
-                    {/* Demat Account Statements - Conditional */}
-                    {(form.watch("nsdlDpId") || form.watch("cdslBoId")) && (
-                      <div className="border rounded-lg p-4 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <Label className="font-medium">Demat Statements</Label>
-                          <Badge variant="secondary" className="text-xs">Optional</Badge>
-                        </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          Latest demat account statements for portfolio verification
-                        </p>
-                        <Input
-                          type="file"
-                          accept=".pdf"
-                          data-testid="upload-demat-statement"
-                          className="cursor-pointer"
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                <Separator />
-                
-                {/* Upload Guidelines */}
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">
-                  <h5 className="font-medium text-gray-900 dark:text-white">Document Upload Guidelines</h5>
-                  <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1 ml-4">
-                    <li>• Upload clear, readable images or PDF files</li>
-                    <li>• Ensure all four corners of the document are visible</li>
-                    <li>• File size should not exceed 5MB per document</li>
-                    <li>• Accepted formats: JPG, PNG, PDF</li>
-                    <li>• For Aadhaar, mask the first 8 digits for privacy</li>
-                    <li>• Documents should be recent and not expired</li>
-                  </ul>
-                </div>
-                
-                {/* Upload Status Summary */}
-                <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                  <h5 className="font-medium mb-3">Document Verification Status</h5>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                      <span className="text-sm">Identity Proof</span>
-                      <Badge variant="outline" className="text-xs">Pending</Badge>
-                    </div>
-                    <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                      <span className="text-sm">Address Proof</span>
-                      <Badge variant="outline" className="text-xs">Pending</Badge>
-                    </div>
-                    <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                      <span className="text-sm">Financial Proof</span>
-                      <Badge variant="outline" className="text-xs">Pending</Badge>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Save Button */}
-          <div className="flex justify-end pt-6" data-testid="save-section">
-            <Button
-              type="submit"
-              className="px-8"
-              disabled={updateProfileMutation.isPending}
-              data-testid="button-save-profile"
-            >
-              {updateProfileMutation.isPending ? "Saving..." : "Save Profile"}
-            </Button>
+          {/* Action Buttons */}
+          <div className="flex items-center justify-between pt-6 border-t">
+            <div className="flex items-center gap-2">
+              {isAmlScreening && (
+                <>
+                  <div className="h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-sm text-gray-600">Running AML screening...</span>
+                </>
+              )}
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  const tabs = ["basic", "identity", "address", "financial", "compliance", "banking"];
+                  const currentIndex = tabs.indexOf(activeTab);
+                  if (currentIndex > 0) {
+                    setActiveTab(tabs[currentIndex - 1]);
+                  }
+                }}
+                disabled={activeTab === "basic"}
+              >
+                Previous
+              </Button>
+              
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  const tabs = ["basic", "identity", "address", "financial", "compliance", "banking"];
+                  const currentIndex = tabs.indexOf(activeTab);
+                  if (currentIndex < tabs.length - 1) {
+                    setActiveTab(tabs[currentIndex + 1]);
+                  }
+                }}
+                disabled={activeTab === "banking"}
+              >
+                Next
+              </Button>
+              
+              <Button
+                type="submit"
+                disabled={profileMutation.isPending || isAmlScreening}
+                data-testid="button-save-profile"
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {profileMutation.isPending ? "Saving..." : "Save Profile"}
+              </Button>
+            </div>
           </div>
         </form>
       </Form>
-      </div>
-      </div>
     </div>
   );
 }

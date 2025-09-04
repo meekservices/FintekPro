@@ -460,98 +460,193 @@ export function setupAuth(app: Express) {
       }
 
       const { 
-        // Enhanced KYC Fields
-        panNumber, aadharNumber, passportNumber, drivingLicense, voterIdNumber,
-        dateOfBirth, nationality, fatherName, motherName, spouseName, maritalStatus,
+        // Client Type and Entity Information
+        clientType, entityType, companyName, entityRegistrationNumber, incorporationDate, businessNature, companyPanNumber,
         
-        // Residency Status
-        residentStatus, countryOfResidence, taxResidencyCountry,
+        // Enhanced KYC Fields - Individual
+        firstName, middleName, lastName, gender, dateOfBirth, fatherName, motherName, spouseName, maritalStatus,
         
-        // Address Information
-        address, city, state, pincode, country,
+        // Identity Documents
+        panNumber, aadharNumber, passportNumber, passportCountry, passportExpiryDate, drivingLicense, voterIdNumber,
         
-        // Financial Information
-        occupation, annualIncome, investmentExperience, riskTolerance, sourceOfWealth,
+        // Contact Information
+        email, mobile, alternateContactNumber,
         
-        // FATCA Compliance
+        // Comprehensive Residency Status
+        residentStatus, countryOfResidence, countryOfCitizenship, countryOfBirth, taxResidencyCountry,
+        nriSubType, visaType, permanentResidenceStatus, nriRepatriationType, overseasTaxId,
+        
+        // Address Information - Enhanced
+        presentAddress, presentCity, presentState, presentPincode, presentCountry,
+        permanentAddress, permanentCity, permanentState, permanentPincode, permanentCountry,
+        isAddressSame,
+        
+        // Financial Information - AML Enhanced
+        occupation, employer, designation, workExperience, annualIncome, sourceOfWealth, netWorth,
+        
+        // Investment Profile
+        investmentExperience, riskTolerance, investmentObjective, investmentHorizon,
+        
+        // Banking Details - Enhanced
+        bankAccountNumber, ifscCode, bankName, branchAddress, accountType,
+        
+        // Demat Account - CVL/KRA Integration
+        nsdlDpId, nsdlClientId, cdslBoId, cdslDpId, krvNumber, cvlKycNumber,
+        
+        // Regulatory Compliance - Enhanced FATCA & CRS
         fatcaStatus, fatcaTinNumber, fatcaCountryOfTaxResidence,
+        crsStatus, crsTaxResidentCountries, crsTinNumbers,
         
-        // PEP Status
-        pepStatus, pepDetails,
+        // PEP Declaration - Enhanced
+        pepStatus, pepDetails, pepRelatedPersonStatus, pepRelationshipDetails,
         
-        // UBO Information
-        isUbo, uboDetails,
+        // UBO Information - Enhanced
+        isUbo, uboDetails, beneficialOwnershipPercentage,
         
-        // Banking & Nominee Information
-        bankAccountNumber, ifscCode, nomineeDetails, nomineeRelation,
-        // EUIN and API Integration
+        // Nominee and Guardian Information
+        nomineeDetails, nomineeRelation, nomineeContactNumber, guardianDetails,
+        
+        // Professional Information
+        educationalQualifications, professionalCertifications,
+        
+        // Consent and Declarations
+        panVerificationConsent, amlScreeningConsent, fatcaDeclarationConsent, termsAndConditionsConsent,
+        dataProcessingConsent, regulatoryReportingConsent,
+        
+        // Legacy API Integration (backward compatibility)
         euinNumber, enableCamsApi, enableKfintechApi, enableNsdlApi, enableCdslApi,
-        // Registry Preferences
         preferredCamsRegistration, preferredKfintechRegistration, preferredNsdlRegistration, preferredCdslRegistration
       } = req.body;
 
       const updatedUser = await storage.updateUser(req.user.id, {
-        // Enhanced KYC Fields
-        panNumber: panNumber || null,
-        aadharNumber: aadharNumber || null,
-        passportNumber: passportNumber || null,
-        drivingLicense: drivingLicense || null,
-        voterIdNumber: voterIdNumber || null,
-        dateOfBirth: dateOfBirth || null,
-        nationality: nationality || null,
-        fatherName: fatherName || null,
-        motherName: motherName || null,
-        spouseName: spouseName || null,
-        maritalStatus: maritalStatus || null,
+        // Client Type and Entity Information
+        ...(clientType && { clientType }),
+        ...(entityType && { entityType }),
+        ...(companyName && { companyName }),
+        ...(entityRegistrationNumber && { entityRegistrationNumber }),
+        ...(incorporationDate && { incorporationDate }),
+        ...(businessNature && { businessNature }),
+        ...(companyPanNumber && { companyPanNumber }),
         
-        // Residency Status
-        residentStatus: residentStatus || null,
-        countryOfResidence: countryOfResidence || null,
-        taxResidencyCountry: taxResidencyCountry || null,
+        // Enhanced Individual KYC Fields
+        ...(firstName && { firstName }),
+        ...(middleName && { middleName }),
+        ...(lastName && { lastName }),
+        ...(gender && { gender }),
+        ...(dateOfBirth && { dateOfBirth }),
+        ...(fatherName && { fatherName }),
+        ...(motherName && { motherName }),
+        ...(spouseName && { spouseName }),
+        ...(maritalStatus && { maritalStatus }),
         
-        // Address Information
-        address: address || null,
-        city: city || null,
-        state: state || null,
-        pincode: pincode || null,
-        country: country || null,
+        // Identity Documents
+        ...(panNumber && { panNumber }),
+        ...(aadharNumber && { aadharNumber }),
+        ...(passportNumber && { passportNumber }),
+        ...(passportCountry && { passportCountry }),
+        ...(passportExpiryDate && { passportExpiryDate }),
+        ...(drivingLicense && { drivingLicense }),
+        ...(voterIdNumber && { voterIdNumber }),
         
-        // Financial Information
-        occupation: occupation || null,
-        annualIncome: annualIncome || null,
-        investmentExperience: investmentExperience || null,
-        riskTolerance: riskTolerance || null,
-        sourceOfWealth: sourceOfWealth || null,
+        // Contact Information
+        ...(email && { email }),
+        ...(mobile && { mobile }),
+        ...(alternateContactNumber && { alternateContactNumber }),
         
-        // FATCA Compliance
-        fatcaStatus: fatcaStatus || null,
-        fatcaTinNumber: fatcaTinNumber || null,
-        fatcaCountryOfTaxResidence: fatcaCountryOfTaxResidence || null,
+        // Comprehensive Residency Status
+        ...(residentStatus && { residentStatus }),
+        ...(countryOfResidence && { countryOfResidence }),
+        ...(countryOfCitizenship && { countryOfCitizenship }),
+        ...(countryOfBirth && { countryOfBirth }),
+        ...(taxResidencyCountry && { taxResidencyCountry }),
+        ...(nriSubType && { nriSubType }),
+        ...(visaType && { visaType }),
+        ...(permanentResidenceStatus && { permanentResidenceStatus }),
+        ...(nriRepatriationType && { nriRepatriationType }),
+        ...(overseasTaxId && { overseasTaxId }),
         
-        // PEP Status
-        pepStatus: pepStatus || null,
-        pepDetails: pepDetails || null,
+        // Address Information - Enhanced
+        ...(presentAddress && { address: presentAddress }),
+        ...(presentCity && { city: presentCity }),
+        ...(presentState && { state: presentState }),
+        ...(presentPincode && { pincode: presentPincode }),
+        ...(presentCountry && { country: presentCountry }),
         
-        // UBO Information
-        isUbo: isUbo || false,
-        uboDetails: uboDetails || null,
+        // Financial Information - AML Enhanced
+        ...(occupation && { occupation }),
+        ...(employer && { employer }),
+        ...(designation && { designation }),
+        ...(workExperience && { workExperience }),
+        ...(annualIncome && { annualIncome }),
+        ...(sourceOfWealth && { sourceOfWealth }),
+        ...(netWorth && { netWorth }),
         
-        // Banking & Nominee Information
-        bankAccountNumber: bankAccountNumber || null,
-        ifscCode: ifscCode || null,
-        nomineeDetails: nomineeDetails || null,
-        nomineeRelation: nomineeRelation || null,
-        // EUIN and API Integration
-        euinNumber: euinNumber || null,
-        enableCamsApi: enableCamsApi || false,
-        enableKfintechApi: enableKfintechApi || false,
-        enableNsdlApi: enableNsdlApi || false,
-        enableCdslApi: enableCdslApi || false,
-        // Registry Preferences
-        preferredCamsRegistration: preferredCamsRegistration || false,
-        preferredKfintechRegistration: preferredKfintechRegistration || false,
-        preferredNsdlRegistration: preferredNsdlRegistration || false,
-        preferredCdslRegistration: preferredCdslRegistration || false,
+        // Investment Profile
+        ...(investmentExperience && { investmentExperience }),
+        ...(riskTolerance && { riskTolerance }),
+        ...(investmentObjective && { investmentObjective }),
+        ...(investmentHorizon && { investmentHorizon }),
+        
+        // Banking Details - Enhanced
+        ...(bankAccountNumber && { bankAccountNumber }),
+        ...(ifscCode && { ifscCode }),
+        ...(bankName && { bankName }),
+        ...(branchAddress && { branchAddress }),
+        ...(accountType && { accountType }),
+        
+        // Demat Account - CVL/KRA Integration
+        ...(nsdlDpId && { nsdlDpId }),
+        ...(nsdlClientId && { nsdlClientId }),
+        ...(cdslBoId && { cdslBoId }),
+        ...(cdslDpId && { cdslDpId }),
+        ...(krvNumber && { krvNumber }),
+        ...(cvlKycNumber && { cvlKycNumber }),
+        
+        // Regulatory Compliance - Enhanced FATCA & CRS
+        ...(fatcaStatus && { fatcaStatus }),
+        ...(fatcaTinNumber && { fatcaTinNumber }),
+        ...(fatcaCountryOfTaxResidence && { fatcaCountryOfTaxResidence }),
+        
+        // PEP Declaration - Enhanced
+        ...(pepStatus && { pepStatus }),
+        ...(pepDetails && { pepDetails }),
+        ...(pepRelatedPersonStatus && { pepRelatedPersonStatus }),
+        ...(pepRelationshipDetails && { pepRelationshipDetails }),
+        
+        // UBO Information - Enhanced
+        ...(typeof isUbo === 'boolean' && { isUbo }),
+        ...(uboDetails && { uboDetails }),
+        ...(beneficialOwnershipPercentage && { beneficialOwnershipPercentage }),
+        
+        // Nominee and Guardian Information
+        ...(nomineeDetails && { nomineeDetails }),
+        ...(nomineeRelation && { nomineeRelation }),
+        ...(nomineeContactNumber && { nomineeContactNumber }),
+        ...(guardianDetails && { guardianDetails }),
+        
+        // Professional Information
+        ...(educationalQualifications && { educationalQualifications }),
+        ...(professionalCertifications && { professionalCertifications }),
+        
+        // Consent and Declarations
+        ...(typeof panVerificationConsent === 'boolean' && { panVerificationConsent }),
+        ...(typeof amlScreeningConsent === 'boolean' && { amlScreeningConsent }),
+        ...(typeof fatcaDeclarationConsent === 'boolean' && { fatcaDeclarationConsent }),
+        ...(typeof termsAndConditionsConsent === 'boolean' && { termsAndConditionsConsent }),
+        ...(typeof dataProcessingConsent === 'boolean' && { dataProcessingConsent }),
+        ...(typeof regulatoryReportingConsent === 'boolean' && { regulatoryReportingConsent }),
+        
+        // Legacy API Integration (backward compatibility)
+        ...(euinNumber && { euinNumber }),
+        ...(typeof enableCamsApi === 'boolean' && { enableCamsApi }),
+        ...(typeof enableKfintechApi === 'boolean' && { enableKfintechApi }),
+        ...(typeof enableNsdlApi === 'boolean' && { enableNsdlApi }),
+        ...(typeof enableCdslApi === 'boolean' && { enableCdslApi }),
+        ...(typeof preferredCamsRegistration === 'boolean' && { preferredCamsRegistration }),
+        ...(typeof preferredKfintechRegistration === 'boolean' && { preferredKfintechRegistration }),
+        ...(typeof preferredNsdlRegistration === 'boolean' && { preferredNsdlRegistration }),
+        ...(typeof preferredCdslRegistration === 'boolean' && { preferredCdslRegistration }),
+        
         updatedAt: new Date(),
       });
 
@@ -619,6 +714,135 @@ export function setupAuth(app: Express) {
     } catch (error) {
       console.error("Error updating profile:", error);
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // CKYC Integration Endpoints
+  app.post("/api/profile/ckyc-register", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || !req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = await storage.getUser(req.user.id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Import CKYC service dynamically to avoid module loading issues
+      const { CKYCService } = await import("./ckyc-service");
+      const ckycService = new CKYCService();
+
+      // Perform comprehensive KYC registration
+      const results = await ckycService.performComprehensiveKYC(user);
+
+      res.json({
+        success: true,
+        message: "CKYC registration completed",
+        results: {
+          ckyc: results.ckyc,
+          kra: results.kra || null,
+          cvl: results.cvl || null,
+        }
+      });
+    } catch (error) {
+      console.error("Error in CKYC registration:", error);
+      res.status(500).json({ 
+        success: false,
+        message: "CKYC registration failed",
+        error: "Internal server error" 
+      });
+    }
+  });
+
+  app.get("/api/profile/ckyc-search", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || !req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { panNumber, ckycNumber, aadharNumber, passportNumber } = req.query;
+
+      if (!panNumber && !ckycNumber && !aadharNumber && !passportNumber) {
+        return res.status(400).json({ 
+          message: "At least one search parameter is required (PAN, CKYC, Aadhaar, or Passport)" 
+        });
+      }
+
+      const { CKYCService } = await import("./ckyc-service");
+      const ckycService = new CKYCService();
+
+      const searchResult = await ckycService.searchCKYC({
+        panNumber: panNumber as string,
+        ckycNumber: ckycNumber as string,
+        aadharNumber: aadharNumber as string,
+        passportNumber: passportNumber as string,
+      });
+
+      res.json(searchResult);
+    } catch (error) {
+      console.error("Error in CKYC search:", error);
+      res.status(500).json({ 
+        success: false,
+        message: "CKYC search failed",
+        error: "Internal server error" 
+      });
+    }
+  });
+
+  // Enhanced AML Screening with Profile Integration
+  app.post("/api/profile/aml-screening", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || !req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = await storage.getUser(req.user.id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Import AML service dynamically
+      const { AMLService } = await import("./aml-service");
+      const amlService = new AMLService({
+        environment: process.env.NODE_ENV === 'production' ? 'production' : 'sandbox'
+      });
+
+      // Enhanced screening data from user profile
+      const screeningData = {
+        firstName: user.firstName || user.companyName?.split(' ')[0] || '',
+        lastName: user.lastName || user.companyName?.split(' ').slice(1).join(' ') || '',
+        fullName: user.firstName && user.lastName 
+          ? `${user.firstName} ${user.middleName || ''} ${user.lastName}`.trim()
+          : user.companyName || '',
+        dateOfBirth: user.dateOfBirth || user.incorporationDate || '',
+        nationality: user.countryOfCitizenship || user.nationality || 'Unknown',
+        countryOfResidence: user.countryOfResidence || 'Unknown',
+        passportNumber: user.passportNumber || '',
+        // Additional fields for enhanced screening
+        occupation: user.occupation || '',
+        businessNature: user.businessNature || '',
+        sourceOfWealth: user.sourceOfWealth || '',
+        pepStatus: user.pepStatus === 'yes',
+        clientType: user.clientType || 'individual',
+        entityType: user.entityType || undefined,
+        companyRegistrationNumber: user.entityRegistrationNumber || undefined,
+      };
+
+      const screeningResult = await amlService.screenCustomer(screeningData);
+
+      res.json({
+        success: true,
+        message: "AML screening completed successfully",
+        result: screeningResult
+      });
+    } catch (error) {
+      console.error("Error in AML screening:", error);
+      res.status(500).json({ 
+        success: false,
+        message: "AML screening failed",
+        error: "Internal server error" 
+      });
     }
   });
 

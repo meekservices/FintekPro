@@ -74,15 +74,15 @@ Preferred communication style: Simple, everyday language.
 ## Recent Changes
 
 ### Latest modifications with dates
-- **September 2025**: Fixed TypeScript errors in IPO analysis page (Calculator icon imports and date formatting issues)
-- **September 2025**: Researched and confirmed absence of official Bajaj Finance public API
-- **September 2025**: Installed financial calculation libraries (financial, financejs) for accurate financial computations
-- **September 2025**: Created comprehensive Bajaj Finance API integration with EMI, personal loan, business loan, FD, insurance, and SIP calculators
-- **September 2025**: Built interactive Bajaj Finance web interface at /bajaj-finance with tabbed calculator sections
-- **September 2025**: Researched Tata Capital APIs and created complete integration with retail and commercial API capabilities
-- **September 2025**: Implemented Tata Capital API with comprehensive loan calculators, KYC verification, and financial services
-- **September 2025**: Built interactive Tata Capital web interface at /tata-capital with advanced loan calculation tools
-- **September 2025**: Completely removed probe42 integration from the entire system including API routes, components, and all references
+- **September 2025**: Reconstructed comprehensive client profile page with enhanced KYC/CKYC integration supporting both individual and non-individual entities across all residency statuses
+- **September 2025**: Implemented multi-provider AML screening with real-time compliance monitoring (Sumsub, ComplyCube, Sanction Scanner)
+- **September 2025**: Added CKYC (Central KYC Registry) service with KRA and CVL integration for securities trading compliance
+- **September 2025**: Enhanced profile management with global residency support (NRI, OCI, PIO, foreign nationals) for all countries
+- **September 2025**: Integrated comprehensive regulatory compliance features (FATCA, CRS, PEP declarations, UBO tracking)
+- **September 2025**: Added automated AML screening triggers with profile-based risk assessment and enhanced onboarding workflows
+- **September 2025**: Created tabbed profile interface with 6 comprehensive sections: Basic Info, Identity & KYC, Address, Financial Profile, Compliance, Banking & Demat
+- **September 2025**: Implemented progressive profile completeness tracking with real-time validation and consent management
+- **September 2025**: Built seamless integration between profile data and AML/CKYC services for automated compliance workflows
 
 ## Financial Institution Integrations
 
