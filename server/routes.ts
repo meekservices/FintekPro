@@ -499,6 +499,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // KYC Status API endpoint
+  app.get("/api/kyc/status", async (req, res) => {
+    try {
+      // Mock KYC status data for demonstration
+      // In real implementation, this would connect to KRA, AMC, and broking databases
+      const mockKycStatusData = {
+        mutualFundKyc: "in_progress" as const,
+        brokingKyc: "pending" as const,
+        kraKyc: "completed" as const,
+        lastUpdated: new Date().toISOString(),
+        completionPercentage: 33, // Based on completed KYC types (1/3 completed)
+      };
+
+      res.json(mockKycStatusData);
+    } catch (error) {
+      console.error('KYC status error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch KYC status'
+      });
+    }
+  });
+
   // Client Auto-Populate API endpoint
   app.post("/api/client/auto-populate", async (req, res) => {
     try {

@@ -12,30 +12,84 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { insertUserProfileSchema, type UserProfile } from "@shared/schema";
-import { User, Settings, CreditCard, Target, TrendingUp, Building2, CheckCircle, Shield, AlertCircle } from "lucide-react";
+import { User, Settings, CreditCard, Target, TrendingUp, Building2, CheckCircle, Shield, AlertCircle, FileText, Users, Banknote, Calendar, MapPin, Phone, Mail, Globe, Star, Award, Lock } from "lucide-react";
 
-// Create a simplified form schema for the profile form based on the users table schema
+// Comprehensive profile form schema for regulatory compliance
 const profileFormSchema = z.object({
+  // Basic Information
   clientId: z.string(),
-  firstName: z.string().min(1, "First name is required").optional(),
+  firstName: z.string().min(1, "First name is required"),
   middleName: z.string().optional(),
-  lastName: z.string().min(1, "Last name is required").optional(),
-  email: z.string().email("Invalid email address").optional(),
-  mobile: z.string().min(10, "Mobile number must be at least 10 digits").optional(),
-  dateOfBirth: z.string().optional(),
-  panNumber: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Invalid PAN number format").optional().or(z.literal("")),
-  riskTolerance: z.enum(["conservative", "moderate", "aggressive"]).optional(),
-  investmentExperience: z.enum(["beginner", "intermediate", "experienced"]).optional(),
-  annualIncome: z.string().optional(),
-  occupation: z.string().optional(),
-  address: z.string().optional(),
-  city: z.string().optional(),
-  state: z.string().optional(),
-  pincode: z.string().optional(),
-  country: z.string().optional(),
+  lastName: z.string().min(1, "Last name is required"),
+  email: z.string().email("Invalid email address"),
+  mobile: z.string().min(10, "Mobile number must be at least 10 digits"),
+  dateOfBirth: z.string().min(1, "Date of birth is required"),
+  
+  // Identity Documents - KYC Required
+  panNumber: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Invalid PAN number format"),
+  aadharNumber: z.string().regex(/^[0-9]{12}$/, "Aadhaar must be 12 digits").optional(),
+  passportNumber: z.string().optional(),
+  drivingLicense: z.string().optional(),
+  voterIdNumber: z.string().optional(),
+  
+  // Personal Details
+  gender: z.enum(["male", "female", "other"]),
+  maritalStatus: z.enum(["single", "married", "divorced", "widowed"]).optional(),
+  fatherName: z.string().min(1, "Father's name is required"),
+  motherName: z.string().min(1, "Mother's name is required"),
+  spouseName: z.string().optional(),
+  
+  // Address Information
+  address: z.string().min(1, "Address is required"),
+  city: z.string().min(1, "City is required"),
+  state: z.string().min(1, "State is required"),
+  pincode: z.string().regex(/^[0-9]{6}$/, "Pincode must be 6 digits"),
+  country: z.string().default("India"),
+  
+  // Financial Information
+  occupation: z.string().min(1, "Occupation is required"),
+  annualIncome: z.string().min(1, "Annual income is required"),
+  sourceOfWealth: z.string().optional(),
+  netWorth: z.string().optional(),
+  
+  // Investment Profile
+  riskTolerance: z.enum(["conservative", "moderate", "aggressive"]),
+  investmentExperience: z.enum(["beginner", "intermediate", "experienced"]),
+  investmentObjective: z.enum(["capital_appreciation", "income", "balanced"]),
+  investmentHorizon: z.enum(["short", "medium", "long"]),
+  
+  // Banking Details
+  bankAccountNumber: z.string().optional(),
+  ifscCode: z.string().optional(),
+  bankName: z.string().optional(),
+  
+  // Regulatory Compliance
+  residentStatus: z.enum(["resident", "nri", "pio", "oci"]),
+  countryOfResidence: z.string().optional(),
+  taxResidencyCountry: z.string().optional(),
+  
+  // FATCA & CRS
+  fatcaStatus: z.enum(["us_person", "non_us_person"]).optional(),
+  fatcaTinNumber: z.string().optional(),
+  
+  // PEP Declaration
+  pepStatus: z.enum(["yes", "no"]),
+  pepDetails: z.string().optional(),
+  
+  // Nominee Information
+  nomineeDetails: z.string().optional(),
+  nomineeRelation: z.string().optional(),
+  
+  // Consent & Declarations
+  kycConsent: z.boolean().refine(val => val === true, "KYC consent is required"),
+  fatcaDeclaration: z.boolean().refine(val => val === true, "FATCA declaration is required"),
+  investmentRiskConsent: z.boolean().refine(val => val === true, "Investment risk consent is required"),
+  termsConditions: z.boolean().refine(val => val === true, "Terms and conditions acceptance is required")
 });
 
 type ProfileFormData = z.infer<typeof profileFormSchema>;
@@ -50,9 +104,20 @@ const investmentGoalsOptions = [
   "short_term_goals"
 ];
 
+// KYC Status Types
+type KYCStatus = "pending" | "in_progress" | "completed" | "rejected";
+
+interface KYCStatusData {
+  mutualFundKyc: KYCStatus;
+  brokingKyc: KYCStatus;
+  kraKyc: KYCStatus;
+  lastUpdated: string;
+  completionPercentage: number;
+}
+
 export default function ProfilePage() {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<"personal" | "investment" | "kyc" | "preferences">("personal");
+  const [activeTab, setActiveTab] = useState<"overview" | "personal" | "financial" | "compliance" | "documents">("overview");
   const [panVerifiedName, setPanVerifiedName] = useState<string | null>(null);
   const [isVerifyingPan, setIsVerifyingPan] = useState(false);
 
@@ -68,10 +133,16 @@ export default function ProfilePage() {
     retry: false,
   });
 
+  // Query to get KYC status data
+  const { data: kycStatusData, isLoading: isKycLoading } = useQuery<KYCStatusData>({
+    queryKey: ["/api/kyc/status"],
+    retry: false,
+  });
+
   const form = useForm<ProfileFormData>({
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
-      clientId: "demo-user-1", // Temporary demo client ID
+      clientId: "demo-user-1",
       firstName: profile?.firstName || "",
       middleName: profile?.middleName || "",
       lastName: profile?.lastName || "",
@@ -79,15 +150,44 @@ export default function ProfilePage() {
       mobile: profile?.mobile || "",
       dateOfBirth: profile?.dateOfBirth || "",
       panNumber: profile?.panNumber || "",
-      riskTolerance: profile?.riskTolerance || "moderate",
-      investmentExperience: profile?.investmentExperience || "beginner",
-      annualIncome: profile?.annualIncome || "",
-      occupation: profile?.occupation || "",
+      aadharNumber: profile?.aadharNumber || "",
+      passportNumber: profile?.passportNumber || "",
+      drivingLicense: profile?.drivingLicense || "",
+      voterIdNumber: profile?.voterIdNumber || "",
+      gender: profile?.gender || "male",
+      maritalStatus: profile?.maritalStatus || "single",
+      fatherName: profile?.fatherName || "",
+      motherName: profile?.motherName || "",
+      spouseName: profile?.spouseName || "",
       address: profile?.address || "",
       city: profile?.city || "",
       state: profile?.state || "",
       pincode: profile?.pincode || "",
       country: profile?.country || "India",
+      occupation: profile?.occupation || "",
+      annualIncome: profile?.annualIncome || "",
+      sourceOfWealth: profile?.sourceOfWealth || "",
+      netWorth: profile?.netWorth || "",
+      riskTolerance: profile?.riskTolerance || "moderate",
+      investmentExperience: profile?.investmentExperience || "beginner",
+      investmentObjective: profile?.investmentObjective || "balanced",
+      investmentHorizon: profile?.investmentHorizon || "medium",
+      bankAccountNumber: profile?.bankAccountNumber || "",
+      ifscCode: profile?.ifscCode || "",
+      bankName: profile?.bankName || "",
+      residentStatus: profile?.residentStatus || "resident",
+      countryOfResidence: profile?.countryOfResidence || "",
+      taxResidencyCountry: profile?.taxResidencyCountry || "",
+      fatcaStatus: profile?.fatcaStatus || "non_us_person",
+      fatcaTinNumber: profile?.fatcaTinNumber || "",
+      pepStatus: profile?.pepStatus || "no",
+      pepDetails: profile?.pepDetails || "",
+      nomineeDetails: profile?.nomineeDetails || "",
+      nomineeRelation: profile?.nomineeRelation || "",
+      kycConsent: false,
+      fatcaDeclaration: false,
+      investmentRiskConsent: false,
+      termsConditions: false
     },
   });
 
@@ -139,23 +239,24 @@ export default function ProfilePage() {
       <div className="container mx-auto py-8 max-w-6xl" data-testid="profile-page">
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2" data-testid="profile-title">
-              Client Profile
+          <div className="flex-1">
+            <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2" data-testid="profile-title">
+              Client Onboarding & KYC
             </h1>
             {panVerifiedName && (
               <div className="flex items-center gap-2 mb-2">
                 <CheckCircle className="h-5 w-5 text-green-600" />
-                <span className="text-lg font-semibold text-gray-900 dark:text-white">
+                <span className="text-xl font-semibold text-gray-900 dark:text-white">
                   {panVerifiedName}
                 </span>
                 <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                  PAN Verified
+                  <Shield className="h-3 w-3 mr-1" />
+                  Identity Verified
                 </Badge>
               </div>
             )}
-            <p className="text-gray-600 dark:text-gray-400" data-testid="profile-description">
-              Manage your profile information and API integrations for personalized portfolio data
+            <p className="text-gray-600 dark:text-gray-400 text-lg" data-testid="profile-description">
+              Complete your regulatory compliance and KYC verification for seamless investment services
             </p>
           </div>
           
@@ -184,10 +285,11 @@ export default function ProfilePage() {
       {/* Tab Navigation */}
       <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg mb-8" data-testid="profile-tabs">
         {[
+          { key: "overview", label: "KYC Overview", icon: Award },
           { key: "personal", label: "Personal Info", icon: User },
-          { key: "investment", label: "Investment Profile", icon: TrendingUp },
-          { key: "kyc", label: "KYC & Identity", icon: Shield },
-          { key: "preferences", label: "Preferences", icon: Settings },
+          { key: "financial", label: "Financial Profile", icon: Banknote },
+          { key: "compliance", label: "Compliance", icon: Shield },
+          { key: "documents", label: "Documents", icon: FileText },
         ].map(({ key, label, icon: Icon }) => (
           <button
             key={key}
@@ -205,10 +307,236 @@ export default function ProfilePage() {
         ))}
       </div>
 
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-          {/* Personal Information */}
-          {activeTab === "personal" && (
+      <div className="space-y-8">
+        {/* KYC Overview Dashboard */}
+        {activeTab === "overview" && (
+          <div className="space-y-6">
+            {/* KYC Status Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-blue-900 flex items-center gap-2">
+                    <Building2 className="h-5 w-5" />
+                    Mutual Fund KYC
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between mb-2">
+                    <Badge 
+                      variant={kycStatusData?.mutualFundKyc === 'completed' ? 'default' : 'secondary'}
+                      className={kycStatusData?.mutualFundKyc === 'completed' ? 'bg-green-100 text-green-800' : ''}
+                    >
+                      {kycStatusData?.mutualFundKyc === 'completed' ? 'Completed' : 
+                       kycStatusData?.mutualFundKyc === 'in_progress' ? 'In Progress' :
+                       kycStatusData?.mutualFundKyc === 'rejected' ? 'Rejected' : 'Pending'}
+                    </Badge>
+                    {kycStatusData?.mutualFundKyc === 'completed' && (
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-600">Required for mutual fund investments</p>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-purple-900 flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5" />
+                    Broking KYC
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between mb-2">
+                    <Badge 
+                      variant={kycStatusData?.brokingKyc === 'completed' ? 'default' : 'secondary'}
+                      className={kycStatusData?.brokingKyc === 'completed' ? 'bg-green-100 text-green-800' : ''}
+                    >
+                      {kycStatusData?.brokingKyc === 'completed' ? 'Completed' : 
+                       kycStatusData?.brokingKyc === 'in_progress' ? 'In Progress' :
+                       kycStatusData?.brokingKyc === 'rejected' ? 'Rejected' : 'Pending'}
+                    </Badge>
+                    {kycStatusData?.brokingKyc === 'completed' && (
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-600">Required for equity trading</p>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-green-900 flex items-center gap-2">
+                    <Shield className="h-5 w-5" />
+                    KRA CKYC
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between mb-2">
+                    <Badge 
+                      variant={kycStatusData?.kraKyc === 'completed' ? 'default' : 'secondary'}
+                      className={kycStatusData?.kraKyc === 'completed' ? 'bg-green-100 text-green-800' : ''}
+                    >
+                      {kycStatusData?.kraKyc === 'completed' ? 'Completed' : 
+                       kycStatusData?.kraKyc === 'in_progress' ? 'In Progress' :
+                       kycStatusData?.kraKyc === 'rejected' ? 'Rejected' : 'Pending'}
+                    </Badge>
+                    {kycStatusData?.kraKyc === 'completed' && (
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-600">Centralized KYC verification</p>
+                </CardContent>
+              </Card>
+            </div>
+            
+            {/* Overall Progress */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Award className="h-5 w-5 text-orange-600" />
+                  KYC Completion Progress
+                </CardTitle>
+                <CardDescription>
+                  Complete your KYC verification to access all investment services
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Overall Progress</span>
+                    <span className="font-semibold">{kycStatusData?.completionPercentage || 0}%</span>
+                  </div>
+                  <Progress value={kycStatusData?.completionPercentage || 0} className="h-3" />
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                  <div className="space-y-2">
+                    <h4 className="font-semibold flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      Completed Steps
+                    </h4>
+                    <ul className="text-sm space-y-1 text-gray-600">
+                      {panVerifiedName && (
+                        <li className="flex items-center gap-2">
+                          <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                          PAN Verification
+                        </li>
+                      )}
+                      {kycStatusData?.mutualFundKyc === 'completed' && (
+                        <li className="flex items-center gap-2">
+                          <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                          Mutual Fund KYC
+                        </li>
+                      )}
+                      {kycStatusData?.brokingKyc === 'completed' && (
+                        <li className="flex items-center gap-2">
+                          <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                          Broking KYC
+                        </li>
+                      )}
+                      {kycStatusData?.kraKyc === 'completed' && (
+                        <li className="flex items-center gap-2">
+                          <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                          KRA CKYC
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <h4 className="font-semibold flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-orange-600" />
+                      Pending Actions
+                    </h4>
+                    <ul className="text-sm space-y-1 text-gray-600">
+                      {!panVerifiedName && (
+                        <li className="flex items-center gap-2">
+                          <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
+                          Complete PAN Verification
+                        </li>
+                      )}
+                      {kycStatusData?.mutualFundKyc !== 'completed' && (
+                        <li className="flex items-center gap-2">
+                          <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
+                          Submit Mutual Fund KYC
+                        </li>
+                      )}
+                      {kycStatusData?.brokingKyc !== 'completed' && (
+                        <li className="flex items-center gap-2">
+                          <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
+                          Complete Broking KYC
+                        </li>
+                      )}
+                      {kycStatusData?.kraKyc !== 'completed' && (
+                        <li className="flex items-center gap-2">
+                          <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
+                          Verify KRA CKYC
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                </div>
+                
+                {kycStatusData?.lastUpdated && (
+                  <div className="text-xs text-gray-500 mt-4">
+                    Last updated: {new Date(kycStatusData.lastUpdated).toLocaleDateString()}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            
+            {/* Quick Actions */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Quick Actions</CardTitle>
+                <CardDescription>
+                  Complete these actions to expedite your KYC verification
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <Button 
+                    variant="outline" 
+                    className="h-auto p-4 flex flex-col items-center space-y-2"
+                    onClick={() => setActiveTab("personal")}
+                  >
+                    <User className="h-6 w-6" />
+                    <span className="text-sm">Update Profile</span>
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="h-auto p-4 flex flex-col items-center space-y-2"
+                    onClick={() => setActiveTab("documents")}
+                  >
+                    <FileText className="h-6 w-6" />
+                    <span className="text-sm">Upload Documents</span>
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="h-auto p-4 flex flex-col items-center space-y-2"
+                    onClick={() => setActiveTab("financial")}
+                  >
+                    <Banknote className="h-6 w-6" />
+                    <span className="text-sm">Financial Info</span>
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="h-auto p-4 flex flex-col items-center space-y-2"
+                    onClick={() => setActiveTab("compliance")}
+                  >
+                    <Shield className="h-6 w-6" />
+                    <span className="text-sm">Compliance</span>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+        
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+            {/* Personal Information */}
+            {activeTab === "personal" && (
             <Card data-testid="personal-info-card">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
@@ -589,6 +917,7 @@ export default function ProfilePage() {
           </div>
         </form>
       </Form>
+      </div>
       </div>
     </div>
   );
