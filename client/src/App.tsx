@@ -45,6 +45,7 @@ import PolicyBazaar from "@/pages/policybazaar";
 import Cibil from "@/pages/cibil";
 import Contact from "@/pages/contact";
 import { SupplierManagement } from "@/pages/supplier-management";
+import AMLMonitoring from "@/pages/aml-monitoring";
 
 function Router() {
   return (
@@ -91,6 +92,7 @@ function Router() {
       <Route path="/cibil" component={Cibil} />
       <Route path="/contact" component={Contact} />
       <Route path="/suppliers" component={SupplierManagement} />
+      <Route path="/aml-monitoring" component={AMLMonitoring} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -30,6 +30,7 @@ import { bajajFinanceAPI } from './bajaj-finance-api';
 import { tataCapitalAPI } from './tata-capital-api';
 import { PolicyBazaarAPI } from './policybazaar-api';
 import { CibilAPI } from './cibil-api';
+import amlRoutes from './aml-routes';
 import { ZohoCommerceAPI, type ZohoCommerceConfig } from './zoho-commerce-api';
 import { zohoCommerceConfig, zohoProducts, zohoCategories, zohoOrders, zohoCustomers, zohoInventory, zohoWebhooks, zohoSyncLogs, insertZohoCommerceConfigSchema, insertZohoProductSchema, insertZohoCategorySchema, insertZohoOrderSchema } from '@shared/schema';
 
@@ -17742,6 +17743,9 @@ System Security Data:`;
       });
     }
   });
+
+  // Add AML routes
+  app.use(amlRoutes);
 
   // Global error handler (must be last)
   app.use(globalErrorHandler);
