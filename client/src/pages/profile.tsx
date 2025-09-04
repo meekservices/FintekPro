@@ -579,7 +579,7 @@ export default function ProfilePage() {
                   </div>
                 )}
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <FormField
                     control={form.control}
                     name="firstName"
@@ -588,6 +588,19 @@ export default function ProfilePage() {
                         <FormLabel>First Name *</FormLabel>
                         <FormControl>
                           <Input placeholder="Enter your first name" {...field} data-testid="input-first-name" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="middleName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Middle Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Middle name (optional)" {...field} data-testid="input-middle-name" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -606,6 +619,8 @@ export default function ProfilePage() {
                       </FormItem>
                     )}
                   />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FormField
                     control={form.control}
                     name="email"
@@ -614,21 +629,6 @@ export default function ProfilePage() {
                         <FormLabel>Email Address *</FormLabel>
                         <FormControl>
                           <Input type="email" placeholder="your.email@example.com" {...field} data-testid="input-email" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="middleName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Middle Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Middle name (optional)" {...field} data-testid="input-middle-name" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -648,6 +648,8 @@ export default function ProfilePage() {
                       </FormItem>
                     )}
                   />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FormField
                     control={form.control}
                     name="dateOfBirth"
