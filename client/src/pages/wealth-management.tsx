@@ -95,7 +95,7 @@ export default function InvestSmart() {
             </TabsTrigger>
             <TabsTrigger value="recommendations" data-testid="tab-recommendations">
               <Lightbulb className="w-4 h-4 mr-2" />
-              Smart Recommendations
+              Expert Insights
             </TabsTrigger>
             <TabsTrigger value="proposals" data-testid="tab-proposals">
               <FileText className="w-4 h-4 mr-2" />
