@@ -23,7 +23,8 @@ import {
   CheckCircle,
   Lightbulb,
   Clock,
-  FileText
+  FileText,
+  Star
 } from "lucide-react";
 import { GoalPlanning } from "@/components/wealth/goal-planning";
 import { ObligationMapping } from "@/components/wealth/obligation-mapping";
@@ -31,9 +32,12 @@ import { RetirementPlanning } from "@/components/wealth/retirement-planning";
 import { RiskAssessment } from "@/components/wealth/risk-assessment";
 import { InvestmentRecommendations } from "@/components/wealth/investment-recommendations";
 import { Proposals } from "@/components/wealth/proposals";
+import { PortfolioConfetti } from "@/components/portfolio/PortfolioConfetti";
+import { ConfettiTestPanel } from "@/components/confetti/ConfettiTestPanel";
 
 export default function InvestSmart() {
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [confettiEnabled, setConfettiEnabled] = useState(true);
 
   // Investment capacity analysis based on CIBIL obligations
   const financialAnalysis = {
@@ -68,7 +72,7 @@ export default function InvestSmart() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-7">
+          <TabsList className="grid w-full grid-cols-8">
             <TabsTrigger value="dashboard" data-testid="tab-dashboard">
               <BarChart3 className="w-4 h-4 mr-2" />
               Dashboard
@@ -96,6 +100,10 @@ export default function InvestSmart() {
             <TabsTrigger value="proposals" data-testid="tab-proposals">
               <FileText className="w-4 h-4 mr-2" />
               Proposals
+            </TabsTrigger>
+            <TabsTrigger value="confetti-test" data-testid="tab-confetti-test">
+              <Star className="w-4 h-4 mr-2" />
+              Confetti
             </TabsTrigger>
           </TabsList>
 
@@ -739,8 +747,21 @@ export default function InvestSmart() {
           <TabsContent value="proposals">
             <Proposals portfolioId="demo-portfolio-1" />
           </TabsContent>
+          
+          <TabsContent value="confetti-test">
+            <ConfettiTestPanel 
+              confettiEnabled={confettiEnabled}
+              onToggleConfetti={setConfettiEnabled}
+            />
+          </TabsContent>
 
         </Tabs>
+        
+        {/* Real-time Portfolio Performance Confetti */}
+        <PortfolioConfetti 
+          portfolioId="demo-portfolio-1" 
+          enabled={confettiEnabled} 
+        />
       </div>
     </div>
   );

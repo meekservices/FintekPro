@@ -17509,6 +17509,83 @@ System Security Data:`;
     }
   });
 
+  // Real-time Portfolio Performance API for confetti celebrations
+  app.get("/api/portfolios/:portfolioId/performance", async (req: any, res) => {
+    try {
+      // Use development bypass for demo purposes
+      const isDevelopment = !process.env.NODE_ENV || process.env.NODE_ENV === 'development' || process.env.REPL_ID;
+      if (!req.user && isDevelopment) {
+        req.user = { id: 'demo-user-1' };
+      }
+      
+      const { portfolioId } = req.params;
+      
+      // Simulate real-time portfolio performance with dynamic values
+      const baseTime = Date.now();
+      const timeVariation = Math.sin(baseTime / 30000) * 0.05; // Oscillates every 30 seconds
+      const randomVariation = (Math.random() - 0.5) * 0.02; // ±1% random variation
+      
+      // Base portfolio values
+      const baseValue = 2850000; // ₹28.5L base portfolio
+      const baseReturns = 650000; // ₹6.5L base returns
+      
+      // Apply dynamic variations to simulate real-time changes  
+      const currentVariation = timeVariation + randomVariation;
+      const totalValue = Math.round(baseValue * (1 + currentVariation));
+      const totalReturns = Math.round(baseReturns * (1 + currentVariation));
+      const returnPercentage = Math.round((totalReturns / (totalValue - totalReturns)) * 100 * 100) / 100;
+      
+      // Today's gain simulation (more volatile for celebration triggers)
+      const todayVariation = Math.sin(baseTime / 10000) * 0.03 + (Math.random() - 0.3) * 0.02; // Bias toward gains
+      const todaysGain = Math.round(Math.max(0, baseValue * todayVariation));
+      const todaysGainPercentage = Math.round((todaysGain / totalValue) * 100 * 100) / 100;
+      
+      const performance = {
+        totalValue,
+        totalReturns,
+        returnPercentage,
+        todaysGain,
+        todaysGainPercentage,
+        previousValue: totalValue - todaysGain, // For comparison
+        investedAmount: totalValue - totalReturns,
+        timestamp: new Date().toISOString(),
+        // Add milestone information for confetti triggers
+        milestoneReached: null,
+        celebrationTrigger: false
+      };
+
+      // Check for celebration triggers (simulated milestones)
+      const profitMilestones = [100000, 500000, 1000000, 2500000, 5000000];
+      const percentMilestones = [10, 25, 50, 75, 100];
+      
+      for (const milestone of profitMilestones) {
+        if (totalReturns >= milestone && Math.abs(totalReturns - milestone) < 50000) {
+          performance.milestoneReached = `₹${(milestone / 100000).toFixed(0)}L Profit`;
+          performance.celebrationTrigger = true;
+          break;
+        }
+      }
+      
+      if (!performance.celebrationTrigger) {
+        for (const milestone of percentMilestones) {
+          if (returnPercentage >= milestone && Math.abs(returnPercentage - milestone) < 2) {
+            performance.milestoneReached = `${milestone}% Returns`;
+            performance.celebrationTrigger = true;
+            break;
+          }
+        }
+      }
+
+      res.json(performance);
+    } catch (error) {
+      console.error("Error fetching portfolio performance:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch portfolio performance"
+      });
+    }
+  });
+
   // Execute investment proposals through MF Central API
   app.post("/api/proposals/execute", async (req: any, res) => {
     try {
