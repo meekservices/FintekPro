@@ -22,13 +22,15 @@ import {
   Zap,
   CheckCircle,
   Lightbulb,
-  Clock
+  Clock,
+  FileText
 } from "lucide-react";
 import { GoalPlanning } from "@/components/wealth/goal-planning";
 import { ObligationMapping } from "@/components/wealth/obligation-mapping";
 import { RetirementPlanning } from "@/components/wealth/retirement-planning";
 import { RiskAssessment } from "@/components/wealth/risk-assessment";
 import { InvestmentRecommendations } from "@/components/wealth/investment-recommendations";
+import { Proposals } from "@/components/wealth/proposals";
 
 export default function InvestSmart() {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -66,7 +68,7 @@ export default function InvestSmart() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="dashboard" data-testid="tab-dashboard">
               <BarChart3 className="w-4 h-4 mr-2" />
               Dashboard
@@ -90,6 +92,10 @@ export default function InvestSmart() {
             <TabsTrigger value="recommendations" data-testid="tab-recommendations">
               <Lightbulb className="w-4 h-4 mr-2" />
               Smart Recommendations
+            </TabsTrigger>
+            <TabsTrigger value="proposals" data-testid="tab-proposals">
+              <FileText className="w-4 h-4 mr-2" />
+              Proposals
             </TabsTrigger>
           </TabsList>
 
@@ -727,6 +733,11 @@ export default function InvestSmart() {
           {/* Risk Assessment Tab */}
           <TabsContent value="risk">
             <RiskAssessment />
+          </TabsContent>
+
+          {/* Proposals Tab */}
+          <TabsContent value="proposals">
+            <Proposals portfolioId="demo-portfolio-1" />
           </TabsContent>
 
         </Tabs>

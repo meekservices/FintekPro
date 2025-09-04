@@ -17422,6 +17422,160 @@ System Security Data:`;
     }
   });
 
+  // MF Central API - Proposals Management
+  app.get("/api/proposals/:portfolioId?", async (req: any, res) => {
+    try {
+      // Use development bypass for demo purposes
+      const isDevelopment = !process.env.NODE_ENV || process.env.NODE_ENV === 'development' || process.env.REPL_ID;
+      if (!req.user && isDevelopment) {
+        req.user = { id: 'demo-user-1' };
+      }
+      
+      const { portfolioId } = req.params;
+      
+      // Mock proposals data - in real implementation, this would come from MF Central API
+      const mockProposals = [
+        {
+          id: "proposal-1",
+          type: "sip",
+          schemeName: "Axis Bluechip Fund - Regular Plan - Growth",
+          schemeCode: "120503",
+          amount: 25000,
+          recommendedBy: "smart_system",
+          priority: "high",
+          rationale: "Based on your investment capacity of ₹72,000/month, this large-cap fund provides stable returns with lower volatility. Perfect for building a strong portfolio foundation.",
+          expectedReturns: "12-15% p.a.",
+          riskLevel: "Moderate",
+          investmentHorizon: "5+ years",
+          taxBenefits: "None",
+          status: "pending",
+          createdAt: new Date().toISOString()
+        },
+        {
+          id: "proposal-2",
+          type: "sip",
+          schemeName: "ICICI Prudential ELSS Tax Saver Fund - Growth",
+          schemeCode: "120716",
+          amount: 12500,
+          recommendedBy: "agent",
+          priority: "high",
+          rationale: "Maximizes your Section 80C tax benefits while providing equity exposure. With your high income bracket, this can save ₹46,800 in taxes annually.",
+          expectedReturns: "13-16% p.a.",
+          riskLevel: "Moderate to High",
+          investmentHorizon: "3+ years",
+          taxBenefits: "₹46,800 annual saving under 80C",
+          status: "pending",
+          createdAt: new Date().toISOString()
+        },
+        {
+          id: "proposal-3",
+          type: "lumpsum",
+          schemeName: "SBI Gold Fund - Regular Plan - Growth",
+          schemeCode: "125497",
+          amount: 150000,
+          recommendedBy: "smart_system",
+          priority: "medium",
+          rationale: "Diversification into gold provides portfolio stability during market volatility. Your current portfolio lacks commodity exposure.",
+          expectedReturns: "8-12% p.a.",
+          riskLevel: "Moderate",
+          investmentHorizon: "3-5 years",
+          status: "pending",
+          createdAt: new Date().toISOString()
+        },
+        {
+          id: "proposal-4",
+          type: "sip",
+          schemeName: "Mirae Asset Emerging Bluechip Fund - Growth",
+          schemeCode: "125497",
+          amount: 20000,
+          recommendedBy: "agent",
+          priority: "medium",
+          rationale: "Mid-cap exposure for higher growth potential. Your risk tolerance and long investment horizon make this suitable for wealth creation.",
+          expectedReturns: "15-20% p.a.",
+          riskLevel: "High",
+          investmentHorizon: "7+ years",
+          status: "pending",
+          createdAt: new Date().toISOString()
+        }
+      ];
+
+      res.json(mockProposals);
+    } catch (error) {
+      console.error("Error fetching proposals:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch investment proposals"
+      });
+    }
+  });
+
+  // Execute investment proposals through MF Central API
+  app.post("/api/proposals/execute", async (req: any, res) => {
+    try {
+      // Use development bypass for demo purposes
+      const isDevelopment = !process.env.NODE_ENV || process.env.NODE_ENV === 'development' || process.env.REPL_ID;
+      if (!req.user && isDevelopment) {
+        req.user = { id: 'demo-user-1' };
+      }
+      
+      const { proposalIds, portfolioId } = req.body;
+      
+      if (!proposalIds || !Array.isArray(proposalIds) || proposalIds.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid proposal IDs provided"
+        });
+      }
+
+      // Mock MF Central API transaction execution
+      const executionResults = [];
+      
+      for (const proposalId of proposalIds) {
+        // Simulate MF Central API call for each proposal
+        const mockTransactionResult = {
+          proposalId,
+          transactionId: `TXN${Date.now()}${Math.random().toString(36).substr(2, 9)}`,
+          status: "success",
+          message: "Investment order placed successfully through MF Central",
+          executedAt: new Date().toISOString(),
+          mfCentralResponse: {
+            orderStatus: "ACCEPTED",
+            acknowledgmentNumber: `ACK${Date.now()}`,
+            expectedSettlement: "T+1",
+            unitAllocation: "T+3"
+          }
+        };
+        
+        executionResults.push(mockTransactionResult);
+        
+        // Add delay to simulate real API processing
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      // Log the execution for compliance
+      console.log(`[MF Central] Executed ${proposalIds.length} proposals for portfolio ${portfolioId}:`, executionResults);
+
+      res.json({
+        success: true,
+        message: `Successfully executed ${proposalIds.length} investment proposals`,
+        results: executionResults,
+        summary: {
+          totalProposals: proposalIds.length,
+          successfulExecutions: executionResults.filter(r => r.status === "success").length,
+          failedExecutions: executionResults.filter(r => r.status === "failed").length,
+          processingTime: new Date().toISOString()
+        }
+      });
+    } catch (error) {
+      console.error("Error executing proposals:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to execute investment proposals through MF Central API",
+        details: error.message
+      });
+    }
+  });
+
   // Global error handler (must be last)
   app.use(globalErrorHandler);
 
