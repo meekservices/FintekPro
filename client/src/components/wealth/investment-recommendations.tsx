@@ -246,12 +246,12 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
         </Card>
       )}
 
-      {/* Smart Investment Suggestions */}
-      <Card data-testid="card-smart-suggestions">
+      {/* Investment Suggestions */}
+      <Card data-testid="card-investment-suggestions">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <BarChart3 className="w-5 h-5 text-purple-600" />
-            Smart Investment Suggestions
+            Investment Suggestions
           </CardTitle>
           <CardDescription>
             AI-powered recommendations based on market analysis and your profile
