@@ -19,6 +19,43 @@ export const userProfiles = pgTable("user_profiles", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id).notNull().unique(),
   
+  // Client Type and Status
+  clientType: varchar("client_type").default("individual"), // individual/non_individual
+  entityType: varchar("entity_type"), // For non-individual: company/partnership/trust/society/huf/llp
+  
+  // Individual Personal Details
+  firstName: varchar("first_name"),
+  middleName: varchar("middle_name"),
+  lastName: varchar("last_name"),
+  gender: varchar("gender"),
+  
+  // Non-Individual Entity Details  
+  companyName: varchar("company_name"),
+  entityRegistrationNumber: varchar("entity_registration_number"),
+  incorporationDate: date("incorporation_date"),
+  businessNature: varchar("business_nature"),
+  companyPanNumber: varchar("company_pan_number"),
+  
+  // Authorized Persons for Non-Individual (JSON array)
+  authorizedPersons: jsonb("authorized_persons").default([]),
+  boardOfDirectors: jsonb("board_of_directors").default([]),
+  beneficialOwners: jsonb("beneficial_owners").default([]),
+  
+  // Comprehensive Residency Status
+  residentStatus: varchar("resident_status").default("resident_indian"), // resident_indian/nri_ordinary/nri_non_ordinary/oci/pio/foreign_national
+  nriSubType: varchar("nri_sub_type"), // us/canada/australia/uk/singapore/uae/other
+  countryOfResidence: varchar("country_of_residence").default("India"),
+  countryOfCitizenship: varchar("country_of_citizenship").default("India"),
+  passportCountry: varchar("passport_country"),
+  visaType: varchar("visa_type"), // for foreign nationals
+  permanentResidenceStatus: varchar("permanent_residence_status"), // green_card/pr_card/other
+  
+  // NRI Specific Information
+  nriExchangeRate: varchar("nri_exchange_rate"), // currency conversion preferences
+  nriRepatriationType: varchar("nri_repatriation_type"), // repatriable/non_repatriable
+  overseasBankDetails: jsonb("overseas_bank_details"), // foreign bank account details
+  localGuardianDetails: text("local_guardian_details"), // for minors/specific cases
+  
   // Enhanced KYC Information
   panNumber: varchar("pan_number"),
   aadharNumber: varchar("aadhar_number"),
@@ -87,14 +124,8 @@ export const userProfiles = pgTable("user_profiles", {
   pepPosition: varchar("pep_position"), // Political position held
   pepRelationshipType: varchar("pep_relationship_type"), // family/associate/close_business
   
-  // Resident Status and Citizenship
-  residentStatus: varchar("resident_status").default("resident"), // resident/nri/pio/oci
-  countryOfResidence: varchar("country_of_residence").default("India"),
-  countryOfCitizenship: varchar("country_of_citizenship").default("India"),
-  nriType: varchar("nri_type"), // ordinary/non_ordinary for NRIs
-  nriCountry: varchar("nri_country"), // Country of residence for NRIs
-  passportCountry: varchar("passport_country"),
-  visaStatus: varchar("visa_status"), // for non-residents
+  // Legacy fields (kept for compatibility)
+  visaStatus: varchar("visa_status"), // for non-residents - legacy field
   
   // AML (Anti-Money Laundering) Status
   amlStatus: varchar("aml_status").default("clear"), // clear/flagged/under_review

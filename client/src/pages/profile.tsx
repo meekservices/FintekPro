@@ -21,14 +21,29 @@ import { User, Settings, CreditCard, Target, TrendingUp, Building2, CheckCircle,
 
 // Comprehensive profile form schema for regulatory compliance
 const profileFormSchema = z.object({
-  // Basic Information
+  // Client Type Selection
+  clientType: z.enum(["individual", "non_individual"]),
+  entityType: z.enum(["company", "partnership", "trust", "society", "huf", "llp"]).optional(),
+  
+  // Basic Information (conditional based on client type)
   clientId: z.string(),
-  firstName: z.string().min(1, "First name is required"),
+  
+  // Individual Information
+  firstName: z.string().optional(), // Required only for individuals
   middleName: z.string().optional(),
-  lastName: z.string().min(1, "Last name is required"),
+  lastName: z.string().optional(), // Required only for individuals
+  
+  // Non-Individual Information
+  companyName: z.string().optional(), // Required only for non-individuals
+  entityRegistrationNumber: z.string().optional(),
+  incorporationDate: z.string().optional(),
+  businessNature: z.string().optional(),
+  companyPanNumber: z.string().optional(),
+  
+  // Common Information
   email: z.string().email("Invalid email address"),
   mobile: z.string().min(10, "Mobile number must be at least 10 digits"),
-  dateOfBirth: z.string().min(1, "Date of birth is required"),
+  dateOfBirth: z.string().optional(), // Only for individuals
   
   // Identity Documents - KYC Required
   panNumber: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Invalid PAN number format"),
@@ -82,9 +97,22 @@ const profileFormSchema = z.object({
   cdslBoId: z.string().optional(),
   cdslDpId: z.string().optional(),
   
-  // Regulatory Compliance
-  residentStatus: z.enum(["resident", "nri", "pio", "oci"]),
-  countryOfResidence: z.string().optional(),
+  // Comprehensive Residency Status
+  residentStatus: z.enum([
+    "resident_indian", 
+    "nri_ordinary", 
+    "nri_non_ordinary", 
+    "oci", 
+    "pio", 
+    "foreign_national"
+  ]),
+  nriSubType: z.enum(["us", "canada", "australia", "uk", "singapore", "uae", "other"]).optional(),
+  countryOfResidence: z.string().default("India"),
+  countryOfCitizenship: z.string().default("India"),
+  passportCountry: z.string().optional(),
+  visaType: z.string().optional(),
+  permanentResidenceStatus: z.enum(["green_card", "pr_card", "other"]).optional(),
+  nriRepatriationType: z.enum(["repatriable", "non_repatriable"]).optional(),
   taxResidencyCountry: z.string().optional(),
   
   // FATCA & CRS
@@ -199,8 +227,19 @@ export default function ProfilePage() {
       nsdlClientId: profile?.nsdlClientId || "",
       cdslBoId: profile?.cdslBoId || "",
       cdslDpId: profile?.cdslDpId || "",
-      residentStatus: profile?.residentStatus || "resident",
-      countryOfResidence: profile?.countryOfResidence || "",
+      // Client Type and Entity
+      clientType: profile?.clientType || "individual",
+      entityType: profile?.entityType || "",
+      
+      // Comprehensive Residency Status
+      residentStatus: profile?.residentStatus || "resident_indian",
+      nriSubType: profile?.nriSubType || "",
+      countryOfResidence: profile?.countryOfResidence || "India",
+      countryOfCitizenship: profile?.countryOfCitizenship || "India",
+      passportCountry: profile?.passportCountry || "",
+      visaType: profile?.visaType || "",
+      permanentResidenceStatus: profile?.permanentResidenceStatus || "",
+      nriRepatriationType: profile?.nriRepatriationType || "",
       taxResidencyCountry: profile?.taxResidencyCountry || "",
       fatcaStatus: profile?.fatcaStatus || "non_us_person",
       fatcaTinNumber: profile?.fatcaTinNumber || "",
@@ -660,6 +699,243 @@ export default function ProfilePage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
+                
+                {/* Client Type Selection */}
+                <div className="space-y-4">
+                  <h4 className="font-semibold text-lg flex items-center gap-2">
+                    <Building2 className="h-4 w-4" />
+                    Client Classification
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <FormField
+                      control={form.control}
+                      name="clientType"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Client Type *</FormLabel>
+                          <FormControl>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <SelectTrigger data-testid="select-client-type">
+                                <SelectValue placeholder="Select client type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="individual">Individual</SelectItem>
+                                <SelectItem value="non_individual">Non-Individual</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </FormControl>
+                          <FormDescription>Select if you're applying as an individual or on behalf of an entity</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    {form.watch("clientType") === "non_individual" && (
+                      <FormField
+                        control={form.control}
+                        name="entityType"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Entity Type *</FormLabel>
+                            <FormControl>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <SelectTrigger data-testid="select-entity-type">
+                                  <SelectValue placeholder="Select entity type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="company">Private Limited Company</SelectItem>
+                                  <SelectItem value="partnership">Partnership Firm</SelectItem>
+                                  <SelectItem value="trust">Trust</SelectItem>
+                                  <SelectItem value="society">Society</SelectItem>
+                                  <SelectItem value="huf">Hindu Undivided Family (HUF)</SelectItem>
+                                  <SelectItem value="llp">Limited Liability Partnership (LLP)</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </FormControl>
+                            <FormDescription>Type of legal entity you represent</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                  </div>
+                </div>
+                
+                <Separator />
+                
+                {/* Residency Status */}
+                <div className="space-y-4">
+                  <h4 className="font-semibold text-lg flex items-center gap-2">
+                    <Globe className="h-4 w-4" />
+                    Residency Status
+                  </h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <FormField
+                      control={form.control}
+                      name="residentStatus"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Residency Classification *</FormLabel>
+                          <FormControl>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <SelectTrigger data-testid="select-resident-status">
+                                <SelectValue placeholder="Select residency status" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="resident_indian">Resident Indian</SelectItem>
+                                <SelectItem value="nri_ordinary">NRI (Ordinary Resident)</SelectItem>
+                                <SelectItem value="nri_non_ordinary">NRI (Non-Ordinary Resident)</SelectItem>
+                                <SelectItem value="oci">Overseas Citizen of India (OCI)</SelectItem>
+                                <SelectItem value="pio">Person of Indian Origin (PIO)</SelectItem>
+                                <SelectItem value="foreign_national">Foreign National</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </FormControl>
+                          <FormDescription>Your tax residency and citizenship status</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    {(form.watch("residentStatus") === "nri_ordinary" || form.watch("residentStatus") === "nri_non_ordinary") && (
+                      <FormField
+                        control={form.control}
+                        name="nriSubType"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Country of Residence *</FormLabel>
+                            <FormControl>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <SelectTrigger data-testid="select-nri-sub-type">
+                                  <SelectValue placeholder="Select country" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="us">United States</SelectItem>
+                                  <SelectItem value="canada">Canada</SelectItem>
+                                  <SelectItem value="australia">Australia</SelectItem>
+                                  <SelectItem value="uk">United Kingdom</SelectItem>
+                                  <SelectItem value="singapore">Singapore</SelectItem>
+                                  <SelectItem value="uae">United Arab Emirates</SelectItem>
+                                  <SelectItem value="other">Other</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </FormControl>
+                            <FormDescription>Your current country of residence</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                  </div>
+                  
+                  {/* Additional residency fields based on status */}
+                  {(form.watch("residentStatus") === "nri_ordinary" || form.watch("residentStatus") === "nri_non_ordinary" || form.watch("residentStatus") === "foreign_national") && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <FormField
+                        control={form.control}
+                        name="countryOfCitizenship"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Country of Citizenship</FormLabel>
+                            <FormControl>
+                              <Input placeholder="e.g., India, USA" {...field} data-testid="input-country-citizenship" />
+                            </FormControl>
+                            <FormDescription>Your nationality/citizenship country</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="passportCountry"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Passport Issuing Country</FormLabel>
+                            <FormControl>
+                              <Input placeholder="e.g., India" {...field} data-testid="input-passport-country" />
+                            </FormControl>
+                            <FormDescription>Country that issued your passport</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      {(form.watch("nriSubType") === "us" || form.watch("nriSubType") === "canada" || form.watch("nriSubType") === "australia") && (
+                        <FormField
+                          control={form.control}
+                          name="permanentResidenceStatus"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Permanent Residence Status</FormLabel>
+                              <FormControl>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                  <SelectTrigger data-testid="select-pr-status">
+                                    <SelectValue placeholder="Select PR status" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="green_card">Green Card (USA)</SelectItem>
+                                    <SelectItem value="pr_card">PR Card (Canada/Australia)</SelectItem>
+                                    <SelectItem value="other">Other</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </FormControl>
+                              <FormDescription>Your permanent residency status</FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      )}
+                      
+                      {form.watch("residentStatus") === "foreign_national" && (
+                        <FormField
+                          control={form.control}
+                          name="visaType"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Visa Type</FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g., Business Visa, Tourist Visa" {...field} data-testid="input-visa-type" />
+                              </FormControl>
+                              <FormDescription>Type of visa for your stay in India</FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* NRI Investment Repatriation */}
+                  {(form.watch("residentStatus") === "nri_ordinary" || form.watch("residentStatus") === "nri_non_ordinary") && (
+                    <FormField
+                      control={form.control}
+                      name="nriRepatriationType"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Investment Repatriation Type</FormLabel>
+                          <FormControl>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <SelectTrigger data-testid="select-repatriation-type">
+                                <SelectValue placeholder="Select repatriation type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="repatriable">Repatriable (NRE Route)</SelectItem>
+                                <SelectItem value="non_repatriable">Non-Repatriable (NRO Route)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </FormControl>
+                          <FormDescription>Whether you want repatriable or non-repatriable investments</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                </div>
+                
+                <Separator />
+                
                 {panVerifiedName && (
                   <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
                     <div className="flex items-center gap-2 mb-2">
@@ -1740,7 +2016,7 @@ export default function ProfilePage() {
                     )}
                     
                     {/* Based on residency status */}
-                    {form.watch("residentStatus") && form.watch("residentStatus") !== "resident" && (
+                    {form.watch("residentStatus") && form.watch("residentStatus") !== "resident_indian" && (
                       <div className="flex items-center gap-2 text-sm text-blue-800 dark:text-blue-300">
                         <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
                         <span>Passport (Non-resident)</span>
@@ -1844,16 +2120,16 @@ export default function ProfilePage() {
                     </div>
                     
                     {/* Passport - Conditional based on residency */}
-                    {(form.watch("residentStatus") !== "resident" || form.watch("passportNumber")) && (
+                    {(form.watch("residentStatus") !== "resident_indian" || form.watch("passportNumber")) && (
                       <div className="border rounded-lg p-4 space-y-3">
                         <div className="flex items-center justify-between">
                           <Label className="font-medium">Passport</Label>
-                          <Badge variant={form.watch("residentStatus") !== "resident" ? "destructive" : "outline"} className="text-xs">
-                            {form.watch("residentStatus") !== "resident" ? "Required" : "Optional"}
+                          <Badge variant={form.watch("residentStatus") !== "resident_indian" ? "destructive" : "outline"} className="text-xs">
+                            {form.watch("residentStatus") !== "resident_indian" ? "Required" : "Optional"}
                           </Badge>
                         </div>
                         <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {form.watch("residentStatus") !== "resident" 
+                          {form.watch("residentStatus") !== "resident_indian" 
                             ? "Required for non-resident status verification"
                             : "Upload passport for additional identity verification"
                           }
