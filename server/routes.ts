@@ -40,7 +40,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await storage.initializeUserPasswords();
   
   // Initialize WhatsApp service
-  whatsappService.initialize().catch(console.error);
+  // Temporarily disabled due to compatibility issue with secure version
+  // whatsappService.initialize().catch(console.error);
   
   // Activity tracking middleware
   app.use((req: any, res: any, next: any) => {
