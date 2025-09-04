@@ -17,7 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { insertUserProfileSchema, type UserProfile } from "@shared/schema";
-import { User, Settings, CreditCard, Target, TrendingUp, Building2, CheckCircle, Shield, AlertCircle, FileText, Users, Banknote, Calendar, MapPin, Phone, Mail, Globe, Star, Award, Lock } from "lucide-react";
+import { User, Settings, CreditCard, Target, TrendingUp, Building2, CheckCircle, Shield, AlertCircle, FileText, Users, Banknote, Calendar, MapPin, Phone, Mail, Globe, Star, Award, Lock, Heart } from "lucide-react";
 
 // Comprehensive profile form schema for regulatory compliance
 const profileFormSchema = z.object({
@@ -207,8 +207,10 @@ export default function ProfilePage() {
 
   // Update pan verified name when data is available
   useEffect(() => {
-    if (panNameData?.success && panNameData?.verifiedName) {
-      setPanVerifiedName(panNameData.verifiedName);
+    if (panNameData && typeof panNameData === 'object' && 'success' in panNameData && 'verifiedName' in panNameData) {
+      if (panNameData.success && panNameData.verifiedName) {
+        setPanVerifiedName(panNameData.verifiedName as string);
+      }
     }
   }, [panNameData]);
 
@@ -948,8 +950,8 @@ export default function ProfilePage() {
             </Card>
           )}
 
-          {/* Investment Profile */}
-          {activeTab === "investment" && (
+          {/* Financial Profile */}
+          {activeTab === "financial" && (
             <Card data-testid="investment-profile-card">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
@@ -1066,12 +1068,12 @@ export default function ProfilePage() {
                   />
                   <FormField
                     control={form.control}
-                    name="city"
+                    name="sourceOfWealth"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>City</FormLabel>
+                        <FormLabel>Source of Wealth</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g., Mumbai" {...field} data-testid="input-city" />
+                          <Input placeholder="e.g., Employment, Business, Investment" {...field} data-testid="input-source-wealth" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1082,8 +1084,8 @@ export default function ProfilePage() {
             </Card>
           )}
 
-          {/* KYC & Identity */}
-          {activeTab === "kyc" && (
+          {/* Compliance */}
+          {activeTab === "compliance" && (
             <Card data-testid="kyc-integration-card">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
