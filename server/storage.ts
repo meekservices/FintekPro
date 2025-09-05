@@ -607,7 +607,7 @@ export class MemStorage implements IStorage {
       id: "demo-user-1",
       email: "test@example.com",
       mobile: "+919876543210",
-      password: "7a8c8c5c8df5f8e9d0e5f8c8d0c8e9f8c8e9d0c8e9f8.4f5d6c7a8b9e",  // Placeholder - will be properly hashed
+      password: "PLACEHOLDER_WILL_BE_HASHED",  // Placeholder - will be properly hashed
       firstName: "John",
       middleName: null,
       lastName: "Doe",
@@ -642,7 +642,7 @@ export class MemStorage implements IStorage {
     try {
       const { hashPassword } = await import("./auth");
       const testUser = this.users.get("demo-user-1");
-      if (testUser && testUser.password === "7a8c8c5c8df5f8e9d0e5f8c8d0c8e9f8c8e9d0c8e9f8.4f5d6c7a8b9e") {
+      if (testUser && testUser.password === "PLACEHOLDER_WILL_BE_HASHED") {
         const hashedPassword = await hashPassword("password123");
         testUser.password = hashedPassword;
         this.users.set(testUser.id, testUser);
