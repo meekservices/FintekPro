@@ -19,7 +19,6 @@ import AgriculturalInsights from "@/pages/agricultural-insights";
 import FinancialCalculators from "@/pages/financial-calculators";
 import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/auth-page";
-import ProfilePage from "@/pages/profile";
 import AdminPanel from "@/pages/admin-panel";
 import PartnerPortal from "@/pages/partner-portal";
 import Support from "@/pages/support";
@@ -27,7 +26,6 @@ import InvestSmart from "@/pages/wealth-management";
 import Achievements from "@/pages/achievements";
 import CapitalGainsReports from "@/pages/capital-gains-reports";
 import WhatsAppAuthPage from "@/pages/whatsapp-auth-page";
-import CkycVerification from "@/pages/ckyc-verification";
 import AgentDashboard from "@/pages/agent-dashboard";
 import IBTradingPage from "@/pages/ib-trading";
 import Store from "@/pages/store";
@@ -45,7 +43,6 @@ import PolicyBazaar from "@/pages/policybazaar";
 import Cibil from "@/pages/cibil";
 import Contact from "@/pages/contact";
 import { SupplierManagement } from "@/pages/supplier-management";
-import AMLMonitoring from "@/pages/aml-monitoring";
 
 function Router() {
   return (
@@ -65,7 +62,6 @@ function Router() {
       <Route path="/calculators" component={FinancialCalculators} />
       <Route path="/auth" component={AuthPage} />
       <Route path="/whatsapp-login" component={WhatsAppAuthPage} />
-      <Route path="/profile" component={ProfilePage} />
       <Route path="/admin" component={AdminPanel} />
       <Route path="/agent" component={AgentDashboard} />
       <Route path="/partner" component={PartnerPortal} />
@@ -75,7 +71,6 @@ function Router() {
       <Route path="/wealth-management" component={InvestSmart} />
       <Route path="/achievements" component={Achievements} />
       <Route path="/capital-gains" component={CapitalGainsReports} />
-      <Route path="/ckyc" component={CkycVerification} />
       <Route path="/ib-trading" component={IBTradingPage} />
       <Route path="/store" component={Store} />
       <Route path="/cart" component={Cart} />
@@ -92,7 +87,6 @@ function Router() {
       <Route path="/cibil" component={Cibil} />
       <Route path="/contact" component={Contact} />
       <Route path="/suppliers" component={SupplierManagement} />
-      <Route path="/aml-monitoring" component={AMLMonitoring} />
       <Route component={NotFound} />
     </Switch>
   );

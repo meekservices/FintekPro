@@ -366,13 +366,21 @@ export function setupAuth(app: Express) {
   });
 
   // Profile routes
-  app.get("/api/profile", async (req, res) => {
+  // Agent-only profile access route  
+  app.get("/api/agent/profile/:userId", async (req, res) => {
     try {
       if (!req.isAuthenticated() || !req.user) {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const user = await storage.getUser(req.user.id);
+      // Check if user has agent/admin role
+      if (req.user.role !== 'agent' && req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+        return res.status(403).json({ message: "Agent access required" });
+      }
+
+      const userId = req.params.userId;
+
+      const user = await storage.getUser(userId);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
@@ -380,7 +388,7 @@ export function setupAuth(app: Express) {
       // Fetch agent data for API integration codes
       let agentData = null;
       try {
-        const agentRelationship = await storage.getAgentForClient(req.user.id);
+        const agentRelationship = await storage.getAgentForClient(userId);
         if (agentRelationship && agentRelationship.agent) {
           agentData = {
             euinNumber: agentRelationship.agent.euinNumber,
@@ -453,11 +461,19 @@ export function setupAuth(app: Express) {
     }
   });
 
-  app.put("/api/profile", async (req, res) => {
+  // Agent-only profile update route
+  app.put("/api/agent/profile/:userId", async (req, res) => {
     try {
       if (!req.isAuthenticated() || !req.user) {
         return res.status(401).json({ message: "Unauthorized" });
       }
+
+      // Check if user has agent/admin role
+      if (req.user.role !== 'agent' && req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+        return res.status(403).json({ message: "Agent access required" });
+      }
+
+      const userId = req.params.userId;
 
       const { 
         // Client Type and Entity Information
@@ -518,7 +534,7 @@ export function setupAuth(app: Express) {
         preferredCamsRegistration, preferredKfintechRegistration, preferredNsdlRegistration, preferredCdslRegistration
       } = req.body;
 
-      const updatedUser = await storage.updateUser(req.user.id, {
+      const updatedUser = await storage.updateUser(userId, {
         // Client Type and Entity Information
         ...(clientType && { clientType }),
         ...(entityType && { entityType }),
@@ -717,14 +733,20 @@ export function setupAuth(app: Express) {
     }
   });
 
-  // CKYC Integration Endpoints
-  app.post("/api/profile/ckyc-register", async (req, res) => {
+  // CKYC Integration Endpoints - Agent Only
+  app.post("/api/agent/ckyc-register/:userId", async (req, res) => {
     try {
       if (!req.isAuthenticated() || !req.user) {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const user = await storage.getUser(req.user.id);
+      // Check if user has agent/admin role
+      if (req.user.role !== 'agent' && req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+        return res.status(403).json({ message: "Agent access required" });
+      }
+
+      const userId = req.params.userId;
+      const user = await storage.getUser(userId);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
@@ -755,10 +777,15 @@ export function setupAuth(app: Express) {
     }
   });
 
-  app.get("/api/profile/ckyc-search", async (req, res) => {
+  app.get("/api/agent/ckyc-search", async (req, res) => {
     try {
       if (!req.isAuthenticated() || !req.user) {
         return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Check if user has agent/admin role
+      if (req.user.role !== 'agent' && req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+        return res.status(403).json({ message: "Agent access required" });
       }
 
       const { panNumber, ckycNumber, aadharNumber, passportNumber } = req.query;
@@ -847,13 +874,19 @@ export function setupAuth(app: Express) {
   });
 
   // PAN Verification Consent Routes
-  app.get("/api/pan-consent/check", async (req, res) => {
+  app.get("/api/agent/pan-consent/check/:userId", async (req, res) => {
     try {
       if (!req.isAuthenticated() || !req.user) {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const hasConsent = await storage.checkPanVerificationConsent(req.user.id);
+      // Check if user has agent/admin role
+      if (req.user.role !== 'agent' && req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+        return res.status(403).json({ message: "Agent access required" });
+      }
+
+      const userId = req.params.userId;
+      const hasConsent = await storage.checkPanVerificationConsent(userId);
       res.json({ hasConsent });
     } catch (error) {
       console.error("Error checking PAN consent:", error);
@@ -861,14 +894,21 @@ export function setupAuth(app: Express) {
     }
   });
 
-  app.post("/api/pan-consent/record", async (req, res) => {
+  app.post("/api/agent/pan-consent/record/:userId", async (req, res) => {
     try {
       if (!req.isAuthenticated() || !req.user) {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
+      // Check if user has agent/admin role
+      if (req.user.role !== 'agent' && req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+        return res.status(403).json({ message: "Agent access required" });
+      }
+
+      const userId = req.params.userId;
+
       // Check if consent already exists
-      const existingConsent = await storage.checkPanVerificationConsent(req.user.id);
+      const existingConsent = await storage.checkPanVerificationConsent(userId);
       if (existingConsent) {
         return res.json({ message: "Consent already recorded", hasConsent: true });
       }
@@ -876,7 +916,7 @@ export function setupAuth(app: Express) {
       const ipAddress = req.ip || req.headers['x-forwarded-for'] as string || 'unknown';
       const userAgent = req.headers['user-agent'] || 'unknown';
 
-      await storage.recordPanVerificationConsent(req.user.id, ipAddress, userAgent);
+      await storage.recordPanVerificationConsent(userId, ipAddress, userAgent);
       
       res.json({ message: "PAN verification consent recorded successfully", hasConsent: true });
     } catch (error) {

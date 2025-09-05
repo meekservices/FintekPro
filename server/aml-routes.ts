@@ -37,10 +37,15 @@ const amlService = new AMLService({
 // AML Screening Endpoints
 
 // Perform full AML/KYC screening for a user
-router.post('/api/aml/screen', requireAuth, async (req: Request, res: Response) => {
+router.post('/api/agent/aml/screen/:userId', requireAuth, async (req: Request, res: Response) => {
   try {
+    // Check if user has agent/admin role
+    if (req.user.role !== 'agent' && req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+      return res.status(403).json({ error: 'Agent access required' });
+    }
+
     const { firstName, lastName, dateOfBirth, nationality, countryOfResidence, passportNumber } = req.body;
-    const userId = req.user.id;
+    const userId = req.params.userId;
 
     const userData = {
       firstName,
@@ -70,15 +75,15 @@ router.post('/api/aml/screen', requireAuth, async (req: Request, res: Response) 
   }
 });
 
-// Get AML screening history for a user
-router.get('/api/aml/history/:userId', requireAuth, async (req: Request, res: Response) => {
+// Get AML screening history for a user - Agent Only
+router.get('/api/agent/aml/history/:userId', requireAuth, async (req: Request, res: Response) => {
   try {
-    const { userId } = req.params;
-    
-    // Verify user can access this data (admin or self)
-    if (req.user.id !== userId && req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Access denied' });
+    // Check if user has agent/admin role
+    if (req.user.role !== 'agent' && req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+      return res.status(403).json({ error: 'Agent access required' });
     }
+
+    const { userId } = req.params;
 
     // Mock screening history - replace with actual database query
     const history = [

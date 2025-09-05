@@ -372,7 +372,7 @@ export default function AgentDashboard() {
       </div>
 
       <Tabs defaultValue="proposals" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="proposals" className="flex items-center gap-2">
             <TrendingUp size={16} />
             Investment Proposals
@@ -384,6 +384,14 @@ export default function AgentDashboard() {
           <TabsTrigger value="clients" className="flex items-center gap-2">
             <Users size={16} />
             CKYC Clients
+          </TabsTrigger>
+          <TabsTrigger value="profile" className="flex items-center gap-2">
+            <User size={16} />
+            Profile Management
+          </TabsTrigger>
+          <TabsTrigger value="compliance" className="flex items-center gap-2">
+            <Shield size={16} />
+            AML Compliance
           </TabsTrigger>
           <TabsTrigger value="notifications" className="flex items-center gap-2">
             <Bell size={16} />
@@ -897,6 +905,86 @@ export default function AgentDashboard() {
                   ))}
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Profile Management Tab */}
+        <TabsContent value="profile" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Client Profile Management</CardTitle>
+              <CardDescription>Manage client profiles, KYC details, and compliance information</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex gap-4">
+                  <Input placeholder="Search by name, PAN, email..." className="flex-1" />
+                  <Button variant="outline">
+                    <Search size={16} className="mr-2" />
+                    Search
+                  </Button>
+                </div>
+                
+                <div className="text-center py-8 text-gray-500">
+                  Profile management features will be accessible here for agents to view and update client profiles, 
+                  KYC documentation, and compliance status.
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* AML Compliance Tab */}
+        <TabsContent value="compliance" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>AML Compliance & Screening</CardTitle>
+              <CardDescription>Perform AML screening, monitor compliance, and manage verification processes</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="flex items-center space-x-2">
+                        <Shield className="h-4 w-4 text-green-600" />
+                        <div>
+                          <p className="text-2xl font-bold">0</p>
+                          <p className="text-xs text-muted-foreground">Pending AML Screenings</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="flex items-center space-x-2">
+                        <AlertCircle className="h-4 w-4 text-orange-600" />
+                        <div>
+                          <p className="text-2xl font-bold">0</p>
+                          <p className="text-xs text-muted-foreground">High Risk Alerts</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="flex items-center space-x-2">
+                        <CheckCircle className="h-4 w-4 text-blue-600" />
+                        <div>
+                          <p className="text-2xl font-bold">0</p>
+                          <p className="text-xs text-muted-foreground">CKYC Registrations</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="text-center py-8 text-gray-500">
+                  AML screening tools, CKYC verification, and compliance monitoring features 
+                  are now secured under agent access for enhanced regulatory compliance.
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

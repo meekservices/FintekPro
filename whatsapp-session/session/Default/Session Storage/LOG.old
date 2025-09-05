@@ -1,3 +1,5 @@
-2025/09/05-17:25:39.460 104 Reusing MANIFEST /home/runner/workspace/whatsapp-session/session/Default/Session Storage/MANIFEST-000001
-2025/09/05-17:25:39.460 104 Recovering log #4
-2025/09/05-17:25:39.467 104 Reusing old log /home/runner/workspace/whatsapp-session/session/Default/Session Storage/000004.log 
+2025/09/05-17:47:09.491 a5d Reusing MANIFEST /home/runner/workspace/whatsapp-session/session/Default/Session Storage/MANIFEST-000001
+2025/09/05-17:47:09.492 a5d Recovering log #4
+2025/09/05-17:47:09.492 a5d Level-0 table #6: started
+2025/09/05-17:47:09.520 a5d Level-0 table #6: 15787 bytes OK
+2025/09/05-17:47:09.529 a5d Delete type=0 #4

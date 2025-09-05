@@ -80,6 +80,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
 
+  // Agent middleware - requires user to be authenticated with 'agent' or 'admin' role
+  const requireAgent = async (req: any, res: any, next: any) => {
+    if (!req.user) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    
+    if (req.user.role !== 'agent' && req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+      return res.status(403).json({ message: "Agent access required" });
+    }
+    
+    next();
+  };
+
   // GDPR Consent endpoint
   app.post("/api/consent", async (req, res) => {
     try {
