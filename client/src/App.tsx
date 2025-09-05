@@ -43,10 +43,13 @@ import PolicyBazaar from "@/pages/policybazaar";
 import Cibil from "@/pages/cibil";
 import Contact from "@/pages/contact";
 import { SupplierManagement } from "@/pages/supplier-management";
+import CompleteProfile from "@/pages/complete-profile";
+import ProfileCompletionGuard from "@/components/ProfileCompletionGuard";
 
-function Router() {
+function ProtectedRouter() {
   return (
-    <Switch>
+    <ProfileCompletionGuard>
+      <Switch>
       <Route path="/" component={Home} />
       <Route path="/dashboard" component={Home} />
       <Route path="/portfolio" component={Portfolio} />
@@ -87,7 +90,20 @@ function Router() {
       <Route path="/cibil" component={Cibil} />
       <Route path="/contact" component={Contact} />
       <Route path="/suppliers" component={SupplierManagement} />
+      <Route path="/complete-profile" component={CompleteProfile} />
       <Route component={NotFound} />
+      </Switch>
+    </ProfileCompletionGuard>
+  );
+}
+
+function Router() {
+  return (
+    <Switch>
+      <Route path="/auth" component={AuthPage} />
+      <Route path="/whatsapp-login" component={WhatsAppAuthPage} />
+      <Route path="/complete-profile" component={CompleteProfile} />
+      <Route component={ProtectedRouter} />
     </Switch>
   );
 }

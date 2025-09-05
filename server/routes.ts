@@ -351,6 +351,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/profile/complete", async (req, res) => {
+    try {
+      const profileData = req.body;
+      
+      // Get current user ID (would be from authenticated session in real implementation)
+      const userId = "demo-user-1"; // Replace with actual authenticated user ID
+      
+      // Add userId and completion flags to profile data
+      const completeProfileData = {
+        ...profileData,
+        userId,
+        isProfileCompleted: true,
+        profileCompletedAt: new Date(),
+        profileCompleteness: 100, // Set to 100% complete
+      };
+
+      const profile = await storage.upsertUserProfile(completeProfileData);
+      res.json({ 
+        success: true, 
+        message: "Profile completed successfully", 
+        profile 
+      });
+    } catch (error) {
+      console.error("Error completing user profile:", error);
+      res.status(500).json({ error: "Failed to complete profile" });
+    }
+  });
+
   // Financial Goals API endpoints
   app.get("/api/financial-goals", async (req, res) => {
     try {

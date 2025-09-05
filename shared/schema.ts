@@ -165,6 +165,8 @@ export const userProfiles = pgTable("user_profiles", {
   
   // Audit and Tracking
   profileCompleteness: integer("profile_completeness").default(0), // 0-100%
+  isProfileCompleted: boolean("is_profile_completed").default(false), // Mandatory KYC profile completion
+  profileCompletedAt: timestamp("profile_completed_at"), // When mandatory profile was completed
   lastUpdated: timestamp("last_updated").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
