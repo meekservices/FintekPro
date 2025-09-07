@@ -46,6 +46,7 @@ import { SupplierManagement } from "@/pages/supplier-management";
 import Profile from "@/pages/profile";
 import ProfileCompletionGuard from "@/components/ProfileCompletionGuard";
 import BBPSPage from "@/pages/BBPSPage";
+import DigiLockerPage from "@/pages/DigiLockerPage";
 
 function UserProtectedRoutes() {
   return (
@@ -86,6 +87,7 @@ function UserProtectedRoutes() {
         <Route path="/contact" component={Contact} />
         <Route path="/suppliers" component={SupplierManagement} />
         <Route path="/bbps" component={BBPSPage} />
+        <Route path="/digilocker" component={DigiLockerPage} />
       </Switch>
     </ProfileCompletionGuard>
   );
