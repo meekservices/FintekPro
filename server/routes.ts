@@ -17942,9 +17942,9 @@ System Security Data:`;
       }
 
       const { defaultType } = req.body;
-      if (!["mutualFunds", "demat"].includes(defaultType)) {
+      if (defaultType !== "mutualFunds") {
         return res.status(400).json({ 
-          error: "Invalid default type. Must be 'mutualFunds' or 'demat'" 
+          error: "Invalid default type. Must be 'mutualFunds'" 
         });
       }
 
@@ -17957,6 +17957,151 @@ System Security Data:`;
     } catch (error) {
       console.error("Error setting default bank account:", error);
       res.status(500).json({ error: "Failed to set default bank account" });
+    }
+  });
+
+  // Demat Account Management Routes
+  // Get user demat accounts
+  app.get("/api/demat-accounts", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const accounts = await storage.getUserDematAccounts(req.user.id);
+      res.json(accounts);
+    } catch (error) {
+      console.error("Error fetching demat accounts:", error);
+      res.status(500).json({ error: "Failed to fetch demat accounts" });
+    }
+  });
+
+  // Create new demat account
+  app.post("/api/demat-accounts", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      // Check if user already has 3 accounts (limit)
+      const existingAccounts = await storage.getUserDematAccounts(req.user.id);
+      if (existingAccounts.length >= 3) {
+        return res.status(400).json({ 
+          error: "Maximum of 3 demat accounts allowed per user" 
+        });
+      }
+
+      // Validate DP ID + Client ID uniqueness for the user
+      const duplicateAccount = existingAccounts.find(acc => 
+        acc.dpId === req.body.dpId && acc.clientId === req.body.clientId
+      );
+      if (duplicateAccount) {
+        return res.status(400).json({ 
+          error: "Demat account with this DP ID and Client ID already exists" 
+        });
+      }
+
+      const dematAccountData = {
+        ...req.body,
+        userId: req.user.id
+      };
+
+      const newAccount = await storage.createDematAccount(dematAccountData);
+      res.status(201).json(newAccount);
+    } catch (error) {
+      console.error("Error creating demat account:", error);
+      res.status(500).json({ error: "Failed to create demat account" });
+    }
+  });
+
+  // Update demat account
+  app.put("/api/demat-accounts/:id", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const account = await storage.getDematAccount(req.params.id);
+      if (!account) {
+        return res.status(404).json({ error: "Demat account not found" });
+      }
+
+      if (account.userId !== req.user.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const updatedAccount = await storage.updateDematAccount(req.params.id, req.body);
+      if (updatedAccount) {
+        res.json(updatedAccount);
+      } else {
+        res.status(404).json({ error: "Demat account not found" });
+      }
+    } catch (error) {
+      console.error("Error updating demat account:", error);
+      res.status(500).json({ error: "Failed to update demat account" });
+    }
+  });
+
+  // Delete demat account
+  app.delete("/api/demat-accounts/:id", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const account = await storage.getDematAccount(req.params.id);
+      if (!account) {
+        return res.status(404).json({ error: "Demat account not found" });
+      }
+
+      if (account.userId !== req.user.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const deleted = await storage.deleteDematAccount(req.params.id);
+      if (deleted) {
+        res.json({ success: true, message: "Demat account deleted successfully" });
+      } else {
+        res.status(404).json({ error: "Demat account not found" });
+      }
+    } catch (error) {
+      console.error("Error deleting demat account:", error);
+      res.status(500).json({ error: "Failed to delete demat account" });
+    }
+  });
+
+  // Set default demat account
+  app.put("/api/demat-accounts/:id/set-default", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const account = await storage.getDematAccount(req.params.id);
+      if (!account) {
+        return res.status(404).json({ error: "Demat account not found" });
+      }
+
+      if (account.userId !== req.user.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const { defaultType } = req.body;
+      if (!["equity", "mutualFunds"].includes(defaultType)) {
+        return res.status(400).json({ 
+          error: "Invalid default type. Must be 'equity' or 'mutualFunds'" 
+        });
+      }
+
+      const success = await storage.setDefaultDematAccount(req.params.id, defaultType);
+      if (success) {
+        res.json({ success: true, message: "Default demat account updated successfully" });
+      } else {
+        res.status(400).json({ error: "Failed to set default demat account" });
+      }
+    } catch (error) {
+      console.error("Error setting default demat account:", error);
+      res.status(500).json({ error: "Failed to set default demat account" });
     }
   });
 
