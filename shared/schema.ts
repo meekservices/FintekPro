@@ -3038,3 +3038,103 @@ export type ZohoWebhook = typeof zohoWebhooks.$inferSelect;
 export type InsertZohoWebhook = z.infer<typeof insertZohoWebhookSchema>;
 export type ZohoSyncLog = typeof zohoSyncLogs.$inferSelect;
 export type InsertZohoSyncLog = z.infer<typeof insertZohoSyncLogSchema>;
+
+// BBPS (Bharat Bill Pay System) tables
+export const bbpsCategories = pgTable("bbps_categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  categoryName: varchar("category_name").notNull(), // Electricity, Gas, Telecom, etc.
+  categoryCode: varchar("category_code").notNull().unique(), // ELECTRICITY_BILL, GAS_BILL, etc.
+  description: text("description"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const bbpsBillers = pgTable("bbps_billers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  billerName: varchar("biller_name").notNull(), // BSES, Airtel, etc.
+  billerCode: varchar("biller_code").notNull().unique(), // BSES001, AIRTEL001, etc.
+  categoryId: varchar("category_id").references(() => bbpsCategories.id).notNull(),
+  billerAliasName: varchar("biller_alias_name"),
+  billerCoverage: varchar("biller_coverage"), // ALL_INDIA, STATE_WISE, etc.
+  paymentAmountExactness: varchar("payment_amount_exactness").default("EXACT_BILL_AMOUNT"), // EXACT_BILL_AMOUNT, EXACT_OR_LOWER, ANY
+  customerParamName: varchar("customer_param_name").notNull(), // ConsumerNumber, AccountNumber, etc.
+  billerEffctvFrom: timestamp("biller_effctv_from"),
+  billerEffctvTo: timestamp("biller_effctv_to"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const bbpsCustomerBills = pgTable("bbps_customer_bills", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  billerId: varchar("biller_id").references(() => bbpsBillers.id).notNull(),
+  customerParam: varchar("customer_param").notNull(), // Consumer number, account number, etc.
+  billAmount: varchar("bill_amount"), // Bill amount in paise
+  dueDate: varchar("due_date"), // Bill due date
+  billDate: varchar("bill_date"), // Bill generation date
+  billPeriod: varchar("bill_period"), // Billing period
+  billFetchStatus: varchar("bill_fetch_status").default("PENDING"), // PENDING, SUCCESS, FAILED
+  billData: text("bill_data"), // JSON string of bill details
+  fetchedAt: timestamp("fetched_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const bbpsTransactions = pgTable("bbps_transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  billId: varchar("bill_id").references(() => bbpsCustomerBills.id),
+  billerCode: varchar("biller_code").notNull(),
+  customerParam: varchar("customer_param").notNull(),
+  paymentAmount: varchar("payment_amount").notNull(), // Amount in paise
+  transactionId: varchar("transaction_id").unique(), // Our internal transaction ID
+  bbpsTransactionId: varchar("bbps_transaction_id"), // BBPS network transaction ID
+  paymentStatus: varchar("payment_status").default("PENDING"), // PENDING, SUCCESS, FAILED, INITIATED
+  paymentMode: varchar("payment_mode"), // UPI, NETBANKING, DEBITCARD, etc.
+  transactionReference: varchar("transaction_reference"), // Bank reference number
+  failureReason: text("failure_reason"),
+  commissionAmount: varchar("commission_amount"), // Commission earned
+  settlementDate: timestamp("settlement_date"),
+  receiptData: text("receipt_data"), // JSON string of receipt details
+  initiatedAt: timestamp("initiated_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// BBPS Zod schemas
+export const insertBbpsCategorySchema = createInsertSchema(bbpsCategories).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertBbpsBillerSchema = createInsertSchema(bbpsBillers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertBbpsCustomerBillSchema = createInsertSchema(bbpsCustomerBills).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertBbpsTransactionSchema = createInsertSchema(bbpsTransactions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// BBPS types
+export type BbpsCategory = typeof bbpsCategories.$inferSelect;
+export type InsertBbpsCategory = z.infer<typeof insertBbpsCategorySchema>;
+export type BbpsBiller = typeof bbpsBillers.$inferSelect;
+export type InsertBbpsBiller = z.infer<typeof insertBbpsBillerSchema>;
+export type BbpsCustomerBill = typeof bbpsCustomerBills.$inferSelect;
+export type InsertBbpsCustomerBill = z.infer<typeof insertBbpsCustomerBillSchema>;
+export type BbpsTransaction = typeof bbpsTransactions.$inferSelect;
+export type InsertBbpsTransaction = z.infer<typeof insertBbpsTransactionSchema>;
