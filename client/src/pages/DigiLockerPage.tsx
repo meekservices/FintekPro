@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import {
   FileText,
   Download,
-  Refresh,
+  RefreshCw,
   Shield,
   Clock,
   CheckCircle,
@@ -432,7 +432,7 @@ export default function DigiLockerPage() {
                             disabled={fetchDocumentContent.isPending}
                             data-testid={`refresh-${doc.documentType}`}
                           >
-                            <Refresh className="h-4 w-4" />
+                            <RefreshCw className="h-4 w-4" />
                           </Button>
                         )}
                       </div>
