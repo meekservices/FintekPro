@@ -1,4 +1,4 @@
-import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type CkycNotificationTrigger, type CkycProgressStep, type CkycActionLog, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Supplier, type InsertSupplier, type SupplierProduct, type InsertSupplierProduct, type ProductPerformanceMetric, type InsertProductPerformanceMetric, type EpfHolding, type PpfHolding, type EpsHolding, type GovernmentSchemeConsent, type InsertGovernmentSchemeConsent, type InsuranceHolding, type InsertInsuranceHolding } from "@shared/schema";
+import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type CkycNotificationTrigger, type CkycProgressStep, type CkycActionLog, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Supplier, type InsertSupplier, type SupplierProduct, type InsertSupplierProduct, type ProductPerformanceMetric, type InsertProductPerformanceMetric, type EpfHolding, type PpfHolding, type EpsHolding, type GovernmentSchemeConsent, type InsertGovernmentSchemeConsent, type InsuranceHolding, type InsertInsuranceHolding, type UserBankAccount, type InsertUserBankAccount, type UserDematAccount, type InsertUserDematAccount } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 // We'll import hashPassword later to avoid circular dependency
@@ -335,7 +335,15 @@ export interface IStorage {
   getBankAccount(id: string): Promise<UserBankAccount | undefined>;
   updateBankAccount(id: string, updates: Partial<UserBankAccount>): Promise<UserBankAccount | undefined>;
   deleteBankAccount(id: string): Promise<boolean>;
-  setDefaultBankAccount(accountId: string, defaultType: 'mutualFunds' | 'demat'): Promise<boolean>;
+  setDefaultBankAccount(accountId: string, defaultType: 'mutualFunds'): Promise<boolean>;
+
+  // Demat Account Methods
+  createDematAccount(dematAccount: InsertUserDematAccount): Promise<UserDematAccount>;
+  getUserDematAccounts(userId: string): Promise<UserDematAccount[]>;
+  getDematAccount(id: string): Promise<UserDematAccount | undefined>;
+  updateDematAccount(id: string, updates: Partial<UserDematAccount>): Promise<UserDematAccount | undefined>;
+  deleteDematAccount(id: string): Promise<boolean>;
+  setDefaultDematAccount(accountId: string, defaultType: 'equity' | 'mutualFunds'): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -367,6 +375,8 @@ export class MemStorage implements IStorage {
   private clientAgentRelationships: Map<string, ClientAgentRelationship>;
   private bankAccounts: Map<string, UserBankAccount>;
   private bankAccountsByUser: Map<string, UserBankAccount[]>;
+  private dematAccounts: Map<string, UserDematAccount>;
+  private dematAccountsByUser: Map<string, UserDematAccount[]>;
   private investmentProposals: Map<string, InvestmentProposal>;
   private investmentProposalItems: Map<string, InvestmentProposalItem[]>;
   private proposalPayments: Map<string, ProposalPayment>;
@@ -418,6 +428,8 @@ export class MemStorage implements IStorage {
     this.clientAgentRelationships = new Map();
     this.bankAccounts = new Map();
     this.bankAccountsByUser = new Map();
+    this.dematAccounts = new Map();
+    this.dematAccountsByUser = new Map();
     this.investmentProposals = new Map();
     this.investmentProposalItems = new Map();
     this.proposalPayments = new Map();
@@ -3793,27 +3805,19 @@ export class MemStorage implements IStorage {
     return true;
   }
 
-  async setDefaultBankAccount(accountId: string, defaultType: 'mutualFunds' | 'demat'): Promise<boolean> {
+  async setDefaultBankAccount(accountId: string, defaultType: 'mutualFunds'): Promise<boolean> {
     const bankAccount = this.bankAccounts.get(accountId);
     if (!bankAccount) return false;
     
     // First, remove default status from all user's accounts for this type
     const userAccounts = this.bankAccountsByUser.get(bankAccount.userId) || [];
     for (const account of userAccounts) {
-      if (defaultType === 'mutualFunds') {
-        account.isDefaultForMutualFunds = false;
-      } else {
-        account.isDefaultForDematTransactions = false;
-      }
+      account.isDefaultForMutualFunds = false;
       this.bankAccounts.set(account.id, account);
     }
     
     // Set the new default
-    if (defaultType === 'mutualFunds') {
-      bankAccount.isDefaultForMutualFunds = true;
-    } else {
-      bankAccount.isDefaultForDematTransactions = true;
-    }
+    bankAccount.isDefaultForMutualFunds = true;
     bankAccount.updatedAt = new Date();
     
     this.bankAccounts.set(accountId, bankAccount);
@@ -3823,6 +3827,113 @@ export class MemStorage implements IStorage {
     if (accountIndex !== -1) {
       userAccounts[accountIndex] = bankAccount;
       this.bankAccountsByUser.set(bankAccount.userId, userAccounts);
+    }
+    
+    return true;
+  }
+
+  // Demat Account Implementation Methods
+  async createDematAccount(dematAccount: InsertUserDematAccount): Promise<UserDematAccount> {
+    const id = randomUUID();
+    const now = new Date();
+    
+    // Check if user already has 3 demat accounts (max limit)
+    const userAccounts = this.dematAccountsByUser.get(dematAccount.userId) || [];
+    if (userAccounts.length >= 3) {
+      throw new Error('Maximum limit of 3 demat accounts per user reached');
+    }
+    
+    const newDematAccount: UserDematAccount = {
+      ...dematAccount,
+      id,
+      createdAt: now,
+      updatedAt: now,
+    };
+    
+    this.dematAccounts.set(id, newDematAccount);
+    
+    // Update user demat accounts index
+    userAccounts.push(newDematAccount);
+    this.dematAccountsByUser.set(dematAccount.userId, userAccounts);
+    
+    return newDematAccount;
+  }
+
+  async getUserDematAccounts(userId: string): Promise<UserDematAccount[]> {
+    return this.dematAccountsByUser.get(userId) || [];
+  }
+
+  async getDematAccount(id: string): Promise<UserDematAccount | undefined> {
+    return this.dematAccounts.get(id);
+  }
+
+  async updateDematAccount(id: string, updates: Partial<UserDematAccount>): Promise<UserDematAccount | undefined> {
+    const dematAccount = this.dematAccounts.get(id);
+    if (!dematAccount) return undefined;
+    
+    const updatedDematAccount = { 
+      ...dematAccount, 
+      ...updates, 
+      updatedAt: new Date() 
+    };
+    
+    this.dematAccounts.set(id, updatedDematAccount);
+    
+    // Update user demat accounts index
+    const userAccounts = this.dematAccountsByUser.get(dematAccount.userId) || [];
+    const accountIndex = userAccounts.findIndex(acc => acc.id === id);
+    if (accountIndex >= 0) {
+      userAccounts[accountIndex] = updatedDematAccount;
+      this.dematAccountsByUser.set(dematAccount.userId, userAccounts);
+    }
+    
+    return updatedDematAccount;
+  }
+
+  async deleteDematAccount(id: string): Promise<boolean> {
+    const dematAccount = this.dematAccounts.get(id);
+    if (!dematAccount) return false;
+    
+    this.dematAccounts.delete(id);
+    
+    // Update user demat accounts index
+    const userAccounts = this.dematAccountsByUser.get(dematAccount.userId) || [];
+    const filteredAccounts = userAccounts.filter(acc => acc.id !== id);
+    this.dematAccountsByUser.set(dematAccount.userId, filteredAccounts);
+    
+    return true;
+  }
+
+  async setDefaultDematAccount(accountId: string, defaultType: 'equity' | 'mutualFunds'): Promise<boolean> {
+    const dematAccount = this.dematAccounts.get(accountId);
+    if (!dematAccount) return false;
+    
+    // First, remove default status from all user's accounts for this type
+    const userAccounts = this.dematAccountsByUser.get(dematAccount.userId) || [];
+    for (const account of userAccounts) {
+      if (defaultType === 'equity') {
+        account.isDefaultForEquityTransactions = false;
+      } else {
+        account.isDefaultForMutualFundTransactions = false;
+      }
+      this.dematAccounts.set(account.id, account);
+    }
+    
+    // Set the new default
+    if (defaultType === 'equity') {
+      dematAccount.isDefaultForEquityTransactions = true;
+    } else {
+      dematAccount.isDefaultForMutualFundTransactions = true;
+    }
+    dematAccount.updatedAt = new Date();
+    
+    this.dematAccounts.set(accountId, dematAccount);
+    
+    // Update user demat accounts index
+    const accountIndex = userAccounts.findIndex(acc => acc.id === accountId);
+    if (accountIndex !== -1) {
+      userAccounts[accountIndex] = dematAccount;
+      this.dematAccountsByUser.set(dematAccount.userId, userAccounts);
     }
     
     return true;

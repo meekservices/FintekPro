@@ -187,7 +187,6 @@ export const userBankAccounts = pgTable("user_bank_accounts", {
   
   // Default Usage Flags
   isDefaultForMutualFunds: boolean("is_default_for_mutual_funds").default(false),
-  isDefaultForDematTransactions: boolean("is_default_for_demat_transactions").default(false),
   
   // Status and Verification
   isActive: boolean("is_active").default(true),
@@ -195,17 +194,43 @@ export const userBankAccounts = pgTable("user_bank_accounts", {
   verificationStatus: varchar("verification_status").default("pending"), // pending/verified/failed
   verificationDate: timestamp("verification_date"),
   
-  // Demat Account Details (one per bank account)
-  dematAccountNumber: varchar("demat_account_number"),
-  dematDpId: varchar("demat_dp_id"), // 8-digit DP ID
-  dematDpName: varchar("demat_dp_name"), // Depository Participant name
-  depositoryType: varchar("depository_type"), // NSDL/CDSL
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// User Demat Accounts table - Separate demat accounts per user (max 3)
+export const userDematAccounts = pgTable("user_demat_accounts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Demat Account Details
+  dematAccountNumber: varchar("demat_account_number").notNull(),
+  dematDpId: varchar("demat_dp_id").notNull(), // 8-digit DP ID
+  dematDpName: varchar("demat_dp_name").notNull(), // Depository Participant name
+  depositoryType: varchar("depository_type").notNull(), // NSDL/CDSL
+  accountHolderName: varchar("account_holder_name").notNull(),
   
   // For NSDL
-  nsdlClientId: varchar("nsdl_client_id"), // 8-digit client ID
+  nsdlClientId: varchar("nsdl_client_id"), // 16-digit client ID
   
   // For CDSL
   cdslBoId: varchar("cdsl_bo_id"), // 16-digit Beneficial Owner ID
+  
+  // Additional Trading Information
+  tradingAccountNumber: varchar("trading_account_number"),
+  brokerName: varchar("broker_name"),
+  panNumber: varchar("pan_number"), // Linked PAN for verification
+  
+  // Default Usage Flags
+  isDefaultForEquityTransactions: boolean("is_default_for_equity_transactions").default(false),
+  isDefaultForMutualFundTransactions: boolean("is_default_for_mutual_fund_transactions").default(false),
+  
+  // Status and Verification
+  isActive: boolean("is_active").default(true),
+  isVerified: boolean("is_verified").default(false),
+  verificationStatus: varchar("verification_status").default("pending"), // pending/verified/failed
+  verificationDate: timestamp("verification_date"),
   
   // Metadata
   createdAt: timestamp("created_at").defaultNow(),
@@ -1419,6 +1444,15 @@ export const insertUserBankAccountSchema = createInsertSchema(userBankAccounts).
 });
 export type InsertUserBankAccount = z.infer<typeof insertUserBankAccountSchema>;
 export type UserBankAccount = typeof userBankAccounts.$inferSelect;
+
+// User Demat Accounts schemas and types  
+export const insertUserDematAccountSchema = createInsertSchema(userDematAccounts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertUserDematAccount = z.infer<typeof insertUserDematAccountSchema>;
+export type UserDematAccount = typeof userDematAccounts.$inferSelect;
 
 export const insertRiskProfileSchema = createInsertSchema(riskProfiles).omit({
   id: true,
