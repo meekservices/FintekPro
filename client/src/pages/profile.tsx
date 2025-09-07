@@ -457,7 +457,7 @@ export default function ProfilePage() {
               </TabsTrigger>
               <TabsTrigger value="address" data-testid="tab-address">
                 <MapPin className="h-4 w-4 mr-2" />
-                Address Details
+                Address
               </TabsTrigger>
               <TabsTrigger value="financial" data-testid="tab-financial">
                 <Banknote className="h-4 w-4 mr-2" />
@@ -856,7 +856,7 @@ export default function ProfilePage() {
               </Card>
             </TabsContent>
 
-            {/* Address Details Tab */}
+            {/* Address Tab */}
             <TabsContent value="address" className="space-y-6">
               <Card>
                 <CardHeader>
