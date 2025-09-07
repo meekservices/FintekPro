@@ -46,52 +46,44 @@ import { SupplierManagement } from "@/pages/supplier-management";
 import CompleteProfile from "@/pages/complete-profile";
 import ProfileCompletionGuard from "@/components/ProfileCompletionGuard";
 
-function ProtectedRouter() {
+function UserProtectedRoutes() {
   return (
     <ProfileCompletionGuard>
       <Switch>
-      <Route path="/" component={Home} />
-      <Route path="/dashboard" component={Home} />
-      <Route path="/portfolio" component={Portfolio} />
-      <Route path="/markets" component={Markets} />
-      <Route path="/ipo" component={IPO} />
-      <Route path="/pre-ipo" component={PreIPO} />
-      <Route path="/mutual-funds" component={MutualFunds} />
-      <Route path="/unlisted" component={Unlisted} />
-      <Route path="/loans" component={Loans} />
-      <Route path="/nsdl-services" component={NSDLServices} />
-      <Route path="/cdsl-services" component={CDSLServices} />
-      <Route path="/agricultural-insights" component={AgriculturalInsights} />
-      <Route path="/calculators" component={FinancialCalculators} />
-      <Route path="/auth" component={AuthPage} />
-      <Route path="/whatsapp-login" component={WhatsAppAuthPage} />
-      <Route path="/admin" component={AdminPanel} />
-      <Route path="/agent" component={AgentDashboard} />
-      <Route path="/partner" component={PartnerPortal} />
-      <Route path="/support" component={Support} />
-      <Route path="/wealth" component={InvestSmart} />
-      <Route path="/investsmart" component={InvestSmart} />
-      <Route path="/wealth-management" component={InvestSmart} />
-      <Route path="/achievements" component={Achievements} />
-      <Route path="/capital-gains" component={CapitalGainsReports} />
-      <Route path="/ib-trading" component={IBTradingPage} />
-      <Route path="/store" component={Store} />
-      <Route path="/cart" component={Cart} />
-      <Route path="/api-monitor" component={ApiMonitorDemo} />
-      <Route path="/icici-banking" component={ICICIBanking} />
-      <Route path="/hdfc-banking" component={HDFCBanking} />
-      <Route path="/client-auto-populate" component={ClientAutoPopulate} />
-      <Route path="/privacy" component={Privacy} />
-      <Route path="/terms" component={Terms} />
-      <Route path="/aif" component={AIF} />
-      <Route path="/bajaj-finance" component={BajajFinance} />
-      <Route path="/tata-capital" component={TataCapital} />
-      <Route path="/policybazaar" component={PolicyBazaar} />
-      <Route path="/cibil" component={Cibil} />
-      <Route path="/contact" component={Contact} />
-      <Route path="/suppliers" component={SupplierManagement} />
-      <Route path="/complete-profile" component={CompleteProfile} />
-      <Route component={NotFound} />
+        <Route path="/" component={Home} />
+        <Route path="/dashboard" component={Home} />
+        <Route path="/portfolio" component={Portfolio} />
+        <Route path="/markets" component={Markets} />
+        <Route path="/ipo" component={IPO} />
+        <Route path="/pre-ipo" component={PreIPO} />
+        <Route path="/mutual-funds" component={MutualFunds} />
+        <Route path="/unlisted" component={Unlisted} />
+        <Route path="/loans" component={Loans} />
+        <Route path="/nsdl-services" component={NSDLServices} />
+        <Route path="/cdsl-services" component={CDSLServices} />
+        <Route path="/agricultural-insights" component={AgriculturalInsights} />
+        <Route path="/calculators" component={FinancialCalculators} />
+        <Route path="/partner" component={PartnerPortal} />
+        <Route path="/support" component={Support} />
+        <Route path="/wealth" component={InvestSmart} />
+        <Route path="/investsmart" component={InvestSmart} />
+        <Route path="/wealth-management" component={InvestSmart} />
+        <Route path="/achievements" component={Achievements} />
+        <Route path="/capital-gains" component={CapitalGainsReports} />
+        <Route path="/ib-trading" component={IBTradingPage} />
+        <Route path="/store" component={Store} />
+        <Route path="/cart" component={Cart} />
+        <Route path="/api-monitor" component={ApiMonitorDemo} />
+        <Route path="/icici-banking" component={ICICIBanking} />
+        <Route path="/hdfc-banking" component={HDFCBanking} />
+        <Route path="/client-auto-populate" component={ClientAutoPopulate} />
+        <Route path="/aif" component={AIF} />
+        <Route path="/bajaj-finance" component={BajajFinance} />
+        <Route path="/tata-capital" component={TataCapital} />
+        <Route path="/policybazaar" component={PolicyBazaar} />
+        <Route path="/cibil" component={Cibil} />
+        <Route path="/contact" component={Contact} />
+        <Route path="/suppliers" component={SupplierManagement} />
       </Switch>
     </ProfileCompletionGuard>
   );
@@ -100,10 +92,19 @@ function ProtectedRouter() {
 function Router() {
   return (
     <Switch>
+      {/* Public routes - no authentication or profile completion required */}
       <Route path="/auth" component={AuthPage} />
       <Route path="/whatsapp-login" component={WhatsAppAuthPage} />
       <Route path="/complete-profile" component={CompleteProfile} />
-      <Route component={ProtectedRouter} />
+      <Route path="/privacy" component={Privacy} />
+      <Route path="/terms" component={Terms} />
+      
+      {/* Agent/Admin routes - bypass profile completion but require authentication */}
+      <Route path="/admin" component={AdminPanel} />
+      <Route path="/agent" component={AgentDashboard} />
+      
+      {/* User routes - require both authentication and profile completion */}
+      <Route component={UserProtectedRoutes} />
     </Switch>
   );
 }
