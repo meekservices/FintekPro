@@ -453,7 +453,7 @@ export default function ProfilePage() {
               </TabsTrigger>
               <TabsTrigger value="identity" data-testid="tab-identity">
                 <FileText className="h-4 w-4 mr-2" />
-                Identity & KYC
+                KYC
               </TabsTrigger>
               <TabsTrigger value="address" data-testid="tab-address">
                 <MapPin className="h-4 w-4 mr-2" />
@@ -666,7 +666,7 @@ export default function ProfilePage() {
               </Card>
             </TabsContent>
 
-            {/* Identity & KYC Tab */}
+            {/* KYC Tab */}
             <TabsContent value="identity" className="space-y-6">
               <Card>
                 <CardHeader>
