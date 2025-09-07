@@ -199,10 +199,10 @@ export function BankingTab() {
             <div>
               <CardTitle className="flex items-center gap-2">
                 <CreditCard className="h-5 w-5" />
-                Banking & Demat Account Management
+                Banking Account Management
               </CardTitle>
               <CardDescription>
-                Manage up to 5 bank accounts and their associated demat account details. Set default accounts for mutual fund and demat transactions.
+                Manage up to 5 bank accounts. Set default accounts for mutual fund transactions.
               </CardDescription>
             </div>
             {canAddMore && !isAddingAccount && (
@@ -340,107 +340,6 @@ export function BankingTab() {
                   />
                 </div>
 
-                <Separator />
-
-                {/* Demat Account Details */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium">Demat Account Details (Optional)</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="depositoryType"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Depository Type</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger data-testid="select-depository-type">
-                                <SelectValue placeholder="Select depository" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="NSDL">NSDL</SelectItem>
-                              <SelectItem value="CDSL">CDSL</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="dematDpId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>DP ID</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="8-digit DP ID" data-testid="input-dp-id" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="dematAccountNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Demat Account Number</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="Client ID/BO ID" data-testid="input-demat-account" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="dematDpName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>DP Name</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="Depository Participant name" data-testid="input-dp-name" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    {form.watch("depositoryType") === "NSDL" && (
-                      <FormField
-                        control={form.control}
-                        name="nsdlClientId"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>NSDL Client ID</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="8-digit client ID" data-testid="input-nsdl-client-id" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    )}
-                    {form.watch("depositoryType") === "CDSL" && (
-                      <FormField
-                        control={form.control}
-                        name="cdslBoId"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>CDSL BO ID</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="16-digit BO ID" data-testid="input-cdsl-bo-id" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    )}
-                  </div>
-                </div>
 
                 {/* Form Actions */}
                 <div className="flex items-center gap-2">
@@ -494,12 +393,6 @@ export function BankingTab() {
                               Default MF
                             </Badge>
                           )}
-                          {account.isDefaultForDematTransactions && (
-                            <Badge variant="secondary" className="text-xs">
-                              <Star className="h-3 w-3 mr-1" />
-                              Default Demat
-                            </Badge>
-                          )}
                         </div>
                         <p className="text-sm text-gray-600">
                           {account.accountHolderName} • {account.accountType.toUpperCase()}
@@ -541,24 +434,6 @@ export function BankingTab() {
                         Branch: {account.branchName}
                       </p>
                     </div>
-                    {account.dematAccountNumber && (
-                      <div>
-                        <p className="text-sm font-medium">Demat Details</p>
-                        <p className="text-sm text-gray-600">
-                          {account.depositoryType}: {account.dematAccountNumber}
-                        </p>
-                        {account.dematDpId && (
-                          <p className="text-sm text-gray-600">
-                            DP ID: {account.dematDpId}
-                          </p>
-                        )}
-                        {account.dematDpName && (
-                          <p className="text-sm text-gray-600">
-                            DP: {account.dematDpName}
-                          </p>
-                        )}
-                      </div>
-                    )}
                   </div>
 
                   {/* Default Account Selection */}
@@ -581,24 +456,6 @@ export function BankingTab() {
                         Default for Mutual Fund transactions
                       </label>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`demat-default-${account.id}`}
-                        checked={account.isDefaultForDematTransactions}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            handleSetDefault(account.id, 'demat');
-                          }
-                        }}
-                        data-testid={`checkbox-demat-default-${account.id}`}
-                      />
-                      <label
-                        htmlFor={`demat-default-${account.id}`}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                      >
-                        Default for Demat transactions
-                      </label>
-                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -614,7 +471,7 @@ export function BankingTab() {
             <CreditCard className="h-12 w-12 mx-auto text-gray-400 mb-4" />
             <h3 className="text-lg font-medium mb-2">No Bank Accounts Added</h3>
             <p className="text-gray-600 mb-4">
-              Add your bank accounts to enable mutual fund and demat transactions
+              Add your bank accounts to enable mutual fund transactions
             </p>
             <Button onClick={() => setIsAddingAccount(true)} data-testid="button-add-first-account">
               <Plus className="h-4 w-4 mr-2" />
