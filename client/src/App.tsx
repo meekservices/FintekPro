@@ -43,7 +43,7 @@ import PolicyBazaar from "@/pages/policybazaar";
 import Cibil from "@/pages/cibil";
 import Contact from "@/pages/contact";
 import { SupplierManagement } from "@/pages/supplier-management";
-import CompleteProfile from "@/pages/complete-profile";
+import Profile from "@/pages/profile";
 import ProfileCompletionGuard from "@/components/ProfileCompletionGuard";
 
 function UserProtectedRoutes() {
@@ -95,7 +95,7 @@ function Router() {
       {/* Public routes - no authentication or profile completion required */}
       <Route path="/auth" component={AuthPage} />
       <Route path="/whatsapp-login" component={WhatsAppAuthPage} />
-      <Route path="/complete-profile" component={CompleteProfile} />
+      <Route path="/profile" component={Profile} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/terms" component={Terms} />
       

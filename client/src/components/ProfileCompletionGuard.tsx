@@ -96,7 +96,7 @@ export default function ProfileCompletionGuard({ children }: ProfileCompletionGu
             </div>
 
             <button
-              onClick={() => setLocation("/complete-profile")}
+              onClick={() => setLocation("/profile")}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
               data-testid="button-complete-profile"
             >
