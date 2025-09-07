@@ -68,7 +68,6 @@ export function BankingDematTab() {
   // Fetch bank accounts
   const { data: bankAccounts, isLoading } = useQuery<BankAccount[]>({
     queryKey: ["/api/bank-accounts"],
-    queryFn: () => apiRequest("/api/bank-accounts"),
   });
 
   const form = useForm<BankAccountForm>({
@@ -91,10 +90,7 @@ export function BankingDematTab() {
 
   // Add new bank account mutation
   const addAccountMutation = useMutation({
-    mutationFn: (data: BankAccountForm) => apiRequest("/api/bank-accounts", {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
+    mutationFn: (data: BankAccountForm) => apiRequest("POST", "/api/bank-accounts", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/bank-accounts"] });
       setIsAddingAccount(false);
@@ -116,10 +112,7 @@ export function BankingDematTab() {
   // Update bank account mutation
   const updateAccountMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: BankAccountForm }) => 
-      apiRequest(`/api/bank-accounts/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(data),
-      }),
+      apiRequest("PUT", `/api/bank-accounts/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/bank-accounts"] });
       setEditingAccountId(null);
@@ -140,9 +133,7 @@ export function BankingDematTab() {
 
   // Delete bank account mutation
   const deleteAccountMutation = useMutation({
-    mutationFn: (id: string) => apiRequest(`/api/bank-accounts/${id}`, {
-      method: "DELETE",
-    }),
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/bank-accounts/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/bank-accounts"] });
       toast({
@@ -162,10 +153,7 @@ export function BankingDematTab() {
   // Set default account mutation
   const setDefaultMutation = useMutation({
     mutationFn: ({ accountId, defaultType }: { accountId: string; defaultType: 'mutualFunds' | 'demat' }) => 
-      apiRequest(`/api/bank-accounts/${accountId}/set-default`, {
-        method: "PUT",
-        body: JSON.stringify({ defaultType }),
-      }),
+      apiRequest("PUT", `/api/bank-accounts/${accountId}/set-default`, { defaultType }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/bank-accounts"] });
       toast({
