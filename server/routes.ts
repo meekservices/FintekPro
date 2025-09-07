@@ -34,6 +34,7 @@ import amlRoutes from './aml-routes';
 import { ZohoCommerceAPI, type ZohoCommerceConfig } from './zoho-commerce-api';
 import { zohoCommerceConfig, zohoProducts, zohoCategories, zohoOrders, zohoCustomers, zohoInventory, zohoWebhooks, zohoSyncLogs, insertZohoCommerceConfigSchema, insertZohoProductSchema, insertZohoCategorySchema, insertZohoOrderSchema } from '@shared/schema';
 import BBPSService from './services/bbpsService';
+import { digilockerService } from './services/digilockerService';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -18110,6 +18111,139 @@ System Security Data:`;
   
   // Initialize BBPS data on startup
   await BBPSService.initializeBBPSData();
+  
+  // Initialize DigiLocker app configuration
+  try {
+    await digilockerService.initializeDigiLockerApp();
+    console.log('✅ DigiLocker service initialized successfully');
+  } catch (error) {
+    console.error('❌ DigiLocker service initialization failed:', error);
+  }
+
+  // ==================== DigiLocker Integration Routes ====================
+  
+  // Get DigiLocker widget configuration
+  app.get("/api/digilocker/widget-config", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      const config = await digilockerService.generateWidgetConfig("handleDigiLockerCallback");
+      res.json(config);
+    } catch (error) {
+      console.error("Error generating DigiLocker widget config:", error);
+      res.status(500).json({ error: "Failed to generate widget configuration" });
+    }
+  });
+
+  // Handle document sharing callback from DigiLocker
+  app.post("/api/digilocker/share-document", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { docId, uri, docType, source, txn, filename, contentType, sharedTill } = req.body;
+      
+      if (!uri || !docType || !txn) {
+        return res.status(400).json({ error: "Missing required document metadata" });
+      }
+
+      const metadata = { docId, uri, docType, source, txn, filename, contentType, sharedTill };
+      const sharedDocument = await digilockerService.handleDocumentSharing(req.user.id, metadata);
+      
+      res.json({ success: true, document: sharedDocument });
+    } catch (error) {
+      console.error("Error handling DigiLocker document sharing:", error);
+      res.status(500).json({ error: "Failed to process document sharing" });
+    }
+  });
+
+  // Get user's DigiLocker documents
+  app.get("/api/digilocker/documents", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const documents = await digilockerService.getUserDocuments(req.user.id);
+      res.json(documents);
+    } catch (error) {
+      console.error("Error fetching DigiLocker documents:", error);
+      res.status(500).json({ error: "Failed to fetch documents" });
+    }
+  });
+
+  // Get specific document by ID
+  app.get("/api/digilocker/documents/:documentId", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { documentId } = req.params;
+      const document = await digilockerService.getDocument(documentId);
+      
+      if (!document) {
+        return res.status(404).json({ error: "Document not found" });
+      }
+
+      // Verify user owns this document
+      if (document.userId !== req.user.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      res.json(document);
+    } catch (error) {
+      console.error("Error fetching DigiLocker document:", error);
+      res.status(500).json({ error: "Failed to fetch document" });
+    }
+  });
+
+  // Auto-populate KYC fields from DigiLocker documents
+  app.post("/api/digilocker/auto-populate-kyc", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const kycData = await digilockerService.autoPopulateKYCFields(req.user.id);
+      res.json({ success: true, kycData });
+    } catch (error) {
+      console.error("Error auto-populating KYC fields:", error);
+      res.status(500).json({ error: "Failed to auto-populate KYC fields" });
+    }
+  });
+
+  // Fetch document content (force refresh)
+  app.post("/api/digilocker/documents/:documentId/fetch", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { documentId } = req.params;
+      const document = await digilockerService.getDocument(documentId);
+      
+      if (!document) {
+        return res.status(404).json({ error: "Document not found" });
+      }
+
+      // Verify user owns this document
+      if (document.userId !== req.user.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      await digilockerService.fetchDocumentContent(documentId);
+      const updatedDocument = await digilockerService.getDocument(documentId);
+      
+      res.json({ success: true, document: updatedDocument });
+    } catch (error) {
+      console.error("Error fetching DigiLocker document content:", error);
+      res.status(500).json({ error: "Failed to fetch document content" });
+    }
+  });
 
   // Get BBPS categories
   app.get("/api/bbps/categories", async (req, res) => {

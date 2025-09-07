@@ -136,11 +136,12 @@ export class DigiLockerService {
       throw new Error("No active DigiLocker app configuration found");
     }
 
-    // Parse shared till date
-    let sharedTillDate: Date | null = null;
+    // Parse shared till date to string format
+    let sharedTillString: string | null = null;
     if (metadata.sharedTill && metadata.sharedTill !== "") {
+      // Input format is DD-MM-YYYY, convert to YYYY-MM-DD for database
       const [day, month, year] = metadata.sharedTill.split('-');
-      sharedTillDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      sharedTillString = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
     }
 
     const documentData: InsertDigilockerSharedDocument = {
@@ -152,14 +153,13 @@ export class DigiLockerService {
       transactionId: metadata.txn,
       filename: metadata.filename,
       contentType: metadata.contentType,
-      sharedTill: sharedTillDate,
+      sharedTill: sharedTillString,
       sharingStatus: "shared",
-      sharedAt: new Date(),
     };
 
     const [insertedDocument] = await db
       .insert(digilockerSharedDocuments)
-      .values(documentData)
+      .values([documentData])
       .returning();
 
     // Auto-fetch the document content
@@ -217,7 +217,6 @@ export class DigiLockerService {
           documentContent: mockDocumentContent,
           fetchedAt: new Date(),
           sharingStatus: "fetched",
-          updatedAt: new Date(),
         })
         .where(eq(digilockerSharedDocuments.id, documentId));
 
@@ -228,7 +227,6 @@ export class DigiLockerService {
         .update(digilockerSharedDocuments)
         .set({
           sharingStatus: "fetch_failed",
-          updatedAt: new Date(),
         })
         .where(eq(digilockerSharedDocuments.id, documentId));
 
@@ -333,17 +331,16 @@ export class DigiLockerService {
 
   // Check document expiry and cleanup
   async cleanupExpiredDocuments(): Promise<void> {
-    const now = new Date();
+    const today = new Date().toISOString().split('T')[0]; // Get YYYY-MM-DD format
     
     // Mark expired documents
     await db
       .update(digilockerSharedDocuments)
       .set({
         sharingStatus: "expired",
-        updatedAt: now,
       })
       .where(and(
-        eq(digilockerSharedDocuments.sharedTill, now),
+        eq(digilockerSharedDocuments.sharedTill, today),
         eq(digilockerSharedDocuments.sharingStatus, "fetched")
       ));
 
