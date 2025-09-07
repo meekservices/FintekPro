@@ -3138,3 +3138,101 @@ export type BbpsCustomerBill = typeof bbpsCustomerBills.$inferSelect;
 export type InsertBbpsCustomerBill = z.infer<typeof insertBbpsCustomerBillSchema>;
 export type BbpsTransaction = typeof bbpsTransactions.$inferSelect;
 export type InsertBbpsTransaction = z.infer<typeof insertBbpsTransactionSchema>;
+
+// DigiLocker Integration tables
+export const digilockerApps = pgTable("digilocker_apps", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  appName: varchar("app_name").notNull(),
+  appId: varchar("app_id").notNull().unique(),
+  apiKey: varchar("api_key").notNull(),
+  orgId: varchar("org_id").notNull(),
+  domain: varchar("domain").notNull(),
+  environment: varchar("environment").default("development"),
+  documentTypesAllowed: text("document_types_allowed").array().default(sql`ARRAY['issued', 'uploaded']`),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").default(sql`NOW()`),
+  updatedAt: timestamp("updated_at").default(sql`NOW()`),
+});
+
+export const digilockerSharedDocuments = pgTable("digilocker_shared_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  appId: varchar("app_id").references(() => digilockerApps.id).notNull(),
+  documentUri: varchar("document_uri").notNull(),
+  documentType: varchar("document_type").notNull(),
+  source: varchar("source").$type<'I' | 'U'>(),
+  transactionId: varchar("transaction_id").notNull(),
+  filename: varchar("filename"),
+  contentType: varchar("content_type"),
+  sharedTill: date("shared_till"),
+  documentContent: text("document_content"),
+  sharingStatus: varchar("sharing_status").default("pending"),
+  sharedAt: timestamp("shared_at").default(sql`NOW()`),
+  fetchedAt: timestamp("fetched_at"),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").default(sql`NOW()`),
+  updatedAt: timestamp("updated_at").default(sql`NOW()`),
+});
+
+export const digilockerUserSessions = pgTable("digilocker_user_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  appId: varchar("app_id").references(() => digilockerApps.id).notNull(),
+  sessionToken: varchar("session_token").notNull(),
+  loginTimestamp: timestamp("login_timestamp").notNull(),
+  callbackUrl: varchar("callback_url"),
+  widgetId: varchar("widget_id"),
+  sessionStatus: varchar("session_status").default("active"),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").default(sql`NOW()`),
+  updatedAt: timestamp("updated_at").default(sql`NOW()`),
+});
+
+export const digilockerKycMappings = pgTable("digilocker_kyc_mappings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  documentType: varchar("document_type").notNull(),
+  digilockerDocId: varchar("digilocker_doc_id").references(() => digilockerSharedDocuments.id),
+  kycFieldName: varchar("kyc_field_name").notNull(),
+  verificationStatus: varchar("verification_status").default("pending"),
+  verifiedAt: timestamp("verified_at"),
+  verifiedBy: varchar("verified_by"),
+  autoPopulated: boolean("auto_populated").default(false),
+  createdAt: timestamp("created_at").default(sql`NOW()`),
+  updatedAt: timestamp("updated_at").default(sql`NOW()`),
+});
+
+// DigiLocker Zod schemas
+export const insertDigilockerAppSchema = createInsertSchema(digilockerApps).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertDigilockerSharedDocumentSchema = createInsertSchema(digilockerSharedDocuments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertDigilockerUserSessionSchema = createInsertSchema(digilockerUserSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertDigilockerKycMappingSchema = createInsertSchema(digilockerKycMappings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// DigiLocker types
+export type DigilockerApp = typeof digilockerApps.$inferSelect;
+export type InsertDigilockerApp = z.infer<typeof insertDigilockerAppSchema>;
+export type DigilockerSharedDocument = typeof digilockerSharedDocuments.$inferSelect;
+export type InsertDigilockerSharedDocument = z.infer<typeof insertDigilockerSharedDocumentSchema>;
+export type DigilockerUserSession = typeof digilockerUserSessions.$inferSelect;
+export type InsertDigilockerUserSession = z.infer<typeof insertDigilockerUserSessionSchema>;
+export type DigilockerKycMapping = typeof digilockerKycMappings.$inferSelect;
+export type InsertDigilockerKycMapping = z.infer<typeof insertDigilockerKycMappingSchema>;
