@@ -328,6 +328,14 @@ export interface IStorage {
   // Investment Recommendations methods
   generateGoalBasedRecommendations(goalId: string): Promise<any[]>;
   generatePortfolioRebalanceRecommendations(portfolioId: string, goals: FinancialGoal[]): Promise<any[]>;
+
+  // Bank Account Methods
+  createBankAccount(bankAccount: InsertUserBankAccount): Promise<UserBankAccount>;
+  getUserBankAccounts(userId: string): Promise<UserBankAccount[]>;
+  getBankAccount(id: string): Promise<UserBankAccount | undefined>;
+  updateBankAccount(id: string, updates: Partial<UserBankAccount>): Promise<UserBankAccount | undefined>;
+  deleteBankAccount(id: string): Promise<boolean>;
+  setDefaultBankAccount(accountId: string, defaultType: 'mutualFunds' | 'demat'): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -357,6 +365,8 @@ export class MemStorage implements IStorage {
   private ckycProgressSteps: Map<string, CkycProgressStep[]>;
   private ckycActionLogs: Map<string, CkycActionLog[]>;
   private clientAgentRelationships: Map<string, ClientAgentRelationship>;
+  private bankAccounts: Map<string, UserBankAccount>;
+  private bankAccountsByUser: Map<string, UserBankAccount[]>;
   private investmentProposals: Map<string, InvestmentProposal>;
   private investmentProposalItems: Map<string, InvestmentProposalItem[]>;
   private proposalPayments: Map<string, ProposalPayment>;
@@ -406,6 +416,8 @@ export class MemStorage implements IStorage {
     this.ckycProgressSteps = new Map();
     this.ckycActionLogs = new Map();
     this.clientAgentRelationships = new Map();
+    this.bankAccounts = new Map();
+    this.bankAccountsByUser = new Map();
     this.investmentProposals = new Map();
     this.investmentProposalItems = new Map();
     this.proposalPayments = new Map();
@@ -3714,6 +3726,106 @@ export class MemStorage implements IStorage {
       gold: Math.min(remaining / 2, 5),
       alternative: Math.max(remaining / 2, 5)
     };
+  }
+
+  // Bank Account Methods Implementation
+  async createBankAccount(bankAccount: InsertUserBankAccount): Promise<UserBankAccount> {
+    const id = randomUUID();
+    const newBankAccount: UserBankAccount = {
+      ...bankAccount,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    
+    this.bankAccounts.set(id, newBankAccount);
+    
+    // Update user bank accounts index
+    const userAccounts = this.bankAccountsByUser.get(bankAccount.userId) || [];
+    userAccounts.push(newBankAccount);
+    this.bankAccountsByUser.set(bankAccount.userId, userAccounts);
+    
+    return newBankAccount;
+  }
+
+  async getUserBankAccounts(userId: string): Promise<UserBankAccount[]> {
+    return this.bankAccountsByUser.get(userId) || [];
+  }
+
+  async getBankAccount(id: string): Promise<UserBankAccount | undefined> {
+    return this.bankAccounts.get(id);
+  }
+
+  async updateBankAccount(id: string, updates: Partial<UserBankAccount>): Promise<UserBankAccount | undefined> {
+    const bankAccount = this.bankAccounts.get(id);
+    if (!bankAccount) return undefined;
+    
+    const updatedBankAccount = { 
+      ...bankAccount, 
+      ...updates, 
+      updatedAt: new Date() 
+    };
+    
+    this.bankAccounts.set(id, updatedBankAccount);
+    
+    // Update user bank accounts index
+    const userAccounts = this.bankAccountsByUser.get(bankAccount.userId) || [];
+    const accountIndex = userAccounts.findIndex(acc => acc.id === id);
+    if (accountIndex !== -1) {
+      userAccounts[accountIndex] = updatedBankAccount;
+      this.bankAccountsByUser.set(bankAccount.userId, userAccounts);
+    }
+    
+    return updatedBankAccount;
+  }
+
+  async deleteBankAccount(id: string): Promise<boolean> {
+    const bankAccount = this.bankAccounts.get(id);
+    if (!bankAccount) return false;
+    
+    this.bankAccounts.delete(id);
+    
+    // Update user bank accounts index
+    const userAccounts = this.bankAccountsByUser.get(bankAccount.userId) || [];
+    const filteredAccounts = userAccounts.filter(acc => acc.id !== id);
+    this.bankAccountsByUser.set(bankAccount.userId, filteredAccounts);
+    
+    return true;
+  }
+
+  async setDefaultBankAccount(accountId: string, defaultType: 'mutualFunds' | 'demat'): Promise<boolean> {
+    const bankAccount = this.bankAccounts.get(accountId);
+    if (!bankAccount) return false;
+    
+    // First, remove default status from all user's accounts for this type
+    const userAccounts = this.bankAccountsByUser.get(bankAccount.userId) || [];
+    for (const account of userAccounts) {
+      if (defaultType === 'mutualFunds') {
+        account.isDefaultForMutualFunds = false;
+      } else {
+        account.isDefaultForDematTransactions = false;
+      }
+      this.bankAccounts.set(account.id, account);
+    }
+    
+    // Set the new default
+    if (defaultType === 'mutualFunds') {
+      bankAccount.isDefaultForMutualFunds = true;
+    } else {
+      bankAccount.isDefaultForDematTransactions = true;
+    }
+    bankAccount.updatedAt = new Date();
+    
+    this.bankAccounts.set(accountId, bankAccount);
+    
+    // Update user bank accounts index
+    const accountIndex = userAccounts.findIndex(acc => acc.id === accountId);
+    if (accountIndex !== -1) {
+      userAccounts[accountIndex] = bankAccount;
+      this.bankAccountsByUser.set(bankAccount.userId, userAccounts);
+    }
+    
+    return true;
   }
 }
 

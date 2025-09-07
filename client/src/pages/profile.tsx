@@ -20,6 +20,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { User, Shield, AlertTriangle, CheckCircle, FileText, Building2, Globe, Star, Award, Lock, Heart, MapPin, Phone, Mail, CreditCard, Banknote, Users, Calendar } from "lucide-react";
+import { BankingDematTab } from "@/components/BankingDematTab";
 
 // Enhanced profile form schema for comprehensive KYC compliance
 const profileFormSchema = z.object({
@@ -1318,126 +1319,7 @@ export default function ProfilePage() {
 
             {/* Banking & Demat Tab */}
             <TabsContent value="banking" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Banking & Demat Account Details</CardTitle>
-                  <CardDescription>
-                    Provide your banking and demat account information for transactions
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Banking Details */}
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-medium">Bank Account Details</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="bankAccountNumber"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Bank Account Number</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="Enter account number" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="ifscCode"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>IFSC Code</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="Enter IFSC code" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    
-                    <FormField
-                      control={form.control}
-                      name="bankName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Bank Name</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="Enter bank name" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <Separator />
-
-                  {/* Demat Account Details */}
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-medium">Demat Account Details (CVL/KRA)</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="krvNumber"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>KRA Registration Number</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="Enter KRA number" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="cvlKycNumber"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>CVL KYC Number</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="Enter CVL KYC number" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="cdslBoId"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>CDSL BO ID</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="Enter CDSL BO ID" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="nsdlClientId"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>NSDL Client ID</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="Enter NSDL Client ID" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <BankingDematTab />
             </TabsContent>
           </Tabs>
 

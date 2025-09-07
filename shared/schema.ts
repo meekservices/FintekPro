@@ -172,6 +172,46 @@ export const userProfiles = pgTable("user_profiles", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// User Bank Accounts table - Multiple bank accounts per user (max 5)
+export const userBankAccounts = pgTable("user_bank_accounts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Bank Details
+  bankName: varchar("bank_name").notNull(),
+  accountNumber: varchar("account_number").notNull(),
+  ifscCode: varchar("ifsc_code").notNull(),
+  branchName: varchar("branch_name"),
+  accountType: varchar("account_type").default("savings"), // savings/current/nro/nre/fcnr
+  accountHolderName: varchar("account_holder_name"),
+  
+  // Default Usage Flags
+  isDefaultForMutualFunds: boolean("is_default_for_mutual_funds").default(false),
+  isDefaultForDematTransactions: boolean("is_default_for_demat_transactions").default(false),
+  
+  // Status and Verification
+  isActive: boolean("is_active").default(true),
+  isVerified: boolean("is_verified").default(false),
+  verificationStatus: varchar("verification_status").default("pending"), // pending/verified/failed
+  verificationDate: timestamp("verification_date"),
+  
+  // Demat Account Details (one per bank account)
+  dematAccountNumber: varchar("demat_account_number"),
+  dematDpId: varchar("demat_dp_id"), // 8-digit DP ID
+  dematDpName: varchar("demat_dp_name"), // Depository Participant name
+  depositoryType: varchar("depository_type"), // NSDL/CDSL
+  
+  // For NSDL
+  nsdlClientId: varchar("nsdl_client_id"), // 8-digit client ID
+  
+  // For CDSL
+  cdslBoId: varchar("cdsl_bo_id"), // 16-digit Beneficial Owner ID
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // User storage table with mobile/email authentication
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1370,6 +1410,15 @@ export const insertOtpVerificationSchema = createInsertSchema(otpVerifications).
   id: true,
   createdAt: true,
 });
+
+// User Bank Accounts schemas and types  
+export const insertUserBankAccountSchema = createInsertSchema(userBankAccounts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertUserBankAccount = z.infer<typeof insertUserBankAccountSchema>;
+export type UserBankAccount = typeof userBankAccounts.$inferSelect;
 
 export const insertRiskProfileSchema = createInsertSchema(riskProfiles).omit({
   id: true,

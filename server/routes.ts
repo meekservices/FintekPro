@@ -17814,6 +17814,152 @@ System Security Data:`;
     }
   });
 
+  // Bank Account Management Routes
+  // Get user bank accounts
+  app.get("/api/bank-accounts", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const accounts = await storage.getUserBankAccounts(req.user.id);
+      res.json(accounts);
+    } catch (error) {
+      console.error("Error fetching bank accounts:", error);
+      res.status(500).json({ error: "Failed to fetch bank accounts" });
+    }
+  });
+
+  // Create new bank account
+  app.post("/api/bank-accounts", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      // Check if user already has 5 accounts (limit)
+      const existingAccounts = await storage.getUserBankAccounts(req.user.id);
+      if (existingAccounts.length >= 5) {
+        return res.status(400).json({ 
+          error: "Maximum of 5 bank accounts allowed per user" 
+        });
+      }
+
+      // Validate account number uniqueness for the user
+      const duplicateAccount = existingAccounts.find(acc => 
+        acc.accountNumber === req.body.accountNumber
+      );
+      if (duplicateAccount) {
+        return res.status(400).json({ 
+          error: "Account number already exists for this user" 
+        });
+      }
+
+      const bankAccountData = {
+        ...req.body,
+        userId: req.user.id,
+        isDefaultForMutualFunds: false,
+        isDefaultForDematTransactions: false,
+        isActive: true,
+        isVerified: false,
+        verificationStatus: "pending"
+      };
+
+      const account = await storage.createBankAccount(bankAccountData);
+      res.status(201).json(account);
+    } catch (error) {
+      console.error("Error creating bank account:", error);
+      res.status(500).json({ error: "Failed to create bank account" });
+    }
+  });
+
+  // Update bank account
+  app.put("/api/bank-accounts/:id", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const account = await storage.getBankAccount(req.params.id);
+      if (!account) {
+        return res.status(404).json({ error: "Bank account not found" });
+      }
+
+      if (account.userId !== req.user.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const updatedAccount = await storage.updateBankAccount(req.params.id, req.body);
+      res.json(updatedAccount);
+    } catch (error) {
+      console.error("Error updating bank account:", error);
+      res.status(500).json({ error: "Failed to update bank account" });
+    }
+  });
+
+  // Delete bank account
+  app.delete("/api/bank-accounts/:id", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const account = await storage.getBankAccount(req.params.id);
+      if (!account) {
+        return res.status(404).json({ error: "Bank account not found" });
+      }
+
+      if (account.userId !== req.user.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const deleted = await storage.deleteBankAccount(req.params.id);
+      if (deleted) {
+        res.json({ success: true, message: "Bank account deleted successfully" });
+      } else {
+        res.status(404).json({ error: "Bank account not found" });
+      }
+    } catch (error) {
+      console.error("Error deleting bank account:", error);
+      res.status(500).json({ error: "Failed to delete bank account" });
+    }
+  });
+
+  // Set default bank account
+  app.put("/api/bank-accounts/:id/set-default", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const account = await storage.getBankAccount(req.params.id);
+      if (!account) {
+        return res.status(404).json({ error: "Bank account not found" });
+      }
+
+      if (account.userId !== req.user.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const { defaultType } = req.body;
+      if (!["mutualFunds", "demat"].includes(defaultType)) {
+        return res.status(400).json({ 
+          error: "Invalid default type. Must be 'mutualFunds' or 'demat'" 
+        });
+      }
+
+      const success = await storage.setDefaultBankAccount(req.params.id, defaultType);
+      if (success) {
+        res.json({ success: true, message: "Default account updated successfully" });
+      } else {
+        res.status(400).json({ error: "Failed to set default account" });
+      }
+    } catch (error) {
+      console.error("Error setting default bank account:", error);
+      res.status(500).json({ error: "Failed to set default bank account" });
+    }
+  });
+
   // Add AML routes
   app.use(amlRoutes);
 
