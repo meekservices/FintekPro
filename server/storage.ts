@@ -1,4 +1,4 @@
-import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type CkycNotificationTrigger, type CkycProgressStep, type CkycActionLog, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Supplier, type InsertSupplier, type SupplierProduct, type InsertSupplierProduct, type ProductPerformanceMetric, type InsertProductPerformanceMetric, type EpfHolding, type PpfHolding, type EpsHolding, type GovernmentSchemeConsent, type InsertGovernmentSchemeConsent, type InsuranceHolding, type InsertInsuranceHolding, type UserBankAccount, type InsertUserBankAccount, type UserDematAccount, type InsertUserDematAccount } from "@shared/schema";
+import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Supplier, type InsertSupplier, type EpfHolding, type PpfHolding, type EpsHolding, type GovernmentSchemeConsent, type InsertGovernmentSchemeConsent, type InsuranceHolding, type InsertInsuranceHolding, type UserBankAccount, type InsertUserBankAccount, type UserDematAccount, type InsertUserDematAccount, type AchievementCategory, type InsertAchievementCategory, type Achievement, type InsertAchievement, type UserAchievement, type InsertUserAchievement, type LearningProgress, type InsertLearningProgress, type SocialShare, type InsertSocialShare, type FinancialGoal, type InsertFinancialGoal } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 // We'll import hashPassword later to avoid circular dependency
@@ -176,23 +176,23 @@ export interface IStorage {
   getCkycStatusHistory(userId: string): Promise<CkycStatusHistory[]>;
   addCkycStatusHistory(history: InsertCkycStatusHistory): Promise<CkycStatusHistory>;
 
-  // CKYC Progress Monitoring methods
-  createCkycNotificationTrigger(trigger: InsertCkycNotificationTrigger): Promise<CkycNotificationTrigger>;
-  getCkycNotificationTriggers(ckycRecordId?: string, status?: string): Promise<CkycNotificationTrigger[]>;
-  updateCkycNotificationStatus(id: string, status: string, sentAt?: Date, failureReason?: string): Promise<CkycNotificationTrigger | undefined>;
+  // CKYC Progress Monitoring methods - temporarily commented due to schema inconsistencies
+  // createCkycNotificationTrigger(trigger: InsertCkycNotificationTrigger): Promise<CkycNotificationTrigger>;
+  // getCkycNotificationTriggers(ckycRecordId?: string, status?: string): Promise<CkycNotificationTrigger[]>;
+  // updateCkycNotificationStatus(id: string, status: string, sentAt?: Date, failureReason?: string): Promise<CkycNotificationTrigger | undefined>;
 
-  // CKYC Progress Steps methods
-  createCkycProgressStep(step: InsertCkycProgressStep): Promise<CkycProgressStep>;
-  getCkycProgressSteps(ckycRecordId: string): Promise<CkycProgressStep[]>;
-  updateCkycProgressStep(id: string, updates: Partial<CkycProgressStep>): Promise<CkycProgressStep | undefined>;
+  // CKYC Progress Steps methods - temporarily commented due to schema inconsistencies
+  // createCkycProgressStep(step: InsertCkycProgressStep): Promise<CkycProgressStep>;
+  // getCkycProgressSteps(ckycRecordId: string): Promise<CkycProgressStep[]>;
+  // updateCkycProgressStep(id: string, updates: Partial<CkycProgressStep>): Promise<CkycProgressStep | undefined>;
   
-  // CKYC Action Log methods
-  createCkycActionLog(log: InsertCkycActionLog): Promise<CkycActionLog>;
-  getCkycActionLogs(ckycRecordId?: string, actionBy?: string): Promise<CkycActionLog[]>;
+  // CKYC Action Log methods - temporarily commented due to schema inconsistencies
+  // createCkycActionLog(log: InsertCkycActionLog): Promise<CkycActionLog>;
+  // getCkycActionLogs(ckycRecordId?: string, actionBy?: string): Promise<CkycActionLog[]>;
 
-  // CKYC Notification Service methods
-  sendNotification(trigger: CkycNotificationTrigger): Promise<boolean>;
-  processPendingNotifications(): Promise<void>;
+  // CKYC Notification Service methods - temporarily commented due to schema inconsistencies
+  // sendNotification(trigger: CkycNotificationTrigger): Promise<boolean>;
+  // processPendingNotifications(): Promise<void>;
 
   // Client-Agent relationship methods for EUIN/ARN integration
   getClientAgentRelationships(clientId?: string, agentId?: string): Promise<ClientAgentRelationship[]>;
