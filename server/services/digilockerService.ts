@@ -38,11 +38,11 @@ export interface DigiLockerDocumentMetadata {
   docId: string;
   uri: string;
   docType: string;
-  source: 'I' | 'U'; // I = Issued, U = Uploaded
+  source?: 'I' | 'U' | string; // I = Issued, U = Uploaded  
   txn: string;
-  filename: string;
-  contentType: string;
-  sharedTill: string;
+  filename?: string;
+  contentType?: string;
+  sharedTill?: string;
 }
 
 export interface DigiLockerWidgetConfig {
@@ -149,10 +149,10 @@ export class DigiLockerService {
       appId: app.id,
       documentUri: metadata.uri,
       documentType: metadata.docType,
-      source: metadata.source,
+      source: metadata.source || null,
       transactionId: metadata.txn,
-      filename: metadata.filename,
-      contentType: metadata.contentType,
+      filename: metadata.filename || null,
+      contentType: metadata.contentType || null,
       sharedTill: sharedTillString,
       sharingStatus: "shared",
     };
@@ -175,6 +175,10 @@ export class DigiLockerService {
 
   // Fetch document content from DigiLocker API
   async fetchDocumentContent(documentId: string): Promise<void> {
+    if (!documentId || typeof documentId !== 'string') {
+      throw new Error("Valid document ID is required");
+    }
+
     const [document] = await db
       .select()
       .from(digilockerSharedDocuments)
@@ -208,7 +212,7 @@ export class DigiLockerService {
 
       // In a real implementation, you would make the actual API call here
       // For development/demo purposes, we'll simulate a successful response
-      const mockDocumentContent = this.generateMockDocumentContent(document.documentType, document.contentType);
+      const mockDocumentContent = this.generateMockDocumentContent(document.documentType, document.contentType || 'application/pdf');
 
       // Update document with fetched content
       await db
