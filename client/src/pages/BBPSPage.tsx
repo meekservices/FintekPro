@@ -152,11 +152,19 @@ export default function BBPSPage() {
   // Fetch bill mutation
   const fetchBillMutation = useMutation({
     mutationFn: async (data: { billerId: string; customerParam: string }) => {
-      const response = await apiRequest("/api/bbps/fetch-bill", {
+      const response = await fetch("/api/bbps/fetch-bill", {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify(data),
       });
-      return response;
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch bill");
+      }
+      
+      return response.json();
     },
     onSuccess: (data) => {
       setFetchedBill(data);
@@ -178,11 +186,19 @@ export default function BBPSPage() {
   // Pay bill mutation
   const payBillMutation = useMutation({
     mutationFn: async (data: { billId: string; paymentAmount: string; paymentMode: string }) => {
-      const response = await apiRequest("/api/bbps/pay-bill", {
+      const response = await fetch("/api/bbps/pay-bill", {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify(data),
       });
-      return response;
+      
+      if (!response.ok) {
+        throw new Error("Failed to process payment");
+      }
+      
+      return response.json();
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/bbps/transactions"] });

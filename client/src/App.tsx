@@ -45,6 +45,7 @@ import Contact from "@/pages/contact";
 import { SupplierManagement } from "@/pages/supplier-management";
 import Profile from "@/pages/profile";
 import ProfileCompletionGuard from "@/components/ProfileCompletionGuard";
+import BBPSPage from "@/pages/BBPSPage";
 
 function UserProtectedRoutes() {
   return (
@@ -84,6 +85,7 @@ function UserProtectedRoutes() {
         <Route path="/cibil" component={Cibil} />
         <Route path="/contact" component={Contact} />
         <Route path="/suppliers" component={SupplierManagement} />
+        <Route path="/bbps" component={BBPSPage} />
       </Switch>
     </ProfileCompletionGuard>
   );
