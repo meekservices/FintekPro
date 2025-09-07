@@ -461,7 +461,7 @@ export default function ProfilePage() {
               </TabsTrigger>
               <TabsTrigger value="financial" data-testid="tab-financial">
                 <Banknote className="h-4 w-4 mr-2" />
-                Financial Profile
+                Financial Info
               </TabsTrigger>
               <TabsTrigger value="compliance" data-testid="tab-compliance">
                 <Shield className="h-4 w-4 mr-2" />
@@ -1062,11 +1062,11 @@ export default function ProfilePage() {
               </Card>
             </TabsContent>
 
-            {/* Financial Profile Tab */}
+            {/* Financial Info Tab */}
             <TabsContent value="financial" className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Financial Profile</CardTitle>
+                  <CardTitle>Financial Info</CardTitle>
                   <CardDescription>
                     Provide financial information for risk assessment and compliance
                   </CardDescription>
