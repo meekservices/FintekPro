@@ -26,13 +26,6 @@ const bankAccountSchema = z.object({
     required_error: "Please select account type"
   }),
   accountHolderName: z.string().min(1, "Account holder name is required"),
-  // Demat account details
-  dematAccountNumber: z.string().optional(),
-  dematDpId: z.string().optional(),
-  dematDpName: z.string().optional(),
-  depositoryType: z.enum(["NSDL", "CDSL"]).optional(),
-  nsdlClientId: z.string().optional(),
-  cdslBoId: z.string().optional(),
 });
 
 type BankAccountForm = z.infer<typeof bankAccountSchema>;
@@ -46,20 +39,12 @@ interface BankAccount {
   accountType: string;
   accountHolderName: string;
   isDefaultForMutualFunds: boolean;
-  isDefaultForDematTransactions: boolean;
   isActive: boolean;
   isVerified: boolean;
   verificationStatus: string;
-  // Demat details
-  dematAccountNumber?: string;
-  dematDpId?: string;
-  dematDpName?: string;
-  depositoryType?: string;
-  nsdlClientId?: string;
-  cdslBoId?: string;
 }
 
-export function BankingDematTab() {
+export function BankingTab() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isAddingAccount, setIsAddingAccount] = useState(false);
@@ -79,12 +64,6 @@ export function BankingDematTab() {
       branchName: "",
       accountType: "savings",
       accountHolderName: "",
-      dematAccountNumber: "",
-      dematDpId: "",
-      dematDpName: "",
-      depositoryType: "NSDL",
-      nsdlClientId: "",
-      cdslBoId: "",
     },
   });
 
@@ -152,7 +131,7 @@ export function BankingDematTab() {
 
   // Set default account mutation
   const setDefaultMutation = useMutation({
-    mutationFn: ({ accountId, defaultType }: { accountId: string; defaultType: 'mutualFunds' | 'demat' }) => 
+    mutationFn: ({ accountId, defaultType }: { accountId: string; defaultType: 'mutualFunds' }) => 
       apiRequest("PUT", `/api/bank-accounts/${accountId}/set-default`, { defaultType }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/bank-accounts"] });
@@ -188,12 +167,6 @@ export function BankingDematTab() {
       branchName: account.branchName,
       accountType: account.accountType as any,
       accountHolderName: account.accountHolderName,
-      dematAccountNumber: account.dematAccountNumber || "",
-      dematDpId: account.dematDpId || "",
-      dematDpName: account.dematDpName || "",
-      depositoryType: (account.depositoryType as any) || "NSDL",
-      nsdlClientId: account.nsdlClientId || "",
-      cdslBoId: account.cdslBoId || "",
     });
   };
 
@@ -203,7 +176,7 @@ export function BankingDematTab() {
     form.reset();
   };
 
-  const handleSetDefault = (accountId: string, defaultType: 'mutualFunds' | 'demat') => {
+  const handleSetDefault = (accountId: string, defaultType: 'mutualFunds') => {
     setDefaultMutation.mutate({ accountId, defaultType });
   };
 

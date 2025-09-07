@@ -20,7 +20,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { User, Shield, AlertTriangle, CheckCircle, FileText, Building2, Globe, Star, Award, Lock, Heart, MapPin, Phone, Mail, CreditCard, Banknote, Users, Calendar } from "lucide-react";
-import { BankingDematTab } from "@/components/BankingDematTab";
+import { BankingTab } from "@/components/BankingDematTab";
+import { DematTab } from "@/components/DematTab";
 
 // Enhanced profile form schema for comprehensive KYC compliance
 const profileFormSchema = z.object({
@@ -445,7 +446,7 @@ export default function ProfilePage() {
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-6">
+            <TabsList className="grid w-full grid-cols-7">
               <TabsTrigger value="basic" data-testid="tab-basic">
                 <User className="h-4 w-4 mr-2" />
                 Basic Info
@@ -468,7 +469,11 @@ export default function ProfilePage() {
               </TabsTrigger>
               <TabsTrigger value="banking" data-testid="tab-banking">
                 <CreditCard className="h-4 w-4 mr-2" />
-                Banking & Demat
+                Banking
+              </TabsTrigger>
+              <TabsTrigger value="demat" data-testid="tab-demat">
+                <Building2 className="h-4 w-4 mr-2" />
+                Demat
               </TabsTrigger>
             </TabsList>
 
@@ -1317,9 +1322,14 @@ export default function ProfilePage() {
               </Card>
             </TabsContent>
 
-            {/* Banking & Demat Tab */}
+            {/* Banking Tab */}
             <TabsContent value="banking" className="space-y-6">
-              <BankingDematTab />
+              <BankingTab />
+            </TabsContent>
+
+            {/* Demat Tab */}
+            <TabsContent value="demat" className="space-y-6">
+              <DematTab />
             </TabsContent>
           </Tabs>
 
@@ -1339,7 +1349,7 @@ export default function ProfilePage() {
                 type="button"
                 variant="outline"
                 onClick={() => {
-                  const tabs = ["basic", "identity", "address", "financial", "compliance", "banking"];
+                  const tabs = ["basic", "identity", "address", "financial", "compliance", "banking", "demat"];
                   const currentIndex = tabs.indexOf(activeTab);
                   if (currentIndex > 0) {
                     setActiveTab(tabs[currentIndex - 1]);
@@ -1354,13 +1364,13 @@ export default function ProfilePage() {
                 type="button"
                 variant="outline"
                 onClick={() => {
-                  const tabs = ["basic", "identity", "address", "financial", "compliance", "banking"];
+                  const tabs = ["basic", "identity", "address", "financial", "compliance", "banking", "demat"];
                   const currentIndex = tabs.indexOf(activeTab);
                   if (currentIndex < tabs.length - 1) {
                     setActiveTab(tabs[currentIndex + 1]);
                   }
                 }}
-                disabled={activeTab === "banking"}
+                disabled={activeTab === "demat"}
               >
                 Next
               </Button>
