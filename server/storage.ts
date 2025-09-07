@@ -605,6 +605,7 @@ export class MemStorage implements IStorage {
     // Password: "password123" (will be properly hashed)
     const testUser: User = {
       id: "demo-user-1",
+      userId: "JOH001",  // John Doe -> JOH + 001
       email: "test@example.com",
       mobile: "+919876543210",
       password: "PLACEHOLDER_WILL_BE_HASHED",  // Placeholder - will be properly hashed
@@ -637,6 +638,54 @@ export class MemStorage implements IStorage {
     this.usersByMobile.set(testUser.mobile!, testUser);
   }
 
+  // Generate unique alphanumeric user ID (3 letters + 3 numbers)
+  private generateUserId(firstName?: string, lastName?: string): string {
+    // Extract first 3 letters from names, fallback to 'USR' if no names
+    let letters = 'USR';
+    if (firstName || lastName) {
+      const name = (firstName || '') + (lastName || '');
+      const cleanName = name.replace(/[^a-zA-Z]/g, '').toUpperCase();
+      if (cleanName.length >= 3) {
+        letters = cleanName.substring(0, 3);
+      } else if (cleanName.length > 0) {
+        letters = (cleanName + 'USR').substring(0, 3);
+      }
+    }
+    
+    // Generate 3 random digits
+    const numbers = Math.floor(100 + Math.random() * 900).toString();
+    
+    return letters + numbers;
+  }
+
+  // Check if user ID is unique across all users
+  private isUserIdUnique(userId: string): boolean {
+    return !Array.from(this.users.values()).some(user => user.userId === userId);
+  }
+
+  // Generate a unique user ID with collision avoidance
+  private generateUniqueUserId(firstName?: string, lastName?: string): string {
+    let userId = this.generateUserId(firstName, lastName);
+    let attempts = 0;
+    
+    // If ID already exists, try variations
+    while (!this.isUserIdUnique(userId) && attempts < 100) {
+      userId = this.generateUserId(firstName, lastName);
+      attempts++;
+    }
+    
+    // Fallback: use random letters if still not unique
+    if (!this.isUserIdUnique(userId)) {
+      const letters = String.fromCharCode(65 + Math.floor(Math.random() * 26)) +
+                     String.fromCharCode(65 + Math.floor(Math.random() * 26)) +
+                     String.fromCharCode(65 + Math.floor(Math.random() * 26));
+      const numbers = Math.floor(100 + Math.random() * 900).toString();
+      userId = letters + numbers;
+    }
+    
+    return userId;
+  }
+
   // Method to be called after auth is set up to properly hash user passwords
   async initializeUserPasswords() {
     try {
@@ -665,6 +714,7 @@ export class MemStorage implements IStorage {
       
       const adminUser: User = {
         id: "admin-user-1",
+        userId: "ADM001",  // Admin User -> ADM + 001
         email: "admin@financehub.com",
         mobile: "+919999999999",
         password: hashedPassword,
@@ -1048,11 +1098,13 @@ export class MemStorage implements IStorage {
     return undefined;
   }
 
-  async createUser(userData: Omit<User, 'id' | 'createdAt' | 'updatedAt'>): Promise<User> {
+  async createUser(userData: Omit<User, 'id' | 'userId' | 'createdAt' | 'updatedAt'>): Promise<User> {
     const id = randomUUID();
+    const userId = this.generateUniqueUserId(userData.firstName || undefined, userData.lastName || undefined);
     const user: User = {
       ...userData,
       id,
+      userId,
       createdAt: new Date(),
       updatedAt: new Date()
     };

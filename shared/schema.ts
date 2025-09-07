@@ -175,6 +175,7 @@ export const userProfiles = pgTable("user_profiles", {
 // User storage table with mobile/email authentication
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id", { length: 6 }).unique().notNull(),  // Alphanumeric: 3 letters + 3 numbers
   email: varchar("email").unique(),
   mobile: varchar("mobile").unique(),
   phoneNumber: varchar("phone_number").unique(), // WhatsApp phone number

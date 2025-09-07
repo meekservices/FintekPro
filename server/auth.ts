@@ -11,6 +11,7 @@ declare global {
   namespace Express {
     interface User {
       id: string;
+      userId: string;
       email?: string | null;
       mobile?: string | null;
       password: string;
@@ -185,6 +186,58 @@ export function setupAuth(app: Express) {
         annualIncome: null,
         investmentExperience: null,
         riskTolerance: null,
+        phoneNumber: null,
+        passportNumber: null,
+        drivingLicense: null,
+        voterIdNumber: null,
+        nationality: null,
+        fatherName: null,
+        motherName: null,
+        spouseName: null,
+        maritalStatus: null,
+        country: null,
+        sourceOfWealth: null,
+        residentStatus: null,
+        countryOfResidence: null,
+        taxResidencyCountry: null,
+        fatcaStatus: null,
+        fatcaTinNumber: null,
+        fatcaCountryOfTaxResidence: null,
+        pepStatus: null,
+        pepDetails: null,
+        isUbo: false,
+        uboDetails: null,
+        bankAccountNumber: null,
+        ifscCode: null,
+        nomineeDetails: null,
+        nomineeRelation: null,
+        euinNumber: null,
+        enableCamsApi: false,
+        nsdlDpId: null,
+        nsdlClientId: null,
+        cdslBoId: null,
+        cdslDpId: null,
+        role: "user",
+        status: "active",
+        isActive: true,
+        lastLoginAt: null,
+        loginCount: 0,
+        agentId: null,
+        complianceOfficer: null,
+        isUSPerson: false,
+        isEUResident: false,
+        gdprConsent: false,
+        gdprConsentDate: null,
+        dataProcessingConsent: false,
+        marketingConsent: false,
+        investorType: null,
+        investorCategory: null,
+        financialSituation: null,
+        investmentObjective: null,
+        profileCompleteness: 0,
+        isProfileCompleted: false,
+        profileCompletedAt: null,
+        lastUpdated: new Date(),
       });
 
       req.login(user, (err) => {
@@ -194,6 +247,7 @@ export function setupAuth(app: Express) {
         }
         res.status(201).json({
           id: user.id,
+          userId: user.userId,
           email: user.email,
           mobile: user.mobile,
           firstName: user.firstName,
