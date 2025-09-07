@@ -393,7 +393,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Financial Goals API endpoints
   app.get("/api/financial-goals", async (req, res) => {
     try {
-      const userId = "demo-user-1"; // Replace with actual user ID from auth
+      // Check authentication
+      if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      const userId = req.user.id;
       const goals = await storage.getFinancialGoals(userId);
       res.json(goals);
     } catch (error) {
@@ -411,10 +416,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Name, target amount, and target date are required" });
       }
 
-      // Set default userId if not provided
-      if (!goalData.userId) {
-        goalData.userId = "demo-user-1";
+      // Check authentication
+      if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
       }
+      
+      // Set userId from authenticated user
+      goalData.userId = req.user.id;
 
       const goal = await storage.createFinancialGoal(goalData);
       res.json(goal);
@@ -426,6 +434,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/financial-goals/:id", async (req, res) => {
     try {
+      // Check authentication
+      if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
       const { id } = req.params;
       const updates = req.body;
       
@@ -444,6 +457,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/financial-goals/:id", async (req, res) => {
     try {
+      // Check authentication
+      if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
       const { id } = req.params;
       const deleted = await storage.deleteFinancialGoal(id);
       
