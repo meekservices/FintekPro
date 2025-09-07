@@ -320,7 +320,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // User Profile API endpoints
   app.get("/api/profile", async (req, res) => {
     try {
-      const userId = "demo-user-1"; // Replace with actual user ID from auth
+      // Check authentication
+      if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      const userId = req.user.id;
       const profile = await storage.getUserProfile(userId);
       
       if (!profile) {
@@ -336,12 +341,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/profile", async (req, res) => {
     try {
-      const profileData = req.body;
-      
-      // Validate required fields
-      if (!profileData.userId) {
-        return res.status(400).json({ error: "User ID is required" });
+      // Check authentication
+      if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
       }
+      
+      const profileData = {
+        ...req.body,
+        userId: req.user.id // Use authenticated user ID
+      };
 
       const profile = await storage.upsertUserProfile(profileData);
       res.json(profile);
@@ -353,10 +361,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/profile/complete", async (req, res) => {
     try {
-      const profileData = req.body;
+      // Check authentication
+      if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
       
-      // Get current user ID (would be from authenticated session in real implementation)
-      const userId = "demo-user-1"; // Replace with actual authenticated user ID
+      const profileData = req.body;
+      const userId = req.user.id;
       
       // Add userId and completion flags to profile data
       const completeProfileData = {
