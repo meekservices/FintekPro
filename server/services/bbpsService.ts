@@ -1,5 +1,6 @@
 import { eq, and } from "drizzle-orm";
-import { storage } from "../storage";
+import { neon } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/neon-http";
 import {
   bbpsCategories,
   bbpsBillers,
@@ -15,6 +16,10 @@ import {
   type InsertBbpsTransaction,
 } from "../../shared/schema";
 import { v4 as uuidv4 } from "uuid";
+
+// Database connection
+const sql = neon(process.env.DATABASE_URL!);
+const db = drizzle(sql);
 
 // BBPS Service Configuration
 const BBPS_CONFIG = {
@@ -40,7 +45,7 @@ export class BBPSService {
   async initializeBBPSData() {
     try {
       // Check if categories already exist
-      const existingCategories = await storage.db.select().from(bbpsCategories).limit(1);
+      const existingCategories = await db.select().from(bbpsCategories).limit(1);
       
       if (existingCategories.length === 0) {
         // Insert default BBPS categories
@@ -97,11 +102,11 @@ export class BBPSService {
           },
         ];
 
-        await storage.db.insert(bbpsCategories).values(defaultCategories);
+        await db.insert(bbpsCategories).values(defaultCategories);
         console.log("✅ BBPS categories initialized successfully");
 
         // Insert sample billers for each category
-        const categories = await storage.db.select().from(bbpsCategories);
+        const categories = await db.select().from(bbpsCategories);
         const sampleBillers: InsertBbpsBiller[] = [];
 
         for (const category of categories) {
@@ -177,7 +182,7 @@ export class BBPSService {
         }
 
         if (sampleBillers.length > 0) {
-          await storage.db.insert(bbpsBillers).values(sampleBillers);
+          await db.insert(bbpsBillers).values(sampleBillers);
           console.log("✅ BBPS sample billers initialized successfully");
         }
       }
@@ -189,7 +194,7 @@ export class BBPSService {
 
   // Get all active categories
   async getCategories(): Promise<BbpsCategory[]> {
-    return await storage.db
+    return await db
       .select()
       .from(bbpsCategories)
       .where(eq(bbpsCategories.isActive, true));
@@ -197,7 +202,7 @@ export class BBPSService {
 
   // Get billers by category
   async getBillersByCategory(categoryId: string): Promise<BbpsBiller[]> {
-    return await storage.db
+    return await db
       .select()
       .from(bbpsBillers)
       .where(
@@ -218,7 +223,7 @@ export class BBPSService {
       const { billerId, customerParam, userId } = params;
 
       // Get biller details
-      const biller = await storage.db
+      const biller = await db
         .select()
         .from(bbpsBillers)
         .where(eq(bbpsBillers.id, billerId))
@@ -256,7 +261,7 @@ export class BBPSService {
         fetchedAt: new Date(),
       };
 
-      const [insertedBill] = await storage.db
+      const [insertedBill] = await db
         .insert(bbpsCustomerBills)
         .values(billData)
         .returning();
@@ -274,7 +279,7 @@ export class BBPSService {
         fetchedAt: new Date(),
       };
 
-      await storage.db.insert(bbpsCustomerBills).values(failedBillData);
+      await db.insert(bbpsCustomerBills).values(failedBillData);
       throw error;
     }
   }
@@ -290,7 +295,7 @@ export class BBPSService {
       const { billId, paymentAmount, paymentMode, userId } = params;
 
       // Get bill details
-      const bill = await storage.db
+      const bill = await db
         .select()
         .from(bbpsCustomerBills)
         .where(eq(bbpsCustomerBills.id, billId))
@@ -323,7 +328,7 @@ export class BBPSService {
         completedAt: isPaymentSuccess ? new Date() : undefined,
       };
 
-      const [insertedTransaction] = await storage.db
+      const [insertedTransaction] = await db
         .insert(bbpsTransactions)
         .values(transactionData)
         .returning();
@@ -337,7 +342,7 @@ export class BBPSService {
 
   // Get user's bill history
   async getUserBills(userId: string): Promise<BbpsCustomerBill[]> {
-    return await storage.db
+    return await db
       .select()
       .from(bbpsCustomerBills)
       .where(eq(bbpsCustomerBills.userId, userId))
@@ -346,7 +351,7 @@ export class BBPSService {
 
   // Get user's transaction history
   async getUserTransactions(userId: string): Promise<BbpsTransaction[]> {
-    return await storage.db
+    return await db
       .select()
       .from(bbpsTransactions)
       .where(eq(bbpsTransactions.userId, userId))
@@ -355,7 +360,7 @@ export class BBPSService {
 
   // Get transaction status
   async getTransactionStatus(transactionId: string): Promise<BbpsTransaction | null> {
-    const [transaction] = await storage.db
+    const [transaction] = await db
       .select()
       .from(bbpsTransactions)
       .where(eq(bbpsTransactions.transactionId, transactionId))
