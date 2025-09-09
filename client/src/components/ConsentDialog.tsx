@@ -20,20 +20,22 @@ interface ConsentDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   panNumber: string;
-  schemeType: "epf" | "ppf" | "eps";
+  schemeType: "epf" | "ppf" | "eps" | "insurance";
   onConsentGranted: () => void;
 }
 
 const SCHEME_NAMES = {
   epf: "Employee Provident Fund (EPF)",
   ppf: "Public Provident Fund (PPF)",
-  eps: "Employee Pension Scheme (EPS)"
+  eps: "Employee Pension Scheme (EPS)",
+  insurance: "Insurance Holdings"
 };
 
 const SCHEME_DESCRIPTIONS = {
   epf: "View your EPF account balance, contribution history, and current status from EPFO records.",
   ppf: "Access your PPF account balance, maturity details, and contribution records from bank records.",
-  eps: "Check your EPS pension benefits, monthly pension amount, and service history from EPFO."
+  eps: "Check your EPS pension benefits, monthly pension amount, and service history from EPFO.",
+  insurance: "Access your insurance policy holdings from NSDL and CDSL depository records."
 };
 
 export function ConsentDialog({ 
