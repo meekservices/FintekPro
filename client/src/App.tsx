@@ -49,6 +49,7 @@ import BBPSPage from "@/pages/BBPSPage";
 import DigiLockerPage from "@/pages/DigiLockerPage";
 import LoanApplication from "@/pages/loan-application";
 import LoanDashboard from "@/pages/loan-dashboard";
+import ProposalsPage from "@/pages/proposals";
 
 function UserProtectedRoutes() {
   return (
@@ -72,6 +73,7 @@ function UserProtectedRoutes() {
         <Route path="/wealth" component={InvestSmart} />
         <Route path="/investsmart" component={InvestSmart} />
         <Route path="/wealth-management" component={InvestSmart} />
+        <Route path="/proposals" component={ProposalsPage} />
         <Route path="/achievements" component={Achievements} />
         <Route path="/capital-gains" component={CapitalGainsReports} />
         <Route path="/ib-trading" component={IBTradingPage} />
