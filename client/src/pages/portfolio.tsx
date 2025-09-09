@@ -737,7 +737,6 @@ export default function Portfolio() {
                     </div>
                   </CardContent>
                 </Card>
-                <AssetAllocation portfolioId={portfolioId} />
               </div>
             </div>
           </TabsContent>
