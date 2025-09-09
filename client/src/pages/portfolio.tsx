@@ -855,8 +855,8 @@ export default function Portfolio() {
                                 <p className="text-sm text-muted-foreground">Policy No: {policy.policyNumber}</p>
                                 <p className="text-xs text-muted-foreground">{policy.insuranceCompany}</p>
                               </div>
-                              <Badge className={policy.policyStatus === 'active' ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}>
-                                {policy.policyStatus.charAt(0).toUpperCase() + policy.policyStatus.slice(1)}
+                              <Badge className={(policy.policyStatus || '') === 'active' ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}>
+                                {policy.policyStatus ? policy.policyStatus.charAt(0).toUpperCase() + policy.policyStatus.slice(1) : 'Unknown'}
                               </Badge>
                             </div>
                             <div className="grid grid-cols-2 gap-4 text-sm">
@@ -1071,19 +1071,19 @@ export default function Portfolio() {
                             <div className="space-y-3">
                               <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
                                 <span className="text-sm font-medium text-blue-900">Employee Contribution</span>
-                                <span className="font-bold text-blue-900">₹{parseFloat(epf.employeeContribution).toLocaleString('en-IN')}</span>
+                                <span className="font-bold text-blue-900">₹{parseFloat(epf.employeeContribution || '0').toLocaleString('en-IN')}</span>
                               </div>
                               <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
                                 <span className="text-sm font-medium text-green-900">Employer Contribution</span>
-                                <span className="font-bold text-green-900">₹{parseFloat(epf.employerContribution).toLocaleString('en-IN')}</span>
+                                <span className="font-bold text-green-900">₹{parseFloat(epf.employerContribution || '0').toLocaleString('en-IN')}</span>
                               </div>
                               <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
                                 <span className="text-sm font-medium text-purple-900">Pension Fund (EPS)</span>
-                                <span className="font-bold text-purple-900">₹{parseFloat(epf.pensionContribution).toLocaleString('en-IN')}</span>
+                                <span className="font-bold text-purple-900">₹{parseFloat(epf.pensionContribution || '0').toLocaleString('en-IN')}</span>
                               </div>
                               <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
                                 <span className="text-sm font-medium text-orange-900">Interest Earned</span>
-                                <span className="font-bold text-orange-900">₹{parseFloat(epf.interestEarned).toLocaleString('en-IN')}</span>
+                                <span className="font-bold text-orange-900">₹{parseFloat(epf.interestEarned || '0').toLocaleString('en-IN')}</span>
                               </div>
                             </div>
                           </div>
@@ -1092,10 +1092,10 @@ export default function Portfolio() {
                           <div className="pt-4 border-t">
                             <div className="flex justify-between items-center">
                               <span className="text-lg font-semibold text-gray-900">Total EPF Balance</span>
-                              <span className="text-2xl font-bold text-green-600">₹{parseFloat(epf.totalBalance).toLocaleString('en-IN')}</span>
+                              <span className="text-2xl font-bold text-green-600">₹{parseFloat(epf.totalBalance || '0').toLocaleString('en-IN')}</span>
                             </div>
                             <p className="text-sm text-muted-foreground mt-1">
-                              As of {new Date(epf.lastUpdated).toLocaleDateString('en-IN')}
+                              As of {epf.lastUpdated ? new Date(epf.lastUpdated).toLocaleDateString('en-IN') : 'N/A'}
                             </p>
                           </div>
                         </div>
@@ -1137,7 +1137,7 @@ export default function Portfolio() {
                             <div className="space-y-2">
                               <div className="flex justify-between">
                                 <span className="text-sm text-muted-foreground">Current Year Interest</span>
-                                <span className="font-medium text-green-600">₹{parseFloat(epf.interestEarned).toLocaleString('en-IN')}</span>
+                                <span className="font-medium text-green-600">₹{parseFloat(epf.interestEarned || '0').toLocaleString('en-IN')}</span>
                               </div>
                               <div className="flex justify-between">
                                 <span className="text-sm text-muted-foreground">Account Status</span>

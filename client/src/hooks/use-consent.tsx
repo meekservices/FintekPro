@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
-export type SchemeType = "epf" | "ppf" | "eps";
+export type SchemeType = "epf" | "ppf" | "eps" | "insurance";
 
 interface ConsentStatus {
   hasConsent: boolean;
