@@ -15,7 +15,11 @@ import {
   Calendar,
   Shield,
   BarChart3,
-  Lightbulb
+  Lightbulb,
+  Brain,
+  Activity,
+  Zap,
+  Clock
 } from "lucide-react";
 
 interface InvestmentRecommendationsProps {
@@ -25,6 +29,7 @@ interface InvestmentRecommendationsProps {
 
 export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRecommendationsProps) {
   const [selectedRecommendation, setSelectedRecommendation] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
   // Fetch goal-based recommendations if goalId is provided
   const { data: goalRecommendations, isLoading: goalLoading } = useQuery<any[]>({
@@ -36,6 +41,24 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
   const { data: rebalanceRecommendations, isLoading: rebalanceLoading } = useQuery<any[]>({
     queryKey: ["/api/recommendations/portfolio", portfolioId, "rebalance"],
     enabled: !!portfolioId,
+  });
+
+  // Fetch AI-powered insights from the new monitoring service
+  const { data: aiInsights, isLoading: aiInsightsLoading } = useQuery<any>({
+    queryKey: ["/api/ai-investsmart-insights"],
+    refetchInterval: 30000, // Refresh every 30 seconds for real-time insights
+  });
+
+  // Fetch actionables based on selected category
+  const { data: aiActionables, isLoading: actionablesLoading } = useQuery<any>({
+    queryKey: ["/api/ai-investsmart-actionables", selectedCategory],
+    enabled: true,
+  });
+
+  // Fetch page health metrics
+  const { data: pageHealth, isLoading: healthLoading } = useQuery<any>({
+    queryKey: ["/api/ai-investsmart-health"],
+    refetchInterval: 60000, // Refresh every minute
   });
 
   const formatCurrency = (amount: number) => {
@@ -74,13 +97,15 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
     }
   };
 
-  if (goalLoading || rebalanceLoading) {
+  const isLoading = goalLoading || rebalanceLoading || aiInsightsLoading || actionablesLoading || healthLoading;
+
+  if (isLoading && !aiInsights) {
     return (
       <Card data-testid="card-recommendations-loading">
         <CardContent className="p-6">
           <div className="flex items-center justify-center space-x-2">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-            <span>Generating personalized recommendations...</span>
+            <span>AI is analyzing your InvestSmart data...</span>
           </div>
         </CardContent>
       </Card>
@@ -89,6 +114,205 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
 
   return (
     <div className="space-y-6" data-testid="investment-recommendations">
+      {/* AI-Powered InvestSmart Insights */}
+      {aiInsights && (
+        <div className="space-y-6">
+          {/* AI Health Score Overview */}
+          <Card data-testid="card-ai-health-overview">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Brain className="w-5 h-5 text-purple-600" />
+                AI InvestSmart Analysis
+                {pageHealth?.healthMetrics.overallScore && (
+                  <Badge variant={pageHealth.healthMetrics.overallScore >= 80 ? "default" : "destructive"}>
+                    {pageHealth.healthMetrics.overallScore}/100
+                  </Badge>
+                )}
+              </CardTitle>
+              <CardDescription>
+                Comprehensive AI analysis of your complete financial profile
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {aiInsights.summary && (
+                  <>
+                    <div className="text-center p-4 bg-blue-50 rounded-lg">
+                      <div className="text-2xl font-bold text-blue-600">
+                        ₹{(aiInsights.summary.monthlySurplus || 0).toLocaleString()}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Monthly Investment Surplus</div>
+                    </div>
+                    <div className="text-center p-4 bg-green-50 rounded-lg">
+                      <div className="text-2xl font-bold text-green-600">
+                        {aiInsights.summary.creditScore || 'N/A'}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Credit Score</div>
+                    </div>
+                    <div className="text-center p-4 bg-purple-50 rounded-lg">
+                      <div className="text-2xl font-bold text-purple-600">
+                        {aiInsights.summary.opportunityCount || 0}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Key Opportunities</div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* AI Actionables Categories */}
+          <Card data-testid="card-ai-actionables">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Zap className="w-5 h-5 text-yellow-600" />
+                AI-Generated Actionables
+              </CardTitle>
+              <CardDescription>
+                Smart recommendations based on your complete financial data
+              </CardDescription>
+              <div className="flex gap-2 mt-4">
+                {['all', 'urgent', 'opportunities', 'goals', 'investments'].map((category) => (
+                  <Button
+                    key={category}
+                    variant={selectedCategory === category ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedCategory(category)}
+                    data-testid={`button-category-${category}`}
+                  >
+                    {category.charAt(0).toUpperCase() + category.slice(1)}
+                  </Button>
+                ))}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {aiActionables?.actionables && Array.isArray(aiActionables.actionables) && (
+                <div className="space-y-3">
+                  {aiActionables.actionables.map((actionable: string, index: number) => (
+                    <div 
+                      key={index} 
+                      className="flex items-start gap-3 p-4 border rounded-lg hover:bg-gray-50"
+                      data-testid={`actionable-${selectedCategory}-${index}`}
+                    >
+                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <CheckCircle className="w-4 h-4 text-blue-600" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{actionable}</p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <Badge variant={aiActionables?.priority === 'high' ? 'destructive' : 'default'}>
+                            {aiActionables?.priority || 'medium'}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            Category: {selectedCategory}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* AI Key Insights Breakdown */}
+          {aiInsights.aiInsights && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              
+              {/* Urgent Actions */}
+              {aiInsights.aiInsights.urgentActions && aiInsights.aiInsights.urgentActions.length > 0 && (
+                <Card data-testid="card-urgent-actions">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-red-600">
+                      <AlertTriangle className="w-5 h-5" />
+                      Urgent Actions
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {aiInsights.aiInsights.urgentActions.map((action: string, index: number) => (
+                        <div key={index} className="flex items-start gap-2">
+                          <Clock className="w-4 h-4 text-red-500 mt-1 flex-shrink-0" />
+                          <span className="text-sm">{action}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Key Opportunities */}
+              {aiInsights.aiInsights.keyOpportunities && aiInsights.aiInsights.keyOpportunities.length > 0 && (
+                <Card data-testid="card-key-opportunities">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-green-600">
+                      <TrendingUp className="w-5 h-5" />
+                      Key Opportunities
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {aiInsights.aiInsights.keyOpportunities.map((opportunity: string, index: number) => (
+                        <div key={index} className="flex items-start gap-2">
+                          <ArrowRight className="w-4 h-4 text-green-500 mt-1 flex-shrink-0" />
+                          <span className="text-sm">{opportunity}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Goal Acceleration */}
+              {aiInsights.aiInsights.goalAcceleration && aiInsights.aiInsights.goalAcceleration.length > 0 && (
+                <Card data-testid="card-goal-acceleration">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-blue-600">
+                      <Target className="w-5 h-5" />
+                      Goal Acceleration
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {aiInsights.aiInsights.goalAcceleration.map((goal: string, index: number) => (
+                        <div key={index} className="flex items-start gap-2">
+                          <Activity className="w-4 h-4 text-blue-500 mt-1 flex-shrink-0" />
+                          <span className="text-sm">{goal}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Investment Recommendations */}
+              {aiInsights.aiInsights.investmentRecommendations && aiInsights.aiInsights.investmentRecommendations.length > 0 && (
+                <Card data-testid="card-ai-investments">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-purple-600">
+                      <PieChart className="w-5 h-5" />
+                      AI Investment Recommendations
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {aiInsights.aiInsights.investmentRecommendations.map((investment: string, index: number) => (
+                        <div key={index} className="flex items-start gap-2">
+                          <IndianRupee className="w-4 h-4 text-purple-500 mt-1 flex-shrink-0" />
+                          <span className="text-sm">{investment}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+
+          <Separator />
+        </div>
+      )}
+
       {/* Goal-Based Recommendations */}
       {goalRecommendations && Array.isArray(goalRecommendations) && goalRecommendations.length > 0 && (
         <Card data-testid="card-goal-recommendations">
