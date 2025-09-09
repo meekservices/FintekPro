@@ -1934,6 +1934,326 @@ export type InsertTransactionReport = typeof transactionReports.$inferInsert;
 export type TransactionRecord = typeof transactionRecords.$inferSelect;
 export type InsertTransactionRecord = typeof transactionRecords.$inferInsert;
 
+// Client Data Enrichment Tables for AI-powered analytics and external data integration
+
+// External Data Sources table for tracking API integrations used for client enrichment
+export const externalDataSources = pgTable("external_data_sources", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sourceName: varchar("source_name").notNull(), // gstin, pan_verification, credit_score, bank_statement, social_media
+  sourceType: varchar("source_type").notNull(), // financial, regulatory, social, business, verification
+  provider: varchar("provider").notNull(), // karza, signzy, bureau, bank_api, fintech_api
+  apiEndpoint: varchar("api_endpoint"),
+  isActive: boolean("is_active").default(true),
+  rateLimit: integer("rate_limit_per_hour"),
+  costPerCall: decimal("cost_per_call", { precision: 10, scale: 4 }),
+  dataRetentionDays: integer("data_retention_days").default(365),
+  lastUsed: timestamp("last_used"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Client Data Enrichment records - stores enriched data from various external sources
+export const clientEnrichmentData = pgTable("client_enrichment_data", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  sourceId: varchar("source_id").references(() => externalDataSources.id).notNull(),
+  
+  // Enrichment metadata
+  enrichmentType: varchar("enrichment_type").notNull(), // financial_profile, business_details, social_insights, credit_analysis
+  dataCategory: varchar("data_category").notNull(), // income_verification, business_turnover, social_connections, credit_behavior
+  
+  // Raw and processed data
+  rawData: jsonb("raw_data"), // Original API response
+  processedData: jsonb("processed_data"), // AI-processed insights
+  enrichmentScore: integer("enrichment_score"), // 0-100 quality score
+  confidenceLevel: varchar("confidence_level"), // high, medium, low
+  
+  // Financial insights (if applicable)
+  estimatedIncome: decimal("estimated_income", { precision: 15, scale: 2 }),
+  incomeStability: varchar("income_stability"), // stable, volatile, seasonal
+  spendingPattern: jsonb("spending_pattern"), // Category-wise spending analysis
+  creditworthiness: varchar("creditworthiness"), // excellent, good, fair, poor
+  riskIndicators: jsonb("risk_indicators"), // Array of identified risk factors
+  
+  // Business insights (if applicable)
+  businessTurnover: decimal("business_turnover", { precision: 15, scale: 2 }),
+  businessType: varchar("business_type"), 
+  industryRisk: varchar("industry_risk"), // low, medium, high
+  businessVintage: integer("business_vintage_months"),
+  gstCompliance: varchar("gst_compliance"), // compliant, irregular, non_compliant
+  
+  // Social and behavioral insights
+  digitalFootprint: jsonb("digital_footprint"), // Online presence analysis
+  socialConnections: jsonb("social_connections"), // Professional network insights
+  lifestyleIndicators: jsonb("lifestyle_indicators"), // Spending on lifestyle categories
+  
+  // Verification status and metadata
+  isVerified: boolean("is_verified").default(false),
+  verificationMethod: varchar("verification_method"),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  expiryDate: timestamp("expiry_date"), // When this data becomes stale
+  
+  // AI processing metadata
+  aiModelUsed: varchar("ai_model_used"), // Which AI model processed this data
+  processingTime: integer("processing_time_ms"),
+  apiCallCount: integer("api_call_count").default(1), // Number of API calls made for this enrichment
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// AI Transaction Tracking - comprehensive transaction monitoring both on-site and external
+export const aiTransactionTracking = pgTable("ai_transaction_tracking", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Transaction identification
+  transactionId: varchar("transaction_id").notNull(), // Unique transaction identifier
+  externalTransactionId: varchar("external_transaction_id"), // Bank/payment gateway transaction ID
+  transactionHash: varchar("transaction_hash"), // Hash for duplicate detection
+  
+  // Transaction details
+  transactionType: varchar("transaction_type").notNull(), // deposit, withdrawal, transfer, investment, loan_payment, bill_payment
+  transactionCategory: varchar("transaction_category"), // salary, business_income, investment_redemption, loan_disbursement
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
+  currency: varchar("currency").default("INR"),
+  
+  // Source and destination
+  sourceType: varchar("source_type").notNull(), // internal_platform, bank_account, payment_gateway, investment_account
+  sourceAccount: varchar("source_account"), // Account identifier
+  destinationType: varchar("destination_type"), 
+  destinationAccount: varchar("destination_account"),
+  
+  // Transaction source tracking
+  isOnSiteTransaction: boolean("is_on_site_transaction").default(false), // Happened on our platform
+  platformSource: varchar("platform_source"), // wealth_management, loan_portal, payment_gateway
+  
+  // External transaction tracking (bank/payment APIs)
+  bankTransactionId: varchar("bank_transaction_id"),
+  bankName: varchar("bank_name"),
+  paymentMethod: varchar("payment_method"), // upi, netbanking, card, wallet, cash
+  merchantCategory: varchar("merchant_category"), // MCC code or category
+  merchantName: varchar("merchant_name"),
+  
+  // AI-generated insights
+  transactionPattern: varchar("transaction_pattern"), // regular, irregular, suspicious, unusual
+  riskScore: integer("risk_score"), // 0-100 AI-calculated risk score
+  anomalyScore: integer("anomaly_score"), // 0-100 anomaly detection score
+  behaviorAnalysis: jsonb("behavior_analysis"), // AI insights on transaction behavior
+  
+  // Income/expense classification
+  incomeCategory: varchar("income_category"), // salary, business, investment, loan, other
+  expenseCategory: varchar("expense_category"), // necessity, lifestyle, investment, loan_payment, bills
+  isRecurring: boolean("is_recurring").default(false),
+  recurringFrequency: varchar("recurring_frequency"), // monthly, weekly, quarterly
+  
+  // Compliance and monitoring
+  amlFlag: boolean("aml_flag").default(false), // Anti-Money Laundering flag
+  complianceStatus: varchar("compliance_status").default("cleared"), // cleared, flagged, under_review
+  complianceNotes: text("compliance_notes"),
+  requiresManualReview: boolean("requires_manual_review").default(false),
+  
+  // Geographic and timing insights
+  transactionLocation: varchar("transaction_location"), // City/region if available
+  timeOfDay: varchar("time_of_day"), // morning, afternoon, evening, night
+  dayOfWeek: varchar("day_of_week"),
+  isWeekend: boolean("is_weekend").default(false),
+  
+  // API source metadata (for external transactions)
+  apiSource: varchar("api_source"), // icici_api, hdfc_api, upi_api, card_api
+  apiCallId: varchar("api_call_id"), // Reference to API call that fetched this
+  dataFreshness: varchar("data_freshness"), // real_time, near_real_time, batch_update
+  
+  // Transaction date and processing
+  transactionDate: timestamp("transaction_date").notNull(),
+  processedAt: timestamp("processed_at").defaultNow(),
+  lastAnalyzedAt: timestamp("last_analyzed_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Transaction Enrichment Analysis - stores AI-generated insights and patterns
+export const transactionEnrichmentAnalysis = pgTable("transaction_enrichment_analysis", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  analysisType: varchar("analysis_type").notNull(), // monthly_pattern, spending_behavior, income_analysis, risk_assessment
+  
+  // Analysis period
+  fromDate: date("from_date").notNull(),
+  toDate: date("to_date").notNull(),
+  transactionCount: integer("transaction_count").default(0),
+  
+  // Financial insights
+  totalInflow: decimal("total_inflow", { precision: 15, scale: 2 }),
+  totalOutflow: decimal("total_outflow", { precision: 15, scale: 2 }),
+  netCashFlow: decimal("net_cash_flow", { precision: 15, scale: 2 }),
+  averageMonthlyIncome: decimal("average_monthly_income", { precision: 15, scale: 2 }),
+  averageMonthlyExpense: decimal("average_monthly_expense", { precision: 15, scale: 2 }),
+  
+  // Behavioral patterns
+  spendingPatterns: jsonb("spending_patterns"), // Category-wise spending analysis
+  incomePatterns: jsonb("income_patterns"), // Income source analysis
+  timingPatterns: jsonb("timing_patterns"), // When user typically transacts
+  frequencyPatterns: jsonb("frequency_patterns"), // Transaction frequency analysis
+  
+  // Risk assessment
+  riskFactors: jsonb("risk_factors"), // Identified risk factors
+  riskScore: integer("risk_score"), // Overall risk score 0-100
+  riskCategory: varchar("risk_category"), // low, medium, high, very_high
+  creditworthinessScore: integer("creditworthiness_score"), // 0-100
+  
+  // Investment capacity analysis
+  disposableIncome: decimal("disposable_income", { precision: 15, scale: 2 }),
+  investmentCapacity: decimal("investment_capacity", { precision: 15, scale: 2 }),
+  emergencyFundStatus: varchar("emergency_fund_status"), // adequate, partial, insufficient
+  debtToIncomeRatio: decimal("debt_to_income_ratio", { precision: 5, scale: 2 }),
+  
+  // AI model metadata
+  aiModelVersion: varchar("ai_model_version"),
+  analysisConfidence: integer("analysis_confidence"), // 0-100 confidence in analysis
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  nextAnalysisDate: timestamp("next_analysis_date"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Real-time Transaction Alerts for monitoring and compliance
+export const transactionAlerts = pgTable("transaction_alerts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  transactionId: varchar("transaction_id").references(() => aiTransactionTracking.id),
+  
+  // Alert classification
+  alertType: varchar("alert_type").notNull(), // suspicious_activity, large_transaction, unusual_pattern, compliance_violation
+  severity: varchar("severity").notNull(), // low, medium, high, critical
+  alertCategory: varchar("alert_category").notNull(), // aml, fraud, risk, compliance, investment_opportunity
+  
+  // Alert details
+  alertTitle: varchar("alert_title").notNull(),
+  alertDescription: text("alert_description").notNull(),
+  riskScore: integer("risk_score"), // 0-100
+  confidenceLevel: integer("confidence_level"), // 0-100 AI confidence in alert
+  
+  // Triggering conditions
+  triggerConditions: jsonb("trigger_conditions"), // What triggered this alert
+  thresholdExceeded: jsonb("threshold_exceeded"), // Which thresholds were exceeded
+  historicalComparison: jsonb("historical_comparison"), // How this compares to user's history
+  
+  // Status and resolution
+  status: varchar("status").default("open"), // open, investigating, resolved, false_positive
+  assignedTo: varchar("assigned_to").references(() => users.id), // Compliance officer assigned
+  resolutionNotes: text("resolution_notes"),
+  resolutionAction: varchar("resolution_action"), // no_action, client_contacted, account_flagged, case_escalated
+  
+  // Notification and communication
+  notificationSent: boolean("notification_sent").default(false),
+  notificationMethod: varchar("notification_method"), // email, sms, whatsapp, dashboard
+  clientNotified: boolean("client_notified").default(false),
+  requiresClientResponse: boolean("requires_client_response").default(false),
+  
+  // Follow-up and tracking
+  followUpRequired: boolean("follow_up_required").default(false),
+  followUpDate: timestamp("follow_up_date"),
+  escalationLevel: integer("escalation_level").default(0), // 0=normal, 1=supervisor, 2=compliance_head
+  regulatoryReportingRequired: boolean("regulatory_reporting_required").default(false),
+  
+  // Metadata
+  alertSource: varchar("alert_source"), // ai_model, rule_engine, manual_review, external_system
+  detectedAt: timestamp("detected_at").defaultNow(),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  resolvedAt: timestamp("resolved_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// External API Integration Logs for tracking data source usage and costs
+export const apiIntegrationLogs = pgTable("api_integration_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  sourceId: varchar("source_id").references(() => externalDataSources.id).notNull(),
+  
+  // API call details
+  apiEndpoint: varchar("api_endpoint").notNull(),
+  httpMethod: varchar("http_method").default("GET"),
+  requestPayload: jsonb("request_payload"),
+  responsePayload: jsonb("response_payload"),
+  
+  // Response metadata
+  statusCode: integer("status_code"),
+  responseTime: integer("response_time_ms"),
+  success: boolean("success").default(false),
+  errorMessage: text("error_message"),
+  
+  // Usage tracking
+  dataPoints: integer("data_points"), // Number of data points retrieved
+  costIncurred: decimal("cost_incurred", { precision: 10, scale: 4 }),
+  rateLimit: jsonb("rate_limit"), // Rate limit information from response
+  
+  // Data quality
+  dataQuality: varchar("data_quality"), // high, medium, low
+  dataCompleteness: integer("data_completeness"), // 0-100 percentage
+  confidenceScore: integer("confidence_score"), // 0-100
+  
+  // Processing details
+  enrichmentTriggered: boolean("enrichment_triggered").default(false),
+  aiProcessingTime: integer("ai_processing_time_ms"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Schema exports for the new enrichment and tracking tables
+export const insertExternalDataSourceSchema = createInsertSchema(externalDataSources).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertClientEnrichmentDataSchema = createInsertSchema(clientEnrichmentData).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAiTransactionTrackingSchema = createInsertSchema(aiTransactionTracking).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertTransactionEnrichmentAnalysisSchema = createInsertSchema(transactionEnrichmentAnalysis).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertTransactionAlertSchema = createInsertSchema(transactionAlerts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertApiIntegrationLogSchema = createInsertSchema(apiIntegrationLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+// TypeScript types for the new tables
+export type ExternalDataSource = typeof externalDataSources.$inferSelect;
+export type InsertExternalDataSource = typeof externalDataSources.$inferInsert;
+export type ClientEnrichmentData = typeof clientEnrichmentData.$inferSelect;
+export type InsertClientEnrichmentData = typeof clientEnrichmentData.$inferInsert;
+export type AiTransactionTracking = typeof aiTransactionTracking.$inferSelect;
+export type InsertAiTransactionTracking = typeof aiTransactionTracking.$inferInsert;
+export type TransactionEnrichmentAnalysis = typeof transactionEnrichmentAnalysis.$inferSelect;
+export type InsertTransactionEnrichmentAnalysis = typeof transactionEnrichmentAnalysis.$inferInsert;
+export type TransactionAlert = typeof transactionAlerts.$inferSelect;
+export type InsertTransactionAlert = typeof transactionAlerts.$inferInsert;
+export type ApiIntegrationLog = typeof apiIntegrationLogs.$inferSelect;
+export type InsertApiIntegrationLog = typeof apiIntegrationLogs.$inferInsert;
+
 // Insert schemas for validation
 export const insertCapitalGainsReportSchema = createInsertSchema(capitalGainsReports).omit({
   id: true,
