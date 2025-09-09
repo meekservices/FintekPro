@@ -134,16 +134,25 @@ export const userProfiles = pgTable("user_profiles", {
   sanctionListStatus: varchar("sanction_list_status").default("clear"), // clear/flagged
   sanctionListLastChecked: timestamp("sanction_list_last_checked"),
   
-  // CDD/EDD (Customer Due Diligence / Enhanced Due Diligence)
+  // CDD/EDD (Customer Due Diligence / Enhanced Due Diligence) - 2025 Enhanced
   cddLevel: varchar("cdd_level").default("simplified"), // simplified/basic/enhanced
   eddRequired: boolean("edd_required").default(false), // Enhanced Due Diligence
+  eddReason: text("edd_reason"), // Reason why EDD was triggered
   eddCompletedDate: timestamp("edd_completed_date"),
   eddNextReviewDate: timestamp("edd_next_review_date"),
+  eddCompletedBy: varchar("edd_completed_by"), // Compliance officer who completed EDD
   sourceOfFunds: varchar("source_of_funds"), // employment/business/inheritance/gift/investment
   sourceOfWealthDocumentation: text("source_of_wealth_documentation"),
+  sourceOfWealthVerified: boolean("source_of_wealth_verified").default(false),
+  sourceOfWealthVerificationDate: timestamp("source_of_wealth_verification_date"),
   
-  // Risk Assessment
+  // Enhanced Risk Assessment (2025 Compliance Requirements)
   riskCategory: varchar("risk_category").default("low"), // low/medium/high
+  riskCategoryReason: text("risk_category_reason"), // Detailed reason for risk categorization
+  riskLastAssessed: timestamp("risk_last_assessed").defaultNow(),
+  riskNextReview: timestamp("risk_next_review"), // Auto-calculated based on risk (Low: 10 years, Medium: 8 years, High: 2 years)
+  riskReviewFrequency: varchar("risk_review_frequency").default("10_years"), // 2_years/8_years/10_years
+  isHighRiskCustomer: boolean("is_high_risk_customer").default(false),
   complianceScore: integer("compliance_score").default(100), // 0-100 score
   lastComplianceReview: timestamp("last_compliance_review").defaultNow(),
   nextComplianceReview: timestamp("next_compliance_review"),
@@ -162,6 +171,43 @@ export const userProfiles = pgTable("user_profiles", {
   investorCategory: varchar("investor_category"), // individual/company/trust/partnership
   financialSituation: varchar("financial_situation"), // stable/growing/volatile
   investmentObjective: varchar("investment_objective"), // capital_appreciation/income/balanced
+  
+  // Video KYC (V-CIP) - 2025 Regulatory Requirement
+  videoKycCompleted: boolean("video_kyc_completed").default(false),
+  videoKycCompletedDate: timestamp("video_kyc_completed_date"),
+  videoKycProvider: varchar("video_kyc_provider"), // digilocker/videosign/other
+  videoKycSessionId: varchar("video_kyc_session_id"), // Unique session identifier
+  videoKycStatus: varchar("video_kyc_status").default("pending"), // pending/completed/failed/expired
+  videoKycExpiryDate: timestamp("video_kyc_expiry_date"),
+  videoKycTechnicianId: varchar("video_kyc_technician_id"), // ID of person who conducted V-KYC
+  isVideoKycEquivalentToFaceToFace: boolean("is_video_kyc_equivalent_to_face_to_face").default(true), // As per 2025 RBI guidelines
+  
+  // KYC Onboarding Method Tracking - 2025 Compliance
+  kycOnboardingMethod: varchar("kyc_onboarding_method").default("non_face_to_face"), // face_to_face/video_kyc/non_face_to_face
+  requiresEnhancedDueDiligence: boolean("requires_enhanced_due_diligence").default(true), // Default true for non-face-to-face
+  faceToFaceVerificationRequired: boolean("face_to_face_verification_required").default(false),
+  faceToFaceVerificationCompleted: boolean("face_to_face_verification_completed").default(false),
+  faceToFaceVerificationDate: timestamp("face_to_face_verification_date"),
+  
+  // Enhanced UBO (Ultimate Beneficial Owner) - 2025 Requirements
+  uboDeclarationCompleted: boolean("ubo_declaration_completed").default(false),
+  uboDetails: jsonb("ubo_details").default([]), // Array of UBO information for entities
+  uboVerificationStatus: varchar("ubo_verification_status").default("pending"), // pending/verified/under_review
+  uboLastUpdated: timestamp("ubo_last_updated"),
+  uboNextReviewDate: timestamp("ubo_next_review_date"),
+  
+  // Periodic Update Tracking - 2025 Risk-Based Approach
+  kycUpdateDueDate: timestamp("kyc_update_due_date"),
+  kycUpdateRemindersSent: integer("kyc_update_reminders_sent").default(0),
+  kycLastUpdatedDate: timestamp("kyc_last_updated_date").defaultNow(),
+  kycUpdateMethod: varchar("kyc_update_method"), // self_service/agent_assisted/branch
+  kycUpdateNotificationPreference: varchar("kyc_update_notification_preference").default("email"), // email/sms/whatsapp/all
+  
+  // Business Correspondent (BC) Assistance - 2025 RBI Amendment
+  bcAssistedKyc: boolean("bc_assisted_kyc").default(false),
+  bcId: varchar("bc_id"), // Business Correspondent ID who assisted
+  bcName: varchar("bc_name"), // Business Correspondent name
+  bcAssistedDate: timestamp("bc_assisted_date"),
   
   // Audit and Tracking
   profileCompleteness: integer("profile_completeness").default(0), // 0-100%
