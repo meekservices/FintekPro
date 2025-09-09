@@ -29,6 +29,7 @@ export function Header() {
     { name: "Markets", href: "/markets" },
     { name: "Portfolio", href: "/portfolio" },
     { name: "InvestSmart", href: "/investsmart" },
+    { name: "Proposals", href: "/proposals" },
     { name: "Loans", href: "/loans" },
     { name: "Insurance", href: "/policybazaar" },
     { name: "Support", href: "/support" },

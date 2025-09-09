@@ -72,7 +72,7 @@ export default function InvestSmart() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-8">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="dashboard" data-testid="tab-dashboard">
               <BarChart3 className="w-4 h-4 mr-2" />
               Dashboard
@@ -96,10 +96,6 @@ export default function InvestSmart() {
             <TabsTrigger value="recommendations" data-testid="tab-recommendations">
               <Lightbulb className="w-4 h-4 mr-2" />
               Expert Insights
-            </TabsTrigger>
-            <TabsTrigger value="proposals" data-testid="tab-proposals">
-              <FileText className="w-4 h-4 mr-2" />
-              Proposals
             </TabsTrigger>
             <TabsTrigger value="confetti-test" data-testid="tab-confetti-test">
               <Star className="w-4 h-4 mr-2" />
@@ -743,11 +739,6 @@ export default function InvestSmart() {
             <RiskAssessment />
           </TabsContent>
 
-          {/* Proposals Tab */}
-          <TabsContent value="proposals">
-            <Proposals portfolioId="demo-portfolio-1" />
-          </TabsContent>
-          
           <TabsContent value="confetti-test">
             <ConfettiTestPanel 
               confettiEnabled={confettiEnabled}
