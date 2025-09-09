@@ -637,7 +637,7 @@ export default function ProposalsPage() {
                   </Button>
                 </CardContent>
               </Card>
-            ) : !loanRecommendations?.data?.recommendations || loanRecommendations.data.recommendations.length === 0 ? (
+            ) : !loanRecommendations?.recommendations || loanRecommendations.recommendations.length === 0 ? (
               <Card>
                 <CardContent className="text-center py-12">
                   <Info className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
@@ -652,16 +652,16 @@ export default function ProposalsPage() {
               </Card>
             ) : (
               <>
-                {loanRecommendations.data.highPriorityCount > 0 && (
+                {loanRecommendations.highPriorityCount > 0 && (
                   <Alert className="mb-6">
                     <Zap className="h-4 w-4" />
                     <AlertDescription>
-                      You have <strong>{loanRecommendations.data.highPriorityCount} high-priority</strong> loan recommendations that match your current financial needs.
+                      You have <strong>{loanRecommendations.highPriorityCount} high-priority</strong> loan recommendations that match your current financial needs.
                     </AlertDescription>
                   </Alert>
                 )}
                 <div className="grid gap-6">
-                  {loanRecommendations.data.recommendations.map((recommendation: LoanRecommendation, index: number) => 
+                  {loanRecommendations.recommendations.map((recommendation: LoanRecommendation, index: number) => 
                     renderLoanRecommendationCard(recommendation, index)
                   )}
                 </div>
