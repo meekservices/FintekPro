@@ -56,7 +56,6 @@ export function Footer() {
     { name: "Contact Us", href: "/contact" },
     { name: "Help Center", href: "/help" },
     { name: "DigiLocker", href: "/digilocker" },
-    { name: "Compliance", href: "/aml-monitoring" },
     { name: "Terms & Conditions", href: "/terms" },
     { name: "Privacy Policy", href: "/privacy" },
   ];
