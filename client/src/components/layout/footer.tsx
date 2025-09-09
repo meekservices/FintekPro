@@ -55,6 +55,7 @@ export function Footer() {
   const supportLinks = [
     { name: "Contact Us", href: "/contact" },
     { name: "Help Center", href: "/help" },
+    { name: "DigiLocker", href: "/digilocker" },
     { name: "Terms & Conditions", href: "/terms" },
     { name: "Privacy Policy", href: "/privacy" },
   ];
@@ -72,7 +73,7 @@ export function Footer() {
     { name: "Tax Calculator", href: "/calculators?tab=tax" },
     { name: "Bajaj Finance", href: "/bajaj-finance" },
     { name: "Tata Capital", href: "/tata-capital" },
-    { name: "Credit Score", href: "/cibil" },
+    { name: "CIBIL Credit Score", href: "/cibil" },
   ];
 
   const billPayLinks = [
