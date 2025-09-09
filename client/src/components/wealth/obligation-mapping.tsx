@@ -15,7 +15,7 @@ import {
   Car,
   Plus,
   Calendar,
-  DollarSign,
+  IndianRupee,
   TrendingDown,
   AlertTriangle,
   CheckCircle,
@@ -61,7 +61,7 @@ const obligationIcons = {
   rent: Home,
   insurance: CheckCircle,
   subscription: CreditCard,
-  tax: DollarSign,
+  tax: IndianRupee,
   other: AlertTriangle
 };
 

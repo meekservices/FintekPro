@@ -22,7 +22,7 @@ import {
   Eye, 
   TrendingUp, 
   Users,
-  DollarSign,
+  IndianRupee,
   Target,
   Clock
 } from 'lucide-react';
@@ -394,7 +394,7 @@ export default function PartnerPortal() {
                 <Card data-testid="dashboard-revenue-card">
                   <CardContent className="p-6">
                     <div className="flex items-center">
-                      <DollarSign className="h-8 w-8 text-green-600" />
+                      <IndianRupee className="h-8 w-8 text-green-600" />
                       <div className="ml-4">
                         <p className="text-sm font-medium text-gray-600">Revenue</p>
                         <p className="text-2xl font-bold text-gray-900">

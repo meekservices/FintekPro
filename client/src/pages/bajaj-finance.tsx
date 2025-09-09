@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calculator, DollarSign, TrendingUp, Shield, Bike, PiggyBank, Target, CheckCircle } from "lucide-react";
+import { Calculator, IndianRupee, TrendingUp, Shield, Bike, PiggyBank, Target, CheckCircle } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface EMIResult {
@@ -312,7 +312,7 @@ export default function BajajFinance() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center">
-                    <DollarSign className="h-6 w-6 mr-2" />
+                    <IndianRupee className="h-6 w-6 mr-2" />
                     Personal Loan Calculator
                   </CardTitle>
                 </CardHeader>

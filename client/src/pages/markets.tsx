@@ -39,7 +39,7 @@ import {
   RefreshCw,
   Bookmark,
   AlertCircle,
-  DollarSign,
+  IndianRupee,
   Percent,
   Volume2,
   Calendar
@@ -175,7 +175,7 @@ export default function Markets() {
                 { label: "Total Volume", value: marketSummary.totalVolume, icon: Volume2, color: "blue" },
                 { label: "Avg Change", value: marketSummary.avgChange, icon: Percent, color: "green" },
                 { label: "Active Stocks", value: marketSummary.activeStocks, icon: Activity, color: "purple" },
-                { label: "Market Cap", value: marketSummary.marketCap, icon: DollarSign, color: "orange" }
+                { label: "Market Cap", value: marketSummary.marketCap, icon: IndianRupee, color: "orange" }
               ].map((item, index) => {
                 const IconComponent = item.icon;
                 return (

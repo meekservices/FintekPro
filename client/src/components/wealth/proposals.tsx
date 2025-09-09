@@ -10,7 +10,7 @@ import {
   Target, 
   AlertTriangle, 
   CheckCircle, 
-  DollarSign,
+  IndianRupee,
   Calendar,
   Shield,
   BarChart3,
@@ -91,7 +91,7 @@ export function Proposals({ portfolioId }: ProposalsProps) {
       case 'sip':
         return <Calendar className="w-4 h-4" />;
       case 'lumpsum':
-        return <DollarSign className="w-4 h-4" />;
+        return <IndianRupee className="w-4 h-4" />;
       case 'switch':
         return <ArrowRight className="w-4 h-4" />;
       case 'redeem':

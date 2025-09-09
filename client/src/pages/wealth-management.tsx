@@ -17,7 +17,7 @@ import {
   GraduationCap,
   Heart,
   Calendar,
-  DollarSign,
+  IndianRupee,
   Briefcase,
   Zap,
   CheckCircle,
@@ -149,7 +149,7 @@ export default function InvestSmart() {
                     onClick={() => setActiveTab("recommendations")}
                     data-testid="button-start-investing"
                   >
-                    <DollarSign className="w-5 h-5 mr-2" />
+                    <IndianRupee className="w-5 h-5 mr-2" />
                     Start Investing Your Surplus ₹72,000/month
                   </Button>
                 </div>
@@ -205,7 +205,7 @@ export default function InvestSmart() {
                       <p className="text-2xl font-bold text-green-600">{formatCurrency(financialAnalysis.availableForInvestment)}</p>
                       <p className="text-xs text-green-600">Available monthly</p>
                     </div>
-                    <DollarSign className="w-8 h-8 text-green-500" />
+                    <IndianRupee className="w-8 h-8 text-green-500" />
                   </div>
                 </CardContent>
               </Card>

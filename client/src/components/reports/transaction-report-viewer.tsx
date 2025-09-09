@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Download, RefreshCw, FileText, ArrowUpCircle, ArrowDownCircle, ArrowRightLeft, DollarSign } from 'lucide-react';
+import { Loader2, Download, RefreshCw, FileText, ArrowUpCircle, ArrowDownCircle, ArrowRightLeft, IndianRupee } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface TransactionReport {
@@ -352,7 +352,7 @@ export function TransactionReportViewer() {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
-                <DollarSign className="h-4 w-4 text-blue-600" />
+                <IndianRupee className="h-4 w-4 text-blue-600" />
                 <div>
                   <p className="text-sm text-gray-600">Total Dividend</p>
                   <p className="font-semibold text-blue-600">

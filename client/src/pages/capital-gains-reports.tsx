@@ -19,7 +19,7 @@ import {
   TrendingDown,
   Database,
   Calendar,
-  DollarSign,
+  IndianRupee,
   Receipt,
   Mail,
   FileSpreadsheet,
@@ -423,7 +423,7 @@ export default function CapitalGainsReports() {
 
                     <div className="bg-blue-50 p-4 rounded-lg">
                       <div className="flex items-center gap-2 mb-2">
-                        <DollarSign className="h-4 w-4 text-blue-600" />
+                        <IndianRupee className="h-4 w-4 text-blue-600" />
                         <span className="text-sm font-medium text-blue-600">Total Dividend</span>
                       </div>
                       <p className="text-2xl font-bold text-blue-700">

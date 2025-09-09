@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Calculator, TrendingUp, PiggyBank, Home, Car, Receipt, IndianRupee, FileText, DollarSign } from 'lucide-react';
+import { Calculator, TrendingUp, PiggyBank, Home, Car, Receipt, IndianRupee, FileText } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { useToast } from '@/hooks/use-toast';
 import { useMutation } from '@tanstack/react-query';

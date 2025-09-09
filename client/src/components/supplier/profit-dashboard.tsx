@@ -16,7 +16,7 @@ import {
   LineChart,
   Line
 } from "recharts";
-import { TrendingUp, TrendingDown, DollarSign, Target, Award, AlertCircle } from "lucide-react";
+import { TrendingUp, TrendingDown, IndianRupee, Target, Award, AlertCircle } from "lucide-react";
 
 interface ProfitDashboardProps {
   analysis: any;
@@ -94,7 +94,7 @@ export function ProfitDashboard({ analysis, suppliers, optimalSupplier }: Profit
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center space-x-2">
-              <DollarSign className="h-5 w-5 text-green-500" />
+              <IndianRupee className="h-5 w-5 text-green-500" />
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
                 <p className="text-2xl font-bold" data-testid="text-dashboard-total-revenue">

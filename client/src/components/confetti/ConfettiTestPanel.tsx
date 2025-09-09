@@ -8,7 +8,7 @@ import {
   Sparkles, 
   TrendingUp, 
   Target,
-  DollarSign,
+  IndianRupee,
   Percent,
   Crown,
   Settings
@@ -59,7 +59,7 @@ export function ConfettiTestPanel({ confettiEnabled, onToggleConfetti }: Confett
             className="flex items-center gap-2 border-yellow-300 text-yellow-700 hover:bg-yellow-50"
             data-testid="trigger-profit-confetti"
           >
-            <DollarSign className="w-4 h-4" />
+            <IndianRupee className="w-4 h-4" />
             Test Profit Milestone
           </Button>
           

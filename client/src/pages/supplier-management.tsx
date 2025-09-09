@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { TrendingUp, TrendingDown, DollarSign, Package, Users, AlertTriangle, Shield } from "lucide-react";
+import { TrendingUp, TrendingDown, IndianRupee, Package, Users, AlertTriangle, Shield } from "lucide-react";
 import { ProfitDashboard } from "@/components/supplier/profit-dashboard";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -200,7 +200,7 @@ export function SupplierManagement() {
                   <Card>
                     <CardContent className="p-6">
                       <div className="flex items-center space-x-2">
-                        <DollarSign className="h-4 w-4 text-green-500" />
+                        <IndianRupee className="h-4 w-4 text-green-500" />
                         <div>
                           <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
                           <p className="text-2xl font-bold" data-testid="text-total-revenue">₹{analysis.totalRevenue.toLocaleString()}</p>

@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CreditCard, DollarSign, Send, CheckCircle, AlertCircle, Clock, Eye, Download, RefreshCw, Building2, Banknote, Receipt, History, Shield, Users, TrendingUp, ArrowUpDown } from "lucide-react";
+import { CreditCard, IndianRupee, Send, CheckCircle, AlertCircle, Clock, Eye, Download, RefreshCw, Building2, Banknote, Receipt, History, Shield, Users, TrendingUp, ArrowUpDown } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -296,7 +296,7 @@ export default function HDFCBanking() {
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <DollarSign className="h-5 w-5" />
+                    <IndianRupee className="h-5 w-5" />
                     Account Balance
                   </div>
                   <Button

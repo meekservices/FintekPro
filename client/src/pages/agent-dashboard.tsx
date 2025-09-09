@@ -30,7 +30,7 @@ import {
   User,
   Loader2,
   TrendingUp,
-  DollarSign,
+  IndianRupee,
   PieChart,
   Target,
   ArrowRight,
@@ -456,7 +456,7 @@ export default function AgentDashboard() {
                 <Card>
                   <CardContent className="pt-6">
                     <div className="flex items-center space-x-2">
-                      <DollarSign className="h-4 w-4 text-muted-foreground" />
+                      <IndianRupee className="h-4 w-4 text-muted-foreground" />
                       <div>
                         <p className="text-2xl font-bold">₹{totalProposalValue.toLocaleString()}</p>
                         <p className="text-xs text-muted-foreground">Total Value</p>
@@ -517,7 +517,7 @@ export default function AgentDashboard() {
                                 {proposal.client ? `${proposal.client.firstName} ${proposal.client.lastName}` : 'Client ID: ' + proposal.clientId}
                               </span>
                               <span className="flex items-center gap-1">
-                                <DollarSign size={14} />
+                                <IndianRupee size={14} />
                                 ₹{proposal.totalAmount.toLocaleString()}
                               </span>
                               <span className="flex items-center gap-1">

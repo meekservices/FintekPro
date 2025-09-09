@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { 
   Building2, 
-  DollarSign, 
+  IndianRupee, 
   TrendingUp, 
   ArrowUpRight, 
   Search, 
@@ -122,7 +122,7 @@ export default function AIF() {
                   <p className="text-sm font-medium text-gray-600">Total AUM</p>
                   <p className="text-3xl font-bold text-green-600">₹{((statistics.totalAUM || 0) / 10000000000).toFixed(0)} Cr</p>
                 </div>
-                <DollarSign className="w-10 h-10 text-green-600" />
+                <IndianRupee className="w-10 h-10 text-green-600" />
               </div>
               <div className="flex items-center mt-3">
                 <TrendingUp className="w-4 h-4 text-green-600 mr-1" />

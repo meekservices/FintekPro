@@ -15,7 +15,7 @@ import {
   Award,
   TrendingUp,
   BookOpen,
-  DollarSign,
+  IndianRupee,
   Users,
   Share2,
   Zap,
@@ -105,7 +105,7 @@ export function AchievementDashboard({ userId }: { userId: string }) {
     switch (categoryName.toLowerCase()) {
       case 'portfolio': return <TrendingUp className="h-5 w-5" />;
       case 'learning': return <BookOpen className="h-5 w-5" />;
-      case 'trading': return <DollarSign className="h-5 w-5" />;
+      case 'trading': return <IndianRupee className="h-5 w-5" />;
       case 'social': return <Users className="h-5 w-5" />;
       default: return <Award className="h-5 w-5" />;
     }
@@ -126,7 +126,7 @@ export function AchievementDashboard({ userId }: { userId: string }) {
     { id: 'all', name: 'All Achievements', icon: <Trophy className="h-4 w-4" /> },
     { id: 'portfolio', name: 'Portfolio', icon: <TrendingUp className="h-4 w-4" /> },
     { id: 'learning', name: 'Learning', icon: <BookOpen className="h-4 w-4" /> },
-    { id: 'trading', name: 'Trading', icon: <DollarSign className="h-4 w-4" /> },
+    { id: 'trading', name: 'Trading', icon: <IndianRupee className="h-4 w-4" /> },
     { id: 'social', name: 'Social', icon: <Users className="h-4 w-4" /> },
   ];
 

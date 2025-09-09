@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { CreditCard, FileText, TrendingUp, DollarSign, Shield, Clock, CheckCircle, AlertCircle } from "lucide-react";
+import { CreditCard, FileText, TrendingUp, IndianRupee, Shield, Clock, CheckCircle, AlertCircle } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 

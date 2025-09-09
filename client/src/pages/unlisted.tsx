@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Gem, TrendingUp, Calendar, DollarSign, Building2, Calculator, Star, Eye, Lock } from "lucide-react";
+import { Gem, TrendingUp, Calendar, IndianRupee, Building2, Calculator, Star, Eye, Lock } from "lucide-react";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 

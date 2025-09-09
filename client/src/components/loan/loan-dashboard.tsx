@@ -12,7 +12,7 @@ import {
   Clock, 
   CheckCircle, 
   AlertCircle,
-  DollarSign,
+  IndianRupee,
   Calendar,
   User,
   FileText,
@@ -73,7 +73,7 @@ export function LoanDashboard() {
       case "rejected":
         return <AlertCircle className="h-4 w-4" />;
       case "disbursed":
-        return <DollarSign className="h-4 w-4" />;
+        return <IndianRupee className="h-4 w-4" />;
       default:
         return <FileText className="h-4 w-4" />;
     }
@@ -370,7 +370,7 @@ export function LoanDashboard() {
                       .toLocaleString()}
                   </p>
                 </div>
-                <DollarSign className="h-8 w-8 text-purple-600" />
+                <IndianRupee className="h-8 w-8 text-purple-600" />
               </div>
             </CardContent>
           </Card>

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Home, Car, User, Building2, Calculator, Clock, CheckCircle, DollarSign, GraduationCap } from "lucide-react";
+import { Home, Car, User, Building2, Calculator, Clock, CheckCircle, IndianRupee, GraduationCap } from "lucide-react";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
@@ -102,7 +102,7 @@ export default function Loans() {
       vehicle: Car,
       business: Building2,
       education: GraduationCap,
-      securities: DollarSign
+      securities: IndianRupee
     };
     return icons[category as keyof typeof icons] || User;
   };
@@ -217,7 +217,7 @@ export default function Loans() {
                 <Card>
                   <CardContent className="p-6">
                     <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
-                      <DollarSign className="h-6 w-6 text-finance-green" />
+                      <IndianRupee className="h-6 w-6 text-finance-green" />
                     </div>
                     <h3 className="font-bold text-gray-900 mb-2">Competitive Rates</h3>
                     <p className="text-gray-600 text-sm">

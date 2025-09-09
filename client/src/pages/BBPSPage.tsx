@@ -23,7 +23,7 @@ import {
   Car,
   Shield,
   Building,
-  DollarSign,
+  IndianRupee,
   Calendar,
   User,
   History,
@@ -298,7 +298,7 @@ export default function BBPSPage() {
               <CardContent className="space-y-4">
                 <div className="grid gap-3" data-testid="category-grid">
                   {categories.map((category) => {
-                    const IconComponent = categoryIcons[category.categoryCode] || DollarSign;
+                    const IconComponent = categoryIcons[category.categoryCode] || IndianRupee;
                     return (
                       <Button
                         key={category.id}

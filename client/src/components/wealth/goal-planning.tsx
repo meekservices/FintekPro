@@ -17,7 +17,7 @@ import {
   Plus,
   TrendingUp,
   Calendar,
-  DollarSign,
+  IndianRupee,
   PieChart
 } from "lucide-react";
 
@@ -332,7 +332,7 @@ export function GoalPlanning() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <DollarSign className="w-4 h-4 text-muted-foreground" />
+                    <IndianRupee className="w-4 h-4 text-muted-foreground" />
                     <div>
                       <p className="font-medium">{formatCurrency(remainingAmount)}</p>
                       <p className="text-muted-foreground">needed</p>

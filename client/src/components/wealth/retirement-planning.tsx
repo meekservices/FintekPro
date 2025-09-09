@@ -11,7 +11,7 @@ import {
   Target, 
   TrendingUp, 
   Calendar,
-  DollarSign,
+  IndianRupee,
   PieChart,
   Calculator,
   Shield,
@@ -556,7 +556,7 @@ export function RetirementPlanning() {
                     <span className="text-sm">Gradually shift to conservative allocation near retirement</span>
                   </div>
                   <div className="flex items-center gap-2 p-2 bg-pink-50 rounded">
-                    <DollarSign className="w-4 h-4 text-pink-600" />
+                    <IndianRupee className="w-4 h-4 text-pink-600" />
                     <span className="text-sm">Consider partial withdrawal options post 60</span>
                   </div>
                 </div>

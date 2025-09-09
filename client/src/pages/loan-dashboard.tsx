@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { 
   Calculator, 
-  DollarSign, 
+  IndianRupee, 
   TrendingUp, 
   Shield, 
   CheckCircle, 
@@ -183,7 +183,7 @@ export default function LoanDashboard() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'approved': return <CheckCircle className="w-4 h-4 text-green-600" />;
-      case 'disbursed': return <DollarSign className="w-4 h-4 text-blue-600" />;
+      case 'disbursed': return <IndianRupee className="w-4 h-4 text-blue-600" />;
       case 'under_review': return <Clock className="w-4 h-4 text-yellow-600" />;
       case 'pending': return <AlertCircle className="w-4 h-4 text-orange-600" />;
       case 'rejected': return <AlertCircle className="w-4 h-4 text-red-600" />;
@@ -267,7 +267,7 @@ export default function LoanDashboard() {
           <Card>
             <CardContent className="py-6">
               <div className="flex items-center">
-                <DollarSign className="w-8 h-8 text-purple-600 mr-3" />
+                <IndianRupee className="w-8 h-8 text-purple-600 mr-3" />
                 <div>
                   <p className="text-sm font-medium text-gray-600">Total Loan Amount</p>
                   <p className="text-2xl font-bold text-gray-900">₹{(loanSummary.totalLoanAmount / 100000).toFixed(1)}L</p>

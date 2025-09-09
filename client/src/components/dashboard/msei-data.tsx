@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, DollarSign, TrendingUp, TrendingDown, Activity, BarChart3, Calculator } from "lucide-react";
+import { Building2, IndianRupee, TrendingUp, TrendingDown, Activity, BarChart3, Calculator } from "lucide-react";
 
 interface MSEIEquity {
   symbol: string;
@@ -173,7 +173,7 @@ export function MSEIData() {
             Equities
           </TabsTrigger>
           <TabsTrigger value="currencies" className="flex items-center">
-            <DollarSign className="h-4 w-4 mr-1" />
+            <IndianRupee className="h-4 w-4 mr-1" />
             Currencies
           </TabsTrigger>
           <TabsTrigger value="derivatives" className="flex items-center">
@@ -258,7 +258,7 @@ export function MSEIData() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
-                <DollarSign className="h-5 w-5 mr-2 text-green-600" />
+                <IndianRupee className="h-5 w-5 mr-2 text-green-600" />
                 MSEI Currency Trading
               </CardTitle>
             </CardHeader>

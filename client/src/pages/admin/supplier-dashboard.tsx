@@ -13,7 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import { 
   TrendingUp, 
   TrendingDown, 
-  DollarSign, 
+  IndianRupee, 
   Package, 
   Users, 
   Star, 
@@ -188,7 +188,7 @@ export default function SupplierDashboard() {
                 <p className="text-sm font-medium text-gray-600">Total Revenue</p>
                 <p className="text-2xl font-bold text-gray-900">₹{totalRevenue.toLocaleString()}</p>
               </div>
-              <DollarSign className="h-8 w-8 text-green-600" />
+              <IndianRupee className="h-8 w-8 text-green-600" />
             </div>
           </CardContent>
         </Card>

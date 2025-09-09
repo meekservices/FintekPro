@@ -25,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Eye, Edit2, AlertTriangle, TrendingUp, Calendar, DollarSign } from "lucide-react";
+import { Eye, Edit2, AlertTriangle, TrendingUp, Calendar, IndianRupee } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -324,7 +324,7 @@ export function RiskProfileViewer() {
               {/* Financial Information */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <DollarSign className="h-5 w-5" />
+                  <IndianRupee className="h-5 w-5" />
                   Financial Information
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

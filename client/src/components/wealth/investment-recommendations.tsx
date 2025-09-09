@@ -11,7 +11,7 @@ import {
   CheckCircle, 
   PieChart,
   ArrowRight,
-  DollarSign,
+  IndianRupee,
   Calendar,
   Shield,
   BarChart3,
@@ -121,7 +121,7 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
                     <span>Expected: {rec.expectedReturn}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <DollarSign className="w-4 h-4 text-blue-600" />
+                    <IndianRupee className="w-4 h-4 text-blue-600" />
                     <span>Monthly: {formatCurrency(rec.monthlyInvestment)}</span>
                   </div>
                   <div className="flex items-center gap-2">

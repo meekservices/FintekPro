@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, TrendingUp, Clock, DollarSign, Building2, FileText, ExternalLink, Bell, BookOpen, Newspaper, Target, BarChart3, AlertTriangle } from "lucide-react";
+import { Calendar, TrendingUp, Clock, IndianRupee, Building2, FileText, ExternalLink, Bell, BookOpen, Newspaper, Target, BarChart3, AlertTriangle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import type { IpoCompany, IpoNews } from "@shared/schema";
@@ -577,7 +577,7 @@ export default function IPO() {
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                   <Button size="lg" className="bg-green-600 hover:bg-green-700" data-testid="open-demat-account">
-                    <DollarSign className="h-5 w-5 mr-2" />
+                    <IndianRupee className="h-5 w-5 mr-2" />
                     Open Demat Account
                   </Button>
                   <Button variant="outline" size="lg" data-testid="learn-about-ipos">
@@ -610,7 +610,7 @@ export default function IPO() {
             <Card>
               <CardContent className="p-6">
                 <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
-                  <DollarSign className="h-6 w-6 text-finance-green" />
+                  <IndianRupee className="h-6 w-6 text-finance-green" />
                 </div>
                 <h3 className="font-bold text-gray-900 mb-2">Apply Online</h3>
                 <p className="text-gray-600 text-sm">

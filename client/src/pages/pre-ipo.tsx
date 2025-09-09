@@ -14,7 +14,7 @@ import {
   Building, 
   Calendar, 
   Target,
-  DollarSign,
+  IndianRupee,
   AlertTriangle,
   PieChart,
   BarChart3,
@@ -372,7 +372,7 @@ export default function PreIPOPage() {
                             onClick={() => setSelectedCompany(company)}
                             data-testid={`button-invest-${company.id}`}
                           >
-                            <DollarSign className="w-4 h-4 mr-1" />
+                            <IndianRupee className="w-4 h-4 mr-1" />
                             Invest Now
                           </Button>
                         </DialogTrigger>

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, TrendingUp, Calendar, DollarSign, Building2, Calculator } from "lucide-react";
+import { Shield, TrendingUp, Calendar, IndianRupee, Building2, Calculator } from "lucide-react";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
@@ -38,7 +38,7 @@ function BondCategoriesSection() {
   }
 
   const getIcon = (iconName: string) => {
-    const icons = { Shield, TrendingUp, Building2, DollarSign };
+    const icons = { Shield, TrendingUp, Building2, IndianRupee };
     return icons[iconName as keyof typeof icons] || Shield;
   };
 
@@ -339,7 +339,7 @@ export default function Bonds() {
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
-                      <DollarSign className="h-5 w-5 text-finance-green mt-0.5" />
+                      <IndianRupee className="h-5 w-5 text-finance-green mt-0.5" />
                       <div>
                         <h4 className="font-medium text-gray-900">Regular Income</h4>
                         <p className="text-sm text-gray-600">Fixed periodic interest payments</p>
