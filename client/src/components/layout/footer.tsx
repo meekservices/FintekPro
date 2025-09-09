@@ -85,7 +85,7 @@ export function Footer() {
   ];
 
   const insuranceLinks = [
-    { name: "PolicyBazaar", href: "/policybazaar" },
+    { name: "General Insurance", href: "/policybazaar" },
     { name: "Life Insurance", href: "/policybazaar?category=life" },
     { name: "Health Insurance", href: "/policybazaar?category=health" },
     { name: "Vehicle Insurance", href: "/policybazaar?category=vehicle" },
