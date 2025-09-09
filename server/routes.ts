@@ -18381,6 +18381,320 @@ System Security Data:`;
     }
   });
 
+  // Loan Processing API endpoints
+  
+  // Import loan processing service
+  const { loanProcessingService } = await import('./loan-processing-service');
+
+  // Check loan eligibility across all lenders
+  app.post("/api/loans/eligibility", async (req, res) => {
+    try {
+      const { loanType, amount, tenure, monthlyIncome, cibilScore, employmentType, existingLoans, age } = req.body;
+
+      if (!loanType || !amount || !tenure || !monthlyIncome || !employmentType || !age) {
+        return res.status(400).json({
+          success: false,
+          error: "Missing required fields"
+        });
+      }
+
+      const result = await loanProcessingService.checkLoanEligibility({
+        loanType,
+        amount: Number(amount),
+        tenure: Number(tenure),
+        monthlyIncome: Number(monthlyIncome),
+        cibilScore: cibilScore ? Number(cibilScore) : undefined,
+        employmentType,
+        existingLoans: existingLoans ? Number(existingLoans) : undefined,
+        age: Number(age)
+      });
+
+      res.json({
+        success: true,
+        data: result
+      });
+
+    } catch (error) {
+      console.error("Error checking loan eligibility:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to check loan eligibility"
+      });
+    }
+  });
+
+  // Apply for a loan
+  app.post("/api/loans/apply", async (req, res) => {
+    try {
+      const loanApplication = req.body;
+
+      // Validate required fields
+      const requiredFields = [
+        'loanType', 'amount', 'tenure', 'purpose', 'employmentType', 
+        'monthlyIncome', 'applicantDetails'
+      ];
+      
+      for (const field of requiredFields) {
+        if (!loanApplication[field]) {
+          return res.status(400).json({
+            success: false,
+            error: `${field} is required`
+          });
+        }
+      }
+
+      // Generate application ID and add metadata
+      loanApplication.id = `LOAN-${Date.now()}`;
+      loanApplication.status = 'pending';
+      loanApplication.createdAt = new Date();
+      loanApplication.updatedAt = new Date();
+
+      // If no preferred lender, apply to best available
+      if (!loanApplication.preferredLender) {
+        loanApplication.preferredLender = 'all';
+      }
+
+      const result = await loanProcessingService.applyForLoan(loanApplication);
+
+      res.json({
+        success: result.success,
+        data: result
+      });
+
+    } catch (error) {
+      console.error("Error applying for loan:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to submit loan application"
+      });
+    }
+  });
+
+  // Get loan application status
+  app.get("/api/loans/:applicationId/status", async (req, res) => {
+    try {
+      const { applicationId } = req.params;
+      const { lenderId } = req.query;
+
+      if (!lenderId) {
+        return res.status(400).json({
+          success: false,
+          error: "Lender ID is required"
+        });
+      }
+
+      const result = await loanProcessingService.checkLoanStatus(applicationId, lenderId as string);
+
+      res.json({
+        success: true,
+        data: result
+      });
+
+    } catch (error) {
+      console.error("Error checking loan status:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to check loan status"
+      });
+    }
+  });
+
+  // ICICI Bank loan-specific endpoints
+  app.post("/api/icici/loans/personal/eligibility", async (req, res) => {
+    try {
+      const { amount, monthlyIncome, employmentType, cibilScore, age } = req.body;
+
+      const request = {
+        loanType: 'personal',
+        amount: Number(amount),
+        tenure: 36, // Default tenure
+        monthlyIncome: Number(monthlyIncome),
+        cibilScore: cibilScore ? Number(cibilScore) : 750,
+        employmentType,
+        age: Number(age)
+      };
+
+      const result = await loanProcessingService.checkLoanEligibility(request);
+      const icicioffer = result.offers.find(offer => offer.lenderId === 'icici');
+
+      if (!icicioffer) {
+        return res.status(400).json({
+          success: false,
+          error: "Not eligible for ICICI Bank loan"
+        });
+      }
+
+      res.json({
+        success: true,
+        data: icicioffer
+      });
+
+    } catch (error) {
+      console.error("Error checking ICICI loan eligibility:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to check ICICI loan eligibility"
+      });
+    }
+  });
+
+  // HDFC Bank loan-specific endpoints
+  app.post("/api/hdfc/loans/personal/eligibility", async (req, res) => {
+    try {
+      const { amount, monthlyIncome, employmentType, cibilScore, age } = req.body;
+
+      const request = {
+        loanType: 'personal',
+        amount: Number(amount),
+        tenure: 48, // Default tenure
+        monthlyIncome: Number(monthlyIncome),
+        cibilScore: cibilScore ? Number(cibilScore) : 750,
+        employmentType,
+        age: Number(age)
+      };
+
+      const result = await loanProcessingService.checkLoanEligibility(request);
+      const hdfcOffer = result.offers.find(offer => offer.lenderId === 'hdfc');
+
+      if (!hdfcOffer) {
+        return res.status(400).json({
+          success: false,
+          error: "Not eligible for HDFC Bank loan"
+        });
+      }
+
+      res.json({
+        success: true,
+        data: hdfcOffer
+      });
+
+    } catch (error) {
+      console.error("Error checking HDFC loan eligibility:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to check HDFC loan eligibility"
+      });
+    }
+  });
+
+  // Tata Capital loan endpoints
+  app.post("/api/tata-capital/loans/eligibility", async (req, res) => {
+    try {
+      const { loanType, amount, tenure, monthlyIncome, employmentType } = req.body;
+
+      const request = {
+        loanType,
+        amount: Number(amount),
+        tenure: Number(tenure),
+        monthlyIncome: Number(monthlyIncome),
+        employmentType,
+        age: 30 // Default age
+      };
+
+      const result = await loanProcessingService.checkLoanEligibility(request);
+      const tataOffer = result.offers.find(offer => offer.lenderId === 'tata_capital');
+
+      if (!tataOffer) {
+        return res.status(400).json({
+          success: false,
+          error: "Not eligible for Tata Capital loan"
+        });
+      }
+
+      res.json({
+        success: true,
+        data: tataOffer
+      });
+
+    } catch (error) {
+      console.error("Error checking Tata Capital loan eligibility:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to check Tata Capital loan eligibility"
+      });
+    }
+  });
+
+  // Bajaj Finance loan endpoints
+  app.post("/api/bajaj-finance/loans/eligibility", async (req, res) => {
+    try {
+      const { amount, tenure, monthlyIncome, employmentType } = req.body;
+
+      const request = {
+        loanType: 'personal',
+        amount: Number(amount),
+        tenure: Number(tenure),
+        monthlyIncome: Number(monthlyIncome),
+        employmentType,
+        age: 30 // Default age
+      };
+
+      const result = await loanProcessingService.checkLoanEligibility(request);
+      const bajajOffer = result.offers.find(offer => offer.lenderId === 'bajaj_finance');
+
+      if (!bajajOffer) {
+        return res.status(400).json({
+          success: false,
+          error: "Not eligible for Bajaj Finance loan"
+        });
+      }
+
+      res.json({
+        success: true,
+        data: bajajOffer
+      });
+
+    } catch (error) {
+      console.error("Error checking Bajaj Finance loan eligibility:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to check Bajaj Finance loan eligibility"
+      });
+    }
+  });
+
+  // Compare loan offers from all lenders
+  app.post("/api/loans/compare", async (req, res) => {
+    try {
+      const { loanType, amount, tenure, monthlyIncome, cibilScore, employmentType, age } = req.body;
+
+      const result = await loanProcessingService.checkLoanEligibility({
+        loanType,
+        amount: Number(amount),
+        tenure: Number(tenure),
+        monthlyIncome: Number(monthlyIncome),
+        cibilScore: cibilScore ? Number(cibilScore) : 750,
+        employmentType,
+        age: Number(age)
+      });
+
+      // Sort offers by interest rate (best offers first)
+      result.offers.sort((a, b) => a.interestRate - b.interestRate);
+
+      res.json({
+        success: true,
+        data: {
+          eligible: result.eligible,
+          totalOffers: result.offers.length,
+          bestOffer: result.offers[0] || null,
+          allOffers: result.offers,
+          comparisonSummary: {
+            lowestRate: result.offers[0]?.interestRate,
+            highestRate: result.offers[result.offers.length - 1]?.interestRate,
+            averageProcessingFee: result.offers.reduce((sum, offer) => sum + offer.processingFee, 0) / result.offers.length
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error("Error comparing loan offers:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to compare loan offers"
+      });
+    }
+  });
+
   // Add AML routes
   app.use(amlRoutes);
 
