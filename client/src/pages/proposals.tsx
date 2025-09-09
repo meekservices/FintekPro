@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useQuery } from '@tanstack/react-query';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
 import { 
   Bot, 
   Users, 
@@ -18,7 +21,15 @@ import {
   Zap,
   BarChart3,
   FileText,
-  AlertTriangle
+  AlertTriangle,
+  CreditCard,
+  Home,
+  Car,
+  Building,
+  PiggyBank,
+  Briefcase,
+  Wallet,
+  Info
 } from "lucide-react";
 
 interface ActionableItem {
@@ -38,8 +49,35 @@ interface ActionableItem {
   createdAt: string;
 }
 
+interface LoanRecommendation {
+  loanType: 'personal' | 'home' | 'business' | 'car' | 'against_property' | 'against_securities';
+  priority: 'high' | 'medium' | 'low';
+  eligibilityScore: number;
+  recommendedAmount: number;
+  interestRate: number;
+  tenure: number;
+  emi: number;
+  processingFee: number;
+  lenderName: string;
+  rationale: string;
+  keyBenefits: string[];
+  riskFactors: string[];
+  actionRequired: string[];
+  urgency: 'immediate' | 'within_month' | 'future_consideration';
+  expectedApprovalTime: string;
+  requiredDocuments: string[];
+  specialOffers?: string[];
+}
+
 export default function ProposalsPage() {
   const [selectedTab, setSelectedTab] = useState("ai");
+  
+  // Fetch personalized loan recommendations
+  const { data: loanRecommendations, isLoading: loansLoading, error: loansError } = useQuery({
+    queryKey: ['/api/loans/personalized-recommendations'],
+    enabled: true,
+    retry: 1
+  });
   
   // Mock data for demonstration - no API calls needed
   const mockActionables: ActionableItem[] = [
@@ -135,6 +173,44 @@ export default function ProposalsPage() {
     }
   };
   
+  const getLoanTypeIcon = (loanType: string) => {
+    switch (loanType) {
+      case 'personal':
+        return <Wallet className="w-5 h-5" />;
+      case 'home':
+        return <Home className="w-5 h-5" />;
+      case 'business':
+        return <Briefcase className="w-5 h-5" />;
+      case 'car':
+        return <Car className="w-5 h-5" />;
+      case 'against_property':
+        return <Building className="w-5 h-5" />;
+      case 'against_securities':
+        return <PiggyBank className="w-5 h-5" />;
+      default:
+        return <CreditCard className="w-5 h-5" />;
+    }
+  };
+  
+  const getLoanTypeName = (loanType: string) => {
+    switch (loanType) {
+      case 'personal':
+        return 'Personal Loan';
+      case 'home':
+        return 'Home Loan';
+      case 'business':
+        return 'Business Loan';
+      case 'car':
+        return 'Car Loan';
+      case 'against_property':
+        return 'Loan Against Property';
+      case 'against_securities':
+        return 'Loan Against Securities';
+      default:
+        return 'Loan';
+    }
+  };
+  
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'high':
@@ -163,6 +239,119 @@ export default function ProposalsPage() {
     }
   };
   
+  const renderLoanRecommendationCard = (recommendation: LoanRecommendation, index: number) => (
+    <Card key={index} className="hover:shadow-lg transition-shadow border-l-4 border-l-orange-500">
+      <CardHeader className="pb-4">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-3 rounded-lg bg-orange-100 text-orange-600">
+              {getLoanTypeIcon(recommendation.loanType)}
+            </div>
+            <div>
+              <CardTitle className="text-lg font-semibold">
+                {getLoanTypeName(recommendation.loanType)}
+              </CardTitle>
+              <div className="flex items-center gap-2 mt-1">
+                <Badge variant={getPriorityColor(recommendation.priority)} className="text-xs">
+                  {recommendation.priority.toUpperCase()} PRIORITY
+                </Badge>
+                <Badge variant="outline" className="text-xs">
+                  {recommendation.eligibilityScore}% Match
+                </Badge>
+              </div>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-sm text-muted-foreground">Recommended Amount</div>
+            <div className="text-xl font-bold text-primary">
+              {formatCurrency(recommendation.recommendedAmount)}
+            </div>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="text-center p-3 bg-gray-50 rounded-lg">
+            <div className="text-sm text-muted-foreground">Interest Rate</div>
+            <div className="font-semibold text-green-600">{recommendation.interestRate.toFixed(2)}% p.a.</div>
+          </div>
+          <div className="text-center p-3 bg-gray-50 rounded-lg">
+            <div className="text-sm text-muted-foreground">EMI</div>
+            <div className="font-semibold">{formatCurrency(recommendation.emi)}</div>
+          </div>
+          <div className="text-center p-3 bg-gray-50 rounded-lg">
+            <div className="text-sm text-muted-foreground">Tenure</div>
+            <div className="font-semibold">{Math.floor(recommendation.tenure / 12)} years</div>
+          </div>
+          <div className="text-center p-3 bg-gray-50 rounded-lg">
+            <div className="text-sm text-muted-foreground">Processing Fee</div>
+            <div className="font-semibold">{formatCurrency(recommendation.processingFee)}</div>
+          </div>
+        </div>
+        
+        <div>
+          <h4 className="font-medium mb-2">Why this loan is recommended:</h4>
+          <p className="text-sm text-muted-foreground">{recommendation.rationale}</p>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <h5 className="font-medium text-green-700 mb-2 flex items-center gap-1">
+              <CheckCircle className="w-4 h-4" /> Key Benefits
+            </h5>
+            <ul className="text-sm space-y-1">
+              {recommendation.keyBenefits.slice(0, 3).map((benefit, idx) => (
+                <li key={idx} className="flex items-start gap-2">
+                  <div className="w-1 h-1 rounded-full bg-green-500 mt-2 flex-shrink-0" />
+                  <span className="text-muted-foreground">{benefit}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          
+          <div>
+            <h5 className="font-medium text-amber-700 mb-2 flex items-center gap-1">
+              <AlertTriangle className="w-4 h-4" /> Risk Factors
+            </h5>
+            <ul className="text-sm space-y-1">
+              {recommendation.riskFactors.slice(0, 2).map((risk, idx) => (
+                <li key={idx} className="flex items-start gap-2">
+                  <div className="w-1 h-1 rounded-full bg-amber-500 mt-2 flex-shrink-0" />
+                  <span className="text-muted-foreground">{risk}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+        
+        {recommendation.specialOffers && recommendation.specialOffers.length > 0 && (
+          <Alert className="bg-blue-50 border-blue-200">
+            <Zap className="h-4 w-4 text-blue-600" />
+            <AlertDescription className="text-blue-800">
+              <strong>Special Offer:</strong> {recommendation.specialOffers.join(', ')}
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        <div className="flex items-center justify-between pt-2 border-t">
+          <div className="text-sm">
+            <span className="text-muted-foreground">Lender:</span>
+            <span className="font-medium ml-1">{recommendation.lenderName}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-xs">
+              <Clock className="w-3 h-3 mr-1" />
+              {recommendation.expectedApprovalTime}
+            </Badge>
+            <Button size="sm" data-testid={`button-apply-loan-${index}`}>
+              Apply Now
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   const renderActionableCard = (actionable: ActionableItem, index: number) => (
     <Card key={actionable.id} className="hover:shadow-lg transition-shadow">
       <CardHeader className="pb-4">
@@ -337,7 +526,7 @@ export default function ProposalsPage() {
         
         {/* Tabbed Interface */}
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="ai" className="flex items-center gap-2">
               <Bot className="w-4 h-4" />
               AI Recommendations ({aiActionables.length})
@@ -345,6 +534,10 @@ export default function ProposalsPage() {
             <TabsTrigger value="agent" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
               Agent Suggestions ({agentActionables.length})
+            </TabsTrigger>
+            <TabsTrigger value="loans" className="flex items-center gap-2">
+              <CreditCard className="w-4 h-4" />
+              Loan Recommendations
             </TabsTrigger>
           </TabsList>
           
@@ -408,6 +601,71 @@ export default function ProposalsPage() {
                   </Button>
                 </CardContent>
               </Card>
+            )}
+          </TabsContent>
+          
+          <TabsContent value="loans" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CreditCard className="w-5 h-5 text-orange-600" />
+                  Personalized Loan Recommendations
+                </CardTitle>
+                <CardDescription>
+                  AI-powered loan suggestions based on your financial profile and credit score
+                </CardDescription>
+              </CardHeader>
+            </Card>
+            
+            {loansLoading ? (
+              <Card>
+                <CardContent className="text-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                  <p className="text-muted-foreground">Analyzing your financial profile for loan recommendations...</p>
+                </CardContent>
+              </Card>
+            ) : loansError ? (
+              <Card>
+                <CardContent className="text-center py-12">
+                  <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-muted-foreground mb-2">Unable to load loan recommendations</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Please ensure your profile is complete for personalized loan suggestions.
+                  </p>
+                  <Button variant="outline" onClick={() => window.location.reload()}>
+                    Retry
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : !loanRecommendations?.data?.recommendations || loanRecommendations.data.recommendations.length === 0 ? (
+              <Card>
+                <CardContent className="text-center py-12">
+                  <Info className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-muted-foreground mb-2">Complete Your Profile</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    To get personalized loan recommendations, please complete your financial profile with income details, credit history, and KYC information.
+                  </p>
+                  <Button data-testid="button-complete-profile">
+                    Complete Profile
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                {loanRecommendations.data.highPriorityCount > 0 && (
+                  <Alert className="mb-6">
+                    <Zap className="h-4 w-4" />
+                    <AlertDescription>
+                      You have <strong>{loanRecommendations.data.highPriorityCount} high-priority</strong> loan recommendations that match your current financial needs.
+                    </AlertDescription>
+                  </Alert>
+                )}
+                <div className="grid gap-6">
+                  {loanRecommendations.data.recommendations.map((recommendation: LoanRecommendation, index: number) => 
+                    renderLoanRecommendationCard(recommendation, index)
+                  )}
+                </div>
+              </>
             )}
           </TabsContent>
         </Tabs>
