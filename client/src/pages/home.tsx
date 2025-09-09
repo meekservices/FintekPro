@@ -167,12 +167,12 @@ export default function Home() {
       ]
     },
     {
-      category: "Banking & Finance",
+      category: "Loans & Credit",
       services: [
-        { name: "ICICI Banking", desc: "Account management", icon: Landmark, route: "/icici-banking" },
-        { name: "HDFC Services", desc: "Digital banking", icon: CreditCard, route: "/hdfc-banking" },
-        { name: "Bajaj Finance", desc: "EMI & loan calculator", icon: Calculator, route: "/bajaj-finance" },
-        { name: "Tata Capital", desc: "Business loans", icon: Briefcase, route: "/tata-capital" }
+        { name: "Personal Loan", desc: "Quick personal loans up to ₹40L", icon: CreditCard, route: "/loans/personal" },
+        { name: "Home Loan", desc: "Competitive home loan rates", icon: Building2, route: "/loans/home" },
+        { name: "Business Loan", desc: "SME & corporate financing", icon: Briefcase, route: "/loans/business" },
+        { name: "Loan Against Securities", desc: "LAS facility up to 80% value", icon: Receipt, route: "/loans/las" }
       ]
     },
     {
