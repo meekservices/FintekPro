@@ -31,9 +31,6 @@ export function Header() {
     { name: "InvestSmart", href: "/investsmart" },
     { name: "Loans", href: "/loans" },
     { name: "Insurance", href: "/policybazaar" },
-    { name: "Bill Pay", href: "/bbps" },
-    { name: "DigiLocker", href: "/digilocker" },
-    { name: "Compliance", href: "/aml-monitoring" },
     { name: "Support", href: "/support" },
   ];
 
