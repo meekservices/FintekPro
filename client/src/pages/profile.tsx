@@ -390,8 +390,9 @@ export default function ProfilePage() {
   useEffect(() => {
     if (profile && !profileLoading) {
       Object.keys(profile).forEach(key => {
-        if (profile[key] !== null && profile[key] !== undefined) {
-          form.setValue(key as any, profile[key]);
+        const value = (profile as any)[key];
+        if (value !== null && value !== undefined) {
+          form.setValue(key as any, value);
         }
       });
       calculateCompleteness();
