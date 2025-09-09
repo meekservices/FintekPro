@@ -267,16 +267,9 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Right side - Portfolio Summary & Market Chart */}
+              {/* Right side - Portfolio Summary */}
               <div className="space-y-6">
                 <PortfolioSummary userId={userId} />
-                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
-                  <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-                    <TrendingUp className="w-5 h-5 mr-2" />
-                    Live Market Overview
-                  </h3>
-                  <MarketChart symbol="^NSEI" />
-                </div>
               </div>
             </div>
           </div>
