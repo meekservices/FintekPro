@@ -31,6 +31,8 @@ import { tataCapitalAPI } from './tata-capital-api';
 import { PolicyBazaarAPI } from './policybazaar-api';
 import { CibilAPI } from './cibil-api';
 import { getPersonalizedLoanRecommendations } from './intelligent-loan-recommendations';
+import { clientEnrichmentService } from './client-enrichment-service';
+import { aiTransactionTrackerService } from './ai-transaction-tracker';
 import amlRoutes from './aml-routes';
 import { ZohoCommerceAPI, type ZohoCommerceConfig } from './zoho-commerce-api';
 import { zohoCommerceConfig, zohoProducts, zohoCategories, zohoOrders, zohoCustomers, zohoInventory, zohoWebhooks, zohoSyncLogs, insertZohoCommerceConfigSchema, insertZohoProductSchema, insertZohoCategorySchema, insertZohoOrderSchema } from '@shared/schema';
@@ -704,6 +706,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+
+  // =================================================================
+  // CLIENT ENRICHMENT API ENDPOINTS
+  // =================================================================
+
+  // Comprehensive client enrichment endpoint
+  app.post("/api/client/enrich", clientEnrichmentService.enrichClient);
+
+  // Get client enrichment history
+  app.get("/api/client/enrichment/history", clientEnrichmentService.getEnrichmentHistory);
+
+  // Get detailed enrichment insights
+  app.get("/api/client/enrichment/:enrichmentId", clientEnrichmentService.getEnrichmentInsights);
+
+  // Get available enrichment data sources
+  app.get("/api/client/enrichment/sources", clientEnrichmentService.getEnrichmentSources);
+
+  // =================================================================
+  // AI TRANSACTION TRACKING API ENDPOINTS
+  // =================================================================
+
+  // Track a new transaction with AI analysis
+  app.post("/api/transactions/track", aiTransactionTrackerService.trackTransaction);
+
+  // Analyze user's transaction patterns
+  app.get("/api/transactions/analyze", aiTransactionTrackerService.analyzeTransactions);
+
+  // Get transaction history with AI insights
+  app.get("/api/transactions/history", aiTransactionTrackerService.getTransactionHistory);
+
+  // Get transaction alerts and anomalies
+  app.get("/api/transactions/alerts", aiTransactionTrackerService.getTransactionAlerts);
   
   // MF API integration (MF Central compatible)
   const MF_API_BASE = "https://api.mfapi.in";
