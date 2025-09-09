@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -42,7 +41,7 @@ interface ActionableItem {
 export default function ProposalsPage() {
   const [selectedTab, setSelectedTab] = useState("ai");
   
-  // Mock data - replace with actual API call
+  // Mock data for demonstration - no API calls needed
   const mockActionables: ActionableItem[] = [
     {
       id: "ai-001",
