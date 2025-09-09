@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { AgriculturalTrivia, getTriviaByTerm, getRandomTrivia } from "@/data/agricultural-trivia";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Lightbulb, TrendingUp, Cloud, History, Cpu } from "lucide-react";
+import { Lightbulb, TrendingUp, Cloud, History, Cpu, DollarSign, CreditCard } from "lucide-react";
 
 interface AgriculturalTooltipProps {
   children: React.ReactNode;
@@ -17,6 +17,9 @@ const categoryIcons = {
   trading: TrendingUp,
   history: History,
   technology: Cpu,
+  equity: DollarSign,
+  bonds: CreditCard,
+  debt: CreditCard,
 };
 
 const categoryColors = {
@@ -25,6 +28,9 @@ const categoryColors = {
   trading: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
   history: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
   technology: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
+  equity: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200",
+  bonds: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200",
+  debt: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
 };
 
 export function AgriculturalTooltip({ 
