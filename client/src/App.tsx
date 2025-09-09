@@ -47,6 +47,7 @@ import Profile from "@/pages/profile";
 import ProfileCompletionGuard from "@/components/ProfileCompletionGuard";
 import BBPSPage from "@/pages/BBPSPage";
 import DigiLockerPage from "@/pages/DigiLockerPage";
+import LoanApplication from "@/pages/loan-application";
 
 function UserProtectedRoutes() {
   return (
@@ -88,6 +89,7 @@ function UserProtectedRoutes() {
         <Route path="/suppliers" component={SupplierManagement} />
         <Route path="/bbps" component={BBPSPage} />
         <Route path="/digilocker" component={DigiLockerPage} />
+        <Route path="/loan-application" component={LoanApplication} />
       </Switch>
     </ProfileCompletionGuard>
   );
