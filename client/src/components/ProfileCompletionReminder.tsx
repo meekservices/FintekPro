@@ -1,21 +1,17 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
+import { useProfileCompletion } from "@/hooks/useProfileCompletion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { X, AlertCircle, CheckCircle2, User } from "lucide-react";
-
-interface ProfileData {
-  isProfileCompleted?: boolean;
-  profileCompleteness?: number;
-}
+import { X, AlertCircle, CheckCircle2, User, Shield, TrendingUp, Wallet } from "lucide-react";
 
 interface ReminderState {
   dismissed: boolean;
   dismissedAt: number;
   showCount: number;
+  lastRoute: string;
 }
 
 const REMINDER_COOLDOWN = 2 * 60 * 60 * 1000; // 2 hours
@@ -25,17 +21,12 @@ export function ProfileCompletionReminder() {
   const { user } = useAuth();
   const [location, setLocation] = useLocation();
   const [reminderVisible, setReminderVisible] = useState(false);
-
-  // Fetch user profile completion status
-  const { data: profile, isLoading } = useQuery<ProfileData>({
-    queryKey: ["/api/profile", user?.id],
-    enabled: !!user?.id,
-  });
+  const { isComplete, completeness, shouldShowReminders, getReminderMessage, getReminderPriority } = useProfileCompletion();
 
   // Get reminder state from localStorage
   const getReminderState = (): ReminderState => {
     const stored = localStorage.getItem(`profile_reminder_${user?.id}`);
-    if (!stored) return { dismissed: false, dismissedAt: 0, showCount: 0 };
+    if (!stored) return { dismissed: false, dismissedAt: 0, showCount: 0, lastRoute: '' };
     
     const state = JSON.parse(stored);
     const today = new Date().toDateString();
@@ -43,7 +34,7 @@ export function ProfileCompletionReminder() {
     
     // Reset count daily
     if (today !== storedDate) {
-      return { dismissed: false, dismissedAt: 0, showCount: 0 };
+      return { dismissed: false, dismissedAt: 0, showCount: 0, lastRoute: state.lastRoute || '' };
     }
     
     return state;
@@ -55,16 +46,7 @@ export function ProfileCompletionReminder() {
     localStorage.setItem(`profile_reminder_${user?.id}`, JSON.stringify(updated));
   };
 
-  // Don't show reminders for agents/admins or if loading
-  if (!user || isLoading || user.role === "agent" || user.role === "admin") {
-    return null;
-  }
-
-  const isProfileComplete = profile?.isProfileCompleted === true;
-  const profileCompleteness = profile?.profileCompleteness || 0;
-
-  // Don't show if profile is complete
-  if (isProfileComplete) {
+  if (!shouldShowReminders) {
     return null;
   }
 
@@ -81,14 +63,19 @@ export function ProfileCompletionReminder() {
       return false;
     }
 
-    // Strategic moments to show reminders:
+    // Strategic moments to show reminders based on route and completion level:
     const strategicRoutes = [
       '/', '/dashboard',           // Main entry points
       '/portfolio', '/markets',    // Investment features
-      '/loans', '/mutual-funds'    // Financial products
+      '/loans', '/mutual-funds',   // Financial products
+      '/calculators', '/wealth'    // Planning tools
     ];
+
+    // Show on different routes to avoid repetition
+    const isStrategicRoute = strategicRoutes.includes(location);
+    const hasChangedRoute = state.lastRoute !== location;
     
-    return strategicRoutes.includes(location);
+    return isStrategicRoute && hasChangedRoute;
   };
 
   // Effect to handle showing reminder
@@ -99,13 +86,14 @@ export function ProfileCompletionReminder() {
         const state = getReminderState();
         updateReminderState({ 
           dismissed: false,
-          showCount: state.showCount + 1 
+          showCount: state.showCount + 1,
+          lastRoute: location
         });
       }, 2000); // Show after 2 seconds on strategic pages
       
       return () => clearTimeout(timer);
     }
-  }, [location, profile, reminderVisible]);
+  }, [location, reminderVisible, shouldShowReminder]);
 
   const handleDismiss = () => {
     setReminderVisible(false);
@@ -120,26 +108,69 @@ export function ProfileCompletionReminder() {
     setReminderVisible(false);
   };
 
+  // Route-specific messaging and icons
+  const getRouteSpecificContent = () => {
+    const priority = getReminderPriority();
+    const baseMessage = getReminderMessage();
+    
+    switch (location) {
+      case '/portfolio':
+      case '/markets':
+        return {
+          icon: <TrendingUp className="h-6 w-6 text-blue-500" />,
+          message: `${baseMessage} - Complete your profile to enable advanced portfolio tracking and market insights`,
+          urgency: 'Secure your investments with complete KYC verification'
+        };
+      case '/loans':
+        return {
+          icon: <Wallet className="h-6 w-6 text-green-500" />,
+          message: `${baseMessage} - Profile completion is required for loan applications and financial products`,
+          urgency: 'Complete KYC to access loan services'
+        };
+      default:
+        return {
+          icon: <Shield className="h-6 w-6 text-amber-500" />,
+          message: baseMessage,
+          urgency: priority === 'high' ? 'Action needed for account security' : 'Complete when convenient'
+        };
+    }
+  };
+
   if (!reminderVisible) return null;
+
+  const { icon, message, urgency } = getRouteSpecificContent();
+  const priority = getReminderPriority();
 
   return (
     <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-2xl px-4" data-testid="profile-completion-reminder">
-      <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 shadow-lg">
+      <Card className={`border shadow-lg ${
+        priority === 'high' 
+          ? 'bg-gradient-to-r from-red-50 to-orange-50 border-red-200' 
+          : priority === 'medium'
+          ? 'bg-gradient-to-r from-yellow-50 to-amber-50 border-yellow-200'
+          : 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200'
+      }`}>
         <CardContent className="p-4">
           <div className="flex items-start space-x-3">
-            <div className="flex-shrink-0">
-              <AlertCircle className="h-6 w-6 text-amber-500 mt-0.5" />
+            <div className="flex-shrink-0 mt-0.5">
+              {icon}
             </div>
             
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center space-x-2">
-                  <User className="h-4 w-4 text-blue-600" />
+                  <User className="h-4 w-4 text-gray-600" />
                   <h3 className="font-semibold text-gray-900 text-sm">
                     Complete Your Profile
                   </h3>
-                  <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-full font-medium">
-                    {profileCompleteness}% done
+                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                    priority === 'high' 
+                      ? 'bg-red-100 text-red-800' 
+                      : priority === 'medium'
+                      ? 'bg-amber-100 text-amber-800'
+                      : 'bg-blue-100 text-blue-800'
+                  }`}>
+                    {completeness}% done
                   </span>
                 </div>
                 <button
@@ -153,9 +184,12 @@ export function ProfileCompletionReminder() {
               
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <Progress value={profileCompleteness} className="h-1.5" />
+                  <Progress value={completeness} className="h-1.5" />
                   <p className="text-xs text-gray-600">
-                    Secure your account and unlock all features with just a few more steps
+                    {message}
+                  </p>
+                  <p className="text-xs text-gray-500 font-medium">
+                    {urgency}
                   </p>
                 </div>
                 
@@ -168,6 +202,10 @@ export function ProfileCompletionReminder() {
                     <div className="flex items-center space-x-1">
                       <CheckCircle2 className="h-3 w-3 text-green-500" />
                       <span>One-time only</span>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <AlertCircle className="h-3 w-3 text-blue-500" />
+                      <span>Regulatory compliance</span>
                     </div>
                   </div>
                   
@@ -184,7 +222,13 @@ export function ProfileCompletionReminder() {
                     <Button
                       size="sm"
                       onClick={handleCompleteProfile}
-                      className="text-xs h-7 px-3 bg-blue-600 hover:bg-blue-700"
+                      className={`text-xs h-7 px-3 ${
+                        priority === 'high' 
+                          ? 'bg-red-600 hover:bg-red-700' 
+                          : priority === 'medium'
+                          ? 'bg-amber-600 hover:bg-amber-700'
+                          : 'bg-blue-600 hover:bg-blue-700'
+                      }`}
                       data-testid="button-complete-now"
                     >
                       Complete Now
