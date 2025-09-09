@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Facebook, Twitter, Linkedin, Instagram, Store, Package, ShoppingCart, Calculator, Shield } from "lucide-react";
+import { Facebook, Twitter, Linkedin, Instagram, Store, Package, ShoppingCart, Calculator, Shield, CreditCard, Heart } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useMutation } from "@tanstack/react-query";
@@ -72,14 +72,29 @@ export function Footer() {
     { name: "Tax Calculator", href: "/calculators?tab=tax" },
     { name: "Bajaj Finance", href: "/bajaj-finance" },
     { name: "Tata Capital", href: "/tata-capital" },
-    { name: "PolicyBazaar", href: "/policybazaar" },
     { name: "Credit Score", href: "/cibil" },
+  ];
+
+  const billPayLinks = [
+    { name: "BBPS Bill Payment", href: "/bbps" },
+    { name: "Utility Bills", href: "/bbps?category=utilities" },
+    { name: "Credit Card Bills", href: "/bbps?category=credit-card" },
+    { name: "Mobile Recharge", href: "/bbps?category=mobile" },
+    { name: "DTH Recharge", href: "/bbps?category=dth" },
+  ];
+
+  const insuranceLinks = [
+    { name: "PolicyBazaar", href: "/policybazaar" },
+    { name: "Life Insurance", href: "/policybazaar?category=life" },
+    { name: "Health Insurance", href: "/policybazaar?category=health" },
+    { name: "Vehicle Insurance", href: "/policybazaar?category=vehicle" },
+    { name: "Travel Insurance", href: "/policybazaar?category=travel" },
   ];
 
   return (
     <footer className="bg-finance-gray text-white py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-8 gap-8">
           
           {/* Company Info */}
           <div>
@@ -183,6 +198,50 @@ export function Footer() {
             </ul>
           </div>
           
+          {/* Bill Pay */}
+          <div>
+            <h4 className="font-semibold mb-4 flex items-center gap-2" data-testid="footer-billpay-title">
+              <CreditCard className="h-4 w-4 text-purple-400" />
+              Bill Pay
+            </h4>
+            <ul className="space-y-2 text-gray-300">
+              {billPayLinks.map((link) => (
+                <li key={link.name}>
+                  <Link href={link.href}>
+                    <span 
+                      className="hover:text-purple-400 transition-colors cursor-pointer"
+                      data-testid={`footer-billpay-${link.name.toLowerCase().replace(/\s+/g, "-")}`}
+                    >
+                      {link.name}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+          
+          {/* Insurance */}
+          <div>
+            <h4 className="font-semibold mb-4 flex items-center gap-2" data-testid="footer-insurance-title">
+              <Heart className="h-4 w-4 text-red-400" />
+              Insurance
+            </h4>
+            <ul className="space-y-2 text-gray-300">
+              {insuranceLinks.map((link) => (
+                <li key={link.name}>
+                  <Link href={link.href}>
+                    <span 
+                      className="hover:text-red-400 transition-colors cursor-pointer"
+                      data-testid={`footer-insurance-${link.name.toLowerCase().replace(/\s+/g, "-")}`}
+                    >
+                      {link.name}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
           {/* Support */}
           <div>
             <h4 className="font-semibold mb-4" data-testid="footer-support-title">
