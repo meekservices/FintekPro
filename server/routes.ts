@@ -739,6 +739,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Get transaction alerts and anomalies
   app.get("/api/transactions/alerts", aiTransactionTrackerService.getTransactionAlerts);
+
+  // =================================================================
+  // AI INVESTSMART MONITOR API ENDPOINTS
+  // =================================================================
+
+  // Get comprehensive AI insights for InvestSmart page
+  app.get("/api/ai-investsmart-insights", aiInvestSmartMonitorService.getAIInsights);
+
+  // Get AI-generated actionables based on current data
+  app.get("/api/ai-investsmart-actionables", aiInvestSmartMonitorService.getActionables);
+
+  // Monitor InvestSmart page health and generate alerts
+  app.get("/api/ai-investsmart-health", aiInvestSmartMonitorService.monitorPageHealth);
   
   // MF API integration (MF Central compatible)
   const MF_API_BASE = "https://api.mfapi.in";
