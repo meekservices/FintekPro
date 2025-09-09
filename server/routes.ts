@@ -33,6 +33,7 @@ import { CibilAPI } from './cibil-api';
 import { getPersonalizedLoanRecommendations } from './intelligent-loan-recommendations';
 import { clientEnrichmentService } from './client-enrichment-service';
 import { aiTransactionTrackerService } from './ai-transaction-tracker';
+import { aiInvestSmartMonitorService } from './ai-investsmart-monitor';
 import amlRoutes from './aml-routes';
 import { ZohoCommerceAPI, type ZohoCommerceConfig } from './zoho-commerce-api';
 import { zohoCommerceConfig, zohoProducts, zohoCategories, zohoOrders, zohoCustomers, zohoInventory, zohoWebhooks, zohoSyncLogs, insertZohoCommerceConfigSchema, insertZohoProductSchema, insertZohoCategorySchema, insertZohoOrderSchema } from '@shared/schema';
