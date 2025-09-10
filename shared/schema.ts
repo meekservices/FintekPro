@@ -915,6 +915,10 @@ export const customerCareAgents = pgTable("customer_care_agents", {
   email: varchar("email").unique().notNull(),
   phone: varchar("phone"),
   employeeId: varchar("employee_id").unique(),
+  // EUIN/ARN details for master agents
+  euinNumber: varchar("euin_number").unique(),
+  arnCode: varchar("arn_code"),
+  distributorId: varchar("distributor_id"),
   // Authentication (if they need to log into system)
   password: text("password"),
   // Agent specialization

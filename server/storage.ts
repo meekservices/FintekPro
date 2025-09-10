@@ -742,11 +742,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createCustomerCareAgent(agent: InsertCustomerCareAgent): Promise<CustomerCareAgent> {
-    throw new Error("Method not implemented");
+    const [newAgent] = await db
+      .insert(schema.customerCareAgents)
+      .values({
+        ...agent,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+      .returning();
+    return newAgent;
   }
 
   async getAllCustomerCareAgents(): Promise<CustomerCareAgent[]> {
-    return [];
+    const agents = await db.select().from(schema.customerCareAgents);
+    return agents;
   }
 
   async getCustomerCareAgent(id: string): Promise<CustomerCareAgent | undefined> {
