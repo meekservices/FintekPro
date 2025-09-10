@@ -239,7 +239,7 @@ export function BankingTab() {
           </CardHeader>
           <CardContent>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+              <div className="space-y-6">
                 {/* Banking Details */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-medium">Bank Account Details</h3>
@@ -344,7 +344,8 @@ export function BankingTab() {
                 {/* Form Actions */}
                 <div className="flex items-center gap-2">
                   <Button 
-                    type="submit" 
+                    type="button"
+                    onClick={form.handleSubmit(handleSubmit)}
                     disabled={addAccountMutation.isPending || updateAccountMutation.isPending}
                     data-testid="button-save-account"
                   >
@@ -361,7 +362,7 @@ export function BankingTab() {
                     Cancel
                   </Button>
                 </div>
-              </form>
+              </div>
             </Form>
           </CardContent>
         </Card>
