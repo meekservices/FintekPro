@@ -373,8 +373,8 @@ export const users = pgTable("users", {
   preferredNsdlRegistration: boolean("preferred_nsdl_registration").default(false),
   preferredCdslRegistration: boolean("preferred_cdsl_registration").default(false),
   
-  // Admin and system fields
-  role: varchar("role").default("user"), // 'user', 'admin', 'super_admin'
+  // Admin and system fields - supports multiple roles
+  roles: varchar("roles").array().default(sql`ARRAY['user']`), // Array of roles: 'user', 'admin', 'superadmin', 'business_client', etc.
   isActive: boolean("is_active").default(true),
   lastLoginAt: timestamp("last_login_at"),
   loginCount: integer("login_count").default(0),

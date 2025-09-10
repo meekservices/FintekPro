@@ -98,13 +98,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
 
+  // Helper function to check if user has any of the specified roles
+  const hasRole = (user: any, requiredRoles: string[]): boolean => {
+    if (!user) return false;
+    
+    // Support both old single role field and new roles array for backwards compatibility
+    const userRoles = user.roles || (user.role ? [user.role] : []);
+    return requiredRoles.some(role => userRoles.includes(role));
+  };
+
   // Agent middleware - requires user to be authenticated with 'agent' or 'admin' role
   const requireAgent = async (req: any, res: any, next: any) => {
     if (!req.user) {
       return res.status(401).json({ message: "Authentication required" });
     }
     
-    if (req.user.role !== 'agent' && req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+    if (!hasRole(req.user, ['agent', 'admin', 'superadmin'])) {
       return res.status(403).json({ message: "Agent access required" });
     }
     
@@ -271,7 +280,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               email: user.email,
               firstName: user.firstName,
               lastName: user.lastName,
-              role: user.role
+              role: user.role,
+              roles: user.roles || (user.role ? [user.role] : ['user'])
             },
             message: "Authentication successful" 
           });
@@ -11911,7 +11921,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Prevent deletion of admin users by non-super-admin
-      if (user.role === 'super_admin' || (user.role === 'admin' && req.user?.role !== 'super_admin')) {
+      if (hasRole(user, ['superadmin']) || (hasRole(user, ['admin']) && !hasRole(req.user, ['superadmin']))) {
         return res.status(403).json({ error: "Insufficient permissions to delete this user" });
       }
       
@@ -11925,7 +11935,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId: req.user?.id || 'unknown',
         action: 'admin_user_deleted',
         resource: `user:${userId}`,
-        details: { email: user.email, role: user.role },
+        details: { email: user.email, role: user.role, roles: user.roles },
         ipAddress: req.ip
       });
       
@@ -12368,7 +12378,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     const user = await storage.getUser(req.user.id);
-    if (!user || user.role !== 'super_admin') {
+    if (!user || !hasRole(user, ['superadmin'])) {
       return res.status(403).json({ message: "Super admin access required" });
     }
     
@@ -15609,8 +15619,8 @@ System Security Data:`;
       
       // If user is not admin, restrict to their own proposals
       let filteredOptions: any = {};
-      if (req.user.role !== 'admin') {
-        if (req.user.role === 'agent') {
+      if (!hasRole(req.user, ['admin'])) {
+        if (hasRole(req.user, ['agent'])) {
           filteredOptions.agentId = req.user.id;
         } else {
           filteredOptions.clientId = req.user.id;
@@ -15642,7 +15652,7 @@ System Security Data:`;
       }
       
       // Check if user has access to this proposal
-      if (req.user.role !== 'admin' && 
+      if (!hasRole(req.user, ['admin']) && 
           proposal.clientId !== req.user.id && 
           proposal.agentId !== req.user.id) {
         return res.status(403).json({ error: "Access denied" });
@@ -15662,7 +15672,7 @@ System Security Data:`;
   app.post("/api/proposals", authenticateUser, async (req, res) => {
     try {
       // Only agents can create proposals
-      if (req.user.role !== 'agent' && req.user.role !== 'admin') {
+      if (!hasRole(req.user, ['agent', 'admin'])) {
         return res.status(403).json({ error: "Only agents can create investment proposals" });
       }
       
@@ -15690,7 +15700,7 @@ System Security Data:`;
       }
       
       // Only the agent who created it or admin can update
-      if (req.user.role !== 'admin' && proposal.agentId !== req.user.id) {
+      if (!hasRole(req.user, ['admin']) && proposal.agentId !== req.user.id) {
         return res.status(403).json({ error: "Access denied" });
       }
       
@@ -15777,7 +15787,7 @@ System Security Data:`;
         return res.status(404).json({ error: "Proposal not found" });
       }
       
-      if (req.user.role !== 'admin' && 
+      if (!hasRole(req.user, ['admin']) && 
           proposal.clientId !== req.user.id && 
           proposal.agentId !== req.user.id) {
         return res.status(403).json({ error: "Access denied" });
@@ -15801,7 +15811,7 @@ System Security Data:`;
         return res.status(404).json({ error: "Proposal not found" });
       }
       
-      if (req.user.role !== 'admin' && proposal.agentId !== req.user.id) {
+      if (!hasRole(req.user, ['admin']) && proposal.agentId !== req.user.id) {
         return res.status(403).json({ error: "Only the agent can add items to their proposals" });
       }
       
@@ -15829,7 +15839,7 @@ System Security Data:`;
         return res.status(404).json({ error: "Proposal not found" });
       }
       
-      if (req.user.role !== 'admin' && 
+      if (!hasRole(req.user, ['admin']) && 
           proposal.clientId !== req.user.id && 
           proposal.agentId !== req.user.id) {
         return res.status(403).json({ error: "Access denied" });
