@@ -352,8 +352,29 @@ export interface IStorage {
 export class DatabaseStorage implements IStorage {
   // User methods
   async getUser(id: string): Promise<User | undefined> {
-    const [user] = await db.select().from(schema.users).where(eq(schema.users.id, id));
-    return user || undefined;
+    const [user] = await db.select({
+      id: schema.users.id,
+      email: schema.users.email,
+      mobile: schema.users.mobile,
+      firstName: schema.users.firstName,
+      lastName: schema.users.lastName,
+      role: schema.users.role,
+      roles: schema.users.roles,
+      isActive: schema.users.isActive,
+      loginCount: schema.users.loginCount,
+      createdAt: schema.users.createdAt,
+      lastLoginAt: schema.users.lastLoginAt
+    }).from(schema.users).where(eq(schema.users.id, id));
+    
+    if (!user) return undefined;
+    
+    // Ensure roles compatibility
+    const userWithRoles = {
+      ...user,
+      roles: user.roles || (user.role ? [user.role] : [])
+    };
+    
+    return userWithRoles as User;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
@@ -557,7 +578,33 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllUsers(): Promise<User[]> {
-    return await db.select().from(schema.users);
+    try {
+      // Use raw SQL to bypass Drizzle schema issues with missing columns
+      const result = await db.execute(sql`
+        SELECT 
+          id,
+          email,
+          mobile,
+          first_name as "firstName",
+          last_name as "lastName", 
+          role,
+          roles,
+          is_active as "isActive",
+          login_count as "loginCount",
+          created_at as "createdAt",
+          last_login_at as "lastLoginAt"
+        FROM users
+      `);
+      
+      // Map results and ensure roles compatibility
+      return result.rows.map((user: any) => ({
+        ...user,
+        roles: user.roles || (user.role ? [user.role] : [])
+      })) as User[];
+    } catch (error) {
+      console.error("Error in getAllUsers:", error);
+      return [];
+    }
   }
 
   async updateUserRole(userId: string, role: string): Promise<void> {
