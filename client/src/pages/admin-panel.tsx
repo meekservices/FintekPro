@@ -2166,6 +2166,12 @@ export default function AdminPanel() {
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
+  // Fetch agents data
+  const { data: agentsData = [], isLoading: agentsLoading } = useQuery({
+    queryKey: ['/api/admin/agents'],
+    refetchInterval: 60000, // Refresh every minute
+  });
+
   // Fetch clients with filtering
   const { data: clientsData, isLoading: clientsLoading } = useQuery({
     queryKey: ["/api/admin/users", { searchTerm, role: roleFilter, isActive: statusFilter }],
@@ -3993,27 +3999,30 @@ export default function AdminPanel() {
                 <CardDescription>This month's best agents</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <div className="font-medium">Sarah Johnson</div>
-                    <div className="text-sm text-muted-foreground">125 tickets resolved</div>
+                {agentsLoading ? (
+                  <div className="text-center py-4">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                    <div className="mt-2 text-sm text-muted-foreground">Loading top agents...</div>
                   </div>
-                  <Badge className="bg-green-100 text-green-800">4.8★</Badge>
-                </div>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <div className="font-medium">Mike Chen</div>
-                    <div className="text-sm text-muted-foreground">98 tickets resolved</div>
+                ) : agentsData.length === 0 ? (
+                  <div className="text-center py-4 text-muted-foreground">
+                    No agents found
                   </div>
-                  <Badge className="bg-green-100 text-green-800">4.7★</Badge>
-                </div>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <div className="font-medium">Lisa Rodriguez</div>
-                    <div className="text-sm text-muted-foreground">87 tickets resolved</div>
-                  </div>
-                  <Badge className="bg-green-100 text-green-800">4.6★</Badge>
-                </div>
+                ) : (
+                  agentsData
+                    .filter((agent: any) => agent.status === 'active')
+                    .sort((a: any, b: any) => (b.customerSatisfactionRating || 0) - (a.customerSatisfactionRating || 0))
+                    .slice(0, 3)
+                    .map((agent: any) => (
+                      <div key={agent.id} className="flex justify-between items-center">
+                        <div>
+                          <div className="font-medium">{agent.fullName}</div>
+                          <div className="text-sm text-muted-foreground">{agent.totalTicketsHandled || 0} tickets resolved</div>
+                        </div>
+                        <Badge className="bg-green-100 text-green-800">{agent.customerSatisfactionRating || 'N/A'}★</Badge>
+                      </div>
+                    ))
+                )}
               </CardContent>
             </Card>
           </div>
@@ -4039,49 +4048,78 @@ export default function AdminPanel() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  <TableRow data-testid="agent-row-1">
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">Sarah Johnson</div>
-                        <div className="text-sm text-muted-foreground">sarah.johnson@fintekpro.com</div>
-                        <div className="text-xs text-muted-foreground">+1 (555) 0123</div>
-                      </div>
-                    </TableCell>
-                    <TableCell data-testid="text-employee-id-1">EMP001</TableCell>
-                    <TableCell>
-                      <Badge className="bg-green-100 text-green-800" data-testid="badge-status-1">Active</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <Badge variant="outline">TechCorp Solutions</Badge>
-                        <Badge variant="outline">InvestPro Partners</Badge>
-                        <Badge variant="outline">WealthMax Inc</Badge>
-                      </div>
-                    </TableCell>
-                    <TableCell data-testid="text-tickets-1">8/50</TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <Badge className="bg-blue-100 text-blue-800">Technical</Badge>
-                        <Badge className="bg-purple-100 text-purple-800">Billing</Badge>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        <div>Rating: <span className="font-medium">4.8★</span></div>
-                        <div>Avg. Resolution: <span className="font-medium">2.1h</span></div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        <Button variant="outline" size="sm" data-testid="button-manage-partners-1">
-                          Manage Partners
-                        </Button>
-                        <Button variant="outline" size="sm" data-testid="button-view-performance-1">
-                          Performance
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                  {agentsLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-4">
+                        <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                        <div className="mt-2">Loading agents...</div>
+                      </TableCell>
+                    </TableRow>
+                  ) : agentsData.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-4 text-muted-foreground">
+                        No agents found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    agentsData.map((agent: any, index: number) => (
+                      <TableRow key={agent.id} data-testid={`agent-row-${index + 1}`}>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{agent.fullName}</div>
+                            <div className="text-sm text-muted-foreground">{agent.email}</div>
+                            <div className="text-xs text-muted-foreground">{agent.phone}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell data-testid={`text-employee-id-${index + 1}`}>{agent.employeeId}</TableCell>
+                        <TableCell>
+                          <Badge 
+                            className={agent.status === 'active' ? 'bg-green-100 text-green-800' : agent.status === 'on_leave' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'} 
+                            data-testid={`badge-status-${index + 1}`}
+                          >
+                            {agent.status === 'active' ? 'Active' : agent.status === 'on_leave' ? 'On Leave' : 'Inactive'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            {agent.partnerMappings && agent.partnerMappings.length > 0 ? (
+                              agent.partnerMappings.slice(0, 3).map((mapping: any, idx: number) => (
+                                <Badge key={idx} variant="outline">{mapping.partner?.name || 'Partner'}</Badge>
+                              ))
+                            ) : (
+                              <span className="text-sm text-muted-foreground">No partners assigned</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell data-testid={`text-tickets-${index + 1}`}>{agent.currentTicketCount}/{agent.maxTicketsPerDay}</TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            {agent.specializations && agent.specializations.map((spec: string, idx: number) => (
+                              <Badge key={idx} className={`${spec === 'technical' ? 'bg-blue-100 text-blue-800' : spec === 'billing' ? 'bg-purple-100 text-purple-800' : spec === 'compliance' ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-800'}`}>
+                                {spec.charAt(0).toUpperCase() + spec.slice(1).replace('_', ' ')}
+                              </Badge>
+                            ))}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            <div>Rating: <span className="font-medium">{agent.customerSatisfactionRating || 'N/A'}★</span></div>
+                            <div>Avg. Resolution: <span className="font-medium">{agent.averageResolutionTime || 'N/A'}h</span></div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex space-x-2">
+                            <Button variant="outline" size="sm" data-testid={`button-manage-partners-${index + 1}`}>
+                              Manage Partners
+                            </Button>
+                            <Button variant="outline" size="sm" data-testid={`button-view-performance-${index + 1}`}>
+                              Performance
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                   <TableRow data-testid="agent-row-2">
                     <TableCell>
                       <div>
