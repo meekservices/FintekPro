@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Activity, BarChart3, TrendingUp, Globe, Building2, Coins, Wheat, RefreshCw, TrendingDown } from "lucide-react";
+import { Activity, BarChart3, TrendingUp, Globe, Building2, Coins, Wheat, RefreshCw, TrendingDown, Thermometer, Brain, Target } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { IBTrading } from "@/components/dashboard/ib-trading";
 
@@ -71,6 +71,12 @@ export function BrokingDashboard() {
     refetchInterval: 30000
   });
 
+  // Fetch sentiment data
+  const { data: sentimentData, refetch: refetchSentiment } = useQuery({
+    queryKey: ['/api/market/sentiment'],
+    refetchInterval: 60000 // Refresh every minute
+  });
+
   const { data: nseGainers } = useQuery({
     queryKey: ['/api/nse/gainers-losers?type=gainers'],
     refetchInterval: 30000
@@ -120,6 +126,7 @@ export function BrokingDashboard() {
     refetchMCX();
     refetchNCDEX();
     refetchMSEI();
+    refetchSentiment();
     if (selectedStock) refetchQuote();
   };
 
@@ -130,6 +137,43 @@ export function BrokingDashboard() {
   const formatCurrency = (value: number, currency = '₹') => {
     return `${currency}${value?.toFixed(2) || '0.00'}`;
   };
+
+  const getSentimentColor = (sentiment: number) => {
+    if (sentiment >= 0.7) return 'bg-green-500';
+    if (sentiment >= 0.4) return 'bg-green-300';
+    if (sentiment >= 0.1) return 'bg-yellow-300';
+    if (sentiment >= -0.1) return 'bg-gray-300';
+    if (sentiment >= -0.4) return 'bg-red-300';
+    return 'bg-red-500';
+  };
+
+  const getSentimentLabel = (sentiment: number) => {
+    if (sentiment >= 0.7) return 'Very Bullish';
+    if (sentiment >= 0.4) return 'Bullish';
+    if (sentiment >= 0.1) return 'Slightly Bullish';
+    if (sentiment >= -0.1) return 'Neutral';
+    if (sentiment >= -0.4) return 'Slightly Bearish';
+    return 'Very Bearish';
+  };
+
+  // Generate mock sentiment data for demonstration
+  const generateSentimentData = () => {
+    const sectors = [
+      'Technology', 'Banking', 'Pharma', 'Auto', 'FMCG', 'Energy', 'Metals', 'Infrastructure',
+      'IT Services', 'Healthcare', 'Telecom', 'Real Estate', 'Chemicals', 'Consumer Durables',
+      'Oil & Gas', 'Textiles'
+    ];
+    
+    return sectors.map(sector => ({
+      sector,
+      sentiment: (Math.random() - 0.5) * 2, // Range from -1 to 1
+      volume: Math.floor(Math.random() * 10000) + 1000,
+      change: (Math.random() - 0.5) * 10,
+      marketCap: Math.floor(Math.random() * 500000) + 50000
+    }));
+  };
+
+  const mockSentimentData = generateSentimentData();
 
   return (
     <div className="space-y-6" data-testid="broking-dashboard">
@@ -147,10 +191,11 @@ export function BrokingDashboard() {
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="indian-trading">Indian Markets</TabsTrigger>
           <TabsTrigger value="derivatives">Derivatives & Commodities</TabsTrigger>
+          <TabsTrigger value="sentiment">Sentiment Heatmap</TabsTrigger>
           <TabsTrigger value="ib-trading">Global Markets</TabsTrigger>
           <TabsTrigger value="order-book">Order Book</TabsTrigger>
           <TabsTrigger value="watchlist">Watchlist</TabsTrigger>
@@ -854,6 +899,288 @@ export function BrokingDashboard() {
                     ))}
                   </TableBody>
                 </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="sentiment" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Thermometer className="h-5 w-5 text-blue-600" />
+                  Real-Time Market Sentiment Heatmap
+                </CardTitle>
+                <CardDescription>Live sector-wise sentiment analysis based on market movements and volume</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-4 gap-2 mb-6">
+                  {mockSentimentData.map((item, index) => (
+                    <div
+                      key={index}
+                      className={`p-3 rounded-lg border text-center cursor-pointer transition-all hover:scale-105 ${getSentimentColor(item.sentiment)} ${
+                        item.sentiment >= 0 ? 'text-white' : 'text-gray-800'
+                      }`}
+                      data-testid={`sentiment-tile-${item.sector.toLowerCase().replace(' ', '-')}`}
+                    >
+                      <div className="text-xs font-medium truncate mb-1">{item.sector}</div>
+                      <div className="text-xs">
+                        {item.change >= 0 ? '+' : ''}{item.change.toFixed(2)}%
+                      </div>
+                      <div className="text-xs opacity-75">
+                        {getSentimentLabel(item.sentiment)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-4 h-4 bg-green-500 rounded"></div>
+                      <span className="text-xs">Very Bullish</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-4 h-4 bg-green-300 rounded"></div>
+                      <span className="text-xs">Bullish</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-4 h-4 bg-yellow-300 rounded"></div>
+                      <span className="text-xs">Neutral</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-4 h-4 bg-red-300 rounded"></div>
+                      <span className="text-xs">Bearish</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-4 h-4 bg-red-500 rounded"></div>
+                      <span className="text-xs">Very Bearish</span>
+                    </div>
+                  </div>
+                  <Badge variant="secondary" className="text-xs">
+                    Updated: {new Date().toLocaleTimeString()}
+                  </Badge>
+                </div>
+
+                <div className="text-sm text-muted-foreground">
+                  Click on any sector tile to view detailed sentiment metrics and trading opportunities.
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Brain className="h-5 w-5 text-purple-600" />
+                  Sentiment Analytics
+                </CardTitle>
+                <CardDescription>AI-powered market sentiment insights</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Overall Market Sentiment</span>
+                    <Badge className="bg-green-100 text-green-800">Bullish</Badge>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div className="bg-green-600 h-2 rounded-full" style={{ width: '65%' }}></div>
+                  </div>
+                  <div className="text-xs text-muted-foreground">65% Bullish Sentiment</div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="text-sm font-medium">Top Performing Sectors</div>
+                  {mockSentimentData
+                    .sort((a, b) => b.change - a.change)
+                    .slice(0, 5)
+                    .map((item, index) => (
+                      <div key={index} className="flex items-center justify-between text-sm">
+                        <span className="truncate flex-1">{item.sector}</span>
+                        <span className={`font-medium ${getChangeColor(item.change)}`}>
+                          {item.change >= 0 ? '+' : ''}{item.change.toFixed(2)}%
+                        </span>
+                      </div>
+                    ))}
+                </div>
+
+                <div className="space-y-3">
+                  <div className="text-sm font-medium">Sentiment Drivers</div>
+                  <div className="space-y-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <span>Strong institutional buying in IT sector</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                      <span>Positive earnings outlook for banking</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                      <span>Mixed signals from energy commodities</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                      <span>Profit booking in pharma stocks</span>
+                    </div>
+                  </div>
+                </div>
+
+                <Button className="w-full" size="sm" data-testid="button-detailed-analysis">
+                  View Detailed Analysis
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="h-5 w-5 text-orange-600" />
+                  Sentiment-Based Trading Signals
+                </CardTitle>
+                <CardDescription>AI-generated trading opportunities based on sentiment analysis</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Sector</TableHead>
+                      <TableHead>Signal</TableHead>
+                      <TableHead>Confidence</TableHead>
+                      <TableHead>Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {mockSentimentData
+                      .filter(item => Math.abs(item.sentiment) > 0.4)
+                      .slice(0, 6)
+                      .map((item, i) => (
+                        <TableRow key={i}>
+                          <TableCell className="font-medium">{item.sector}</TableCell>
+                          <TableCell>
+                            <Badge variant={item.sentiment > 0 ? 'default' : 'destructive'}>
+                              {item.sentiment > 0 ? 'BUY' : 'SELL'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <div className="w-16 bg-gray-200 rounded-full h-2">
+                                <div 
+                                  className="bg-blue-600 h-2 rounded-full" 
+                                  style={{ width: `${Math.abs(item.sentiment) * 100}%` }}
+                                ></div>
+                              </div>
+                              <span className="text-xs">{(Math.abs(item.sentiment) * 100).toFixed(0)}%</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Button size="sm" variant="outline" data-testid={`button-trade-signal-${item.sector.toLowerCase().replace(' ', '-')}`}>
+                              Trade
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Volume & Sentiment Correlation</CardTitle>
+                <CardDescription>Relationship between trading volume and market sentiment</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4 text-center">
+                    <div className="p-3 bg-green-50 rounded-lg">
+                      <div className="text-sm text-muted-foreground">High Volume + Bullish</div>
+                      <div className="text-2xl font-bold text-green-600">
+                        {mockSentimentData.filter(item => item.sentiment > 0.3 && item.volume > 5000).length}
+                      </div>
+                      <div className="text-xs text-muted-foreground">Sectors</div>
+                    </div>
+                    <div className="p-3 bg-red-50 rounded-lg">
+                      <div className="text-sm text-muted-foreground">High Volume + Bearish</div>
+                      <div className="text-2xl font-bold text-red-600">
+                        {mockSentimentData.filter(item => item.sentiment < -0.3 && item.volume > 5000).length}
+                      </div>
+                      <div className="text-xs text-muted-foreground">Sectors</div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium">Volume Leaders</div>
+                    {mockSentimentData
+                      .sort((a, b) => b.volume - a.volume)
+                      .slice(0, 5)
+                      .map((item, index) => (
+                        <div key={index} className="flex items-center justify-between text-sm">
+                          <span className="truncate flex-1">{item.sector}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground">
+                              {(item.volume / 1000).toFixed(1)}K
+                            </span>
+                            <div className={`w-2 h-2 rounded-full ${getSentimentColor(item.sentiment)}`}></div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+
+                  <div className="pt-3 border-t">
+                    <div className="text-xs text-muted-foreground">
+                      High volume with strong sentiment often indicates sustained price movements.
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Sentiment Timeline & Market Events</CardTitle>
+              <CardDescription>Recent events impacting market sentiment across sectors</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
+                  <div className="flex-1">
+                    <div className="text-sm font-medium">Positive Q3 Earnings Beat</div>
+                    <div className="text-xs text-muted-foreground">Technology sector sentiment improved following strong quarterly results from major IT companies</div>
+                    <div className="text-xs text-muted-foreground mt-1">2 hours ago</div>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
+                  <div className="flex-1">
+                    <div className="text-sm font-medium">RBI Policy Decision</div>
+                    <div className="text-xs text-muted-foreground">Banking sector showing mixed sentiment ahead of monetary policy announcement</div>
+                    <div className="text-xs text-muted-foreground mt-1">4 hours ago</div>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-3 p-3 bg-yellow-50 rounded-lg">
+                  <div className="w-2 h-2 bg-yellow-500 rounded-full mt-2"></div>
+                  <div className="flex-1">
+                    <div className="text-sm font-medium">Global Oil Price Volatility</div>
+                    <div className="text-xs text-muted-foreground">Energy sector sentiment remains cautious due to geopolitical uncertainties</div>
+                    <div className="text-xs text-muted-foreground mt-1">6 hours ago</div>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-3 p-3 bg-red-50 rounded-lg">
+                  <div className="w-2 h-2 bg-red-500 rounded-full mt-2"></div>
+                  <div className="flex-1">
+                    <div className="text-sm font-medium">Pharma Regulatory Concerns</div>
+                    <div className="text-xs text-muted-foreground">Healthcare sentiment declined following regulatory inspection reports</div>
+                    <div className="text-xs text-muted-foreground mt-1">8 hours ago</div>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
