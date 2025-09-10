@@ -158,7 +158,7 @@ export function BrokingDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {nseIndices?.data?.length || 0}
+                  {nseIndices?.data ? nseIndices.data.length : 0}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Live indices available
@@ -173,7 +173,7 @@ export function BrokingDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {bseIndices?.data?.length || 0}
+                  {bseIndices?.data ? bseIndices.data.length : 0}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   BSE indices tracking
@@ -188,7 +188,7 @@ export function BrokingDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {mcxCommodities?.data?.length || 0}
+                  {mcxCommodities?.data ? mcxCommodities.data.length : 0}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Commodities available
@@ -203,7 +203,7 @@ export function BrokingDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {ncdexCommodities?.data?.length || 0}
+                  {ncdexCommodities?.data ? ncdexCommodities.data.length : 0}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Agricultural commodities
@@ -223,7 +223,7 @@ export function BrokingDashboard() {
               <CardContent>
                 {nseGainers?.data ? (
                   <div className="space-y-2">
-                    {nseGainers.data.slice(0, 5).map((stock: any, index: number) => (
+                    {(nseGainers as any).data.slice(0, 5).map((stock: any, index: number) => (
                       <div key={index} className="flex justify-between items-center p-2 rounded-lg bg-muted/50">
                         <div>
                           <div className="font-medium">{stock.symbol}</div>
@@ -252,7 +252,7 @@ export function BrokingDashboard() {
               <CardContent>
                 {nseLosers?.data ? (
                   <div className="space-y-2">
-                    {nseLosers.data.slice(0, 5).map((stock: any, index: number) => (
+                    {(nseLosers as any).data.slice(0, 5).map((stock: any, index: number) => (
                       <div key={index} className="flex justify-between items-center p-2 rounded-lg bg-muted/50">
                         <div>
                           <div className="font-medium">{stock.symbol}</div>
@@ -302,22 +302,22 @@ export function BrokingDashboard() {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <div className="text-sm text-muted-foreground">Symbol</div>
-                        <div className="font-medium">{stockQuote.data.symbol}</div>
+                        <div className="font-medium">{(stockQuote as any).data.symbol}</div>
                       </div>
                       <div>
                         <div className="text-sm text-muted-foreground">Price</div>
-                        <div className="font-medium">{formatCurrency(stockQuote.data.price)}</div>
+                        <div className="font-medium">{formatCurrency((stockQuote as any).data.price)}</div>
                       </div>
                       <div>
                         <div className="text-sm text-muted-foreground">Change</div>
-                        <div className={`font-medium ${getChangeColor(stockQuote.data.change)}`}>
-                          {stockQuote.data.change >= 0 ? '+' : ''}{formatCurrency(stockQuote.data.change)}
+                        <div className={`font-medium ${getChangeColor((stockQuote as any).data.change)}`}>
+                          {(stockQuote as any).data.change >= 0 ? '+' : ''}{formatCurrency((stockQuote as any).data.change)}
                         </div>
                       </div>
                       <div>
                         <div className="text-sm text-muted-foreground">Change %</div>
-                        <div className={`font-medium ${getChangeColor(stockQuote.data.percentChange)}`}>
-                          {stockQuote.data.percentChange >= 0 ? '+' : ''}{stockQuote.data.percentChange?.toFixed(2)}%
+                        <div className={`font-medium ${getChangeColor((stockQuote as any).data.percentChange)}`}>
+                          {(stockQuote as any).data.percentChange >= 0 ? '+' : ''}{(stockQuote as any).data.percentChange?.toFixed(2)}%
                         </div>
                       </div>
                     </div>
@@ -439,7 +439,7 @@ export function BrokingDashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {nseIndices.data.slice(0, 10).map((index: any, i: number) => (
+                    {(nseIndices as any).data.slice(0, 10).map((index: any, i: number) => (
                       <TableRow key={i}>
                         <TableCell className="font-medium">{index.symbol}</TableCell>
                         <TableCell>{formatCurrency(index.ltp)}</TableCell>
@@ -482,7 +482,7 @@ export function BrokingDashboard() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {mcxCommodities.data.slice(0, 8).map((commodity: any, i: number) => (
+                      {(mcxCommodities as any).data.slice(0, 8).map((commodity: any, i: number) => (
                         <TableRow key={i}>
                           <TableCell className="font-medium">{commodity.symbol}</TableCell>
                           <TableCell>{formatCurrency(commodity.price)}</TableCell>
@@ -518,7 +518,7 @@ export function BrokingDashboard() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {ncdexCommodities.data.slice(0, 8).map((commodity: any, i: number) => (
+                      {(ncdexCommodities as any).data.slice(0, 8).map((commodity: any, i: number) => (
                         <TableRow key={i}>
                           <TableCell className="font-medium">{commodity.symbol}</TableCell>
                           <TableCell>{formatCurrency(commodity.price)}</TableCell>

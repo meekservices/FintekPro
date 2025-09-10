@@ -50,6 +50,7 @@ import DigiLockerPage from "@/pages/DigiLockerPage";
 import LoanApplication from "@/pages/loan-application";
 import LoanDashboard from "@/pages/loan-dashboard";
 import ProposalsPage from "@/pages/proposals";
+import BrokingPage from "@/pages/broking";
 
 function UserProtectedRoutes() {
   return (
@@ -58,6 +59,7 @@ function UserProtectedRoutes() {
         <Route path="/" component={Home} />
         <Route path="/dashboard" component={Home} />
         <Route path="/portfolio" component={Portfolio} />
+        <Route path="/broking" component={BrokingPage} />
         <Route path="/markets" component={Markets} />
         <Route path="/ipo" component={IPO} />
         <Route path="/pre-ipo" component={PreIPO} />
