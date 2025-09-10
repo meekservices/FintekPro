@@ -952,23 +952,110 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getClientAgentRelationships(clientId?: string, agentId?: string): Promise<ClientAgentRelationship[]> {
-    return [];
+    try {
+      console.log('getClientAgentRelationships called with:', { clientId, agentId });
+      
+      // Start with a simple select to test
+      const basicResults = await db.select().from(schema.clientAgentRelationships);
+      console.log('Basic relationships query returned:', basicResults.length, 'records');
+      
+      if (basicResults.length === 0) {
+        console.log('No records found in client_agent_relationships table');
+        return [];
+      }
+
+      // Get user data for clients and agents
+      const clientIds = [...new Set(basicResults.map(r => r.clientId))];
+      const agentIds = [...new Set(basicResults.map(r => r.agentId))];
+      const allUserIds = [...new Set([...clientIds, ...agentIds])];
+      
+      const users = await db.select({
+        id: schema.users.id,
+        firstName: schema.users.firstName,
+        lastName: schema.users.lastName,
+        email: schema.users.email
+      }).from(schema.users).where(sql`${schema.users.id} = ANY(${allUserIds})`);
+      
+      const userMap = new Map(users.map(u => [u.id, u]));
+      
+      const enrichedResults = basicResults.map(record => {
+        const client = userMap.get(record.clientId);
+        const agent = userMap.get(record.agentId);
+        
+        return {
+          ...record,
+          clientFirstName: client?.firstName || 'Unknown',
+          clientLastName: client?.lastName || 'Client',
+          clientEmail: client?.email || 'client@example.com',
+          agentFirstName: agent?.firstName || 'Unknown',
+          agentLastName: agent?.lastName || 'Agent', 
+          agentEmail: agent?.email || 'agent@example.com'
+        };
+      });
+
+      console.log('Returning enriched results:', enrichedResults.length, 'records');
+      return enrichedResults as ClientAgentRelationship[];
+    } catch (error) {
+      console.error('Error fetching client-agent relationships:', error);
+      throw error;
+    }
   }
 
   async getClientAgentRelationship(clientId: string, agentId: string): Promise<ClientAgentRelationship | undefined> {
-    return undefined;
+    try {
+      const result = await db.select()
+        .from(schema.clientAgentRelationships)
+        .where(and(
+          eq(schema.clientAgentRelationships.clientId, clientId),
+          eq(schema.clientAgentRelationships.agentId, agentId)
+        ))
+        .limit(1);
+      
+      return result[0] || undefined;
+    } catch (error) {
+      console.error('Error fetching client-agent relationship:', error);
+      throw error;
+    }
   }
 
   async createClientAgentRelationship(relationship: InsertClientAgentRelationship): Promise<ClientAgentRelationship> {
-    throw new Error("Method not implemented");
+    try {
+      const result = await db.insert(schema.clientAgentRelationships)
+        .values(relationship)
+        .returning();
+      
+      return result[0] as ClientAgentRelationship;
+    } catch (error) {
+      console.error('Error creating client-agent relationship:', error);
+      throw error;
+    }
   }
 
   async updateClientAgentRelationship(id: string, updates: Partial<ClientAgentRelationship>): Promise<ClientAgentRelationship | undefined> {
-    return undefined;
+    try {
+      const result = await db.update(schema.clientAgentRelationships)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(schema.clientAgentRelationships.id, id))
+        .returning();
+      
+      return result[0] || undefined;
+    } catch (error) {
+      console.error('Error updating client-agent relationship:', error);
+      throw error;
+    }
   }
 
   async deleteClientAgentRelationship(id: string): Promise<boolean> {
-    return false;
+    try {
+      const result = await db.delete(schema.clientAgentRelationships)
+        .where(eq(schema.clientAgentRelationships.id, id))
+        .returning();
+      
+      return result.length > 0;
+    } catch (error) {
+      console.error('Error deleting client-agent relationship:', error);
+      throw error;
+    }
   }
 
   async getAgentForClient(clientId: string, relationshipType?: string): Promise<ClientAgentRelationship | undefined> {

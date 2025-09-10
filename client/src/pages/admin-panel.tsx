@@ -2172,6 +2172,18 @@ export default function AdminPanel() {
     refetchInterval: 60000, // Refresh every minute
   });
 
+  // Fetch client-agent relationships data
+  const { data: relationshipsData = [], isLoading: relationshipsLoading } = useQuery({
+    queryKey: ['/api/admin/client-agent-relationships'],
+    refetchInterval: 60000, // Refresh every minute
+  });
+
+  // Fetch relationships statistics
+  const { data: relationshipsStats = {}, isLoading: statsLoading } = useQuery({
+    queryKey: ['/api/admin/client-agent-relationships/stats'],
+    refetchInterval: 60000, // Refresh every minute
+  });
+
   // Fetch clients with filtering
   const { data: clientsData, isLoading: clientsLoading } = useQuery({
     queryKey: ["/api/admin/users", { searchTerm, role: roleFilter, isActive: statusFilter }],
@@ -4904,7 +4916,9 @@ export default function AdminPanel() {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-green-600 dark:text-green-400">Active Relationships</p>
-                      <p className="text-2xl font-bold text-green-800 dark:text-green-200">24</p>
+                      <p className="text-2xl font-bold text-green-800 dark:text-green-200">
+                        {statsLoading ? "..." : (relationshipsStats.activeRelationships || 0)}
+                      </p>
                     </div>
                   </div>
                 </CardContent>
@@ -4918,7 +4932,9 @@ export default function AdminPanel() {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-blue-600 dark:text-blue-400">Unique Agents</p>
-                      <p className="text-2xl font-bold text-blue-800 dark:text-blue-200">8</p>
+                      <p className="text-2xl font-bold text-blue-800 dark:text-blue-200">
+                        {statsLoading ? "..." : (relationshipsStats.uniqueAgents || 0)}
+                      </p>
                     </div>
                   </div>
                 </CardContent>
@@ -4932,7 +4948,9 @@ export default function AdminPanel() {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-purple-600 dark:text-purple-400">Auto-Populated APIs</p>
-                      <p className="text-2xl font-bold text-purple-800 dark:text-purple-200">156</p>
+                      <p className="text-2xl font-bold text-purple-800 dark:text-purple-200">
+                        {statsLoading ? "..." : (relationshipsStats.autoPopulatedApis || 0)}
+                      </p>
                     </div>
                   </div>
                 </CardContent>
@@ -4987,106 +5005,77 @@ export default function AdminPanel() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {[
-                      {
-                        id: "1",
-                        clientName: "John Doe",
-                        clientEmail: "john.doe@example.com",
-                        agentName: "Agent Smith",
-                        agentCode: "AS001",
-                        euinNumber: "EUIN1234567890",
-                        arnCode: "ARN-98765",
-                        relationshipType: "primary",
-                        autoPopulateEuin: true,
-                        autoPopulateArn: true,
-                        isActive: true
-                      },
-                      {
-                        id: "2",
-                        clientName: "Sarah Johnson",
-                        clientEmail: "sarah.j@example.com",
-                        agentName: "Agent Brown",
-                        agentCode: "AB002",
-                        euinNumber: "EUIN2345678901",
-                        arnCode: "ARN-87654",
-                        relationshipType: "secondary",
-                        autoPopulateEuin: true,
-                        autoPopulateArn: false,
-                        isActive: true
-                      },
-                      {
-                        id: "3",
-                        clientName: "Mike Wilson",
-                        clientEmail: "mike.w@example.com",
-                        agentName: "Agent Davis",
-                        agentCode: "AD003",
-                        euinNumber: "EUIN3456789012",
-                        arnCode: "ARN-76543",
-                        relationshipType: "primary",
-                        autoPopulateEuin: false,
-                        autoPopulateArn: true,
-                        isActive: false
-                      }
-                    ].map((relationship) => (
-                      <TableRow key={relationship.id} data-testid={`row-relationship-${relationship.id}`}>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium text-slate-900 dark:text-white">{relationship.clientName}</p>
-                            <p className="text-sm text-slate-500 dark:text-slate-400">{relationship.clientEmail}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium text-slate-900 dark:text-white">{relationship.agentName}</p>
-                            <p className="text-sm text-slate-500 dark:text-slate-400">{relationship.agentCode}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <code className="bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded text-sm">
-                            {relationship.euinNumber}
-                          </code>
-                        </TableCell>
-                        <TableCell>
-                          <code className="bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded text-sm">
-                            {relationship.arnCode}
-                          </code>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={
-                            relationship.relationshipType === 'primary' ? 'bg-blue-100 text-blue-800' :
-                            relationship.relationshipType === 'secondary' ? 'bg-green-100 text-green-800' :
-                            'bg-gray-100 text-gray-800'
-                          }>
-                            {relationship.relationshipType}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-2">
-                            <Badge className={relationship.autoPopulateEuin ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
-                              EUIN: {relationship.autoPopulateEuin ? 'ON' : 'OFF'}
-                            </Badge>
-                            <Badge className={relationship.autoPopulateArn ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
-                              ARN: {relationship.autoPopulateArn ? 'ON' : 'OFF'}
-                            </Badge>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={relationship.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
-                            {relationship.isActive ? 'Active' : 'Inactive'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-2">
-                            <Button size="sm" variant="outline" data-testid={`button-edit-relationship-${relationship.id}`}>
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button size="sm" variant="outline" data-testid={`button-delete-relationship-${relationship.id}`}>
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
+                    {relationshipsLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-4">
+                          <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                          <div className="mt-2">Loading relationships...</div>
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ) : relationshipsData.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-4 text-muted-foreground">
+                          No relationships found
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      relationshipsData.map((relationship: any, index: number) => (
+                        <TableRow key={relationship.id} data-testid={`relationship-row-${index + 1}`}>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">{relationship.clientFirstName} {relationship.clientLastName}</div>
+                              <div className="text-sm text-muted-foreground">{relationship.clientEmail}</div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">{relationship.agentFirstName} {relationship.agentLastName}</div>
+                              <div className="text-sm text-muted-foreground">{relationship.agentEmail}</div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <code className="text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
+                              {relationship.euinNumber}
+                            </code>
+                          </TableCell>
+                          <TableCell>
+                            <code className="text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
+                              {relationship.arnCode || 'N/A'}
+                            </code>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={relationship.relationshipType === 'primary' ? 'default' : 'secondary'}>
+                              {relationship.relationshipType}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex space-x-2">
+                              <Badge className={relationship.autoPopulateEuin ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
+                                EUIN: {relationship.autoPopulateEuin ? 'On' : 'Off'}
+                              </Badge>
+                              <Badge className={relationship.autoPopulateArn ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
+                                ARN: {relationship.autoPopulateArn ? 'On' : 'Off'}
+                              </Badge>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={relationship.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                              {relationship.isActive ? 'Active' : 'Inactive'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex space-x-2">
+                              <Button variant="outline" size="sm" data-testid={`button-edit-relationship-${index + 1}`}>
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button variant="outline" size="sm" data-testid={`button-delete-relationship-${index + 1}`}>
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </CardContent>

@@ -13336,6 +13336,35 @@ System Security Data:`;
     }
   });
 
+  // Get client-agent relationships statistics
+  app.get("/api/admin/client-agent-relationships/stats", requireAdmin, async (req, res) => {
+    try {
+      // Get stats using raw SQL for efficiency
+      const statsResult = await db.execute(sql`
+        SELECT 
+          COUNT(*) as total_relationships,
+          COUNT(CASE WHEN is_active = true THEN 1 END) as active_relationships,
+          COUNT(DISTINCT client_id) as unique_clients,
+          COUNT(DISTINCT agent_id) as unique_agents,
+          SUM(CASE WHEN auto_populate_euin OR auto_populate_arn THEN 1 ELSE 0 END) as auto_populated_apis
+        FROM client_agent_relationships
+      `);
+      
+      const stats = statsResult.rows[0] || {};
+      
+      res.json({
+        totalRelationships: Number(stats.total_relationships || 0),
+        activeRelationships: Number(stats.active_relationships || 0),
+        uniqueClients: Number(stats.unique_clients || 0),
+        uniqueAgents: Number(stats.unique_agents || 0),
+        autoPopulatedApis: Number(stats.auto_populated_apis || 0)
+      });
+    } catch (error) {
+      console.error("Error fetching client-agent relationship stats:", error);
+      res.status(500).json({ error: "Failed to fetch relationship stats" });
+    }
+  });
+
   // Create client-agent relationship
   app.post("/api/admin/client-agent-relationships", requireAdmin, async (req, res) => {
     try {
