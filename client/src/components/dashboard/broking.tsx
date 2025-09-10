@@ -158,7 +158,7 @@ export function BrokingDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {nseIndices?.data ? nseIndices.data.length : 0}
+                  {(nseIndices as any)?.data?.length || 0}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Live indices available
@@ -173,7 +173,7 @@ export function BrokingDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {bseIndices?.data ? bseIndices.data.length : 0}
+                  {(bseIndices as any)?.data?.length || 0}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   BSE indices tracking
@@ -188,7 +188,7 @@ export function BrokingDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {mcxCommodities?.data ? mcxCommodities.data.length : 0}
+                  {(mcxCommodities as any)?.data?.length || 0}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Commodities available
@@ -203,7 +203,7 @@ export function BrokingDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {ncdexCommodities?.data ? ncdexCommodities.data.length : 0}
+                  {(ncdexCommodities as any)?.data?.length || 0}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Agricultural commodities
@@ -221,7 +221,7 @@ export function BrokingDashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {nseGainers?.data ? (
+                {(nseGainers as any)?.data ? (
                   <div className="space-y-2">
                     {(nseGainers as any).data.slice(0, 5).map((stock: any, index: number) => (
                       <div key={index} className="flex justify-between items-center p-2 rounded-lg bg-muted/50">
@@ -250,7 +250,7 @@ export function BrokingDashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {nseLosers?.data ? (
+                {(nseLosers as any)?.data ? (
                   <div className="space-y-2">
                     {(nseLosers as any).data.slice(0, 5).map((stock: any, index: number) => (
                       <div key={index} className="flex justify-between items-center p-2 rounded-lg bg-muted/50">
@@ -427,7 +427,7 @@ export function BrokingDashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {nseIndices?.data ? (
+              {(nseIndices as any)?.data ? (
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -472,7 +472,7 @@ export function BrokingDashboard() {
                 <CardDescription>Multi Commodity Exchange live prices</CardDescription>
               </CardHeader>
               <CardContent>
-                {mcxCommodities?.data ? (
+                {(mcxCommodities as any)?.data ? (
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -508,7 +508,7 @@ export function BrokingDashboard() {
                 <CardDescription>Agricultural commodities from NCDEX</CardDescription>
               </CardHeader>
               <CardContent>
-                {ncdexCommodities?.data ? (
+                {(ncdexCommodities as any)?.data ? (
                   <Table>
                     <TableHeader>
                       <TableRow>
