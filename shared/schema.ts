@@ -906,7 +906,7 @@ export const ibTradingSessions = pgTable("ib_trading_sessions", {
 
 // Partner Portal Tables
 
-// Customer Care Agents table
+// Agents table
 export const customerCareAgents = pgTable("customer_care_agents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   // Agent details

@@ -2525,10 +2525,10 @@ export default function AdminPanel() {
                 value="agents" 
                 data-testid="tab-agents"
                 className={`w-full ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start px-3'} py-3 rounded-xl transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-yellow-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-amber-200 dark:data-[state=active]:shadow-amber-900/50`}
-                title={sidebarCollapsed ? "Care Agents" : undefined}
+                title={sidebarCollapsed ? "Agents" : undefined}
               >
                 <Users className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
-                {!sidebarCollapsed && <span className="font-medium">Care Agents</span>}
+                {!sidebarCollapsed && <span className="font-medium">Agents</span>}
               </TabsTrigger>
               <TabsTrigger 
                 value="marketing" 
@@ -3935,7 +3935,7 @@ export default function AdminPanel() {
           </Card>
         </TabsContent>
 
-        {/* Customer Care Agents Tab */}
+        {/* Agents Tab */}
         <TabsContent value="agents" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Agent Statistics */}
@@ -4021,7 +4021,7 @@ export default function AdminPanel() {
           {/* Agents Management Table */}
           <Card data-testid="card-agents-table">
             <CardHeader>
-              <CardTitle>Customer Care Agents</CardTitle>
+              <CardTitle>Agents</CardTitle>
               <CardDescription>Manage support agents and their partner assignments</CardDescription>
             </CardHeader>
             <CardContent>

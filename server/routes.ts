@@ -12613,7 +12613,7 @@ System Security Data:`;
       { name: 'Admin API Status', url: '/api/admin/api-status', category: 'Admin APIs', internal: true },
       { name: 'Admin AI Analysis', url: '/api/admin/ai-analysis', category: 'Admin APIs', internal: true },
       { name: 'Admin System Errors', url: '/api/admin/system-errors', category: 'Admin APIs', internal: true },
-      { name: 'Customer Care Agents', url: '/api/admin/agents', category: 'Admin APIs', internal: true },
+      { name: 'Agents', url: '/api/admin/agents', category: 'Admin APIs', internal: true },
       
       // Database & Storage
       { name: 'PostgreSQL Database', url: process.env.DATABASE_URL || 'postgresql://localhost', category: 'Database', internal: true },
@@ -13189,7 +13189,7 @@ System Security Data:`;
 
   // ============ CUSTOMER CARE AGENT ROUTES ============
   
-  // Get all customer care agents
+  // Get all agents
   app.get("/api/admin/agents", requireAdmin, async (req, res) => {
     try {
       const agents = await storage.getAllCustomerCareAgents();
@@ -13205,7 +13205,7 @@ System Security Data:`;
       
       res.json(agentsWithMappings);
     } catch (error) {
-      console.error("Error fetching customer care agents:", error);
+      console.error("Error fetching agents:", error);
       res.status(500).json({ error: "Failed to fetch agents" });
     }
   });
