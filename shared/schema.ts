@@ -287,8 +287,7 @@ export const userDematAccounts = pgTable("user_demat_accounts", {
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: varchar("email").unique(),
-  mobile: varchar("mobile").unique(),
-  phoneNumber: varchar("phone_number").unique(), // WhatsApp phone number
+  mobile: varchar("mobile").unique(), // Phone number for WhatsApp and authentication
   password: text("password").notNull(),
   firstName: varchar("first_name"),
   middleName: varchar("middle_name"),
