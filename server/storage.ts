@@ -888,6 +888,13 @@ export class DatabaseStorage implements IStorage {
     return [];
   }
 
+  // General Notification Triggers method implementation
+  async getNotificationTriggers(agentId?: string, status?: string): Promise<any[]> {
+    // Return empty array for now - this method is called by agent notifications API
+    // In a full implementation, this would query a notification_triggers table
+    return [];
+  }
+
   async getClientAgentRelationships(clientId?: string, agentId?: string): Promise<ClientAgentRelationship[]> {
     return [];
   }
