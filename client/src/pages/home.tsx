@@ -43,14 +43,42 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Home() {
   const [activeFeature, setActiveFeature] = useState(0);
   
   // Get authenticated user data
-  const { data: user } = useQuery({ queryKey: ["/api/user"], retry: false });
-  const userId = (user as any)?.id || "demo-user-1";
+  const { user, isAuthenticated } = useAuth();
+  const { data: fallbackUser } = useQuery({ queryKey: ["/api/user"], retry: false });
+  const currentUser = user || fallbackUser;
+  const userId = (currentUser as any)?.id || "demo-user-1";
   const portfolioId = `portfolio-${userId}`;
+  
+  // Get greeting based on time of day
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good Morning";
+    if (hour < 17) return "Good Afternoon";
+    return "Good Evening";
+  };
+  
+  // Get user's display name
+  const getUserDisplayName = () => {
+    if (!currentUser) return null;
+    const firstName = currentUser.firstName;
+    const lastName = currentUser.lastName;
+    const email = currentUser.email;
+    
+    if (firstName && lastName) {
+      return `${firstName} ${lastName}`;
+    } else if (firstName) {
+      return firstName;
+    } else if (email) {
+      return email.split('@')[0]; // Use email username part
+    }
+    return "Client";
+  };
   
   // Fetch real-time portfolio value
   const { data: portfolios } = useQuery({
@@ -222,6 +250,18 @@ export default function Home() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
               {/* Left side - Content */}
               <div className="space-y-8">
+                {/* Personalized Greeting */}
+                {isAuthenticated && currentUser && (
+                  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20" data-testid="user-greeting">
+                    <p className="text-lg text-blue-100">
+                      {getGreeting()}, <span className="font-semibold text-yellow-400">{getUserDisplayName()}</span>! 👋
+                    </p>
+                    <p className="text-sm text-blue-200 mt-1">
+                      Welcome back to your financial dashboard
+                    </p>
+                  </div>
+                )}
+                
                 <div className="space-y-4">
                   <Badge className="bg-yellow-500 text-yellow-900 text-sm px-4 py-2 font-semibold">
                     🚀 India's #1 Fintech Platform
