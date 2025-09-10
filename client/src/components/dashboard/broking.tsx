@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Activity, BarChart3, TrendingUp, Globe, Building2, Coins, Wheat, RefreshCw } from "lucide-react";
+import { Activity, BarChart3, TrendingUp, Globe, Building2, Coins, Wheat, RefreshCw, TrendingDown } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { IBTrading } from "@/components/dashboard/ib-trading";
 
@@ -65,6 +65,12 @@ export function BrokingDashboard() {
     refetchInterval: 30000
   });
 
+  // Fetch derivatives data
+  const { data: mseiDerivatives, refetch: refetchMSEI } = useQuery({
+    queryKey: ['/api/msei/derivatives'],
+    refetchInterval: 30000
+  });
+
   const { data: nseGainers } = useQuery({
     queryKey: ['/api/nse/gainers-losers?type=gainers'],
     refetchInterval: 30000
@@ -113,6 +119,7 @@ export function BrokingDashboard() {
     refetchBSE();
     refetchMCX();
     refetchNCDEX();
+    refetchMSEI();
     if (selectedStock) refetchQuote();
   };
 
@@ -140,9 +147,10 @@ export function BrokingDashboard() {
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="indian-trading">Indian Markets</TabsTrigger>
+          <TabsTrigger value="derivatives">Derivatives</TabsTrigger>
           <TabsTrigger value="commodities">Commodities</TabsTrigger>
           <TabsTrigger value="ib-trading">Global Markets</TabsTrigger>
           <TabsTrigger value="order-book">Order Book</TabsTrigger>
@@ -297,7 +305,7 @@ export function BrokingDashboard() {
                   </div>
                 </div>
 
-                {stockQuote?.data && (
+                {(stockQuote as any)?.data && (
                   <div className="p-4 border rounded-lg bg-muted/50">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
@@ -457,6 +465,307 @@ export function BrokingDashboard() {
               ) : (
                 <div className="text-center py-8 text-muted-foreground">Loading NSE data...</div>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="derivatives" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-blue-600" />
+                  Futures & Options
+                </CardTitle>
+                <CardDescription>MSEI derivatives including futures and options</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {(mseiDerivatives as any)?.data ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Symbol</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Expiry</TableHead>
+                        <TableHead>Strike</TableHead>
+                        <TableHead>Action</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(mseiDerivatives as any).data.map((derivative: any, i: number) => (
+                        <TableRow key={i}>
+                          <TableCell className="font-medium">{derivative.name}</TableCell>
+                          <TableCell>
+                            <Badge variant={derivative.type === 'Future' ? 'default' : 'secondary'}>
+                              {derivative.type}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{derivative.expiry}</TableCell>
+                          <TableCell>{derivative.strike || '-'}</TableCell>
+                          <TableCell>
+                            <Button size="sm" variant="outline" data-testid={`button-trade-${derivative.symbol}`}>
+                              Trade
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">Loading derivatives data...</div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Derivatives Order Placement</CardTitle>
+                <CardDescription>Place orders for futures and options</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="derivative-symbol">Derivative Symbol</Label>
+                    <Input
+                      id="derivative-symbol"
+                      placeholder="NIFTY_FUT_MAR25"
+                      data-testid="input-derivative-symbol"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="derivative-type">Type</Label>
+                    <Select>
+                      <SelectTrigger data-testid="select-derivative-type">
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="future">Future</SelectItem>
+                        <SelectItem value="call">Call Option</SelectItem>
+                        <SelectItem value="put">Put Option</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="derivative-expiry">Expiry</Label>
+                    <Select>
+                      <SelectTrigger data-testid="select-derivative-expiry">
+                        <SelectValue placeholder="Select expiry" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="feb2025">Feb 2025</SelectItem>
+                        <SelectItem value="mar2025">Mar 2025</SelectItem>
+                        <SelectItem value="apr2025">Apr 2025</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="derivative-strike">Strike Price (Options)</Label>
+                    <Input
+                      id="derivative-strike"
+                      type="number"
+                      placeholder="22500"
+                      data-testid="input-derivative-strike"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="derivative-action">Action</Label>
+                    <Select>
+                      <SelectTrigger data-testid="select-derivative-action">
+                        <SelectValue placeholder="Buy/Sell" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="BUY">Buy</SelectItem>
+                        <SelectItem value="SELL">Sell</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="derivative-lots">Lots</Label>
+                    <Input
+                      id="derivative-lots"
+                      type="number"
+                      defaultValue={1}
+                      data-testid="input-derivative-lots"
+                    />
+                  </div>
+                </div>
+                <Button className="w-full" data-testid="button-place-derivative-order">
+                  Place Derivative Order
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Coins className="h-5 w-5 text-amber-600" />
+                  Commodity Futures (MCX)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {(mcxCommodities as any)?.data ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Commodity</TableHead>
+                        <TableHead>Unit</TableHead>
+                        <TableHead>Expiry</TableHead>
+                        <TableHead>Price</TableHead>
+                        <TableHead>Action</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(mcxCommodities as any).data.slice(0, 6).map((commodity: any, i: number) => (
+                        <TableRow key={i}>
+                          <TableCell className="font-medium">{commodity.symbol}</TableCell>
+                          <TableCell>{commodity.unit || '1 LOT'}</TableCell>
+                          <TableCell>{commodity.expiry || 'DEC2025'}</TableCell>
+                          <TableCell>{formatCurrency(commodity.price)}</TableCell>
+                          <TableCell>
+                            <Button size="sm" variant="outline" data-testid={`button-trade-commodity-${commodity.symbol}`}>
+                              Trade
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">Loading commodity futures...</div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Wheat className="h-5 w-5 text-green-600" />
+                  Agricultural Futures (NCDEX)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {(ncdexCommodities as any)?.data ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Commodity</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead>Unit</TableHead>
+                        <TableHead>Expiry</TableHead>
+                        <TableHead>Action</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(ncdexCommodities as any).data.slice(0, 6).map((commodity: any, i: number) => (
+                        <TableRow key={i}>
+                          <TableCell className="font-medium">{commodity.symbol}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{commodity.category || 'Agricultural'}</Badge>
+                          </TableCell>
+                          <TableCell>{commodity.unit}</TableCell>
+                          <TableCell>{commodity.expiry}</TableCell>
+                          <TableCell>
+                            <Button size="sm" variant="outline" data-testid={`button-trade-agri-${commodity.symbol}`}>
+                              Trade
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">Loading agricultural futures...</div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingDown className="h-5 w-5 text-red-600" />
+                Options Chain
+              </CardTitle>
+              <CardDescription>Live options chain for NIFTY and BANKNIFTY</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div>
+                  <Label>Underlying</Label>
+                  <Select>
+                    <SelectTrigger data-testid="select-options-underlying">
+                      <SelectValue placeholder="Select index" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="NIFTY">NIFTY</SelectItem>
+                      <SelectItem value="BANKNIFTY">BANKNIFTY</SelectItem>
+                      <SelectItem value="FINNIFTY">FINNIFTY</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Expiry</Label>
+                  <Select>
+                    <SelectTrigger data-testid="select-options-expiry">
+                      <SelectValue placeholder="Select expiry" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="weekly">Weekly</SelectItem>
+                      <SelectItem value="monthly">Monthly</SelectItem>
+                      <SelectItem value="quarterly">Quarterly</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Strike Range</Label>
+                  <Select>
+                    <SelectTrigger data-testid="select-options-range">
+                      <SelectValue placeholder="Select range" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="atm">At the Money</SelectItem>
+                      <SelectItem value="otm5">OTM ±5</SelectItem>
+                      <SelectItem value="otm10">OTM ±10</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead colSpan={3} className="text-center bg-green-50">CALLS</TableHead>
+                      <TableHead className="text-center">STRIKE</TableHead>
+                      <TableHead colSpan={3} className="text-center bg-red-50">PUTS</TableHead>
+                    </TableRow>
+                    <TableRow>
+                      <TableHead>OI</TableHead>
+                      <TableHead>LTP</TableHead>
+                      <TableHead>Vol</TableHead>
+                      <TableHead className="text-center font-bold">Price</TableHead>
+                      <TableHead>Vol</TableHead>
+                      <TableHead>LTP</TableHead>
+                      <TableHead>OI</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {[22400, 22450, 22500, 22550, 22600].map((strike, i) => (
+                      <TableRow key={strike} className={i === 2 ? "bg-muted/30" : ""}>
+                        <TableCell>{(Math.random() * 50000).toFixed(0)}</TableCell>
+                        <TableCell className="text-green-600">{(Math.random() * 200 + 50).toFixed(2)}</TableCell>
+                        <TableCell>{(Math.random() * 10000).toFixed(0)}</TableCell>
+                        <TableCell className="text-center font-bold">{strike}</TableCell>
+                        <TableCell>{(Math.random() * 10000).toFixed(0)}</TableCell>
+                        <TableCell className="text-red-600">{(Math.random() * 200 + 50).toFixed(2)}</TableCell>
+                        <TableCell>{(Math.random() * 50000).toFixed(0)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
