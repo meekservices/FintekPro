@@ -181,7 +181,7 @@ export interface IStorage {
 
   // CKYC Progress Monitoring methods - temporarily commented due to schema inconsistencies
   // createCkycNotificationTrigger(trigger: InsertCkycNotificationTrigger): Promise<CkycNotificationTrigger>;
-  // getCkycNotificationTriggers(ckycRecordId?: string, status?: string): Promise<CkycNotificationTrigger[]>;
+  getCkycNotificationTriggers(ckycRecordId?: string, status?: string): Promise<any[]>;
   // updateCkycNotificationStatus(id: string, status: string, sentAt?: Date, failureReason?: string): Promise<CkycNotificationTrigger | undefined>;
 
   // CKYC Progress Steps methods - temporarily commented due to schema inconsistencies
@@ -879,6 +879,13 @@ export class DatabaseStorage implements IStorage {
 
   async addCkycStatusHistory(history: InsertCkycStatusHistory): Promise<CkycStatusHistory> {
     throw new Error("Method not implemented");
+  }
+
+  // CKYC Notification Triggers method implementation
+  async getCkycNotificationTriggers(ckycRecordId?: string, status?: string): Promise<any[]> {
+    // Return empty array for now - this method is called by notification service
+    // In a full implementation, this would query a notification_triggers table
+    return [];
   }
 
   async getClientAgentRelationships(clientId?: string, agentId?: string): Promise<ClientAgentRelationship[]> {

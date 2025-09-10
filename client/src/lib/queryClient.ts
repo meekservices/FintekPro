@@ -10,12 +10,17 @@ async function throwIfResNotOk(res: Response) {
 export async function apiRequest(
   method: string,
   url: string,
-  data?: unknown | undefined,
+  options?: { body?: unknown; headers?: Record<string, string> }
 ): Promise<Response> {
+  const { body, headers = {} } = options || {};
+  
+  // Don't send body for GET requests
+  const shouldSendBody = method !== "GET" && body !== undefined;
+  
   const res = await fetch(url, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
+    headers: shouldSendBody ? { "Content-Type": "application/json", ...headers } : headers,
+    body: shouldSendBody ? JSON.stringify(body) : undefined,
     credentials: "include",
   });
 
