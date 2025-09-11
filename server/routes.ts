@@ -16424,7 +16424,7 @@ System Security Data:`;
   app.get("/api/agent/profile", requireAgent, async (req, res) => {
     try {
 
-      // Get agent details from the agents table  
+      // Get agent details from the customer care agents table  
       const agents = await storage.getAgents();
       const agent = agents.find(a => a.employeeId === req.user.id);
 
@@ -16432,7 +16432,21 @@ System Security Data:`;
         return res.status(404).json({ error: "Agent profile not found" });
       }
 
-      res.json(agent);
+      // Return data in the format expected by frontend
+      const agentProfile = {
+        id: agent.id,
+        fullName: agent.fullName || `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim(),
+        email: agent.email || req.user.email,
+        employeeId: agent.employeeId,
+        euinNumber: agent.euinNumber,
+        arnCode: agent.arnCode,
+        distributorId: agent.distributorId,
+        specializations: agent.specializations || [],
+        languages: agent.languages || ['en'],
+        status: agent.status || 'active'
+      };
+
+      res.json(agentProfile);
     } catch (error) {
       console.error("Error fetching agent profile:", error);
       res.status(500).json({ error: "Failed to fetch agent profile" });

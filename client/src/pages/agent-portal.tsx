@@ -1,6 +1,10 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import type { AgentProfile, AgentStats, AgentPartner } from "@shared/schema";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { 
@@ -38,6 +43,34 @@ import {
   Info
 } from "lucide-react";
 
+// Form validation schemas
+const partnerFormSchema = z.object({
+  companyName: z.string().min(1, "Company name is required"),
+  contactEmail: z.string().email("Valid email is required"),
+  contactPhone: z.string().min(1, "Phone number is required"),
+  address: z.string().optional(),
+  website: z.string().url("Valid URL required").optional().or(z.literal("")),
+  partnerType: z.enum(["product_provider", "service_provider", "both"]),
+  businessLicense: z.string().optional(),
+  taxId: z.string().optional(),
+  euinNumber: z.string().optional(),
+  arnCode: z.string().optional(),
+  hasEuinArn: z.boolean().default(false)
+});
+
+const clientFormSchema = z.object({
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+  email: z.string().email("Valid email is required"),
+  mobile: z.string().min(10, "Valid mobile number is required"),
+  panNumber: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Valid PAN number is required"),
+  assignedAgent: z.string().optional(),
+  masterAgentEuin: z.string().optional()
+});
+
+type PartnerFormData = z.infer<typeof partnerFormSchema>;
+type ClientFormData = z.infer<typeof clientFormSchema>;
+
 export default function AgentPortal() {
   const { toast } = useToast();
   
@@ -49,77 +82,76 @@ export default function AgentPortal() {
   const [selectedClient, setSelectedClient] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
   
-  // Form states
-  const [partnerForm, setPartnerForm] = useState({
-    companyName: "",
-    contactEmail: "",
-    contactPhone: "",
-    address: "",
-    website: "",
-    partnerType: "product_provider",
-    businessLicense: "",
-    taxId: "",
-    euinNumber: "",
-    arnCode: "",
-    hasEuinArn: false
+  // Form management using react-hook-form + Zod
+  const partnerForm = useForm<PartnerFormData>({
+    resolver: zodResolver(partnerFormSchema),
+    defaultValues: {
+      companyName: "",
+      contactEmail: "",
+      contactPhone: "",
+      address: "",
+      website: "",
+      partnerType: "product_provider",
+      businessLicense: "",
+      taxId: "",
+      euinNumber: "",
+      arnCode: "",
+      hasEuinArn: false
+    }
   });
   
-  const [clientForm, setClientForm] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    mobile: "",
-    panNumber: "",
-    assignedAgent: "",
-    masterAgentEuin: ""
+  const clientForm = useForm<ClientFormData>({
+    resolver: zodResolver(clientFormSchema),
+    defaultValues: {
+      firstName: "",
+      lastName: "",
+      email: "",
+      mobile: "",
+      panNumber: "",
+      assignedAgent: "",
+      masterAgentEuin: ""
+    }
   });
 
   // Fetch agent profile and data
-  const { data: agentProfile } = useQuery({
+  const { data: agentProfile } = useQuery<AgentProfile>({
     queryKey: ['/api/agent/profile'],
     refetchInterval: 60000,
   });
 
   // Fetch agent's partners
-  const { data: partnersData = [], isLoading: partnersLoading } = useQuery({
+  const { data: partnersData = [], isLoading: partnersLoading } = useQuery<AgentPartner[]>({
     queryKey: ['/api/agent/partners'],
     refetchInterval: 60000,
   });
 
   // Fetch agent's clients
-  const { data: clientsData = [], isLoading: clientsLoading } = useQuery({
+  const { data: clientsData = [], isLoading: clientsLoading } = useQuery<any[]>({
     queryKey: ['/api/agent/clients', { searchTerm }],
     refetchInterval: 60000,
   });
 
   // Fetch agent statistics
-  const { data: agentStats = {} } = useQuery({
+  const { data: agentStats } = useQuery<AgentStats>({
     queryKey: ['/api/agent/stats'],
     refetchInterval: 30000,
   });
 
   // Partner management mutations
   const addPartnerMutation = useMutation({
-    mutationFn: async (partnerData: any) => {
-      const response = await apiRequest('POST', '/api/agent/partners', partnerData);
+    mutationFn: async (partnerData: PartnerFormData) => {
+      const response = await fetch('/api/agent/partners', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(partnerData)
+      });
+      if (!response.ok) throw new Error('Failed to add partner');
       return response.json();
     },
     onSuccess: () => {
       toast({ title: "Success", description: "Partner added successfully" });
       setShowAddPartnerDialog(false);
-      setPartnerForm({
-        companyName: "",
-        contactEmail: "",
-        contactPhone: "",
-        address: "",
-        website: "",
-        partnerType: "product_provider",
-        businessLicense: "",
-        taxId: "",
-        euinNumber: "",
-        arnCode: "",
-        hasEuinArn: false
-      });
+      partnerForm.reset();
       queryClient.invalidateQueries({ queryKey: ['/api/agent/partners'] });
     },
     onError: (error: any) => {
@@ -129,22 +161,19 @@ export default function AgentPortal() {
 
   // Client management mutations
   const addClientMutation = useMutation({
-    mutationFn: async (clientData: any) => {
-      const response = await apiRequest('POST', '/api/agent/clients', clientData);
+    mutationFn: async (clientData: ClientFormData) => {
+      const response = await fetch('/api/agent/clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(clientData)
+      });
+      if (!response.ok) throw new Error('Failed to add client');
       return response.json();
     },
     onSuccess: () => {
       toast({ title: "Success", description: "Client added successfully" });
       setShowAddClientDialog(false);
-      setClientForm({
-        firstName: "",
-        lastName: "",
-        email: "",
-        mobile: "",
-        panNumber: "",
-        assignedAgent: "",
-        masterAgentEuin: ""
-      });
+      clientForm.reset();
       queryClient.invalidateQueries({ queryKey: ['/api/agent/clients'] });
     },
     onError: (error: any) => {
@@ -152,20 +181,20 @@ export default function AgentPortal() {
     }
   });
 
-  const handleAddPartner = () => {
+  const handleAddPartner = (data: PartnerFormData) => {
     // If partner doesn't have EUIN/ARN, use master agent EUIN
     const partnerData = {
-      ...partnerForm,
-      masterAgentEuin: !partnerForm.hasEuinArn ? agentProfile?.euinNumber : null
+      ...data,
+      masterAgentEuin: !data.hasEuinArn ? agentProfile?.euinNumber || "" : ""
     };
     addPartnerMutation.mutate(partnerData);
   };
 
-  const handleAddClient = () => {
+  const handleAddClient = (data: ClientFormData) => {
     // If no specific agent assigned, use master agent EUIN
     const clientData = {
-      ...clientForm,
-      masterAgentEuin: !clientForm.assignedAgent ? agentProfile?.euinNumber : null
+      ...data,
+      masterAgentEuin: !data.assignedAgent ? agentProfile?.euinNumber || "" : ""
     };
     addClientMutation.mutate(clientData);
   };
@@ -235,10 +264,10 @@ export default function AgentPortal() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold" data-testid="text-total-partners">
-                    {agentStats.totalPartners || 0}
+                    {agentStats?.totalPartners ?? 0}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {agentStats.activePartners || 0} active
+                    {agentStats?.activePartners ?? 0} active
                   </p>
                 </CardContent>
               </Card>
@@ -250,10 +279,10 @@ export default function AgentPortal() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold" data-testid="text-total-clients">
-                    {agentStats.totalClients || 0}
+                    {agentStats?.totalClients ?? 0}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {agentStats.activeClients || 0} active
+                    {agentStats?.activeClients ?? 0} active
                   </p>
                 </CardContent>
               </Card>
@@ -265,10 +294,10 @@ export default function AgentPortal() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold" data-testid="text-monthly-commissions">
-                    ₹{agentStats.monthlyCommissions || '0'}
+                    ₹{agentStats?.monthlyCommissions ?? '0'}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    +{agentStats.commissionGrowth || 0}% from last month
+                    +{agentStats?.commissionGrowth ?? 0}% from last month
                   </p>
                 </CardContent>
               </Card>
@@ -280,10 +309,10 @@ export default function AgentPortal() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold" data-testid="text-pending-tasks">
-                    {agentStats.pendingTasks || 0}
+                    {agentStats?.pendingTasks ?? 0}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {agentStats.urgentTasks || 0} urgent
+                    {agentStats?.urgentTasks ?? 0} urgent
                   </p>
                 </CardContent>
               </Card>
@@ -297,7 +326,7 @@ export default function AgentPortal() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {agentStats.recentActivity?.map((activity: any, index: number) => (
+                  {agentStats?.recentActivity?.map((activity: any, index: number) => (
                     <div key={index} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800">
                       <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                       <div className="flex-1">
@@ -540,114 +569,158 @@ export default function AgentPortal() {
               <DialogTitle>Add New Partner</DialogTitle>
               <DialogDescription>Add a new partner with or without EUIN/ARN numbers</DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="companyName">Company Name</Label>
-                  <Input
-                    id="companyName"
-                    value={partnerForm.companyName}
-                    onChange={(e) => setPartnerForm({ ...partnerForm, companyName: e.target.value })}
-                    placeholder="Enter company name"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="contactEmail">Contact Email</Label>
-                  <Input
-                    id="contactEmail"
-                    type="email"
-                    value={partnerForm.contactEmail}
-                    onChange={(e) => setPartnerForm({ ...partnerForm, contactEmail: e.target.value })}
-                    placeholder="contact@company.com"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="contactPhone">Contact Phone</Label>
-                  <Input
-                    id="contactPhone"
-                    value={partnerForm.contactPhone}
-                    onChange={(e) => setPartnerForm({ ...partnerForm, contactPhone: e.target.value })}
-                    placeholder="+91 9876543210"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="partnerType">Partner Type</Label>
-                  <Select value={partnerForm.partnerType} onValueChange={(value) => setPartnerForm({ ...partnerForm, partnerType: value })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="product_provider">Product Provider</SelectItem>
-                      <SelectItem value="service_provider">Service Provider</SelectItem>
-                      <SelectItem value="both">Both</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="address">Address</Label>
-                <Textarea
-                  id="address"
-                  value={partnerForm.address}
-                  onChange={(e) => setPartnerForm({ ...partnerForm, address: e.target.value })}
-                  placeholder="Enter complete address"
-                />
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Switch
-                  checked={partnerForm.hasEuinArn}
-                  onCheckedChange={(checked) => setPartnerForm({ ...partnerForm, hasEuinArn: checked })}
-                />
-                <Label>Partner has EUIN/ARN Number</Label>
-              </div>
-
-              {partnerForm.hasEuinArn && (
+            <Form {...partnerForm}>
+              <form onSubmit={partnerForm.handleSubmit(handleAddPartner)} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="euinNumber">EUIN Number</Label>
-                    <Input
-                      id="euinNumber"
-                      value={partnerForm.euinNumber}
-                      onChange={(e) => setPartnerForm({ ...partnerForm, euinNumber: e.target.value })}
-                      placeholder="Enter EUIN number"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="arnCode">ARN Code</Label>
-                    <Input
-                      id="arnCode"
-                      value={partnerForm.arnCode}
-                      onChange={(e) => setPartnerForm({ ...partnerForm, arnCode: e.target.value })}
-                      placeholder="Enter ARN code"
-                    />
-                  </div>
+                  <FormField
+                    control={partnerForm.control}
+                    name="companyName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Company Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter company name" data-testid="input-company-name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={partnerForm.control}
+                    name="contactEmail"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Contact Email</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="contact@company.com" data-testid="input-contact-email" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
-              )}
 
-              {!partnerForm.hasEuinArn && (
-                <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <Info className="w-4 h-4 text-yellow-600" />
-                    <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                      This partner will be mapped under your master EUIN: <strong>{agentProfile?.euinNumber}</strong>
-                    </p>
-                  </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={partnerForm.control}
+                    name="contactPhone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Contact Phone</FormLabel>
+                        <FormControl>
+                          <Input placeholder="+91 9876543210" data-testid="input-contact-phone" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={partnerForm.control}
+                    name="partnerType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Partner Type</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-partner-type">
+                              <SelectValue placeholder="Select partner type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="product_provider">Product Provider</SelectItem>
+                            <SelectItem value="service_provider">Service Provider</SelectItem>
+                            <SelectItem value="both">Both</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
-              )}
-            </div>
-            <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setShowAddPartnerDialog(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleAddPartner} disabled={addPartnerMutation.isPending}>
-                {addPartnerMutation.isPending ? "Adding..." : "Add Partner"}
-              </Button>
-            </div>
+
+                <FormField
+                  control={partnerForm.control}
+                  name="address"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Address</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Enter complete address" data-testid="textarea-address" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={partnerForm.control}
+                  name="hasEuinArn"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          data-testid="switch-has-euin-arn"
+                        />
+                      </FormControl>
+                      <FormLabel>Partner has EUIN/ARN Number</FormLabel>
+                    </FormItem>
+                  )}
+                />
+
+                {partnerForm.watch("hasEuinArn") && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={partnerForm.control}
+                      name="euinNumber"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>EUIN Number</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter EUIN number" data-testid="input-euin-number" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={partnerForm.control}
+                      name="arnCode"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>ARN Code</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter ARN code" data-testid="input-arn-code" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
+
+                {!partnerForm.watch("hasEuinArn") && (
+                  <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <Info className="w-4 h-4 text-yellow-600" />
+                      <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                        This partner will be mapped under your master EUIN: <strong>{agentProfile?.euinNumber}</strong>
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-end space-x-2">
+                  <Button type="button" variant="outline" onClick={() => setShowAddPartnerDialog(false)} data-testid="button-cancel-partner">
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={addPartnerMutation.isPending} data-testid="button-submit-partner">
+                    {addPartnerMutation.isPending ? "Adding..." : "Add Partner"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
           </DialogContent>
         </Dialog>
 
@@ -658,89 +731,115 @@ export default function AgentPortal() {
               <DialogTitle>Add New Client</DialogTitle>
               <DialogDescription>Add a new client and assign EUIN mapping</DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="firstName">First Name</Label>
-                  <Input
-                    id="firstName"
-                    value={clientForm.firstName}
-                    onChange={(e) => setClientForm({ ...clientForm, firstName: e.target.value })}
-                    placeholder="Enter first name"
+            <Form {...clientForm}>
+              <form onSubmit={clientForm.handleSubmit(handleAddClient)} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={clientForm.control}
+                    name="firstName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>First Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter first name" data-testid="input-first-name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={clientForm.control}
+                    name="lastName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Last Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter last name" data-testid="input-last-name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="lastName">Last Name</Label>
-                  <Input
-                    id="lastName"
-                    value={clientForm.lastName}
-                    onChange={(e) => setClientForm({ ...clientForm, lastName: e.target.value })}
-                    placeholder="Enter last name"
-                  />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={clientForm.email}
-                    onChange={(e) => setClientForm({ ...clientForm, email: e.target.value })}
-                    placeholder="client@example.com"
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={clientForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="client@example.com" data-testid="input-email" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={clientForm.control}
+                    name="mobile"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Mobile</FormLabel>
+                        <FormControl>
+                          <Input placeholder="+91 9876543210" data-testid="input-mobile" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="mobile">Mobile</Label>
-                  <Input
-                    id="mobile"
-                    value={clientForm.mobile}
-                    onChange={(e) => setClientForm({ ...clientForm, mobile: e.target.value })}
-                    placeholder="+91 9876543210"
-                  />
-                </div>
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="panNumber">PAN Number</Label>
-                <Input
-                  id="panNumber"
-                  value={clientForm.panNumber}
-                  onChange={(e) => setClientForm({ ...clientForm, panNumber: e.target.value })}
-                  placeholder="ABCDE1234F"
+                <FormField
+                  control={clientForm.control}
+                  name="panNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>PAN Number</FormLabel>
+                      <FormControl>
+                        <Input placeholder="ABCDE1234F" data-testid="input-pan-number" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="assignedAgent">Assigned Agent (Optional)</Label>
-                <Input
-                  id="assignedAgent"
-                  value={clientForm.assignedAgent}
-                  onChange={(e) => setClientForm({ ...clientForm, assignedAgent: e.target.value })}
-                  placeholder="Leave empty to use master agent"
+                <FormField
+                  control={clientForm.control}
+                  name="assignedAgent"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Assigned Agent (Optional)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Leave empty to use master agent" data-testid="input-assigned-agent" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
 
-              {!clientForm.assignedAgent && (
-                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <Info className="w-4 h-4 text-blue-600" />
-                    <p className="text-sm text-blue-800 dark:text-blue-200">
-                      This client will be assigned to your master EUIN: <strong>{agentProfile?.euinNumber}</strong>
-                    </p>
+                {!clientForm.watch("assignedAgent") && (
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <Info className="w-4 h-4 text-blue-600" />
+                      <p className="text-sm text-blue-800 dark:text-blue-200">
+                        This client will be assigned to your master EUIN: <strong>{agentProfile?.euinNumber}</strong>
+                      </p>
+                    </div>
                   </div>
+                )}
+
+                <div className="flex justify-end space-x-2">
+                  <Button type="button" variant="outline" onClick={() => setShowAddClientDialog(false)} data-testid="button-cancel-client">
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={addClientMutation.isPending} data-testid="button-submit-client">
+                    {addClientMutation.isPending ? "Adding..." : "Add Client"}
+                  </Button>
                 </div>
-              )}
-            </div>
-            <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setShowAddClientDialog(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleAddClient} disabled={addClientMutation.isPending}>
-                {addClientMutation.isPending ? "Adding..." : "Add Client"}
-              </Button>
-            </div>
+              </form>
+            </Form>
           </DialogContent>
         </Dialog>
       </div>

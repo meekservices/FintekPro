@@ -1577,6 +1577,56 @@ export const insertPartnerSchema = createInsertSchema(partners).omit({
 export type InsertPartner = z.infer<typeof insertPartnerSchema>;
 export type Partner = typeof partners.$inferSelect;
 
+// Agent Portal API response types
+export const agentProfileApiSchema = z.object({
+  id: z.string(),
+  fullName: z.string(),
+  email: z.string(),
+  employeeId: z.string().nullable(),
+  euinNumber: z.string().nullable(),
+  arnCode: z.string().nullable(),
+  distributorId: z.string().nullable(),
+  specializations: z.array(z.string()),
+  languages: z.array(z.string()),
+  status: z.string()
+});
+
+export const agentStatsApiSchema = z.object({
+  totalPartners: z.number(),
+  activePartners: z.number(), 
+  totalClients: z.number(),
+  activeClients: z.number(),
+  monthlyCommissions: z.string(),
+  commissionGrowth: z.number(),
+  pendingTasks: z.number(),
+  urgentTasks: z.number(),
+  recentActivity: z.array(z.object({
+    description: z.string(),
+    timestamp: z.string()
+  }))
+});
+
+export const partnerApiSchema = z.object({
+  id: z.string(),
+  companyName: z.string(),
+  contactEmail: z.string(),
+  contactPhone: z.string(),
+  address: z.string().optional(),
+  website: z.string().optional(),
+  partnerType: z.enum(["product_provider", "service_provider", "both"]),
+  businessLicense: z.string().optional(),
+  taxId: z.string().optional(),
+  euinNumber: z.string().nullable(),
+  arnCode: z.string().nullable(),
+  masterAgentEuin: z.string().nullable(),
+  hasEuinArn: z.boolean()
+});
+
+// API response types for agent portal
+export type AgentProfile = z.infer<typeof agentProfileApiSchema>;
+export type AgentStats = z.infer<typeof agentStatsApiSchema>;
+export type AgentPartner = z.infer<typeof partnerApiSchema>;
+
 export const insertProductSchema = createInsertSchema(products).omit({
   id: true,
   createdAt: true,
