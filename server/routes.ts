@@ -113,8 +113,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(401).json({ message: "Authentication required" });
     }
     
-    if (!hasRole(req.user, ['agent', 'admin', 'superadmin'])) {
-      return res.status(403).json({ message: "Agent access required" });
+    if (!hasRole(req.user, ['agent', 'partner', 'admin', 'superadmin'])) {
+      return res.status(403).json({ message: "Agent, partner, or admin access required" });
+    }
+    
+    next();
+  };
+
+  const requireClientOrHigher = async (req: any, res: any, next: any) => {
+    if (!req.user) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    
+    if (!hasRole(req.user, ['client', 'agent', 'partner', 'admin', 'superadmin'])) {
+      return res.status(403).json({ message: "Client access required" });
     }
     
     next();
@@ -345,13 +357,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // User Profile API endpoints
-  app.get("/api/profile", async (req, res) => {
+  app.get("/api/profile", requireClientOrHigher, async (req, res) => {
     try {
-      // Check authentication
-      if (!req.user) {
-        return res.status(401).json({ error: "Authentication required" });
-      }
-      
       const userId = req.user.id;
       const profile = await storage.getUserProfile(userId);
       
@@ -366,16 +373,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/profile", async (req, res) => {
+  app.post("/api/profile", requireClientOrHigher, async (req, res) => {
     try {
-      // Check authentication
-      if (!req.user) {
-        return res.status(401).json({ error: "Authentication required" });
-      }
-      
       const profileData = {
         ...req.body,
         userId: req.user.id // Use authenticated user ID
+      };
+
+      const profile = await storage.upsertUserProfile(profileData);
+      res.json(profile);
+    } catch (error) {
+      console.error("Error updating user profile:", error);
+      res.status(500).json({ error: "Failed to update profile" });
+    }
+  });
+
+  // User profile endpoint for clients - allows self-service profile updates
+  app.get("/api/user/profile", requireClientOrHigher, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      
+      // Get both user info and profile info
+      const user = await storage.getUserById(userId);
+      const profile = await storage.getUserProfile(userId);
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      res.json({
+        ...user,
+        ...profile,
+        roles: user.roles || [user.role].filter(Boolean) // Backwards compatibility
+      });
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+      res.status(500).json({ error: "Failed to fetch profile" });
+    }
+  });
+
+  app.put("/api/user/profile", requireClientOrHigher, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      
+      // Clients can only update their own profile
+      // Higher roles (agent, partner, admin) could potentially edit other profiles
+      const profileData = {
+        ...req.body,
+        userId: userId
       };
 
       const profile = await storage.upsertUserProfile(profileData);

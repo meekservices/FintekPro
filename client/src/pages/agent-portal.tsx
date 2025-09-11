@@ -71,8 +71,309 @@ const clientFormSchema = z.object({
 type PartnerFormData = z.infer<typeof partnerFormSchema>;
 type ClientFormData = z.infer<typeof clientFormSchema>;
 
+// Client Profile Completion Component
+function ClientProfileCompletion() {
+  const { toast } = useToast();
+  
+  // Fetch current user profile
+  const { data: userProfile, isLoading } = useQuery({
+    queryKey: ['/api/user/profile'],
+  });
+
+  // Profile completion form  
+  const profileFormSchema = z.object({
+    firstName: z.string().min(1, "First name is required"),
+    lastName: z.string().min(1, "Last name is required"),
+    dateOfBirth: z.string().min(1, "Date of birth is required"),
+    panNumber: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Valid PAN number is required"),
+    address: z.string().min(1, "Address is required"),
+    city: z.string().min(1, "City is required"),
+    state: z.string().min(1, "State is required"),
+    pincode: z.string().min(1, "Pincode is required"),
+    occupation: z.string().min(1, "Occupation is required"),
+    annualIncome: z.string().min(1, "Annual income is required"),
+    bankAccountNumber: z.string().min(1, "Bank account number is required"),
+    ifscCode: z.string().min(1, "IFSC code is required"),
+  });
+
+  const profileForm = useForm<z.infer<typeof profileFormSchema>>({
+    resolver: zodResolver(profileFormSchema),
+    defaultValues: {
+      firstName: (userProfile as any)?.firstName || "",
+      lastName: (userProfile as any)?.lastName || "",
+      dateOfBirth: (userProfile as any)?.dateOfBirth || "",
+      panNumber: (userProfile as any)?.panNumber || "",
+      address: (userProfile as any)?.address || "",
+      city: (userProfile as any)?.city || "",
+      state: (userProfile as any)?.state || "",
+      pincode: (userProfile as any)?.pincode || "",
+      occupation: (userProfile as any)?.occupation || "",
+      annualIncome: (userProfile as any)?.annualIncome || "",
+      bankAccountNumber: (userProfile as any)?.bankAccountNumber || "",
+      ifscCode: (userProfile as any)?.ifscCode || "",
+    }
+  });
+
+  // Update profile mutation
+  const updateProfileMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await fetch('/api/user/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (!response.ok) throw new Error('Failed to update profile');
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Profile updated successfully" });
+      queryClient.invalidateQueries({ queryKey: ['/api/user/profile'] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to update profile", variant: "destructive" });
+    }
+  });
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950">
+        <div className="container mx-auto p-6">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-lg">Loading profile...</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950" data-testid="client-profile">
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Complete Your Profile</h1>
+            <p className="text-gray-600 dark:text-gray-400">Please provide the required information to complete your profile</p>
+          </div>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Personal Information</CardTitle>
+            <CardDescription>Complete your profile to access all features</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Form {...profileForm}>
+              <form onSubmit={profileForm.handleSubmit((data) => updateProfileMutation.mutate(data))} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={profileForm.control}
+                    name="firstName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>First Name *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter your first name" data-testid="input-client-first-name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={profileForm.control}
+                    name="lastName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Last Name *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter your last name" data-testid="input-client-last-name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={profileForm.control}
+                    name="dateOfBirth"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Date of Birth *</FormLabel>
+                        <FormControl>
+                          <Input type="date" data-testid="input-client-dob" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={profileForm.control}
+                    name="panNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>PAN Number *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="ABCDE1234F" data-testid="input-client-pan" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={profileForm.control}
+                  name="address"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Address *</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Enter your complete address" data-testid="textarea-client-address" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <FormField
+                    control={profileForm.control}
+                    name="city"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>City *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="City" data-testid="input-client-city" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={profileForm.control}
+                    name="state"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>State *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="State" data-testid="input-client-state" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={profileForm.control}
+                    name="pincode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Pincode *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="123456" data-testid="input-client-pincode" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={profileForm.control}
+                    name="occupation"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Occupation *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Your occupation" data-testid="input-client-occupation" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={profileForm.control}
+                    name="annualIncome"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Annual Income *</FormLabel>
+                        <FormControl>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <SelectTrigger data-testid="select-client-income">
+                              <SelectValue placeholder="Select income range" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="below_1_lakh">Below ₹1 Lakh</SelectItem>
+                              <SelectItem value="1_5_lakh">₹1-5 Lakh</SelectItem>
+                              <SelectItem value="5_10_lakh">₹5-10 Lakh</SelectItem>
+                              <SelectItem value="10_25_lakh">₹10-25 Lakh</SelectItem>
+                              <SelectItem value="25_50_lakh">₹25-50 Lakh</SelectItem>
+                              <SelectItem value="above_50_lakh">Above ₹50 Lakh</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={profileForm.control}
+                    name="bankAccountNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Bank Account Number *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Account number" data-testid="input-client-account" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={profileForm.control}
+                    name="ifscCode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>IFSC Code *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="IFSC Code" data-testid="input-client-ifsc" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="flex justify-end">
+                  <Button 
+                    type="submit" 
+                    disabled={updateProfileMutation.isPending}
+                    data-testid="button-update-profile"
+                  >
+                    {updateProfileMutation.isPending ? 'Updating...' : 'Update Profile'}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
 export default function AgentPortal() {
   const { toast } = useToast();
+  
+  // Get current user role from session
+  const { data: currentUser } = useQuery({
+    queryKey: ['/api/user/profile'],
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
   
   // State management
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -198,6 +499,17 @@ export default function AgentPortal() {
     };
     addClientMutation.mutate(clientData);
   };
+
+  // Role-based access control
+  const userRoles = (currentUser as any)?.roles || [];
+  const canManagePartners = userRoles.some((role: string) => ['agent', 'partner', 'admin', 'superadmin'].includes(role));
+  const canManageClients = userRoles.some((role: string) => ['agent', 'partner', 'admin', 'superadmin'].includes(role));
+  const isClientOnly = userRoles.includes('client') && !canManagePartners;
+
+  // If user is client-only, show client profile completion interface
+  if (isClientOnly) {
+    return <ClientProfileCompletion />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950" data-testid="agent-portal">
