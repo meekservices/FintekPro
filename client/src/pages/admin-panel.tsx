@@ -62,95 +62,10 @@ function ApiStatusPanel() {
     }
   });
 
-  // Agent management mutations
-  const createAgentMutation = useMutation({
-    mutationFn: async (agentData: any) => {
-      return await apiRequest('POST', '/api/admin/agents', agentData);
-    },
-    onSuccess: () => {
-      toast({ title: "Success", description: "Agent created successfully" });
-      setShowAddAgentDialog(false);
-      setAgentForm({ fullName: "", email: "", phone: "", employeeId: "", euinNumber: "", arnCode: "", distributorId: "", specializations: [], status: "active", maxTicketsPerDay: 50 });
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/agents'] });
-    },
-    onError: (error: any) => {
-      toast({ title: "Error", description: error.message || "Failed to create agent", variant: "destructive" });
-    }
-  });
-
-  const updateAgentMutation = useMutation({
-    mutationFn: async ({ id, ...data }: any) => {
-      return await apiRequest('PATCH', `/api/admin/agents/${id}`, data);
-    },
-    onSuccess: () => {
-      toast({ title: "Success", description: "Agent updated successfully" });
-      setShowEditAgentDialog(false);
-      setSelectedAgent(null);
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/agents'] });
-    },
-    onError: (error: any) => {
-      toast({ title: "Error", description: error.message || "Failed to update agent", variant: "destructive" });
-    }
-  });
-
-  const deleteAgentMutation = useMutation({
-    mutationFn: async (agentId: string) => {
-      return await apiRequest('DELETE', `/api/admin/agents/${agentId}`);
-    },
-    onSuccess: () => {
-      toast({ title: "Success", description: "Agent deleted successfully" });
-      setShowDeleteAgentDialog(false);
-      setSelectedAgent(null);
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/agents'] });
-    },
-    onError: (error: any) => {
-      toast({ title: "Error", description: error.message || "Failed to delete agent", variant: "destructive" });
-    }
-  });
-
   const handleEditApiKey = (keyName: string) => {
     setSelectedApiKey(keyName);
     setKeyValue('');
     setEditDialogOpen(true);
-  };
-
-  // Agent management handlers
-  const handleEditAgent = (agent: any) => {
-    setSelectedAgent(agent);
-    setAgentForm({
-      fullName: agent.fullName || "",
-      email: agent.email || "",
-      phone: agent.phone || "",
-      employeeId: agent.employeeId || "",
-      euinNumber: agent.euinNumber || "",
-      arnCode: agent.arnCode || "",
-      distributorId: agent.distributorId || "",
-      specializations: agent.specializations || [],
-      status: agent.status || "active",
-      maxTicketsPerDay: agent.maxTicketsPerDay || 50
-    });
-    setShowEditAgentDialog(true);
-  };
-
-  const handleDeleteAgent = (agent: any) => {
-    setSelectedAgent(agent);
-    setShowDeleteAgentDialog(true);
-  };
-
-  const handleCreateAgent = () => {
-    createAgentMutation.mutate(agentForm);
-  };
-
-  const handleUpdateAgent = () => {
-    if (selectedAgent) {
-      updateAgentMutation.mutate({ id: selectedAgent.id, ...agentForm });
-    }
-  };
-
-  const handleConfirmDeleteAgent = () => {
-    if (selectedAgent) {
-      deleteAgentMutation.mutate(selectedAgent.id);
-    }
   };
 
   const handleSaveApiKey = () => {
@@ -2309,6 +2224,94 @@ export default function AdminPanel() {
     queryKey: ["/api/admin/activities"],
     refetchInterval: 10000, // Refresh every 10 seconds
   });
+
+  // Agent management mutations
+  const createAgentMutation = useMutation({
+    mutationFn: async (agentData: any) => {
+      const response = await apiRequest('POST', '/api/admin/agents', agentData);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Agent created successfully" });
+      setShowAddAgentDialog(false);
+      setAgentForm({ fullName: "", email: "", phone: "", employeeId: "", euinNumber: "", arnCode: "", distributorId: "", specializations: [], status: "active", maxTicketsPerDay: 50 });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/agents'] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to create agent", variant: "destructive" });
+    }
+  });
+
+  const updateAgentMutation = useMutation({
+    mutationFn: async ({ id, ...data }: any) => {
+      const response = await apiRequest('PATCH', `/api/admin/agents/${id}`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Agent updated successfully" });
+      setShowEditAgentDialog(false);
+      setSelectedAgent(null);
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/agents'] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to update agent", variant: "destructive" });
+    }
+  });
+
+  const deleteAgentMutation = useMutation({
+    mutationFn: async (agentId: string) => {
+      const response = await apiRequest('DELETE', `/api/admin/agents/${agentId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Agent deleted successfully" });
+      setShowDeleteAgentDialog(false);
+      setSelectedAgent(null);
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/agents'] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to delete agent", variant: "destructive" });
+    }
+  });
+
+  // Agent management handlers
+  const handleEditAgent = (agent: any) => {
+    setSelectedAgent(agent);
+    setAgentForm({
+      fullName: agent.fullName || "",
+      email: agent.email || "",
+      phone: agent.phone || "",
+      employeeId: agent.employeeId || "",
+      euinNumber: agent.euinNumber || "",
+      arnCode: agent.arnCode || "",
+      distributorId: agent.distributorId || "",
+      specializations: agent.specializations || [],
+      status: agent.status || "active",
+      maxTicketsPerDay: agent.maxTicketsPerDay || 50
+    });
+    setShowEditAgentDialog(true);
+  };
+
+  const handleDeleteAgent = (agent: any) => {
+    setSelectedAgent(agent);
+    setShowDeleteAgentDialog(true);
+  };
+
+  const handleCreateAgent = () => {
+    createAgentMutation.mutate(agentForm);
+  };
+
+  const handleUpdateAgent = () => {
+    if (selectedAgent) {
+      updateAgentMutation.mutate({ id: selectedAgent.id, ...agentForm });
+    }
+  };
+
+  const handleConfirmDeleteAgent = () => {
+    if (selectedAgent) {
+      deleteAgentMutation.mutate(selectedAgent.id);
+    }
+  };
 
   // Update client role mutation
   const updateRoleMutation = useMutation({
