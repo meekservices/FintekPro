@@ -9,3 +9,12 @@ vite.config.ts.*
 whatsapp-session/
 .wwebjs_auth/
 .wwebjs_cache/
+
+# Browser session artifacts - contain sensitive cookies and tokens
+cookies.txt
+*.cookies
+session/
+Local Storage/
+IndexedDB/
+Service Worker/
+Cache/

@@ -26,7 +26,7 @@ export class WhatsAppService {
   constructor() {
     this.client = new Client({
       authStrategy: new LocalAuth({
-        dataPath: './whatsapp-session'
+        dataPath: process.env.WHATSAPP_SESSION_PATH || '/tmp/whatsapp-sessions'
       }),
       puppeteer: {
         headless: true,
@@ -51,8 +51,13 @@ export class WhatsAppService {
 
   private setupEventHandlers() {
     this.client.on('qr', (qr: string) => {
-      console.log('WhatsApp QR Code generated. Scan with your phone:');
-      qrcode.generate(qr, { small: true });
+      // SECURITY: Only log QR code in development - never in production
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('WhatsApp QR Code generated. Scan with your phone:');
+        qrcode.generate(qr, { small: true });
+      } else {
+        console.log('WhatsApp QR Code generated - use admin endpoint to retrieve for setup');
+      }
       this.qrCode = qr;
     });
 

@@ -308,19 +308,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/whatsapp/status", async (req, res) => {
+  app.get("/api/whatsapp/status", requireAdmin, async (req, res) => {
     try {
       const isReady = whatsappService.isClientReady();
-      const qrCode = await whatsappService.getQRCode();
       
       res.json({ 
         isReady,
-        qrCode: isReady ? null : qrCode,
         message: isReady ? "WhatsApp client is ready" : "WhatsApp client is initializing" 
       });
     } catch (error) {
       console.error("Error getting WhatsApp status:", error);
       res.status(500).json({ error: "Failed to get WhatsApp status" });
+    }
+  });
+
+  // Separate admin-only endpoint for QR code access during setup
+  app.get("/api/admin/whatsapp/qr", requireAdmin, async (req, res) => {
+    try {
+      const isReady = whatsappService.isClientReady();
+      const qrCode = await whatsappService.getQRCode();
+      
+      if (isReady) {
+        return res.json({ 
+          isReady: true,
+          message: "WhatsApp client is already authenticated" 
+        });
+      }
+
+      res.json({ 
+        isReady: false,
+        qrCode,
+        message: "Use this QR code to authenticate WhatsApp client" 
+      });
+    } catch (error) {
+      console.error("Error getting WhatsApp QR code:", error);
+      res.status(500).json({ error: "Failed to get WhatsApp QR code" });
     }
   });
 
