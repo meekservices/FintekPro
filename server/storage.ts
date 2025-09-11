@@ -133,6 +133,9 @@ export interface IStorage {
   getAgentPartnerMappings(agentId?: string, partnerId?: string): Promise<AgentPartnerMapping[]>;
   updateAgentPartnerMapping(id: string, updates: Partial<AgentPartnerMapping>): Promise<AgentPartnerMapping | undefined>;
   deleteAgentPartnerMapping(id: string): Promise<boolean>;
+  
+  // Agent mapping counts
+  getAgentMappingCounts(agentId: string): Promise<{partnerCount: number, clientCount: number}>;
 
   // Achievement System Methods
   // Achievement Categories
@@ -837,7 +840,37 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAgentPartnerMappings(agentId?: string, partnerId?: string): Promise<AgentPartnerMapping[]> {
-    return [];
+    try {
+      let query = db.select({
+        id: schema.agentPartnerMappings.id,
+        agentId: schema.agentPartnerMappings.agentId,
+        partnerId: schema.agentPartnerMappings.partnerId,
+        isActive: schema.agentPartnerMappings.isActive,
+        priority: schema.agentPartnerMappings.priority,
+        assignedAt: schema.agentPartnerMappings.assignedAt,
+        assignedBy: schema.agentPartnerMappings.assignedBy,
+        createdAt: schema.agentPartnerMappings.createdAt,
+        // Include partner details
+        partnerName: schema.partners.companyName,
+        partnerEmail: schema.partners.contactEmail,
+        partnerType: schema.partners.partnerType
+      })
+      .from(schema.agentPartnerMappings)
+      .leftJoin(schema.partners, eq(schema.agentPartnerMappings.partnerId, schema.partners.id));
+
+      if (agentId) {
+        query = query.where(eq(schema.agentPartnerMappings.agentId, agentId));
+      }
+      if (partnerId) {
+        query = query.where(eq(schema.agentPartnerMappings.partnerId, partnerId));
+      }
+
+      const mappings = await query;
+      return mappings as AgentPartnerMapping[];
+    } catch (error) {
+      console.error("Error fetching agent partner mappings:", error);
+      return [];
+    }
   }
 
   async updateAgentPartnerMapping(id: string, updates: Partial<AgentPartnerMapping>): Promise<AgentPartnerMapping | undefined> {
@@ -846,6 +879,38 @@ export class DatabaseStorage implements IStorage {
 
   async deleteAgentPartnerMapping(id: string): Promise<boolean> {
     return false;
+  }
+
+  async getAgentMappingCounts(agentId: string): Promise<{partnerCount: number, clientCount: number}> {
+    try {
+      // Count active partner mappings
+      const partnerCountResult = await db.select({
+        count: sql<number>`count(*)`.as('count')
+      })
+      .from(schema.agentPartnerMappings)
+      .where(and(
+        eq(schema.agentPartnerMappings.agentId, agentId),
+        eq(schema.agentPartnerMappings.isActive, true)
+      ));
+
+      // Count active client relationships
+      const clientCountResult = await db.select({
+        count: sql<number>`count(*)`.as('count')
+      })
+      .from(schema.clientAgentRelationships)
+      .where(and(
+        eq(schema.clientAgentRelationships.agentId, agentId),
+        eq(schema.clientAgentRelationships.isActive, true)
+      ));
+
+      return {
+        partnerCount: partnerCountResult[0]?.count || 0,
+        clientCount: clientCountResult[0]?.count || 0
+      };
+    } catch (error) {
+      console.error("Error getting agent mapping counts:", error);
+      return { partnerCount: 0, clientCount: 0 };
+    }
   }
 
   async getAllAchievementCategories(): Promise<AchievementCategory[]> {

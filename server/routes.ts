@@ -13284,12 +13284,18 @@ System Security Data:`;
     try {
       const agents = await storage.getAllCustomerCareAgents();
       
-      // Get partner mappings for each agent
+      // Get partner mappings and mapping counts for each agent
       const agentsWithMappings = await Promise.all(agents.map(async (agent) => {
-        const mappings = await storage.getAgentPartnerMappings(agent.id);
+        const [mappings, mappingCounts] = await Promise.all([
+          storage.getAgentPartnerMappings(agent.id),
+          storage.getAgentMappingCounts(agent.id)
+        ]);
+        
         return {
           ...agent,
-          partnerMappings: mappings
+          partnerMappings: mappings,
+          partnerCount: mappingCounts.partnerCount,
+          clientCount: mappingCounts.clientCount
         };
       }));
       

@@ -4176,6 +4176,7 @@ export default function AdminPanel() {
                     <TableHead>ARN Code</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Specializations</TableHead>
+                    <TableHead>Partner/Client Counts</TableHead>
                     <TableHead>Performance</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
@@ -4183,14 +4184,14 @@ export default function AdminPanel() {
                 <TableBody>
                   {agentsLoading ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-4">
+                      <TableCell colSpan={9} className="text-center py-4">
                         <Loader2 className="h-6 w-6 animate-spin mx-auto" />
                         <div className="mt-2">Loading agents...</div>
                       </TableCell>
                     </TableRow>
                   ) : agentsData.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-4 text-muted-foreground">
+                      <TableCell colSpan={9} className="text-center py-4 text-muted-foreground">
                         No agents found
                         <div className="mt-2">
                           <Button onClick={() => setShowAddAgentDialog(true)} variant="outline" size="sm">
@@ -4251,6 +4252,20 @@ export default function AdminPanel() {
                                 {spec.charAt(0).toUpperCase() + spec.slice(1).replace('_', ' ')}
                               </Badge>
                             ))}
+                          </div>
+                        </TableCell>
+                        <TableCell data-testid={`text-mapping-counts-${index + 1}`}>
+                          <div className="text-sm space-y-1">
+                            <div className="flex items-center gap-2">
+                              <Badge className="bg-blue-100 text-blue-800 text-xs">
+                                {agent.partnerCount || 0} Partners
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge className="bg-green-100 text-green-800 text-xs">
+                                {agent.clientCount || 0} Clients
+                              </Badge>
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell>
