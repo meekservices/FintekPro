@@ -99,32 +99,47 @@ function ClientProfileCompletion() {
   const profileForm = useForm<z.infer<typeof profileFormSchema>>({
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
-      firstName: (userProfile as any)?.firstName || "",
-      lastName: (userProfile as any)?.lastName || "",
-      dateOfBirth: (userProfile as any)?.dateOfBirth || "",
-      panNumber: (userProfile as any)?.panNumber || "",
-      address: (userProfile as any)?.address || "",
-      city: (userProfile as any)?.city || "",
-      state: (userProfile as any)?.state || "",
-      pincode: (userProfile as any)?.pincode || "",
-      occupation: (userProfile as any)?.occupation || "",
-      annualIncome: (userProfile as any)?.annualIncome || "",
-      bankAccountNumber: (userProfile as any)?.bankAccountNumber || "",
-      ifscCode: (userProfile as any)?.ifscCode || "",
+      firstName: "",
+      lastName: "",
+      dateOfBirth: "",
+      panNumber: "",
+      address: "",
+      city: "",
+      state: "",
+      pincode: "",
+      occupation: "",
+      annualIncome: "",
+      bankAccountNumber: "",
+      ifscCode: "",
     }
   });
 
-  // Update profile mutation
-  const updateProfileMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const response = await fetch('/api/user/profile', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
+  // Reset form when userProfile data loads
+  useEffect(() => {
+    if (userProfile) {
+      profileForm.reset({
+        firstName: (userProfile as any)?.firstName || "",
+        lastName: (userProfile as any)?.lastName || "",
+        dateOfBirth: (userProfile as any)?.dateOfBirth || "",
+        panNumber: (userProfile as any)?.panNumber || "",
+        address: (userProfile as any)?.address || "",
+        city: (userProfile as any)?.city || "",
+        state: (userProfile as any)?.state || "",
+        pincode: (userProfile as any)?.pincode || "",
+        occupation: (userProfile as any)?.occupation || "",
+        annualIncome: (userProfile as any)?.annualIncome || "",
+        bankAccountNumber: (userProfile as any)?.bankAccountNumber || "",
+        ifscCode: (userProfile as any)?.ifscCode || "",
       });
-      if (!response.ok) throw new Error('Failed to update profile');
-      return response.json();
-    },
+    }
+  }, [userProfile, profileForm]);
+
+  // Update profile mutation using apiRequest
+  const updateProfileMutation = useMutation({
+    mutationFn: (data: any) => apiRequest('/api/user/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    }),
     onSuccess: () => {
       toast({ title: "Success", description: "Profile updated successfully" });
       queryClient.invalidateQueries({ queryKey: ['/api/user/profile'] });
