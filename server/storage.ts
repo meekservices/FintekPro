@@ -464,10 +464,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPortfoliosByUserPan(panNumber: string): Promise<Portfolio[]> {
-    const userProfile = await db.select().from(schema.userProfiles).where(eq(schema.userProfiles.panNumber, panNumber));
-    if (!userProfile.length) return [];
+    // Query users table directly since PAN is stored there, not in user_profiles
+    const users = await db.select().from(schema.users).where(eq(schema.users.panNumber, panNumber));
+    if (!users.length) return [];
     
-    return await db.select().from(schema.portfolios).where(eq(schema.portfolios.userId, userProfile[0].userId));
+    return await db.select().from(schema.portfolios).where(eq(schema.portfolios.userId, users[0].id));
   }
 
   async getPortfolio(id: string): Promise<Portfolio | undefined> {
@@ -476,10 +477,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserByPan(panNumber: string): Promise<User | undefined> {
-    const [userProfile] = await db.select().from(schema.userProfiles).where(eq(schema.userProfiles.panNumber, panNumber));
-    if (!userProfile) return undefined;
-    
-    return this.getUser(userProfile.userId);
+    const [user] = await db.select().from(schema.users).where(eq(schema.users.panNumber, panNumber));
+    return user || undefined;
   }
 
   async createPortfolio(portfolio: InsertPortfolio): Promise<Portfolio> {
