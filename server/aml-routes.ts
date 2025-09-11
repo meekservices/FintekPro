@@ -12,12 +12,12 @@ interface AuthenticatedRequest extends Request {
 // Authentication middleware (copied from routes.ts)
 const requireAuth = (req: any, res: any, next: any) => {
   if (!req.user) {
-    // In development mode, use demo user for easier testing
-    const isDevelopment = !process.env.NODE_ENV || process.env.NODE_ENV === 'development' || process.env.REPL_ID;
-    if (isDevelopment) {
-      req.user = { id: 'demo-user-1', role: 'admin' };
-      return next();
-    }
+    // SECURITY: Development bypass removed - all environments now require proper authentication
+    // const isDevelopment = !process.env.NODE_ENV || process.env.NODE_ENV === 'development' || process.env.REPL_ID;
+    // if (isDevelopment) {
+    //   req.user = { id: 'demo-user-1', role: 'admin' };
+    //   return next();
+    // }
     return res.status(401).json({ message: "Unauthorized" });
   }
   next();
