@@ -16419,6 +16419,187 @@ System Security Data:`;
     }
   });
 
+  // Agent Portal API endpoints
+  // Get agent profile information
+  app.get("/api/agent/profile", requireAgent, async (req, res) => {
+    try {
+
+      // Get agent details from the agents table  
+      const agents = await storage.getAgents();
+      const agent = agents.find(a => a.employeeId === req.user.id);
+
+      if (!agent) {
+        return res.status(404).json({ error: "Agent profile not found" });
+      }
+
+      res.json(agent);
+    } catch (error) {
+      console.error("Error fetching agent profile:", error);
+      res.status(500).json({ error: "Failed to fetch agent profile" });
+    }
+  });
+
+  // Get agent's partners
+  app.get("/api/agent/partners", requireAgent, async (req, res) => {
+    try {
+
+      // For now, return mock data. In production, implement partner storage
+      const mockPartners = [
+        {
+          id: "1",
+          companyName: "Example Financial Services",
+          contactEmail: "contact@example.com",
+          contactPhone: "+91 9876543210",
+          partnerType: "product_provider",
+          euinNumber: null,
+          arnCode: null,
+          masterAgentEuin: req.user.euinNumber || "EUIN123456",
+          website: "https://example.com"
+        }
+      ];
+
+      res.json(mockPartners);
+    } catch (error) {
+      console.error("Error fetching agent partners:", error);
+      res.status(500).json({ error: "Failed to fetch partners" });
+    }
+  });
+
+  // Add new partner
+  app.post("/api/agent/partners", requireAgent, async (req, res) => {
+    try {
+      // Validate request body with Zod
+      const partnerSchema = z.object({
+        companyName: z.string().min(1, "Company name is required"),
+        contactEmail: z.string().email("Valid email is required"),
+        contactPhone: z.string().min(1, "Phone number is required"),
+        address: z.string().optional(),
+        website: z.string().url().optional().or(z.literal("")),
+        partnerType: z.enum(["product_provider", "service_provider", "both"]),
+        businessLicense: z.string().optional(),
+        taxId: z.string().optional(),
+        euinNumber: z.string().optional(),
+        arnCode: z.string().optional(),
+        hasEuinArn: z.boolean().default(false)
+      });
+
+      const partnerData = partnerSchema.parse(req.body);
+      
+      // In production, implement partner creation in storage
+      const partner = {
+        id: Date.now().toString(),
+        ...partnerData,
+        createdAt: new Date().toISOString(),
+        agentId: req.user.id
+      };
+
+      res.json({ success: true, partner });
+    } catch (error) {
+      console.error("Error creating partner:", error);
+      res.status(500).json({ error: "Failed to create partner" });
+    }
+  });
+
+  // Get agent's clients
+  app.get("/api/agent/clients", requireAgent, async (req, res) => {
+    try {
+
+      const { searchTerm } = req.query;
+
+      // Get clients assigned to this agent
+      const clientRelationships = await storage.getClientsForAgent(req.user.id);
+      
+      // Filter by search term if provided
+      let filteredClients = clientRelationships;
+      if (searchTerm) {
+        const term = (searchTerm as string).toLowerCase();
+        filteredClients = clientRelationships.filter(client => 
+          client.firstName?.toLowerCase().includes(term) ||
+          client.lastName?.toLowerCase().includes(term) ||
+          client.email?.toLowerCase().includes(term) ||
+          client.panNumber?.toLowerCase().includes(term)
+        );
+      }
+
+      res.json(filteredClients);
+    } catch (error) {
+      console.error("Error fetching agent clients:", error);
+      res.status(500).json({ error: "Failed to fetch clients" });
+    }
+  });
+
+  // Add new client
+  app.post("/api/agent/clients", requireAgent, async (req, res) => {
+    try {
+      // Validate request body with Zod
+      const clientSchema = z.object({
+        firstName: z.string().min(1, "First name is required"),
+        lastName: z.string().min(1, "Last name is required"),
+        email: z.string().email("Valid email is required"),
+        mobile: z.string().min(10, "Valid mobile number is required"),
+        panNumber: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Valid PAN number is required"),
+        assignedAgent: z.string().optional(),
+        masterAgentEuin: z.string().optional()
+      });
+
+      const clientData = clientSchema.parse(req.body);
+      
+      // In production, implement client creation and agent assignment
+      const client = {
+        id: Date.now().toString(),
+        ...clientData,
+        agentId: req.user.id,
+        isActive: true,
+        createdAt: new Date().toISOString()
+      };
+
+      res.json({ success: true, client });
+    } catch (error) {
+      console.error("Error creating client:", error);
+      res.status(500).json({ error: "Failed to create client" });
+    }
+  });
+
+  // Get agent statistics
+  app.get("/api/agent/stats", requireAgent, async (req, res) => {
+    try {
+
+      // Get basic stats from existing data
+      const clientRelationships = await storage.getClientsForAgent(req.user.id);
+      const activeClients = clientRelationships.filter(c => c.isActive).length;
+
+      const stats = {
+        totalPartners: 1, // Mock data
+        activePartners: 1,
+        totalClients: clientRelationships.length,
+        activeClients: activeClients,
+        monthlyCommissions: "25,000",
+        commissionGrowth: 12,
+        pendingTasks: 3,
+        urgentTasks: 1,
+        recentActivity: [
+          {
+            description: "New client onboarded: John Doe",
+            timestamp: "2 hours ago"
+          },
+          {
+            description: "Partner agreement signed with ABC Corp",
+            timestamp: "1 day ago"
+          },
+          {
+            description: "Monthly commission report generated",
+            timestamp: "3 days ago"
+          }
+        ]
+      };
+
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching agent stats:", error);
+      res.status(500).json({ error: "Failed to fetch agent statistics" });
+    }
+  });
+
   // Interactive Brokers API integration routes
   app.get("/api/ib/accounts", async (req, res) => {
     try {

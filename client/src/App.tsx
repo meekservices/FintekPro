@@ -51,6 +51,7 @@ import LoanApplication from "@/pages/loan-application";
 import LoanDashboard from "@/pages/loan-dashboard";
 import ProposalsPage from "@/pages/proposals";
 import BrokingPage from "@/pages/broking";
+import AgentPortal from "@/pages/agent-portal";
 
 function UserProtectedRoutes() {
   return (
@@ -114,6 +115,7 @@ function Router() {
       {/* Agent/Admin routes - bypass profile completion but require authentication */}
       <Route path="/admin" component={AdminPanel} />
       <Route path="/agent" component={AgentDashboard} />
+      <Route path="/agent-portal" component={AgentPortal} />
       
       {/* User routes - require both authentication and profile completion */}
       <Route component={UserProtectedRoutes} />
