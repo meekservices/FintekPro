@@ -11961,6 +11961,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin Agent Management - Get all agents
+  app.get("/api/admin/agents", requireAdmin, async (req, res) => {
+    try {
+      const agents = await storage.getAllCustomerCareAgents();
+      res.json(agents);
+    } catch (error) {
+      console.error("Error fetching agents:", error);
+      res.status(500).json({ error: "Failed to fetch agents" });
+    }
+  });
+
+  // Admin Agent Management - Create new agent
+  app.post("/api/admin/agents", requireAdmin, async (req, res) => {
+    try {
+      const agentData = req.body;
+      const newAgent = await storage.createCustomerCareAgent(agentData);
+      
+      await adminService.logActivity({
+        userId: req.user?.id || 'unknown',
+        action: 'admin_agent_created',
+        resource: `agent:${newAgent.id}`,
+        details: { fullName: newAgent.fullName, email: newAgent.email },
+        ipAddress: req.ip
+      });
+      
+      res.status(201).json(newAgent);
+    } catch (error) {
+      console.error("Error creating agent:", error);
+      res.status(500).json({ error: "Failed to create agent" });
+    }
+  });
+
+  // Admin Agent Management - Update agent
+  app.patch("/api/admin/agents/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      const updatedAgent = await storage.updateCustomerCareAgent(id, updates);
+      
+      if (!updatedAgent) {
+        return res.status(404).json({ error: "Agent not found" });
+      }
+      
+      await adminService.logActivity({
+        userId: req.user?.id || 'unknown',
+        action: 'admin_agent_updated',
+        resource: `agent:${id}`,
+        details: updates,
+        ipAddress: req.ip
+      });
+      
+      res.json(updatedAgent);
+    } catch (error) {
+      console.error("Error updating agent:", error);
+      res.status(500).json({ error: "Failed to update agent" });
+    }
+  });
+
+  // Admin Agent Management - Delete agent
+  app.delete("/api/admin/agents/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Get agent info before deletion for logging
+      const agent = await storage.getCustomerCareAgent(id);
+      if (!agent) {
+        return res.status(404).json({ error: "Agent not found" });
+      }
+      
+      const deleted = await storage.deleteCustomerCareAgent(id);
+      
+      if (!deleted) {
+        return res.status(404).json({ error: "Agent not found or could not be deleted" });
+      }
+      
+      await adminService.logActivity({
+        userId: req.user?.id || 'unknown',
+        action: 'admin_agent_deleted',
+        resource: `agent:${id}`,
+        details: { fullName: agent.fullName, email: agent.email },
+        ipAddress: req.ip
+      });
+      
+      res.json({ success: true, message: "Agent deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting agent:", error);
+      res.status(500).json({ error: "Failed to delete agent" });
+    }
+  });
+
   // Admin System Monitoring - Get platform insights
   app.get("/api/admin/insights", requireAdmin, async (req, res) => {
     try {

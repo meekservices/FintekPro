@@ -806,15 +806,30 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCustomerCareAgent(id: string): Promise<CustomerCareAgent | undefined> {
-    return undefined;
+    const [agent] = await db
+      .select()
+      .from(schema.customerCareAgents)
+      .where(eq(schema.customerCareAgents.id, id));
+    return agent;
   }
 
   async updateCustomerCareAgent(id: string, updates: Partial<CustomerCareAgent>): Promise<CustomerCareAgent | undefined> {
-    return undefined;
+    const [updatedAgent] = await db
+      .update(schema.customerCareAgents)
+      .set({
+        ...updates,
+        updatedAt: new Date()
+      })
+      .where(eq(schema.customerCareAgents.id, id))
+      .returning();
+    return updatedAgent;
   }
 
   async deleteCustomerCareAgent(id: string): Promise<boolean> {
-    return false;
+    const result = await db
+      .delete(schema.customerCareAgents)
+      .where(eq(schema.customerCareAgents.id, id));
+    return result.rowCount > 0;
   }
 
   async createAgentPartnerMapping(mapping: InsertAgentPartnerMapping): Promise<AgentPartnerMapping> {
@@ -969,12 +984,12 @@ export class DatabaseStorage implements IStorage {
       const agentIds = [...new Set(basicResults.map(r => r.agentId))];
       const allUserIds = [...new Set([...clientIds, ...agentIds])];
       
-      const users = await db.select({
+      const users = allUserIds.length > 0 ? await db.select({
         id: schema.users.id,
         firstName: schema.users.firstName,
         lastName: schema.users.lastName,
         email: schema.users.email
-      }).from(schema.users).where(sql`${schema.users.id} = ANY(${allUserIds})`);
+      }).from(schema.users).where(sql`${schema.users.id} = ANY(ARRAY[${sql.raw(allUserIds.map(id => `'${id}'`).join(','))}])`) : [];
       
       const userMap = new Map(users.map(u => [u.id, u]));
       

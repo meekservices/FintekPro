@@ -62,10 +62,95 @@ function ApiStatusPanel() {
     }
   });
 
+  // Agent management mutations
+  const createAgentMutation = useMutation({
+    mutationFn: async (agentData: any) => {
+      return await apiRequest('POST', '/api/admin/agents', agentData);
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Agent created successfully" });
+      setShowAddAgentDialog(false);
+      setAgentForm({ fullName: "", email: "", phone: "", employeeId: "", euinNumber: "", arnCode: "", distributorId: "", specializations: [], status: "active", maxTicketsPerDay: 50 });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/agents'] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to create agent", variant: "destructive" });
+    }
+  });
+
+  const updateAgentMutation = useMutation({
+    mutationFn: async ({ id, ...data }: any) => {
+      return await apiRequest('PATCH', `/api/admin/agents/${id}`, data);
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Agent updated successfully" });
+      setShowEditAgentDialog(false);
+      setSelectedAgent(null);
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/agents'] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to update agent", variant: "destructive" });
+    }
+  });
+
+  const deleteAgentMutation = useMutation({
+    mutationFn: async (agentId: string) => {
+      return await apiRequest('DELETE', `/api/admin/agents/${agentId}`);
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Agent deleted successfully" });
+      setShowDeleteAgentDialog(false);
+      setSelectedAgent(null);
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/agents'] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to delete agent", variant: "destructive" });
+    }
+  });
+
   const handleEditApiKey = (keyName: string) => {
     setSelectedApiKey(keyName);
     setKeyValue('');
     setEditDialogOpen(true);
+  };
+
+  // Agent management handlers
+  const handleEditAgent = (agent: any) => {
+    setSelectedAgent(agent);
+    setAgentForm({
+      fullName: agent.fullName || "",
+      email: agent.email || "",
+      phone: agent.phone || "",
+      employeeId: agent.employeeId || "",
+      euinNumber: agent.euinNumber || "",
+      arnCode: agent.arnCode || "",
+      distributorId: agent.distributorId || "",
+      specializations: agent.specializations || [],
+      status: agent.status || "active",
+      maxTicketsPerDay: agent.maxTicketsPerDay || 50
+    });
+    setShowEditAgentDialog(true);
+  };
+
+  const handleDeleteAgent = (agent: any) => {
+    setSelectedAgent(agent);
+    setShowDeleteAgentDialog(true);
+  };
+
+  const handleCreateAgent = () => {
+    createAgentMutation.mutate(agentForm);
+  };
+
+  const handleUpdateAgent = () => {
+    if (selectedAgent) {
+      updateAgentMutation.mutate({ id: selectedAgent.id, ...agentForm });
+    }
+  };
+
+  const handleConfirmDeleteAgent = () => {
+    if (selectedAgent) {
+      deleteAgentMutation.mutate(selectedAgent.id);
+    }
   };
 
   const handleSaveApiKey = () => {
@@ -2151,6 +2236,22 @@ export default function AdminPanel() {
   const [editClientDialog, setEditClientDialog] = useState(false);
   const [deleteClientDialog, setDeleteClientDialog] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
+  const [showAddAgentDialog, setShowAddAgentDialog] = useState(false);
+  const [showEditAgentDialog, setShowEditAgentDialog] = useState(false);
+  const [showDeleteAgentDialog, setShowDeleteAgentDialog] = useState(false);
+  const [selectedAgent, setSelectedAgent] = useState<any>(null);
+  const [agentForm, setAgentForm] = useState({
+    fullName: "",
+    email: "",
+    phone: "",
+    employeeId: "",
+    euinNumber: "",
+    arnCode: "",
+    distributorId: "",
+    specializations: [] as string[],
+    status: "active",
+    maxTicketsPerDay: 50
+  });
   const [clientForm, setClientForm] = useState({
     firstName: "",
     lastName: "",
@@ -3965,19 +4066,27 @@ export default function AdminPanel() {
               <CardContent className="space-y-4">
                 <div className="flex justify-between">
                   <span>Total Agents</span>
-                  <Badge className="bg-blue-100 text-blue-800" data-testid="badge-total-agents">15</Badge>
+                  <Badge className="bg-blue-100 text-blue-800" data-testid="badge-total-agents">
+                    {agentsLoading ? "..." : agentsData.length}
+                  </Badge>
                 </div>
                 <div className="flex justify-between">
                   <span>Active Agents</span>
-                  <Badge className="bg-green-100 text-green-800" data-testid="badge-active-agents">12</Badge>
+                  <Badge className="bg-green-100 text-green-800" data-testid="badge-active-agents">
+                    {agentsLoading ? "..." : agentsData.filter((agent: any) => agent.status === 'active').length}
+                  </Badge>
                 </div>
                 <div className="flex justify-between">
                   <span>On Leave</span>
-                  <Badge className="bg-yellow-100 text-yellow-800" data-testid="badge-leave-agents">3</Badge>
+                  <Badge className="bg-yellow-100 text-yellow-800" data-testid="badge-leave-agents">
+                    {agentsLoading ? "..." : agentsData.filter((agent: any) => agent.status === 'on_leave').length}
+                  </Badge>
                 </div>
                 <div className="flex justify-between">
-                  <span>Avg Resolution Time</span>
-                  <Badge className="bg-purple-100 text-purple-800" data-testid="badge-avg-resolution">2.5h</Badge>
+                  <span>With EUIN</span>
+                  <Badge className="bg-purple-100 text-purple-800" data-testid="badge-euin-agents">
+                    {agentsLoading ? "..." : agentsData.filter((agent: any) => agent.euinNumber).length}
+                  </Badge>
                 </div>
               </CardContent>
             </Card>
@@ -3989,8 +4098,8 @@ export default function AdminPanel() {
                 <CardDescription>Manage agents efficiently</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Button className="w-full" data-testid="button-add-agent">
-                  <Users className="w-4 h-4 mr-2" />
+                <Button className="w-full" onClick={() => setShowAddAgentDialog(true)} data-testid="button-add-agent">
+                  <UserPlus className="w-4 h-4 mr-2" />
                   Add New Agent
                 </Button>
                 <Button variant="outline" className="w-full" data-testid="button-bulk-assign">
@@ -4042,8 +4151,16 @@ export default function AdminPanel() {
           {/* Agents Management Table */}
           <Card data-testid="card-agents-table">
             <CardHeader>
-              <CardTitle>Agents</CardTitle>
-              <CardDescription>Manage support agents and their partner assignments</CardDescription>
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle>Agents</CardTitle>
+                  <CardDescription>Manage agents with EUIN/ARN number assignments</CardDescription>
+                </div>
+                <Button onClick={() => setShowAddAgentDialog(true)} size="sm" data-testid="button-add-agent">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Agent
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <Table>
@@ -4051,9 +4168,9 @@ export default function AdminPanel() {
                   <TableRow>
                     <TableHead>Agent</TableHead>
                     <TableHead>Employee ID</TableHead>
+                    <TableHead>EUIN Number</TableHead>
+                    <TableHead>ARN Code</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Partners Assigned</TableHead>
-                    <TableHead>Current Tickets</TableHead>
                     <TableHead>Specializations</TableHead>
                     <TableHead>Performance</TableHead>
                     <TableHead>Actions</TableHead>
@@ -4071,6 +4188,11 @@ export default function AdminPanel() {
                     <TableRow>
                       <TableCell colSpan={8} className="text-center py-4 text-muted-foreground">
                         No agents found
+                        <div className="mt-2">
+                          <Button onClick={() => setShowAddAgentDialog(true)} variant="outline" size="sm">
+                            Add First Agent
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -4083,27 +4205,41 @@ export default function AdminPanel() {
                             <div className="text-xs text-muted-foreground">{agent.phone}</div>
                           </div>
                         </TableCell>
-                        <TableCell data-testid={`text-employee-id-${index + 1}`}>{agent.employeeId}</TableCell>
+                        <TableCell data-testid={`text-employee-id-${index + 1}`}>
+                          <code className="text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
+                            {agent.employeeId || 'N/A'}
+                          </code>
+                        </TableCell>
+                        <TableCell>
+                          {agent.euinNumber ? (
+                            <code className="text-xs bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded text-blue-800 dark:text-blue-200">
+                              {agent.euinNumber}
+                            </code>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">Not assigned</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {agent.arnCode ? (
+                            <code className="text-xs bg-green-100 dark:bg-green-900 px-2 py-1 rounded text-green-800 dark:text-green-200">
+                              {agent.arnCode}
+                            </code>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">Not assigned</span>
+                          )}
+                        </TableCell>
                         <TableCell>
                           <Badge 
-                            className={agent.status === 'active' ? 'bg-green-100 text-green-800' : agent.status === 'on_leave' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'} 
+                            className={
+                              agent.status === 'active' ? 'bg-green-100 text-green-800' : 
+                              agent.status === 'on_leave' ? 'bg-yellow-100 text-yellow-800' : 
+                              'bg-red-100 text-red-800'
+                            } 
                             data-testid={`badge-status-${index + 1}`}
                           >
                             {agent.status === 'active' ? 'Active' : agent.status === 'on_leave' ? 'On Leave' : 'Inactive'}
                           </Badge>
                         </TableCell>
-                        <TableCell>
-                          <div className="space-y-1">
-                            {agent.partnerMappings && agent.partnerMappings.length > 0 ? (
-                              agent.partnerMappings.slice(0, 3).map((mapping: any, idx: number) => (
-                                <Badge key={idx} variant="outline">{mapping.partner?.name || 'Partner'}</Badge>
-                              ))
-                            ) : (
-                              <span className="text-sm text-muted-foreground">No partners assigned</span>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell data-testid={`text-tickets-${index + 1}`}>{agent.currentTicketCount}/{agent.maxTicketsPerDay}</TableCell>
                         <TableCell>
                           <div className="space-y-1">
                             {agent.specializations && agent.specializations.map((spec: string, idx: number) => (
@@ -4116,107 +4252,32 @@ export default function AdminPanel() {
                         <TableCell>
                           <div className="text-sm">
                             <div>Rating: <span className="font-medium">{agent.customerSatisfactionRating || 'N/A'}★</span></div>
-                            <div>Avg. Resolution: <span className="font-medium">{agent.averageResolutionTime || 'N/A'}h</span></div>
+                            <div>Tickets: <span className="font-medium">{agent.totalTicketsHandled || 0}</span></div>
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="flex space-x-2">
-                            <Button variant="outline" size="sm" data-testid={`button-manage-partners-${index + 1}`}>
-                              Manage Partners
+                          <div className="flex space-x-1">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => handleEditAgent(agent)}
+                              data-testid={`button-edit-agent-${index + 1}`}
+                            >
+                              <Edit3 className="w-4 h-4" />
                             </Button>
-                            <Button variant="outline" size="sm" data-testid={`button-view-performance-${index + 1}`}>
-                              Performance
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleDeleteAgent(agent)}
+                              data-testid={`button-delete-agent-${index + 1}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
                             </Button>
                           </div>
                         </TableCell>
                       </TableRow>
                     ))
                   )}
-                  <TableRow data-testid="agent-row-2">
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">Mike Chen</div>
-                        <div className="text-sm text-muted-foreground">mike.chen@fintekpro.com</div>
-                        <div className="text-xs text-muted-foreground">+1 (555) 0124</div>
-                      </div>
-                    </TableCell>
-                    <TableCell data-testid="text-employee-id-2">EMP002</TableCell>
-                    <TableCell>
-                      <Badge className="bg-green-100 text-green-800" data-testid="badge-status-2">Active</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <Badge variant="outline">FinanceFirst LLC</Badge>
-                        <Badge variant="outline">Capital Advisors</Badge>
-                      </div>
-                    </TableCell>
-                    <TableCell data-testid="text-tickets-2">12/50</TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <Badge className="bg-green-100 text-green-800">Product Inquiry</Badge>
-                        <Badge className="bg-orange-100 text-orange-800">Complaints</Badge>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        <div>Rating: <span className="font-medium">4.7★</span></div>
-                        <div>Avg. Resolution: <span className="font-medium">2.8h</span></div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        <Button variant="outline" size="sm" data-testid="button-manage-partners-2">
-                          Manage Partners
-                        </Button>
-                        <Button variant="outline" size="sm" data-testid="button-view-performance-2">
-                          Performance
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                  <TableRow data-testid="agent-row-3">
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">Lisa Rodriguez</div>
-                        <div className="text-sm text-muted-foreground">lisa.rodriguez@fintekpro.com</div>
-                        <div className="text-xs text-muted-foreground">+1 (555) 0125</div>
-                      </div>
-                    </TableCell>
-                    <TableCell data-testid="text-employee-id-3">EMP003</TableCell>
-                    <TableCell>
-                      <Badge className="bg-yellow-100 text-yellow-800" data-testid="badge-status-3">On Leave</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <Badge variant="outline">SmartInvest Group</Badge>
-                        <Badge variant="outline">GlobalFunds Co</Badge>
-                        <Badge variant="outline">RetireEasy Partners</Badge>
-                      </div>
-                    </TableCell>
-                    <TableCell data-testid="text-tickets-3">0/50</TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <Badge className="bg-red-100 text-red-800">Technical</Badge>
-                        <Badge className="bg-blue-100 text-blue-800">Product Inquiry</Badge>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        <div>Rating: <span className="font-medium">4.6★</span></div>
-                        <div>Avg. Resolution: <span className="font-medium">3.2h</span></div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        <Button variant="outline" size="sm" disabled data-testid="button-manage-partners-3">
-                          Manage Partners
-                        </Button>
-                        <Button variant="outline" size="sm" data-testid="button-view-performance-3">
-                          Performance
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
                 </TableBody>
               </Table>
             </CardContent>
@@ -4228,7 +4289,202 @@ export default function AdminPanel() {
           <MarketingToolsPanel />
         </TabsContent>
 
+      {/* Agent Management Dialogs */}
+      {/* Add Agent Dialog */}
+      <Dialog open={showAddAgentDialog} onOpenChange={setShowAddAgentDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New Agent</DialogTitle>
+            <DialogDescription>Create a new agent with EUIN/ARN assignments</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Full Name</Label>
+              <Input
+                value={agentForm.fullName}
+                onChange={(e) => setAgentForm({ ...agentForm, fullName: e.target.value })}
+                placeholder="Enter full name"
+                data-testid="input-agent-name"
+              />
+            </div>
+            <div>
+              <Label>Email</Label>
+              <Input
+                type="email"
+                value={agentForm.email}
+                onChange={(e) => setAgentForm({ ...agentForm, email: e.target.value })}
+                placeholder="Enter email"
+                data-testid="input-agent-email"
+              />
+            </div>
+            <div>
+              <Label>Phone</Label>
+              <Input
+                value={agentForm.phone}
+                onChange={(e) => setAgentForm({ ...agentForm, phone: e.target.value })}
+                placeholder="Enter phone number"
+                data-testid="input-agent-phone"
+              />
+            </div>
+            <div>
+              <Label>Employee ID</Label>
+              <Input
+                value={agentForm.employeeId}
+                onChange={(e) => setAgentForm({ ...agentForm, employeeId: e.target.value })}
+                placeholder="Enter employee ID"
+                data-testid="input-agent-employee-id"
+              />
+            </div>
+            <div>
+              <Label>EUIN Number</Label>
+              <Input
+                value={agentForm.euinNumber}
+                onChange={(e) => setAgentForm({ ...agentForm, euinNumber: e.target.value })}
+                placeholder="Enter EUIN number"
+                data-testid="input-agent-euin"
+              />
+            </div>
+            <div>
+              <Label>ARN Code</Label>
+              <Input
+                value={agentForm.arnCode}
+                onChange={(e) => setAgentForm({ ...agentForm, arnCode: e.target.value })}
+                placeholder="Enter ARN code"
+                data-testid="input-agent-arn"
+              />
+            </div>
+            <div>
+              <Label>Status</Label>
+              <Select value={agentForm.status} onValueChange={(value) => setAgentForm({ ...agentForm, status: value })}>
+                <SelectTrigger data-testid="select-agent-status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="on_leave">On Leave</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button variant="outline" onClick={() => setShowAddAgentDialog(false)} data-testid="button-cancel-add-agent">
+              Cancel
+            </Button>
+            <Button onClick={handleCreateAgent} disabled={createAgentMutation.isPending} data-testid="button-create-agent">
+              {createAgentMutation.isPending ? "Creating..." : "Create Agent"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
+      {/* Edit Agent Dialog */}
+      <Dialog open={showEditAgentDialog} onOpenChange={setShowEditAgentDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Agent</DialogTitle>
+            <DialogDescription>Update agent information and EUIN/ARN assignments</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Full Name</Label>
+              <Input
+                value={agentForm.fullName}
+                onChange={(e) => setAgentForm({ ...agentForm, fullName: e.target.value })}
+                placeholder="Enter full name"
+                data-testid="input-edit-agent-name"
+              />
+            </div>
+            <div>
+              <Label>Email</Label>
+              <Input
+                type="email"
+                value={agentForm.email}
+                onChange={(e) => setAgentForm({ ...agentForm, email: e.target.value })}
+                placeholder="Enter email"
+                data-testid="input-edit-agent-email"
+              />
+            </div>
+            <div>
+              <Label>Phone</Label>
+              <Input
+                value={agentForm.phone}
+                onChange={(e) => setAgentForm({ ...agentForm, phone: e.target.value })}
+                placeholder="Enter phone number"
+                data-testid="input-edit-agent-phone"
+              />
+            </div>
+            <div>
+              <Label>Employee ID</Label>
+              <Input
+                value={agentForm.employeeId}
+                onChange={(e) => setAgentForm({ ...agentForm, employeeId: e.target.value })}
+                placeholder="Enter employee ID"
+                data-testid="input-edit-agent-employee-id"
+              />
+            </div>
+            <div>
+              <Label>EUIN Number</Label>
+              <Input
+                value={agentForm.euinNumber}
+                onChange={(e) => setAgentForm({ ...agentForm, euinNumber: e.target.value })}
+                placeholder="Enter EUIN number"
+                data-testid="input-edit-agent-euin"
+              />
+            </div>
+            <div>
+              <Label>ARN Code</Label>
+              <Input
+                value={agentForm.arnCode}
+                onChange={(e) => setAgentForm({ ...agentForm, arnCode: e.target.value })}
+                placeholder="Enter ARN code"
+                data-testid="input-edit-agent-arn"
+              />
+            </div>
+            <div>
+              <Label>Status</Label>
+              <Select value={agentForm.status} onValueChange={(value) => setAgentForm({ ...agentForm, status: value })}>
+                <SelectTrigger data-testid="select-edit-agent-status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="on_leave">On Leave</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button variant="outline" onClick={() => setShowEditAgentDialog(false)} data-testid="button-cancel-edit-agent">
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateAgent} disabled={updateAgentMutation.isPending} data-testid="button-update-agent">
+              {updateAgentMutation.isPending ? "Updating..." : "Update Agent"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Agent Dialog */}
+      <Dialog open={showDeleteAgentDialog} onOpenChange={setShowDeleteAgentDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Agent</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete agent {selectedAgent?.fullName}? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button variant="outline" onClick={() => setShowDeleteAgentDialog(false)} data-testid="button-cancel-delete-agent">
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmDeleteAgent} disabled={deleteAgentMutation.isPending} data-testid="button-confirm-delete-agent">
+              {deleteAgentMutation.isPending ? "Deleting..." : "Delete Agent"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Guidance Dialog */}
       <Dialog open={guidanceDialog} onOpenChange={setGuidanceDialog}>
@@ -5086,7 +5342,6 @@ export default function AdminPanel() {
           <TabsContent value="supplier-dashboard" className="space-y-6" data-testid="supplier-dashboard-content">
             <SupplierDashboard />
           </TabsContent>
-
 
           </div>
         </Tabs>
