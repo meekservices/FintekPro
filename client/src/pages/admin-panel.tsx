@@ -2462,6 +2462,7 @@ export default function AdminPanel() {
     },
   });
 
+
   if (dashboardLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
