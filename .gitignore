@@ -4,3 +4,8 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+
+# WhatsApp session files - contain sensitive data
+whatsapp-session/
+.wwebjs_auth/
+.wwebjs_cache/

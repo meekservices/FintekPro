@@ -75,16 +75,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Admin middleware to check admin role
   const requireAdmin = async (req: any, res: any, next: any) => {
-    // Temporary bypass for testing - remove this in production
-    if (!process.env.NODE_ENV || process.env.NODE_ENV === 'development') {
-      // Mock admin user for testing
-      req.user = { 
-        id: 'dc41e192-05de-481c-b1cc-947d8ea42cff',
-        role: 'admin',
-        email: 'skmohanty0@gmail.com'
-      };
-      return next();
-    }
+    // SECURITY: Development bypass removed - all environments now require proper authentication
+    // if (!process.env.NODE_ENV || process.env.NODE_ENV === 'development') {
+    //   // Mock admin user for testing
+    //   req.user = { 
+    //     id: 'dc41e192-05de-481c-b1cc-947d8ea42cff',
+    //     role: 'admin',
+    //     email: 'skmohanty0@gmail.com'
+    //   };
+    //   return next();
+    // }
     
     if (!req.user) {
       return res.status(401).json({ message: "Authentication required" });
