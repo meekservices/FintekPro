@@ -729,28 +729,28 @@ export default function Store() {
                   </p>
                 </div>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mt-8">
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-2 mt-6">
                 {/* All Categories Card */}
                 <div 
-                  className={`relative bg-white/10 backdrop-blur-sm rounded-xl p-4 text-center hover:bg-white/30 transition-all duration-300 cursor-pointer transform hover:scale-105 ${selectedCategory === "All" || selectedCategory === "" ? 'bg-white/30 ring-2 ring-white/50 shadow-xl' : ''}`} 
+                  className={`relative bg-white/10 backdrop-blur-sm rounded-lg p-2.5 text-center hover:bg-white/30 transition-all duration-300 cursor-pointer transform hover:scale-105 ${selectedCategory === "All" || selectedCategory === "" ? 'bg-white/30 ring-1 ring-white/50 shadow-lg' : ''}`} 
                   onClick={() => setSelectedCategory("All")}
                   data-testid="category-card-all"
                 >
                   {(selectedCategory === "All" || selectedCategory === "") && (
-                    <div className="absolute inset-0 bg-white/20 rounded-xl animate-pulse" />
+                    <div className="absolute inset-0 bg-white/20 rounded-lg animate-pulse" />
                   )}
                   <div className="relative z-10">
-                    <div className={`w-12 h-12 mx-auto mb-3 rounded-full flex items-center justify-center transition-all duration-300 ${selectedCategory === "All" || selectedCategory === "" ? 'bg-white/40 shadow-lg' : 'bg-white/20'}`}>
-                      <Grid className={`w-6 h-6 text-white transition-all duration-300 ${selectedCategory === "All" || selectedCategory === "" ? 'scale-110' : ''}`} />
+                    <div className={`w-8 h-8 mx-auto mb-2 rounded-full flex items-center justify-center transition-all duration-300 ${selectedCategory === "All" || selectedCategory === "" ? 'bg-white/40 shadow-md' : 'bg-white/20'}`}>
+                      <Grid className={`w-4 h-4 text-white transition-all duration-300 ${selectedCategory === "All" || selectedCategory === "" ? 'scale-110' : ''}`} />
                     </div>
-                    <h3 className={`text-white font-medium text-sm mb-1 transition-all duration-300 ${selectedCategory === "All" || selectedCategory === "" ? 'font-bold' : ''}`}>
-                      All Categories
+                    <h3 className={`text-white font-medium text-xs mb-1 transition-all duration-300 leading-tight ${selectedCategory === "All" || selectedCategory === "" ? 'font-bold' : ''}`}>
+                      All
                     </h3>
                     <p className={`text-blue-100 text-xs transition-all duration-300 ${selectedCategory === "All" || selectedCategory === "" ? 'text-white font-medium' : ''}`}>
-                      {mockProducts.length} Products
+                      {mockProducts.length}
                     </p>
                     {(selectedCategory === "All" || selectedCategory === "") && (
-                      <div className="mt-2 w-8 h-1 bg-white rounded-full mx-auto animate-pulse" />
+                      <div className="mt-1.5 w-6 h-0.5 bg-white rounded-full mx-auto animate-pulse" />
                     )}
                   </div>
                 </div>
@@ -759,28 +759,34 @@ export default function Store() {
                   const Icon = info?.icon || Star;
                   const totalCategoryProducts = mockProducts.filter(p => p.category === category).length;
                   const isActive = selectedCategory === category;
+                  // Shorten category names for compact display
+                  const displayName = category === "Fixed Deposits" ? "FD" : 
+                                    category === "Mutual Funds" ? "MF" :
+                                    category === "Insurance" ? "Insurance" :
+                                    category === "ETFs" ? "ETFs" :
+                                    category === "Loans" ? "Loans" : category;
                   return (
                     <div 
                       key={category} 
-                      className={`relative bg-white/10 backdrop-blur-sm rounded-xl p-4 text-center hover:bg-white/30 transition-all duration-300 cursor-pointer transform hover:scale-105 ${isActive ? 'bg-white/30 ring-2 ring-white/50 shadow-xl' : ''}`} 
+                      className={`relative bg-white/10 backdrop-blur-sm rounded-lg p-2.5 text-center hover:bg-white/30 transition-all duration-300 cursor-pointer transform hover:scale-105 ${isActive ? 'bg-white/30 ring-1 ring-white/50 shadow-lg' : ''}`} 
                       onClick={() => setSelectedCategory(category)}
                       data-testid={`category-card-${category.toLowerCase().replace(/\s+/g, '-')}`}
                     >
                       {isActive && (
-                        <div className="absolute inset-0 bg-white/20 rounded-xl animate-pulse" />
+                        <div className="absolute inset-0 bg-white/20 rounded-lg animate-pulse" />
                       )}
                       <div className="relative z-10">
-                        <div className={`w-12 h-12 mx-auto mb-3 rounded-full flex items-center justify-center transition-all duration-300 ${isActive ? 'bg-white/40 shadow-lg' : 'bg-white/20'}`}>
-                          <Icon className={`w-6 h-6 text-white transition-all duration-300 ${isActive ? 'scale-110' : ''}`} />
+                        <div className={`w-8 h-8 mx-auto mb-2 rounded-full flex items-center justify-center transition-all duration-300 ${isActive ? 'bg-white/40 shadow-md' : 'bg-white/20'}`}>
+                          <Icon className={`w-4 h-4 text-white transition-all duration-300 ${isActive ? 'scale-110' : ''}`} />
                         </div>
-                        <h3 className={`text-white font-medium text-sm mb-1 transition-all duration-300 ${isActive ? 'font-bold' : ''}`}>
-                          {category}
+                        <h3 className={`text-white font-medium text-xs mb-1 transition-all duration-300 leading-tight ${isActive ? 'font-bold' : ''}`}>
+                          {displayName}
                         </h3>
                         <p className={`text-blue-100 text-xs transition-all duration-300 ${isActive ? 'text-white font-medium' : ''}`}>
-                          {totalCategoryProducts} Products
+                          {totalCategoryProducts}
                         </p>
                         {isActive && (
-                          <div className="mt-2 w-8 h-1 bg-white rounded-full mx-auto animate-pulse" />
+                          <div className="mt-1.5 w-6 h-0.5 bg-white rounded-full mx-auto animate-pulse" />
                         )}
                       </div>
                     </div>
