@@ -137,3 +137,89 @@ export function useMarketStatus() {
     staleTime: 30 * 1000, // 30 seconds
   });
 }
+
+// Enhanced NSE indices hook for NIFTY, SENSEX etc.
+export interface NSEIndex {
+  symbol: string;
+  ltp: number;
+  chng: number;
+  per_chng: number;
+  volume: number;
+  value: number;
+}
+
+export function useNSEIndices() {
+  return useQuery<{
+    status: string;
+    data: NSEIndex[];
+  }>({
+    queryKey: ['/api/nse/indices'],
+    refetchInterval: 30000, // Refetch every 30 seconds for live data
+    retry: 2,
+    staleTime: 15 * 1000, // 15 seconds
+  });
+}
+
+// NSE Market Status hook
+export function useNSEMarketStatus() {
+  return useQuery<{
+    status: string;
+    data: any;
+  }>({
+    queryKey: ['/api/nse/market-status'],
+    refetchInterval: 60000, // Refetch every minute
+    retry: 2,
+    staleTime: 30 * 1000, // 30 seconds
+  });
+}
+
+// Market movers (gainers/losers) hook
+export interface MarketMover {
+  symbol: string;
+  name?: string;
+  ltp: number;
+  chng: number;
+  per_chng: number;
+  volume: number;
+  value: number;
+}
+
+export function useMarketMovers() {
+  return useQuery<{
+    gainers: MarketMover[];
+    losers: MarketMover[];
+  }>({
+    queryKey: ['/api/market/movers'],
+    refetchInterval: 60000, // Refetch every minute
+    retry: 2,
+    staleTime: 30 * 1000, // 30 seconds
+  });
+}
+
+// Combined market data for dashboard header
+export interface DashboardMarketData {
+  nifty: {
+    value: number;
+    change: number;
+    changePercent: number;
+    timestamp: string;
+  };
+  sensex: {
+    value: number;
+    change: number;
+    changePercent: number;
+    timestamp: string;
+  };
+  totalAUM: string;
+  activeSchemes: number;
+  lastUpdated: string;
+}
+
+export function useDashboardMarketData() {
+  return useQuery<DashboardMarketData>({
+    queryKey: ['/api/market/dashboard-data'],
+    refetchInterval: 30000, // Refetch every 30 seconds
+    retry: 2,
+    staleTime: 15 * 1000, // 15 seconds
+  });
+}
