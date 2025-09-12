@@ -53,22 +53,22 @@ const getIconForNavItem = (name: string) => {
 };
 
 const getCardStyles = (tone: string, isActive: boolean) => {
-  const baseStyles = "h-20 cursor-pointer transition-all duration-200 hover:shadow-md border-2";
+  const baseStyles = "h-20 transition-all duration-200 hover:shadow-md border-2 focus-within:ring-2 focus-within:ring-offset-2";
   
   if (isActive) {
     switch (tone) {
       case 'admin':
-        return `${baseStyles} border-red-500 bg-red-50 dark:bg-red-900/20`;
+        return `${baseStyles} border-red-500 bg-red-50 dark:bg-red-900/20 focus-within:ring-red-500`;
       case 'store':
-        return `${baseStyles} border-green-500 bg-green-50 dark:bg-green-900/20`;
+        return `${baseStyles} border-green-500 bg-green-50 dark:bg-green-900/20 focus-within:ring-green-500`;
       case 'cart':
-        return `${baseStyles} border-blue-500 bg-blue-50 dark:bg-blue-900/20`;
+        return `${baseStyles} border-blue-500 bg-blue-50 dark:bg-blue-900/20 focus-within:ring-blue-500`;
       default:
-        return `${baseStyles} border-finance-blue bg-blue-50 dark:bg-blue-900/20`;
+        return `${baseStyles} border-finance-blue bg-blue-50 dark:bg-blue-900/20 focus-within:ring-blue-500`;
     }
   }
   
-  return `${baseStyles} border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600`;
+  return `${baseStyles} border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600 focus-within:ring-gray-500`;
 };
 
 const getIconStyles = (tone: string, isActive: boolean) => {
@@ -118,15 +118,22 @@ export function MobileNavCards({ items, onNavigate, isAuthenticated, cartCount, 
           
           return (
             <li key={item.name} role="listitem">
-              <Link href={item.href}>
+              <Link 
+                href={item.href}
+                onClick={onNavigate}
+                className="block focus:outline-none"
+                data-testid={`link-nav-${item.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`}
+              >
                 <Card 
                   className={getCardStyles(tone, isActive)}
-                  onClick={onNavigate}
                   data-testid={`card-nav-${item.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`}
                   aria-current={isActive ? "page" : undefined}
                 >
                   <CardContent className="flex flex-col items-center justify-center h-full p-3 relative">
-                    <Icon className={`h-6 w-6 mb-2 ${getIconStyles(tone, isActive)}`} />
+                    <Icon 
+                      className={`h-6 w-6 mb-2 ${getIconStyles(tone, isActive)}`} 
+                      aria-hidden="true"
+                    />
                     <span className={`text-sm font-medium text-center leading-tight ${getTextStyles(tone, isActive)}`}>
                       {item.name}
                     </span>
