@@ -350,7 +350,10 @@ export default function MutualFunds() {
     }
   ];
 
-  const [selectedCategory, setSelectedCategory] = useState(fundCategories[0].name);
+  // Temporary alias to fix runtime error - will be cleaned up later
+  const categories = fundCategories;
+
+  const [selectedCategory, setSelectedCategory] = useState("Large Cap Funds");
   const [selectedSubCategory, setSelectedSubCategory] = useState("");
   
   // CRISIL Star Rating Component
