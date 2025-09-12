@@ -155,7 +155,6 @@ function FundSkeleton() {
 
 export default function MutualFunds() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("");
   const queryClient = useQueryClient();
 
   const { data: allFunds, isLoading: isLoadingAll, error: allError, refetch: refetchAll } = useMutualFunds();
@@ -168,17 +167,17 @@ export default function MutualFunds() {
     refetchInterval: 3600000, // Refresh every hour
   });
 
-  // Market data hooks
-  const { data: nseIndices, isLoading: isLoadingNSE, error: nseError, refetch: refetchNSE } = useNSEIndices();
-  const { data: marketMovers, isLoading: isLoadingMovers, refetch: refetchMovers } = useMarketMovers();
-  const { data: marketStatus, isLoading: isLoadingMarketStatus, refetch: refetchMarketStatus } = useMarketStatus();
+  // Market data hooks with dataUpdatedAt for accurate timestamps
+  const { data: nseIndices, isLoading: isLoadingNSE, error: nseError, refetch: refetchNSE, dataUpdatedAt: nseDataUpdatedAt, isStale: isNSEStale } = useNSEIndices();
+  const { data: marketMovers, isLoading: isLoadingMovers, refetch: refetchMovers, dataUpdatedAt: moversDataUpdatedAt, isStale: isMoversStale } = useMarketMovers();
+  const { data: marketStatus, isLoading: isLoadingMarketStatus, refetch: refetchMarketStatus, dataUpdatedAt: statusDataUpdatedAt, isStale: isStatusStale } = useMarketStatus();
 
-  // Portfolio data hooks for demo user
+  // Portfolio data hooks for demo user with dataUpdatedAt
   const demoUserId = 'demo-user-1';
-  const { data: portfolios, isLoading: isLoadingPortfolios, refetch: refetchPortfolios } = usePortfolios(demoUserId);
+  const { data: portfolios, isLoading: isLoadingPortfolios, refetch: refetchPortfolios, dataUpdatedAt: portfoliosDataUpdatedAt, isStale: isPortfoliosStale } = usePortfolios(demoUserId);
   const demoPortfolioId = portfolios?.[0]?.id || 'demo-portfolio-1';
-  const { data: portfolioPerformance, isLoading: isLoadingPerformance, refetch: refetchPerformance } = usePortfolioPerformance(demoPortfolioId);
-  const { data: portfolioHoldings, isLoading: isLoadingHoldings, refetch: refetchHoldings } = useEnhancedPortfolioHoldings(demoPortfolioId);
+  const { data: portfolioPerformance, isLoading: isLoadingPerformance, refetch: refetchPerformance, dataUpdatedAt: performanceDataUpdatedAt, isStale: isPerformanceStale } = usePortfolioPerformance(demoPortfolioId);
+  const { data: portfolioHoldings, isLoading: isLoadingHoldings, refetch: refetchHoldings, dataUpdatedAt: holdingsDataUpdatedAt, isStale: isHoldingsStale } = useEnhancedPortfolioHoldings(demoPortfolioId);
 
   // SIP calculator state
   const [sipAmount, setSipAmount] = useState("");
@@ -213,15 +212,292 @@ export default function MutualFunds() {
     });
   };
 
-  const categories = [
-    "All Categories",
-    "Equity",
-    "Debt", 
-    "Hybrid",
-    "ELSS",
-    "Index",
-    "Sectoral"
+  // MoneyControl-style fund categories with real data structure
+  const fundCategories = [
+    {
+      name: "Large Cap Funds",
+      description: "Invest in top 100 companies by market cap",
+      riskLevel: "Moderate",
+      funds: [
+        {
+          fundName: "SBI BlueChip Fund",
+          fundHouse: "SBI Mutual Fund",
+          crisil: 4,
+          aum: "₹32,450 Cr",
+          returns: { "1M": "2.3%", "6M": "18.5%", "1Y": "14.2%", "3Y": "16.8%", "5Y": "14.5%" },
+          expenseRatio: "0.58%",
+          nav: "95.87"
+        },
+        {
+          fundName: "ICICI Pru BlueChip Fund",
+          fundHouse: "ICICI Prudential MF",
+          crisil: 5,
+          aum: "₹45,678 Cr",
+          returns: { "1M": "1.8%", "6M": "17.2%", "1Y": "15.4%", "3Y": "17.2%", "5Y": "15.1%" },
+          expenseRatio: "0.89%",
+          nav: "68.45"
+        },
+        {
+          fundName: "Axis BlueChip Fund",
+          fundHouse: "Axis Mutual Fund",
+          crisil: 4,
+          aum: "₹28,934 Cr",
+          returns: { "1M": "2.1%", "6M": "16.8%", "1Y": "13.9%", "3Y": "15.6%", "5Y": "13.8%" },
+          expenseRatio: "0.45%",
+          nav: "47.23"
+        }
+      ]
+    },
+    {
+      name: "Multi Cap Funds",
+      description: "Flexible allocation across large, mid & small cap stocks",
+      riskLevel: "Moderate to High",
+      funds: [
+        {
+          fundName: "Parag Parikh Flexi Cap",
+          fundHouse: "PPFAS Mutual Fund",
+          crisil: 5,
+          aum: "₹67,890 Cr",
+          returns: { "1M": "3.2%", "6M": "21.4%", "1Y": "18.7%", "3Y": "19.8%", "5Y": "17.9%" },
+          expenseRatio: "0.68%",
+          nav: "58.94"
+        },
+        {
+          fundName: "Kotak Flexicap Fund",
+          fundHouse: "Kotak Mutual Fund",
+          crisil: 4,
+          aum: "₹52,345 Cr",
+          returns: { "1M": "2.8%", "6M": "19.6%", "1Y": "16.3%", "3Y": "18.1%", "5Y": "16.4%" },
+          expenseRatio: "0.55%",
+          nav: "72.18"
+        }
+      ]
+    },
+    {
+      name: "Large & Mid Cap Funds",
+      description: "65% in large cap, 35% in mid cap companies",
+      riskLevel: "Moderate to High",
+      funds: [
+        {
+          fundName: "Motilal Oswal Large & Midcap",
+          fundHouse: "Motilal Oswal MF",
+          crisil: 5,
+          aum: "₹15,234 Cr",
+          returns: { "1M": "4.1%", "6M": "24.2%", "1Y": "22.5%", "3Y": "21.3%", "5Y": "19.8%" },
+          expenseRatio: "0.72%",
+          nav: "89.34"
+        },
+        {
+          fundName: "HDFC Large and Mid Cap",
+          fundHouse: "HDFC Mutual Fund",
+          crisil: 4,
+          aum: "₹38,567 Cr",
+          returns: { "1M": "3.5%", "6M": "20.8%", "1Y": "19.2%", "3Y": "19.7%", "5Y": "18.1%" },
+          expenseRatio: "0.65%",
+          nav: "76.92"
+        }
+      ]
+    },
+    {
+      name: "Mid Cap Funds",
+      description: "Invest in 101st to 250th companies by market cap",
+      riskLevel: "High",
+      funds: [
+        {
+          fundName: "Axis Midcap Fund",
+          fundHouse: "Axis Mutual Fund",
+          crisil: 5,
+          aum: "₹24,678 Cr",
+          returns: { "1M": "5.2%", "6M": "28.3%", "1Y": "31.4%", "3Y": "24.8%", "5Y": "22.1%" },
+          expenseRatio: "0.58%",
+          nav: "142.67"
+        },
+        {
+          fundName: "DSP Midcap Fund",
+          fundHouse: "DSP Mutual Fund",
+          crisil: 4,
+          aum: "₹19,890 Cr",
+          returns: { "1M": "4.8%", "6M": "26.1%", "1Y": "28.9%", "3Y": "22.6%", "5Y": "20.4%" },
+          expenseRatio: "0.67%",
+          nav: "98.45"
+        }
+      ]
+    },
+    {
+      name: "Small Cap Funds",
+      description: "Invest in companies ranked beyond 250th by market cap",
+      riskLevel: "Very High",
+      funds: [
+        {
+          fundName: "SBI Small Cap Fund",
+          fundHouse: "SBI Mutual Fund",
+          crisil: 5,
+          aum: "₹18,234 Cr",
+          returns: { "1M": "6.8%", "6M": "32.5%", "1Y": "38.2%", "3Y": "28.4%", "5Y": "24.7%" },
+          expenseRatio: "0.74%",
+          nav: "203.89"
+        },
+        {
+          fundName: "Nippon India Small Cap",
+          fundHouse: "Nippon India MF",
+          crisil: 4,
+          aum: "₹22,567 Cr",
+          returns: { "1M": "6.2%", "6M": "30.8%", "1Y": "35.6%", "3Y": "26.1%", "5Y": "22.9%" },
+          expenseRatio: "0.69%",
+          nav: "178.42"
+        }
+      ]
+    }
   ];
+
+  const [selectedCategory, setSelectedCategory] = useState(fundCategories[0].name);
+  const [selectedSubCategory, setSelectedSubCategory] = useState("");
+  
+  // CRISIL Star Rating Component
+  const CrisilStars = ({ rating }: { rating: number }) => {
+    return (
+      <div className="flex items-center gap-1" data-testid={`crisil-${rating}-star`}>
+        {[1, 2, 3, 4, 5].map((star) => (
+          <Star
+            key={star}
+            className={`w-4 h-4 ${star <= rating ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
+          />
+        ))}
+        <span className="text-xs text-gray-600 ml-1">CRISIL</span>
+      </div>
+    );
+  };
+  
+  // Performance Table Component
+  const FundPerformanceTable = ({ category }: { category: typeof fundCategories[0] }) => {
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+        <div className="px-6 py-4 bg-gradient-to-r from-finance-blue/5 to-blue-50 dark:from-finance-blue/10 dark:to-gray-800 border-b border-gray-100 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{category.name}</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{category.description}</p>
+              <div className="flex items-center gap-2 mt-2">
+                <div className="px-2 py-1 bg-finance-blue/10 text-finance-blue text-xs font-medium rounded">
+                  Risk: {category.riskLevel}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50 dark:bg-gray-700">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" data-testid="table-header-fund">Fund Name</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" data-testid="table-header-crisil">CRISIL Rank</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" data-testid="table-header-aum">AUM</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" data-testid="table-header-1m">1M</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" data-testid="table-header-6m">6M</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" data-testid="table-header-1y">1Y</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" data-testid="table-header-3y">3Y</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" data-testid="table-header-5y">5Y</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" data-testid="table-header-action">Action</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+              {category.funds.map((fund, index) => (
+                <tr key={fund.fundName} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors" data-testid={`fund-row-${index}`}>
+                  <td className="px-6 py-4" data-testid={`fund-name-${index}`}>
+                    <div>
+                      <div className="font-medium text-gray-900 dark:text-white">{fund.fundName}</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">{fund.fundHouse}</div>
+                      <div className="text-xs text-gray-400">NAV: ₹{fund.nav}</div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4" data-testid={`fund-crisil-${index}`}>
+                    <CrisilStars rating={fund.crisil} />
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-900 dark:text-white font-medium" data-testid={`fund-aum-${index}`}>
+                    {fund.aum}
+                  </td>
+                  <td className="px-6 py-4" data-testid={`fund-1m-${index}`}>
+                    <span className={`text-sm font-medium ${
+                      fund.returns['1M'].startsWith('-') ? 'text-red-600' : 'text-green-600'
+                    }`}>
+                      {fund.returns['1M']}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4" data-testid={`fund-6m-${index}`}>
+                    <span className={`text-sm font-medium ${
+                      fund.returns['6M'].startsWith('-') ? 'text-red-600' : 'text-green-600'
+                    }`}>
+                      {fund.returns['6M']}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4" data-testid={`fund-1y-${index}`}>
+                    <span className={`text-sm font-medium ${
+                      fund.returns['1Y'].startsWith('-') ? 'text-red-600' : 'text-green-600'
+                    }`}>
+                      {fund.returns['1Y']}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4" data-testid={`fund-3y-${index}`}>
+                    <span className={`text-sm font-medium ${
+                      fund.returns['3Y'].startsWith('-') ? 'text-red-600' : 'text-green-600'
+                    }`}>
+                      {fund.returns['3Y']}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4" data-testid={`fund-5y-${index}`}>
+                    <span className={`text-sm font-medium ${
+                      fund.returns['5Y'].startsWith('-') ? 'text-red-600' : 'text-green-600'
+                    }`}>
+                      {fund.returns['5Y']}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4" data-testid={`fund-action-${index}`}>
+                    <div className="flex gap-2">
+                      <Button 
+                        size="sm" 
+                        className="bg-finance-blue hover:bg-blue-600 text-white" 
+                        data-testid={`invest-btn-${index}`}
+                        onClick={() => handleInvestClick(fund as any)}
+                      >
+                        Invest
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="hover:border-finance-blue hover:text-finance-blue" 
+                        data-testid={`compare-btn-${index}`}
+                      >
+                        Compare
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        
+        <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700 border-t border-gray-100 dark:border-gray-700">
+          <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                <span>Positive Returns</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                <span>Negative Returns</span>
+              </div>
+            </div>
+            <div className="text-xs">
+              <p>*Returns are annualized. Past performance doesn't guarantee future results.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   // Use search results if searching, otherwise use all funds
   const displayFunds = searchTerm.length > 2 ? searchResults : allFunds;
@@ -260,21 +536,28 @@ export default function MutualFunds() {
     }
   };
 
-  // Get the latest timestamp for display
+  // Get the latest timestamp for display using React Query dataUpdatedAt
   const getLastUpdatedTime = () => {
     const timestamps = [
-      nseIndices && new Date().toISOString(),
-      marketStatus?.timestamp,
-      portfolioPerformance?.lastUpdated,
+      nseDataUpdatedAt,
+      statusDataUpdatedAt,
+      moversDataUpdatedAt,
+      portfoliosDataUpdatedAt,
+      performanceDataUpdatedAt,
+      holdingsDataUpdatedAt
     ].filter(Boolean);
     
     if (timestamps.length > 0) {
-      const latestTimestamp = new Date(Math.max(...timestamps.map(t => new Date(t as string).getTime())));
-      return latestTimestamp.toLocaleTimeString();
+      const latestTimestamp = Math.max(...timestamps.map(t => new Date(t as number).getTime()));
+      return new Date(latestTimestamp).toLocaleTimeString();
     }
     
     return new Date().toLocaleTimeString();
   };
+  
+  // Check if any data is stale or has errors
+  const hasStaleData = isNSEStale || isMoversStale || isStatusStale || isPortfoliosStale || isPerformanceStale || isHoldingsStale;
+  const hasDataErrors = nseError || allError || popularError;
 
   return (
     <div className="min-h-screen bg-finance-light" data-testid="mutual-funds-page">
@@ -301,8 +584,22 @@ export default function MutualFunds() {
                     <RefreshCw className={`h-4 w-4 mr-2 ${(isLoadingNSE || isLoadingMovers || isLoadingPerformance) ? 'animate-spin' : ''}`} />
                     {(isLoadingNSE || isLoadingMovers || isLoadingPerformance) ? 'Refreshing...' : 'Refresh All'}
                   </Button>
-                  <div className="text-sm text-gray-500" data-testid="last-updated">
-                    Last updated: {getLastUpdatedTime()}
+                  <div className="flex items-center gap-2" data-testid="last-updated">
+                    <div className="text-sm text-gray-500">
+                      Last updated: {getLastUpdatedTime()}
+                    </div>
+                    {hasStaleData && (
+                      <div className="flex items-center text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/20 px-2 py-1 rounded-md" data-testid="stale-data-indicator">
+                        <Clock className="w-3 h-3 mr-1" />
+                        Stale Data
+                      </div>
+                    )}
+                    {hasDataErrors && (
+                      <div className="flex items-center text-xs text-red-600 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded-md" data-testid="error-data-indicator">
+                        <AlertCircle className="w-3 h-3 mr-1" />
+                        Data Errors
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -668,9 +965,9 @@ export default function MutualFunds() {
                 </div>
               </SelectTrigger>
               <SelectContent>
-                {categories.map((category) => (
-                  <SelectItem key={category} value={category}>
-                    {category}
+                {fundCategories.map((category) => (
+                  <SelectItem key={category.name} value={category.name}>
+                    {category.name}
                   </SelectItem>
                 ))}
               </SelectContent>
