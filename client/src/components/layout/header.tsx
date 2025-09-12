@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/use-cart";
 import { type User } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { MobileNavCards } from "./MobileNavCards";
 
 export function Header() {
   const [location] = useLocation();
@@ -190,61 +191,38 @@ export function Header() {
                 </Button>
               </SheetTrigger>
               <SheetContent side="right" className="w-80">
-                <div className="flex flex-col space-y-4 pt-6">
+                <div className="flex flex-col space-y-6 pt-6">
 
-                  {/* Mobile Navigation */}
-                  <nav className="flex flex-col space-y-2">
-                    {navigation.map((item) => (
-                      <Link key={item.name} href={item.href}>
-                        <div
-                          className={`block px-3 py-2 rounded-md font-medium transition-colors cursor-pointer ${
-                            location === item.href
-                              ? "bg-finance-blue text-white"
-                              : "text-gray-700 hover:bg-gray-100"
-                          }`}
-                          onClick={() => setIsOpen(false)}
-                          data-testid={`mobile-nav-${item.name.toLowerCase().replace(" ", "-")}`}
-                        >
-                          {item.name}
-                        </div>
-                      </Link>
-                    ))}
-                    <Link href="/store">
-                      <div
-                        className={`block px-3 py-2 rounded-md font-medium transition-colors cursor-pointer flex items-center gap-2 ${
-                          location === "/store"
-                            ? "bg-green-600 text-white"
-                            : "text-gray-700 hover:bg-green-50 hover:text-green-600"
-                        }`}
-                        onClick={() => setIsOpen(false)}
-                        data-testid="mobile-nav-store"
-                      >
-                        <Store className="h-4 w-4" />
-                        Product Store
-                      </div>
-                    </Link>
-                    {isAuthenticated && (
-                      <Link href="/cart">
-                        <div
-                          className={`block px-3 py-2 rounded-md font-medium transition-colors cursor-pointer flex items-center gap-2 ${
-                            location === "/cart"
-                              ? "bg-finance-blue text-white"
-                              : "text-gray-700 hover:bg-blue-50 hover:text-finance-blue"
-                          }`}
-                          onClick={() => setIsOpen(false)}
-                          data-testid="mobile-nav-cart"
-                        >
-                          <ShoppingCart className="h-4 w-4" />
-                          <span>Cart</span>
-                          {cart && cart.totalItems > 0 && (
-                            <span className="bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center ml-auto">
-                              {cart.totalItems}
-                            </span>
-                          )}
-                        </div>
-                      </Link>
-                    )}
-                  </nav>
+                  {/* Mobile Navigation Cards */}
+                  <MobileNavCards
+                    items={[
+                      ...navigation.map(item => ({ 
+                        name: item.name, 
+                        href: item.href,
+                        tone: 'default' as const
+                      })),
+                      { 
+                        name: "Product Store", 
+                        href: "/store",
+                        tone: 'store' as const
+                      },
+                      ...(isAuthenticated ? [{ 
+                        name: "Cart", 
+                        href: "/cart",
+                        tone: 'cart' as const,
+                        badge: cart?.totalItems || 0
+                      }] : []),
+                      ...adminNavigation.map(item => ({ 
+                        name: item.name, 
+                        href: item.href,
+                        tone: 'admin' as const
+                      }))
+                    ]}
+                    onNavigate={() => setIsOpen(false)}
+                    isAuthenticated={isAuthenticated}
+                    cartCount={cart?.totalItems || 0}
+                    isAdmin={isAdmin}
+                  />
 
                   {/* Mobile Auth */}
                   {isLoading ? (
