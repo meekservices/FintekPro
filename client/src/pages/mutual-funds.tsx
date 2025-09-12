@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, TrendingUp, TrendingDown, Star, Filter, Calculator, RefreshCw, ArrowRight, Shield, Building2, Award } from "lucide-react";
+import { Search, TrendingUp, TrendingDown, Star, Filter, Calculator, RefreshCw, ArrowRight, Shield, Building2, Award, Clock } from "lucide-react";
 import { useMutualFunds, usePopularMutualFunds, useSearchMutualFunds, type MutualFundData } from "@/hooks/use-mutual-funds";
 import { useQuery } from "@tanstack/react-query";
 
@@ -24,51 +24,91 @@ function FundCard({ fund, sebiData, onInvestClick }: { fund: MutualFundData; seb
   );
   
   return (
-    <Card className="hover:shadow-lg transition-all duration-300 border-l-4 border-l-finance-blue" data-testid={`fund-card-${fund.schemeCode}`}>
-      <CardContent className="p-6">
-        <div className="flex justify-between items-start mb-4">
+    <Card className="group hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 overflow-hidden" data-testid={`fund-card-${fund.schemeCode}`}>
+      <div className="absolute inset-0 bg-gradient-to-r from-finance-blue/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      <CardContent className="relative p-6">
+        <div className="flex justify-between items-start mb-6">
           <div className="flex-1">
-            <h3 className="font-semibold text-gray-900 mb-1 line-clamp-2">{fund.schemeName}</h3>
-            <p className="text-sm text-gray-600">{fund.fundHouse}</p>
-            <div className="flex items-center gap-2 mt-2">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-2 h-2 rounded-full bg-finance-blue animate-pulse" />
+              <h3 className="font-bold text-gray-900 dark:text-white text-lg line-clamp-2 group-hover:text-finance-blue transition-colors">{fund.schemeName}</h3>
+            </div>
+            <div className="flex items-center gap-2 mb-3">
+              <Building2 className="w-4 h-4 text-gray-500" />
+              <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">{fund.fundHouse}</p>
+            </div>
+            <div className="flex items-center gap-2">
               {fund.category && (
-                <Badge variant="secondary">{fund.category}</Badge>
+                <Badge variant="secondary" className="bg-finance-blue/10 text-finance-blue border-finance-blue/20 hover:bg-finance-blue hover:text-white transition-colors">
+                  {fund.category}
+                </Badge>
               )}
               {sebiCompliance && (
-                <Badge variant="outline" className="text-green-600 border-green-200">
+                <Badge variant="outline" className="text-green-600 border-green-300 bg-green-50 dark:bg-green-900/20">
                   <Shield className="w-3 h-3 mr-1" />
-                  SEBI Registered
+                  SEBI Verified
                 </Badge>
               )}
             </div>
           </div>
         </div>
         
-        <div className="grid grid-cols-3 gap-4 text-center">
-          <div>
-            <p className="text-2xl font-bold text-gray-900">₹{navValue.toFixed(2)}</p>
-            <p className="text-xs text-gray-500">Current NAV</p>
-          </div>
-          <div>
-            <p className={`text-xl font-semibold ${changeValue >= 0 ? 'text-finance-green' : 'text-finance-red'}`}>
-              {changeValue >= 0 ? '+' : ''}₹{changeValue.toFixed(2)}
-            </p>
-            <p className="text-xs text-gray-500">Daily Change</p>
-          </div>
-          <div>
-            <p className={`text-xl font-semibold flex items-center justify-center ${changePercent >= 0 ? 'text-finance-green' : 'text-finance-red'}`}>
-              {changePercent >= 0 ? <TrendingUp className="h-4 w-4 mr-1" /> : <TrendingDown className="h-4 w-4 mr-1" />}
-              {changePercent >= 0 ? '+' : ''}{changePercent.toFixed(2)}%
-            </p>
-            <p className="text-xs text-gray-500">% Change</p>
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 mb-4">
+          <div className="grid grid-cols-3 gap-4 text-center">
+            <div className="group-hover:scale-105 transition-transform">
+              <div className="flex items-center justify-center mb-1">
+                <div className="w-8 h-8 bg-finance-blue/10 rounded-full flex items-center justify-center">
+                  <TrendingUp className="w-4 h-4 text-finance-blue" />
+                </div>
+              </div>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">₹{navValue.toFixed(2)}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Current NAV</p>
+            </div>
+            <div className="group-hover:scale-105 transition-transform">
+              <div className="flex items-center justify-center mb-1">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${changeValue >= 0 ? 'bg-green-100 dark:bg-green-900/20' : 'bg-red-100 dark:bg-red-900/20'}`}>
+                  {changeValue >= 0 ? 
+                    <TrendingUp className="w-4 h-4 text-green-600" /> : 
+                    <TrendingDown className="w-4 h-4 text-red-600" />
+                  }
+                </div>
+              </div>
+              <p className={`text-xl font-bold ${changeValue >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                {changeValue >= 0 ? '+' : ''}₹{changeValue.toFixed(2)}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Daily Change</p>
+            </div>
+            <div className="group-hover:scale-105 transition-transform">
+              <div className="flex items-center justify-center mb-1">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${changePercent >= 0 ? 'bg-green-100 dark:bg-green-900/20' : 'bg-red-100 dark:bg-red-900/20'}`}>
+                  <Star className={`w-4 h-4 ${changePercent >= 0 ? 'text-green-600' : 'text-red-600'}`} />
+                </div>
+              </div>
+              <p className={`text-xl font-bold flex items-center justify-center ${changePercent >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                {changePercent >= 0 ? '+' : ''}{changePercent.toFixed(2)}%
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">% Change</p>
+            </div>
           </div>
         </div>
         
-        <div className="mt-4 pt-4 border-t border-gray-100 flex gap-2">
-          <Button size="sm" className="flex-1 bg-finance-blue hover:bg-blue-700" data-testid={`invest-${fund.schemeCode}`} onClick={() => onInvestClick(fund)}>
+        <div className="flex gap-3">
+          <Button 
+            size="sm" 
+            className="flex-1 bg-gradient-to-r from-finance-blue to-blue-600 hover:from-blue-600 hover:to-finance-blue text-white font-medium shadow-lg hover:shadow-xl transition-all duration-300 group-hover:scale-105" 
+            data-testid={`invest-${fund.schemeCode}`} 
+            onClick={() => onInvestClick(fund)}
+          >
+            <TrendingUp className="w-4 h-4 mr-2" />
             Invest Now
           </Button>
-          <Button size="sm" variant="outline" className="flex-1" data-testid={`details-${fund.schemeCode}`}>
+          <Button 
+            size="sm" 
+            variant="outline" 
+            className="flex-1 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-finance-blue hover:text-finance-blue transition-all duration-300 group-hover:scale-105" 
+            data-testid={`details-${fund.schemeCode}`}
+          >
+            <Award className="w-4 h-4 mr-2" />
             View Details
           </Button>
         </div>
@@ -191,45 +231,77 @@ export default function MutualFunds() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
         
         {/* Page Header */}
-        <div className="mb-8" data-testid="mf-header">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-4">Mutual Funds</h1>
-              <p className="text-gray-600 text-lg">
-                Invest in direct mutual funds with zero commission
-              </p>
+        <div className="mb-10" data-testid="mf-header">
+          <div className="relative overflow-hidden bg-gradient-to-r from-finance-blue to-blue-600 rounded-2xl p-8 shadow-2xl">
+            <div className="absolute inset-0 bg-black/5" />
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-8 translate-x-8" />
+            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-8 -translate-x-8" />
+            <div className="relative flex justify-between items-center">
+              <div>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
+                    <TrendingUp className="w-6 h-6 text-white" />
+                  </div>
+                  <h1 className="text-4xl font-bold text-white">Mutual Funds</h1>
+                </div>
+                <p className="text-blue-100 text-lg font-medium max-w-md">
+                  Discover and invest in top-performing mutual funds with zero commission and real-time insights
+                </p>
+                <div className="flex items-center gap-6 mt-6">
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-5 h-5 text-green-400" />
+                    <span className="text-white/90 text-sm font-medium">SEBI Verified</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Award className="w-5 h-5 text-yellow-400" />
+                    <span className="text-white/90 text-sm font-medium">Direct Plans</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-blue-300" />
+                    <span className="text-white/90 text-sm font-medium">Real-time NAV</span>
+                  </div>
+                </div>
+              </div>
+              <Button 
+                onClick={() => refetchAll()} 
+                variant="secondary"
+                size="lg"
+                className="bg-white/20 backdrop-blur-sm border-white/30 text-white hover:bg-white/30 transition-all duration-300 shadow-lg"
+                data-testid="refresh-funds"
+              >
+                <RefreshCw className="h-5 w-5 mr-2" />
+                Refresh Data
+              </Button>
             </div>
-            <Button 
-              onClick={() => refetchAll()} 
-              variant="outline" 
-              size="sm" 
-              className="flex items-center gap-2"
-              data-testid="refresh-funds"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Refresh Data
-            </Button>
           </div>
         </div>
 
         {/* Search and Filter */}
-        <div className="mb-8 p-6 bg-white rounded-xl border border-gray-200" data-testid="search-filter">
+        <div className="mb-8 p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700" data-testid="search-filter">
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Find Your Perfect Fund</h2>
+            <p className="text-gray-600 dark:text-gray-300 text-sm">Use our advanced filters to discover funds that match your investment goals</p>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="relative">
+            <div className="relative group">
+              <div className="absolute inset-0 bg-gradient-to-r from-finance-blue/20 to-transparent rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               <Input
                 type="text"
-                placeholder="Search mutual funds..."
+                placeholder="Search funds, AMC, schemes..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="pl-12 h-12 border-2 border-gray-200 dark:border-gray-600 focus:border-finance-blue transition-all duration-300 bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm"
                 data-testid="mf-search-input"
               />
-              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-4 top-4 h-4 w-4 text-finance-blue" />
             </div>
             
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger data-testid="category-select">
-                <SelectValue placeholder="Category" />
+              <SelectTrigger className="h-12 border-2 border-gray-200 dark:border-gray-600 focus:border-finance-blue bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm" data-testid="category-select">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-finance-blue" />
+                  <SelectValue placeholder="Fund Category" />
+                </div>
               </SelectTrigger>
               <SelectContent>
                 {categories.map((category) => (
@@ -241,8 +313,11 @@ export default function MutualFunds() {
             </Select>
 
             <Select>
-              <SelectTrigger data-testid="risk-select">
-                <SelectValue placeholder="Risk Level" />
+              <SelectTrigger className="h-12 border-2 border-gray-200 dark:border-gray-600 focus:border-finance-blue bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm" data-testid="risk-select">
+                <div className="flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-finance-blue" />
+                  <SelectValue placeholder="Risk Level" />
+                </div>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="low">Low Risk</SelectItem>
@@ -252,20 +327,55 @@ export default function MutualFunds() {
               </SelectContent>
             </Select>
 
-            <Button variant="outline" className="flex items-center gap-2">
-              <Filter className="h-4 w-4" />
-              More Filters
+            <Button variant="outline" className="h-12 border-2 border-gray-200 dark:border-gray-600 hover:border-finance-blue hover:bg-finance-blue/5 transition-all duration-300 bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm">
+              <Filter className="h-4 w-4 mr-2" />
+              Advanced Filters
             </Button>
           </div>
         </div>
 
         <Tabs defaultValue="explore" className="space-y-8">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="explore" data-testid="tab-explore">Explore Funds</TabsTrigger>
-            <TabsTrigger value="compliance" data-testid="tab-compliance">SEBI Data</TabsTrigger>
-            <TabsTrigger value="sip" data-testid="tab-sip">Start SIP</TabsTrigger>
-            <TabsTrigger value="portfolio" data-testid="tab-portfolio">My Portfolio</TabsTrigger>
-            <TabsTrigger value="tools" data-testid="tab-tools">Tools</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-5 h-14 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl">
+            <TabsTrigger 
+              value="explore" 
+              data-testid="tab-explore"
+              className="flex items-center gap-2 h-12 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-finance-blue transition-all duration-300"
+            >
+              <TrendingUp className="w-4 h-4" />
+              Explore Funds
+            </TabsTrigger>
+            <TabsTrigger 
+              value="compliance" 
+              data-testid="tab-compliance"
+              className="flex items-center gap-2 h-12 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-finance-blue transition-all duration-300"
+            >
+              <Shield className="w-4 h-4" />
+              SEBI Data
+            </TabsTrigger>
+            <TabsTrigger 
+              value="sip" 
+              data-testid="tab-sip"
+              className="flex items-center gap-2 h-12 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-finance-blue transition-all duration-300"
+            >
+              <Calculator className="w-4 h-4" />
+              Start SIP
+            </TabsTrigger>
+            <TabsTrigger 
+              value="portfolio" 
+              data-testid="tab-portfolio"
+              className="flex items-center gap-2 h-12 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-finance-blue transition-all duration-300"
+            >
+              <Building2 className="w-4 h-4" />
+              My Portfolio
+            </TabsTrigger>
+            <TabsTrigger 
+              value="tools" 
+              data-testid="tab-tools"
+              className="flex items-center gap-2 h-12 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-finance-blue transition-all duration-300"
+            >
+              <Award className="w-4 h-4" />
+              Tools
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="explore" className="space-y-6" data-testid="explore-funds">
