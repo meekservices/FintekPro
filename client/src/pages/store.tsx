@@ -729,16 +729,60 @@ export default function Store() {
                   </p>
                 </div>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-8">
+              <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mt-8">
+                {/* All Categories Card */}
+                <div 
+                  className={`relative bg-white/10 backdrop-blur-sm rounded-xl p-4 text-center hover:bg-white/30 transition-all duration-300 cursor-pointer transform hover:scale-105 ${selectedCategory === "All" || selectedCategory === "" ? 'bg-white/30 ring-2 ring-white/50 shadow-xl' : ''}`} 
+                  onClick={() => setSelectedCategory("All")}
+                  data-testid="category-card-all"
+                >
+                  {(selectedCategory === "All" || selectedCategory === "") && (
+                    <div className="absolute inset-0 bg-white/20 rounded-xl animate-pulse" />
+                  )}
+                  <div className="relative z-10">
+                    <div className={`w-12 h-12 mx-auto mb-3 rounded-full flex items-center justify-center transition-all duration-300 ${selectedCategory === "All" || selectedCategory === "" ? 'bg-white/40 shadow-lg' : 'bg-white/20'}`}>
+                      <Grid className={`w-6 h-6 text-white transition-all duration-300 ${selectedCategory === "All" || selectedCategory === "" ? 'scale-110' : ''}`} />
+                    </div>
+                    <h3 className={`text-white font-medium text-sm mb-1 transition-all duration-300 ${selectedCategory === "All" || selectedCategory === "" ? 'font-bold' : ''}`}>
+                      All Categories
+                    </h3>
+                    <p className={`text-blue-100 text-xs transition-all duration-300 ${selectedCategory === "All" || selectedCategory === "" ? 'text-white font-medium' : ''}`}>
+                      {mockProducts.length} Products
+                    </p>
+                    {(selectedCategory === "All" || selectedCategory === "") && (
+                      <div className="mt-2 w-8 h-1 bg-white rounded-full mx-auto animate-pulse" />
+                    )}
+                  </div>
+                </div>
                 {categories.slice(1).map((category, index) => {
                   const info = categoryInfo[category as keyof typeof categoryInfo];
                   const Icon = info?.icon || Star;
-                  const productCount = filteredProducts.filter(p => p.category === category).length;
+                  const totalCategoryProducts = mockProducts.filter(p => p.category === category).length;
+                  const isActive = selectedCategory === category;
                   return (
-                    <div key={category} className="bg-white/10 backdrop-blur-sm rounded-xl p-4 text-center hover:bg-white/20 transition-all duration-300 cursor-pointer" onClick={() => setSelectedCategory(category)}>
-                      <Icon className="w-6 h-6 text-white mx-auto mb-2" />
-                      <h3 className="text-white font-medium text-sm mb-1">{category}</h3>
-                      <p className="text-blue-100 text-xs">{productCount} Products</p>
+                    <div 
+                      key={category} 
+                      className={`relative bg-white/10 backdrop-blur-sm rounded-xl p-4 text-center hover:bg-white/30 transition-all duration-300 cursor-pointer transform hover:scale-105 ${isActive ? 'bg-white/30 ring-2 ring-white/50 shadow-xl' : ''}`} 
+                      onClick={() => setSelectedCategory(category)}
+                      data-testid={`category-card-${category.toLowerCase().replace(/\s+/g, '-')}`}
+                    >
+                      {isActive && (
+                        <div className="absolute inset-0 bg-white/20 rounded-xl animate-pulse" />
+                      )}
+                      <div className="relative z-10">
+                        <div className={`w-12 h-12 mx-auto mb-3 rounded-full flex items-center justify-center transition-all duration-300 ${isActive ? 'bg-white/40 shadow-lg' : 'bg-white/20'}`}>
+                          <Icon className={`w-6 h-6 text-white transition-all duration-300 ${isActive ? 'scale-110' : ''}`} />
+                        </div>
+                        <h3 className={`text-white font-medium text-sm mb-1 transition-all duration-300 ${isActive ? 'font-bold' : ''}`}>
+                          {category}
+                        </h3>
+                        <p className={`text-blue-100 text-xs transition-all duration-300 ${isActive ? 'text-white font-medium' : ''}`}>
+                          {totalCategoryProducts} Products
+                        </p>
+                        {isActive && (
+                          <div className="mt-2 w-8 h-1 bg-white rounded-full mx-auto animate-pulse" />
+                        )}
+                      </div>
                     </div>
                   );
                 })}
