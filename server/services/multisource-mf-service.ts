@@ -133,7 +133,7 @@ export class MultiSourceMFService {
   }
 
   /**
-   * Get popular funds with enhanced performance data
+   * Get best performing funds based on returns
    */
   async getPopularFunds(): Promise<FundExtended[]> {
     const cached = this.cache.popular.data;
@@ -181,17 +181,33 @@ export class MultiSourceMFService {
             })
           );
 
+          // Sort by best performance (1Y returns descending, then 3Y returns)
+          const sortedFunds = enrichedFunds.sort((a, b) => {
+            const aReturns1Y = a.returns?.['1Y'] || 0;
+            const bReturns1Y = b.returns?.['1Y'] || 0;
+            
+            // First sort by 1Y returns
+            if (aReturns1Y !== bReturns1Y) {
+              return bReturns1Y - aReturns1Y; // Descending order
+            }
+            
+            // If 1Y returns are equal, sort by 3Y returns
+            const aReturns3Y = a.returns?.['3Y'] || 0;
+            const bReturns3Y = b.returns?.['3Y'] || 0;
+            return bReturns3Y - aReturns3Y; // Descending order
+          });
+
           // Cache successful result
           this.cache.popular.data = {
-            funds: enrichedFunds,
+            funds: sortedFunds,
             timestamp: Date.now()
           };
 
-          return enrichedFunds;
+          return sortedFunds;
         }
       } catch (error) {
         this.updateSourceHealth(source, false);
-        console.warn(`Popular funds failed for source ${source}:`, error);
+        console.warn(`Best performing funds failed for source ${source}:`, error);
       }
     }
 

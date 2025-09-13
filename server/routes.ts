@@ -9216,7 +9216,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/mutual-funds/popular", async (req, res) => {
     try {
-      console.log("📈 Fetching popular mutual funds with MultiSource service...");
+      console.log("📈 Fetching best performing mutual funds with MultiSource service...");
       
       // Use MultiSource service for popular funds
       const popularFunds = await multiSourceMFService.getPopularFunds();
