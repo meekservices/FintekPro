@@ -503,13 +503,13 @@ export default function MutualFunds() {
   };
 
   // Use search results if searching, otherwise use all funds
-  const displayFunds = searchTerm.length > 2 ? searchResults : allFunds;
+  const displayFunds = searchTerm.length > 2 ? (searchResults || []) : (allFunds || []);
   
   // Filter by category if selected
-  const filteredFunds = displayFunds?.filter(fund => 
+  const filteredFunds = displayFunds.filter(fund => 
     selectedCategory === "" || selectedCategory === "All Categories" || 
     fund.category?.toLowerCase().includes(selectedCategory.toLowerCase())
-  ) || [];
+  );
 
   const isLoading = isLoadingAll || isLoadingPopular || (searchTerm.length > 2 && isSearching);
 
