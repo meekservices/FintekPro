@@ -42,6 +42,7 @@ import BBPSService from './services/bbpsService';
 import { digilockerService } from './services/digilockerService';
 import { amfiService } from './amfi-service';
 import { bseService } from './bse-service';
+import { multiSourceMFService } from './services/multisource-mf-service';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -9116,167 +9117,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Enhanced Mutual Fund API endpoints with BSE integration
+  // Enhanced Mutual Fund API endpoints with MultiSource integration
   app.get("/api/mutual-funds", async (req, res) => {
     try {
-      const { category, amc, nav_min, nav_max, sort_by = 'returns_1y', order = 'desc' } = req.query;
+      const { 
+        category, 
+        fundHouse, 
+        nav_min, 
+        nav_max, 
+        sortBy = 'returns1Y', 
+        sortOrder = 'desc',
+        page = '1',
+        limit = '50',
+        query 
+      } = req.query;
       
-      console.log('📊 Fetching mutual funds with BSE service...');
+      console.log('📊 Fetching mutual funds with MultiSource MF service...');
       
-      // First try BSE service for fresh data
-      try {
-        const bseFunds = await bseService.getPopularFundsWithPerformance();
-        console.log(`✅ BSE service returned ${bseFunds.length} funds`);
-        
-        if (bseFunds.length > 0) {
-          // Transform BSE data to match API format
-          const formattedFunds = bseFunds.map((fund) => ({
-            id: `bse-${fund.schemeCode}`,
-            scheme_code: fund.schemeCode,
-            scheme_name: fund.schemeName,
-            amc: fund.fundHouse,
-            category: fund.category,
-            sub_category: fund.subCategory || fund.category,
-            nav: fund.currentNav,
-            nav_date: fund.navDate,
-            fund_size: fund.aum || "N/A",
-            expense_ratio: fund.expenseRatio || 1.2,
-            min_investment: fund.minInvestment || 5000,
-            fund_manager: fund.fundManager || "N/A",
-            benchmark: fund.benchmark || "N/A",
-            launch_date: fund.launchDate || "N/A",
-            returns: {
-              "1D": null,
-              "1W": null,
-              "1M": fund.returns['1M'] || 0,
-              "3M": null,
-              "6M": fund.returns['6M'] || 0,
-              "1Y": fund.returns['1Y'] || 0,
-              "2Y": null,
-              "3Y": fund.returns['3Y'] || 0,
-              "5Y": fund.returns['5Y'] || 0,
-              "since_inception": null
-            },
-            risk_level: fund.riskLevel,
-            rating: fund.rating || 4,
-            exit_load: fund.exitLoad || "1% if redeemed within 365 days"
-          }));
-          
-          // Apply filters if provided
-          let filteredFunds = formattedFunds;
-          
-          if (category) {
-            filteredFunds = filteredFunds.filter(fund => 
-              fund.category.toLowerCase().includes(String(category).toLowerCase()) ||
-              fund.sub_category.toLowerCase().includes(String(category).toLowerCase())
-            );
-          }
-          
-          if (amc) {
-            filteredFunds = filteredFunds.filter(fund => 
-              fund.amc.toLowerCase().includes(String(amc).toLowerCase())
-            );
-          }
-          
-          if (nav_min) {
-            filteredFunds = filteredFunds.filter(fund => fund.nav >= parseFloat(nav_min as string));
-          }
-          
-          if (nav_max) {
-            filteredFunds = filteredFunds.filter(fund => fund.nav <= parseFloat(nav_max as string));
-          }
-          
-          // Sort results
-          if (sort_by === 'returns_1y') {
-            filteredFunds.sort((a, b) => {
-              const aReturn = a.returns['1Y'] || 0;
-              const bReturn = b.returns['1Y'] || 0;
-              return order === 'desc' ? bReturn - aReturn : aReturn - bReturn;
-            });
-          } else if (sort_by === 'nav') {
-            filteredFunds.sort((a, b) => {
-              return order === 'desc' ? b.nav - a.nav : a.nav - b.nav;
-            });
-          }
-          
-          return res.json({
-            success: true,
-            data: filteredFunds,
-            total: filteredFunds.length,
-            source: 'BSE',
-            timestamp: new Date().toISOString()
-          });
-        }
-      } catch (bseError) {
-        console.warn('⚠️ BSE service failed, trying AMFI fallback:', bseError);
+      // Prepare search parameters
+      const searchParams = {
+        query: query as string,
+        category: category as string,
+        fundHouse: fundHouse as string,
+        sortBy: sortBy as 'name' | 'nav' | 'returns1Y' | 'returns3Y' | 'returns5Y' | 'aum',
+        sortOrder: sortOrder as 'asc' | 'desc',
+        page: parseInt(page as string),
+        limit: parseInt(limit as string)
+      };
+
+      const result = await multiSourceMFService.listFunds(searchParams);
+      
+      // Transform MultiSource data to match legacy API format for compatibility
+      const formattedFunds = result.funds.map((fund) => ({
+        id: `mf-${fund.schemeCode}`,
+        scheme_code: fund.schemeCode,
+        scheme_name: fund.schemeName,
+        amc: fund.fundHouse,
+        category: fund.category,
+        sub_category: fund.subCategory || fund.category,
+        nav: parseFloat(fund.currentNav || '0'),
+        nav_date: fund.navDate,
+        fund_size: fund.aum || "N/A",
+        expense_ratio: fund.expenseRatio || "N/A",
+        min_investment: 5000,
+        fund_manager: fund.manager || "N/A",
+        benchmark: fund.benchmark || "N/A",
+        launch_date: "N/A",
+        returns: {
+          "1D": null,
+          "1W": null,
+          "1M": fund.returns['1M'] || 0,
+          "3M": null,
+          "6M": fund.returns['6M'] || 0,
+          "1Y": fund.returns['1Y'] || 0,
+          "2Y": null,
+          "3Y": fund.returns['3Y'] || 0,
+          "5Y": fund.returns['5Y'] || 0,
+          "since_inception": null
+        },
+        returnStrings: fund.returnStrings,
+        risk_level: fund.riskLevel,
+        rating: 4,
+        exit_load: "1% if redeemed within 365 days",
+        provenance: fund.provenance
+      }));
+      
+      // Apply legacy filters if provided for backward compatibility
+      let filteredFunds = formattedFunds;
+      
+      if (nav_min) {
+        filteredFunds = filteredFunds.filter(fund => fund.nav >= parseFloat(nav_min as string));
       }
       
-      // Fallback to AMFI service
-      try {
-        const amfiFunds = await amfiService.getPopularFundsWithPerformance();
-        console.log(`✅ AMFI fallback returned ${amfiFunds.length} funds`);
-        
-        const formattedFunds = amfiFunds.map((fund, index) => ({
-          id: `amfi-${fund.schemeCode}`,
-          scheme_code: fund.schemeCode,
-          scheme_name: fund.schemeName,
-          amc: fund.fundHouse,
-          category: fund.category,
-          sub_category: fund.category,
-          nav: fund.currentNav,
-          nav_date: fund.lastUpdated,
-          fund_size: "N/A",
-          expense_ratio: 1.2,
-          min_investment: 5000,
-          fund_manager: "N/A",
-          benchmark: "N/A",
-          launch_date: "N/A",
-          returns: {
-            "1D": null,
-            "1W": null,
-            "1M": fund.returns['1M'] || 0,
-            "3M": null,
-            "6M": fund.returns['6M'] || 0,
-            "1Y": fund.returns['1Y'] || 0,
-            "2Y": null,
-            "3Y": fund.returns['3Y'] || 0,
-            "5Y": fund.returns['5Y'] || 0,
-            "since_inception": null
-          },
-          risk_level: "Moderate",
-          rating: 4,
-          exit_load: "1% if redeemed within 365 days"
-        }));
-        
-        return res.json({
-          success: true,
-          data: formattedFunds,
-          total: formattedFunds.length,
-          source: 'AMFI',
-          timestamp: new Date().toISOString()
-        });
-      } catch (amfiError) {
-        console.error('❌ Both BSE and AMFI services failed:', amfiError);
-      }
-      
-      // Final fallback - return cached data or empty result
-      const cachedFunds = await storage.getAllMutualFunds();
-      if (cachedFunds.length > 0) {
-        return res.json({
-          success: true,
-          data: cachedFunds.slice(0, 20),
-          total: cachedFunds.length,
-          source: 'Cache',
-          timestamp: new Date().toISOString()
-        });
+      if (nav_max) {
+        filteredFunds = filteredFunds.filter(fund => fund.nav <= parseFloat(nav_max as string));
       }
       
       return res.json({
-        success: false,
-        data: [],
-        total: 0,
-        source: 'None',
-        message: 'All data sources unavailable',
+        success: true,
+        data: filteredFunds,
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        hasMore: result.hasMore,
+        source: 'MultiSource',
         timestamp: new Date().toISOString()
       });
       
@@ -9290,15 +9214,212 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/mutual-funds/popular", async (req, res) => {
+    try {
+      console.log("📈 Fetching popular mutual funds with MultiSource service...");
+      
+      // Use MultiSource service for popular funds
+      const popularFunds = await multiSourceMFService.getPopularFunds();
+      
+      if (popularFunds && popularFunds.length > 0) {
+        console.log(`✅ MultiSource service found ${popularFunds.length} popular funds`);
+        
+        // Take top 6 funds for response
+        const topFunds = popularFunds.slice(0, 6);
+        
+        // Transform to legacy API format for backward compatibility
+        const formattedFunds = topFunds.map(fund => ({
+          id: `multisource-${fund.schemeCode}`,
+          scheme_code: fund.schemeCode,
+          scheme_name: fund.schemeName,
+          amc: fund.fundHouse,
+          category: fund.category,
+          nav: parseFloat(fund.currentNav || fund.nav || '0'),
+          nav_date: fund.navDate || new Date().toISOString().split('T')[0],
+          returns: fund.returns || {},
+          returnStrings: fund.returnStrings || {},
+          risk_level: fund.riskLevel || 'Moderate',
+          rating: fund.rating || 4,
+          min_investment: fund.minInvestment || 5000,
+          exit_load: fund.exitLoad || '1% if redeemed within 365 days',
+          provenance: fund.provenance
+        }));
+        
+        // Cache the data for future use
+        for (const fund of topFunds) {
+          try {
+            await storage.upsertMutualFund({
+              schemeCode: fund.schemeCode,
+              schemeName: fund.schemeName,
+              category: fund.category,
+              fundHouse: fund.fundHouse,
+              nav: String(fund.currentNav || fund.nav || '0'),
+              lastUpdated: new Date()
+            });
+          } catch (cacheError) {
+            console.warn(`Failed to cache fund ${fund.schemeCode}:`, cacheError);
+          }
+        }
+        
+        return res.json({
+          success: true,
+          data: formattedFunds,
+          total: formattedFunds.length,
+          source: 'MultiSource',
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      console.warn("⚠️ MultiSource service returned no popular funds, trying fallback...");
+      
+    } catch (multiSourceError) {
+      console.warn("⚠️ MultiSource service failed for popular funds, trying fallback:", multiSourceError);
+    }
+      
+      // Fallback to cached data
+      try {
+        const cachedFunds = await storage.getAllMutualFunds();
+        if (cachedFunds.length > 0) {
+          console.log(`✅ Using cached data with ${cachedFunds.length} funds`);
+          
+          const topCachedFunds = cachedFunds.slice(0, 6);
+          const formattedCached = topCachedFunds.map((fund, index) => ({
+            id: `cache-${fund.schemeCode}`,
+            scheme_code: fund.schemeCode,
+            scheme_name: fund.schemeName,
+            amc: fund.fundHouse,
+            category: fund.category,
+            nav: parseFloat(fund.nav) || 0,
+            nav_date: fund.lastUpdated?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0],
+            returns: {
+              '1M': 0,
+              '6M': 0,
+              '1Y': 0,
+              '3Y': 0,
+              '5Y': 0
+            },
+            returnStrings: {
+              '1M': 'N/A',
+              '6M': 'N/A',
+              '1Y': 'N/A',
+              '3Y': 'N/A',
+              '5Y': 'N/A'
+            },
+            risk_level: 'Moderate',
+            rating: 4,
+            min_investment: 5000,
+            exit_load: '1% if redeemed within 365 days'
+          }));
+          
+          return res.json({
+            success: true,
+            data: formattedCached,
+            total: formattedCached.length,
+            source: 'Cache',
+            timestamp: new Date().toISOString()
+          });
+        }
+      } catch (cacheError) {
+        console.warn("⚠️ Failed to fetch cached funds:", cacheError);
+      }
+      
+      // Final fallback - return minimal data structure
+      console.log("💡 Using minimal fallback data");
+      const minimalFunds = [
+        {
+          id: 'fallback-119551',
+          scheme_code: '119551',
+          scheme_name: 'SBI BlueChip Fund - Direct Plan - Growth',
+          amc: 'SBI Mutual Fund',
+          category: 'Large Cap Fund',
+          nav: 85.67,
+          nav_date: new Date().toISOString().split('T')[0],
+          returns: { '1M': 2.1, '6M': 8.5, '1Y': 15.3, '3Y': 12.7, '5Y': 11.2 },
+          returnStrings: { '1M': '+2.1%', '6M': '+8.5%', '1Y': '+15.3%', '3Y': '+12.7%', '5Y': '+11.2%' },
+          risk_level: 'Moderate',
+          rating: 4,
+          min_investment: 5000,
+          exit_load: '1% if redeemed within 365 days'
+        }
+      ];
+      
+      return res.json({
+        success: true,
+        data: minimalFunds,
+        total: minimalFunds.length,
+        source: 'Fallback',
+        message: 'Using fallback data as all primary sources are unavailable',
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (error) {
+      console.error("❌ Error fetching popular mutual funds:", error);
+      
+      // Return 503 Service Unavailable when no data is available from any source
+      res.status(503).json({
+        success: false,
+        error: "Service temporarily unavailable",
+        message: "All data sources are currently unavailable. Please try again later.",
+        details: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
   app.get("/api/mutual-funds/:schemeCode", async (req, res) => {
     try {
       const { schemeCode } = req.params;
-      console.log(`📊 Fetching fund details for scheme: ${schemeCode}`);
+      console.log(`📊 Fetching fund details for scheme: ${schemeCode} with MultiSource service`);
       
-      // Try BSE service first
-      try {
-        const bseFundPerformance = await bseService.getFundPerformance(schemeCode);
+      const fund = await multiSourceMFService.getFund(schemeCode);
+      
+      if (!fund) {
+        return res.status(404).json({
+          success: false,
+          error: "Fund not found",
+          message: `No data available for scheme code: ${schemeCode}`,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      // Transform to legacy API format for compatibility
+      const formattedFund = {
+        schemeCode: fund.schemeCode,
+        schemeName: fund.schemeName,
+        category: fund.category,
+        subCategory: fund.subCategory || fund.category,
+        fundHouse: fund.fundHouse,
+        nav: parseFloat(fund.currentNav || '0'),
+        navDate: fund.navDate,
+        isin: fund.isin || "N/A",
+        aum: fund.aum || "N/A",
+        expenseRatio: fund.expenseRatio || "N/A",
+        minInvestment: 5000,
+        exitLoad: "1% if redeemed within 365 days",
+        benchmark: fund.benchmark || "N/A",
+        fundManager: fund.manager || "N/A",
+        launchDate: "N/A",
+        riskLevel: fund.riskLevel || "Moderate",
+        rating: 4,
+        returns: fund.returns || {},
+        returnStrings: fund.returnStrings || {},
+        volatility: fund.volatility,
+        sharpeRatio: fund.sharpeRatio,
+        maxDrawdown: fund.maxDrawdown,
+        historicalData: fund.historicalNAV || [],
+        lastUpdated: fund.navDate,
+        source: 'MultiSource',
+        provenance: fund.provenance
+      };
+      
+      return res.json({
+        success: true,
+        data: formattedFund,
+        source: 'MultiSource',
+        timestamp: new Date().toISOString()
+      });
         
+        /* LEGACY START: BSE/AMFI - to be removed 
         if (bseFundPerformance) {
           console.log(`✅ BSE service found fund: ${bseFundPerformance.schemeName}`);
           
@@ -9413,6 +9534,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: `No data available for scheme code: ${schemeCode}`,
         timestamp: new Date().toISOString()
       });
+      LEGACY END - to be removed */
       
     } catch (error) {
       console.error(`❌ Error fetching mutual fund ${req.params.schemeCode}:`, error);
@@ -9429,57 +9551,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { query } = req.params;
       console.log(`🔍 Searching funds with query: ${query}`);
       
-      // Try BSE service search first
-      try {
-        const bseSearchResults = await bseService.searchFunds(query);
-        
-        if (bseSearchResults.results.length > 0) {
-          console.log(`✅ BSE search found ${bseSearchResults.results.length} funds in ${bseSearchResults.searchTime}ms`);
-          
-          // Transform BSE search results to API format
-          const formattedResults = bseSearchResults.results.map(fund => ({
-            id: `bse-${fund.schemeCode}`,
-            scheme_code: fund.schemeCode,
-            scheme_name: fund.schemeName,
-            amc: fund.fundHouse,
-            category: fund.category,
-            nav: fund.currentNav,
-            nav_date: fund.navDate,
-            returns: fund.returns,
-            returnStrings: fund.returnStrings,
-            riskLevel: fund.riskLevel,
-            rating: fund.rating
-          }));
-          
-          return res.json({
-            success: true,
-            data: formattedResults,
-            total: bseSearchResults.totalResults,
-            searchTime: bseSearchResults.searchTime,
-            query: query,
-            source: 'BSE',
-            timestamp: new Date().toISOString()
-          });
-        }
-      } catch (bseError) {
-        console.warn(`⚠️ BSE search failed for "${query}", trying fallback:`, bseError);
-      }
+      // Use MultiSource service for search
+      const searchResults = await multiSourceMFService.searchFunds(query);
       
-      // Fallback to storage search
-      try {
-        const storageFunds = await storage.searchMutualFunds(query);
-        console.log(`✅ Storage search found ${storageFunds.length} funds`);
+      if (searchResults.length > 0) {
+        console.log(`✅ MultiSource search found ${searchResults.length} funds`);
+        
+        // Transform MultiSource results to API format
+        const formattedResults = searchResults.map(fund => ({
+          id: `multisource-${fund.schemeCode}`,
+          scheme_code: fund.schemeCode,
+          scheme_name: fund.schemeName,
+          amc: fund.fundHouse,
+          category: fund.category,
+          nav: fund.nav,
+          nav_date: fund.navDate,
+          returns: fund.returns,
+          returnStrings: fund.returnStrings,
+          riskLevel: fund.riskLevel,
+          rating: fund.rating,
+          provenance: fund.provenance
+        }));
         
         return res.json({
           success: true,
-          data: storageFunds,
-          total: storageFunds.length,
+          data: formattedResults,
+          total: searchResults.length,
           query: query,
-          source: 'Storage',
+          source: 'MultiSource',
           timestamp: new Date().toISOString()
         });
-      } catch (storageError) {
-        console.error(`❌ Storage search also failed for "${query}":`, storageError);
       }
       
       return res.json({
@@ -9499,150 +9600,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         error: "Failed to search mutual funds",
         message: error instanceof Error ? error.message : 'Unknown error',
         query: req.params.query
-      });
-    }
-  });
-
-  app.get("/api/mutual-funds/popular", async (req, res) => {
-    try {
-      console.log("📈 Fetching popular mutual funds with BSE service...");
-      
-      // First try BSE service for fresh data
-      try {
-        const bsePopularFunds = await bseService.getPopularFundsWithPerformance();
-        
-        if (bsePopularFunds.length > 0) {
-          console.log(`✅ BSE service found ${bsePopularFunds.length} popular funds`);
-          
-          // Take top 6 funds sorted by 1Y returns
-          const topFunds = bsePopularFunds.slice(0, 6);
-          
-          const formattedFunds = topFunds.map(fund => ({
-            id: `bse-${fund.schemeCode}`,
-            scheme_code: fund.schemeCode,
-            scheme_name: fund.schemeName,
-            amc: fund.fundHouse,
-            category: fund.category,
-            nav: fund.currentNav,
-            nav_date: fund.navDate,
-            returns: fund.returns,
-            returnStrings: fund.returnStrings,
-            risk_level: fund.riskLevel,
-            rating: fund.rating || 4,
-            min_investment: fund.minInvestment || 5000,
-            exit_load: fund.exitLoad
-          }));
-          
-          // Cache the data
-          for (const fund of topFunds) {
-            try {
-              await storage.upsertMutualFund({
-                schemeCode: fund.schemeCode,
-                schemeName: fund.schemeName,
-                category: fund.category,
-                fundHouse: fund.fundHouse,
-                nav: String(fund.currentNav),
-                lastUpdated: new Date()
-              });
-            } catch (cacheError) {
-              console.warn(`Failed to cache fund ${fund.schemeCode}:`, cacheError);
-            }
-          }
-          
-          return res.json({
-            success: true,
-            data: formattedFunds,
-            total: formattedFunds.length,
-            source: 'BSE',
-            timestamp: new Date().toISOString()
-          });
-        }
-      } catch (bseError) {
-        console.warn("⚠️ BSE service failed for popular funds, trying fallback:", bseError);
-      }
-      
-      // Fallback to cached data
-      try {
-        const cachedFunds = await storage.getAllMutualFunds();
-        if (cachedFunds.length > 0) {
-          console.log(`✅ Using cached data with ${cachedFunds.length} funds`);
-          
-          const topCachedFunds = cachedFunds.slice(0, 6);
-          const formattedCached = topCachedFunds.map((fund, index) => ({
-            id: `cache-${fund.schemeCode}`,
-            scheme_code: fund.schemeCode,
-            scheme_name: fund.schemeName,
-            amc: fund.fundHouse,
-            category: fund.category,
-            nav: parseFloat(fund.nav) || 0,
-            nav_date: fund.lastUpdated?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0],
-            returns: {
-              '1M': 0,
-              '6M': 0,
-              '1Y': 0,
-              '3Y': 0,
-              '5Y': 0
-            },
-            returnStrings: {
-              '1M': 'N/A',
-              '6M': 'N/A',
-              '1Y': 'N/A',
-              '3Y': 'N/A',
-              '5Y': 'N/A'
-            },
-            risk_level: 'Moderate',
-            rating: 4,
-            min_investment: 5000,
-            exit_load: '1% if redeemed within 365 days'
-          }));
-          
-          return res.json({
-            success: true,
-            data: formattedCached,
-            total: formattedCached.length,
-            source: 'Cache',
-            timestamp: new Date().toISOString()
-          });
-        }
-      } catch (cacheError) {
-        console.warn("⚠️ Failed to fetch cached funds:", cacheError);
-      }
-      
-      // Final fallback - return minimal data structure
-      console.log("💡 Using minimal fallback data");
-      const minimalFunds = [
-        {
-          id: 'fallback-119551',
-          scheme_code: '119551',
-          scheme_name: 'SBI BlueChip Fund - Direct Plan - Growth',
-          amc: 'SBI Mutual Fund',
-          category: 'Large Cap Fund',
-          nav: 85.67,
-          nav_date: new Date().toISOString().split('T')[0],
-          returns: { '1M': 2.1, '6M': 8.5, '1Y': 15.3, '3Y': 12.7, '5Y': 11.2 },
-          returnStrings: { '1M': '+2.1%', '6M': '+8.5%', '1Y': '+15.3%', '3Y': '+12.7%', '5Y': '+11.2%' },
-          risk_level: 'Moderate',
-          rating: 4,
-          min_investment: 5000,
-          exit_load: '1% if redeemed within 365 days'
-        }
-      ];
-      
-      return res.json({
-        success: true,
-        data: minimalFunds,
-        total: minimalFunds.length,
-        source: 'Fallback',
-        message: 'Using fallback data as all primary sources are unavailable',
-        timestamp: new Date().toISOString()
-      });
-      
-    } catch (error) {
-      console.error("❌ Error fetching popular mutual funds:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to fetch popular mutual funds",
-        message: error instanceof Error ? error.message : 'Unknown error'
       });
     }
   });
