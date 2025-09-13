@@ -6,7 +6,9 @@ async function apiRequest(url: string) {
   if (!response.ok) {
     throw new Error(`API request failed: ${response.status} ${response.statusText}`);
   }
-  return response.json();
+  const result = await response.json();
+  // Extract data from {success: true, data: [...]} structure
+  return result.data || result;
 }
 
 export interface MutualFundData {
