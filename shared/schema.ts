@@ -3654,3 +3654,178 @@ export type DigilockerUserSession = typeof digilockerUserSessions.$inferSelect;
 export type InsertDigilockerUserSession = z.infer<typeof insertDigilockerUserSessionSchema>;
 export type DigilockerKycMapping = typeof digilockerKycMappings.$inferSelect;
 export type InsertDigilockerKycMapping = z.infer<typeof insertDigilockerKycMappingSchema>;
+
+// ===== MUTUAL FUND API INTEGRATION TYPES =====
+// Multi-source API integration types for AMFI, MFAPI.in, CaptNemo, etc.
+
+// Core fund information - normalized across all sources
+export interface FundCore {
+  schemeCode: string;
+  schemeName: string;
+  fundHouse?: string;
+  category?: string;
+  subCategory?: string;
+  isin?: string;
+  riskLevel?: string;
+  expenseRatio?: string;
+  aum?: string;
+  manager?: string;
+  benchmark?: string;
+}
+
+// Historical NAV data point
+export interface NAVRecord {
+  date: string; // ISO date string
+  nav: string; // decimal as string for precision
+}
+
+// Performance metrics with standardized CAGR calculations
+export interface FundPerformance {
+  currentNav: string;
+  navDate: string; // ISO date string
+  change?: string;
+  changePercent?: string;
+  returns: {
+    "1M"?: number; // simple return %
+    "6M"?: number; // simple return %
+    "1Y"?: number; // CAGR %
+    "3Y"?: number; // CAGR %
+    "5Y"?: number; // CAGR %
+  };
+  returnStrings: {
+    "1M"?: string; // formatted display string
+    "6M"?: string;
+    "1Y"?: string;
+    "3Y"?: string;
+    "5Y"?: string;
+  };
+  volatility?: number;
+  sharpeRatio?: number;
+  alpha?: number;
+  beta?: number;
+}
+
+// Data provenance and source tracking
+export interface Provenance {
+  primarySource: 'AMFI' | 'MFAPI' | 'CaptNemo' | 'RapidAPI';
+  sourceChain: string[]; // ordered list of attempted sources
+  lastRefreshed: string; // ISO timestamp
+  dataVersion?: string;
+  conflicts?: Array<{
+    field: string;
+    primary: any;
+    fallback: any;
+  }>;
+}
+
+// Complete fund data with provenance
+export interface FundExtended extends FundCore, FundPerformance {
+  id?: string;
+  historicalData?: NAVRecord[];
+  lastUpdated?: Date;
+  provenance: Provenance;
+}
+
+// Zod schemas for validation
+export const fundCoreSchema = z.object({
+  schemeCode: z.string().min(1),
+  schemeName: z.string().min(1),
+  fundHouse: z.string().optional(),
+  category: z.string().optional(),
+  subCategory: z.string().optional(),
+  isin: z.string().optional(),
+  riskLevel: z.string().optional(),
+  expenseRatio: z.string().optional(),
+  aum: z.string().optional(),
+  manager: z.string().optional(),
+  benchmark: z.string().optional(),
+});
+
+export const navRecordSchema = z.object({
+  date: z.string(),
+  nav: z.string(),
+});
+
+export const fundPerformanceSchema = z.object({
+  currentNav: z.string(),
+  navDate: z.string(),
+  change: z.string().optional(),
+  changePercent: z.string().optional(),
+  returns: z.object({
+    "1M": z.number().optional(),
+    "6M": z.number().optional(),
+    "1Y": z.number().optional(),
+    "3Y": z.number().optional(),
+    "5Y": z.number().optional(),
+  }),
+  returnStrings: z.object({
+    "1M": z.string().optional(),
+    "6M": z.string().optional(),
+    "1Y": z.string().optional(),
+    "3Y": z.string().optional(),
+    "5Y": z.string().optional(),
+  }),
+  volatility: z.number().optional(),
+  sharpeRatio: z.number().optional(),
+  alpha: z.number().optional(),
+  beta: z.number().optional(),
+});
+
+export const provenanceSchema = z.object({
+  primarySource: z.enum(['AMFI', 'MFAPI', 'CaptNemo', 'RapidAPI']),
+  sourceChain: z.array(z.string()),
+  lastRefreshed: z.string(),
+  dataVersion: z.string().optional(),
+  conflicts: z.array(z.object({
+    field: z.string(),
+    primary: z.any(),
+    fallback: z.any(),
+  })).optional(),
+});
+
+export const fundExtendedSchema = fundCoreSchema.merge(fundPerformanceSchema).extend({
+  id: z.string().optional(),
+  historicalData: z.array(navRecordSchema).optional(),
+  lastUpdated: z.date().optional(),
+  provenance: provenanceSchema,
+});
+
+// Types for API responses
+export type FundApiResponse = z.infer<typeof fundExtendedSchema>;
+export type NavApiRecord = z.infer<typeof navRecordSchema>;
+
+// Search and filtering types
+export interface FundSearchParams {
+  query?: string;
+  category?: string;
+  fundHouse?: string;
+  riskLevel?: string;
+  sortBy?: 'name' | 'nav' | 'returns1Y' | 'returns3Y' | 'returns5Y' | 'aum';
+  sortOrder?: 'asc' | 'desc';
+  page?: number;
+  limit?: number;
+}
+
+export interface FundListResponse {
+  funds: FundExtended[];
+  total: number;
+  page: number;
+  limit: number;
+  hasMore: boolean;
+}
+
+// Source status for monitoring
+export interface SourceStatus {
+  source: string;
+  isHealthy: boolean;
+  lastSuccess?: string;
+  lastError?: string;
+  latencyMs?: number;
+  errorRate?: number;
+}
+
+export interface MultiSourceStatus {
+  sources: SourceStatus[];
+  lastUpdated: string;
+  overallHealth: 'healthy' | 'degraded' | 'unhealthy';
+}
