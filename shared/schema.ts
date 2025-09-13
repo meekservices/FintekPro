@@ -1288,6 +1288,20 @@ export const mutualFunds = pgTable("mutual_funds", {
   returns1y: decimal("returns_1y", { precision: 8, scale: 4 }),
   returns3y: decimal("returns_3y", { precision: 8, scale: 4 }),
   returns5y: decimal("returns_5y", { precision: 8, scale: 4 }),
+  
+  // CRISIL Ratings Integration
+  crisilRating: integer("crisil_rating"), // 1-5 scale (1 = very good performance)
+  crisilCategory: varchar("crisil_category"), // equity/debt/hybrid
+  crisilPercentile: decimal("crisil_percentile", { precision: 5, scale: 2 }), // 0-100 percentile ranking
+  crisilEvaluationDate: timestamp("crisil_evaluation_date"), // Last evaluation date
+  crisilRiskAdjustedScore: decimal("crisil_risk_adjusted_score", { precision: 8, scale: 4 }), // Risk-adjusted returns score
+  crisilAssetQualityScore: decimal("crisil_asset_quality_score", { precision: 8, scale: 4 }), // Asset quality score
+  crisilLiquidityScore: decimal("crisil_liquidity_score", { precision: 8, scale: 4 }), // Liquidity score
+  crisilConcentrationScore: decimal("crisil_concentration_score", { precision: 8, scale: 4 }), // Asset concentration score
+  crisilOverallScore: decimal("crisil_overall_score", { precision: 8, scale: 4 }), // Overall composite score
+  crisilDataSource: varchar("crisil_data_source").default("calculated"), // calculated/api/manual
+  crisilLastUpdated: timestamp("crisil_last_updated").defaultNow(),
+  
   lastUpdated: timestamp("last_updated").defaultNow(),
 });
 
@@ -3708,8 +3722,16 @@ export interface FundPerformance {
 // Data provenance and source tracking
 export interface Provenance {
   primarySource: 'AMFI' | 'MFAPI' | 'CaptNemo' | 'RapidAPI';
-  sourceChain: string[]; // ordered list of attempted sources
-  lastRefreshed: string; // ISO timestamp
+  sourceChain?: string[]; // ordered list of attempted sources
+  dataFlow?: Array<{
+    source: string;
+    timestamp: Date;
+    action: string;
+    metadata?: any;
+  }>;
+  lastRefreshed?: string; // ISO timestamp
+  timestamp: Date;
+  isAuthentic: boolean;
   dataVersion?: string;
   conflicts?: Array<{
     field: string;
@@ -3723,7 +3745,26 @@ export interface FundExtended extends FundCore, FundPerformance {
   id?: string;
   historicalData?: NAVRecord[];
   lastUpdated?: Date;
-  provenance: Provenance;
+  provenance?: Provenance;
+  
+  // CRISIL Ratings Integration
+  crisilRating?: number; // 1-5 scale (1 = very good performance)
+  crisilCategory?: 'equity' | 'debt' | 'hybrid';
+  crisilPercentile?: number; // 0-100 percentile ranking
+  crisilEvaluationDate?: Date; // Last evaluation date
+  crisilRiskAdjustedScore?: number; // Risk-adjusted returns score
+  crisilAssetQualityScore?: number; // Asset quality score
+  crisilLiquidityScore?: number; // Liquidity score
+  crisilConcentrationScore?: number; // Asset concentration score
+  crisilOverallScore?: number; // Overall composite score
+  crisilDataSource?: 'calculated' | 'api' | 'manual';
+  crisilLastUpdated?: Date;
+  
+  // CRISIL Analysis Data
+  crisilRationale?: string; // Analysis rationale
+  crisilStrengths?: string[]; // Fund strengths
+  crisilConcerns?: string[]; // Fund concerns
+  crisilRecommendation?: 'Strong Buy' | 'Buy' | 'Hold' | 'Sell' | 'Strong Sell';
 }
 
 // Zod schemas for validation

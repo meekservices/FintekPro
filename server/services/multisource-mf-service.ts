@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { FundExtended, FundCore, FundPerformance, Provenance, NAVRecord, FundSearchParams, FundListResponse, SourceStatus, MultiSourceStatus } from '@shared/schema';
+import CrisilService, { CrisilAnalysis } from './crisil-service';
 
 // Cache configuration
 interface CacheConfig {
@@ -45,6 +46,7 @@ export class MultiSourceMFService {
       ['MFAPI', { isHealthy: true, errorRate: 0, consecutiveFailures: 0 }],
       ['CaptNemo', { isHealthy: true, errorRate: 0, consecutiveFailures: 0 }],
       ['RapidAPI', { isHealthy: true, errorRate: 0, consecutiveFailures: 0 }],
+      ['CRISIL', { isHealthy: true, errorRate: 0, consecutiveFailures: 0 }],
     ]);
   }
 
@@ -75,7 +77,7 @@ export class MultiSourceMFService {
           const latency = Date.now() - startTime;
           this.updateSourceHealth(source, true, latency);
           
-          const fundWithProvenance: FundExtended = {
+          let fundWithProvenance: FundExtended = {
             ...fund,
             provenance: {
               primarySource: source as any,
@@ -84,6 +86,13 @@ export class MultiSourceMFService {
               dataVersion: this.generateDataVersion(fund)
             }
           };
+
+          // Enrich with CRISIL rating
+          try {
+            fundWithProvenance = await this.enrichWithCrisilRating(fundWithProvenance);
+          } catch (error) {
+            console.warn(`Failed to enrich fund ${fundWithProvenance.schemeCode} with CRISIL rating:`, error);
+          }
 
           // Cache successful result
           this.cache.schemes.data.set(cacheKey, {
@@ -181,8 +190,17 @@ export class MultiSourceMFService {
             })
           );
 
+          // Enrich with CRISIL ratings
+          let crisilEnrichedFunds: FundExtended[];
+          try {
+            crisilEnrichedFunds = await this.enrichFundsWithCrisil(enrichedFunds);
+          } catch (error) {
+            console.warn('Failed to enrich funds with CRISIL ratings:', error);
+            crisilEnrichedFunds = enrichedFunds; // Fallback to original enriched funds
+          }
+
           // Sort by best performance (1Y returns descending, then 3Y returns)
-          const sortedFunds = enrichedFunds.sort((a, b) => {
+          const sortedFunds = crisilEnrichedFunds.sort((a, b) => {
             const aReturns1Y = a.returns?.['1Y'] || 0;
             const bReturns1Y = b.returns?.['1Y'] || 0;
             
@@ -441,7 +459,9 @@ export class MultiSourceMFService {
       provenance: {
         primarySource: 'MFAPI',
         sourceChain: ['MFAPI'],
-        lastRefreshed: new Date().toISOString()
+        lastRefreshed: new Date().toISOString(),
+        timestamp: new Date(),
+        isAuthentic: true
       }
     };
   }
@@ -630,6 +650,97 @@ export class MultiSourceMFService {
     return `v${Date.now().toString(36)}-${hash}`;
   }
 
+
+  /**
+   * Enrich fund data with CRISIL ratings
+   */
+  private async enrichWithCrisilRating(fund: FundExtended): Promise<FundExtended> {
+    try {
+      const crisilAnalysis = await CrisilService.getRating(fund.schemeCode);
+      
+      if (crisilAnalysis) {
+        // Add CRISIL data to fund
+        fund.crisilRating = crisilAnalysis.rating.rating;
+        fund.crisilCategory = crisilAnalysis.rating.category;
+        fund.crisilPercentile = crisilAnalysis.rating.percentile;
+        fund.crisilEvaluationDate = crisilAnalysis.rating.evaluationDate;
+        fund.crisilRiskAdjustedScore = crisilAnalysis.rating.riskAdjustedScore;
+        fund.crisilAssetQualityScore = crisilAnalysis.rating.assetQualityScore;
+        fund.crisilLiquidityScore = crisilAnalysis.rating.liquidityScore;
+        fund.crisilConcentrationScore = crisilAnalysis.rating.concentrationScore;
+        fund.crisilOverallScore = crisilAnalysis.rating.overallScore;
+        fund.crisilDataSource = crisilAnalysis.rating.dataSource;
+        fund.crisilLastUpdated = new Date();
+        
+        // Add additional analysis data
+        fund.crisilRationale = crisilAnalysis.rationale;
+        fund.crisilStrengths = crisilAnalysis.strengths;
+        fund.crisilConcerns = crisilAnalysis.concerns;
+        fund.crisilRecommendation = crisilAnalysis.recommendation;
+
+        // Update provenance to include CRISIL
+        if (!fund.provenance) {
+          fund.provenance = {
+            primarySource: 'AMFI',
+            dataFlow: [],
+            timestamp: new Date(),
+            isAuthentic: true
+          };
+        }
+        
+        // Ensure dataFlow array exists
+        if (!fund.provenance.dataFlow) {
+          fund.provenance.dataFlow = [];
+        }
+        
+        fund.provenance.dataFlow.push({
+          source: 'CRISIL',
+          timestamp: new Date(),
+          action: 'rating_enrichment',
+          metadata: { 
+            rating: crisilAnalysis.rating.rating,
+            category: crisilAnalysis.rating.category,
+            dataSource: crisilAnalysis.rating.dataSource
+          }
+        });
+
+        console.log(`✅ Enhanced ${fund.schemeName} with CRISIL ${crisilAnalysis.rating.rating}-star rating`);
+      }
+    } catch (error) {
+      console.warn(`⚠️ Failed to enrich ${fund.schemeCode} with CRISIL rating:`, error);
+      
+      // Mark source as unhealthy if this fails consistently  
+      this.updateSourceHealth('CRISIL', false);
+    }
+    
+    return fund;
+  }
+
+  /**
+   * Enrich multiple funds with CRISIL ratings
+   */
+  private async enrichFundsWithCrisil(funds: FundExtended[]): Promise<FundExtended[]> {
+    const enrichedFunds: FundExtended[] = [];
+    
+    // Process in batches to avoid overwhelming the CRISIL service
+    const batchSize = 5;
+    for (let i = 0; i < funds.length; i += batchSize) {
+      const batch = funds.slice(i, i + batchSize);
+      const batchPromises = batch.map(fund => this.enrichWithCrisilRating(fund));
+      
+      try {
+        const enrichedBatch = await Promise.all(batchPromises);
+        enrichedFunds.push(...enrichedBatch);
+      } catch (error) {
+        console.warn('⚠️ Batch CRISIL enrichment failed:', error);
+        // Add original funds without CRISIL data if enrichment fails
+        enrichedFunds.push(...batch);
+      }
+    }
+    
+    return enrichedFunds;
+  }
+
   /**
    * Clear cache
    */
@@ -638,6 +749,7 @@ export class MultiSourceMFService {
     this.cache.nav.data.clear();
     this.cache.historical.data.clear();
     this.cache.popular.data = null;
+    // Note: CrisilService cache clearing would be handled internally
   }
 
   /**

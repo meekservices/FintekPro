@@ -9272,12 +9272,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.warn("⚠️ MultiSource service returned no popular funds, trying fallback...");
       
-    } catch (multiSourceError) {
-      console.warn("⚠️ MultiSource service failed for popular funds, trying fallback:", multiSourceError);
-    }
-      
-      // Fallback to cached data
-      try {
+    // Fallback to cached data
+    try {
         const cachedFunds = await storage.getAllMutualFunds();
         if (cachedFunds.length > 0) {
           console.log(`✅ Using cached data with ${cachedFunds.length} funds`);
