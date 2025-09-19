@@ -47,8 +47,37 @@ import { useAuth } from "@/hooks/useAuth";
 
 export default function Home() {
   const [activeFeature, setActiveFeature] = useState(0);
+  const [isNavCollapsed, setIsNavCollapsed] = useState(false);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   
+  // Navigation collapse state management
+  useEffect(() => {
+    const handleStorageChange = () => {
+      try {
+        const saved = localStorage.getItem('navigation-collapsed');
+        setIsNavCollapsed(saved ? JSON.parse(saved) : false);
+      } catch {
+        setIsNavCollapsed(false);
+      }
+    };
+
+    // Initial load
+    handleStorageChange();
+    
+    // Listen for custom events from same tab
+    const handleCustomEvent = (e: CustomEvent) => {
+      setIsNavCollapsed(e.detail.isCollapsed);
+    };
+
+    window.addEventListener('navigation-state-changed', handleCustomEvent as EventListener);
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('navigation-state-changed', handleCustomEvent as EventListener);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
   // Focus management for accessibility
   useEffect(() => {
     const activeTab = tabRefs.current[activeFeature];
@@ -249,7 +278,7 @@ export default function Home() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50" data-testid="home-page">
       <EnhancedNavigation />
       
-      <main className="relative pt-16 lg:pt-0 lg:ml-64">
+      <main className={`relative pt-16 lg:pt-0 ${isNavCollapsed ? 'ml-16 lg:ml-0' : 'ml-64 lg:ml-0'}`}>
         <MarketTicker />
         {/* Hero Section with Enhanced Design */}
         <section className="relative bg-gradient-to-r from-blue-900 via-blue-800 to-purple-900 text-white py-20 overflow-hidden">

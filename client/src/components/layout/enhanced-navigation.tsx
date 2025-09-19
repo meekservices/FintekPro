@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -25,7 +25,9 @@ import {
   ShoppingCart,
   HelpCircle,
   User as UserIcon,
-  LogOut
+  LogOut,
+  PanelLeftClose,
+  PanelLeftOpen
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/use-cart";
@@ -52,9 +54,27 @@ interface NavigationGroup {
 export function EnhancedNavigation() {
   const [location] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    try {
+      const saved = localStorage.getItem('navigation-collapsed');
+      return saved ? JSON.parse(saved) : false;
+    } catch {
+      return false;
+    }
+  });
   const [openGroups, setOpenGroups] = useState<string[]>([]);
   const { user, isAuthenticated, isLoading } = useAuth();
   const { cart } = useCart();
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('navigation-collapsed', JSON.stringify(isCollapsed));
+      // Dispatch custom event for same-tab updates
+      window.dispatchEvent(new CustomEvent('navigation-state-changed', { detail: { isCollapsed } }));
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, [isCollapsed]);
 
   const handleLogout = async () => {
     try {
@@ -548,19 +568,34 @@ export function EnhancedNavigation() {
       {/* Mobile Sidebar - Left positioned */}
       <div className="lg:hidden">
         {/* Mobile Sidebar Navigation */}
-        <aside className="fixed left-0 top-0 h-full w-64 bg-white shadow-lg border-r border-gray-200 z-50 overflow-y-auto">
+        <aside className={`fixed left-0 top-0 h-full bg-white shadow-lg border-r border-gray-200 z-50 overflow-y-auto transition-all duration-300 ease-in-out ${
+          isCollapsed ? 'w-16' : 'w-64'
+        }`}>
           <div className="flex flex-col h-full">
-            {/* Logo */}
-            <div className="flex items-center h-16 px-4 border-b border-gray-200">
-              <Link href="/">
-                <h1 className="text-xl font-bold text-finance-blue cursor-pointer" data-testid="mobile-logo">
-                  FintekPro
-                </h1>
-              </Link>
+            {/* Logo and Toggle */}
+            <div className="flex items-center h-16 px-4 border-b border-gray-200 justify-between">
+              {!isCollapsed && (
+                <Link href="/">
+                  <h1 className="text-xl font-bold text-finance-blue cursor-pointer" data-testid="mobile-logo">
+                    FintekPro
+                  </h1>
+                </Link>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsCollapsed(!isCollapsed)}
+                data-testid="toggle-sidebar"
+                className="flex-shrink-0"
+                aria-label={isCollapsed ? "Expand navigation" : "Collapse navigation"}
+                title={isCollapsed ? "Expand navigation" : "Collapse navigation"}
+              >
+                {isCollapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
+              </Button>
             </div>
 
             {/* User Profile Section */}
-            {isAuthenticated && user && (
+            {isAuthenticated && user && !isCollapsed && (
               <div className="flex items-center space-x-3 p-4 bg-gray-50 mx-4 my-4 rounded-lg">
                 {user?.profileImageUrl && (
                   <img 
@@ -579,75 +614,88 @@ export function EnhancedNavigation() {
             )}
 
             {/* Navigation Content */}
-            <nav className="flex-1 px-4 space-y-2">
+            <nav className={`flex-1 space-y-2 ${isCollapsed ? 'px-2' : 'px-4'}`}>
               {/* Quick Links */}
               <div className="space-y-1">
                 <Link href="/markets">
                   <Button 
                     variant={isItemActive("/markets") ? "default" : "ghost"} 
-                    className="w-full justify-start"
+                    className={`w-full ${isCollapsed ? 'justify-center p-2' : 'justify-start'}`}
                     data-testid="mobile-nav-markets"
+                    aria-label={isCollapsed ? "Markets" : undefined}
+                    title={isCollapsed ? "Markets" : undefined}
                   >
-                    <TrendingUp className="h-4 w-4 mr-3" />
-                    Markets
+                    <TrendingUp className="h-4 w-4" />
+                    {!isCollapsed && <span className="ml-3">Markets</span>}
+                    {isCollapsed && <span className="sr-only">Markets</span>}
                   </Button>
                 </Link>
                 <Link href="/portfolio">
                   <Button 
                     variant={isItemActive("/portfolio") ? "default" : "ghost"} 
-                    className="w-full justify-start"
+                    className={`w-full ${isCollapsed ? 'justify-center p-2' : 'justify-start'}`}
                     data-testid="mobile-nav-portfolio"
+                    aria-label={isCollapsed ? "Portfolio" : undefined}
+                    title={isCollapsed ? "Portfolio" : undefined}
                   >
-                    <PieChart className="h-4 w-4 mr-3" />
-                    Portfolio
+                    <PieChart className="h-4 w-4" />
+                    {!isCollapsed && <span className="ml-3">Portfolio</span>}
+                    {isCollapsed && <span className="sr-only">Portfolio</span>}
                   </Button>
                 </Link>
                 <Link href="/mutual-funds">
                   <Button 
                     variant={isItemActive("/mutual-funds") ? "default" : "ghost"} 
-                    className="w-full justify-start"
+                    className={`w-full ${isCollapsed ? 'justify-center p-2' : 'justify-start'}`}
                     data-testid="mobile-nav-mutual-funds"
+                    aria-label={isCollapsed ? "Mutual Funds" : undefined}
+                    title={isCollapsed ? "Mutual Funds" : undefined}
                   >
-                    <BarChart3 className="h-4 w-4 mr-3" />
-                    Mutual Funds
+                    <BarChart3 className="h-4 w-4" />
+                    {!isCollapsed && <span className="ml-3">Mutual Funds</span>}
+                    {isCollapsed && <span className="sr-only">Mutual Funds</span>}
                   </Button>
                 </Link>
                 <Link href="/loans">
                   <Button 
                     variant={isItemActive("/loans") ? "default" : "ghost"} 
-                    className="w-full justify-start"
+                    className={`w-full ${isCollapsed ? 'justify-center p-2' : 'justify-start'}`}
                     data-testid="mobile-nav-loans"
+                    aria-label={isCollapsed ? "Loans" : undefined}
+                    title={isCollapsed ? "Loans" : undefined}
                   >
-                    <CreditCard className="h-4 w-4 mr-3" />
-                    Loans
+                    <CreditCard className="h-4 w-4" />
+                    {!isCollapsed && <span className="ml-3">Loans</span>}
+                    {isCollapsed && <span className="sr-only">Loans</span>}
                   </Button>
                 </Link>
               </div>
 
               {/* Navigation Groups */}
-              <div className="space-y-4 pt-4 border-t border-gray-200">
-                {navigationGroups.map((group) => (
-                  <div key={group.title} className="space-y-2">
-                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-2">
-                      {group.title}
-                    </h3>
-                    {group.items.map((item) => (
-                      <div key={item.name}>
-                        {item.href ? (
-                          <Link href={item.href}>
-                            <Button
-                              variant={isItemActive(item.href) ? "default" : "ghost"}
-                              className="w-full justify-start"
-                              data-testid={`mobile-nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
-                            >
-                              <item.icon className="h-4 w-4 mr-3" />
-                              {item.name}
-                            </Button>
-                          </Link>
-                        ) : (
-                          <Collapsible 
-                            open={openGroups.includes(item.name)} 
-                            onOpenChange={() => toggleGroup(item.name)}
+              {!isCollapsed && (
+                <div className="space-y-4 pt-4 border-t border-gray-200">
+                  {navigationGroups.map((group) => (
+                    <div key={group.title} className="space-y-2">
+                      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-2">
+                        {group.title}
+                      </h3>
+                      {group.items.map((item) => (
+                        <div key={item.name}>
+                          {item.href ? (
+                            <Link href={item.href}>
+                              <Button
+                                variant={isItemActive(item.href) ? "default" : "ghost"}
+                                className="w-full justify-start"
+                                data-testid={`mobile-nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
+                              >
+                                <item.icon className="h-4 w-4 mr-3" />
+                                {item.name}
+                              </Button>
+                            </Link>
+                          ) : (
+                            <Collapsible 
+                              open={openGroups.includes(item.name)} 
+                              onOpenChange={() => toggleGroup(item.name)}
                           >
                             <CollapsibleTrigger asChild>
                               <Button
@@ -682,26 +730,30 @@ export function EnhancedNavigation() {
                           </Collapsible>
                         )}
                       </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
             </nav>
 
             {/* Bottom Actions */}
-            <div className="p-4 border-t border-gray-200 space-y-2">
+            <div className={`border-t border-gray-200 space-y-2 ${isCollapsed ? 'p-2' : 'p-4'}`}>
               <Link href="/store">
                 <Button 
                   variant="default" 
-                  className="w-full bg-green-600 hover:bg-green-700 text-white"
+                  className={`w-full bg-green-600 hover:bg-green-700 text-white ${isCollapsed ? 'justify-center p-2' : 'justify-start'}`}
                   data-testid="mobile-store-button"
+                  aria-label={isCollapsed ? "Store" : undefined}
+                  title={isCollapsed ? "Store" : undefined}
                 >
-                  <Store className="h-4 w-4 mr-2" />
-                  Store
+                  <Store className="h-4 w-4" />
+                  {!isCollapsed && <span className="ml-2">Store</span>}
+                  {isCollapsed && <span className="sr-only">Store</span>}
                 </Button>
               </Link>
               
-              {isAuthenticated && (
+              {isAuthenticated && !isCollapsed && (
                 <Link href="/cart">
                   <Button 
                     variant="outline" 
@@ -720,45 +772,51 @@ export function EnhancedNavigation() {
               )}
 
               {isAuthenticated ? (
-                <div className="space-y-2">
-                  <Link href="/profile">
-                    <Button variant="outline" className="w-full" data-testid="mobile-profile-button">
+                !isCollapsed && (
+                  <div className="space-y-2">
+                    <Link href="/profile">
+                      <Button variant="outline" className="w-full" data-testid="mobile-profile-button">
+                        <UserIcon className="h-4 w-4 mr-2" />
+                        Profile
+                      </Button>
+                    </Link>
+                    <Button 
+                      variant="outline" 
+                      className="w-full"
+                      onClick={handleLogout}
+                      data-testid="mobile-logout-button"
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Logout
+                    </Button>
+                  </div>
+                )
+              ) : (
+                !isCollapsed && (
+                  <Link href="/auth">
+                    <Button 
+                      className="w-full" 
+                      data-testid="mobile-login-button"
+                    >
                       <UserIcon className="h-4 w-4 mr-2" />
-                      Profile
+                      Login
                     </Button>
                   </Link>
+                )
+              )}
+
+              {!isCollapsed && (
+                <Link href="/support">
                   <Button 
-                    variant="outline" 
+                    variant="ghost" 
                     className="w-full"
-                    onClick={handleLogout}
-                    data-testid="mobile-logout-button"
+                    data-testid="mobile-support-button"
                   >
-                    <LogOut className="h-4 w-4 mr-2" />
-                    Logout
-                  </Button>
-                </div>
-              ) : (
-                <Link href="/auth">
-                  <Button 
-                    className="w-full" 
-                    data-testid="mobile-login-button"
-                  >
-                    <UserIcon className="h-4 w-4 mr-2" />
-                    Login
+                    <HelpCircle className="h-4 w-4 mr-2" />
+                    Support & Help
                   </Button>
                 </Link>
               )}
-
-              <Link href="/support">
-                <Button 
-                  variant="ghost" 
-                  className="w-full"
-                  data-testid="mobile-support-button"
-                >
-                  <HelpCircle className="h-4 w-4 mr-2" />
-                  Support & Help
-                </Button>
-              </Link>
             </div>
           </div>
         </aside>
