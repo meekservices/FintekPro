@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Calculator, TrendingUp, PiggyBank, Home, Car, Receipt, IndianRupee, FileText } from 'lucide-react';
-import { Header } from '@/components/layout/header';
+import { EnhancedNavigation } from '@/components/layout/enhanced-navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useMutation } from '@tanstack/react-query';
 
@@ -57,6 +57,25 @@ interface EmiResult {
 }
 
 export default function FinancialCalculators() {
+  // Navigation state for responsive layout
+  const [isNavCollapsed, setIsNavCollapsed] = useState(() => {
+    try {
+      const saved = localStorage.getItem('navigation-collapsed');
+      return saved ? JSON.parse(saved) : false;
+    } catch {
+      return false;
+    }
+  });
+
+  // Listen for navigation state changes
+  useEffect(() => {
+    const handleNavChange = (event: CustomEvent) => {
+      setIsNavCollapsed(event.detail.isCollapsed);
+    };
+    
+    window.addEventListener('navigation-state-changed', handleNavChange as EventListener);
+    return () => window.removeEventListener('navigation-state-changed', handleNavChange as EventListener);
+  }, []);
   const { toast } = useToast();
   
   // Tax Calculator State
@@ -314,7 +333,7 @@ export default function FinancialCalculators() {
 
   return (
     <>
-      <Header />
+      <EnhancedNavigation />
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Financial Calculators</h1>

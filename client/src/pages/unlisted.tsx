@@ -1,4 +1,4 @@
-import { Header } from "@/components/layout/header";
+import { EnhancedNavigation } from "@/components/layout/enhanced-navigation";
 import { Footer } from "@/components/layout/footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Gem, TrendingUp, Calendar, IndianRupee, Building2, Calculator, Star, Eye, Lock } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 // Unlisted Securities Categories Component
@@ -122,13 +122,32 @@ function UnlistedCategoriesSection() {
 
 // Main Unlisted Securities Page
 export default function Unlisted() {
+  // Navigation state for responsive layout
+  const [isNavCollapsed, setIsNavCollapsed] = useState(() => {
+    try {
+      const saved = localStorage.getItem('navigation-collapsed');
+      return saved ? JSON.parse(saved) : false;
+    } catch {
+      return false;
+    }
+  });
+
+  // Listen for navigation state changes
+  useEffect(() => {
+    const handleNavChange = (event: CustomEvent) => {
+      setIsNavCollapsed(event.detail.isCollapsed);
+    };
+    
+    window.addEventListener('navigation-state-changed', handleNavChange as EventListener);
+    return () => window.removeEventListener('navigation-state-changed', handleNavChange as EventListener);
+  }, []);
   const [selectedTab, setSelectedTab] = useState("explore");
 
   return (
     <div className="min-h-screen bg-finance-light" data-testid="unlisted-page">
-      <Header />
+      <EnhancedNavigation />
       
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0 ${isNavCollapsed ? 'ml-16 lg:ml-0' : 'ml-64 lg:ml-0'}`}>
         <div className="mb-8" data-testid="unlisted-header">
           <div className="flex items-center gap-3 mb-4">
             <Gem className="w-8 h-8 text-finance-blue" />

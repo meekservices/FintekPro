@@ -1,4 +1,4 @@
-import { Header } from "@/components/layout/header";
+import { EnhancedNavigation } from "@/components/layout/enhanced-navigation";
 import { Footer } from "@/components/layout/footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,10 +22,29 @@ import {
   Zap,
   Star
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 export default function AIF() {
+  // Navigation state for responsive layout
+  const [isNavCollapsed, setIsNavCollapsed] = useState(() => {
+    try {
+      const saved = localStorage.getItem('navigation-collapsed');
+      return saved ? JSON.parse(saved) : false;
+    } catch {
+      return false;
+    }
+  });
+
+  // Listen for navigation state changes
+  useEffect(() => {
+    const handleNavChange = (event: CustomEvent) => {
+      setIsNavCollapsed(event.detail.isCollapsed);
+    };
+    
+    window.addEventListener('navigation-state-changed', handleNavChange as EventListener);
+    return () => window.removeEventListener('navigation-state-changed', handleNavChange as EventListener);
+  }, []);
   const [selectedAMC, setSelectedAMC] = useState("all");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedRiskRating, setSelectedRiskRating] = useState("all");
@@ -68,8 +87,8 @@ export default function AIF() {
   if (isAIFLoading) {
     return (
       <div className="min-h-screen bg-finance-light" data-testid="aif-page">
-        <Header />
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
+        <EnhancedNavigation />
+        <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0 ${isNavCollapsed ? 'ml-16 lg:ml-0' : 'ml-64 lg:ml-0'}`}>
           <Card>
             <CardContent className="p-12 text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-finance-blue mx-auto mb-6"></div>
@@ -85,7 +104,7 @@ export default function AIF() {
 
   return (
     <div className="min-h-screen bg-finance-light" data-testid="aif-page">
-      <Header />
+      <EnhancedNavigation />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
         

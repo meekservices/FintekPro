@@ -1,4 +1,4 @@
-import { Header } from "@/components/layout/header";
+import { EnhancedNavigation } from "@/components/layout/enhanced-navigation";
 import { Footer } from "@/components/layout/footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Shield, TrendingUp, Calendar, IndianRupee, Building2, Calculator } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 // Bond Categories Component with Real-time Data
@@ -85,6 +85,25 @@ function BondCategoriesSection() {
 }
 
 export default function Bonds() {
+  // Navigation state for responsive layout
+  const [isNavCollapsed, setIsNavCollapsed] = useState(() => {
+    try {
+      const saved = localStorage.getItem('navigation-collapsed');
+      return saved ? JSON.parse(saved) : false;
+    } catch {
+      return false;
+    }
+  });
+
+  // Listen for navigation state changes
+  useEffect(() => {
+    const handleNavChange = (event: CustomEvent) => {
+      setIsNavCollapsed(event.detail.isCollapsed);
+    };
+    
+    window.addEventListener('navigation-state-changed', handleNavChange as EventListener);
+    return () => window.removeEventListener('navigation-state-changed', handleNavChange as EventListener);
+  }, []);
   const [investmentAmount, setInvestmentAmount] = useState("");
   const [bondYield, setBondYield] = useState("");
   const [tenure, setTenure] = useState("");
@@ -106,9 +125,9 @@ export default function Bonds() {
 
   return (
     <div className="min-h-screen bg-finance-light" data-testid="bonds-page">
-      <Header />
+      <EnhancedNavigation />
       
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
+      <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0 ${isNavCollapsed ? 'ml-16 lg:ml-0' : 'ml-64 lg:ml-0'}`}>
         
         {/* Page Header */}
         <div className="mb-8" data-testid="bonds-header">
