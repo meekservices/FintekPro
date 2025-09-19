@@ -1,4 +1,4 @@
-import { Header } from "@/components/layout/header";
+import { EnhancedNavigation } from "@/components/layout/enhanced-navigation";
 import { Footer } from "@/components/layout/footer";
 import { MarketTicker } from "@/components/dashboard/market-ticker";
 import { MarketChart } from "@/components/dashboard/market-chart";
@@ -66,9 +66,9 @@ export default function Home() {
   // Get user's display name
   const getUserDisplayName = () => {
     if (!currentUser) return null;
-    const firstName = currentUser.firstName;
-    const lastName = currentUser.lastName;
-    const email = currentUser.email;
+    const firstName = (currentUser as any)?.firstName;
+    const lastName = (currentUser as any)?.lastName;
+    const email = (currentUser as any)?.email;
     
     if (firstName && lastName) {
       return `${firstName} ${lastName}`;
@@ -234,7 +234,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50" data-testid="home-page">
-      <Header />
+      <EnhancedNavigation />
       <MarketTicker />
       
       <main className="relative">
