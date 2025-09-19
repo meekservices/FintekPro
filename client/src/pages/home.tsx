@@ -42,11 +42,24 @@ import {
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function Home() {
   const [activeFeature, setActiveFeature] = useState(0);
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  
+  // Focus management for accessibility
+  useEffect(() => {
+    const activeTab = tabRefs.current[activeFeature];
+    if (activeTab && document.activeElement !== activeTab) {
+      // Only focus if the current focus is on another tab (keyboard navigation)
+      const focusedElement = document.activeElement;
+      if (focusedElement && focusedElement.getAttribute('role') === 'tab') {
+        activeTab.focus();
+      }
+    }
+  }, [activeFeature]);
   
   // Get authenticated user data
   const { user, isAuthenticated } = useAuth();
@@ -330,18 +343,41 @@ export default function Home() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
               {/* Features List */}
-              <div className="space-y-6">
+              <div className="space-y-6" role="tablist" aria-label="Platform features" aria-orientation="vertical">
                 {platformFeatures.map((feature, index) => {
                   const FeatureIcon = feature.icon;
                   return (
-                    <div 
+                    <button 
                       key={index}
-                      className={`p-6 rounded-xl border-2 cursor-pointer transition-all transform hover:scale-105 ${
+                      ref={(el) => tabRefs.current[index] = el}
+                      type="button"
+                      role="tab"
+                      id={`feature-tab-${index}`}
+                      className={`w-full text-left p-6 rounded-xl border-2 cursor-pointer transition-all transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                         activeFeature === index 
                           ? 'border-blue-500 bg-blue-50 shadow-lg' 
                           : 'border-gray-200 hover:border-gray-300'
                       }`}
                       onClick={() => setActiveFeature(index)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'ArrowDown') {
+                          e.preventDefault();
+                          setActiveFeature((prev) => (prev + 1) % platformFeatures.length);
+                        } else if (e.key === 'ArrowUp') {
+                          e.preventDefault();
+                          setActiveFeature((prev) => (prev - 1 + platformFeatures.length) % platformFeatures.length);
+                        } else if (e.key === 'Home') {
+                          e.preventDefault();
+                          setActiveFeature(0);
+                        } else if (e.key === 'End') {
+                          e.preventDefault();
+                          setActiveFeature(platformFeatures.length - 1);
+                        }
+                      }}
+                      data-testid={`feature-tab-${index}`}
+                      aria-selected={activeFeature === index}
+                      aria-controls="feature-showcase-panel"
+                      tabIndex={activeFeature === index ? 0 : -1}
                     >
                       <div className="flex items-start space-x-4">
                         <div className={`p-3 rounded-lg ${colorClasses[feature.color as keyof typeof colorClasses]}`}>
@@ -355,14 +391,20 @@ export default function Home() {
                           </Badge>
                         </div>
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
 
               {/* Feature Showcase */}
               <div className="relative">
-                <div className="bg-gradient-to-br from-blue-900 to-purple-900 rounded-2xl p-8 text-white shadow-2xl">
+                <div 
+                  className="bg-gradient-to-br from-blue-900 to-purple-900 rounded-2xl p-8 text-white shadow-2xl"
+                  role="tabpanel"
+                  id="feature-showcase-panel"
+                  aria-labelledby={`feature-tab-${activeFeature}`}
+                  tabIndex={0}
+                >
                   <div className="flex items-center mb-6">
                     {(() => {
                       const ShowcaseIcon = platformFeatures[activeFeature].icon;
