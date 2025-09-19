@@ -7,6 +7,25 @@ import { apiRequest } from "@/lib/queryClient";
 
 
 export function Footer() {
+  // Navigation state for responsive layout alignment
+  const [isNavCollapsed, setIsNavCollapsed] = useState(() => {
+    try {
+      const saved = localStorage.getItem('navigation-collapsed');
+      return saved ? JSON.parse(saved) : false;
+    } catch {
+      return false;
+    }
+  });
+
+  // Listen for navigation state changes
+  useEffect(() => {
+    const handleNavChange = (event: CustomEvent) => {
+      setIsNavCollapsed(event.detail.isCollapsed);
+    };
+    
+    window.addEventListener('navigation-state-changed', handleNavChange as EventListener);
+    return () => window.removeEventListener('navigation-state-changed', handleNavChange as EventListener);
+  }, []);
   const { isAuthenticated, user } = useAuth();
   const [creditScore, setCreditScore] = useState<number | null>(null);
 
@@ -93,7 +112,7 @@ export function Footer() {
   ];
 
   return (
-    <footer className="bg-finance-gray text-white py-12">
+    <footer className={`bg-finance-gray text-white py-12 ${isNavCollapsed ? 'ml-16 lg:ml-0' : 'ml-64 lg:ml-0'}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-8 gap-8">
           
