@@ -1,6 +1,5 @@
 import { EnhancedNavigation } from "@/components/layout/enhanced-navigation";
 import { Footer } from "@/components/layout/footer";
-import { MarketTicker } from "@/components/dashboard/market-ticker";
 import { MarketChart } from "@/components/dashboard/market-chart";
 import { MarketMovers } from "@/components/dashboard/market-movers";
 import { MarketNews } from "@/components/dashboard/market-news";
@@ -149,7 +148,19 @@ export default function Markets() {
       <EnhancedNavigation />
       
       <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0 ${isNavCollapsed ? 'ml-16 lg:ml-0' : 'ml-64 lg:ml-0'}`}>
-        <MarketTicker />
+        {/* Market Header */}
+        <div className="bg-gradient-to-r from-finance-blue to-blue-700 text-white py-6 px-8 rounded-2xl mb-8 shadow-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">Live Market Data</h1>
+              <p className="text-blue-100">Real-time quotes from global markets • NSE • BSE • MCX • NCDEX</p>
+            </div>
+            <div className="text-right">
+              <div className="text-sm text-blue-200">Market Status</div>
+              <div className="text-lg font-semibold text-green-300">● OPEN</div>
+            </div>
+          </div>
+        </div>
         
         {/* Enhanced Header Section */}
         <section className="mb-8" data-testid="markets-header">
