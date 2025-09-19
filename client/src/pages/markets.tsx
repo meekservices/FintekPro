@@ -1,4 +1,4 @@
-import { Header } from "@/components/layout/header";
+import { EnhancedNavigation } from "@/components/layout/enhanced-navigation";
 import { Footer } from "@/components/layout/footer";
 import { MarketTicker } from "@/components/dashboard/market-ticker";
 import { MarketChart } from "@/components/dashboard/market-chart";
@@ -60,9 +60,12 @@ export default function Markets() {
   // Mutation for generating AI market stories
   const generateStoryMutation = useMutation({
     mutationFn: async ({ symbols, useCurrentData = true }: { symbols?: string[], useCurrentData?: boolean }) => {
-      const response = await apiRequest("POST", "/api/market/story/generate", {
-        symbols: symbols || GLOBAL_INDICES.map(idx => idx.symbol),
-        useCurrentData
+      const response = await apiRequest("/api/market/story/generate", {
+        method: "POST",
+        body: {
+          symbols: symbols || GLOBAL_INDICES.map(idx => idx.symbol),
+          useCurrentData
+        }
       });
       return response.json();
     },
@@ -123,10 +126,10 @@ export default function Markets() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50" data-testid="markets-page">
-      <Header />
-      <MarketTicker />
+      <EnhancedNavigation />
       
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0 ml-64 lg:ml-0">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0 lg:ml-64">
+        <MarketTicker />
         
         {/* Enhanced Header Section */}
         <section className="mb-8" data-testid="markets-header">

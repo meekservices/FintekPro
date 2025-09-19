@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Header } from "@/components/layout/header";
+import { EnhancedNavigation } from "@/components/layout/enhanced-navigation";
 import { Footer } from "@/components/layout/footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -182,9 +182,9 @@ export default function Support() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
+      <EnhancedNavigation />
       
-      <div className="pt-16">
+      <div className="pt-16 lg:pt-0 lg:ml-64">
         {/* Hero Section */}
         <div className="bg-white py-16 border-b">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">

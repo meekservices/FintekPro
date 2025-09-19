@@ -248,9 +248,9 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50" data-testid="home-page">
       <EnhancedNavigation />
-      <MarketTicker />
       
-      <main className="relative pt-16 lg:pt-0 ml-64 lg:ml-0">
+      <main className="relative pt-16 lg:pt-0 lg:ml-64">
+        <MarketTicker />
         {/* Hero Section with Enhanced Design */}
         <section className="relative bg-gradient-to-r from-blue-900 via-blue-800 to-purple-900 text-white py-20 overflow-hidden">
           {/* Animated background elements */}

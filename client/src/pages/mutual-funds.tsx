@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Header } from "@/components/layout/header";
+import { EnhancedNavigation } from "@/components/layout/enhanced-navigation";
 import { Footer } from "@/components/layout/footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -564,9 +564,9 @@ export default function MutualFunds() {
 
   return (
     <div className="min-h-screen bg-finance-light" data-testid="mutual-funds-page">
-      <Header />
+      <EnhancedNavigation />
       
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24 ml-64 lg:ml-0">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0 lg:ml-64">
         
         {/* MoneyControl-Inspired Header */}
         <div className="mb-8" data-testid="mf-header">

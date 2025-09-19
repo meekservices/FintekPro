@@ -1,4 +1,4 @@
-import { Header } from "@/components/layout/header";
+import { EnhancedNavigation } from "@/components/layout/enhanced-navigation";
 import { Footer } from "@/components/layout/footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -118,9 +118,9 @@ export default function Loans() {
 
   return (
     <div className="min-h-screen bg-finance-light" data-testid="loans-page">
-      <Header />
+      <EnhancedNavigation />
       
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0 lg:ml-64">
         
         {/* Page Header */}
         <div className="mb-8" data-testid="loans-header">
