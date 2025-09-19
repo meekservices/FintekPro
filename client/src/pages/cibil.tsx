@@ -62,7 +62,7 @@ export default function Cibil() {
   const [consentGiven, setConsentGiven] = useState(false);
 
   // Credit score check mutation
-  const { data: creditData, mutate: checkCreditScore, isPending: scorePending } = useMutation({
+  const { data: creditData, mutate: checkCreditScore, isPending: scorePending } = useMutation<any, Error, any, unknown>({
     mutationFn: async (data: any) => {
       return apiRequest("POST", "/api/cibil/credit-score", data);
     },
@@ -75,28 +75,28 @@ export default function Cibil() {
   });
 
   // Detailed report mutation  
-  const { data: detailedReport, mutate: getDetailedReport, isPending: reportPending } = useMutation({
+  const { data: detailedReport, mutate: getDetailedReport, isPending: reportPending } = useMutation<any, Error, any, unknown>({
     mutationFn: async (data: any) => {
       return apiRequest("POST", "/api/cibil/detailed-report", data);
     }
   });
 
   // Loan eligibility mutation
-  const { data: loanEligibility, mutate: checkLoanEligibility, isPending: loanPending } = useMutation({
+  const { data: loanEligibility, mutate: checkLoanEligibility, isPending: loanPending } = useMutation<any, Error, any, unknown>({
     mutationFn: async (data: any) => {
       return apiRequest("POST", "/api/cibil/loan-eligibility", data);
     }
   });
 
   // Credit card eligibility mutation
-  const { data: cardEligibility, mutate: checkCardEligibility, isPending: cardPending } = useMutation({
+  const { data: cardEligibility, mutate: checkCardEligibility, isPending: cardPending } = useMutation<any, Error, any, unknown>({
     mutationFn: async (data: any) => {
       return apiRequest("POST", "/api/cibil/card-eligibility", data);
     }
   });
 
   // Credit monitoring mutation
-  const { data: monitoringSetup, mutate: setupMonitoring } = useMutation({
+  const { data: monitoringSetup, mutate: setupMonitoring } = useMutation<any, Error, any, unknown>({
     mutationFn: async (data: any) => {
       return apiRequest("POST", "/api/cibil/monitoring", data);
     }

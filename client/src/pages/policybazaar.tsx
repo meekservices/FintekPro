@@ -58,35 +58,35 @@ export default function PolicyBazaar() {
   const [tripType, setTripType] = useState("");
 
   // Get insurance quotes
-  const { data: quotes, isLoading: quotesLoading, mutate: getQuotes } = useMutation({
+  const { data: quotes, isLoading: quotesLoading, mutate: getQuotes } = useMutation<any, Error, any, unknown>({
     mutationFn: async (data: any) => {
       return apiRequest("POST", "/api/policybazaar/quotes", data);
     }
   });
 
   // Health insurance calculator
-  const { data: healthCalculation, mutate: calculateHealth } = useMutation({
+  const { data: healthCalculation, mutate: calculateHealth } = useMutation<any, Error, any, unknown>({
     mutationFn: async (data: any) => {
       return apiRequest("POST", "/api/policybazaar/health-calculator", data);
     }
   });
 
   // Life insurance calculator
-  const { data: lifeCalculation, mutate: calculateLife } = useMutation({
+  const { data: lifeCalculation, mutate: calculateLife } = useMutation<any, Error, any, unknown>({
     mutationFn: async (data: any) => {
       return apiRequest("POST", "/api/policybazaar/life-calculator", data);
     }
   });
 
   // Motor insurance calculator
-  const { data: motorCalculation, mutate: calculateMotor } = useMutation({
+  const { data: motorCalculation, mutate: calculateMotor } = useMutation<any, Error, any, unknown>({
     mutationFn: async (data: any) => {
       return apiRequest("POST", "/api/policybazaar/motor-calculator", data);
     }
   });
 
   // Travel insurance calculator
-  const { data: travelCalculation, mutate: calculateTravel } = useMutation({
+  const { data: travelCalculation, mutate: calculateTravel } = useMutation<any, Error, any, unknown>({
     mutationFn: async (data: any) => {
       return apiRequest("POST", "/api/policybazaar/travel-calculator", data);
     }
