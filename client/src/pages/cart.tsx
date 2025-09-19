@@ -1,4 +1,5 @@
-import { Header } from "@/components/layout/header";
+import { useState, useEffect } from "react";
+import { EnhancedNavigation } from "@/components/layout/enhanced-navigation";
 import { Footer } from "@/components/layout/footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,10 +8,28 @@ import { Input } from "@/components/ui/input";
 import { useCart } from "@/hooks/use-cart";
 import { useToast } from "@/hooks/use-toast";
 import { Trash2, Minus, Plus, ShoppingCart, ArrowLeft, CreditCard } from "lucide-react";
-import { useState } from "react";
 import { Link } from "wouter";
 
 export default function Cart() {
+  // Navigation state for responsive layout
+  const [isNavCollapsed, setIsNavCollapsed] = useState(() => {
+    try {
+      const saved = localStorage.getItem('navigation-collapsed');
+      return saved ? JSON.parse(saved) : false;
+    } catch {
+      return false;
+    }
+  });
+
+  // Listen for navigation state changes
+  useEffect(() => {
+    const handleNavChange = (event: CustomEvent) => {
+      setIsNavCollapsed(event.detail.isCollapsed);
+    };
+    
+    window.addEventListener('navigation-state-changed', handleNavChange as EventListener);
+    return () => window.removeEventListener('navigation-state-changed', handleNavChange as EventListener);
+  }, []);
   const { cart, isLoading, updateCartItem, removeFromCart, clearCart, isUpdatingCartItem, isRemovingFromCart } = useCart();
   const { toast } = useToast();
   const [updatingItems, setUpdatingItems] = useState<Record<string, boolean>>({});
@@ -85,8 +104,8 @@ export default function Cart() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-finance-light">
-        <Header />
-        <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <EnhancedNavigation />
+        <main className={`max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0 ${isNavCollapsed ? 'ml-16 lg:ml-0' : 'ml-64 lg:ml-0'}`}>
           <div className="animate-pulse">
             <div className="h-8 bg-gray-200 rounded w-48 mb-4"></div>
             <div className="space-y-4">
@@ -103,9 +122,9 @@ export default function Cart() {
 
   return (
     <div className="min-h-screen bg-finance-light" data-testid="cart-page">
-      <Header />
+      <EnhancedNavigation />
       
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className={`max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0 ${isNavCollapsed ? 'ml-16 lg:ml-0' : 'ml-64 lg:ml-0'}`}>
         <div className="mb-6">
           <Link href="/store">
             <Button variant="ghost" className="mb-4" data-testid="button-back-to-store">
