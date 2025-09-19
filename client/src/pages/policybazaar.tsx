@@ -58,7 +58,7 @@ export default function PolicyBazaar() {
   const [tripType, setTripType] = useState("");
 
   // Get insurance quotes
-  const { data: quotes, isLoading: quotesLoading, mutate: getQuotes } = useMutation<any, Error, any, unknown>({
+  const { data: quotes, isPending: quotesLoading, mutate: getQuotes } = useMutation<any, Error, any, unknown>({
     mutationFn: async (data: any) => {
       return apiRequest("POST", "/api/policybazaar/quotes", data);
     }
