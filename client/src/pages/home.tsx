@@ -250,7 +250,7 @@ export default function Home() {
       <EnhancedNavigation />
       <MarketTicker />
       
-      <main className="relative">
+      <main className="relative pt-16 lg:pt-0 ml-64 lg:ml-0">
         {/* Hero Section with Enhanced Design */}
         <section className="relative bg-gradient-to-r from-blue-900 via-blue-800 to-purple-900 text-white py-20 overflow-hidden">
           {/* Animated background elements */}

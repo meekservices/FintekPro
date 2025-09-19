@@ -61,7 +61,7 @@ export default function Portfolio() {
     return (
       <div className="min-h-screen bg-finance-light" data-testid="portfolio-page">
         <Header />
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24 ml-64 lg:ml-0">
           <div className="text-center py-16">
             <Shield className="h-16 w-16 text-orange-500 mx-auto mb-4" />
             <h1 className="text-2xl font-bold text-gray-900 mb-2">PAN Card Required</h1>
@@ -83,7 +83,7 @@ export default function Portfolio() {
     return (
       <div className="min-h-screen bg-finance-light" data-testid="portfolio-page">
         <Header />
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24 ml-64 lg:ml-0">
           <div className="text-center py-16">
             <TrendingUp className="h-16 w-16 text-blue-500 mx-auto mb-4" />
             <h1 className="text-2xl font-bold text-gray-900 mb-2">No Portfolios Found</h1>
@@ -105,7 +105,7 @@ export default function Portfolio() {
     <div className="min-h-screen bg-finance-light" data-testid="portfolio-page">
       <Header />
       
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24 ml-64 lg:ml-0">
         
         {/* Page Header */}
         <div className="flex justify-between items-center mb-8" data-testid="portfolio-header">

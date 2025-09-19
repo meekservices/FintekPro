@@ -247,9 +247,11 @@ export function EnhancedNavigation() {
   };
 
   return (
-    <header className="bg-white shadow-sm border-b border-gray-200 fixed top-0 w-full z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+    <>
+      {/* Desktop Header - Top positioned */}
+      <header className="bg-white shadow-sm border-b border-gray-200 fixed top-0 w-full z-50 hidden lg:block">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <div className="flex-shrink-0">
             <Link href="/">
@@ -382,7 +384,7 @@ export function EnhancedNavigation() {
               </Link>
             )}
 
-            {/* Navigation Menu - Available on all screens */}
+            {/* Desktop Navigation Menu */}
             <Sheet open={isOpen} onOpenChange={setIsOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="sm" data-testid="navigation-menu-trigger">
@@ -539,8 +541,228 @@ export function EnhancedNavigation() {
               </SheetContent>
             </Sheet>
           </div>
+          </div>
         </div>
+      </header>
+
+      {/* Mobile Sidebar - Left positioned */}
+      <div className="lg:hidden">
+        {/* Mobile Sidebar Navigation */}
+        <aside className="fixed left-0 top-0 h-full w-64 bg-white shadow-lg border-r border-gray-200 z-50 overflow-y-auto">
+          <div className="flex flex-col h-full">
+            {/* Logo */}
+            <div className="flex items-center h-16 px-4 border-b border-gray-200">
+              <Link href="/">
+                <h1 className="text-xl font-bold text-finance-blue cursor-pointer" data-testid="mobile-logo">
+                  FintekPro
+                </h1>
+              </Link>
+            </div>
+
+            {/* User Profile Section */}
+            {isAuthenticated && user && (
+              <div className="flex items-center space-x-3 p-4 bg-gray-50 mx-4 my-4 rounded-lg">
+                {user?.profileImageUrl && (
+                  <img 
+                    src={user.profileImageUrl} 
+                    alt="Profile" 
+                    className="w-10 h-10 rounded-full object-cover"
+                  />
+                )}
+                <div className="flex-1">
+                  <p className="font-medium text-gray-900 text-sm">
+                    {user?.firstName || 'Client'}
+                  </p>
+                  <p className="text-xs text-gray-500">{user?.email}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Navigation Content */}
+            <nav className="flex-1 px-4 space-y-2">
+              {/* Quick Links */}
+              <div className="space-y-1">
+                <Link href="/markets">
+                  <Button 
+                    variant={isItemActive("/markets") ? "default" : "ghost"} 
+                    className="w-full justify-start"
+                    data-testid="mobile-nav-markets"
+                  >
+                    <TrendingUp className="h-4 w-4 mr-3" />
+                    Markets
+                  </Button>
+                </Link>
+                <Link href="/portfolio">
+                  <Button 
+                    variant={isItemActive("/portfolio") ? "default" : "ghost"} 
+                    className="w-full justify-start"
+                    data-testid="mobile-nav-portfolio"
+                  >
+                    <PieChart className="h-4 w-4 mr-3" />
+                    Portfolio
+                  </Button>
+                </Link>
+                <Link href="/mutual-funds">
+                  <Button 
+                    variant={isItemActive("/mutual-funds") ? "default" : "ghost"} 
+                    className="w-full justify-start"
+                    data-testid="mobile-nav-mutual-funds"
+                  >
+                    <BarChart3 className="h-4 w-4 mr-3" />
+                    Mutual Funds
+                  </Button>
+                </Link>
+                <Link href="/loans">
+                  <Button 
+                    variant={isItemActive("/loans") ? "default" : "ghost"} 
+                    className="w-full justify-start"
+                    data-testid="mobile-nav-loans"
+                  >
+                    <CreditCard className="h-4 w-4 mr-3" />
+                    Loans
+                  </Button>
+                </Link>
+              </div>
+
+              {/* Navigation Groups */}
+              <div className="space-y-4 pt-4 border-t border-gray-200">
+                {navigationGroups.map((group) => (
+                  <div key={group.title} className="space-y-2">
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-2">
+                      {group.title}
+                    </h3>
+                    {group.items.map((item) => (
+                      <div key={item.name}>
+                        {item.href ? (
+                          <Link href={item.href}>
+                            <Button
+                              variant={isItemActive(item.href) ? "default" : "ghost"}
+                              className="w-full justify-start"
+                              data-testid={`mobile-nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
+                            >
+                              <item.icon className="h-4 w-4 mr-3" />
+                              {item.name}
+                            </Button>
+                          </Link>
+                        ) : (
+                          <Collapsible 
+                            open={openGroups.includes(item.name)} 
+                            onOpenChange={() => toggleGroup(item.name)}
+                          >
+                            <CollapsibleTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                className="w-full justify-between"
+                                data-testid={`mobile-nav-group-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
+                              >
+                                <div className="flex items-center">
+                                  <item.icon className="h-4 w-4 mr-3" />
+                                  {item.name}
+                                </div>
+                                {openGroups.includes(item.name) ? 
+                                  <ChevronDown className="h-4 w-4" /> : 
+                                  <ChevronRight className="h-4 w-4" />
+                                }
+                              </Button>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent className="space-y-1 ml-4">
+                              {item.subItems?.map((subItem) => (
+                                <Link key={subItem.name} href={subItem.href}>
+                                  <Button
+                                    variant={isItemActive(subItem.href) ? "default" : "ghost"}
+                                    size="sm"
+                                    className="w-full justify-start"
+                                    data-testid={`mobile-nav-${subItem.name.toLowerCase().replace(/\s+/g, '-')}`}
+                                  >
+                                    {subItem.name}
+                                  </Button>
+                                </Link>
+                              ))}
+                            </CollapsibleContent>
+                          </Collapsible>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </nav>
+
+            {/* Bottom Actions */}
+            <div className="p-4 border-t border-gray-200 space-y-2">
+              <Link href="/store">
+                <Button 
+                  variant="default" 
+                  className="w-full bg-green-600 hover:bg-green-700 text-white"
+                  data-testid="mobile-store-button"
+                >
+                  <Store className="h-4 w-4 mr-2" />
+                  Store
+                </Button>
+              </Link>
+              
+              {isAuthenticated && (
+                <Link href="/cart">
+                  <Button 
+                    variant="outline" 
+                    className="w-full relative"
+                    data-testid="mobile-cart-button"
+                  >
+                    <ShoppingCart className="h-4 w-4 mr-2" />
+                    Cart
+                    {cart && cart.totalItems > 0 && (
+                      <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center">
+                        {cart.totalItems}
+                      </Badge>
+                    )}
+                  </Button>
+                </Link>
+              )}
+
+              {isAuthenticated ? (
+                <div className="space-y-2">
+                  <Link href="/profile">
+                    <Button variant="outline" className="w-full" data-testid="mobile-profile-button">
+                      <UserIcon className="h-4 w-4 mr-2" />
+                      Profile
+                    </Button>
+                  </Link>
+                  <Button 
+                    variant="outline" 
+                    className="w-full"
+                    onClick={handleLogout}
+                    data-testid="mobile-logout-button"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Logout
+                  </Button>
+                </div>
+              ) : (
+                <Link href="/auth">
+                  <Button 
+                    className="w-full" 
+                    data-testid="mobile-login-button"
+                  >
+                    <UserIcon className="h-4 w-4 mr-2" />
+                    Login
+                  </Button>
+                </Link>
+              )}
+
+              <Link href="/support">
+                <Button 
+                  variant="ghost" 
+                  className="w-full"
+                  data-testid="mobile-support-button"
+                >
+                  <HelpCircle className="h-4 w-4 mr-2" />
+                  Support & Help
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </aside>
       </div>
-    </header>
+    </>
   );
 }
