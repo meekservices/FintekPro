@@ -64,8 +64,8 @@ export default function Home() {
   };
   
   // Get user's display name
-  const getUserDisplayName = () => {
-    if (!currentUser) return null;
+  const getUserDisplayName = (): string => {
+    if (!currentUser) return "Guest";
     const firstName = (currentUser as any)?.firstName;
     const lastName = (currentUser as any)?.lastName;
     const email = (currentUser as any)?.email;
