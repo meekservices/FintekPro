@@ -14,13 +14,33 @@ import { usePortfoliosByPan, useEnhancedPortfolioHoldings, usePortfolioPerforman
 import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, TrendingUp, TrendingDown, RefreshCw, Bot, Coins, CreditCard, PiggyBank, Shield, Target, Calculator, AlertTriangle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useConsent, type SchemeType } from "@/hooks/use-consent";
 import { ConsentDialog } from "@/components/ConsentDialog";
 import { ConsentAwareSchemeTab } from "@/components/ConsentAwareSchemeTab";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function Portfolio() {
+  // Navigation state for responsive layout
+  const [isNavCollapsed, setIsNavCollapsed] = useState(() => {
+    try {
+      const saved = localStorage.getItem('navigation-collapsed');
+      return saved ? JSON.parse(saved) : false;
+    } catch {
+      return false;
+    }
+  });
+
+  // Listen for navigation state changes
+  useEffect(() => {
+    const handleNavChange = (event: CustomEvent) => {
+      setIsNavCollapsed(event.detail.isCollapsed);
+    };
+    
+    window.addEventListener('navigation-state-changed', handleNavChange as EventListener);
+    return () => window.removeEventListener('navigation-state-changed', handleNavChange as EventListener);
+  }, []);
+
   // Get portfolios linked to user's PAN card for enhanced security
   const { data: portfolios, isLoading: portfoliosLoading, error: portfoliosError } = usePortfoliosByPan();
   const portfolioId = portfolios?.[0]?.id || "demo-portfolio-1";
@@ -61,7 +81,7 @@ export default function Portfolio() {
     return (
       <div className="min-h-screen bg-finance-light" data-testid="portfolio-page">
         <EnhancedNavigation />
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0 lg:ml-64">
+        <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0 ${isNavCollapsed ? 'ml-16 lg:ml-0' : 'ml-64 lg:ml-0'}`}>
           <div className="text-center py-16">
             <Shield className="h-16 w-16 text-orange-500 mx-auto mb-4" />
             <h1 className="text-2xl font-bold text-gray-900 mb-2">PAN Card Required</h1>
@@ -83,7 +103,7 @@ export default function Portfolio() {
     return (
       <div className="min-h-screen bg-finance-light" data-testid="portfolio-page">
         <EnhancedNavigation />
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0 lg:ml-64">
+        <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0 ${isNavCollapsed ? 'ml-16 lg:ml-0' : 'ml-64 lg:ml-0'}`}>
           <div className="text-center py-16">
             <TrendingUp className="h-16 w-16 text-blue-500 mx-auto mb-4" />
             <h1 className="text-2xl font-bold text-gray-900 mb-2">No Portfolios Found</h1>
@@ -103,9 +123,9 @@ export default function Portfolio() {
 
   return (
     <div className="min-h-screen bg-finance-light" data-testid="portfolio-page">
-      <Header />
+      <EnhancedNavigation />
       
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24 ml-64 lg:ml-0">
+      <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0 ${isNavCollapsed ? 'ml-16 lg:ml-0' : 'ml-64 lg:ml-0'}`}>
         
         {/* Page Header */}
         <div className="flex justify-between items-center mb-8" data-testid="portfolio-header">
