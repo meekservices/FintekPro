@@ -334,11 +334,7 @@ export default function FinancialCalculators() {
   return (
     <>
       <EnhancedNavigation />
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Financial Calculators</h1>
-          <p className="text-gray-600">Plan your finances with our comprehensive calculator suite</p>
-        </div>
+      <div className={`container mx-auto px-4 py-8 pt-16 lg:pt-0 ${isNavCollapsed ? 'ml-16 lg:ml-0' : 'ml-64 lg:ml-0'}`}>
 
         <Tabs defaultValue="tax" className="w-full">
           <TabsList className="grid w-full grid-cols-3">

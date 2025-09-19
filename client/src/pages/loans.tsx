@@ -140,14 +140,6 @@ export default function Loans() {
       <EnhancedNavigation />
       
       <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0 ${isNavCollapsed ? 'ml-16 lg:ml-0' : 'ml-64 lg:ml-0'}`}>
-        
-        {/* Page Header */}
-        <div className="mb-8" data-testid="loans-header">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">Loans & Credit</h1>
-          <p className="text-gray-600 text-lg">
-            Get quick loans at competitive rates with minimal documentation
-          </p>
-        </div>
 
         <Tabs defaultValue="explore" className="space-y-8">
           <TabsList className="grid w-full grid-cols-4">
