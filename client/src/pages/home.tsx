@@ -98,7 +98,7 @@ export default function Home() {
   const portfolioId = `portfolio-${userId}`;
   
   // Get greeting based on time of day
-  const getGreeting = () => {
+  const getGreeting = (): string => {
     const hour = new Date().getHours();
     if (hour < 12) return "Good Morning";
     if (hour < 17) return "Good Afternoon";
