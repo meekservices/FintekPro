@@ -127,7 +127,7 @@ export function EnhancedNavigation() {
           icon: BarChart3,
           description: "SIP, lumpsum and fund research",
           subItems: [
-            { name: "Invest Now", href: "/mutual-funds", description: "Browse and invest in funds", badge: "CRISIL" },
+            { name: "Invest Now", href: "/mutual-funds", description: "Browse and invest in funds" },
             { name: "SIP Calculator", href: "/calculators?tool=sip", description: "Plan systematic investments" },
             { name: "Fund Research", href: "/mutual-funds?tab=research", description: "Detailed fund analysis" },
             { name: "My SIPs", href: "/mutual-funds?tab=sips", description: "Manage SIP investments" }
@@ -292,7 +292,6 @@ export function EnhancedNavigation() {
               >
                 <BarChart3 className="h-4 w-4 mr-1" />
                 Mutual Funds
-                <Badge variant="secondary" className="ml-1 text-xs">CRISIL</Badge>
               </Button>
             </Link>
             <Link href="/loans">
