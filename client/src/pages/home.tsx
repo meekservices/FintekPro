@@ -278,23 +278,6 @@ export default function Home() {
       <EnhancedNavigation />
       
       <main className={`relative pt-16 lg:pt-0 ${isNavCollapsed ? 'ml-16 lg:ml-0' : 'ml-64 lg:ml-0'}`}>
-        {/* Hero Header */}
-        <div className="bg-gradient-to-r from-finance-blue via-blue-600 to-purple-600 text-white py-8 px-8 mb-8 shadow-xl">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-4xl font-bold mb-3">Welcome to FintekPro</h1>
-                <p className="text-xl text-blue-100">Your Complete Financial Services Platform</p>
-                <p className="text-blue-200 mt-2">Portfolio Management • Market Intelligence • Investment Tools</p>
-              </div>
-              <div className="hidden lg:block text-right">
-                <div className="text-sm text-blue-200 mb-1">Total Platform AUM</div>
-                <div className="text-2xl font-bold text-white">₹2,84,50,000</div>
-                <div className="text-sm text-green-300">+12.5% This Month</div>
-              </div>
-            </div>
-          </div>
-        </div>
         {/* Hero Section with Enhanced Design */}
         <section className="relative bg-gradient-to-r from-blue-900 via-blue-800 to-purple-900 text-white py-20 overflow-hidden">
           {/* Animated background elements */}

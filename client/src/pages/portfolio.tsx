@@ -127,41 +127,6 @@ export default function Portfolio() {
       
       <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0 ${isNavCollapsed ? 'ml-16 lg:ml-0' : 'ml-64 lg:ml-0'}`}>
         
-        {/* Page Header */}
-        <div className="flex justify-between items-center mb-8" data-testid="portfolio-header">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Portfolio Management</h1>
-            <p className="text-gray-600 mt-2">Track, analyze, and rebalance your investments with live market data</p>
-            {portfolios && portfolios.length > 0 && (
-              <div className="flex items-center mt-3 p-2 bg-green-50 border border-green-200 rounded-lg">
-                <Shield className="h-4 w-4 text-green-600 mr-2" />
-                <span className="text-sm text-green-700">
-                  Showing portfolios linked to your verified PAN card for enhanced security
-                </span>
-              </div>
-            )}
-            {performance && (
-              <div className="flex items-center space-x-4 mt-3">
-                <div className="text-sm text-gray-500">
-                  Last updated: {new Date(performance.lastUpdated).toLocaleTimeString()}
-                </div>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => refetchHoldings()}
-                  className="flex items-center space-x-1"
-                >
-                  <RefreshCw className="h-3 w-3" />
-                  <span>Refresh</span>
-                </Button>
-              </div>
-            )}
-          </div>
-          <Button className="bg-finance-blue text-white hover:bg-blue-700" data-testid="add-investment-button">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Investment
-          </Button>
-        </div>
 
         {/* Enhanced Portfolio with Tabs */}
         <Tabs defaultValue="overview" className="space-y-6">
