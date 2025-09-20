@@ -70,7 +70,7 @@ export function EnhancedNavigation() {
     try {
       localStorage.setItem('navigation-collapsed', JSON.stringify(isCollapsed));
       // Dispatch custom event for same-tab updates
-      window.dispatchEvent(new CustomEvent('navigation-state-changed', { detail: { isCollapsed } }));
+      window.dispatchEvent(new CustomEvent('navigation-change', { detail: { collapsed: isCollapsed } }));
     } catch {
       // Ignore localStorage errors
     }
@@ -268,559 +268,226 @@ export function EnhancedNavigation() {
 
   return (
     <>
-      {/* Desktop Header - Top positioned */}
-      <header className="bg-white shadow-sm border-b border-gray-200 fixed top-0 w-full z-50 hidden lg:block">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <div className="flex-shrink-0">
-            <Link href="/">
-              <h1 className="text-2xl font-bold text-finance-blue cursor-pointer" data-testid="logo">
-                FintekPro
-              </h1>
-            </Link>
-          </div>
-
-          {/* Desktop Navigation - Quick Links */}
-          <nav className="hidden lg:flex space-x-1">
-            <Link href="/markets">
-              <Button 
-                variant={isItemActive("/markets") ? "default" : "ghost"} 
-                size="sm"
-                className="text-sm"
-                data-testid="nav-markets"
-              >
-                <TrendingUp className="h-4 w-4 mr-1" />
-                Markets
-              </Button>
-            </Link>
-            <Link href="/portfolio">
-              <Button 
-                variant={isItemActive("/portfolio") ? "default" : "ghost"} 
-                size="sm"
-                className="text-sm"
-                data-testid="nav-portfolio"
-              >
-                <PieChart className="h-4 w-4 mr-1" />
-                Portfolio
-              </Button>
-            </Link>
-            <Link href="/mutual-funds">
-              <Button 
-                variant={isItemActive("/mutual-funds") ? "default" : "ghost"} 
-                size="sm"
-                className="text-sm"
-                data-testid="nav-mutual-funds"
-              >
-                <BarChart3 className="h-4 w-4 mr-1" />
-                Mutual Funds
-              </Button>
-            </Link>
-            <Link href="/loans">
-              <Button 
-                variant={isItemActive("/loans") ? "default" : "ghost"} 
-                size="sm"
-                className="text-sm"
-                data-testid="nav-loans"
-              >
-                <CreditCard className="h-4 w-4 mr-1" />
-                Loans
-              </Button>
-            </Link>
-          </nav>
-
-          {/* Right Side Actions */}
-          <div className="flex items-center space-x-2">
-            {/* Store Button */}
-            <Link href="/store">
-              <Button 
-                variant="default" 
-                size="sm"
-                className="bg-green-600 hover:bg-green-700 text-white"
-                data-testid="header-store-button"
-              >
-                <Store className="h-4 w-4 mr-1" />
-                Store
-              </Button>
-            </Link>
-            
-            {/* Cart Button */}
-            {isAuthenticated && (
-              <Link href="/cart">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className="relative"
-                  data-testid="header-cart-button"
-                >
-                  <ShoppingCart className="h-4 w-4 mr-1" />
-                  Cart
-                  {cart && cart.totalItems > 0 && (
-                    <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center">
-                      {cart.totalItems}
-                    </Badge>
-                  )}
-                </Button>
+      {/* Left Sidebar for All Screen Sizes */}
+      <aside className={`fixed left-0 top-0 h-full bg-white shadow-lg border-r border-gray-200 z-50 overflow-y-auto transition-all duration-300 ease-in-out ${
+        isCollapsed ? 'w-16' : 'w-64'
+      }`}>
+        <div className="flex flex-col h-full">
+          {/* Logo and Toggle */}
+          <div className="flex items-center h-16 px-4 border-b border-gray-200 justify-between">
+            {!isCollapsed && (
+              <Link href="/">
+                <h1 className="text-xl font-bold text-finance-blue cursor-pointer" data-testid="logo">
+                  FintekPro
+                </h1>
               </Link>
             )}
-
-            {/* User Menu */}
-            {isLoading ? (
-              <div className="hidden md:block w-20 h-9 bg-gray-200 animate-pulse rounded"></div>
-            ) : isAuthenticated ? (
-              <div className="hidden md:flex items-center space-x-2">
-                <div className="flex items-center space-x-2 px-3 py-1 bg-gray-50 rounded-lg">
-                  {user?.profileImageUrl && (
-                    <img 
-                      src={user.profileImageUrl} 
-                      alt="Profile" 
-                      className="w-6 h-6 rounded-full object-cover"
-                    />
-                  )}
-                  <span className="text-sm font-medium text-gray-700">
-                    {user?.firstName || user?.email || 'Client'}
-                  </span>
-                </div>
-                <Link href="/profile">
-                  <Button variant="outline" size="sm" data-testid="profile-button">
-                    <UserIcon className="h-4 w-4" />
-                  </Button>
-                </Link>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={handleLogout}
-                  data-testid="logout-button"
-                >
-                  <LogOut className="h-4 w-4" />
-                </Button>
-              </div>
-            ) : (
-              <Link href="/auth">
-                <Button className="hidden md:inline-flex" data-testid="login-button">
-                  <UserIcon className="h-4 w-4 mr-2" />
-                  Login
-                </Button>
-              </Link>
-            )}
-
-            {/* Desktop Navigation Menu */}
-            <Sheet open={isOpen} onOpenChange={setIsOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="sm" data-testid="navigation-menu-trigger">
-                  <Menu className="h-5 w-5" />
-                  <span className="hidden md:inline ml-2">Menu</span>
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="w-80 lg:w-96 overflow-y-auto">
-                <div className="flex flex-col space-y-6 pt-6">
-                  {/* User Profile Section */}
-                  {isAuthenticated && user && (
-                    <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg">
-                      {user?.profileImageUrl && (
-                        <img 
-                          src={user.profileImageUrl} 
-                          alt="Profile" 
-                          className="w-10 h-10 rounded-full object-cover"
-                        />
-                      )}
-                      <div className="flex-1">
-                        <p className="font-medium text-gray-900">
-                          {user?.firstName || 'Client'}
-                        </p>
-                        <p className="text-sm text-gray-500">{user?.email}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Navigation Groups */}
-                  {navigationGroups.map((group) => (
-                    <div key={group.title} className="space-y-2">
-                      <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider px-2">
-                        {group.title}
-                      </h3>
-                      {group.items.map((item) => (
-                        <div key={item.name}>
-                          {item.href ? (
-                            <Link href={item.href}>
-                              <Button
-                                variant={isItemActive(item.href) ? "default" : "ghost"}
-                                className="w-full justify-start"
-                                onClick={() => setIsOpen(false)}
-                                data-testid={`mobile-nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
-                              >
-                                <item.icon className="h-4 w-4 mr-3" />
-                                {item.name}
-                              </Button>
-                            </Link>
-                          ) : (
-                            <Collapsible 
-                              open={openGroups.includes(item.name)} 
-                              onOpenChange={() => toggleGroup(item.name)}
-                            >
-                              <CollapsibleTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  className="w-full justify-between"
-                                  data-testid={`mobile-nav-group-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
-                                >
-                                  <div className="flex items-center">
-                                    <item.icon className="h-4 w-4 mr-3" />
-                                    {item.name}
-                                  </div>
-                                  {openGroups.includes(item.name) ? 
-                                    <ChevronDown className="h-4 w-4" /> : 
-                                    <ChevronRight className="h-4 w-4" />
-                                  }
-                                </Button>
-                              </CollapsibleTrigger>
-                              <CollapsibleContent className="space-y-1 ml-4">
-                                {item.subItems?.map((subItem) => (
-                                  <Link key={subItem.name} href={subItem.href}>
-                                    <Button
-                                      variant={isItemActive(subItem.href) ? "default" : "ghost"}
-                                      size="sm"
-                                      className="w-full justify-start"
-                                      onClick={() => setIsOpen(false)}
-                                      data-testid={`mobile-nav-${subItem.name.toLowerCase().replace(/\s+/g, '-')}`}
-                                    >
-                                      {subItem.name}
-                                      {subItem.badge && (
-                                        <Badge variant="secondary" className="ml-auto text-xs">
-                                          {subItem.badge}
-                                        </Badge>
-                                      )}
-                                    </Button>
-                                  </Link>
-                                ))}
-                              </CollapsibleContent>
-                            </Collapsible>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ))}
-
-                  {/* Mobile Auth Actions */}
-                  {isAuthenticated ? (
-                    <div className="space-y-2 pt-4 border-t">
-                      <Link href="/profile">
-                        <Button 
-                          className="w-full" 
-                          variant="outline"
-                          onClick={() => setIsOpen(false)}
-                          data-testid="mobile-profile-button"
-                        >
-                          <UserIcon className="h-4 w-4 mr-2" />
-                          Profile
-                        </Button>
-                      </Link>
-                      <Button 
-                        className="w-full" 
-                        variant="outline"
-                        onClick={() => {
-                          setIsOpen(false);
-                          handleLogout();
-                        }}
-                        data-testid="mobile-logout-button"
-                      >
-                        <LogOut className="h-4 w-4 mr-2" />
-                        Logout
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="pt-4 border-t">
-                      <Link href="/auth">
-                        <Button 
-                          className="w-full" 
-                          data-testid="mobile-login-button"
-                          onClick={() => setIsOpen(false)}
-                        >
-                          <UserIcon className="h-4 w-4 mr-2" />
-                          Login
-                        </Button>
-                      </Link>
-                    </div>
-                  )}
-
-                  {/* Support */}
-                  <div className="pt-4 border-t">
-                    <Link href="/support">
-                      <Button 
-                        variant="ghost" 
-                        className="w-full"
-                        onClick={() => setIsOpen(false)}
-                        data-testid="mobile-support-button"
-                      >
-                        <HelpCircle className="h-4 w-4 mr-2" />
-                        Support & Help
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-              </SheetContent>
-            </Sheet>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              data-testid="toggle-sidebar"
+              className="flex-shrink-0"
+            >
+              {isCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+            </Button>
           </div>
-          </div>
-        </div>
-      </header>
 
-      {/* Mobile Sidebar - Left positioned */}
-      <div className="lg:hidden">
-        {/* Mobile Sidebar Navigation */}
-        <aside className={`fixed left-0 top-0 h-full bg-white shadow-lg border-r border-gray-200 z-50 overflow-y-auto transition-all duration-300 ease-in-out ${
-          isCollapsed ? 'w-16' : 'w-64'
-        }`}>
-          <div className="flex flex-col h-full">
-            {/* Logo and Toggle */}
-            <div className="flex items-center h-16 px-4 border-b border-gray-200 justify-between">
-              {!isCollapsed && (
-                <Link href="/">
-                  <h1 className="text-xl font-bold text-finance-blue cursor-pointer" data-testid="mobile-logo">
-                    FintekPro
-                  </h1>
-                </Link>
+          {/* User Profile Section */}
+          {isAuthenticated && user && !isCollapsed && (
+            <div className="flex items-center space-x-3 p-4 border-b border-gray-200 bg-gray-50">
+              {user?.profileImageUrl && (
+                <img 
+                  src={user.profileImageUrl} 
+                  alt="Profile" 
+                  className="w-8 h-8 rounded-full object-cover"
+                />
               )}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsCollapsed(!isCollapsed)}
-                data-testid="toggle-sidebar"
-                className="flex-shrink-0"
-                aria-label={isCollapsed ? "Expand navigation" : "Collapse navigation"}
-                title={isCollapsed ? "Expand navigation" : "Collapse navigation"}
-              >
-                {isCollapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
-              </Button>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-gray-900 truncate text-sm">
+                  {user?.firstName || 'Client'}
+                </p>
+                <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+              </div>
             </div>
+          )}
 
-            {/* User Profile Section */}
-            {isAuthenticated && user && !isCollapsed && (
-              <div className="flex items-center space-x-3 p-4 bg-gray-50 mx-4 my-4 rounded-lg">
-                {user?.profileImageUrl && (
-                  <img 
-                    src={user.profileImageUrl} 
-                    alt="Profile" 
-                    className="w-10 h-10 rounded-full object-cover"
-                  />
-                )}
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900 text-sm">
-                    {user?.firstName || 'Client'}
-                  </p>
-                  <p className="text-xs text-gray-500">{user?.email}</p>
-                </div>
-              </div>
-            )}
-
-            {/* Navigation Content */}
-            <nav className={`flex-1 space-y-2 ${isCollapsed ? 'px-2' : 'px-4'}`}>
-              {/* Quick Links */}
-              <div className="space-y-1">
-                <Link href="/markets">
-                  <Button 
-                    variant={isItemActive("/markets") ? "default" : "ghost"} 
-                    className={`w-full ${isCollapsed ? 'justify-center p-2' : 'justify-start'}`}
-                    data-testid="mobile-nav-markets"
-                    aria-label={isCollapsed ? "Markets" : undefined}
-                    title={isCollapsed ? "Markets" : undefined}
-                  >
-                    <TrendingUp className="h-4 w-4" />
-                    {!isCollapsed && <span className="ml-3">Markets</span>}
-                    {isCollapsed && <span className="sr-only">Markets</span>}
-                  </Button>
-                </Link>
-                <Link href="/portfolio">
-                  <Button 
-                    variant={isItemActive("/portfolio") ? "default" : "ghost"} 
-                    className={`w-full ${isCollapsed ? 'justify-center p-2' : 'justify-start'}`}
-                    data-testid="mobile-nav-portfolio"
-                    aria-label={isCollapsed ? "Portfolio" : undefined}
-                    title={isCollapsed ? "Portfolio" : undefined}
-                  >
-                    <PieChart className="h-4 w-4" />
-                    {!isCollapsed && <span className="ml-3">Portfolio</span>}
-                    {isCollapsed && <span className="sr-only">Portfolio</span>}
-                  </Button>
-                </Link>
-                <Link href="/mutual-funds">
-                  <Button 
-                    variant={isItemActive("/mutual-funds") ? "default" : "ghost"} 
-                    className={`w-full ${isCollapsed ? 'justify-center p-2' : 'justify-start'}`}
-                    data-testid="mobile-nav-mutual-funds"
-                    aria-label={isCollapsed ? "Mutual Funds" : undefined}
-                    title={isCollapsed ? "Mutual Funds" : undefined}
-                  >
-                    <BarChart3 className="h-4 w-4" />
-                    {!isCollapsed && <span className="ml-3">Mutual Funds</span>}
-                    {isCollapsed && <span className="sr-only">Mutual Funds</span>}
-                  </Button>
-                </Link>
-                <Link href="/loans">
-                  <Button 
-                    variant={isItemActive("/loans") ? "default" : "ghost"} 
-                    className={`w-full ${isCollapsed ? 'justify-center p-2' : 'justify-start'}`}
-                    data-testid="mobile-nav-loans"
-                    aria-label={isCollapsed ? "Loans" : undefined}
-                    title={isCollapsed ? "Loans" : undefined}
-                  >
-                    <CreditCard className="h-4 w-4" />
-                    {!isCollapsed && <span className="ml-3">Loans</span>}
-                    {isCollapsed && <span className="sr-only">Loans</span>}
-                  </Button>
-                </Link>
-              </div>
-
-              {/* Navigation Groups */}
-              {!isCollapsed && (
-                <div className="space-y-4 pt-4 border-t border-gray-200">
-                  {navigationGroups.map((group) => (
-                    <div key={group.title} className="space-y-2">
-                      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-2">
-                        {group.title}
-                      </h3>
-                      {group.items.map((item) => (
-                        <div key={item.name}>
-                          {item.href ? (
-                            <Link href={item.href}>
-                              <Button
-                                variant={isItemActive(item.href) ? "default" : "ghost"}
-                                className="w-full justify-start"
-                                data-testid={`mobile-nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
-                              >
-                                <item.icon className="h-4 w-4 mr-3" />
-                                {item.name}
-                              </Button>
-                            </Link>
-                          ) : (
-                            <Collapsible 
-                              open={openGroups.includes(item.name)} 
-                              onOpenChange={() => toggleGroup(item.name)}
-                          >
-                            <CollapsibleTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                className="w-full justify-between"
-                                data-testid={`mobile-nav-group-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
-                              >
-                                <div className="flex items-center">
-                                  <item.icon className="h-4 w-4 mr-3" />
-                                  {item.name}
-                                </div>
-                                {openGroups.includes(item.name) ? 
-                                  <ChevronDown className="h-4 w-4" /> : 
-                                  <ChevronRight className="h-4 w-4" />
-                                }
-                              </Button>
-                            </CollapsibleTrigger>
-                            <CollapsibleContent className="space-y-1 ml-4">
-                              {item.subItems?.map((subItem) => (
-                                <Link key={subItem.name} href={subItem.href}>
-                                  <Button
-                                    variant={isItemActive(subItem.href) ? "default" : "ghost"}
-                                    size="sm"
-                                    className="w-full justify-start"
-                                    data-testid={`mobile-nav-${subItem.name.toLowerCase().replace(/\s+/g, '-')}`}
-                                  >
-                                    {subItem.name}
-                                  </Button>
-                                </Link>
-                              ))}
-                            </CollapsibleContent>
-                          </Collapsible>
-                        )}
-                      </div>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </nav>
-
-            {/* Bottom Actions */}
-            <div className={`border-t border-gray-200 space-y-2 ${isCollapsed ? 'p-2' : 'p-4'}`}>
+          {/* Quick Actions */}
+          <div className="p-2 border-b border-gray-200">
+            <div className="space-y-1">
+              {/* Store Button */}
               <Link href="/store">
                 <Button 
                   variant="default" 
-                  className={`w-full bg-green-600 hover:bg-green-700 text-white ${isCollapsed ? 'justify-center p-2' : 'justify-start'}`}
-                  data-testid="mobile-store-button"
-                  aria-label={isCollapsed ? "Store" : undefined}
-                  title={isCollapsed ? "Store" : undefined}
+                  size="sm"
+                  className={`bg-green-600 hover:bg-green-700 text-white ${isCollapsed ? 'w-full justify-center px-0' : 'w-full justify-start'}`}
+                  data-testid="sidebar-store-button"
                 >
                   <Store className="h-4 w-4" />
                   {!isCollapsed && <span className="ml-2">Store</span>}
-                  {isCollapsed && <span className="sr-only">Store</span>}
                 </Button>
               </Link>
               
-              {isAuthenticated && !isCollapsed && (
+              {/* Cart Button */}
+              {isAuthenticated && (
                 <Link href="/cart">
                   <Button 
                     variant="outline" 
-                    className="w-full relative"
-                    data-testid="mobile-cart-button"
+                    size="sm"
+                    className={`relative ${isCollapsed ? 'w-full justify-center px-0' : 'w-full justify-start'}`}
+                    data-testid="sidebar-cart-button"
                   >
-                    <ShoppingCart className="h-4 w-4 mr-2" />
-                    Cart
+                    <ShoppingCart className="h-4 w-4" />
+                    {!isCollapsed && <span className="ml-2">Cart</span>}
                     {cart && cart.totalItems > 0 && (
-                      <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center">
+                      <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 w-4 rounded-full p-0 text-xs flex items-center justify-center">
                         {cart.totalItems}
                       </Badge>
                     )}
                   </Button>
                 </Link>
               )}
-
-              {isAuthenticated ? (
-                !isCollapsed && (
-                  <div className="space-y-2">
-                    <Link href="/profile">
-                      <Button variant="outline" className="w-full" data-testid="mobile-profile-button">
-                        <UserIcon className="h-4 w-4 mr-2" />
-                        Profile
-                      </Button>
-                    </Link>
-                    <Button 
-                      variant="outline" 
-                      className="w-full"
-                      onClick={handleLogout}
-                      data-testid="mobile-logout-button"
-                    >
-                      <LogOut className="h-4 w-4 mr-2" />
-                      Logout
-                    </Button>
-                  </div>
-                )
-              ) : (
-                !isCollapsed && (
-                  <Link href="/auth">
-                    <Button 
-                      className="w-full" 
-                      data-testid="mobile-login-button"
-                    >
-                      <UserIcon className="h-4 w-4 mr-2" />
-                      Login
-                    </Button>
-                  </Link>
-                )
-              )}
-
-              {!isCollapsed && (
-                <Link href="/support">
-                  <Button 
-                    variant="ghost" 
-                    className="w-full"
-                    data-testid="mobile-support-button"
-                  >
-                    <HelpCircle className="h-4 w-4 mr-2" />
-                    Support & Help
-                  </Button>
-                </Link>
-              )}
             </div>
           </div>
-        </aside>
-      </div>
+
+          {/* Navigation Content */}
+          <div className="flex-1 overflow-y-auto p-2">
+            <div className="space-y-4">
+              {navigationGroups.map((group) => (
+                <div key={group.title} className="space-y-2">
+                  {!isCollapsed && (
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-2">
+                      {group.title}
+                    </h3>
+                  )}
+                  {group.items.map((item) => (
+                    <div key={item.name}>
+                      {item.href ? (
+                        <Link href={item.href}>
+                          <Button
+                            variant={isItemActive(item.href) ? "default" : "ghost"}
+                            size="sm"
+                            className={`${isCollapsed ? 'w-full justify-center px-0' : 'w-full justify-start'}`}
+                            data-testid={`sidebar-nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
+                            title={isCollapsed ? item.name : undefined}
+                          >
+                            <item.icon className="h-4 w-4" />
+                            {!isCollapsed && <span className="ml-3">{item.name}</span>}
+                          </Button>
+                        </Link>
+                      ) : (
+                        <Collapsible 
+                          open={openGroups.includes(item.name)} 
+                          onOpenChange={() => toggleGroup(item.name)}
+                        >
+                          <CollapsibleTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={`${isCollapsed ? 'w-full justify-center px-0' : 'w-full justify-between'}`}
+                              data-testid={`sidebar-nav-group-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
+                              title={isCollapsed ? item.name : undefined}
+                            >
+                              <div className="flex items-center">
+                                <item.icon className="h-4 w-4" />
+                                {!isCollapsed && <span className="ml-3">{item.name}</span>}
+                              </div>
+                              {!isCollapsed && (
+                                openGroups.includes(item.name) ? 
+                                  <ChevronDown className="h-3 w-3" /> : 
+                                  <ChevronRight className="h-3 w-3" />
+                              )}
+                            </Button>
+                          </CollapsibleTrigger>
+                          {!isCollapsed && (
+                            <CollapsibleContent className="space-y-1 ml-4">
+                              {item.subItems?.map((subItem) => (
+                                <Link key={subItem.name} href={subItem.href}>
+                                  <Button
+                                    variant={isItemActive(subItem.href) ? "default" : "ghost"}
+                                    size="sm"
+                                    className="w-full justify-start text-xs"
+                                    data-testid={`sidebar-nav-${subItem.name.toLowerCase().replace(/\s+/g, '-')}`}
+                                  >
+                                    {subItem.name}
+                                    {subItem.badge && (
+                                      <Badge variant="secondary" className="ml-auto text-xs">
+                                        {subItem.badge}
+                                      </Badge>
+                                    )}
+                                  </Button>
+                                </Link>
+                              ))}
+                            </CollapsibleContent>
+                          )}
+                        </Collapsible>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Bottom Actions */}
+          <div className="p-2 border-t border-gray-200">
+            {isAuthenticated ? (
+              <div className="space-y-1">
+                <Link href="/profile">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className={`${isCollapsed ? 'w-full justify-center px-0' : 'w-full justify-start'}`}
+                    data-testid="sidebar-profile-button"
+                    title={isCollapsed ? "Profile" : undefined}
+                  >
+                    <UserIcon className="h-4 w-4" />
+                    {!isCollapsed && <span className="ml-3">Profile</span>}
+                  </Button>
+                </Link>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className={`${isCollapsed ? 'w-full justify-center px-0' : 'w-full justify-start'}`}
+                  onClick={handleLogout}
+                  data-testid="sidebar-logout-button"
+                  title={isCollapsed ? "Logout" : undefined}
+                >
+                  <LogOut className="h-4 w-4" />
+                  {!isCollapsed && <span className="ml-3">Logout</span>}
+                </Button>
+              </div>
+            ) : (
+              <Link href="/auth">
+                <Button 
+                  className={`${isCollapsed ? 'w-full justify-center px-0' : 'w-full justify-start'}`}
+                  size="sm"
+                  data-testid="sidebar-login-button"
+                  title={isCollapsed ? "Login" : undefined}
+                >
+                  <UserIcon className="h-4 w-4" />
+                  {!isCollapsed && <span className="ml-3">Login</span>}
+                </Button>
+              </Link>
+            )}
+            
+            {/* Support */}
+            <Link href="/support">
+              <Button 
+                variant="ghost" 
+                size="sm"
+                className={`${isCollapsed ? 'w-full justify-center px-0' : 'w-full justify-start'}`}
+                data-testid="sidebar-support-button"
+                title={isCollapsed ? "Support & Help" : undefined}
+              >
+                <HelpCircle className="h-4 w-4" />
+                {!isCollapsed && <span className="ml-3">Support & Help</span>}
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </aside>
+
     </>
   );
 }
