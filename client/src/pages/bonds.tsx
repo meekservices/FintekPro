@@ -12,7 +12,17 @@ import { useQuery } from "@tanstack/react-query";
 
 // Bond Categories Component with Real-time Data
 function BondCategoriesSection() {
-  const { data: bondCategories, isLoading } = useQuery({
+  const { data: bondCategories, isLoading } = useQuery<Array<{
+    id: string;
+    name: string;
+    icon: string;
+    color: string;
+    description: string;
+    yieldRange: string;
+    minInvestment: string;
+    count: number;
+    riskLevel: string;
+  }>>({
     queryKey: ["/api/bonds/categories"],
     refetchInterval: 60000, // Refresh every minute
   });
@@ -127,7 +137,7 @@ export default function Bonds() {
     <div className="min-h-screen bg-finance-light" data-testid="bonds-page">
       <EnhancedNavigation />
       
-      <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0 ${isNavCollapsed ? 'ml-16 lg:ml-0' : 'ml-64 lg:ml-0'}`}>
+      <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0 ${isNavCollapsed ? 'ml-0 lg:ml-16' : 'ml-0 lg:ml-64'}`}>
         
         {/* Page Header */}
         <div className="mb-8" data-testid="bonds-header">

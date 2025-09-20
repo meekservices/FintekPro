@@ -79,14 +79,12 @@ export default function Markets() {
   // Mutation for generating AI market stories
   const generateStoryMutation = useMutation({
     mutationFn: async ({ symbols, useCurrentData = true }: { symbols?: string[], useCurrentData?: boolean }) => {
-      const response = await apiRequest("/api/market/story/generate", {
-        method: "POST",
+      return await apiRequest("/api/market/story/generate", "POST", {
         body: {
           symbols: symbols || GLOBAL_INDICES.map(idx => idx.symbol),
           useCurrentData
         }
       });
-      return response.json();
     },
     onSuccess: (storyData: MarketStoryData) => {
       setCurrentStory(storyData);
@@ -147,7 +145,7 @@ export default function Markets() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50" data-testid="markets-page">
       <EnhancedNavigation />
       
-      <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0 ${isNavCollapsed ? 'ml-16 lg:ml-0' : 'ml-64 lg:ml-0'}`}>
+      <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0 ${isNavCollapsed ? 'ml-0 lg:ml-16' : 'ml-0 lg:ml-64'}`}>
         
 
         {/* Global Indices Dashboard */}

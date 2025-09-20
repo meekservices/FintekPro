@@ -105,7 +105,7 @@ export default function Cart() {
     return (
       <div className="min-h-screen bg-finance-light">
         <EnhancedNavigation />
-        <main className={`max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0 ${isNavCollapsed ? 'ml-16 lg:ml-0' : 'ml-64 lg:ml-0'}`}>
+        <main className={`max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0 ${isNavCollapsed ? 'ml-0 lg:ml-16' : 'ml-0 lg:ml-64'}`}>
           <div className="animate-pulse">
             <div className="h-8 bg-gray-200 rounded w-48 mb-4"></div>
             <div className="space-y-4">
@@ -124,7 +124,7 @@ export default function Cart() {
     <div className="min-h-screen bg-finance-light" data-testid="cart-page">
       <EnhancedNavigation />
       
-      <main className={`max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0 ${isNavCollapsed ? 'ml-16 lg:ml-0' : 'ml-64 lg:ml-0'}`}>
+      <main className={`max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0 ${isNavCollapsed ? 'ml-0 lg:ml-16' : 'ml-0 lg:ml-64'}`}>
         <div className="mb-6">
           <Link href="/store">
             <Button variant="ghost" className="mb-4" data-testid="button-back-to-store">

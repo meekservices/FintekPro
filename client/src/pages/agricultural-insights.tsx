@@ -25,7 +25,7 @@ export default function AgriculturalInsightsPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <EnhancedNavigation />
-      <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0 ${isNavCollapsed ? 'ml-16 lg:ml-0' : 'ml-64 lg:ml-0'}`}>
+      <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0 ${isNavCollapsed ? 'ml-0 lg:ml-16' : 'ml-0 lg:ml-64'}`}>
         <AgriculturalInsights />
       </main>
     </div>

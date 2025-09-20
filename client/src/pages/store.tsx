@@ -729,7 +729,7 @@ export default function Store() {
     <div className="min-h-screen bg-finance-light" data-testid="store-page">
       <EnhancedNavigation />
       
-      <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0 ${isNavCollapsed ? 'ml-16 lg:ml-0' : 'ml-64 lg:ml-0'}`}>
+      <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0 ${isNavCollapsed ? 'ml-0 lg:ml-16' : 'ml-0 lg:ml-64'}`}>
         {/* Header Section */}
         <div className="mb-10">
           <div className="relative overflow-hidden bg-gradient-to-r from-finance-blue to-purple-600 rounded-2xl p-8 shadow-2xl">

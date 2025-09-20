@@ -25,7 +25,7 @@ export default function NotFound() {
     <div className="min-h-screen bg-finance-light">
       <EnhancedNavigation />
       
-      <main className={`min-h-screen w-full flex items-center justify-center ${isNavCollapsed ? 'ml-16 lg:ml-0' : 'ml-64 lg:ml-0'}`}>
+      <main className={`min-h-screen w-full flex items-center justify-center ${isNavCollapsed ? 'ml-0 lg:ml-16' : 'ml-0 lg:ml-64'}`}>
         <Card className="w-full max-w-md mx-4">
           <CardContent className="pt-6">
             <div className="flex mb-4 gap-2">
