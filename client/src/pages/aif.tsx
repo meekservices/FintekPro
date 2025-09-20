@@ -106,7 +106,7 @@ export default function AIF() {
     <div className="min-h-screen bg-finance-light" data-testid="aif-page">
       <EnhancedNavigation />
       
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
+      <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 ${isNavCollapsed ? 'ml-16 lg:ml-0' : 'ml-64 lg:ml-0'}`}>
         
         {/* Page Header */}
         <div className="mb-8" data-testid="aif-header">
