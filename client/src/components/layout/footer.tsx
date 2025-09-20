@@ -112,7 +112,7 @@ export function Footer() {
   ];
 
   return (
-    <footer className={`bg-finance-gray text-white py-12 ${isNavCollapsed ? 'ml-16 lg:ml-0' : 'ml-64 lg:ml-0'}`}>
+    <footer className={`bg-finance-gray text-white py-12 ${isNavCollapsed ? 'ml-0 lg:ml-16' : 'ml-0 lg:ml-64'}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-8 gap-8">
           
