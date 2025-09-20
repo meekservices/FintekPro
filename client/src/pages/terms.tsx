@@ -1,15 +1,34 @@
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileText, Scale, AlertTriangle, Shield, Users, CreditCard } from "lucide-react";
+import { EnhancedNavigation } from "@/components/layout/enhanced-navigation";
+import { Footer } from "@/components/layout/footer";
 
 export default function TermsOfService() {
+  const [isNavCollapsed, setIsNavCollapsed] = useState(() => {
+    const saved = localStorage.getItem('nav-collapsed');
+    return saved ? JSON.parse(saved) : false;
+  });
+
   useEffect(() => {
     document.title = "Terms of Service - FintekPro";
+
+    const handleNavChange = (e: CustomEvent) => {
+      setIsNavCollapsed(e.detail.collapsed);
+    };
+
+    window.addEventListener('navigation-change', handleNavChange as EventListener);
+    return () => {
+      window.removeEventListener('navigation-change', handleNavChange as EventListener);
+    };
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 py-12 px-4">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+      <EnhancedNavigation />
+      
+      <main className={`${isNavCollapsed ? 'ml-16 lg:ml-0' : 'ml-64 lg:ml-0'} py-12 px-4`}>
+        <div className="max-w-4xl mx-auto">
         <div className="text-center mb-12">
           <div className="flex items-center justify-center mb-4">
             <FileText className="w-12 h-12 text-blue-600 mr-3" />
@@ -275,7 +294,10 @@ export default function TermsOfService() {
             with 30 days notice to users.
           </p>
         </div>
-      </div>
+        </div>
+      </main>
+      
+      <Footer />
     </div>
   );
 }
