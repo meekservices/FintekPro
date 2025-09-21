@@ -27,7 +27,7 @@ export default function PrivacyPolicy() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       <EnhancedNavigation />
       
-      <main className={`${isNavCollapsed ? 'ml-0 lg:ml-16' : 'ml-0 lg:ml-64'} py-12 px-4`}>
+      <main className="py-12 px-4">
         <div className="max-w-4xl mx-auto">
         <div className="text-center mb-12">
           <div className="flex items-center justify-center mb-4">

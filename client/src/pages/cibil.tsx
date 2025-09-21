@@ -162,7 +162,7 @@ export default function Cibil() {
     <div className="min-h-screen bg-finance-light" data-testid="cibil-page">
       <EnhancedNavigation />
       
-      <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0 ${isNavCollapsed ? 'ml-0 lg:ml-16' : 'ml-0 lg:ml-64'}`}>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0">
         
 
         <Tabs defaultValue="score-check" className="space-y-8">

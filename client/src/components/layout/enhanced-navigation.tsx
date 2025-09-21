@@ -268,8 +268,8 @@ export function EnhancedNavigation() {
 
   return (
     <>
-      {/* Left Sidebar for All Screen Sizes */}
-      <aside className={`fixed left-0 top-0 h-full bg-white shadow-lg border-r border-gray-200 z-50 overflow-y-auto transition-all duration-300 ease-in-out ${
+      {/* Left Sidebar with Sticky Positioning */}
+      <aside className={`sticky top-0 h-screen bg-white shadow-lg border-r border-gray-200 overflow-y-auto transition-all duration-300 ease-in-out ${
         isCollapsed ? 'w-16' : 'w-64'
       }`}>
         <div className="flex flex-col h-full">

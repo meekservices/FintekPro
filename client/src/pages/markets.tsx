@@ -145,7 +145,7 @@ export default function Markets() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50" data-testid="markets-page">
       <EnhancedNavigation />
       
-      <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0 ${isNavCollapsed ? 'ml-0 lg:ml-16' : 'ml-0 lg:ml-64'}`}>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0">
         
 
         {/* Global Indices Dashboard */}

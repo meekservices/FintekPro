@@ -334,7 +334,7 @@ export default function FinancialCalculators() {
   return (
     <>
       <EnhancedNavigation />
-      <div className={`container mx-auto px-4 py-8 pt-16 lg:pt-0 ${isNavCollapsed ? 'ml-0 lg:ml-16' : 'ml-0 lg:ml-64'}`}>
+      <div className="container mx-auto px-4 py-8 pt-16 lg:pt-0">
 
         <Tabs defaultValue="tax" className="w-full">
           <TabsList className="grid w-full grid-cols-3">

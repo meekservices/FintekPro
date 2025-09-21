@@ -147,7 +147,7 @@ export default function Unlisted() {
     <div className="min-h-screen bg-finance-light" data-testid="unlisted-page">
       <EnhancedNavigation />
       
-      <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0 ${isNavCollapsed ? 'ml-0 lg:ml-16' : 'ml-0 lg:ml-64'}`}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0">
         <div className="mb-8" data-testid="unlisted-header">
           <div className="flex items-center gap-3 mb-4">
             <Gem className="w-8 h-8 text-finance-blue" />

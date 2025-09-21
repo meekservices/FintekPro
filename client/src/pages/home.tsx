@@ -277,7 +277,7 @@ export default function Home() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50" data-testid="home-page">
       <EnhancedNavigation />
       
-      <main className={`relative pt-16 lg:pt-0 ${isNavCollapsed ? 'ml-0 lg:ml-16' : 'ml-0 lg:ml-64'}`}>
+      <main className="relative pt-16 lg:pt-0">
         {/* Hero Section with Enhanced Design */}
         <section className="relative bg-gradient-to-r from-blue-900 via-blue-800 to-purple-900 text-white py-20 overflow-hidden">
           {/* Animated background elements */}

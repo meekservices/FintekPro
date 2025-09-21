@@ -45,6 +45,7 @@ import Contact from "@/pages/contact";
 import { SupplierManagement } from "@/pages/supplier-management";
 import Profile from "@/pages/profile";
 import ProfileCompletionGuard from "@/components/ProfileCompletionGuard";
+import { AppLayout } from "@/components/layout/app-layout";
 import BBPSPage from "@/pages/BBPSPage";
 import DigiLockerPage from "@/pages/DigiLockerPage";
 import LoanApplication from "@/pages/loan-application";
@@ -55,9 +56,10 @@ import AgentPortal from "@/pages/agent-portal";
 
 function UserProtectedRoutes() {
   return (
-    <ProfileCompletionGuard>
-      <Switch>
-        <Route path="/" component={Home} />
+    <AppLayout>
+      <ProfileCompletionGuard>
+        <Switch>
+          <Route path="/" component={Home} />
         <Route path="/dashboard" component={Home} />
         <Route path="/portfolio" component={Portfolio} />
         <Route path="/broking" component={BrokingPage} />
@@ -97,8 +99,9 @@ function UserProtectedRoutes() {
         <Route path="/digilocker" component={DigiLockerPage} />
         <Route path="/loan-application" component={LoanApplication} />
         <Route path="/loan-dashboard" component={LoanDashboard} />
-      </Switch>
-    </ProfileCompletionGuard>
+        </Switch>
+      </ProfileCompletionGuard>
+    </AppLayout>
   );
 }
 
