@@ -505,6 +505,38 @@ export default function FinancialCalculators() {
                         </Table>
                       </div>
                     )}
+
+                    {/* Tax Optimization Suggestions */}
+                    <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border">
+                      <h4 className="font-semibold mb-3 text-blue-800 dark:text-blue-200">💡 Tax Optimization Tips</h4>
+                      <div className="space-y-3 text-sm">
+                        {taxResult.effectiveRate > 20 && (
+                          <div className="flex items-start gap-2">
+                            <span className="text-blue-600">•</span>
+                            <span>Your effective tax rate is {taxResult.effectiveRate.toFixed(1)}%. Consider maximizing Section 80C investments (ELSS, PPF, EPF) to reduce taxable income.</span>
+                          </div>
+                        )}
+                        
+                        {taxResult.regime === 'new' && taxResult.totalTax > 50000 && (
+                          <div className="flex items-start gap-2">
+                            <span className="text-blue-600">•</span>
+                            <span>You might benefit from the old tax regime with deductions. Consider recalculating with the old regime option.</span>
+                          </div>
+                        )}
+                        
+                        {taxResult.regime === 'old' && taxResult.deductions.section80C < 150000 && (
+                          <div className="flex items-start gap-2">
+                            <span className="text-blue-600">•</span>
+                            <span>You can save up to ₹{formatCurrency(150000 - taxResult.deductions.section80C)} more under Section 80C to reduce your tax liability.</span>
+                          </div>
+                        )}
+                        
+                        <div className="flex items-start gap-2">
+                          <span className="text-blue-600">•</span>
+                          <span>Consider SIP investments in ELSS mutual funds for tax savings with growth potential.</span>
+                        </div>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               )}
@@ -619,6 +651,41 @@ export default function FinancialCalculators() {
                       <div className="flex justify-between">
                         <span className="text-sm">Total Gain:</span>
                         <span className="font-semibold">{sipResult.totalGainPercent.toFixed(2)}%</span>
+                      </div>
+                    </div>
+
+                    {/* SIP Investment Suggestions */}
+                    <div className="mt-6 p-4 bg-green-50 dark:bg-green-950 rounded-lg border">
+                      <h4 className="font-semibold mb-3 text-green-800 dark:text-green-200">🎯 Investment Growth Tips</h4>
+                      <div className="space-y-3 text-sm">
+                        {sipResult.totalGainPercent > 300 && (
+                          <div className="flex items-start gap-2">
+                            <span className="text-green-600">•</span>
+                            <span>Excellent! Your SIP can grow by {sipResult.totalGainPercent.toFixed(0)}%. Start with large-cap equity mutual funds for stable returns.</span>
+                          </div>
+                        )}
+                        
+                        <div className="flex items-start gap-2">
+                          <span className="text-green-600">•</span>
+                          <span>Try increasing your SIP by just ₹1,000 to see how it significantly impacts your final corpus through compound growth.</span>
+                        </div>
+                        
+                        {sipResult.maturityAmount > 1000000 && (
+                          <div className="flex items-start gap-2">
+                            <span className="text-green-600">•</span>
+                            <span>Great! You'll cross ₹10 lakh. Consider diversifying across equity, debt, and international funds for balanced growth.</span>
+                          </div>
+                        )}
+                        
+                        <div className="flex items-start gap-2">
+                          <span className="text-green-600">•</span>
+                          <span>Set up automatic SIP payments on the 1st or 5th of each month for optimal rupee cost averaging.</span>
+                        </div>
+                        
+                        <div className="flex items-start gap-2">
+                          <span className="text-green-600">•</span>
+                          <span>Review and rebalance your SIP portfolio annually to maintain your target asset allocation.</span>
+                        </div>
                       </div>
                     </div>
                   </CardContent>
@@ -757,6 +824,41 @@ export default function FinancialCalculators() {
                         ))}
                       </TableBody>
                     </Table>
+
+                    {/* EMI Optimization Suggestions */}
+                    <div className="mt-6 p-4 bg-orange-50 dark:bg-orange-950 rounded-lg border">
+                      <h4 className="font-semibold mb-3 text-orange-800 dark:text-orange-200">💰 Loan Optimization Tips</h4>
+                      <div className="space-y-3 text-sm">
+                        {emiResult.totalInterest > emiResult.totalAmount * 0.4 && (
+                          <div className="flex items-start gap-2">
+                            <span className="text-orange-600">•</span>
+                            <span>Your total interest is ₹{formatCurrency(emiResult.totalInterest)}. Consider making prepayments to reduce interest burden significantly.</span>
+                          </div>
+                        )}
+                        
+                        <div className="flex items-start gap-2">
+                          <span className="text-orange-600">•</span>
+                          <span>Making an annual prepayment of just ₹50,000 can reduce your loan tenure by 2-3 years and save lakhs in interest.</span>
+                        </div>
+                        
+                        {emiResult.monthlyEmi > 0 && (
+                          <div className="flex items-start gap-2">
+                            <span className="text-orange-600">•</span>
+                            <span>Follow the 40% rule: Your total EMIs shouldn't exceed 40% of your monthly income for healthy financial planning.</span>
+                          </div>
+                        )}
+                        
+                        <div className="flex items-start gap-2">
+                          <span className="text-orange-600">•</span>
+                          <span>Compare loan offers from different banks and choose the one with the lowest processing fees and best interest rates.</span>
+                        </div>
+                        
+                        <div className="flex items-start gap-2">
+                          <span className="text-orange-600">•</span>
+                          <span>Set up automatic EMI payments to avoid late fees and maintain a good credit score for future loans.</span>
+                        </div>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               )}
