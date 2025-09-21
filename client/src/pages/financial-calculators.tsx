@@ -16,50 +16,18 @@ import { Calculator, TrendingUp, PiggyBank, Home, Car, Receipt, IndianRupee, Fil
 import { EnhancedNavigation } from '@/components/layout/enhanced-navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useMutation } from '@tanstack/react-query';
+import { 
+  calculateIncomeTax, 
+  calculateSipReturns, 
+  calculateEmiSchedule,
+  type TaxCalculationResult,
+  type SipCalculationResult,
+  type EmiCalculationResult
+} from '@shared/calculations';
 
-interface TaxCalculationResult {
-  grossIncome: number;
-  taxableIncome: number;
-  incomeTax: number;
-  cess: number;
-  totalTax: number;
-  netIncome: number;
-  effectiveRate: number;
-  marginalRate: number;
-  regime: string;
-  deductions: {
-    section80C: number;
-    section80D: number;
-    standardDeduction: number;
-    total: number;
-  };
-  slabBreakdown: Array<{
-    slab: string;
-    rate: string;
-    taxableAmount: number;
-    tax: number;
-  }>;
-}
-
-interface SipResult {
-  totalInvestment: number;
-  expectedReturns: number;
-  maturityAmount: number;
-  totalGainPercent: number;
-}
-
-interface EmiResult {
-  monthlyEmi: number;
-  totalInterest: number;
-  totalAmount: number;
-  schedule: Array<{
-    month: number;
-    emi: number;
-    principal: number;
-    interest: number;
-    balance: number;
-  }>;
-}
+// Type aliases for imported types
+type SipResult = SipCalculationResult;
+type EmiResult = EmiCalculationResult;
 
 // Zod schemas for form validation
 const taxCalculatorSchema = z.object({
@@ -234,123 +202,16 @@ export default function FinancialCalculators() {
       // Mock API response structure
       const mockApiResponse = await new Promise<TaxCalculationResult>((resolve) => {
         setTimeout(() => {
-          let taxableIncome = annualIncome - standardDeduction;
-          
-          if (formData.regime === 'old') {
-            taxableIncome = taxableIncome - section80C - section80D;
-          }
+          const input = {
+            annualIncome,
+            regime: formData.regime as 'new' | 'old',
+            section80C,
+            section80D,
+            age: formData.age as 'below60' | '60to80' | 'above80'
+          };
 
-          let incomeTax = 0;
-          let slabBreakdown: any[] = [];
-
-          if (formData.regime === 'new') {
-            // New Tax Regime (2024-25)
-            if (taxableIncome > 300000) {
-              const slab1 = Math.min(taxableIncome - 300000, 300000);
-              incomeTax += slab1 * 0.05;
-              slabBreakdown.push({
-                slab: '₹3,00,001 - ₹6,00,000',
-                rate: '5%',
-                taxableAmount: slab1,
-                tax: slab1 * 0.05
-              });
-            }
-            if (taxableIncome > 600000) {
-              const slab2 = Math.min(taxableIncome - 600000, 300000);
-              incomeTax += slab2 * 0.10;
-              slabBreakdown.push({
-                slab: '₹6,00,001 - ₹9,00,000',
-                rate: '10%',
-                taxableAmount: slab2,
-                tax: slab2 * 0.10
-              });
-            }
-            if (taxableIncome > 900000) {
-              const slab3 = Math.min(taxableIncome - 900000, 300000);
-              incomeTax += slab3 * 0.15;
-              slabBreakdown.push({
-                slab: '₹9,00,001 - ₹12,00,000',
-                rate: '15%',
-                taxableAmount: slab3,
-                tax: slab3 * 0.15
-              });
-            }
-            if (taxableIncome > 1200000) {
-              const slab4 = Math.min(taxableIncome - 1200000, 300000);
-              incomeTax += slab4 * 0.20;
-              slabBreakdown.push({
-                slab: '₹12,00,001 - ₹15,00,000',
-                rate: '20%',
-                taxableAmount: slab4,
-                tax: slab4 * 0.20
-              });
-            }
-            if (taxableIncome > 1500000) {
-              const slab5 = taxableIncome - 1500000;
-              incomeTax += slab5 * 0.30;
-              slabBreakdown.push({
-                slab: 'Above ₹15,00,000',
-                rate: '30%',
-                taxableAmount: slab5,
-                tax: slab5 * 0.30
-              });
-            }
-          } else {
-            // Old Tax Regime
-            if (taxableIncome > 250000) {
-              const slab1 = Math.min(taxableIncome - 250000, 250000);
-              incomeTax += slab1 * 0.05;
-              slabBreakdown.push({
-                slab: '₹2,50,001 - ₹5,00,000',
-                rate: '5%',
-                taxableAmount: slab1,
-                tax: slab1 * 0.05
-              });
-            }
-            if (taxableIncome > 500000) {
-              const slab2 = Math.min(taxableIncome - 500000, 500000);
-              incomeTax += slab2 * 0.20;
-              slabBreakdown.push({
-                slab: '₹5,00,001 - ₹10,00,000',
-                rate: '20%',
-                taxableAmount: slab2,
-                tax: slab2 * 0.20
-              });
-            }
-            if (taxableIncome > 1000000) {
-              const slab3 = taxableIncome - 1000000;
-              incomeTax += slab3 * 0.30;
-              slabBreakdown.push({
-                slab: 'Above ₹10,00,000',
-                rate: '30%',
-                taxableAmount: slab3,
-                tax: slab3 * 0.30
-              });
-            }
-          }
-
-          const cess = incomeTax * 0.04;
-          const totalTax = incomeTax + cess;
-          const netIncome = annualIncome - totalTax;
-
-          resolve({
-            grossIncome: annualIncome,
-            taxableIncome,
-            incomeTax,
-            cess,
-            totalTax,
-            netIncome,
-            effectiveRate: (totalTax / annualIncome) * 100,
-            marginalRate: taxableIncome > 1500000 ? 30 : taxableIncome > 1200000 ? 20 : taxableIncome > 900000 ? 15 : taxableIncome > 600000 ? 10 : 5,
-            regime: formData.regime,
-            deductions: {
-              section80C,
-              section80D,
-              standardDeduction,
-              total: section80C + section80D + standardDeduction
-            },
-            slabBreakdown
-          });
+          const result = calculateIncomeTax(input);
+          resolve(result);
         }, 1000);
       });
 
@@ -378,64 +239,34 @@ export default function FinancialCalculators() {
   };
 
   const onSipSubmit = (data: SipFormData) => {
-    const monthlyAmount = parseFloat(data.monthlyInvestment);
-    const annualReturn = parseFloat(data.expectedReturn) / 100;
-    const months = parseFloat(data.timePeriod) * 12;
-    const monthlyReturn = annualReturn / 12;
+    const input = {
+      monthlyInvestment: parseFloat(data.monthlyInvestment),
+      expectedReturn: parseFloat(data.expectedReturn),
+      timePeriod: parseFloat(data.timePeriod)
+    };
 
-    const maturityAmount = monthlyAmount * (((Math.pow(1 + monthlyReturn, months) - 1) / monthlyReturn) * (1 + monthlyReturn));
-    const totalInvestment = monthlyAmount * months;
-    const expectedReturns = maturityAmount - totalInvestment;
-
-    setSipResult({
-      totalInvestment,
-      expectedReturns,
-      maturityAmount,
-      totalGainPercent: (expectedReturns / totalInvestment) * 100
-    });
+    const result = calculateSipReturns(input);
+    setSipResult(result);
 
     toast({
       title: "SIP Calculation Complete",
-      description: `Maturity amount: ₹${maturityAmount.toLocaleString('en-IN')}`
+      description: `Maturity amount: ₹${result.maturityAmount.toLocaleString('en-IN')}`
     });
   };
 
   const onEmiSubmit = (data: EmiFormData) => {
-    const principal = parseFloat(data.loanAmount);
-    const rate = parseFloat(data.interestRate) / 100 / 12;
-    const tenure = parseFloat(data.tenure);
+    const input = {
+      loanAmount: parseFloat(data.loanAmount),
+      interestRate: parseFloat(data.interestRate),
+      tenure: parseFloat(data.tenure)
+    };
 
-    const emi = (principal * rate * Math.pow(1 + rate, tenure)) / (Math.pow(1 + rate, tenure) - 1);
-    const totalAmount = emi * tenure;
-    const totalInterest = totalAmount - principal;
-
-    // Generate EMI schedule for first 12 months
-    let balance = principal;
-    const schedule = [];
-    for (let i = 1; i <= Math.min(12, tenure); i++) {
-      const interestPayment = balance * rate;
-      const principalPayment = emi - interestPayment;
-      balance -= principalPayment;
-      
-      schedule.push({
-        month: i,
-        emi: Math.round(emi),
-        principal: Math.round(principalPayment),
-        interest: Math.round(interestPayment),
-        balance: Math.round(balance)
-      });
-    }
-
-    setEmiResult({
-      monthlyEmi: emi,
-      totalInterest,
-      totalAmount,
-      schedule
-    });
+    const result = calculateEmiSchedule(input);
+    setEmiResult(result);
 
     toast({
       title: "EMI Calculation Complete",
-      description: `Monthly EMI: ₹${emi.toLocaleString('en-IN')}`
+      description: `Monthly EMI: ₹${result.monthlyEmi.toLocaleString('en-IN')}`
     });
   };
 
