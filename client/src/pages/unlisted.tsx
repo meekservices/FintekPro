@@ -145,8 +145,6 @@ export default function Unlisted() {
 
   return (
     <div className="min-h-screen bg-finance-light" data-testid="unlisted-page">
-      <EnhancedNavigation />
-      
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0">
         <div className="mb-8" data-testid="unlisted-header">
           <div className="flex items-center gap-3 mb-4">

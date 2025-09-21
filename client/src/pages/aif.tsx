@@ -87,7 +87,6 @@ export default function AIF() {
   if (isAIFLoading) {
     return (
       <div className="min-h-screen bg-finance-light" data-testid="aif-page">
-        <EnhancedNavigation />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0">
           <Card>
             <CardContent className="p-12 text-center">

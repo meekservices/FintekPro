@@ -104,7 +104,6 @@ export default function Cart() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-finance-light">
-        <EnhancedNavigation />
         <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0">
           <div className="animate-pulse">
             <div className="h-8 bg-gray-200 rounded w-48 mb-4"></div>

@@ -80,7 +80,7 @@ export default function Portfolio() {
   if (portfoliosError && !portfoliosLoading) {
     return (
       <div className="min-h-screen bg-finance-light" data-testid="portfolio-page">
-        <EnhancedNavigation />
+
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0">
           <div className="text-center py-16">
             <Shield className="h-16 w-16 text-orange-500 mx-auto mb-4" />
@@ -102,7 +102,7 @@ export default function Portfolio() {
   if (!portfoliosLoading && portfolios && portfolios.length === 0) {
     return (
       <div className="min-h-screen bg-finance-light" data-testid="portfolio-page">
-        <EnhancedNavigation />
+
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0">
           <div className="text-center py-16">
             <TrendingUp className="h-16 w-16 text-blue-500 mx-auto mb-4" />
