@@ -268,9 +268,9 @@ export function EnhancedNavigation() {
 
   return (
     <>
-      {/* Left Sidebar for Desktop Only */}
-      <aside className={`hidden lg:fixed lg:left-0 lg:top-0 lg:h-full bg-white shadow-lg border-r border-gray-200 z-50 overflow-y-auto transition-all duration-300 ease-in-out ${
-        isCollapsed ? 'lg:w-16' : 'lg:w-64'
+      {/* Left Sidebar for All Screen Sizes */}
+      <aside className={`fixed left-0 top-0 h-full bg-white shadow-lg border-r border-gray-200 z-50 overflow-y-auto transition-all duration-300 ease-in-out ${
+        isCollapsed ? 'w-16' : 'w-64'
       }`}>
         <div className="flex flex-col h-full">
           {/* Logo and Toggle */}
