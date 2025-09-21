@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'wouter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -57,6 +58,33 @@ interface EmiResult {
 }
 
 export default function FinancialCalculators() {
+  const [location, setLocation] = useLocation();
+  
+  // Get current tool from URL parameter
+  const getToolFromUrl = () => {
+    const urlParams = new URLSearchParams(location.split('?')[1] || '');
+    const tool = urlParams.get('tool');
+    return ['tax', 'sip', 'emi'].includes(tool || '') ? (tool || 'tax') : 'tax';
+  };
+
+  // Update URL when tab changes
+  const updateUrlWithTool = (tool: string) => {
+    const currentPath = location.split('?')[0];
+    const newUrl = `${currentPath}?tool=${tool}`;
+    setLocation(newUrl);
+  };
+
+  // Current active tab state
+  const [activeTab, setActiveTab] = useState(getToolFromUrl);
+
+  // Update active tab when URL changes
+  useEffect(() => {
+    const newTool = getToolFromUrl();
+    if (newTool !== activeTab) {
+      setActiveTab(newTool);
+    }
+  }, [location]);
+
   // Navigation state for responsive layout
   const [isNavCollapsed, setIsNavCollapsed] = useState(() => {
     try {
@@ -331,10 +359,18 @@ export default function FinancialCalculators() {
     }).format(amount);
   };
 
-  return (
-    <div className="container mx-auto px-4 py-8 pt-16 lg:pt-0">
+  // Handle tab change
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    updateUrlWithTool(value);
+  };
 
-        <Tabs defaultValue="tax" className="w-full">
+  return (
+    <div className={`container mx-auto px-4 py-8 pt-16 lg:pt-0 transition-all duration-300 ${
+      isNavCollapsed ? 'lg:ml-16' : 'lg:ml-64'
+    }`}>
+
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="tax" data-testid="tab-tax-calculator">
               <Receipt className="w-4 h-4 mr-2" />
