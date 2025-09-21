@@ -188,6 +188,8 @@ export default function FinancialCalculators() {
   const [taxResult, setTaxResult] = useState<TaxCalculationResult | null>(null);
   const [sipResult, setSipResult] = useState<SipResult | null>(null);
   const [emiResult, setEmiResult] = useState<EmiResult | null>(null);
+  const [sipLoading, setSipLoading] = useState(false);
+  const [emiLoading, setEmiLoading] = useState(false);
 
   // Tax Calculation using Income Tax API integration
   const calculateTaxMutation = useMutation({
@@ -238,36 +240,54 @@ export default function FinancialCalculators() {
     calculateTaxMutation.mutate(data);
   };
 
-  const onSipSubmit = (data: SipFormData) => {
-    const input = {
-      monthlyInvestment: parseFloat(data.monthlyInvestment),
-      expectedReturn: parseFloat(data.expectedReturn),
-      timePeriod: parseFloat(data.timePeriod)
-    };
+  const onSipSubmit = async (data: SipFormData) => {
+    setSipLoading(true);
+    
+    // Small delay to show loading state
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    try {
+      const input = {
+        monthlyInvestment: parseFloat(data.monthlyInvestment),
+        expectedReturn: parseFloat(data.expectedReturn),
+        timePeriod: parseFloat(data.timePeriod)
+      };
 
-    const result = calculateSipReturns(input);
-    setSipResult(result);
+      const result = calculateSipReturns(input);
+      setSipResult(result);
 
-    toast({
-      title: "SIP Calculation Complete",
-      description: `Maturity amount: ₹${result.maturityAmount.toLocaleString('en-IN')}`
-    });
+      toast({
+        title: "SIP Calculation Complete",
+        description: `Maturity amount: ₹${result.maturityAmount.toLocaleString('en-IN')}`
+      });
+    } finally {
+      setSipLoading(false);
+    }
   };
 
-  const onEmiSubmit = (data: EmiFormData) => {
-    const input = {
-      loanAmount: parseFloat(data.loanAmount),
-      interestRate: parseFloat(data.interestRate),
-      tenure: parseFloat(data.tenure)
-    };
+  const onEmiSubmit = async (data: EmiFormData) => {
+    setEmiLoading(true);
+    
+    // Small delay to show loading state
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    try {
+      const input = {
+        loanAmount: parseFloat(data.loanAmount),
+        interestRate: parseFloat(data.interestRate),
+        tenure: parseFloat(data.tenure)
+      };
 
-    const result = calculateEmiSchedule(input);
-    setEmiResult(result);
+      const result = calculateEmiSchedule(input);
+      setEmiResult(result);
 
-    toast({
-      title: "EMI Calculation Complete",
-      description: `Monthly EMI: ₹${result.monthlyEmi.toLocaleString('en-IN')}`
-    });
+      toast({
+        title: "EMI Calculation Complete",
+        description: `Monthly EMI: ₹${result.monthlyEmi.toLocaleString('en-IN')}`
+      });
+    } finally {
+      setEmiLoading(false);
+    }
   };
 
   const formatCurrency = (amount: number) => {
@@ -619,9 +639,10 @@ export default function FinancialCalculators() {
                       <Button 
                         type="submit"
                         className="w-full" 
+                        disabled={sipLoading}
                         data-testid="button-calculate-sip"
                       >
-                        Calculate SIP Returns
+                        {sipLoading ? "Calculating..." : "Calculate SIP Returns"}
                       </Button>
                     </form>
                   </Form>
@@ -771,9 +792,10 @@ export default function FinancialCalculators() {
                       <Button 
                         type="submit"
                         className="w-full" 
+                        disabled={emiLoading}
                         data-testid="button-calculate-emi"
                       >
-                        Calculate EMI
+                        {emiLoading ? "Calculating..." : "Calculate EMI"}
                       </Button>
                     </form>
                   </Form>
