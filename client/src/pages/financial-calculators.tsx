@@ -717,6 +717,5 @@ export default function FinancialCalculators() {
           </TabsContent>
         </Tabs>
       </div>
-    </>
   );
 }
