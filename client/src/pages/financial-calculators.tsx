@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -8,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Calculator, TrendingUp, PiggyBank, Home, Car, Receipt, IndianRupee, FileText } from 'lucide-react';
 import { EnhancedNavigation } from '@/components/layout/enhanced-navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -56,6 +60,81 @@ interface EmiResult {
     balance: number;
   }>;
 }
+
+// Zod schemas for form validation
+const taxCalculatorSchema = z.object({
+  annualIncome: z.string()
+    .min(1, "Annual income is required")
+    .refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
+      message: "Annual income must be a positive number"
+    }),
+  regime: z.enum(['new', 'old'], {
+    required_error: "Please select a tax regime"
+  }),
+  section80C: z.string()
+    .optional()
+    .refine((val) => !val || (!isNaN(Number(val)) && Number(val) >= 0), {
+      message: "Section 80C deduction must be a valid number"
+    }),
+  section80D: z.string()
+    .optional()
+    .refine((val) => !val || (!isNaN(Number(val)) && Number(val) >= 0), {
+      message: "Section 80D deduction must be a valid number"
+    }),
+  houseRent: z.string()
+    .optional()
+    .refine((val) => !val || (!isNaN(Number(val)) && Number(val) >= 0), {
+      message: "House rent allowance must be a valid number"
+    }),
+  homeLoanInterest: z.string()
+    .optional()
+    .refine((val) => !val || (!isNaN(Number(val)) && Number(val) >= 0), {
+      message: "Home loan interest must be a valid number"
+    }),
+  age: z.enum(['below60', '60to80', 'above80'], {
+    required_error: "Please select your age group"
+  })
+});
+
+const sipCalculatorSchema = z.object({
+  monthlyInvestment: z.string()
+    .min(1, "Monthly investment amount is required")
+    .refine((val) => !isNaN(Number(val)) && Number(val) >= 100, {
+      message: "Monthly investment must be at least ₹100"
+    }),
+  expectedReturn: z.string()
+    .min(1, "Expected return is required")
+    .refine((val) => !isNaN(Number(val)) && Number(val) > 0 && Number(val) <= 50, {
+      message: "Expected return must be between 1% and 50%"
+    }),
+  timePeriod: z.string()
+    .min(1, "Investment period is required")
+    .refine((val) => !isNaN(Number(val)) && Number(val) >= 1 && Number(val) <= 50, {
+      message: "Investment period must be between 1 and 50 years"
+    })
+});
+
+const emiCalculatorSchema = z.object({
+  loanAmount: z.string()
+    .min(1, "Loan amount is required")
+    .refine((val) => !isNaN(Number(val)) && Number(val) >= 10000, {
+      message: "Loan amount must be at least ₹10,000"
+    }),
+  interestRate: z.string()
+    .min(1, "Interest rate is required")
+    .refine((val) => !isNaN(Number(val)) && Number(val) > 0 && Number(val) <= 50, {
+      message: "Interest rate must be between 0.1% and 50%"
+    }),
+  tenure: z.string()
+    .min(1, "Loan tenure is required")
+    .refine((val) => !isNaN(Number(val)) && Number(val) >= 1 && Number(val) <= 480, {
+      message: "Loan tenure must be between 1 and 480 months"
+    })
+});
+
+type TaxFormData = z.infer<typeof taxCalculatorSchema>;
+type SipFormData = z.infer<typeof sipCalculatorSchema>;
+type EmiFormData = z.infer<typeof emiCalculatorSchema>;
 
 export default function FinancialCalculators() {
   const [location, setLocation] = useLocation();
@@ -106,29 +185,36 @@ export default function FinancialCalculators() {
   }, []);
   const { toast } = useToast();
   
-  // Tax Calculator State
-  const [taxForm, setTaxForm] = useState({
-    annualIncome: '',
-    regime: 'new',
-    section80C: '',
-    section80D: '',
-    houseRent: '',
-    homeLoanInterest: '',
-    age: 'below60'
+  // Form instances with validation
+  const taxForm = useForm<TaxFormData>({
+    resolver: zodResolver(taxCalculatorSchema),
+    defaultValues: {
+      annualIncome: '',
+      regime: 'new',
+      section80C: '',
+      section80D: '',
+      houseRent: '',
+      homeLoanInterest: '',
+      age: 'below60'
+    }
   });
 
-  // SIP Calculator State
-  const [sipForm, setSipForm] = useState({
-    monthlyInvestment: '',
-    expectedReturn: '12',
-    timePeriod: '10'
+  const sipForm = useForm<SipFormData>({
+    resolver: zodResolver(sipCalculatorSchema),
+    defaultValues: {
+      monthlyInvestment: '',
+      expectedReturn: '12',
+      timePeriod: '10'
+    }
   });
 
-  // EMI Calculator State
-  const [emiForm, setEmiForm] = useState({
-    loanAmount: '',
-    interestRate: '',
-    tenure: ''
+  const emiForm = useForm<EmiFormData>({
+    resolver: zodResolver(emiCalculatorSchema),
+    defaultValues: {
+      loanAmount: '',
+      interestRate: '',
+      tenure: ''
+    }
   });
 
   const [taxResult, setTaxResult] = useState<TaxCalculationResult | null>(null);
@@ -137,7 +223,7 @@ export default function FinancialCalculators() {
 
   // Tax Calculation using Income Tax API integration
   const calculateTaxMutation = useMutation({
-    mutationFn: async (formData: typeof taxForm) => {
+    mutationFn: async (formData: TaxFormData) => {
       // Integration with Quicko Sandbox API (mock implementation)
       // In production, this would call the actual Quicko Sandbox API
       const annualIncome = parseFloat(formData.annualIncome);
@@ -286,11 +372,15 @@ export default function FinancialCalculators() {
     }
   });
 
-  // SIP Calculation
-  const calculateSip = () => {
-    const monthlyAmount = parseFloat(sipForm.monthlyInvestment);
-    const annualReturn = parseFloat(sipForm.expectedReturn) / 100;
-    const months = parseFloat(sipForm.timePeriod) * 12;
+  // Form submission handlers
+  const onTaxSubmit = (data: TaxFormData) => {
+    calculateTaxMutation.mutate(data);
+  };
+
+  const onSipSubmit = (data: SipFormData) => {
+    const monthlyAmount = parseFloat(data.monthlyInvestment);
+    const annualReturn = parseFloat(data.expectedReturn) / 100;
+    const months = parseFloat(data.timePeriod) * 12;
     const monthlyReturn = annualReturn / 12;
 
     const maturityAmount = monthlyAmount * (((Math.pow(1 + monthlyReturn, months) - 1) / monthlyReturn) * (1 + monthlyReturn));
@@ -310,11 +400,10 @@ export default function FinancialCalculators() {
     });
   };
 
-  // EMI Calculation
-  const calculateEmi = () => {
-    const principal = parseFloat(emiForm.loanAmount);
-    const rate = parseFloat(emiForm.interestRate) / 100 / 12;
-    const tenure = parseFloat(emiForm.tenure) * 12;
+  const onEmiSubmit = (data: EmiFormData) => {
+    const principal = parseFloat(data.loanAmount);
+    const rate = parseFloat(data.interestRate) / 100 / 12;
+    const tenure = parseFloat(data.tenure);
 
     const emi = (principal * rate * Math.pow(1 + rate, tenure)) / (Math.pow(1 + rate, tenure) - 1);
     const totalAmount = emi * tenure;
@@ -400,82 +489,125 @@ export default function FinancialCalculators() {
                     Calculate your income tax using official Income Tax Department rates
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label htmlFor="annual-income">Annual Income</Label>
-                    <Input
-                      id="annual-income"
-                      type="number"
-                      placeholder="Enter your annual income"
-                      value={taxForm.annualIncome}
-                      onChange={(e) => setTaxForm({ ...taxForm, annualIncome: e.target.value })}
-                      data-testid="input-annual-income"
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="tax-regime">Tax Regime</Label>
-                    <Select value={taxForm.regime} onValueChange={(value) => setTaxForm({ ...taxForm, regime: value })}>
-                      <SelectTrigger data-testid="select-tax-regime">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="new">New Tax Regime (2024-25)</SelectItem>
-                        <SelectItem value="old">Old Tax Regime</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <CardContent>
+                  <Form {...taxForm}>
+                    <form onSubmit={taxForm.handleSubmit(onTaxSubmit)} className="space-y-4">
+                      <FormField
+                        control={taxForm.control}
+                        name="annualIncome"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Annual Income</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                placeholder="Enter your annual income"
+                                data-testid="input-annual-income"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={taxForm.control}
+                        name="regime"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Tax Regime</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-tax-regime">
+                                  <SelectValue />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="new">New Tax Regime (2024-25)</SelectItem>
+                                <SelectItem value="old">Old Tax Regime</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-                  {taxForm.regime === 'old' && (
-                    <>
-                      <div>
-                        <Label htmlFor="section80c">Section 80C Deductions</Label>
-                        <Input
-                          id="section80c"
-                          type="number"
-                          placeholder="EPF, PPF, ELSS, etc. (Max ₹1,50,000)"
-                          value={taxForm.section80C}
-                          onChange={(e) => setTaxForm({ ...taxForm, section80C: e.target.value })}
-                          data-testid="input-section80c"
-                        />
-                      </div>
+                      {taxForm.watch('regime') === 'old' && (
+                        <>
+                          <FormField
+                            control={taxForm.control}
+                            name="section80C"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Section 80C Deductions</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    placeholder="EPF, PPF, ELSS, etc. (Max ₹1,50,000)"
+                                    data-testid="input-section80c"
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
 
-                      <div>
-                        <Label htmlFor="section80d">Section 80D Deductions</Label>
-                        <Input
-                          id="section80d"
-                          type="number"
-                          placeholder="Health Insurance Premium"
-                          value={taxForm.section80D}
-                          onChange={(e) => setTaxForm({ ...taxForm, section80D: e.target.value })}
-                          data-testid="input-section80d"
-                        />
-                      </div>
-                    </>
-                  )}
+                          <FormField
+                            control={taxForm.control}
+                            name="section80D"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Section 80D Deductions</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    placeholder="Health Insurance Premium"
+                                    data-testid="input-section80d"
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </>
+                      )}
 
-                  <div>
-                    <Label htmlFor="age-group">Age Group</Label>
-                    <Select value={taxForm.age} onValueChange={(value) => setTaxForm({ ...taxForm, age: value })}>
-                      <SelectTrigger data-testid="select-age-group">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="below60">Below 60 years</SelectItem>
-                        <SelectItem value="60to80">60-80 years</SelectItem>
-                        <SelectItem value="above80">Above 80 years</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                      <FormField
+                        control={taxForm.control}
+                        name="age"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Age Group</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-age-group">
+                                  <SelectValue />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="below60">Below 60 years</SelectItem>
+                                <SelectItem value="60to80">60-80 years</SelectItem>
+                                <SelectItem value="above80">Above 80 years</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-                  <Button 
-                    className="w-full" 
-                    onClick={() => calculateTaxMutation.mutate(taxForm)}
-                    disabled={calculateTaxMutation.isPending || !taxForm.annualIncome}
-                    data-testid="button-calculate-tax"
-                  >
-                    {calculateTaxMutation.isPending ? "Calculating..." : "Calculate Tax"}
-                  </Button>
+                      <Button 
+                        type="submit"
+                        className="w-full" 
+                        disabled={calculateTaxMutation.isPending}
+                        data-testid="button-calculate-tax"
+                      >
+                        {calculateTaxMutation.isPending ? "Calculating..." : "Calculate Tax"}
+                      </Button>
+                    </form>
+                  </Form>
                 </CardContent>
               </Card>
 
@@ -561,51 +693,75 @@ export default function FinancialCalculators() {
                     Calculate returns on your Systematic Investment Plan
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label htmlFor="monthly-investment">Monthly Investment Amount</Label>
-                    <Input
-                      id="monthly-investment"
-                      type="number"
-                      placeholder="Enter monthly SIP amount"
-                      value={sipForm.monthlyInvestment}
-                      onChange={(e) => setSipForm({ ...sipForm, monthlyInvestment: e.target.value })}
-                      data-testid="input-monthly-investment"
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="expected-return">Expected Annual Return (%)</Label>
-                    <Input
-                      id="expected-return"
-                      type="number"
-                      placeholder="12"
-                      value={sipForm.expectedReturn}
-                      onChange={(e) => setSipForm({ ...sipForm, expectedReturn: e.target.value })}
-                      data-testid="input-expected-return"
-                    />
-                  </div>
+                <CardContent>
+                  <Form {...sipForm}>
+                    <form onSubmit={sipForm.handleSubmit(onSipSubmit)} className="space-y-4">
+                      <FormField
+                        control={sipForm.control}
+                        name="monthlyInvestment"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Monthly Investment Amount</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                placeholder="Enter monthly SIP amount"
+                                data-testid="input-monthly-investment"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={sipForm.control}
+                        name="expectedReturn"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Expected Annual Return (%)</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                placeholder="12"
+                                data-testid="input-expected-return"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-                  <div>
-                    <Label htmlFor="time-period">Investment Period (Years)</Label>
-                    <Input
-                      id="time-period"
-                      type="number"
-                      placeholder="10"
-                      value={sipForm.timePeriod}
-                      onChange={(e) => setSipForm({ ...sipForm, timePeriod: e.target.value })}
-                      data-testid="input-time-period"
-                    />
-                  </div>
+                      <FormField
+                        control={sipForm.control}
+                        name="timePeriod"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Investment Period (Years)</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                placeholder="10"
+                                data-testid="input-time-period"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-                  <Button 
-                    className="w-full" 
-                    onClick={calculateSip}
-                    disabled={!sipForm.monthlyInvestment || !sipForm.expectedReturn || !sipForm.timePeriod}
-                    data-testid="button-calculate-sip"
-                  >
-                    Calculate SIP Returns
-                  </Button>
+                      <Button 
+                        type="submit"
+                        className="w-full" 
+                        data-testid="button-calculate-sip"
+                      >
+                        Calculate SIP Returns
+                      </Button>
+                    </form>
+                  </Form>
                 </CardContent>
               </Card>
 
@@ -653,52 +809,76 @@ export default function FinancialCalculators() {
                     Calculate your loan EMI and payment schedule
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label htmlFor="loan-amount">Loan Amount</Label>
-                    <Input
-                      id="loan-amount"
-                      type="number"
-                      placeholder="Enter loan amount"
-                      value={emiForm.loanAmount}
-                      onChange={(e) => setEmiForm({ ...emiForm, loanAmount: e.target.value })}
-                      data-testid="input-loan-amount"
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="interest-rate">Interest Rate (% per annum)</Label>
-                    <Input
-                      id="interest-rate"
-                      type="number"
-                      step="0.1"
-                      placeholder="8.5"
-                      value={emiForm.interestRate}
-                      onChange={(e) => setEmiForm({ ...emiForm, interestRate: e.target.value })}
-                      data-testid="input-interest-rate"
-                    />
-                  </div>
+                <CardContent>
+                  <Form {...emiForm}>
+                    <form onSubmit={emiForm.handleSubmit(onEmiSubmit)} className="space-y-4">
+                      <FormField
+                        control={emiForm.control}
+                        name="loanAmount"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Loan Amount</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                placeholder="Enter loan amount"
+                                data-testid="input-loan-amount"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={emiForm.control}
+                        name="interestRate"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Interest Rate (% per annum)</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                step="0.1"
+                                placeholder="8.5"
+                                data-testid="input-interest-rate"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-                  <div>
-                    <Label htmlFor="tenure">Loan Tenure (Years)</Label>
-                    <Input
-                      id="tenure"
-                      type="number"
-                      placeholder="15"
-                      value={emiForm.tenure}
-                      onChange={(e) => setEmiForm({ ...emiForm, tenure: e.target.value })}
-                      data-testid="input-tenure"
-                    />
-                  </div>
+                      <FormField
+                        control={emiForm.control}
+                        name="tenure"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Loan Tenure (Years)</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                placeholder="15"
+                                data-testid="input-tenure"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-                  <Button 
-                    className="w-full" 
-                    onClick={calculateEmi}
-                    disabled={!emiForm.loanAmount || !emiForm.interestRate || !emiForm.tenure}
-                    data-testid="button-calculate-emi"
-                  >
-                    Calculate EMI
-                  </Button>
+                      <Button 
+                        type="submit"
+                        className="w-full" 
+                        data-testid="button-calculate-emi"
+                      >
+                        Calculate EMI
+                      </Button>
+                    </form>
+                  </Form>
                 </CardContent>
               </Card>
 
