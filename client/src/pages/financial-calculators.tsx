@@ -13,7 +13,6 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Calculator, TrendingUp, PiggyBank, Home, Car, Receipt, IndianRupee, FileText } from 'lucide-react';
-import { EnhancedNavigation } from '@/components/layout/enhanced-navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useMutation } from '@tanstack/react-query';
 import { 
@@ -132,25 +131,6 @@ export default function FinancialCalculators() {
     }
   }, [location]);
 
-  // Navigation state for responsive layout
-  const [isNavCollapsed, setIsNavCollapsed] = useState(() => {
-    try {
-      const saved = localStorage.getItem('navigation-collapsed');
-      return saved ? JSON.parse(saved) : false;
-    } catch {
-      return false;
-    }
-  });
-
-  // Listen for navigation state changes
-  useEffect(() => {
-    const handleNavChange = (event: CustomEvent) => {
-      setIsNavCollapsed(event.detail.isCollapsed);
-    };
-    
-    window.addEventListener('navigation-state-changed', handleNavChange as EventListener);
-    return () => window.removeEventListener('navigation-state-changed', handleNavChange as EventListener);
-  }, []);
   const { toast } = useToast();
   
   // Form instances with validation
@@ -306,9 +286,7 @@ export default function FinancialCalculators() {
   };
 
   return (
-    <div className={`container mx-auto px-4 py-8 pt-16 lg:pt-0 transition-all duration-300 ${
-      isNavCollapsed ? 'lg:ml-16' : 'lg:ml-64'
-    }`}>
+    <div className="container mx-auto px-4 py-8 space-y-8">
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="grid w-full grid-cols-3">
