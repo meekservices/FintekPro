@@ -43,6 +43,8 @@ import { digilockerService } from './services/digilockerService';
 import { amfiService } from './amfi-service';
 import { bseService } from './bse-service';
 import { multiSourceMFService } from './services/multisource-mf-service';
+import { ObjectStorageService, ObjectNotFoundError } from './objectStorage';
+import { ObjectPermission } from './objectAcl';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -14703,6 +14705,82 @@ System Security Data:`;
     } catch (error) {
       console.error("Error loading proposal to cart:", error);
       res.status(500).json({ error: "Failed to load proposal items to cart" });
+    }
+  });
+
+  // Object storage routes
+  app.get("/objects/:objectPath(*)", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      const objectStorageService = new ObjectStorageService();
+      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
+      
+      const canAccess = await objectStorageService.canAccessObjectEntity({
+        objectFile,
+        userId: userId,
+        requestedPermission: ObjectPermission.READ,
+      });
+      
+      if (!canAccess) {
+        return res.sendStatus(401);
+      }
+      
+      objectStorageService.downloadObject(objectFile, res);
+    } catch (error) {
+      console.error("Error checking object access:", error);
+      if (error instanceof ObjectNotFoundError) {
+        return res.sendStatus(404);
+      }
+      return res.sendStatus(500);
+    }
+  });
+
+  // Get upload URL for document upload
+  app.post("/api/objects/upload", requireAuth, async (req, res) => {
+    try {
+      const objectStorageService = new ObjectStorageService();
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadURL });
+    } catch (error) {
+      console.error("Error getting upload URL:", error);
+      res.status(500).json({ error: "Failed to get upload URL" });
+    }
+  });
+
+  // Update document metadata after upload
+  app.put("/api/documents", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      const { documentURL, documentType, documentName } = req.body;
+
+      if (!documentURL) {
+        return res.status(400).json({ error: "documentURL is required" });
+      }
+
+      const objectStorageService = new ObjectStorageService();
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
+        documentURL,
+        {
+          owner: userId,
+          visibility: "private", // KYC documents should be private
+        },
+      );
+
+      // Here you could save document metadata to database
+      // const document = await storage.createDocument({
+      //   userId,
+      //   objectPath,
+      //   documentType,
+      //   documentName
+      // });
+
+      res.status(200).json({
+        objectPath: objectPath,
+        success: true
+      });
+    } catch (error) {
+      console.error("Error setting document metadata:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
   });
 
