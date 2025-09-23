@@ -3947,6 +3947,111 @@ export const iciciBankCreditScores = pgTable("icici_bank_credit_scores", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Fund Comparison table for storing fund comparison results
+export const fundComparisons = pgTable("fund_comparisons", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Comparison Request Details
+  fundCodes: jsonb("fund_codes").notNull(), // Array of scheme codes to compare
+  comparisonType: varchar("comparison_type").default("detailed"), // basic/detailed/advanced
+  timePeriod: varchar("time_period").default("1Y"), // 1M/3M/6M/1Y/3Y/5Y/all
+  
+  // Comparison Results
+  results: jsonb("results"), // Detailed comparison data including metrics
+  
+  // Calculated Metrics for each fund
+  returns: jsonb("returns"), // Returns data for different periods
+  riskMetrics: jsonb("risk_metrics"), // Volatility, Sharpe ratio, alpha, beta
+  expenseAnalysis: jsonb("expense_analysis"), // Expense ratios, fees comparison
+  performanceRanking: jsonb("performance_ranking"), // Relative ranking among compared funds
+  
+  // Summary Insights
+  bestPerformer: varchar("best_performer"), // Fund code of best performer
+  recommendation: text("recommendation"), // AI-generated recommendation text
+  riskLevel: varchar("risk_level"), // overall/low/medium/high based on comparison
+  
+  // Request Metadata
+  requestedAt: timestamp("requested_at").defaultNow(),
+  status: varchar("status").default("completed"), // pending/completed/failed
+  errorMessage: text("error_message"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Portfolio Comparison table for storing portfolio comparison results
+export const portfolioComparisons = pgTable("portfolio_comparisons", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Comparison Request Details
+  portfolioIds: jsonb("portfolio_ids").notNull(), // Array of portfolio IDs to compare
+  comparisonType: varchar("comparison_type").default("comprehensive"), // basic/comprehensive/risk_analysis
+  benchmarkIndex: varchar("benchmark_index").default("NIFTY_50"), // Benchmark for comparison
+  timePeriod: varchar("time_period").default("1Y"), // Analysis period
+  
+  // Portfolio Analysis Results
+  performanceMetrics: jsonb("performance_metrics"), // Returns, volatility, Sharpe ratio for each portfolio
+  riskAnalysis: jsonb("risk_analysis"), // VaR, max drawdown, risk-adjusted returns
+  assetAllocationComparison: jsonb("asset_allocation_comparison"), // Asset allocation breakdown
+  correlationMatrix: jsonb("correlation_matrix"), // Correlation between portfolios
+  
+  // Advanced Analytics
+  diversificationAnalysis: jsonb("diversification_analysis"), // Diversification scores and metrics
+  sectorExposure: jsonb("sector_exposure"), // Sector-wise breakdown comparison
+  topHoldingsComparison: jsonb("top_holdings_comparison"), // Overlap analysis of top holdings
+  efficiencyMetrics: jsonb("efficiency_metrics"), // Efficient frontier analysis
+  
+  // Recommendations and Insights
+  bestPortfolio: varchar("best_portfolio"), // Portfolio ID of best performer
+  worstPortfolio: varchar("worst_portfolio"), // Portfolio ID of worst performer
+  rebalancingSuggestions: jsonb("rebalancing_suggestions"), // AI recommendations for each portfolio
+  riskScore: decimal("risk_score", { precision: 3, scale: 1 }), // Overall risk score (1-10)
+  
+  // Summary
+  executiveSummary: text("executive_summary"), // High-level insights
+  keyFindings: jsonb("key_findings"), // Array of key findings and insights
+  actionableRecommendations: jsonb("actionable_recommendations"), // Specific action items
+  
+  // Request Metadata
+  requestedAt: timestamp("requested_at").defaultNow(),
+  status: varchar("status").default("completed"), // pending/completed/failed
+  errorMessage: text("error_message"),
+  processingTimeMs: integer("processing_time_ms"), // Time taken for analysis
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Comparison History table for tracking user's comparison activities
+export const comparisonHistory = pgTable("comparison_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Comparison Details
+  comparisonType: varchar("comparison_type").notNull(), // fund/portfolio
+  comparisonId: varchar("comparison_id"), // References to fundComparisons or portfolioComparisons
+  itemsCompared: jsonb("items_compared"), // Array of fund codes or portfolio IDs
+  
+  // User Interaction
+  viewDuration: integer("view_duration"), // Time spent viewing results in seconds
+  actionsPerformed: jsonb("actions_performed"), // Array of user actions (saved, shared, etc.)
+  savedComparison: boolean("saved_comparison").default(false),
+  sharedComparison: boolean("shared_comparison").default(false),
+  
+  // Metadata
+  accessedAt: timestamp("accessed_at").defaultNow(),
+  lastViewedAt: timestamp("last_viewed_at"),
+  userAgent: varchar("user_agent"), // For analytics
+  ipAddress: varchar("ip_address"), // For analytics
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Insert schemas for loan applications
 export const insertICICILoanApplicationSchema = createInsertSchema(iciciBankLoanApplications).omit({
   id: true,
@@ -3960,8 +4065,34 @@ export const insertICICICreditScoreSchema = createInsertSchema(iciciBankCreditSc
   updatedAt: true,
 });
 
+// Insert schemas for comparison tables
+export const insertFundComparisonSchema = createInsertSchema(fundComparisons).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPortfolioComparisonSchema = createInsertSchema(portfolioComparisons).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertComparisonHistorySchema = createInsertSchema(comparisonHistory).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Export ICICI loan types
 export type ICICILoanApplication = typeof iciciBankLoanApplications.$inferSelect;
 export type ICICICreditScore = typeof iciciBankCreditScores.$inferSelect;
 export type InsertICICILoanApplication = z.infer<typeof insertICICILoanApplicationSchema>;
 export type InsertICICICreditScore = z.infer<typeof insertICICICreditScoreSchema>;
+
+// Export comparison types
+export type FundComparison = typeof fundComparisons.$inferSelect;
+export type PortfolioComparison = typeof portfolioComparisons.$inferSelect;
+export type ComparisonHistory = typeof comparisonHistory.$inferSelect;
+export type InsertFundComparison = z.infer<typeof insertFundComparisonSchema>;
+export type InsertPortfolioComparison = z.infer<typeof insertPortfolioComparisonSchema>;
+export type InsertComparisonHistory = z.infer<typeof insertComparisonHistorySchema>;
