@@ -225,6 +225,18 @@ export interface IStorage {
   // Proposal approval and client actions
   approveProposal(proposalId: string, clientResponse?: string): Promise<InvestmentProposal | undefined>;
   rejectProposal(proposalId: string, clientResponse: string): Promise<InvestmentProposal | undefined>;
+  markProposalAsViewed(proposalId: string, userId: string): Promise<InvestmentProposal | undefined>;
+  acceptProposal(proposalId: string, userId: string): Promise<InvestmentProposal | undefined>;
+  addProposalToCart(proposalId: string, userId: string): Promise<any>;
+  
+  // Enhanced admin proposal methods
+  getAllProposals(): Promise<InvestmentProposal[]>;
+  getAllClients(): Promise<Array<{ id: string; name: string; email: string; }>>;
+  createProposal(proposalData: any): Promise<InvestmentProposal>;
+  updateProposalStatus(proposalId: string, status: string): Promise<InvestmentProposal>;
+  deleteProposal(proposalId: string): Promise<boolean>;
+  getProposalsByClientId(clientId: string): Promise<InvestmentProposal[]>;
+  getInvestmentProposalItems(proposalId: string): Promise<InvestmentProposalItem[]>;
 
   // Payment integration methods
   createProposalPayment(payment: InsertProposalPayment): Promise<ProposalPayment>;
@@ -1207,6 +1219,47 @@ export class DatabaseStorage implements IStorage {
 
   async rejectProposal(proposalId: string, clientResponse: string): Promise<InvestmentProposal | undefined> {
     return undefined;
+  }
+
+  // Enhanced proposal methods for the new API endpoints
+  async getAllProposals(): Promise<InvestmentProposal[]> {
+    return [];
+  }
+
+  async getAllClients(): Promise<Array<{ id: string; name: string; email: string; }>> {
+    return [];
+  }
+
+  async createProposal(proposalData: any): Promise<InvestmentProposal> {
+    throw new Error("Method not implemented");
+  }
+
+  async updateProposalStatus(proposalId: string, status: string): Promise<InvestmentProposal> {
+    throw new Error("Method not implemented");
+  }
+
+  async deleteProposal(proposalId: string): Promise<boolean> {
+    return false;
+  }
+
+  async getProposalsByClientId(clientId: string): Promise<InvestmentProposal[]> {
+    return [];
+  }
+
+  async getInvestmentProposalItems(proposalId: string): Promise<InvestmentProposalItem[]> {
+    return [];
+  }
+
+  async markProposalAsViewed(proposalId: string, userId: string): Promise<InvestmentProposal | undefined> {
+    return undefined;
+  }
+
+  async acceptProposal(proposalId: string, userId: string): Promise<InvestmentProposal | undefined> {
+    return undefined;
+  }
+
+  async addProposalToCart(proposalId: string, userId: string): Promise<any> {
+    return { success: false, message: "Method not implemented" };
   }
 
   async createProposalPayment(payment: InsertProposalPayment): Promise<ProposalPayment> {

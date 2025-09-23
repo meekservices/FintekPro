@@ -14560,6 +14560,134 @@ System Security Data:`;
     }
   });
 
+  // === ADMIN PROPOSAL MANAGEMENT APIs ===
+  
+  // Admin: Get all proposals
+  app.get('/api/admin/proposals', requireAdmin, async (req: any, res: any) => {
+    try {
+      const proposals = await storage.getAllProposals();
+      res.json(proposals);
+    } catch (error) {
+      console.error('Failed to fetch proposals:', error);
+      res.status(500).json({ error: 'Failed to fetch proposals' });
+    }
+  });
+
+  // Admin: Get all clients for proposal creation
+  app.get('/api/admin/clients', requireAdmin, async (req: any, res: any) => {
+    try {
+      const clients = await storage.getAllClients();
+      res.json(clients);
+    } catch (error) {
+      console.error('Failed to fetch clients:', error);
+      res.status(500).json({ error: 'Failed to fetch clients' });
+    }
+  });
+
+  // Admin: Create new proposal
+  app.post('/api/admin/proposals', requireAdmin, async (req: any, res: any) => {
+    try {
+      const proposalData = {
+        ...req.body,
+        createdBy: req.user.id,
+        status: 'draft',
+        totalAmount: 0,
+        items: []
+      };
+      const proposal = await storage.createProposal(proposalData);
+      res.json(proposal);
+    } catch (error) {
+      console.error('Failed to create proposal:', error);
+      res.status(500).json({ error: 'Failed to create proposal' });
+    }
+  });
+
+  // Admin: Update proposal status
+  app.put('/api/admin/proposals/:proposalId/status', requireAdmin, async (req: any, res: any) => {
+    try {
+      const { proposalId } = req.params;
+      const { status } = req.body;
+      const proposal = await storage.updateProposalStatus(proposalId, status);
+      res.json(proposal);
+    } catch (error) {
+      console.error('Failed to update proposal status:', error);
+      res.status(500).json({ error: 'Failed to update proposal status' });
+    }
+  });
+
+  // Admin: Delete proposal
+  app.delete('/api/admin/proposals/:proposalId', requireAdmin, async (req: any, res: any) => {
+    try {
+      const { proposalId } = req.params;
+      await storage.deleteProposal(proposalId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Failed to delete proposal:', error);
+      res.status(500).json({ error: 'Failed to delete proposal' });
+    }
+  });
+
+  // === CLIENT PROPOSAL APIs ===
+
+  // Client: Get their proposals
+  app.get('/api/proposals', requireClientOrHigher, async (req: any, res: any) => {
+    try {
+      const proposals = await storage.getProposalsByClientId(req.user.id);
+      res.json(proposals);
+    } catch (error) {
+      console.error('Failed to fetch user proposals:', error);
+      res.status(500).json({ error: 'Failed to fetch proposals' });
+    }
+  });
+
+  // Client: Accept proposal
+  app.put('/api/proposals/:proposalId/accept', requireClientOrHigher, async (req: any, res: any) => {
+    try {
+      const { proposalId } = req.params;
+      const proposal = await storage.acceptProposal(proposalId, req.user.id);
+      res.json(proposal);
+    } catch (error) {
+      console.error('Failed to accept proposal:', error);
+      res.status(500).json({ error: 'Failed to accept proposal' });
+    }
+  });
+
+  // Client: Reject proposal
+  app.put('/api/proposals/:proposalId/reject', requireClientOrHigher, async (req: any, res: any) => {
+    try {
+      const { proposalId } = req.params;
+      const proposal = await storage.rejectProposal(proposalId, req.user.id);
+      res.json(proposal);
+    } catch (error) {
+      console.error('Failed to reject proposal:', error);
+      res.status(500).json({ error: 'Failed to reject proposal' });
+    }
+  });
+
+  // Client: Mark proposal as viewed
+  app.put('/api/proposals/:proposalId/mark-viewed', requireClientOrHigher, async (req: any, res: any) => {
+    try {
+      const { proposalId } = req.params;
+      const proposal = await storage.markProposalAsViewed(proposalId, req.user.id);
+      res.json(proposal);
+    } catch (error) {
+      console.error('Failed to mark proposal as viewed:', error);
+      res.status(500).json({ error: 'Failed to mark proposal as viewed' });
+    }
+  });
+
+  // Client: Add accepted proposal to cart (alternative to load-to-cart)
+  app.post('/api/proposals/:proposalId/add-to-cart', requireClientOrHigher, async (req: any, res: any) => {
+    try {
+      const { proposalId } = req.params;
+      const result = await storage.addProposalToCart(proposalId, req.user.id);
+      res.json(result);
+    } catch (error) {
+      console.error('Failed to add proposal to cart:', error);
+      res.status(500).json({ error: 'Failed to add proposal to cart' });
+    }
+  });
+
   // Load proposal items to cart
   app.post("/api/proposals/:proposalId/load-to-cart", requireAuth, async (req, res) => {
     try {
