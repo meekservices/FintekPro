@@ -606,209 +606,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // AI-Powered Portfolio Rebalancing Recommendations  
-  app.get("/api/ai/portfolios/:portfolioId/rebalancing-recommendations", requireAuth, async (req, res) => {
-    try {
-      const { portfolioId } = req.params;
-      const userId = (req as any).user?.id || "demo-user-1";
-      
-      // Get portfolio data and verify ownership
-      const portfolio = await storage.getPortfolio(portfolioId);
-      if (!portfolio) {
-        return res.status(404).json({ error: "Portfolio not found" });
-      }
-      
-      // Verify portfolio ownership (for non-demo users)
-      if (userId !== "demo-user-1" && portfolio.userId !== userId) {
-        return res.status(403).json({ error: "Access denied: Portfolio not owned by user" });
-      }
-      
-      const holdings = await storage.getPortfolioHoldings(portfolioId);
-      const assetAllocation = await storage.getAssetAllocation(portfolioId);
-      const performance = await storage.getPortfolioPerformance(portfolioId);
-
-      // Get user profile for personalized recommendations
-      const userProfile = await storage.getUserProfile(userId) || {
-        age: 35,
-        riskTolerance: 'moderate',
-        investmentGoals: ['wealth_creation', 'retirement_planning'],
-        timeHorizon: 10,
-        monthlyIncome: 100000
-      };
-
-      // Build portfolio data for AI analysis
-      const portfolioData = {
-        id: portfolioId,
-        totalValue: parseFloat(portfolio.totalValue || "0"),
-        holdings: holdings.map(h => ({
-          symbol: h.symbol,
-          quantity: parseFloat(h.quantity),
-          currentPrice: parseFloat(h.avgPrice), // Using avg price as current price for now
-          currentValue: parseFloat(h.quantity) * parseFloat(h.avgPrice),
-          investedValue: parseFloat(h.quantity) * parseFloat(h.avgPrice),
-          gainLoss: 0, // Would need market data for accurate calculation
-          gainLossPercent: 0,
-          assetType: h.assetType || 'equity',
-          sector: h.sector,
-          exchange: h.exchange || 'NSE'
-        })),
-        assetAllocation: assetAllocation?.map(a => ({
-          assetType: a.assetType,
-          percentage: parseFloat(a.currentPercentage || "0"),
-          currentValue: parseFloat(a.currentValue || "0")
-        })) || [],
-        performance: {
-          totalGainLoss: parseFloat(performance?.totalGainLoss || "0"),
-          totalGainLossPercent: parseFloat(performance?.totalGainLossPercent || "0"),
-          dayChange: parseFloat(performance?.dayChange || "0"),
-          dayChangePercent: parseFloat(performance?.dayChangePercent || "0")
-        }
-      };
-
-      const aiRecommendations = await aiPortfolioService.generatePortfolioRebalancingRecommendations(
-        portfolioData,
-        userProfile
-      );
-
-      // Check if OpenAI returned empty recommendations due to errors
-      if (!aiRecommendations || aiRecommendations.length === 0) {
-        return res.status(500).json({
-          success: false,
-          error: "Failed to generate AI recommendations",
-          message: "AI service returned empty recommendations. Please check OpenAI API configuration."
-        });
-      }
-
-      res.json({
-        success: true,
-        data: aiRecommendations,
-        portfolioSummary: {
-          totalValue: portfolioData.totalValue,
-          holdingsCount: portfolioData.holdings.length,
-          performance: portfolioData.performance
-        }
-      });
-    } catch (error) {
-      console.error("Error generating AI rebalancing recommendations:", error);
-      res.status(500).json({ 
-        success: false,
-        error: "Failed to generate AI rebalancing recommendations",
-        message: error instanceof Error ? error.message : "Unknown error"
-      });
-    }
-  });
-
-  // AI-Powered Investment Proposal Generation
-  app.post("/api/ai/portfolios/:portfolioId/investment-proposal", requireAuth, async (req, res) => {
-    try {
-      const { portfolioId } = req.params;
-      const { additionalCapital = 0 } = req.body;
-      const userId = (req as any).user?.id || "demo-user-1";
-      
-      // Validate request body
-      const bodySchema = z.object({
-        additionalCapital: z.number().min(0).optional().default(0)
-      });
-      
-      const validatedBody = bodySchema.parse(req.body);
-      const validatedAdditionalCapital = validatedBody.additionalCapital;
-      
-      // Get portfolio data and verify ownership
-      const portfolio = await storage.getPortfolio(portfolioId);
-      if (!portfolio) {
-        return res.status(404).json({ error: "Portfolio not found" });
-      }
-      
-      // Verify portfolio ownership (for non-demo users)
-      if (userId !== "demo-user-1" && portfolio.userId !== userId) {
-        return res.status(403).json({ error: "Access denied: Portfolio not owned by user" });
-      }
-      
-      const holdings = await storage.getPortfolioHoldings(portfolioId);
-      const assetAllocation = await storage.getAssetAllocation(portfolioId);
-      const performance = await storage.getPortfolioPerformance(portfolioId);
-
-      // Get user profile and financial goals
-      const userProfile = await storage.getUserProfile(userId) || {
-        age: 35,
-        riskTolerance: 'moderate',
-        investmentGoals: ['wealth_creation', 'retirement_planning'],
-        timeHorizon: 10,
-        monthlyIncome: 100000
-      };
-
-      const financialGoals = await storage.getFinancialGoals(userId) || [];
-      if (financialGoals.length > 0) {
-        userProfile.financialGoals = financialGoals.map(goal => ({
-          goal: goal.description,
-          targetAmount: parseFloat(goal.targetAmount),
-          timeframe: goal.targetDate ? Math.ceil((new Date(goal.targetDate).getTime() - Date.now()) / (365.25 * 24 * 60 * 60 * 1000)) : 5
-        }));
-      }
-
-      // Build portfolio data for AI analysis
-      const portfolioData = {
-        id: portfolioId,
-        totalValue: parseFloat(portfolio.totalValue || "0"),
-        holdings: holdings.map(h => ({
-          symbol: h.symbol,
-          quantity: parseFloat(h.quantity),
-          currentPrice: parseFloat(h.avgPrice),
-          currentValue: parseFloat(h.quantity) * parseFloat(h.avgPrice),
-          investedValue: parseFloat(h.quantity) * parseFloat(h.avgPrice),
-          gainLoss: 0,
-          gainLossPercent: 0,
-          assetType: h.assetType || 'equity',
-          sector: h.sector,
-          exchange: h.exchange || 'NSE'
-        })),
-        assetAllocation: assetAllocation?.map(a => ({
-          assetType: a.assetType,
-          percentage: parseFloat(a.currentPercentage || "0"),
-          currentValue: parseFloat(a.currentValue || "0")
-        })) || [],
-        performance: {
-          totalGainLoss: parseFloat(performance?.totalGainLoss || "0"),
-          totalGainLossPercent: parseFloat(performance?.totalGainLossPercent || "0"),
-          dayChange: parseFloat(performance?.dayChange || "0"),
-          dayChangePercent: parseFloat(performance?.dayChangePercent || "0")
-        }
-      };
-
-      const aiProposal = await aiPortfolioService.generateInvestmentProposal(
-        portfolioData,
-        userProfile,
-        validatedAdditionalCapital
-      );
-
-      // Check if OpenAI returned a valid proposal
-      if (!aiProposal) {
-        return res.status(500).json({
-          success: false,
-          error: "Failed to generate investment proposal",
-          message: "AI service returned empty proposal. Please check OpenAI API configuration."
-        });
-      }
-
-      res.json({
-        success: true,
-        data: aiProposal,
-        portfolioSummary: {
-          totalValue: portfolioData.totalValue,
-          holdingsCount: portfolioData.holdings.length,
-          performance: portfolioData.performance
-        }
-      });
-    } catch (error) {
-      console.error("Error generating AI investment proposal:", error);
-      res.status(500).json({ 
-        success: false,
-        error: "Failed to generate AI investment proposal",
-        message: error instanceof Error ? error.message : "Unknown error"
-      });
-    }
-  });
-
   // PAN Name Verification API endpoint
   app.get("/api/pan/verify-name/:panNumber?", async (req, res) => {
     try {
@@ -8095,6 +7892,213 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         success: false,
         error: "Failed to fetch loan applications"
+      });
+    }
+  });
+
+  // =================================================================  
+  // AI-POWERED PORTFOLIO ROUTES - PROTECTED (requireAuth)
+  // =================================================================
+  
+  // AI-Powered Portfolio Rebalancing Recommendations  
+  app.get("/api/ai/portfolios/:portfolioId/rebalancing-recommendations", requireAuth, async (req, res) => {
+    try {
+      const { portfolioId } = req.params;
+      const userId = (req as any).user?.id || "demo-user-1";
+      
+      // Get portfolio data and verify ownership
+      const portfolio = await storage.getPortfolio(portfolioId);
+      if (!portfolio) {
+        return res.status(404).json({ error: "Portfolio not found" });
+      }
+      
+      // Verify portfolio ownership (for non-demo users)
+      if (userId !== "demo-user-1" && portfolio.userId !== userId) {
+        return res.status(403).json({ error: "Access denied: Portfolio not owned by user" });
+      }
+      
+      const holdings = await storage.getPortfolioHoldings(portfolioId);
+      const assetAllocation = await storage.getAssetAllocation(portfolioId);
+      const performance = await storage.getPortfolioPerformance(portfolioId);
+
+      // Get user profile for personalized recommendations
+      const userProfile = await storage.getUserProfile(userId) || {
+        age: 35,
+        riskTolerance: 'moderate',
+        investmentGoals: ['wealth_creation', 'retirement_planning'],
+        timeHorizon: 10,
+        monthlyIncome: 100000
+      };
+
+      // Build portfolio data for AI analysis
+      const portfolioData = {
+        id: portfolioId,
+        totalValue: parseFloat(portfolio.totalValue || "0"),
+        holdings: holdings.map(h => ({
+          symbol: h.symbol,
+          quantity: parseFloat(h.quantity),
+          currentPrice: parseFloat(h.avgPrice), // Using avg price as current price for now
+          currentValue: parseFloat(h.quantity) * parseFloat(h.avgPrice),
+          investedValue: parseFloat(h.quantity) * parseFloat(h.avgPrice),
+          gainLoss: 0, // Would need market data for accurate calculation
+          gainLossPercent: 0,
+          assetType: h.assetType || 'equity',
+          sector: h.sector,
+          exchange: h.exchange || 'NSE'
+        })),
+        assetAllocation: assetAllocation?.map(a => ({
+          assetType: a.assetType,
+          percentage: parseFloat(a.currentPercentage || "0"),
+          currentValue: parseFloat(a.currentValue || "0")
+        })) || [],
+        performance: {
+          totalGainLoss: parseFloat(performance?.totalGainLoss || "0"),
+          totalGainLossPercent: parseFloat(performance?.totalGainLossPercent || "0"),
+          dayChange: parseFloat(performance?.dayChange || "0"),
+          dayChangePercent: parseFloat(performance?.dayChangePercent || "0")
+        }
+      };
+
+      const aiRecommendations = await aiPortfolioService.generatePortfolioRebalancingRecommendations(
+        portfolioData,
+        userProfile
+      );
+
+      // Check if OpenAI returned empty recommendations due to errors
+      if (!aiRecommendations || aiRecommendations.length === 0) {
+        return res.status(500).json({
+          success: false,
+          error: "Failed to generate AI recommendations",
+          message: "AI service returned empty recommendations. Please check OpenAI API configuration."
+        });
+      }
+
+      res.json({
+        success: true,
+        data: aiRecommendations,
+        portfolioSummary: {
+          totalValue: portfolioData.totalValue,
+          holdingsCount: portfolioData.holdings.length,
+          performance: portfolioData.performance
+        }
+      });
+    } catch (error) {
+      console.error("Error generating AI rebalancing recommendations:", error);
+      res.status(500).json({ 
+        success: false,
+        error: "Failed to generate AI rebalancing recommendations",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // AI-Powered Investment Proposal Generation
+  app.post("/api/ai/portfolios/:portfolioId/investment-proposal", requireAuth, async (req, res) => {
+    try {
+      const { portfolioId } = req.params;
+      const { additionalCapital = 0 } = req.body;
+      const userId = (req as any).user?.id || "demo-user-1";
+      
+      // Validate request body
+      const bodySchema = z.object({
+        additionalCapital: z.number().min(0).optional().default(0)
+      });
+      
+      const validatedBody = bodySchema.parse(req.body);
+      const validatedAdditionalCapital = validatedBody.additionalCapital;
+      
+      // Get portfolio data and verify ownership
+      const portfolio = await storage.getPortfolio(portfolioId);
+      if (!portfolio) {
+        return res.status(404).json({ error: "Portfolio not found" });
+      }
+      
+      // Verify portfolio ownership (for non-demo users)
+      if (userId !== "demo-user-1" && portfolio.userId !== userId) {
+        return res.status(403).json({ error: "Access denied: Portfolio not owned by user" });
+      }
+      
+      const holdings = await storage.getPortfolioHoldings(portfolioId);
+      const assetAllocation = await storage.getAssetAllocation(portfolioId);
+      const performance = await storage.getPortfolioPerformance(portfolioId);
+
+      // Get user profile and financial goals
+      const userProfile = await storage.getUserProfile(userId) || {
+        age: 35,
+        riskTolerance: 'moderate',
+        investmentGoals: ['wealth_creation', 'retirement_planning'],
+        timeHorizon: 10,
+        monthlyIncome: 100000
+      };
+
+      const financialGoals = await storage.getFinancialGoals(userId) || [];
+      if (financialGoals.length > 0) {
+        userProfile.financialGoals = financialGoals.map(goal => ({
+          goal: goal.description,
+          targetAmount: parseFloat(goal.targetAmount),
+          timeframe: goal.targetDate ? Math.ceil((new Date(goal.targetDate).getTime() - Date.now()) / (365.25 * 24 * 60 * 60 * 1000)) : 5
+        }));
+      }
+
+      // Build portfolio data for AI analysis
+      const portfolioData = {
+        id: portfolioId,
+        totalValue: parseFloat(portfolio.totalValue || "0"),
+        holdings: holdings.map(h => ({
+          symbol: h.symbol,
+          quantity: parseFloat(h.quantity),
+          currentPrice: parseFloat(h.avgPrice),
+          currentValue: parseFloat(h.quantity) * parseFloat(h.avgPrice),
+          investedValue: parseFloat(h.quantity) * parseFloat(h.avgPrice),
+          gainLoss: 0,
+          gainLossPercent: 0,
+          assetType: h.assetType || 'equity',
+          sector: h.sector,
+          exchange: h.exchange || 'NSE'
+        })),
+        assetAllocation: assetAllocation?.map(a => ({
+          assetType: a.assetType,
+          percentage: parseFloat(a.currentPercentage || "0"),
+          currentValue: parseFloat(a.currentValue || "0")
+        })) || [],
+        performance: {
+          totalGainLoss: parseFloat(performance?.totalGainLoss || "0"),
+          totalGainLossPercent: parseFloat(performance?.totalGainLossPercent || "0"),
+          dayChange: parseFloat(performance?.dayChange || "0"),
+          dayChangePercent: parseFloat(performance?.dayChangePercent || "0")
+        }
+      };
+
+      const aiProposal = await aiPortfolioService.generateInvestmentProposal(
+        portfolioData,
+        userProfile,
+        validatedAdditionalCapital
+      );
+
+      // Check if OpenAI returned a valid proposal
+      if (!aiProposal) {
+        return res.status(500).json({
+          success: false,
+          error: "Failed to generate investment proposal",
+          message: "AI service returned empty proposal. Please check OpenAI API configuration."
+        });
+      }
+
+      res.json({
+        success: true,
+        data: aiProposal,
+        portfolioSummary: {
+          totalValue: portfolioData.totalValue,
+          holdingsCount: portfolioData.holdings.length,
+          performance: portfolioData.performance
+        }
+      });
+    } catch (error) {
+      console.error("Error generating AI investment proposal:", error);
+      res.status(500).json({ 
+        success: false,
+        error: "Failed to generate AI investment proposal",
+        message: error instanceof Error ? error.message : "Unknown error"
       });
     }
   });

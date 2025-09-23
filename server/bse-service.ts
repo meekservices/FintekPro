@@ -467,7 +467,7 @@ class BSEService {
     });
 
     const result = [];
-    for (const [categoryName, funds] of categories) {
+    for (const [categoryName, funds] of Array.from(categories)) {
       if (funds.length > 0) {
         result.push({
           name: categoryName,
