@@ -14688,6 +14688,119 @@ System Security Data:`;
     }
   });
 
+  // Client: Complete order through BSE Star API
+  app.post('/api/proposals/:proposalId/complete-order', requireClientOrHigher, async (req: any, res: any) => {
+    try {
+      const { proposalId } = req.params;
+      const { orderType = 'LUMPSUM' } = req.body;
+      const userId = req.user.id;
+      
+      // Get proposal and items
+      const proposal = await storage.getInvestmentProposal(proposalId);
+      if (!proposal) {
+        return res.status(404).json({ error: 'Proposal not found' });
+      }
+
+      // Verify proposal belongs to user
+      if (proposal.clientId !== userId) {
+        return res.status(403).json({ error: 'Not authorized to complete this proposal' });
+      }
+
+      // Check if proposal is accepted
+      if (proposal.status !== 'accepted') {
+        return res.status(400).json({ error: 'Proposal must be accepted before completion' });
+      }
+
+      // Get proposal items
+      const proposalItems = await storage.getInvestmentProposalItems(proposalId);
+      if (!proposalItems || proposalItems.length === 0) {
+        return res.status(400).json({ error: 'No items found in proposal' });
+      }
+
+      // Prepare BSE order request
+      const bseOrderRequest = {
+        proposalId,
+        clientCode: userId, // Using user ID as client code for demo
+        orderType: orderType as 'LUMPSUM' | 'SIP',
+        items: proposalItems.map(item => ({
+          schemeCode: item.schemeCode,
+          amount: item.amount,
+          transactionType: 'P' as const, // Purchase
+          folioNo: item.folioNo || undefined,
+          sipFreq: item.sipFreq || 'MONTHLY',
+          sipStartDate: item.sipStartDate,
+          sipEndDate: item.sipEndDate
+        }))
+      };
+
+      // Import BSE API service
+      const { bseStarApi } = await import('./bseStarApi');
+      
+      // Complete order through BSE Star API
+      const orderResult = await bseStarApi.completeOrder(bseOrderRequest);
+      
+      if (orderResult.success) {
+        // Update proposal status to completed
+        await storage.updateProposalStatus(proposalId, 'completed');
+        
+        res.json({
+          success: true,
+          message: 'Order completed successfully',
+          orderId: orderResult.orderId,
+          transNo: orderResult.transNo,
+          paymentUrl: orderResult.paymentUrl,
+          bseReference: orderResult.bseReference
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          error: orderResult.message
+        });
+      }
+
+    } catch (error) {
+      console.error('Failed to complete order:', error);
+      res.status(500).json({ error: 'Failed to complete order' });
+    }
+  });
+
+  // Client: Check order status
+  app.get('/api/orders/:transNo/status', requireClientOrHigher, async (req: any, res: any) => {
+    try {
+      const { transNo } = req.params;
+      
+      // Import BSE API service
+      const { bseStarApi } = await import('./bseStarApi');
+      
+      // Get order status from BSE
+      const orderStatus = await bseStarApi.getOrderStatus(transNo);
+      
+      res.json(orderStatus);
+    } catch (error) {
+      console.error('Failed to check order status:', error);
+      res.status(500).json({ error: 'Failed to check order status' });
+    }
+  });
+
+  // Client: Check payment status
+  app.get('/api/payments/:transNo/status', requireClientOrHigher, async (req: any, res: any) => {
+    try {
+      const { transNo } = req.params;
+      const userId = req.user.id;
+      
+      // Import BSE API service
+      const { bseStarApi } = await import('./bseStarApi');
+      
+      // Check payment status from BSE
+      const paymentStatus = await bseStarApi.checkPaymentStatus(userId, transNo);
+      
+      res.json(paymentStatus);
+    } catch (error) {
+      console.error('Failed to check payment status:', error);
+      res.status(500).json({ error: 'Failed to check payment status' });
+    }
+  });
+
   // Load proposal items to cart
   app.post("/api/proposals/:proposalId/load-to-cart", requireAuth, async (req, res) => {
     try {

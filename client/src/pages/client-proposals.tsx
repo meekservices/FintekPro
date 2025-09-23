@@ -18,7 +18,9 @@ import {
   Clock,
   Search,
   Calendar,
-  User
+  User,
+  CreditCard,
+  Loader2
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -82,6 +84,8 @@ export default function ClientProposalsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isOrderDialogOpen, setIsOrderDialogOpen] = useState(false);
+  const [selectedOrderType, setSelectedOrderType] = useState<'LUMPSUM' | 'SIP'>('LUMPSUM');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -163,6 +167,43 @@ export default function ClientProposalsPage() {
     }
   });
 
+  const completeOrderMutation = useMutation({
+    mutationFn: async ({ proposalId, orderType }: { proposalId: string; orderType: string }) => {
+      const response = await apiRequest('POST', `/api/proposals/${proposalId}/complete-order`, { orderType });
+      return await response.json();
+    },
+    onSuccess: (data, { proposalId }) => {
+      const proposal = proposals.find(p => p.id === proposalId);
+      
+      // Handle payment URL if provided
+      if (data.paymentUrl) {
+        // Open payment URL in new tab
+        window.open(data.paymentUrl, '_blank');
+        
+        toast({
+          title: "Order placed successfully",
+          description: `Payment link opened for "${proposal?.title}". Complete payment to finalize your investment.`
+        });
+      } else {
+        toast({
+          title: "Order completed successfully",
+          description: `Your investment in "${proposal?.title}" has been processed through BSE Star MF.`
+        });
+      }
+      
+      queryClient.invalidateQueries({ queryKey: ['/api/proposals'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/cart'] });
+      setIsOrderDialogOpen(false);
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Order completion failed",
+        description: error.message || "Failed to complete order. Please try again."
+      });
+    }
+  });
+
   // Mark as viewed mutation
   const markAsViewedMutation = useMutation({
     mutationFn: async (proposalId: string) => {
@@ -214,6 +255,29 @@ export default function ClientProposalsPage() {
     }
 
     addToCartMutation.mutate(proposalId);
+  };
+
+  const handleCompleteOrder = (proposal: Proposal) => {
+    if (proposal.status !== 'accepted') {
+      toast({
+        variant: "destructive",
+        title: "Cannot complete order",
+        description: "Please accept the proposal first before completing the order."
+      });
+      return;
+    }
+
+    setSelectedProposal(proposal);
+    setIsOrderDialogOpen(true);
+  };
+
+  const handleConfirmOrder = () => {
+    if (!selectedProposal) return;
+    
+    completeOrderMutation.mutate({
+      proposalId: selectedProposal.id,
+      orderType: selectedOrderType
+    });
   };
 
   const formatCurrency = (amount: number) => {
@@ -403,15 +467,28 @@ export default function ClientProposalsPage() {
                             </>
                           )}
                           {proposal.status === 'accepted' && (
-                            <Button
-                              size="sm"
-                              onClick={() => handleAddToCart(proposal.id)}
-                              disabled={addToCartMutation.isPending}
-                              data-testid={`button-add-cart-${proposal.id}`}
-                            >
-                              <ShoppingCart className="h-4 w-4 mr-1" />
-                              Add to Cart
-                            </Button>
+                            <>
+                              <Button
+                                size="sm"
+                                onClick={() => handleAddToCart(proposal.id)}
+                                disabled={addToCartMutation.isPending}
+                                data-testid={`button-add-cart-${proposal.id}`}
+                              >
+                                <ShoppingCart className="h-4 w-4 mr-1" />
+                                Add to Cart
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="default"
+                                onClick={() => handleCompleteOrder(proposal)}
+                                disabled={completeOrderMutation.isPending}
+                                data-testid={`button-complete-order-${proposal.id}`}
+                                className="bg-green-600 hover:bg-green-700"
+                              >
+                                <CreditCard className="h-4 w-4 mr-1" />
+                                Complete Order
+                              </Button>
+                            </>
                           )}
                         </div>
                       </div>
@@ -555,19 +632,118 @@ export default function ClientProposalsPage() {
                 </>
               )}
               {selectedProposal && selectedProposal.status === 'accepted' && (
-                <Button
-                  onClick={() => {
-                    handleAddToCart(selectedProposal.id);
-                    setIsViewDialogOpen(false);
-                  }}
-                  disabled={addToCartMutation.isPending}
-                  className="flex-1"
-                >
-                  <ShoppingCart className="h-4 w-4 mr-2" />
-                  Add to Cart
-                </Button>
+                <>
+                  <Button
+                    onClick={() => {
+                      handleAddToCart(selectedProposal.id);
+                      setIsViewDialogOpen(false);
+                    }}
+                    disabled={addToCartMutation.isPending}
+                    className="flex-1"
+                    variant="outline"
+                  >
+                    <ShoppingCart className="h-4 w-4 mr-2" />
+                    Add to Cart
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      handleCompleteOrder(selectedProposal);
+                      setIsViewDialogOpen(false);
+                    }}
+                    disabled={completeOrderMutation.isPending}
+                    className="flex-1 bg-green-600 hover:bg-green-700"
+                  >
+                    <CreditCard className="h-4 w-4 mr-2" />
+                    Complete Order
+                  </Button>
+                </>
               )}
             </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Order Completion Dialog */}
+      <Dialog open={isOrderDialogOpen} onOpenChange={setIsOrderDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              Complete Order
+            </DialogTitle>
+            <DialogDescription>
+              Complete your investment order through BSE Star MF
+            </DialogDescription>
+          </DialogHeader>
+          {selectedProposal && (
+            <div className="space-y-4">
+              <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+                <h4 className="font-medium mb-2">{selectedProposal.title}</h4>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Total Investment: <span className="font-semibold">{formatCurrency(selectedProposal.totalAmount)}</span>
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {selectedProposal.items.length} investment products
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="orderType">Order Type</Label>
+                <select 
+                  id="orderType"
+                  value={selectedOrderType}
+                  onChange={(e) => setSelectedOrderType(e.target.value as 'LUMPSUM' | 'SIP')}
+                  className="w-full px-3 py-2 border border-input bg-background text-foreground rounded-md"
+                >
+                  <option value="LUMPSUM">Lumpsum Investment</option>
+                  <option value="SIP">Systematic Investment Plan (SIP)</option>
+                </select>
+                <p className="text-xs text-muted-foreground">
+                  {selectedOrderType === 'LUMPSUM' 
+                    ? 'One-time investment with immediate processing'
+                    : 'Monthly recurring investment with automatic debit'
+                  }
+                </p>
+              </div>
+
+              <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full mt-1.5 flex-shrink-0" />
+                  <div className="text-sm">
+                    <p className="font-medium text-blue-900 dark:text-blue-100">BSE Star MF Integration</p>
+                    <p className="text-blue-700 dark:text-blue-300 mt-1">
+                      Your order will be processed through BSE Star MF platform for secure and regulated mutual fund transactions.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsOrderDialogOpen(false)}
+              disabled={completeOrderMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmOrder}
+              disabled={completeOrderMutation.isPending}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {completeOrderMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <CreditCard className="h-4 w-4 mr-2" />
+                  Confirm Order
+                </>
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
