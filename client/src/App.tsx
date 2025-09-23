@@ -31,8 +31,8 @@ import IBTradingPage from "@/pages/ib-trading";
 import Store from "@/pages/store";
 import Cart from "@/pages/cart";
 import ApiMonitorDemo from "@/pages/api-monitor-demo";
-import ICICIBanking from "@/pages/icici-banking";
-import HDFCBanking from "@/pages/hdfc-banking";
+import ICICILoans from "@/pages/icici-loans";
+import HDFCLoans from "@/pages/hdfc-loans";
 import ClientAutoPopulate from "@/pages/client-auto-populate";
 import Privacy from "@/pages/privacy";
 import Terms from "@/pages/terms";
@@ -89,8 +89,8 @@ function UserProtectedRoutes() {
         <Route path="/store" component={Store} />
         <Route path="/cart" component={Cart} />
         <Route path="/api-monitor" component={ApiMonitorDemo} />
-        <Route path="/icici-banking" component={ICICIBanking} />
-        <Route path="/hdfc-banking" component={HDFCBanking} />
+        <Route path="/icici-loans" component={ICICILoans} />
+        <Route path="/hdfc-loans" component={HDFCLoans} />
         <Route path="/client-auto-populate" component={ClientAutoPopulate} />
         <Route path="/aif" component={AIF} />
         <Route path="/bajaj-finance" component={BajajFinance} />
