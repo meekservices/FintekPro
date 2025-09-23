@@ -382,6 +382,18 @@ export interface IStorage {
   // Source monitoring
   getSourcesStatus(): Promise<MultiSourceStatus>;
   updateSourceStatus(status: SourceStatus): Promise<void>;
+
+  // ICICI Bank Loan Application methods
+  createICICILoanApplication(application: InsertICICILoanApplication): Promise<ICICILoanApplication>;
+  getICICILoanApplicationsByUser(userId: string): Promise<ICICILoanApplication[]>;
+  getICICILoanApplication(id: string): Promise<ICICILoanApplication | undefined>;
+  getICICILoanApplicationByApplicationId(applicationId: string): Promise<ICICILoanApplication | undefined>;
+  updateICICILoanApplicationStatus(applicationId: string, updates: Partial<ICICILoanApplication>): Promise<ICICILoanApplication | undefined>;
+
+  // ICICI Credit Score methods
+  createICICICreditScore(creditScore: InsertICICICreditScore): Promise<ICICICreditScore>;
+  getICICICreditScoresByUser(userId: string): Promise<ICICICreditScore[]>;
+  getLatestICICICreditScore(userId: string): Promise<ICICICreditScore | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1611,6 +1623,75 @@ export class DatabaseStorage implements IStorage {
     // This method would handle password hashing initialization
     // For database storage, this is typically handled in the create/update user methods
     console.log('DatabaseStorage: Password initialization handled in user creation/update methods');
+  }
+
+  // ICICI Bank Loan Application methods
+  async createICICILoanApplication(application: InsertICICILoanApplication): Promise<ICICILoanApplication> {
+    const [newApplication] = await db
+      .insert(schema.iciciBankLoanApplications)
+      .values(application)
+      .returning();
+    return newApplication;
+  }
+
+  async getICICILoanApplicationsByUser(userId: string): Promise<ICICILoanApplication[]> {
+    return await db
+      .select()
+      .from(schema.iciciBankLoanApplications)
+      .where(eq(schema.iciciBankLoanApplications.userId, userId))
+      .orderBy(desc(schema.iciciBankLoanApplications.createdAt));
+  }
+
+  async getICICILoanApplication(id: string): Promise<ICICILoanApplication | undefined> {
+    const [application] = await db
+      .select()
+      .from(schema.iciciBankLoanApplications)
+      .where(eq(schema.iciciBankLoanApplications.id, id));
+    return application || undefined;
+  }
+
+  async getICICILoanApplicationByApplicationId(applicationId: string): Promise<ICICILoanApplication | undefined> {
+    const [application] = await db
+      .select()
+      .from(schema.iciciBankLoanApplications)
+      .where(eq(schema.iciciBankLoanApplications.applicationId, applicationId));
+    return application || undefined;
+  }
+
+  async updateICICILoanApplicationStatus(applicationId: string, updates: Partial<ICICILoanApplication>): Promise<ICICILoanApplication | undefined> {
+    const [updatedApplication] = await db
+      .update(schema.iciciBankLoanApplications)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.iciciBankLoanApplications.applicationId, applicationId))
+      .returning();
+    return updatedApplication || undefined;
+  }
+
+  // ICICI Credit Score methods
+  async createICICICreditScore(creditScore: InsertICICICreditScore): Promise<ICICICreditScore> {
+    const [newCreditScore] = await db
+      .insert(schema.iciciBankCreditScores)
+      .values(creditScore)
+      .returning();
+    return newCreditScore;
+  }
+
+  async getICICICreditScoresByUser(userId: string): Promise<ICICICreditScore[]> {
+    return await db
+      .select()
+      .from(schema.iciciBankCreditScores)
+      .where(eq(schema.iciciBankCreditScores.userId, userId))
+      .orderBy(desc(schema.iciciBankCreditScores.createdAt));
+  }
+
+  async getLatestICICICreditScore(userId: string): Promise<ICICICreditScore | undefined> {
+    const [creditScore] = await db
+      .select()
+      .from(schema.iciciBankCreditScores)
+      .where(eq(schema.iciciBankCreditScores.userId, userId))
+      .orderBy(desc(schema.iciciBankCreditScores.createdAt))
+      .limit(1);
+    return creditScore || undefined;
   }
 
   // Property access for backward compatibility

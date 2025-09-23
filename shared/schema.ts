@@ -3870,3 +3870,98 @@ export interface MultiSourceStatus {
   lastUpdated: string;
   overallHealth: 'healthy' | 'degraded' | 'unhealthy';
 }
+
+// ICICI Loan Applications table
+export const iciciBankLoanApplications = pgTable("icici_bank_loan_applications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Application Details
+  applicationId: varchar("application_id").unique(), // ICICI application ID
+  loanType: varchar("loan_type").notNull(), // personal/home/business/education/vehicle
+  status: varchar("status").default("submitted"), // submitted/under_review/approved/rejected/pending_documents
+  
+  // Loan Details
+  requestedAmount: decimal("requested_amount", { precision: 15, scale: 2 }).notNull(),
+  sanctionedAmount: decimal("sanctioned_amount", { precision: 15, scale: 2 }),
+  interestRate: decimal("interest_rate", { precision: 5, scale: 2 }),
+  tenure: integer("tenure"), // in months
+  emi: decimal("emi", { precision: 15, scale: 2 }),
+  processingFee: decimal("processing_fee", { precision: 15, scale: 2 }),
+  
+  // Application Data (JSON)
+  applicantDetails: jsonb("applicant_details").notNull(),
+  addressDetails: jsonb("address_details").notNull(),
+  employmentDetails: jsonb("employment_details").notNull(),
+  bankingDetails: jsonb("banking_details").notNull(),
+  loanDetails: jsonb("loan_details").notNull(),
+  documents: jsonb("documents").default([]),
+  
+  // Consent and Terms
+  cibilConsent: boolean("cibil_consent").default(false),
+  termsAccepted: boolean("terms_accepted").default(false),
+  
+  // Status History
+  statusHistory: jsonb("status_history").default([]),
+  
+  // Important Dates
+  applicationDate: timestamp("application_date").defaultNow(),
+  expectedDecisionDate: timestamp("expected_decision_date"),
+  decisionDate: timestamp("decision_date"),
+  disbursementDate: timestamp("disbursement_date"),
+  
+  // Additional Information
+  nextSteps: jsonb("next_steps").default([]),
+  documentsRequired: jsonb("documents_required").default([]),
+  remarks: text("remarks"),
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// ICICI Credit Score Requests table
+export const iciciBankCreditScores = pgTable("icici_bank_credit_scores", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Credit Score Details
+  cibilScore: integer("cibil_score"),
+  scoreDate: timestamp("score_date"),
+  
+  // Score Analysis
+  factors: jsonb("factors").default([]),
+  recommendations: jsonb("recommendations").default([]),
+  
+  // Request Details
+  requestedAt: timestamp("requested_at").defaultNow(),
+  panNumber: varchar("pan_number"),
+  mobileNumber: varchar("mobile_number"),
+  
+  // Status
+  status: varchar("status").default("pending"), // pending/completed/failed
+  errorMessage: text("error_message"),
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Insert schemas for loan applications
+export const insertICICILoanApplicationSchema = createInsertSchema(iciciBankLoanApplications).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertICICICreditScoreSchema = createInsertSchema(iciciBankCreditScores).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Export ICICI loan types
+export type ICICILoanApplication = typeof iciciBankLoanApplications.$inferSelect;
+export type ICICICreditScore = typeof iciciBankCreditScores.$inferSelect;
+export type InsertICICILoanApplication = z.infer<typeof insertICICILoanApplicationSchema>;
+export type InsertICICICreditScore = z.infer<typeof insertICICICreditScoreSchema>;

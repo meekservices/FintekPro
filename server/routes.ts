@@ -1955,6 +1955,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
   // HDFC Bank API endpoints
   app.get("/api/hdfc/health", async (req, res) => {
     try {
@@ -7692,6 +7693,204 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     next();
   };
+
+  // =================================================================
+  // ICICI BANK LOS ROUTES - PROTECTED (requireAuth)  
+  // =================================================================
+  
+  // ICICI Bank Loan Origination System (LOS) routes
+  app.post("/api/icici/loans/apply", requireAuth, async (req: any, res: any) => {
+    try {
+      const userId = req.user.id;
+      const loanApplication = req.body;
+
+      // Validate required fields
+      if (!loanApplication.loanType || !loanApplication.applicantDetails || !loanApplication.loanDetails) {
+        return res.status(400).json({
+          success: false,
+          error: "Missing required loan application fields"
+        });
+      }
+
+      // Submit to ICICI Bank LOS
+      const result = await iciciBankAPI.submitLoanApplication(loanApplication);
+      
+      if (result.success && result.data) {
+        // Store application in database
+        const dbApplication = await storage.createICICILoanApplication({
+          userId,
+          applicationId: result.data.applicationId,
+          loanType: loanApplication.loanType,
+          requestedAmount: loanApplication.loanDetails.loanAmount.toString(),
+          applicantDetails: loanApplication.applicantDetails,
+          addressDetails: loanApplication.addressDetails,
+          employmentDetails: loanApplication.employmentDetails,
+          bankingDetails: loanApplication.bankingDetails,
+          loanDetails: loanApplication.loanDetails,
+          documents: loanApplication.documents || [],
+          cibilConsent: loanApplication.cibilConsent,
+          termsAccepted: loanApplication.termsAccepted,
+          status: result.data.status,
+          sanctionedAmount: result.data.sanctionedAmount?.toString(),
+          interestRate: result.data.interestRate?.toString(),
+          tenure: result.data.tenure,
+          emi: result.data.emi?.toString(),
+          processingFee: result.data.processingFee?.toString(),
+          statusHistory: [{
+            status: result.data.status,
+            timestamp: new Date().toISOString(),
+            remarks: result.data.message
+          }],
+          nextSteps: result.data.nextSteps || [],
+          documentsRequired: result.data.documentsRequired || [],
+          expectedDecisionDate: result.data.expectedDecisionDate ? new Date(result.data.expectedDecisionDate) : undefined
+        });
+
+        res.status(201).json({
+          success: true,
+          data: {
+            id: dbApplication.id,
+            ...result.data
+          }
+        });
+      } else {
+        res.status(400).json(result);
+      }
+    } catch (error: any) {
+      console.error("Error submitting loan application:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to submit loan application"
+      });
+    }
+  });
+
+  app.get("/api/icici/loans/status/:applicationId", requireAuth, async (req: any, res: any) => {
+    try {
+      const { applicationId } = req.params;
+      const userId = req.user.id;
+
+      // Get status from ICICI Bank
+      const result = await iciciBankAPI.getLoanStatus(applicationId);
+      
+      if (result.success && result.data) {
+        // Update local database
+        await storage.updateICICILoanApplicationStatus(applicationId, {
+          status: result.data.currentStatus,
+          statusHistory: result.data.statusHistory,
+          loanDetails: result.data.loanDetails,
+          disbursementDetails: result.data.disbursementDetails,
+          nextAction: result.data.nextAction
+        });
+
+        res.json(result);
+      } else {
+        res.status(400).json(result);
+      }
+    } catch (error: any) {
+      console.error("Error fetching loan status:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch loan status"
+      });
+    }
+  });
+
+  app.post("/api/icici/loans/eligibility", requireAuth, async (req: any, res: any) => {
+    try {
+      const { loanType, monthlyIncome, existingEmi, loanAmount, tenure } = req.body;
+
+      if (!loanType || !monthlyIncome || !loanAmount || !tenure) {
+        return res.status(400).json({
+          success: false,
+          error: "Missing required eligibility check fields"
+        });
+      }
+
+      const result = await iciciBankAPI.getLoanEligibility(
+        loanType,
+        monthlyIncome,
+        existingEmi || 0,
+        loanAmount,
+        tenure
+      );
+
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error checking loan eligibility:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to check loan eligibility"
+      });
+    }
+  });
+
+  app.post("/api/icici/credit-score", requireAuth, async (req: any, res: any) => {
+    try {
+      const { panNumber, mobileNumber } = req.body;
+      const userId = req.user.id;
+
+      if (!panNumber || !mobileNumber) {
+        return res.status(400).json({
+          success: false,
+          error: "PAN number and mobile number are required"
+        });
+      }
+
+      const result = await iciciBankAPI.getCreditScore(panNumber, mobileNumber);
+      
+      if (result.success && result.data) {
+        // Store credit score request in database
+        await storage.createICICICreditScore({
+          userId,
+          cibilScore: result.data.cibilScore,
+          scoreDate: result.data.scoreDate ? new Date(result.data.scoreDate) : undefined,
+          factors: result.data.factors,
+          recommendations: result.data.recommendations,
+          panNumber,
+          mobileNumber,
+          status: "completed"
+        });
+
+        res.json(result);
+      } else {
+        // Store failed request
+        await storage.createICICICreditScore({
+          userId,
+          panNumber,
+          mobileNumber,
+          status: "failed",
+          errorMessage: result.error
+        });
+
+        res.status(400).json(result);
+      }
+    } catch (error: any) {
+      console.error("Error fetching credit score:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch credit score"
+      });
+    }
+  });
+
+  app.get("/api/icici/loans/my-applications", requireAuth, async (req: any, res: any) => {
+    try {
+      const userId = req.user.id;
+      const applications = await storage.getICICILoanApplicationsByUser(userId);
+      
+      res.json({
+        success: true,
+        data: applications
+      });
+    } catch (error: any) {
+      console.error("Error fetching loan applications:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch loan applications"
+      });
+    }
+  });
 
   const requireOwnPortfolio = async (req: any, res: any, next: any) => {
     try {

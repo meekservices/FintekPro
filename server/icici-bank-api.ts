@@ -56,6 +56,142 @@ export interface PaymentResponse {
   message: string;
 }
 
+// Loan Origination System (LOS) Interfaces
+export interface LoanApplication {
+  applicationId?: string;
+  loanType: 'personal' | 'home' | 'business' | 'education' | 'vehicle';
+  applicantDetails: {
+    firstName: string;
+    lastName: string;
+    middleName?: string;
+    dateOfBirth: string;
+    panNumber: string;
+    aadharNumber?: string;
+    mobileNumber: string;
+    emailId: string;
+    fatherName?: string;
+    motherName?: string;
+    spouseName?: string;
+    maritalStatus: 'single' | 'married' | 'divorced' | 'widowed';
+    nationality: string;
+    residentialStatus: 'resident' | 'nri' | 'pio' | 'oci';
+  };
+  addressDetails: {
+    currentAddress: {
+      addressLine1: string;
+      addressLine2?: string;
+      city: string;
+      state: string;
+      pincode: string;
+      addressType: 'owned' | 'rented' | 'family';
+      yearsAtAddress: number;
+    };
+    permanentAddress?: {
+      addressLine1: string;
+      addressLine2?: string;
+      city: string;
+      state: string;
+      pincode: string;
+      isSameAsCurrent: boolean;
+    };
+  };
+  employmentDetails: {
+    employmentType: 'salaried' | 'self_employed' | 'business' | 'professional' | 'retired';
+    companyName?: string;
+    designation?: string;
+    workExperience?: number;
+    companyAddress?: {
+      addressLine1: string;
+      city: string;
+      state: string;
+      pincode: string;
+    };
+    monthlyIncome: number;
+    annualIncome: number;
+    incomeProof: string[]; // Document types
+  };
+  loanDetails: {
+    loanAmount: number;
+    tenure: number; // in months
+    purpose: string;
+    collateral?: {
+      type: string;
+      value: number;
+      description: string;
+    };
+  };
+  bankingDetails: {
+    accountNumber: string;
+    ifscCode: string;
+    bankName: string;
+    accountType: 'savings' | 'current';
+    accountHolderName: string;
+  };
+  documents: {
+    type: string;
+    fileName: string;
+    fileUrl: string;
+    verified: boolean;
+  }[];
+  cibilConsent: boolean;
+  termsAccepted: boolean;
+  applicationDate: string;
+}
+
+export interface LoanApplicationResponse {
+  applicationId: string;
+  status: 'submitted' | 'under_review' | 'approved' | 'rejected' | 'pending_documents';
+  loanAmount: number;
+  sanctionedAmount?: number;
+  interestRate?: number;
+  tenure?: number;
+  emi?: number;
+  processingFee?: number;
+  message: string;
+  nextSteps?: string[];
+  documentsRequired?: string[];
+  applicationDate: string;
+  expectedDecisionDate?: string;
+}
+
+export interface LoanStatusResponse {
+  applicationId: string;
+  currentStatus: 'submitted' | 'document_verification' | 'credit_check' | 'underwriting' | 'approved' | 'rejected' | 'disbursed';
+  statusHistory: {
+    status: string;
+    timestamp: string;
+    remarks?: string;
+  }[];
+  loanDetails?: {
+    sanctionedAmount: number;
+    interestRate: number;
+    tenure: number;
+    emi: number;
+    processingFee: number;
+  };
+  disbursementDetails?: {
+    disbursementDate: string;
+    disbursementAmount: number;
+    accountCredited: string;
+  };
+  nextAction?: {
+    actionRequired: string;
+    deadline?: string;
+    description: string;
+  };
+}
+
+export interface CreditScoreResponse {
+  cibilScore: number;
+  scoreDate: string;
+  factors: {
+    factor: string;
+    impact: 'positive' | 'negative' | 'neutral';
+    description: string;
+  }[];
+  recommendations: string[];
+}
+
 export class ICICIBankAPI {
   private client: AxiosInstance;
   private config: ICICIBankConfig;
@@ -281,6 +417,185 @@ export class ICICIBankAPI {
         data: {
           downloadUrl: response.data.downloadUrl,
           fileSize: response.data.fileSize
+        }
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message,
+        code: error.response?.status?.toString()
+      };
+    }
+  }
+
+  /**
+   * Submit loan application to ICICI Bank LOS
+   */
+  async submitLoanApplication(application: LoanApplication): Promise<ICICIBankResponse<LoanApplicationResponse>> {
+    try {
+      const response = await this.client.post('/api/v1/loans/apply', {
+        loanType: application.loanType,
+        applicantDetails: application.applicantDetails,
+        addressDetails: application.addressDetails,
+        employmentDetails: application.employmentDetails,
+        loanDetails: application.loanDetails,
+        bankingDetails: application.bankingDetails,
+        documents: application.documents,
+        cibilConsent: application.cibilConsent,
+        termsAccepted: application.termsAccepted,
+        channel: 'api',
+        source: 'partner',
+        timestamp: new Date().toISOString()
+      });
+
+      return {
+        success: true,
+        data: {
+          applicationId: response.data.applicationId,
+          status: response.data.status,
+          loanAmount: response.data.loanAmount,
+          sanctionedAmount: response.data.sanctionedAmount,
+          interestRate: response.data.interestRate,
+          tenure: response.data.tenure,
+          emi: response.data.emi,
+          processingFee: response.data.processingFee,
+          message: response.data.message,
+          nextSteps: response.data.nextSteps,
+          documentsRequired: response.data.documentsRequired,
+          applicationDate: response.data.applicationDate,
+          expectedDecisionDate: response.data.expectedDecisionDate
+        }
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message,
+        code: error.response?.status?.toString()
+      };
+    }
+  }
+
+  /**
+   * Get loan application status
+   */
+  async getLoanStatus(applicationId: string): Promise<ICICIBankResponse<LoanStatusResponse>> {
+    try {
+      const response = await this.client.post('/api/v1/loans/status', {
+        applicationId
+      });
+
+      return {
+        success: true,
+        data: {
+          applicationId: response.data.applicationId,
+          currentStatus: response.data.currentStatus,
+          statusHistory: response.data.statusHistory,
+          loanDetails: response.data.loanDetails,
+          disbursementDetails: response.data.disbursementDetails,
+          nextAction: response.data.nextAction
+        }
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message,
+        code: error.response?.status?.toString()
+      };
+    }
+  }
+
+  /**
+   * Check CIBIL credit score
+   */
+  async getCreditScore(panNumber: string, mobileNumber: string): Promise<ICICIBankResponse<CreditScoreResponse>> {
+    try {
+      const response = await this.client.post('/api/v1/credit/score', {
+        panNumber,
+        mobileNumber,
+        consentDate: new Date().toISOString()
+      });
+
+      return {
+        success: true,
+        data: {
+          cibilScore: response.data.cibilScore,
+          scoreDate: response.data.scoreDate,
+          factors: response.data.factors,
+          recommendations: response.data.recommendations
+        }
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message,
+        code: error.response?.status?.toString()
+      };
+    }
+  }
+
+  /**
+   * Upload loan documents
+   */
+  async uploadLoanDocument(
+    applicationId: string,
+    documentType: string,
+    fileName: string,
+    fileContent: Buffer
+  ): Promise<ICICIBankResponse<{ documentId: string; status: string }>> {
+    try {
+      const formData = new FormData();
+      formData.append('applicationId', applicationId);
+      formData.append('documentType', documentType);
+      formData.append('file', new Blob([fileContent]), fileName);
+
+      const response = await this.client.post('/api/v1/loans/documents/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        }
+      });
+
+      return {
+        success: true,
+        data: {
+          documentId: response.data.documentId,
+          status: response.data.status
+        }
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message,
+        code: error.response?.status?.toString()
+      };
+    }
+  }
+
+  /**
+   * Get loan eligibility
+   */
+  async getLoanEligibility(
+    loanType: string,
+    monthlyIncome: number,
+    existingEmi: number,
+    loanAmount: number,
+    tenure: number
+  ): Promise<ICICIBankResponse<{ eligible: boolean; maxAmount: number; interestRate: number; emi: number }>> {
+    try {
+      const response = await this.client.post('/api/v1/loans/eligibility', {
+        loanType,
+        monthlyIncome,
+        existingEmi,
+        loanAmount,
+        tenure
+      });
+
+      return {
+        success: true,
+        data: {
+          eligible: response.data.eligible,
+          maxAmount: response.data.maxAmount,
+          interestRate: response.data.interestRate,
+          emi: response.data.emi
         }
       };
     } catch (error: any) {
