@@ -53,6 +53,7 @@ import LoanDashboard from "@/pages/loan-dashboard";
 import ProposalsPage from "@/pages/proposals";
 import BrokingPage from "@/pages/broking";
 import AgentPortal from "@/pages/agent-portal";
+import OnboardingPage from "@/pages/onboarding";
 
 function UserProtectedRoutes() {
   return (
@@ -112,6 +113,7 @@ function Router() {
       <Route path="/auth" component={AuthPage} />
       <Route path="/whatsapp-login" component={WhatsAppAuthPage} />
       <Route path="/profile" component={Profile} />
+      <Route path="/onboarding" component={OnboardingPage} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/terms" component={Terms} />
       
