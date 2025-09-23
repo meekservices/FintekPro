@@ -1,5 +1,3 @@
-import { EnhancedNavigation } from "@/components/layout/enhanced-navigation";
-import { Footer } from "@/components/layout/footer";
 import { PortfolioSummary } from "@/components/dashboard/portfolio-summary";
 import { AssetAllocation } from "@/components/dashboard/asset-allocation";
 import { RebalanceDashboard } from "@/components/dashboard/rebalance-dashboard";
@@ -21,25 +19,6 @@ import { ConsentAwareSchemeTab } from "@/components/ConsentAwareSchemeTab";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function Portfolio() {
-  // Navigation state for responsive layout
-  const [isNavCollapsed, setIsNavCollapsed] = useState(() => {
-    try {
-      const saved = localStorage.getItem('navigation-collapsed');
-      return saved ? JSON.parse(saved) : false;
-    } catch {
-      return false;
-    }
-  });
-
-  // Listen for navigation state changes
-  useEffect(() => {
-    const handleNavChange = (event: CustomEvent) => {
-      setIsNavCollapsed(event.detail.isCollapsed);
-    };
-    
-    window.addEventListener('navigation-state-changed', handleNavChange as EventListener);
-    return () => window.removeEventListener('navigation-state-changed', handleNavChange as EventListener);
-  }, []);
 
   // Get portfolios linked to user's PAN card for enhanced security
   const { data: portfolios, isLoading: portfoliosLoading, error: portfoliosError } = usePortfoliosByPan();
@@ -93,7 +72,7 @@ export default function Portfolio() {
             </Button>
           </div>
         </main>
-        <Footer />
+
       </div>
     );
   }
@@ -116,16 +95,14 @@ export default function Portfolio() {
             </Button>
           </div>
         </main>
-        <Footer />
+
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-finance-light" data-testid="portfolio-page">
-      <EnhancedNavigation />
-      
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0">
+    <div className="space-y-8" data-testid="portfolio-page">
+      <div className="space-y-6">
         
 
         {/* Enhanced Portfolio with Tabs */}
@@ -2563,9 +2540,7 @@ export default function Portfolio() {
           </TabsContent>
         </Tabs>
 
-      </main>
-
-      <Footer />
+      </div>
 
       {/* Consent Dialog */}
       {user?.panNumber && (

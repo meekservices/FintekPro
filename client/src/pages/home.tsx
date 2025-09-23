@@ -61,7 +61,7 @@ export default function Home() {
   // Get authenticated user data
   const { user, isAuthenticated } = useAuth();
   const { data: fallbackUser } = useQuery({ queryKey: ["/api/user"], retry: false });
-  const currentUser = user || fallbackUser;
+  const currentUser = user || (fallbackUser as any);
   const userId = (currentUser as any)?.id || "demo-user-1";
   const portfolioId = `portfolio-${userId}`;
   

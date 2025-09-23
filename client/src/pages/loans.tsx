@@ -1,5 +1,3 @@
-import { EnhancedNavigation } from "@/components/layout/enhanced-navigation";
-import { Footer } from "@/components/layout/footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,25 +8,6 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 export default function Loans() {
-  // Navigation state for responsive layout
-  const [isNavCollapsed, setIsNavCollapsed] = useState(() => {
-    try {
-      const saved = localStorage.getItem('navigation-collapsed');
-      return saved ? JSON.parse(saved) : false;
-    } catch {
-      return false;
-    }
-  });
-
-  // Listen for navigation state changes
-  useEffect(() => {
-    const handleNavChange = (event: CustomEvent) => {
-      setIsNavCollapsed(event.detail.isCollapsed);
-    };
-    
-    window.addEventListener('navigation-state-changed', handleNavChange as EventListener);
-    return () => window.removeEventListener('navigation-state-changed', handleNavChange as EventListener);
-  }, []);
   const [loanAmount, setLoanAmount] = useState("");
   const [interestRate, setInterestRate] = useState("");
   const [loanTenure, setLoanTenure] = useState("");
@@ -136,8 +115,8 @@ export default function Loans() {
   };
 
   return (
-    <div className="min-h-screen bg-finance-light" data-testid="loans-page">
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0">
+    <div className="space-y-8" data-testid="loans-page">
+      <div className="space-y-6">
 
         <Tabs defaultValue="explore" className="space-y-8">
           <TabsList className="grid w-full grid-cols-4">
@@ -480,9 +459,8 @@ export default function Loans() {
           </TabsContent>
         </Tabs>
 
-      </main>
+      </div>
 
-      <Footer />
     </div>
   );
 }

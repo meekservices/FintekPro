@@ -1,6 +1,4 @@
 import { useState, useEffect } from "react";
-import { EnhancedNavigation } from "@/components/layout/enhanced-navigation";
-import { Footer } from "@/components/layout/footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -409,25 +407,6 @@ const categoryInfo = {
 };
 
 export default function Store() {
-  // Navigation state for responsive layout
-  const [isNavCollapsed, setIsNavCollapsed] = useState(() => {
-    try {
-      const saved = localStorage.getItem('navigation-collapsed');
-      return saved ? JSON.parse(saved) : false;
-    } catch {
-      return false;
-    }
-  });
-
-  // Listen for navigation state changes
-  useEffect(() => {
-    const handleNavChange = (event: CustomEvent) => {
-      setIsNavCollapsed(event.detail.isCollapsed);
-    };
-    
-    window.addEventListener('navigation-state-changed', handleNavChange as EventListener);
-    return () => window.removeEventListener('navigation-state-changed', handleNavChange as EventListener);
-  }, []);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedRiskLevel, setSelectedRiskLevel] = useState("All");
@@ -726,8 +705,8 @@ export default function Store() {
   };
 
   return (
-    <div className="min-h-screen bg-finance-light" data-testid="store-page">
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0">
+    <div className="space-y-8" data-testid="store-page">
+      <div className="space-y-6">
         {/* Header Section */}
         <div className="mb-10">
           <div className="relative overflow-hidden bg-gradient-to-r from-finance-blue to-purple-600 rounded-2xl p-8 shadow-2xl">
@@ -1111,7 +1090,7 @@ export default function Store() {
             </div>
           )}
         </div>
-      </main>
+      </div>
       
       <ProductDetailsModal 
         product={selectedProduct}
@@ -1121,7 +1100,6 @@ export default function Store() {
         isWishlisted={selectedProduct ? wishlist.includes(selectedProduct.id) : false}
       />
       
-      <Footer />
     </div>
   );
 }
