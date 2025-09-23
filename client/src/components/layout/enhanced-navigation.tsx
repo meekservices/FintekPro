@@ -174,6 +174,8 @@ export function EnhancedNavigation() {
           description: "Personal, home and business loans",
           subItems: [
             { name: "All Loans", href: "/loans", description: "Compare and apply" },
+            { name: "ICICI Bank Loans", href: "/icici-loans", description: "ICICI loan products and applications" },
+            { name: "HDFC Bank Loans", href: "/hdfc-loans", description: "HDFC loan products and applications" },
             { name: "Bajaj Finance", href: "/bajaj-finance", description: "EMI calculator and loans" },
             { name: "Tata Capital", href: "/tata-capital", description: "Business and personal loans" },
             { name: "Loan Dashboard", href: "/loan-dashboard", description: "Track applications" }
@@ -186,17 +188,6 @@ export function EnhancedNavigation() {
           subItems: [
             { name: "PolicyBazaar", href: "/policybazaar", description: "Compare insurance plans" },
             { name: "CIBIL Score", href: "/cibil", description: "Credit score monitoring" }
-          ]
-        },
-        {
-          name: "Banking Services",
-          icon: Building2,
-          description: "Net banking and payments",
-          subItems: [
-            { name: "ICICI Banking", href: "/icici-banking", description: "Account services" },
-            { name: "HDFC Banking", href: "/hdfc-banking", description: "Account services" },
-            { name: "BBPS Payments", href: "/bbps", description: "Bill payment services" },
-            { name: "DigiLocker", href: "/digilocker", description: "Document management" }
           ]
         }
       ]
