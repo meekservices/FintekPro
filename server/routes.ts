@@ -14558,6 +14558,154 @@ System Security Data:`;
     }
   });
 
+  // Load proposal items to cart
+  app.post("/api/proposals/:proposalId/load-to-cart", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      const { proposalId } = req.params;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      // Get the proposal and verify access
+      const proposal = await storage.getInvestmentProposal(proposalId);
+      if (!proposal) {
+        return res.status(404).json({ error: "Proposal not found" });
+      }
+
+      // Check if user is client or agent for this proposal
+      const isAuthorized = proposal.clientId === userId || 
+                          proposal.agentId === userId || 
+                          (req as any).user.role === 'admin';
+      
+      if (!isAuthorized) {
+        return res.status(403).json({ error: "Not authorized to access this proposal" });
+      }
+
+      // Get proposal items
+      const proposalItems = await storage.getInvestmentProposalItems(proposalId);
+      if (!proposalItems || proposalItems.length === 0) {
+        return res.status(400).json({ error: "No items found in proposal" });
+      }
+
+      // Get or create user's cart
+      let [cart] = await db
+        .select()
+        .from(userCart)
+        .where(eq(userCart.userId, userId));
+
+      if (!cart) {
+        [cart] = await db
+          .insert(userCart)
+          .values({ userId })
+          .returning();
+      }
+
+      const addedItems = [];
+      const skippedItems = [];
+
+      // Process each proposal item
+      for (const item of proposalItems) {
+        try {
+          // Try to find matching store product by name, category or code
+          const [storeProduct] = await db
+            .select()
+            .from(storeProducts)
+            .where(
+              or(
+                eq(storeProducts.name, item.productName),
+                and(
+                  eq(storeProducts.productType, item.productType),
+                  like(storeProducts.name, `%${item.productCode}%`)
+                )
+              )
+            )
+            .limit(1);
+
+          if (!storeProduct) {
+            skippedItems.push({
+              productName: item.productName,
+              reason: "Product not available in store"
+            });
+            continue;
+          }
+
+          // Check if item already exists in cart
+          const [existingItem] = await db
+            .select()
+            .from(userCartItems)
+            .where(and(
+              eq(userCartItems.cartId, cart.id),
+              eq(userCartItems.productId, storeProduct.id)
+            ));
+
+          const investmentAmount = item.recommendedAmount?.toString() || storeProduct.minimumInvestment?.toString();
+          const quantity = 1; // Default quantity for financial products
+
+          if (existingItem) {
+            // Update existing item with proposal recommended amount
+            const [updatedItem] = await db
+              .update(userCartItems)
+              .set({
+                quantity: existingItem.quantity + quantity,
+                investmentAmount: investmentAmount || existingItem.investmentAmount
+              })
+              .where(eq(userCartItems.id, existingItem.id))
+              .returning();
+
+            addedItems.push({
+              productName: item.productName,
+              action: "updated",
+              investmentAmount,
+              cartItemId: updatedItem.id
+            });
+          } else {
+            // Add new item to cart
+            const [newItem] = await db
+              .insert(userCartItems)
+              .values({
+                cartId: cart.id,
+                productId: storeProduct.id,
+                quantity,
+                investmentAmount
+              })
+              .returning();
+
+            addedItems.push({
+              productName: item.productName,
+              action: "added",
+              investmentAmount,
+              cartItemId: newItem.id
+            });
+          }
+        } catch (itemError) {
+          console.error(`Error processing proposal item ${item.productName}:`, itemError);
+          skippedItems.push({
+            productName: item.productName,
+            reason: "Error processing item"
+          });
+        }
+      }
+
+      res.json({
+        success: true,
+        proposalId,
+        addedItems,
+        skippedItems,
+        summary: {
+          totalProcessed: proposalItems.length,
+          successful: addedItems.length,
+          skipped: skippedItems.length
+        }
+      });
+
+    } catch (error) {
+      console.error("Error loading proposal to cart:", error);
+      res.status(500).json({ error: "Failed to load proposal items to cart" });
+    }
+  });
+
   // ============ END CART SYSTEM ROUTES ============
 
   // ============ ACHIEVEMENT SYSTEM ROUTES ============
