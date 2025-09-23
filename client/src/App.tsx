@@ -54,6 +54,8 @@ import ProposalsPage from "@/pages/proposals";
 import BrokingPage from "@/pages/broking";
 import AgentPortal from "@/pages/agent-portal";
 import OnboardingPage from "@/pages/onboarding";
+import AdminProposalsPage from "@/pages/admin-proposals";
+import ClientProposalsPage from "@/pages/client-proposals";
 
 function UserProtectedRoutes() {
   return (
@@ -80,6 +82,7 @@ function UserProtectedRoutes() {
         <Route path="/investsmart" component={InvestSmart} />
         <Route path="/wealth-management" component={InvestSmart} />
         <Route path="/proposals" component={ProposalsPage} />
+        <Route path="/my-proposals" component={ClientProposalsPage} />
         <Route path="/achievements" component={Achievements} />
         <Route path="/capital-gains" component={CapitalGainsReports} />
         <Route path="/ib-trading" component={IBTradingPage} />
@@ -119,6 +122,7 @@ function Router() {
       
       {/* Agent/Admin routes - bypass profile completion but require authentication */}
       <Route path="/admin" component={AdminPanel} />
+      <Route path="/admin/proposals" component={AdminProposalsPage} />
       <Route path="/agent" component={AgentDashboard} />
       <Route path="/agent-portal" component={AgentPortal} />
       
