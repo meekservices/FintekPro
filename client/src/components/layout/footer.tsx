@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Facebook, Twitter, Linkedin, Instagram, Store, Package, ShoppingCart, Calculator, Shield, CreditCard, Heart } from "lucide-react";
+import { Facebook, Twitter, Linkedin, Instagram, Store, Package, ShoppingCart, Calculator, Shield, CreditCard, Heart, TrendingUp, PieChart, FileText } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useMutation } from "@tanstack/react-query";
@@ -53,62 +53,70 @@ export function Footer() {
     return "Poor";
   };
 
+  // Trading & Markets - Aligned with navigation
+  const tradingLinks = [
+    { name: "Dashboard", href: "/" },
+    { name: "Portfolio Management", href: "/portfolio" },
+    { name: "Live Markets", href: "/markets" },
+    { name: "Broking Terminal", href: "/broking" },
+    { name: "IPO Center", href: "/ipo" },
+    { name: "Pre-IPO Investments", href: "/pre-ipo" },
+  ];
+
+  // Investments - Aligned with navigation
   const investmentLinks = [
-    { name: "Stocks", href: "/markets" },
     { name: "Mutual Funds", href: "/mutual-funds" },
-    { name: "IPO", href: "/ipo" },
-    { name: "Pre-IPO", href: "/pre-ipo" },
-    { name: "Unlisted", href: "/unlisted" },
-    { name: "PMS", href: "/pms" },
-    { name: "AIF", href: "/aif" },
+    { name: "SIP Calculator", href: "/calculators?tool=sip" },
+    { name: "InvestSmart", href: "/investsmart" },
+    { name: "AIF Investments", href: "/aif" },
+    { name: "Investment Proposals", href: "/proposals" },
+    { name: "Unlisted Shares", href: "/unlisted" },
   ];
 
+  // Financial Services - Loans & Credit (Aligned with navigation)
   const loanLinks = [
-    { name: "Personal Loan", href: "/loans/personal" },
-    { name: "Home Loan", href: "/loans/home" },
-    { name: "Business Loan", href: "/loans/business" },
-    { name: "Education Loan", href: "/loans/education" },
-    { name: "LAS", href: "/loans/las" },
+    { name: "All Loans", href: "/loans" },
+    { name: "ICICI Bank Loans", href: "/icici-loans" },
+    { name: "HDFC Bank Loans", href: "/hdfc-loans" },
+    { name: "Bajaj Finance", href: "/bajaj-finance" },
+    { name: "Tata Capital", href: "/tata-capital" },
+    { name: "Loan Dashboard", href: "/loan-dashboard" },
   ];
 
+  // Financial Services - Insurance (Aligned with navigation)
+  const insuranceLinks = [
+    { name: "PolicyBazaar", href: "/policybazaar" },
+    { name: "CIBIL Score", href: "/cibil" },
+  ];
+
+  // Tools & Services - Calculators (Aligned with navigation)
+  const calculatorLinks = [
+    { name: "All Calculators", href: "/calculators" },
+    { name: "SIP Calculator", href: "/calculators?tool=sip" },
+    { name: "EMI Calculator", href: "/calculators?tool=emi" },
+    { name: "Tax Calculator", href: "/calculators?tool=tax" },
+  ];
+
+  // Tools & Services - Reports & Analysis (Aligned with navigation)
+  const reportsLinks = [
+    { name: "Market Research", href: "/agricultural-insights" },
+    { name: "NSDL Services", href: "/nsdl-services" },
+    { name: "CDSL Services", href: "/cdsl-services" },
+  ];
+
+  // Tools & Services - Store (Aligned with navigation)
+  const storeLinks = [
+    { name: "Product Store", href: "/store" },
+    { name: "Shopping Cart", href: "/cart" },
+  ];
+
+  // Support (Aligned with navigation)
   const supportLinks = [
     { name: "Contact Us", href: "/contact" },
-    { name: "Help Center", href: "/help" },
+    { name: "Support & Help", href: "/support" },
     { name: "DigiLocker", href: "/digilocker" },
     { name: "Terms & Conditions", href: "/terms" },
     { name: "Privacy Policy", href: "/privacy" },
-  ];
-
-  const storeLinks = [
-    { name: "Browse Products", href: "/store" },
-    { name: "Financial Tools", href: "/store?category=tools" },
-    { name: "Investment Plans", href: "/store?category=plans" },
-    { name: "Premium Services", href: "/store?category=premium" },
-  ];
-
-  const calculatorLinks = [
-    { name: "EMI Calculator", href: "/calculators" },
-    { name: "SIP Calculator", href: "/calculators?tab=sip" },
-    { name: "Tax Calculator", href: "/calculators?tab=tax" },
-    { name: "Bajaj Finance", href: "/bajaj-finance" },
-    { name: "Tata Capital", href: "/tata-capital" },
-    { name: "CIBIL Credit Score", href: "/cibil" },
-  ];
-
-  const billPayLinks = [
-    { name: "BBPS Bill Payment", href: "/bbps" },
-    { name: "Utility Bills", href: "/bbps?category=utilities" },
-    { name: "Credit Card Bills", href: "/bbps?category=credit-card" },
-    { name: "Mobile Recharge", href: "/bbps?category=mobile" },
-    { name: "DTH Recharge", href: "/bbps?category=dth" },
-  ];
-
-  const insuranceLinks = [
-    { name: "General Insurance", href: "/policybazaar" },
-    { name: "Life Insurance", href: "/policybazaar?category=life" },
-    { name: "Health Insurance", href: "/policybazaar?category=health" },
-    { name: "Vehicle Insurance", href: "/policybazaar?category=vehicle" },
-    { name: "Travel Insurance", href: "/policybazaar?category=travel" },
   ];
 
   return (
@@ -132,9 +140,32 @@ export function Footer() {
             </div>
           </div>
           
+          {/* Trading & Markets */}
+          <div>
+            <h4 className="font-semibold mb-4 flex items-center gap-2" data-testid="footer-trading-title">
+              <TrendingUp className="h-4 w-4 text-blue-500" />
+              Trading & Markets
+            </h4>
+            <ul className="space-y-2 text-gray-300">
+              {tradingLinks.map((link) => (
+                <li key={link.name}>
+                  <Link href={link.href}>
+                    <span 
+                      className="hover:text-blue-500 transition-colors cursor-pointer"
+                      data-testid={`footer-trading-${link.name.toLowerCase().replace(/\s+/g, "-")}`}
+                    >
+                      {link.name}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+          
           {/* Investments */}
           <div>
-            <h4 className="font-semibold mb-4" data-testid="footer-investments-title">
+            <h4 className="font-semibold mb-4 flex items-center gap-2" data-testid="footer-investments-title">
+              <PieChart className="h-4 w-4 text-green-500" />
               Investments
             </h4>
             <ul className="space-y-2 text-gray-300">
@@ -142,8 +173,8 @@ export function Footer() {
                 <li key={link.name}>
                   <Link href={link.href}>
                     <span 
-                      className="hover:text-white transition-colors cursor-pointer flex items-center gap-2"
-                      data-testid={`footer-investment-${link.name.toLowerCase().replace(" ", "-")}`}
+                      className="hover:text-green-500 transition-colors cursor-pointer"
+                      data-testid={`footer-investment-${link.name.toLowerCase().replace(/\s+/g, "-")}`}
                     >
                       {link.name}
                     </span>
@@ -153,84 +184,19 @@ export function Footer() {
             </ul>
           </div>
           
-          {/* Store */}
+          {/* Loans & Credit */}
           <div>
-            <h4 className="font-semibold mb-4 flex items-center gap-2" data-testid="footer-store-title">
-              <Store className="h-4 w-4 text-green-400" />
-              Store
-            </h4>
-            <ul className="space-y-2 text-gray-300">
-              {storeLinks.map((link) => (
-                <li key={link.name}>
-                  <Link href={link.href}>
-                    <span 
-                      className="hover:text-green-400 transition-colors cursor-pointer"
-                      data-testid={`footer-store-${link.name.toLowerCase().replace(" ", "-")}`}
-                    >
-                      {link.name}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-          
-          {/* Loans */}
-          <div>
-            <h4 className="font-semibold mb-4" data-testid="footer-loans-title">
-              Loans
+            <h4 className="font-semibold mb-4 flex items-center gap-2" data-testid="footer-loans-title">
+              <CreditCard className="h-4 w-4 text-orange-500" />
+              Loans & Credit
             </h4>
             <ul className="space-y-2 text-gray-300">
               {loanLinks.map((link) => (
                 <li key={link.name}>
                   <Link href={link.href}>
                     <span 
-                      className="hover:text-white transition-colors cursor-pointer"
-                      data-testid={`footer-loan-${link.name.toLowerCase().replace(" ", "-")}`}
-                    >
-                      {link.name}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-          
-          {/* Calculators */}
-          <div>
-            <h4 className="font-semibold mb-4 flex items-center gap-2" data-testid="footer-calculators-title">
-              <Calculator className="h-4 w-4 text-blue-400" />
-              Calculators
-            </h4>
-            <ul className="space-y-2 text-gray-300">
-              {calculatorLinks.map((link) => (
-                <li key={link.name}>
-                  <Link href={link.href}>
-                    <span 
-                      className="hover:text-blue-400 transition-colors cursor-pointer"
-                      data-testid={`footer-calculator-${link.name.toLowerCase().replace(" ", "-")}`}
-                    >
-                      {link.name}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-          
-          {/* Bill Pay */}
-          <div>
-            <h4 className="font-semibold mb-4 flex items-center gap-2" data-testid="footer-billpay-title">
-              <CreditCard className="h-4 w-4 text-purple-400" />
-              Bill Pay
-            </h4>
-            <ul className="space-y-2 text-gray-300">
-              {billPayLinks.map((link) => (
-                <li key={link.name}>
-                  <Link href={link.href}>
-                    <span 
-                      className="hover:text-purple-400 transition-colors cursor-pointer"
-                      data-testid={`footer-billpay-${link.name.toLowerCase().replace(/\s+/g, "-")}`}
+                      className="hover:text-orange-500 transition-colors cursor-pointer"
+                      data-testid={`footer-loan-${link.name.toLowerCase().replace(/\s+/g, "-")}`}
                     >
                       {link.name}
                     </span>
@@ -243,7 +209,7 @@ export function Footer() {
           {/* Insurance */}
           <div>
             <h4 className="font-semibold mb-4 flex items-center gap-2" data-testid="footer-insurance-title">
-              <Heart className="h-4 w-4 text-red-400" />
+              <Shield className="h-4 w-4 text-red-500" />
               Insurance
             </h4>
             <ul className="space-y-2 text-gray-300">
@@ -251,7 +217,7 @@ export function Footer() {
                 <li key={link.name}>
                   <Link href={link.href}>
                     <span 
-                      className="hover:text-red-400 transition-colors cursor-pointer"
+                      className="hover:text-red-500 transition-colors cursor-pointer"
                       data-testid={`footer-insurance-${link.name.toLowerCase().replace(/\s+/g, "-")}`}
                     >
                       {link.name}
@@ -261,19 +227,76 @@ export function Footer() {
               ))}
             </ul>
           </div>
-
-          {/* Support */}
+          
+          {/* Calculators */}
           <div>
-            <h4 className="font-semibold mb-4" data-testid="footer-support-title">
-              Support
+            <h4 className="font-semibold mb-4 flex items-center gap-2" data-testid="footer-calculators-title">
+              <Calculator className="h-4 w-4 text-purple-500" />
+              Calculators
             </h4>
             <ul className="space-y-2 text-gray-300">
+              {calculatorLinks.map((link) => (
+                <li key={link.name}>
+                  <Link href={link.href}>
+                    <span 
+                      className="hover:text-purple-500 transition-colors cursor-pointer"
+                      data-testid={`footer-calculator-${link.name.toLowerCase().replace(/\s+/g, "-")}`}
+                    >
+                      {link.name}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+          
+          {/* Reports & Analysis */}
+          <div>
+            <h4 className="font-semibold mb-4 flex items-center gap-2" data-testid="footer-reports-title">
+              <FileText className="h-4 w-4 text-indigo-500" />
+              Reports & Analysis
+            </h4>
+            <ul className="space-y-2 text-gray-300">
+              {reportsLinks.map((link) => (
+                <li key={link.name}>
+                  <Link href={link.href}>
+                    <span 
+                      className="hover:text-indigo-500 transition-colors cursor-pointer"
+                      data-testid={`footer-reports-${link.name.toLowerCase().replace(/\s+/g, "-")}`}
+                    >
+                      {link.name}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Store & Support */}
+          <div>
+            <h4 className="font-semibold mb-4 flex items-center gap-2" data-testid="footer-store-title">
+              <Store className="h-4 w-4 text-green-400" />
+              Store & Support
+            </h4>
+            <ul className="space-y-2 text-gray-300">
+              {storeLinks.map((link) => (
+                <li key={link.name}>
+                  <Link href={link.href}>
+                    <span 
+                      className="hover:text-green-400 transition-colors cursor-pointer"
+                      data-testid={`footer-store-${link.name.toLowerCase().replace(/\s+/g, "-")}`}
+                    >
+                      {link.name}
+                    </span>
+                  </Link>
+                </li>
+              ))}
               {supportLinks.map((link) => (
                 <li key={link.name}>
                   <Link href={link.href}>
                     <span 
-                      className="hover:text-white transition-colors cursor-pointer"
-                      data-testid={`footer-support-${link.name.toLowerCase().replace(" ", "-")}`}
+                      className="hover:text-green-400 transition-colors cursor-pointer"
+                      data-testid={`footer-support-${link.name.toLowerCase().replace(/\s+/g, "-")}`}
                     >
                       {link.name}
                     </span>
