@@ -47,6 +47,7 @@ import { ObjectStorageService, ObjectNotFoundError } from './objectStorage';
 import { ObjectPermission } from './objectAcl';
 import AIPortfolioService from './ai-portfolio-service';
 import { FundComparisonService } from './services/fund-comparison-service';
+import { PortfolioComparisonService } from './services/portfolio-comparison-service';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -6129,6 +6130,112 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         status: "error", 
         error: "Failed to fetch comparison history"
+      });
+    }
+  });
+
+  // ===== Portfolio Comparison API =====
+  app.post("/api/portfolios/compare", async (req, res) => {
+    try {
+      const { portfolioIds, timePeriod = "1Y", benchmarkIndex = "NIFTY_50", comparisonType = "comprehensive" } = req.body;
+      const userId = req.user?.id || 'demo-user-1';
+
+      if (!portfolioIds || !Array.isArray(portfolioIds) || portfolioIds.length < 2) {
+        return res.status(400).json({ 
+          status: "error",
+          error: "At least 2 portfolio IDs are required for comparison" 
+        });
+      }
+
+      if (portfolioIds.length > 5) {
+        return res.status(400).json({ 
+          status: "error",
+          error: "Maximum 5 portfolios can be compared at once" 
+        });
+      }
+
+      const portfolioComparisonService = new PortfolioComparisonService(storage);
+      const result = await portfolioComparisonService.comparePortfolios(
+        portfolioIds, 
+        userId, 
+        timePeriod, 
+        benchmarkIndex, 
+        comparisonType
+      );
+
+      // Save comparison result
+      const comparisonId = await portfolioComparisonService.saveComparison(
+        userId,
+        portfolioIds,
+        result,
+        timePeriod,
+        benchmarkIndex,
+        comparisonType
+      );
+
+      res.json({
+        status: "success",
+        data: {
+          comparisonId,
+          ...result
+        }
+      });
+    } catch (error) {
+      console.error("Portfolio comparison error:", error);
+      res.status(500).json({ 
+        status: "error",
+        error: "Failed to compare portfolios. Please try again." 
+      });
+    }
+  });
+
+  app.get("/api/portfolios/compare/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const portfolioComparisonService = new PortfolioComparisonService(storage);
+      const comparison = await portfolioComparisonService.getComparison(id);
+
+      if (!comparison) {
+        return res.status(404).json({ 
+          status: "error",
+          error: "Comparison not found" 
+        });
+      }
+
+      res.json({
+        status: "success",
+        data: comparison
+      });
+    } catch (error) {
+      console.error("Error fetching portfolio comparison:", error);
+      res.status(500).json({ 
+        status: "error",
+        error: "Failed to fetch comparison" 
+      });
+    }
+  });
+
+  app.get("/api/users/:userId/portfolio-comparisons", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { limit = 10, offset = 0 } = req.query;
+      const portfolioComparisonService = new PortfolioComparisonService(storage);
+      const comparisons = await portfolioComparisonService.getUserComparisons(userId);
+
+      res.json({
+        status: "success",
+        data: comparisons.slice(Number(offset), Number(offset) + Number(limit)),
+        pagination: {
+          limit: Number(limit),
+          offset: Number(offset),
+          total: comparisons.length
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching user portfolio comparisons:", error);
+      res.status(500).json({ 
+        status: "error",
+        error: "Failed to fetch comparisons" 
       });
     }
   });

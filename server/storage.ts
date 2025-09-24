@@ -394,6 +394,11 @@ export interface IStorage {
   createICICICreditScore(creditScore: InsertICICICreditScore): Promise<ICICICreditScore>;
   getICICICreditScoresByUser(userId: string): Promise<ICICICreditScore[]>;
   getLatestICICICreditScore(userId: string): Promise<ICICICreditScore | undefined>;
+  
+  // Portfolio comparison methods
+  createPortfolioComparison(comparison: InsertPortfolioComparison): Promise<string>;
+  getPortfolioComparison(id: string): Promise<any>;
+  getUserPortfolioComparisons(userId: string): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1692,6 +1697,39 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(schema.iciciBankCreditScores.createdAt))
       .limit(1);
     return creditScore || undefined;
+  }
+
+  // Portfolio comparison methods
+  async createPortfolioComparison(comparison: InsertPortfolioComparison): Promise<string> {
+    try {
+      const [result] = await db.insert(schema.portfolioComparisons).values(comparison).returning({ id: schema.portfolioComparisons.id });
+      return result.id;
+    } catch (error) {
+      console.error("Error creating portfolio comparison:", error);
+      throw new Error("Failed to create portfolio comparison");
+    }
+  }
+
+  async getPortfolioComparison(id: string): Promise<any> {
+    try {
+      const [comparison] = await db.select().from(schema.portfolioComparisons).where(eq(schema.portfolioComparisons.id, id));
+      return comparison;
+    } catch (error) {
+      console.error("Error fetching portfolio comparison:", error);
+      return undefined;
+    }
+  }
+
+  async getUserPortfolioComparisons(userId: string): Promise<any[]> {
+    try {
+      const comparisons = await db.select().from(schema.portfolioComparisons)
+        .where(eq(schema.portfolioComparisons.userId, userId))
+        .orderBy(desc(schema.portfolioComparisons.createdAt));
+      return comparisons;
+    } catch (error) {
+      console.error("Error fetching user portfolio comparisons:", error);
+      return [];
+    }
   }
 
   // Property access for backward compatibility
