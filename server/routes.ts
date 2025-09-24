@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { sql, eq } from "drizzle-orm";
 import { db } from "./db";
 import { setupAuth } from "./auth";
-import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema, insertCapitalGainsReportSchema, insertTransactionReportSchema, insertTransactionRecordSchema, insertCkycRecordSchema, userCart, userCartItems, storeProducts, storeCategories } from "@shared/schema";
+import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema, insertCapitalGainsReportSchema, insertTransactionReportSchema, insertTransactionRecordSchema, insertCkycRecordSchema, userCart, userCartItems, storeProducts, storeCategories, fundComparisons, portfolioComparisons, comparisonHistory } from "@shared/schema";
 import { marketStoryService, type MarketData as StoryMarketData } from "./market-story-service";
 import { generateMarketInsight, analyzePortfolio, generateInvestmentStory, explainFinancialConcept } from "./gemini";
 import { whatsappService } from "./whatsapp";
@@ -46,6 +46,7 @@ import { multiSourceMFService } from './services/multisource-mf-service';
 import { ObjectStorageService, ObjectNotFoundError } from './objectStorage';
 import { ObjectPermission } from './objectAcl';
 import AIPortfolioService from './ai-portfolio-service';
+import { FundComparisonService } from './services/fund-comparison-service';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -5997,6 +5998,137 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         status: "error",
         error: "Failed to fetch mutual fund categories"
+      });
+    }
+  });
+
+  // Fund Comparison API endpoints
+  app.post("/api/funds/compare", async (req, res) => {
+    try {
+      const { fundCodes, timePeriod = '1Y', comparisonType = 'detailed' } = req.body;
+      const userId = req.user?.id || 'anonymous';
+
+      if (!fundCodes || !Array.isArray(fundCodes) || fundCodes.length < 2) {
+        return res.status(400).json({
+          status: "error",
+          error: "At least 2 fund codes are required for comparison"
+        });
+      }
+
+      if (fundCodes.length > 5) {
+        return res.status(400).json({
+          status: "error", 
+          error: "Maximum 5 funds can be compared at once"
+        });
+      }
+
+      const fundComparisonService = new FundComparisonService();
+      const comparison = await fundComparisonService.compareFunds(fundCodes, timePeriod);
+
+      // Store comparison in database
+      const comparisonRecord = await db.insert(fundComparisons).values({
+        userId: userId,
+        fundCodes: JSON.stringify(fundCodes),
+        comparisonType,
+        timePeriod,
+        results: JSON.stringify(comparison),
+        aiInsights: comparison.aiInsights,
+        recommendationScore: comparison.recommendationScore
+      }).returning();
+
+      // Log comparison action in history
+      await db.insert(comparisonHistory).values({
+        userId: userId,
+        comparisonType: 'fund',
+        comparisonId: comparisonRecord[0].id,
+        action: 'created',
+        metadata: { fundCodes, timePeriod, comparisonType }
+      });
+
+      res.json({
+        status: "success",
+        data: comparison,
+        comparisonId: comparisonRecord[0].id,
+        createdAt: comparisonRecord[0].createdAt
+      });
+
+    } catch (error) {
+      console.error("Error comparing funds:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to compare funds"
+      });
+    }
+  });
+
+  app.get("/api/funds/compare/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      const comparison = await db.select()
+        .from(fundComparisons)
+        .where(eq(fundComparisons.id, id))
+        .limit(1);
+
+      if (comparison.length === 0) {
+        return res.status(404).json({
+          status: "error",
+          error: "Comparison not found"
+        });
+      }
+
+      const comparisonData = comparison[0];
+      res.json({
+        status: "success",
+        data: {
+          ...comparisonData,
+          results: JSON.parse(comparisonData.results || '{}'),
+          fundCodes: JSON.parse(comparisonData.fundCodes)
+        }
+      });
+
+    } catch (error) {
+      console.error("Error fetching comparison:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch comparison"
+      });
+    }
+  });
+
+  app.get("/api/users/:userId/fund-comparisons", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { limit = 10, offset = 0 } = req.query;
+      
+      const comparisons = await db.select()
+        .from(fundComparisons)
+        .where(eq(fundComparisons.userId, userId))
+        .orderBy(sql`${fundComparisons.createdAt} DESC`)
+        .limit(Number(limit))
+        .offset(Number(offset));
+
+      const formattedComparisons = comparisons.map(comp => ({
+        ...comp,
+        results: JSON.parse(comp.results || '{}'),
+        fundCodes: JSON.parse(comp.fundCodes)
+      }));
+
+      res.json({
+        status: "success",
+        data: formattedComparisons,
+        pagination: {
+          limit: Number(limit),
+          offset: Number(offset),
+          total: comparisons.length
+        }
+      });
+
+    } catch (error) {
+      console.error("Error fetching user comparisons:", error);
+      res.status(500).json({
+        status: "error", 
+        error: "Failed to fetch comparison history"
       });
     }
   });
