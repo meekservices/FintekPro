@@ -600,6 +600,87 @@ export const assetAllocation = pgTable("asset_allocation", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Portfolio snapshots for date-specific portfolio views
+export const portfolioSnapshots = pgTable("portfolio_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  portfolioId: varchar("portfolio_id").references(() => portfolios.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  snapshotDate: date("snapshot_date").notNull(),
+  totalValue: decimal("total_value", { precision: 15, scale: 2 }),
+  totalEquityValue: decimal("total_equity_value", { precision: 15, scale: 2 }),
+  totalDebtValue: decimal("total_debt_value", { precision: 15, scale: 2 }),
+  totalMutualFundValue: decimal("total_mutual_fund_value", { precision: 15, scale: 2 }),
+  totalGovernmentSchemeValue: decimal("total_government_scheme_value", { precision: 15, scale: 2 }),
+  totalAlternativeValue: decimal("total_alternative_value", { precision: 15, scale: 2 }),
+  totalCashValue: decimal("total_cash_value", { precision: 15, scale: 2 }),
+  epfValue: decimal("epf_value", { precision: 15, scale: 2 }),
+  ppfValue: decimal("ppf_value", { precision: 15, scale: 2 }),
+  epsValue: decimal("eps_value", { precision: 15, scale: 2 }),
+  apyValue: decimal("apy_value", { precision: 15, scale: 2 }),
+  npsValue: decimal("nps_value", { precision: 15, scale: 2 }),
+  insuranceValue: decimal("insurance_value", { precision: 15, scale: 2 }),
+  realEstateValue: decimal("real_estate_value", { precision: 15, scale: 2 }),
+  commodityValue: decimal("commodity_value", { precision: 15, scale: 2 }),
+  cryptoValue: decimal("crypto_value", { precision: 15, scale: 2 }),
+  metadata: jsonb("metadata"), // Additional snapshot data
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Enhanced portfolio holdings to support date-specific and cross-platform data
+export const comprehensiveHoldings = pgTable("comprehensive_holdings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  portfolioId: varchar("portfolio_id").references(() => portfolios.id).notNull(),
+  snapshotId: varchar("snapshot_id").references(() => portfolioSnapshots.id),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  holdingDate: date("holding_date").notNull(),
+  
+  // Asset Identification
+  symbol: text("symbol").notNull(),
+  isin: varchar("isin"),
+  assetName: text("asset_name").notNull(),
+  assetType: text("asset_type").notNull(), // 'equity', 'debt', 'mutual_fund', 'government_scheme', 'alternative', 'commodity', 'real_estate', 'crypto', 'insurance', 'cash'
+  assetClass: text("asset_class"), // 'large_cap', 'mid_cap', 'small_cap', 'debt', 'hybrid', 'epf', 'ppf', 'eps', 'apy', 'nps', 'ulip', 'term_plan'
+  subAssetClass: text("sub_asset_class"), // More granular classification
+  
+  // Holding Details
+  quantity: decimal("quantity", { precision: 15, scale: 4 }),
+  units: decimal("units", { precision: 15, scale: 4 }), // For mutual funds
+  avgPrice: decimal("avg_price", { precision: 15, scale: 4 }),
+  currentPrice: decimal("current_price", { precision: 15, scale: 4 }),
+  marketValue: decimal("market_value", { precision: 15, scale: 2 }),
+  investedValue: decimal("invested_value", { precision: 15, scale: 2 }),
+  gainLoss: decimal("gain_loss", { precision: 15, scale: 2 }),
+  gainLossPercent: decimal("gain_loss_percent", { precision: 8, scale: 4 }),
+  
+  // Source Integration
+  dataSource: varchar("data_source").notNull(), // 'cams', 'kfintech', 'nsdl', 'cdsl', 'epf', 'ppf', 'manual', 'government_portal'
+  sourceAccountNumber: varchar("source_account_number"), // Original account number from source
+  folio: varchar("folio"), // For mutual funds
+  dematAccountNumber: varchar("demat_account_number"), // For equity/bonds
+  
+  // Additional Details
+  sector: text("sector"),
+  industry: text("industry"),
+  marketCap: decimal("market_cap", { precision: 20, scale: 0 }),
+  beta: decimal("beta", { precision: 5, scale: 3 }),
+  dividendYield: decimal("dividend_yield", { precision: 5, scale: 2 }),
+  peRatio: decimal("pe_ratio", { precision: 8, scale: 2 }),
+  maturityDate: date("maturity_date"), // For bonds, FDs, government schemes
+  interestRate: decimal("interest_rate", { precision: 5, scale: 2 }),
+  
+  // Government Scheme Specific
+  contributionFrequency: varchar("contribution_frequency"), // monthly, quarterly, yearly
+  nomineeName: text("nominee_name"),
+  nomineeRelation: varchar("nominee_relation"),
+  
+  // Metadata and Tracking
+  metadata: jsonb("metadata"), // Additional holding-specific data
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // EPF Holdings table for tracking Employee Provident Fund data
 export const epfHoldings = pgTable("epf_holdings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1481,6 +1562,19 @@ export const insertAssetAllocationSchema = createInsertSchema(assetAllocation).o
   updatedAt: true,
 });
 
+export const insertPortfolioSnapshotSchema = createInsertSchema(portfolioSnapshots).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertComprehensiveHoldingSchema = createInsertSchema(comprehensiveHoldings).omit({
+  id: true,
+  lastUpdated: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertMutualFundSchema = createInsertSchema(mutualFunds).omit({
   id: true,
   lastUpdated: true,
@@ -1797,6 +1891,10 @@ export type Watchlist = typeof watchlists.$inferSelect;
 export type MarketData = typeof marketData.$inferSelect;
 export type AssetAllocation = typeof assetAllocation.$inferSelect;
 export type InsertAssetAllocation = z.infer<typeof insertAssetAllocationSchema>;
+export type PortfolioSnapshot = typeof portfolioSnapshots.$inferSelect;
+export type InsertPortfolioSnapshot = z.infer<typeof insertPortfolioSnapshotSchema>;
+export type ComprehensiveHolding = typeof comprehensiveHoldings.$inferSelect;
+export type InsertComprehensiveHolding = z.infer<typeof insertComprehensiveHoldingSchema>;
 export type PiChatSummary = typeof piChatSummaries.$inferSelect;
 export type InsertPiChatSummary = typeof piChatSummaries.$inferInsert;
 export type CommodityPrice = typeof commodityPrices.$inferSelect;
