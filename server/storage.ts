@@ -69,6 +69,25 @@ export interface IStorage {
   getAssetAllocation(portfolioId: string): Promise<AssetAllocation[]>;
   upsertAssetAllocation(allocation: InsertAssetAllocation): Promise<AssetAllocation>;
   
+  // Portfolio Snapshots methods
+  createPortfolioSnapshot(snapshot: any): Promise<any>;
+  getPortfolioSnapshots(portfolioId: string, fromDate?: string, toDate?: string): Promise<any[]>;
+  getPortfolioSnapshotByDate(portfolioId: string, date: string): Promise<any | undefined>;
+  
+  // Comprehensive Holdings methods
+  createComprehensiveHolding(holding: any): Promise<any>;
+  getComprehensiveHoldings(portfolioId: string, date?: string): Promise<any[]>;
+  updateComprehensiveHolding(id: string, updates: any): Promise<any | undefined>;
+  deleteComprehensiveHolding(id: string): Promise<boolean>;
+  getComprehensiveHoldingsByUser(userId: string, date?: string): Promise<any[]>;
+  
+  // Portfolio Population methods
+  populatePortfolioFromCams(userId: string, panNumber: string, date: string): Promise<any[]>;
+  populatePortfolioFromKfintech(userId: string, panNumber: string, date: string): Promise<any[]>;
+  populatePortfolioFromNsdl(userId: string, accountNumber: string, date: string): Promise<any[]>;
+  populatePortfolioFromCdsl(userId: string, boId: string, date: string): Promise<any[]>;
+  populateGovernmentSchemeHoldings(userId: string, date: string): Promise<any[]>;
+  
   // Portfolio Rebalancing methods
   getRebalancingSuggestions(portfolioId: string): Promise<any>;
   
