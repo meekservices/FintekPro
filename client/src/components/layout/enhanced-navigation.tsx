@@ -148,7 +148,6 @@ export function EnhancedNavigation() {
           description: "SIP, lumpsum and fund research",
           subItems: [
             { name: "Invest Now", href: "/mutual-funds", description: "Browse and invest in funds" },
-            { name: "SIP Calculator", href: "/calculators?tool=sip", description: "Plan systematic investments" },
             { name: "Fund Research", href: "/mutual-funds?tab=research", description: "Detailed fund analysis" },
             { name: "My SIPs", href: "/mutual-funds?tab=sips", description: "Manage SIP investments" }
           ]
@@ -189,6 +188,17 @@ export function EnhancedNavigation() {
             { name: "PolicyBazaar", href: "/policybazaar", description: "Compare insurance plans" },
             { name: "CIBIL Score", href: "/cibil", description: "Credit score monitoring" }
           ]
+        },
+        {
+          name: "Tax Services",
+          icon: FileText,
+          description: "Income tax filing and compliance",
+          subItems: [
+            { name: "Capital Gains Reports", href: "/capital-gains", description: "Download capital gains statements by financial year" },
+            { name: "Form 26AS & AIS", href: "/tax-documents?tab=forms", description: "Fetch and download Form 26AS & AIS by assessment year" },
+            { name: "Tax Calculators", href: "/calculators?tool=tax", description: "Income tax calculation and planning tools" },
+            { name: "File My ITR", href: "/tax-documents", description: "Complete income tax return filing" }
+          ]
         }
       ]
     },
@@ -216,15 +226,6 @@ export function EnhancedNavigation() {
             { name: "CDSL Services", href: "/cdsl-services", description: "Demat account services" },
             { name: "CAMS Services", href: "/cams-services", description: "Mutual fund registrar services" },
             { name: "Kfintech Services", href: "/kfintech-services", description: "Mutual fund registrar services" }
-          ]
-        },
-        {
-          name: "Store & Products",
-          icon: Store,
-          description: "Financial products marketplace",
-          subItems: [
-            { name: "Product Store", href: "/store", description: "Browse financial products" },
-            { name: "Shopping Cart", href: "/cart", description: "Review selected products" }
           ]
         }
       ]
