@@ -1649,6 +1649,328 @@ export class DatabaseStorage implements IStorage {
     return undefined;
   }
 
+  // Loan Marketplace Storage Implementation
+
+  // Credit Profile methods
+  async getCreditProfile(userId: string): Promise<CreditProfile | undefined> {
+    const [profile] = await db
+      .select()
+      .from(schema.creditProfiles)
+      .where(eq(schema.creditProfiles.userId, userId))
+      .limit(1);
+    return profile;
+  }
+
+  async createCreditProfile(profile: InsertCreditProfile): Promise<CreditProfile> {
+    const profileWithId = { ...profile, id: randomUUID() };
+    const [created] = await db
+      .insert(schema.creditProfiles)
+      .values(profileWithId)
+      .returning();
+    return created;
+  }
+
+  async updateCreditProfile(userId: string, updates: Partial<CreditProfile>): Promise<CreditProfile | undefined> {
+    const [updated] = await db
+      .update(schema.creditProfiles)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.creditProfiles.userId, userId))
+      .returning();
+    return updated;
+  }
+
+  // Loan Product methods
+  async getLoanProducts(): Promise<LoanProduct[]> {
+    return db.select().from(schema.loanProducts).orderBy(schema.loanProducts.name);
+  }
+
+  async getLoanProduct(id: string): Promise<LoanProduct | undefined> {
+    const [product] = await db
+      .select()
+      .from(schema.loanProducts)
+      .where(eq(schema.loanProducts.id, id))
+      .limit(1);
+    return product;
+  }
+
+  async getLoanProductByKey(productKey: string): Promise<LoanProduct | undefined> {
+    const [product] = await db
+      .select()
+      .from(schema.loanProducts)
+      .where(eq(schema.loanProducts.productKey, productKey))
+      .limit(1);
+    return product;
+  }
+
+  async createLoanProduct(product: InsertLoanProduct): Promise<LoanProduct> {
+    const productWithId = { ...product, id: randomUUID() };
+    const [created] = await db
+      .insert(schema.loanProducts)
+      .values(productWithId)
+      .returning();
+    return created;
+  }
+
+  async updateLoanProduct(id: string, updates: Partial<LoanProduct>): Promise<LoanProduct | undefined> {
+    const [updated] = await db
+      .update(schema.loanProducts)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.loanProducts.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Loan Provider methods
+  async getLoanProviders(): Promise<LoanProvider[]> {
+    return db.select().from(schema.loanProviders).orderBy(schema.loanProviders.name);
+  }
+
+  async getLoanProvider(id: string): Promise<LoanProvider | undefined> {
+    const [provider] = await db
+      .select()
+      .from(schema.loanProviders)
+      .where(eq(schema.loanProviders.id, id))
+      .limit(1);
+    return provider;
+  }
+
+  async getLoanProviderByKey(providerKey: string): Promise<LoanProvider | undefined> {
+    const [provider] = await db
+      .select()
+      .from(schema.loanProviders)
+      .where(eq(schema.loanProviders.providerKey, providerKey))
+      .limit(1);
+    return provider;
+  }
+
+  async createLoanProvider(provider: InsertLoanProvider): Promise<LoanProvider> {
+    const providerWithId = { ...provider, id: randomUUID() };
+    const [created] = await db
+      .insert(schema.loanProviders)
+      .values(providerWithId)
+      .returning();
+    return created;
+  }
+
+  async updateLoanProvider(id: string, updates: Partial<LoanProvider>): Promise<LoanProvider | undefined> {
+    const [updated] = await db
+      .update(schema.loanProviders)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.loanProviders.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Provider Product methods
+  async getProviderProducts(): Promise<ProviderProduct[]> {
+    return db.select().from(schema.providerProducts).orderBy(schema.providerProducts.createdAt);
+  }
+
+  async getProviderProductsByProvider(providerId: string, productKey?: string): Promise<ProviderProduct[]> {
+    let query = db
+      .select()
+      .from(schema.providerProducts)
+      .where(eq(schema.providerProducts.providerId, providerId));
+
+    if (productKey) {
+      query = query.where(eq(schema.providerProducts.productKey, productKey));
+    }
+
+    return query.orderBy(schema.providerProducts.createdAt);
+  }
+
+  async createProviderProduct(product: InsertProviderProduct): Promise<ProviderProduct> {
+    const productWithId = { ...product, id: randomUUID() };
+    const [created] = await db
+      .insert(schema.providerProducts)
+      .values(productWithId)
+      .returning();
+    return created;
+  }
+
+  async updateProviderProduct(id: string, updates: Partial<ProviderProduct>): Promise<ProviderProduct | undefined> {
+    const [updated] = await db
+      .update(schema.providerProducts)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.providerProducts.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Loan Request methods
+  async getLoanRequests(userId?: string): Promise<LoanRequest[]> {
+    let query = db.select().from(schema.loanRequests);
+    
+    if (userId) {
+      query = query.where(eq(schema.loanRequests.userId, userId));
+    }
+    
+    return query.orderBy(desc(schema.loanRequests.createdAt));
+  }
+
+  async getLoanRequest(id: string): Promise<LoanRequest | undefined> {
+    const [request] = await db
+      .select()
+      .from(schema.loanRequests)
+      .where(eq(schema.loanRequests.id, id))
+      .limit(1);
+    return request;
+  }
+
+  async createLoanRequest(request: InsertLoanRequest): Promise<LoanRequest> {
+    const requestWithId = { ...request, id: randomUUID() };
+    const [created] = await db
+      .insert(schema.loanRequests)
+      .values(requestWithId)
+      .returning();
+    return created;
+  }
+
+  async updateLoanRequest(id: string, updates: Partial<LoanRequest>): Promise<LoanRequest | undefined> {
+    const [updated] = await db
+      .update(schema.loanRequests)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.loanRequests.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Loan Offer methods
+  async getLoanOffers(): Promise<LoanOffer[]> {
+    return db.select().from(schema.loanOffers).orderBy(desc(schema.loanOffers.createdAt));
+  }
+
+  async getLoanOffersByRequest(requestId: string): Promise<LoanOffer[]> {
+    return db
+      .select()
+      .from(schema.loanOffers)
+      .where(eq(schema.loanOffers.loanRequestId, requestId))
+      .orderBy(asc(schema.loanOffers.interestRate));
+  }
+
+  async getLoanOffer(id: string): Promise<LoanOffer | undefined> {
+    const [offer] = await db
+      .select()
+      .from(schema.loanOffers)
+      .where(eq(schema.loanOffers.id, id))
+      .limit(1);
+    return offer;
+  }
+
+  async createLoanOffer(offer: InsertLoanOffer): Promise<LoanOffer> {
+    const offerWithId = { ...offer, id: randomUUID() };
+    const [created] = await db
+      .insert(schema.loanOffers)
+      .values(offerWithId)
+      .returning();
+    return created;
+  }
+
+  async updateLoanOffer(id: string, updates: Partial<LoanOffer>): Promise<LoanOffer | undefined> {
+    const [updated] = await db
+      .update(schema.loanOffers)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.loanOffers.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Loan Application Marketplace methods
+  async getLoanApplicationsMarketplace(userId?: string): Promise<LoanApplicationMarketplace[]> {
+    let query = db.select().from(schema.loanApplicationsMarketplace);
+    
+    if (userId) {
+      query = query.where(eq(schema.loanApplicationsMarketplace.userId, userId));
+    }
+    
+    return query.orderBy(desc(schema.loanApplicationsMarketplace.createdAt));
+  }
+
+  async getLoanApplicationMarketplace(id: string): Promise<LoanApplicationMarketplace | undefined> {
+    const [application] = await db
+      .select()
+      .from(schema.loanApplicationsMarketplace)
+      .where(eq(schema.loanApplicationsMarketplace.id, id))
+      .limit(1);
+    return application;
+  }
+
+  async createLoanApplicationMarketplace(application: InsertLoanApplicationMarketplace): Promise<LoanApplicationMarketplace> {
+    const applicationWithId = { ...application, id: randomUUID() };
+    const [created] = await db
+      .insert(schema.loanApplicationsMarketplace)
+      .values(applicationWithId)
+      .returning();
+    return created;
+  }
+
+  async updateLoanApplicationMarketplace(id: string, updates: Partial<LoanApplicationMarketplace>): Promise<LoanApplicationMarketplace | undefined> {
+    const [updated] = await db
+      .update(schema.loanApplicationsMarketplace)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.loanApplicationsMarketplace.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Provider Integration methods
+  async getProviderIntegrations(): Promise<ProviderIntegration[]> {
+    return db.select().from(schema.providerIntegrations).orderBy(schema.providerIntegrations.createdAt);
+  }
+
+  async getProviderIntegrationsByProvider(providerId: string): Promise<ProviderIntegration[]> {
+    return db
+      .select()
+      .from(schema.providerIntegrations)
+      .where(eq(schema.providerIntegrations.providerId, providerId))
+      .orderBy(schema.providerIntegrations.createdAt);
+  }
+
+  async createProviderIntegration(integration: InsertProviderIntegration): Promise<ProviderIntegration> {
+    const integrationWithId = { ...integration, id: randomUUID() };
+    const [created] = await db
+      .insert(schema.providerIntegrations)
+      .values(integrationWithId)
+      .returning();
+    return created;
+  }
+
+  async updateProviderIntegration(id: string, updates: Partial<ProviderIntegration>): Promise<ProviderIntegration | undefined> {
+    const [updated] = await db
+      .update(schema.providerIntegrations)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.providerIntegrations.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Application Document methods
+  async getApplicationDocuments(applicationId: string): Promise<ApplicationDocument[]> {
+    return db
+      .select()
+      .from(schema.applicationDocuments)
+      .where(eq(schema.applicationDocuments.applicationId, applicationId))
+      .orderBy(schema.applicationDocuments.createdAt);
+  }
+
+  async createApplicationDocument(document: InsertApplicationDocument): Promise<ApplicationDocument> {
+    const documentWithId = { ...document, id: randomUUID() };
+    const [created] = await db
+      .insert(schema.applicationDocuments)
+      .values(documentWithId)
+      .returning();
+    return created;
+  }
+
+  async updateApplicationDocument(id: string, updates: Partial<ApplicationDocument>): Promise<ApplicationDocument | undefined> {
+    const [updated] = await db
+      .update(schema.applicationDocuments)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.applicationDocuments.id, id))
+      .returning();
+    return updated;
+  }
+
   async createCollateralValuation(valuation: any): Promise<any> {
     return valuation;
   }
