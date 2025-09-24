@@ -61,6 +61,7 @@ import AgentPortal from "@/pages/agent-portal";
 import OnboardingPage from "@/pages/onboarding";
 import AdminProposalsPage from "@/pages/admin-proposals";
 import ClientProposalsPage from "@/pages/client-proposals";
+import TaxDocuments from "@/pages/tax-documents";
 
 function UserProtectedRoutes() {
   return (
@@ -98,6 +99,7 @@ function UserProtectedRoutes() {
         <Route path="/my-proposals" component={ClientProposalsPage} />
         <Route path="/achievements" component={Achievements} />
         <Route path="/capital-gains" component={CapitalGainsReports} />
+        <Route path="/tax-documents" component={TaxDocuments} />
         <Route path="/ib-trading" component={IBTradingPage} />
         <Route path="/store" component={Store} />
         <Route path="/cart" component={Cart} />
