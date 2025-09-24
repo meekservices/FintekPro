@@ -12,6 +12,7 @@ import IPO from "@/pages/ipo";
 import PreIPO from "@/pages/pre-ipo";
 import MutualFunds from "@/pages/mutual-funds";
 import FundComparison from "@/pages/fund-comparison";
+import PortfolioComparison from "@/pages/portfolio-comparison";
 import Unlisted from "@/pages/unlisted";
 import Loans from "@/pages/loans";
 import NSDLServices from "@/pages/nsdl-services";
@@ -72,6 +73,7 @@ function UserProtectedRoutes() {
         <Route path="/pre-ipo" component={PreIPO} />
         <Route path="/mutual-funds" component={MutualFunds} />
         <Route path="/fund-comparison" component={FundComparison} />
+        <Route path="/portfolio-comparison" component={PortfolioComparison} />
         <Route path="/unlisted" component={Unlisted} />
         <Route path="/loans" component={Loans} />
         <Route path="/nsdl-services" component={NSDLServices} />
