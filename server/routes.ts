@@ -37,7 +37,7 @@ import { aiTransactionTrackerService } from './ai-transaction-tracker';
 import { aiInvestSmartMonitorService } from './ai-investsmart-monitor';
 import amlRoutes from './aml-routes';
 import { ZohoCommerceAPI, type ZohoCommerceConfig } from './zoho-commerce-api';
-import { zohoCommerceConfig, zohoProducts, zohoCategories, zohoOrders, zohoCustomers, zohoInventory, zohoWebhooks, zohoSyncLogs, insertZohoCommerceConfigSchema, insertZohoProductSchema, insertZohoCategorySchema, insertZohoOrderSchema } from '@shared/schema';
+import { zohoCommerceConfig, zohoProducts, zohoCategories, zohoOrders, zohoCustomers, zohoInventory, zohoWebhooks, zohoSyncLogs, insertZohoCommerceConfigSchema, insertZohoProductSchema, insertZohoCategorySchema, insertZohoOrderSchema, insertCreditProfileSchema, insertLoanRequestSchema, insertLoanApplicationMarketplaceSchema, insertApplicationDocumentSchema } from '@shared/schema';
 import BBPSService from './services/bbpsService';
 import { digilockerService } from './services/digilockerService';
 import { amfiService } from './amfi-service';
@@ -48,6 +48,7 @@ import { ObjectPermission } from './objectAcl';
 import AIPortfolioService from './ai-portfolio-service';
 import { FundComparisonService } from './services/fund-comparison-service';
 import { PortfolioComparisonService } from './services/portfolio-comparison-service';
+import { LoanOrchestrator } from './loan-marketplace/loan-orchestrator';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -8131,6 +8132,469 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         success: false,
         error: "Failed to fetch loan applications"
+      });
+    }
+  });
+
+  // =================================================================  
+  // LOAN MARKETPLACE ROUTES - PROTECTED (requireAuth)
+  // =================================================================
+  
+  // Initialize loan orchestrator
+  const loanOrchestrator = new LoanOrchestrator();
+
+  // Credit Profile Management
+  app.get("/api/marketplace/credit-profile", requireAuth, async (req: any, res: any) => {
+    try {
+      const userId = req.user.id;
+      const profile = await storage.getCreditProfile(userId);
+      
+      res.json({
+        success: true,
+        data: profile
+      });
+    } catch (error: any) {
+      console.error("Error fetching credit profile:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch credit profile"
+      });
+    }
+  });
+
+  app.post("/api/marketplace/credit-profile", requireAuth, async (req: any, res: any) => {
+    try {
+      const userId = req.user.id;
+      
+      // Validate request body using Zod schema
+      const validationResult = insertCreditProfileSchema.omit({ id: true }).safeParse({
+        ...req.body,
+        userId
+      });
+      
+      if (!validationResult.success) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid credit profile data",
+          details: validationResult.error.issues
+        });
+      }
+      
+      const profileData = validationResult.data;
+      
+      // Check if profile exists
+      const existingProfile = await storage.getCreditProfile(userId);
+      
+      let result;
+      if (existingProfile) {
+        result = await storage.updateCreditProfile(userId, profileData);
+      } else {
+        result = await storage.createCreditProfile(profileData);
+      }
+      
+      res.json({
+        success: true,
+        data: result
+      });
+    } catch (error: any) {
+      console.error("Error saving credit profile:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to save credit profile"
+      });
+    }
+  });
+
+  // Loan Products
+  app.get("/api/marketplace/loan-products", async (req: any, res: any) => {
+    try {
+      const products = await storage.getLoanProducts();
+      
+      res.json({
+        success: true,
+        data: products
+      });
+    } catch (error: any) {
+      console.error("Error fetching loan products:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch loan products"
+      });
+    }
+  });
+
+  app.get("/api/marketplace/loan-products/:productKey", async (req: any, res: any) => {
+    try {
+      const { productKey } = req.params;
+      const product = await storage.getLoanProductByKey(productKey);
+      
+      if (!product) {
+        return res.status(404).json({
+          success: false,
+          error: "Loan product not found"
+        });
+      }
+      
+      res.json({
+        success: true,
+        data: product
+      });
+    } catch (error: any) {
+      console.error("Error fetching loan product:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch loan product"
+      });
+    }
+  });
+
+  // Loan Providers
+  app.get("/api/marketplace/loan-providers", async (req: any, res: any) => {
+    try {
+      const providers = await storage.getLoanProviders();
+      
+      res.json({
+        success: true,
+        data: providers
+      });
+    } catch (error: any) {
+      console.error("Error fetching loan providers:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch loan providers"
+      });
+    }
+  });
+
+  app.get("/api/marketplace/loan-providers/:providerKey/products", async (req: any, res: any) => {
+    try {
+      const { providerKey } = req.params;
+      const { productKey } = req.query;
+      
+      // Get provider first
+      const provider = await storage.getLoanProviderByKey(providerKey);
+      if (!provider) {
+        return res.status(404).json({
+          success: false,
+          error: "Loan provider not found"
+        });
+      }
+      
+      const products = await storage.getProviderProductsByProvider(provider.id, productKey as string);
+      
+      res.json({
+        success: true,
+        data: products
+      });
+    } catch (error: any) {
+      console.error("Error fetching provider products:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch provider products"
+      });
+    }
+  });
+
+  // Loan Request and Offer Generation
+  app.post("/api/marketplace/loan-requests", requireAuth, async (req: any, res: any) => {
+    try {
+      const userId = req.user.id;
+      
+      // Validate request body using Zod schema
+      const validationResult = insertLoanRequestSchema.omit({ id: true }).safeParse({
+        ...req.body,
+        userId,
+        status: 'draft'
+      });
+      
+      if (!validationResult.success) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid loan request data",
+          details: validationResult.error.issues
+        });
+      }
+      
+      const requestData = validationResult.data;
+      
+      const loanRequest = await storage.createLoanRequest(requestData);
+      
+      res.json({
+        success: true,
+        data: loanRequest
+      });
+    } catch (error: any) {
+      console.error("Error creating loan request:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to create loan request"
+      });
+    }
+  });
+
+  app.post("/api/marketplace/loan-requests/:requestId/generate-offers", requireAuth, async (req: any, res: any) => {
+    try {
+      const { requestId } = req.params;
+      const userId = req.user.id;
+      
+      // Verify request belongs to user
+      const request = await storage.getLoanRequest(requestId);
+      if (!request || request.userId !== userId) {
+        return res.status(404).json({
+          success: false,
+          error: "Loan request not found"
+        });
+      }
+      
+      // Generate offers using orchestrator
+      const offers = await loanOrchestrator.generateOffersForRequest(requestId);
+      
+      res.json({
+        success: true,
+        data: offers
+      });
+    } catch (error: any) {
+      console.error("Error generating loan offers:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to generate loan offers"
+      });
+    }
+  });
+
+  app.get("/api/marketplace/loan-requests/:requestId/offers", requireAuth, async (req: any, res: any) => {
+    try {
+      const { requestId } = req.params;
+      const userId = req.user.id;
+      
+      // Verify request belongs to user
+      const request = await storage.getLoanRequest(requestId);
+      if (!request || request.userId !== userId) {
+        return res.status(404).json({
+          success: false,
+          error: "Loan request not found"
+        });
+      }
+      
+      const offers = await storage.getLoanOffersByRequest(requestId);
+      
+      res.json({
+        success: true,
+        data: offers
+      });
+    } catch (error: any) {
+      console.error("Error fetching loan offers:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch loan offers"
+      });
+    }
+  });
+
+  // Loan Application Management
+  app.post("/api/marketplace/applications", requireAuth, async (req: any, res: any) => {
+    try {
+      const userId = req.user.id;
+      
+      // Validate request body using Zod schema
+      const validationResult = insertLoanApplicationMarketplaceSchema.omit({ id: true }).safeParse({
+        ...req.body,
+        userId,
+        status: 'submitted',
+        submittedAt: new Date()
+      });
+      
+      if (!validationResult.success) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid loan application data",
+          details: validationResult.error.issues
+        });
+      }
+      
+      const applicationData = validationResult.data;
+      
+      const application = await storage.createLoanApplicationMarketplace(applicationData);
+      
+      res.json({
+        success: true,
+        data: application
+      });
+    } catch (error: any) {
+      console.error("Error creating loan application:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to create loan application"
+      });
+    }
+  });
+
+  app.get("/api/marketplace/applications", requireAuth, async (req: any, res: any) => {
+    try {
+      const userId = req.user.id;
+      const applications = await storage.getLoanApplicationsMarketplace(userId);
+      
+      res.json({
+        success: true,
+        data: applications
+      });
+    } catch (error: any) {
+      console.error("Error fetching loan applications:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch loan applications"
+      });
+    }
+  });
+
+  app.get("/api/marketplace/applications/:applicationId", requireAuth, async (req: any, res: any) => {
+    try {
+      const { applicationId } = req.params;
+      const userId = req.user.id;
+      
+      const application = await storage.getLoanApplicationMarketplace(applicationId);
+      if (!application || application.userId !== userId) {
+        return res.status(404).json({
+          success: false,
+          error: "Application not found"
+        });
+      }
+      
+      res.json({
+        success: true,
+        data: application
+      });
+    } catch (error: any) {
+      console.error("Error fetching loan application:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch loan application"
+      });
+    }
+  });
+
+  app.patch("/api/marketplace/applications/:applicationId", requireAuth, async (req: any, res: any) => {
+    try {
+      const { applicationId } = req.params;
+      const userId = req.user.id;
+      
+      // Verify application belongs to user
+      const existingApplication = await storage.getLoanApplicationMarketplace(applicationId);
+      if (!existingApplication || existingApplication.userId !== userId) {
+        return res.status(404).json({
+          success: false,
+          error: "Application not found"
+        });
+      }
+      
+      const updatedApplication = await storage.updateLoanApplicationMarketplace(applicationId, {
+        ...req.body,
+        updatedAt: new Date()
+      });
+      
+      res.json({
+        success: true,
+        data: updatedApplication
+      });
+    } catch (error: any) {
+      console.error("Error updating loan application:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to update loan application"
+      });
+    }
+  });
+
+  // Application Documents
+  app.get("/api/marketplace/applications/:applicationId/documents", requireAuth, async (req: any, res: any) => {
+    try {
+      const { applicationId } = req.params;
+      const userId = req.user.id;
+      
+      // Verify application belongs to user
+      const application = await storage.getLoanApplicationMarketplace(applicationId);
+      if (!application || application.userId !== userId) {
+        return res.status(404).json({
+          success: false,
+          error: "Application not found"
+        });
+      }
+      
+      const documents = await storage.getApplicationDocuments(applicationId);
+      
+      res.json({
+        success: true,
+        data: documents
+      });
+    } catch (error: any) {
+      console.error("Error fetching application documents:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch application documents"
+      });
+    }
+  });
+
+  app.post("/api/marketplace/applications/:applicationId/documents", requireAuth, async (req: any, res: any) => {
+    try {
+      const { applicationId } = req.params;
+      const userId = req.user.id;
+      
+      // Verify application belongs to user
+      const application = await storage.getLoanApplicationMarketplace(applicationId);
+      if (!application || application.userId !== userId) {
+        return res.status(404).json({
+          success: false,
+          error: "Application not found"
+        });
+      }
+      
+      // Validate request body using Zod schema
+      const validationResult = insertApplicationDocumentSchema.omit({ id: true }).safeParse({
+        ...req.body,
+        applicationId
+      });
+      
+      if (!validationResult.success) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid document data",
+          details: validationResult.error.issues
+        });
+      }
+      
+      const documentData = validationResult.data;
+      
+      const document = await storage.createApplicationDocument(documentData);
+      
+      res.json({
+        success: true,
+        data: document
+      });
+    } catch (error: any) {
+      console.error("Error creating application document:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to create application document"
+      });
+    }
+  });
+
+  // User's Loan Requests
+  app.get("/api/marketplace/my-requests", requireAuth, async (req: any, res: any) => {
+    try {
+      const userId = req.user.id;
+      const requests = await storage.getLoanRequests(userId);
+      
+      res.json({
+        success: true,
+        data: requests
+      });
+    } catch (error: any) {
+      console.error("Error fetching user loan requests:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch loan requests"
       });
     }
   });
