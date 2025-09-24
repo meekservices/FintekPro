@@ -9,6 +9,497 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Shield, Heart, Car, Plane, Home, Calculator, Users, Clock, CheckCircle, Star } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { Badge } from "@/components/ui/badge";
+import { Slider } from "@/components/ui/slider";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { ArrowUpDown, Filter, Search, TrendingUp, Award, ShieldCheck } from "lucide-react";
+
+// Enhanced Insurance Marketplace Component
+interface EnhancedInsuranceMarketplaceProps {
+  selectedInsurance: string;
+  age: string;
+  coverage: string;
+  city: string;
+}
+
+function EnhancedInsuranceMarketplace({ selectedInsurance, age, coverage, city }: EnhancedInsuranceMarketplaceProps) {
+  const [viewMode, setViewMode] = useState<'grid' | 'comparison'>('grid');
+  const [sortBy, setSortBy] = useState('premium');
+  const [selectedProviders, setSelectedProviders] = useState<string[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [premiumRange, setPremiumRange] = useState([0, 50000]);
+  const [selectedQuotes, setSelectedQuotes] = useState<any[]>([]);
+  
+  // Get insurance quotes with enhanced marketplace data
+  const { data: quotes, isPending: quotesLoading, mutate: getQuotes } = useMutation<any, Error, any, unknown>({
+    mutationFn: async (data: any) => {
+      return apiRequest("POST", "/api/policybazaar/quotes", data);
+    }
+  });
+
+  // Compare insurance plans
+  const { data: comparisonData, mutate: compareQuotes } = useMutation<any, Error, any, unknown>({
+    mutationFn: async (data: any) => {
+      return apiRequest("POST", "/api/insurance/compare", data);
+    }
+  });
+
+  const handleGetQuotes = () => {
+    const quoteData = {
+      insuranceType: `${selectedInsurance} insurance`,
+      age: age ? parseInt(age) : 30,
+      coverage: coverage ? parseInt(coverage) : 500000,
+      city: city || 'Mumbai'
+    };
+    getQuotes(quoteData);
+  };
+
+  const handleCompareQuotes = () => {
+    if (selectedQuotes.length < 2) {
+      alert('Please select at least 2 plans to compare');
+      return;
+    }
+    
+    compareQuotes({
+      insuranceType: `${selectedInsurance} insurance`,
+      selectedProviders: selectedQuotes.map(q => q.insurerId),
+      criteria: {
+        age: age ? parseInt(age) : 30,
+        coverage: coverage ? parseInt(coverage) : 500000,
+        sortBy: sortBy
+      }
+    });
+  };
+
+  const handleQuoteSelection = (quote: any, isSelected: boolean) => {
+    if (isSelected) {
+      setSelectedQuotes(prev => [...prev, quote]);
+    } else {
+      setSelectedQuotes(prev => prev.filter(q => q.insurerId !== quote.insurerId));
+    }
+  };
+
+  const filteredQuotes = quotes?.data?.quotes?.filter((quote: any) => {
+    const matchesSearch = quote.insurerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         quote.planName.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesPremium = quote.premium >= premiumRange[0] && quote.premium <= premiumRange[1];
+    const matchesProvider = selectedProviders.length === 0 || selectedProviders.includes(quote.insurerId);
+    
+    return matchesSearch && matchesPremium && matchesProvider;
+  }) || [];
+
+  const sortedQuotes = filteredQuotes.sort((a: any, b: any) => {
+    switch (sortBy) {
+      case 'premium':
+        return a.premium - b.premium;
+      case 'rating':
+        return b.rating - a.rating;
+      case 'claimRatio':
+        return b.claimSettlementRatio - a.claimSettlementRatio;
+      default:
+        return 0;
+    }
+  });
+
+  return (
+    <div className="space-y-6">
+      {/* Marketplace Header */}
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-start">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-finance-blue" />
+                Insurance Marketplace
+              </CardTitle>
+              <p className="text-sm text-gray-600 mt-2">
+                Compare plans from 15+ leading insurers and find the perfect coverage for you
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleGetQuotes} className="bg-finance-blue hover:bg-blue-700">
+                <Search className="h-4 w-4 mr-2" />
+                Get Quotes
+              </Button>
+              {selectedQuotes.length > 1 && (
+                <Button variant="outline" onClick={handleCompareQuotes}>
+                  Compare ({selectedQuotes.length})
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        
+        {/* Filters and Controls */}
+        <CardContent>
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
+            {/* Search */}
+            <div className="relative">
+              <Search className="h-4 w-4 absolute left-3 top-3 text-gray-400" />
+              <Input
+                placeholder="Search insurers or plans..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            
+            {/* Sort By */}
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger>
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="premium">Premium (Low to High)</SelectItem>
+                <SelectItem value="rating">Rating (High to Low)</SelectItem>
+                <SelectItem value="claimRatio">Claim Ratio (High to Low)</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Premium Range */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Premium Range</Label>
+              <Slider
+                value={premiumRange}
+                onValueChange={setPremiumRange}
+                max={100000}
+                step={1000}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>₹{premiumRange[0].toLocaleString()}</span>
+                <span>₹{premiumRange[1].toLocaleString()}</span>
+              </div>
+            </div>
+
+            {/* View Mode */}
+            <div className="flex gap-2">
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('grid')}
+              >
+                Grid View
+              </Button>
+              <Button
+                variant={viewMode === 'comparison' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('comparison')}
+              >
+                Compare View
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Marketplace Content */}
+      {quotesLoading ? (
+        <Card>
+          <CardContent className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-finance-blue mx-auto mb-4"></div>
+              <p>Loading insurance quotes from multiple providers...</p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : comparisonData?.success ? (
+        <ComparisonMatrix data={comparisonData.data} />
+      ) : quotes?.success ? (
+        viewMode === 'grid' ? (
+          <MarketplaceGrid 
+            quotes={sortedQuotes}
+            selectedQuotes={selectedQuotes}
+            onQuoteSelection={handleQuoteSelection}
+          />
+        ) : (
+          <ComparisonTable 
+            quotes={sortedQuotes}
+            onQuoteSelection={handleQuoteSelection}
+          />
+        )
+      ) : (
+        <Card>
+          <CardContent className="text-center py-12">
+            <Shield className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Ready to Compare Insurance Plans?</h3>
+            <p className="text-gray-500 mb-4">
+              Get quotes from 15+ top insurers and find the best coverage for your needs
+            </p>
+            <Button onClick={handleGetQuotes} className="bg-finance-blue hover:bg-blue-700">
+              Get Started
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// Marketplace Grid Component
+function MarketplaceGrid({ quotes, selectedQuotes, onQuoteSelection }: any) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {quotes.map((quote: any) => (
+        <MarketplaceCard
+          key={quote.insurerId}
+          quote={quote}
+          isSelected={selectedQuotes.some((q: any) => q.insurerId === quote.insurerId)}
+          onSelection={(isSelected: boolean) => onQuoteSelection(quote, isSelected)}
+        />
+      ))}
+    </div>
+  );
+}
+
+// Enhanced Marketplace Card Component
+function MarketplaceCard({ quote, isSelected, onSelection }: any) {
+  return (
+    <Card className={`relative overflow-hidden transition-all duration-200 hover:shadow-lg border-2 ${
+      isSelected ? 'border-finance-blue bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+    }`}>
+      {/* Provider Header */}
+      <CardContent className="p-0">
+        <div className="bg-gradient-to-r from-gray-50 to-white p-4 border-b">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-finance-blue rounded-full flex items-center justify-center text-white font-bold">
+                {quote.insurerName.substring(0, 2)}
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">{quote.insurerName}</h3>
+                <p className="text-sm text-gray-600">{quote.planName}</p>
+              </div>
+            </div>
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={onSelection}
+              className="data-[state=checked]:bg-finance-blue data-[state=checked]:border-finance-blue"
+            />
+          </div>
+        </div>
+
+        {/* Plan Details */}
+        <div className="p-4 space-y-4">
+          {/* Premium and Rating */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-2xl font-bold text-finance-blue">₹{quote.premium?.toLocaleString()}</p>
+              <p className="text-sm text-gray-500">Annual Premium</p>
+            </div>
+            <div className="text-right">
+              <div className="flex items-center gap-1 mb-1">
+                <Star className="h-4 w-4 text-yellow-500 fill-current" />
+                <span className="font-medium">{quote.rating}</span>
+              </div>
+              <p className="text-xs text-gray-500">Customer Rating</p>
+            </div>
+          </div>
+
+          {/* Coverage Amount */}
+          <div className="bg-green-50 p-3 rounded-lg">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-700">Sum Insured</span>
+              <span className="font-semibold text-green-700">₹{quote.sumInsured?.toLocaleString()}</span>
+            </div>
+          </div>
+
+          {/* Key Metrics */}
+          <div className="grid grid-cols-2 gap-4 text-center">
+            <div>
+              <p className="text-lg font-bold text-green-600">{quote.claimSettlementRatio}%</p>
+              <p className="text-xs text-gray-500">Claim Settlement</p>
+            </div>
+            <div>
+              <p className="text-lg font-bold text-blue-600">{quote.policyTerm}yr</p>
+              <p className="text-xs text-gray-500">Policy Term</p>
+            </div>
+          </div>
+
+          {/* Key Features */}
+          <div>
+            <h4 className="text-sm font-medium text-gray-700 mb-2">Key Features</h4>
+            <div className="space-y-1">
+              {quote.features?.slice(0, 3).map((feature: string, idx: number) => (
+                <div key={idx} className="flex items-center gap-2 text-xs">
+                  <CheckCircle className="h-3 w-3 text-green-500 flex-shrink-0" />
+                  <span className="text-gray-600">{feature}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Special Offers */}
+          {quote.specialOffers?.length > 0 && (
+            <div className="bg-orange-50 p-2 rounded border border-orange-200">
+              <div className="flex items-center gap-1 mb-1">
+                <Award className="h-3 w-3 text-orange-600" />
+                <span className="text-xs font-medium text-orange-800">Special Offer</span>
+              </div>
+              <p className="text-xs text-orange-700">{quote.specialOffers[0]}</p>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex gap-2 pt-2">
+            <Button variant="outline" size="sm" className="flex-1">
+              View Details
+            </Button>
+            <Button 
+              size="sm" 
+              className="flex-1 bg-finance-blue hover:bg-blue-700"
+            >
+              Buy Now
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Comparison Table Component
+function ComparisonTable({ quotes, onQuoteSelection }: any) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Side-by-Side Comparison</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="border-b">
+                <th className="text-left p-4 font-medium">Insurer</th>
+                <th className="text-left p-4 font-medium">Premium</th>
+                <th className="text-left p-4 font-medium">Coverage</th>
+                <th className="text-left p-4 font-medium">Rating</th>
+                <th className="text-left p-4 font-medium">Claim Ratio</th>
+                <th className="text-left p-4 font-medium">Select</th>
+              </tr>
+            </thead>
+            <tbody>
+              {quotes.map((quote: any, index: number) => (
+                <tr key={quote.insurerId} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                  <td className="p-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 bg-finance-blue rounded-full flex items-center justify-center text-white text-sm font-bold">
+                        {quote.insurerName.substring(0, 2)}
+                      </div>
+                      <div>
+                        <p className="font-medium">{quote.insurerName}</p>
+                        <p className="text-sm text-gray-600">{quote.planName}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="p-4">
+                    <span className="font-bold text-finance-blue">₹{quote.premium?.toLocaleString()}</span>
+                  </td>
+                  <td className="p-4">
+                    <span className="font-medium">₹{quote.sumInsured?.toLocaleString()}</span>
+                  </td>
+                  <td className="p-4">
+                    <div className="flex items-center gap-1">
+                      <Star className="h-4 w-4 text-yellow-500 fill-current" />
+                      <span>{quote.rating}</span>
+                    </div>
+                  </td>
+                  <td className="p-4">
+                    <Badge variant="secondary" className="bg-green-100 text-green-800">
+                      {quote.claimSettlementRatio}%
+                    </Badge>
+                  </td>
+                  <td className="p-4">
+                    <Checkbox
+                      onCheckedChange={(checked) => onQuoteSelection(quote, checked)}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Comparison Matrix Component
+function ComparisonMatrix({ data }: any) {
+  const { comparisons, bestValue, topRated, bestClaims, comparisonMatrix } = data;
+  
+  return (
+    <div className="space-y-6">
+      {/* Quick Insights */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="border-green-200 bg-green-50">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <TrendingUp className="h-4 w-4 text-green-600" />
+              <span className="text-sm font-medium text-green-800">Best Value</span>
+            </div>
+            <p className="font-bold text-green-900">{bestValue?.insurerName}</p>
+            <p className="text-sm text-green-700">₹{bestValue?.premium?.toLocaleString()}</p>
+          </CardContent>
+        </Card>
+        
+        <Card className="border-blue-200 bg-blue-50">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Star className="h-4 w-4 text-blue-600" />
+              <span className="text-sm font-medium text-blue-800">Top Rated</span>
+            </div>
+            <p className="font-bold text-blue-900">{topRated?.insurerName}</p>
+            <p className="text-sm text-blue-700">{topRated?.rating} ⭐</p>
+          </CardContent>
+        </Card>
+        
+        <Card className="border-purple-200 bg-purple-50">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Award className="h-4 w-4 text-purple-600" />
+              <span className="text-sm font-medium text-purple-800">Best Claims</span>
+            </div>
+            <p className="font-bold text-purple-900">{bestClaims?.insurerName}</p>
+            <p className="text-sm text-purple-700">{bestClaims?.claimSettlementRatio}%</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Detailed Comparison */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Detailed Comparison Matrix</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-6">
+            {comparisonMatrix?.map((criterion: any, index: number) => (
+              <div key={index}>
+                <h4 className="font-medium text-gray-900 mb-3">{criterion.criterion}</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {criterion.values.map((value: any, idx: number) => (
+                    <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                      <span className="text-sm font-medium">
+                        {comparisons.find((c: any) => c.insurerId === value.providerId)?.insurerName}
+                      </span>
+                      <Badge variant="outline">
+                        {typeof value.value === 'number' && criterion.criterion === 'Premium' 
+                          ? `₹${value.value.toLocaleString()}` 
+                          : value.value}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
 export default function PolicyBazaar() {
   // Navigation state for responsive layout
@@ -556,98 +1047,12 @@ export default function PolicyBazaar() {
           </TabsContent>
 
           <TabsContent value="compare" className="space-y-6" data-testid="compare-tab">
-            <Card>
-              <CardHeader>
-                <CardTitle>Compare Insurance Quotes</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="mb-4">
-                  <Button 
-                    onClick={handleGetQuotes}
-                    className="bg-finance-blue hover:bg-blue-700"
-                    data-testid="get-quotes"
-                  >
-                    Get Quotes from Multiple Insurers
-                  </Button>
-                </div>
-                
-                {quotes?.success ? (
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {quotes.data.quotes.map((quote: any, index: number) => (
-                        <Card key={quote.insurerId} className="hover:shadow-md transition-shadow">
-                          <CardContent className="p-6">
-                            <div className="flex justify-between items-start mb-4">
-                              <div>
-                                <h3 className="font-bold text-gray-900">{quote.insurerName}</h3>
-                                <p className="text-sm text-gray-600">{quote.planName}</p>
-                              </div>
-                              <div className="text-right">
-                                <div className="flex items-center gap-1">
-                                  <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                                  <span className="text-sm font-medium">{quote.rating}</span>
-                                </div>
-                              </div>
-                            </div>
-                            
-                            <div className="space-y-2 text-sm mb-4">
-                              <div className="flex justify-between">
-                                <span>Premium:</span>
-                                <span className="font-bold text-finance-blue">₹{quote.premium?.toLocaleString()}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span>Coverage:</span>
-                                <span className="font-semibold">₹{quote.sumInsured?.toLocaleString()}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span>Claim Settlement:</span>
-                                <span className="font-semibold text-green-600">{quote.claimSettlementRatio}%</span>
-                              </div>
-                            </div>
-                            
-                            <div className="mb-4">
-                              <h4 className="text-xs font-medium text-gray-700 mb-2">Key Features:</h4>
-                              <ul className="text-xs text-gray-600 space-y-1">
-                                {quote.features?.slice(0, 3).map((feature: string, idx: number) => (
-                                  <li key={idx}>• {feature}</li>
-                                ))}
-                              </ul>
-                            </div>
-                            
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="w-full hover:bg-finance-blue hover:text-white"
-                              data-testid={`buy-${quote.insurerId}`}
-                            >
-                              Buy This Plan
-                            </Button>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                    
-                    {quotes.data.recommendations && (
-                      <div className="bg-green-50 p-4 rounded-lg">
-                        <h4 className="font-semibold text-green-800 mb-2">Our Recommendations:</h4>
-                        <ul className="text-sm text-green-700 space-y-1">
-                          {quotes.data.recommendations.map((rec: string, idx: number) => (
-                            <li key={idx}>• {rec}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <Shield className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-500">
-                      Click "Get Quotes" to compare insurance plans from multiple insurers
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <EnhancedInsuranceMarketplace 
+              selectedInsurance={selectedInsurance}
+              age={age}
+              coverage={coverage}
+              city={city}
+            />
           </TabsContent>
 
           <TabsContent value="policies" className="space-y-6" data-testid="policies-tab">
