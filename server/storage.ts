@@ -1,4 +1,4 @@
-import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Supplier, type InsertSupplier, type EpfHolding, type PpfHolding, type EpsHolding, type GovernmentSchemeConsent, type InsertGovernmentSchemeConsent, type InsuranceHolding, type InsertInsuranceHolding, type UserBankAccount, type InsertUserBankAccount, type UserDematAccount, type InsertUserDematAccount, type AchievementCategory, type InsertAchievementCategory, type Achievement, type InsertAchievement, type UserAchievement, type InsertUserAchievement, type LearningProgress, type InsertLearningProgress, type SocialShare, type InsertSocialShare, type FinancialGoal, type InsertFinancialGoal, type FundExtended, type Provenance, type FundSearchParams, type FundListResponse, type SourceStatus, type MultiSourceStatus } from "@shared/schema";
+import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Supplier, type InsertSupplier, type EpfHolding, type PpfHolding, type EpsHolding, type GovernmentSchemeConsent, type InsertGovernmentSchemeConsent, type InsuranceHolding, type InsertInsuranceHolding, type UserBankAccount, type InsertUserBankAccount, type UserDematAccount, type InsertUserDematAccount, type AchievementCategory, type InsertAchievementCategory, type Achievement, type InsertAchievement, type UserAchievement, type InsertUserAchievement, type LearningProgress, type InsertLearningProgress, type SocialShare, type InsertSocialShare, type FinancialGoal, type InsertFinancialGoal, type TaxDocument, type InsertTaxDocument, type StructuredTaxData, type InsertStructuredTaxData, type TaxCalculation, type InsertTaxCalculation, type TaxDocumentAccessLog, type InsertTaxDocumentAccessLog, type FundExtended, type Provenance, type FundSearchParams, type FundListResponse, type SourceStatus, type MultiSourceStatus } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, and, desc, asc, gte, lte, like, sql } from "drizzle-orm";
@@ -418,6 +418,37 @@ export interface IStorage {
   createPortfolioComparison(comparison: InsertPortfolioComparison): Promise<string>;
   getPortfolioComparison(id: string): Promise<any>;
   getUserPortfolioComparisons(userId: string): Promise<any[]>;
+
+  // Tax Document methods
+  createTaxDocument(document: InsertTaxDocument): Promise<TaxDocument>;
+  getTaxDocuments(userId: string, financialYear?: string): Promise<TaxDocument[]>;
+  getTaxDocument(id: string): Promise<TaxDocument | undefined>;
+  updateTaxDocument(id: string, updates: Partial<TaxDocument>): Promise<TaxDocument | undefined>;
+  deleteTaxDocument(id: string): Promise<boolean>;
+  
+  // Structured Tax Data methods
+  createStructuredTaxData(data: InsertStructuredTaxData): Promise<StructuredTaxData>;
+  getStructuredTaxData(documentId: string): Promise<StructuredTaxData[]>;
+  getStructuredTaxDataByUser(userId: string, financialYear?: string): Promise<StructuredTaxData[]>;
+  updateStructuredTaxData(id: string, updates: Partial<StructuredTaxData>): Promise<StructuredTaxData | undefined>;
+  deleteStructuredTaxData(id: string): Promise<boolean>;
+  
+  // Tax Calculation methods
+  createTaxCalculation(calculation: InsertTaxCalculation): Promise<TaxCalculation>;
+  getTaxCalculations(userId: string, financialYear?: string): Promise<TaxCalculation[]>;
+  getTaxCalculation(id: string): Promise<TaxCalculation | undefined>;
+  updateTaxCalculation(id: string, updates: Partial<TaxCalculation>): Promise<TaxCalculation | undefined>;
+  deleteTaxCalculation(id: string): Promise<boolean>;
+  
+  // Tax Document Access Log methods
+  createTaxDocumentAccessLog(log: InsertTaxDocumentAccessLog): Promise<TaxDocumentAccessLog>;
+  getTaxDocumentAccessLogs(documentId: string): Promise<TaxDocumentAccessLog[]>;
+  
+  // Tax Document Processing methods
+  processTaxDocument(documentId: string): Promise<{ success: boolean; extractedDataCount: number; errors?: string[] }>;
+  validateTaxData(documentId: string): Promise<{ isValid: boolean; warnings: string[]; errors: string[] }>;
+  generateITRJson(userId: string, financialYear: string): Promise<{ itrJson: string; warnings: string[] }>;
+  calculateTaxLiability(userId: string, financialYear: string, taxRegime: 'old' | 'new'): Promise<TaxCalculation>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1754,6 +1785,484 @@ export class DatabaseStorage implements IStorage {
   // Property access for backward compatibility
   get db() {
     return db;
+  }
+
+  // ===== TAX DOCUMENT METHODS =====
+
+  // Tax Document methods
+  async createTaxDocument(document: InsertTaxDocument): Promise<TaxDocument> {
+    const [result] = await this.db
+      .insert(schema.taxDocuments)
+      .values(document)
+      .returning();
+    return result;
+  }
+
+  async getTaxDocuments(userId: string, financialYear?: string): Promise<TaxDocument[]> {
+    let query = this.db
+      .select()
+      .from(schema.taxDocuments)
+      .where(eq(schema.taxDocuments.userId, userId));
+
+    if (financialYear) {
+      query = query.where(eq(schema.taxDocuments.financialYear, financialYear));
+    }
+
+    return await query.orderBy(desc(schema.taxDocuments.createdAt));
+  }
+
+  async getTaxDocument(id: string): Promise<TaxDocument | undefined> {
+    const [result] = await this.db
+      .select()
+      .from(schema.taxDocuments)
+      .where(eq(schema.taxDocuments.id, id));
+    return result;
+  }
+
+  async updateTaxDocument(id: string, updates: Partial<TaxDocument>): Promise<TaxDocument | undefined> {
+    const [result] = await this.db
+      .update(schema.taxDocuments)
+      .set(updates)
+      .where(eq(schema.taxDocuments.id, id))
+      .returning();
+    return result;
+  }
+
+  async deleteTaxDocument(id: string): Promise<boolean> {
+    const result = await this.db
+      .delete(schema.taxDocuments)
+      .where(eq(schema.taxDocuments.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // Structured Tax Data methods
+  async createStructuredTaxData(data: InsertStructuredTaxData): Promise<StructuredTaxData> {
+    const [result] = await this.db
+      .insert(schema.structuredTaxData)
+      .values(data)
+      .returning();
+    return result;
+  }
+
+  async getStructuredTaxData(documentId: string): Promise<StructuredTaxData[]> {
+    return await this.db
+      .select()
+      .from(schema.structuredTaxData)
+      .where(eq(schema.structuredTaxData.documentId, documentId))
+      .orderBy(desc(schema.structuredTaxData.createdAt));
+  }
+
+  async getStructuredTaxDataByUser(userId: string, financialYear?: string): Promise<StructuredTaxData[]> {
+    let query = this.db
+      .select({
+        ...schema.structuredTaxData,
+        document: schema.taxDocuments
+      })
+      .from(schema.structuredTaxData)
+      .innerJoin(schema.taxDocuments, eq(schema.structuredTaxData.documentId, schema.taxDocuments.id))
+      .where(eq(schema.structuredTaxData.userId, userId));
+
+    if (financialYear) {
+      query = query.where(eq(schema.taxDocuments.financialYear, financialYear));
+    }
+
+    return await query.orderBy(desc(schema.structuredTaxData.createdAt));
+  }
+
+  async updateStructuredTaxData(id: string, updates: Partial<StructuredTaxData>): Promise<StructuredTaxData | undefined> {
+    const [result] = await this.db
+      .update(schema.structuredTaxData)
+      .set(updates)
+      .where(eq(schema.structuredTaxData.id, id))
+      .returning();
+    return result;
+  }
+
+  async deleteStructuredTaxData(id: string): Promise<boolean> {
+    const result = await this.db
+      .delete(schema.structuredTaxData)
+      .where(eq(schema.structuredTaxData.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // Tax Calculation methods
+  async createTaxCalculation(calculation: InsertTaxCalculation): Promise<TaxCalculation> {
+    const [result] = await this.db
+      .insert(schema.taxCalculations)
+      .values(calculation)
+      .returning();
+    return result;
+  }
+
+  async getTaxCalculations(userId: string, financialYear?: string): Promise<TaxCalculation[]> {
+    let query = this.db
+      .select()
+      .from(schema.taxCalculations)
+      .where(eq(schema.taxCalculations.userId, userId));
+
+    if (financialYear) {
+      query = query.where(eq(schema.taxCalculations.financialYear, financialYear));
+    }
+
+    return await query.orderBy(desc(schema.taxCalculations.createdAt));
+  }
+
+  async getTaxCalculation(id: string): Promise<TaxCalculation | undefined> {
+    const [result] = await this.db
+      .select()
+      .from(schema.taxCalculations)
+      .where(eq(schema.taxCalculations.id, id));
+    return result;
+  }
+
+  async updateTaxCalculation(id: string, updates: Partial<TaxCalculation>): Promise<TaxCalculation | undefined> {
+    const [result] = await this.db
+      .update(schema.taxCalculations)
+      .set(updates)
+      .where(eq(schema.taxCalculations.id, id))
+      .returning();
+    return result;
+  }
+
+  async deleteTaxCalculation(id: string): Promise<boolean> {
+    const result = await this.db
+      .delete(schema.taxCalculations)
+      .where(eq(schema.taxCalculations.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // Tax Document Access Log methods
+  async createTaxDocumentAccessLog(log: InsertTaxDocumentAccessLog): Promise<TaxDocumentAccessLog> {
+    const [result] = await this.db
+      .insert(schema.taxDocumentAccessLog)
+      .values(log)
+      .returning();
+    return result;
+  }
+
+  async getTaxDocumentAccessLogs(documentId: string): Promise<TaxDocumentAccessLog[]> {
+    return await this.db
+      .select()
+      .from(schema.taxDocumentAccessLog)
+      .where(eq(schema.taxDocumentAccessLog.documentId, documentId))
+      .orderBy(desc(schema.taxDocumentAccessLog.accessedAt));
+  }
+
+  // Tax Document Processing methods
+  async processTaxDocument(documentId: string): Promise<{ success: boolean; extractedDataCount: number; errors?: string[] }> {
+    // This is a placeholder implementation - actual processing would involve
+    // PDF parsing, OCR, or JSON parsing depending on document type
+    try {
+      const document = await this.getTaxDocument(documentId);
+      if (!document) {
+        return { success: false, extractedDataCount: 0, errors: ['Document not found'] };
+      }
+
+      // Mark document as processing
+      await this.updateTaxDocument(documentId, {
+        processingStatus: 'processing',
+        processingStartedAt: new Date()
+      });
+
+      // Simulate processing based on document type and file format
+      const mockExtractedData = this.generateMockTaxData(document);
+      
+      // Create structured tax data entries
+      let extractedCount = 0;
+      for (const data of mockExtractedData) {
+        await this.createStructuredTaxData({
+          ...data,
+          documentId,
+          userId: document.userId
+        });
+        extractedCount++;
+      }
+
+      // Mark document as completed
+      await this.updateTaxDocument(documentId, {
+        processingStatus: 'completed',
+        processingCompletedAt: new Date()
+      });
+
+      return { success: true, extractedDataCount: extractedCount };
+
+    } catch (error) {
+      // Mark document as failed
+      await this.updateTaxDocument(documentId, {
+        processingStatus: 'failed',
+        processingError: error instanceof Error ? error.message : 'Unknown error'
+      });
+
+      return { 
+        success: false, 
+        extractedDataCount: 0, 
+        errors: [error instanceof Error ? error.message : 'Unknown error'] 
+      };
+    }
+  }
+
+  async validateTaxData(documentId: string): Promise<{ isValid: boolean; warnings: string[]; errors: string[] }> {
+    const structuredData = await this.getStructuredTaxData(documentId);
+    const warnings: string[] = [];
+    const errors: string[] = [];
+
+    // Validate each tax data entry
+    for (const data of structuredData) {
+      // Check for required fields
+      if (!data.taxableAmount && !data.taxDeducted) {
+        errors.push(`Missing amount data for entry ${data.id}`);
+      }
+
+      // Check for reasonable values
+      if (data.taxableAmount && data.taxableAmount < 0) {
+        errors.push(`Negative taxable amount for entry ${data.id}`);
+      }
+
+      if (data.taxDeducted && data.taxDeducted < 0) {
+        errors.push(`Negative tax deducted for entry ${data.id}`);
+      }
+
+      // Check for missing PAN numbers
+      if (!data.deductorPan && data.dataType === 'TDS') {
+        warnings.push(`Missing deductor PAN for TDS entry ${data.id}`);
+      }
+    }
+
+    return {
+      isValid: errors.length === 0,
+      warnings,
+      errors
+    };
+  }
+
+  async generateITRJson(userId: string, financialYear: string): Promise<{ itrJson: string; warnings: string[] }> {
+    // Get all structured tax data for the user and financial year
+    const taxData = await this.getStructuredTaxDataByUser(userId, financialYear);
+    const warnings: string[] = [];
+
+    // Group data by type
+    const groupedData = this.groupTaxDataByType(taxData);
+
+    // Generate ITR JSON structure (simplified)
+    const itrJson = {
+      itrType: this.determineITRType(groupedData),
+      financialYear,
+      assessmentYear: this.getAssessmentYear(financialYear),
+      personalInfo: await this.getUserProfile(userId),
+      income: {
+        salary: this.calculateSalaryIncome(groupedData.salary || []),
+        houseProperty: 0,
+        businessProfession: 0,
+        capitalGains: this.calculateCapitalGains(groupedData.capital_gains || []),
+        otherSources: this.calculateOtherIncome(groupedData.interest || [], groupedData.dividend || [])
+      },
+      deductions: {
+        chapter6A: this.calculateDeductions(groupedData),
+        totalDeductions: 0
+      },
+      taxComputation: {
+        totalIncome: 0,
+        taxPayable: 0,
+        taxPaid: this.calculateTaxPaid(groupedData.TDS || [], groupedData.advance_tax || [])
+      }
+    };
+
+    // Calculate totals
+    itrJson.income.totalIncome = Object.values(itrJson.income).reduce((sum: number, val: number) => sum + val, 0);
+    itrJson.taxComputation.totalIncome = itrJson.income.totalIncome - itrJson.deductions.totalDeductions;
+
+    return {
+      itrJson: JSON.stringify(itrJson, null, 2),
+      warnings
+    };
+  }
+
+  async calculateTaxLiability(userId: string, financialYear: string, taxRegime: 'old' | 'new'): Promise<TaxCalculation> {
+    // Get structured tax data
+    const taxData = await this.getStructuredTaxDataByUser(userId, financialYear);
+    const groupedData = this.groupTaxDataByType(taxData);
+
+    // Calculate total income
+    const salaryIncome = this.calculateSalaryIncome(groupedData.salary || []);
+    const capitalGains = this.calculateCapitalGains(groupedData.capital_gains || []);
+    const otherIncome = this.calculateOtherIncome(groupedData.interest || [], groupedData.dividend || []);
+    const totalIncome = salaryIncome + capitalGains + otherIncome;
+
+    // Calculate deductions (simplified)
+    const standardDeduction = taxRegime === 'new' ? 50000 : 50000;
+    const section80cDeductions = taxRegime === 'new' ? 0 : 150000; // Simplified
+    const totalDeductions = standardDeduction + section80cDeductions;
+
+    // Calculate taxable income
+    const taxableIncome = Math.max(0, totalIncome - totalDeductions);
+
+    // Calculate tax liability based on regime
+    const grossTaxLiability = this.calculateTaxBySlabs(taxableIncome, taxRegime);
+    const educationCess = grossTaxLiability * 0.04; // 4% education cess
+    const totalTaxPayable = grossTaxLiability + educationCess;
+
+    // Calculate tax paid
+    const tdsDeducted = this.calculateTaxPaid(groupedData.TDS || [], []);
+    const advanceTaxPaid = this.calculateTaxPaid([], groupedData.advance_tax || []);
+    const totalTaxPaid = tdsDeducted + advanceTaxPaid;
+
+    // Calculate refund or payable
+    const refundDue = Math.max(0, totalTaxPaid - totalTaxPayable);
+    const taxPayable = Math.max(0, totalTaxPayable - totalTaxPaid);
+
+    const calculation = await this.createTaxCalculation({
+      userId,
+      financialYear,
+      taxRegime,
+      totalIncome,
+      taxableIncome,
+      standardDeduction,
+      section80cDeductions,
+      totalDeductions,
+      grossTaxLiability,
+      educationCess,
+      totalTaxPayable,
+      tdsDeducted,
+      advanceTaxPaid,
+      totalTaxPaid,
+      refundDue,
+      taxPayable,
+      incomeBreakdown: {
+        salary: salaryIncome,
+        capitalGains,
+        otherIncome
+      },
+      deductionBreakdown: {
+        standardDeduction,
+        section80c: section80cDeductions
+      },
+      taxBreakdown: this.getTaxSlabBreakdown(taxableIncome, taxRegime)
+    });
+
+    return calculation;
+  }
+
+  // Helper methods for tax calculations
+  private generateMockTaxData(document: TaxDocument): Partial<InsertStructuredTaxData>[] {
+    // This would be replaced with actual document parsing logic
+    const mockData: Partial<InsertStructuredTaxData>[] = [];
+
+    if (document.documentType === '26AS') {
+      // Mock TDS entries
+      mockData.push({
+        dataType: 'TDS',
+        dataCategory: 'deduction',
+        sourceType: 'employer',
+        taxableAmount: 500000,
+        taxDeducted: 50000,
+        transactionDate: new Date('2024-03-31'),
+        deductorPan: 'ABCDE1234F',
+        deductorName: 'Sample Employer',
+        incomeNature: 'salary'
+      });
+    }
+
+    if (document.documentType === 'AIS') {
+      // Mock interest income
+      mockData.push({
+        dataType: 'interest',
+        dataCategory: 'income',
+        sourceType: 'bank',
+        taxableAmount: 25000,
+        taxDeducted: 2500,
+        transactionDate: new Date('2024-03-31'),
+        bankName: 'Sample Bank',
+        incomeNature: 'interest'
+      });
+    }
+
+    return mockData;
+  }
+
+  private groupTaxDataByType(taxData: any[]): Record<string, any[]> {
+    return taxData.reduce((groups, item) => {
+      const type = item.dataType;
+      if (!groups[type]) {
+        groups[type] = [];
+      }
+      groups[type].push(item);
+      return groups;
+    }, {});
+  }
+
+  private determineITRType(groupedData: Record<string, any[]>): string {
+    // Simplified ITR type determination
+    if (groupedData.business || groupedData.profession) {
+      return 'ITR-3';
+    }
+    if (groupedData.capital_gains || groupedData.house_property) {
+      return 'ITR-2';
+    }
+    return 'ITR-1';
+  }
+
+  private getAssessmentYear(financialYear: string): string {
+    const [startYear] = financialYear.split('-');
+    const assessmentYear = parseInt(startYear) + 1;
+    return `${assessmentYear}-${(assessmentYear + 1).toString().slice(-2)}`;
+  }
+
+  private calculateSalaryIncome(salaryData: any[]): number {
+    return salaryData.reduce((total, item) => total + (item.taxableAmount || 0), 0);
+  }
+
+  private calculateCapitalGains(capitalGainsData: any[]): number {
+    return capitalGainsData.reduce((total, item) => total + (item.taxableAmount || 0), 0);
+  }
+
+  private calculateOtherIncome(interestData: any[], dividendData: any[]): number {
+    const interest = interestData.reduce((total, item) => total + (item.taxableAmount || 0), 0);
+    const dividend = dividendData.reduce((total, item) => total + (item.taxableAmount || 0), 0);
+    return interest + dividend;
+  }
+
+  private calculateDeductions(groupedData: Record<string, any[]>): any {
+    // Simplified deduction calculation
+    return {
+      section80C: 150000, // Mock value
+      section80D: 25000,  // Mock value
+      total: 175000
+    };
+  }
+
+  private calculateTaxPaid(tdsData: any[], advanceTaxData: any[]): number {
+    const tds = tdsData.reduce((total, item) => total + (item.taxDeducted || 0), 0);
+    const advanceTax = advanceTaxData.reduce((total, item) => total + (item.taxDeducted || 0), 0);
+    return tds + advanceTax;
+  }
+
+  private calculateTaxBySlabs(taxableIncome: number, regime: 'old' | 'new'): number {
+    if (regime === 'new') {
+      // New tax regime slabs (2024-25)
+      if (taxableIncome <= 300000) return 0;
+      if (taxableIncome <= 700000) return (taxableIncome - 300000) * 0.05;
+      if (taxableIncome <= 1000000) return 20000 + (taxableIncome - 700000) * 0.10;
+      if (taxableIncome <= 1200000) return 50000 + (taxableIncome - 1000000) * 0.15;
+      if (taxableIncome <= 1500000) return 80000 + (taxableIncome - 1200000) * 0.20;
+      return 140000 + (taxableIncome - 1500000) * 0.30;
+    } else {
+      // Old tax regime slabs
+      if (taxableIncome <= 250000) return 0;
+      if (taxableIncome <= 500000) return (taxableIncome - 250000) * 0.05;
+      if (taxableIncome <= 1000000) return 12500 + (taxableIncome - 500000) * 0.20;
+      return 112500 + (taxableIncome - 1000000) * 0.30;
+    }
+  }
+
+  private getTaxSlabBreakdown(taxableIncome: number, regime: 'old' | 'new'): any {
+    // Return detailed breakdown of tax calculation by slabs
+    return {
+      regime,
+      slabs: [
+        { min: 0, max: regime === 'new' ? 300000 : 250000, rate: 0, tax: 0 },
+        // Add more slabs as needed
+      ]
+    };
   }
 }
 

@@ -4194,3 +4194,234 @@ export type ComparisonHistory = typeof comparisonHistory.$inferSelect;
 export type InsertFundComparison = z.infer<typeof insertFundComparisonSchema>;
 export type InsertPortfolioComparison = z.infer<typeof insertPortfolioComparisonSchema>;
 export type InsertComparisonHistory = z.infer<typeof insertComparisonHistorySchema>;
+
+// ===== TAX DOCUMENT PROCESSING TABLES =====
+
+// Tax Documents table for storing uploaded Form 26AS and AIS files
+export const taxDocuments = pgTable("tax_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Document Information
+  documentType: varchar("document_type").notNull(), // '26AS' | 'AIS'
+  financialYear: varchar("financial_year").notNull(), // e.g., "2023-24"
+  originalFileName: varchar("original_file_name").notNull(),
+  fileFormat: varchar("file_format").notNull(), // 'PDF' | 'JSON' | 'CSV'
+  fileSize: integer("file_size"), // in bytes
+  
+  // File Storage
+  fileUrl: text("file_url"), // Secure file storage URL in object storage
+  encryptionKey: varchar("encryption_key"), // For end-to-end encryption
+  
+  // Processing Status
+  processingStatus: varchar("processing_status").default("pending"), // pending/processing/completed/failed
+  processingStartedAt: timestamp("processing_started_at"),
+  processingCompletedAt: timestamp("processing_completed_at"),
+  processingError: text("processing_error"),
+  
+  // Document Metadata
+  documentPassword: varchar("document_password"), // For password-protected PDFs (encrypted)
+  documentDate: date("document_date"), // Date when the document was generated
+  panNumber: varchar("pan_number"), // PAN from the document
+  assessmentYear: varchar("assessment_year"), // Assessment year from document
+  
+  // Validation and Compliance
+  isValidated: boolean("is_validated").default(false),
+  validationErrors: jsonb("validation_errors").default([]),
+  checksumHash: varchar("checksum_hash"), // File integrity verification
+  
+  // User Consent and Privacy
+  userConsent: boolean("user_consent").default(false),
+  consentGivenAt: timestamp("consent_given_at"),
+  dataRetentionPeriod: integer("data_retention_period").default(7), // years
+  autoDeleteAt: timestamp("auto_delete_at"), // Automatic deletion date
+  
+  // Audit and Tracking
+  uploadedFromIp: varchar("uploaded_from_ip"),
+  uploadedUserAgent: text("uploaded_user_agent"),
+  accessedCount: integer("accessed_count").default(0),
+  lastAccessedAt: timestamp("last_accessed_at"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Structured Tax Data table for parsed and categorized tax information
+export const structuredTaxData = pgTable("structured_tax_data", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  documentId: varchar("document_id").references(() => taxDocuments.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Data Classification
+  dataType: varchar("data_type").notNull(), // 'TDS' | 'TCS' | 'advance_tax' | 'salary' | 'interest' | 'dividend' | 'capital_gains' | 'other_income'
+  dataCategory: varchar("data_category"), // 'deduction' | 'income' | 'payment' | 'refund'
+  sourceType: varchar("source_type"), // 'employer' | 'bank' | 'broker' | 'mutual_fund' | 'government' | 'other'
+  
+  // Financial Data
+  taxableAmount: decimal("taxable_amount", { precision: 15, scale: 2 }),
+  taxDeducted: decimal("tax_deducted", { precision: 15, scale: 2 }),
+  netAmount: decimal("net_amount", { precision: 15, scale: 2 }),
+  taxRate: decimal("tax_rate", { precision: 5, scale: 2 }), // percentage
+  
+  // Transaction Details
+  transactionDate: date("transaction_date"),
+  deductorPan: varchar("deductor_pan"),
+  deductorName: varchar("deductor_name"),
+  deductorTan: varchar("deductor_tan"), // Tax Account Number
+  certificateNumber: varchar("certificate_number"),
+  
+  // Income Source Details
+  incomeNature: varchar("income_nature"), // 'salary' | 'professional_fees' | 'commission' | 'rent' | etc.
+  employerName: varchar("employer_name"),
+  employerAddress: text("employer_address"),
+  
+  // Bank/Investment Details
+  bankName: varchar("bank_name"),
+  accountNumber: varchar("account_number"), // Last 4 digits only for security
+  instrumentType: varchar("instrument_type"), // 'FD' | 'savings' | 'equity' | 'mutual_fund'
+  
+  // Additional Metadata
+  remarks: text("remarks"),
+  originalSection: varchar("original_section"), // Section of tax document where this was found
+  metadata: jsonb("metadata"), // Additional fields specific to data type
+  
+  // Verification Status
+  isVerified: boolean("is_verified").default(false),
+  verificationSource: varchar("verification_source"), // 'manual' | 'external_api' | 'bank_statement'
+  discrepancyFlags: jsonb("discrepancy_flags").default([]),
+  
+  // ITR Integration
+  includeInItr: boolean("include_in_itr").default(true),
+  itrSection: varchar("itr_section"), // ITR section where this should be reported
+  itrLineItem: varchar("itr_line_item"), // Specific line item in ITR
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Tax Calculations table for computed tax liabilities and savings
+export const taxCalculations = pgTable("tax_calculations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  financialYear: varchar("financial_year").notNull(),
+  
+  // Calculation Type and Status
+  calculationType: varchar("calculation_type").default("comprehensive"), // 'quick' | 'comprehensive' | 'comparison'
+  taxRegime: varchar("tax_regime").default("new"), // 'old' | 'new'
+  calculationStatus: varchar("calculation_status").default("draft"), // 'draft' | 'final' | 'filed'
+  
+  // Income Summary
+  totalIncome: decimal("total_income", { precision: 15, scale: 2 }),
+  exemptIncome: decimal("exempt_income", { precision: 15, scale: 2 }),
+  taxableIncome: decimal("taxable_income", { precision: 15, scale: 2 }),
+  
+  // Deductions
+  standardDeduction: decimal("standard_deduction", { precision: 15, scale: 2 }),
+  section80cDeductions: decimal("section_80c_deductions", { precision: 15, scale: 2 }),
+  otherDeductions: decimal("other_deductions", { precision: 15, scale: 2 }),
+  totalDeductions: decimal("total_deductions", { precision: 15, scale: 2 }),
+  
+  // Tax Computation
+  grossTaxLiability: decimal("gross_tax_liability", { precision: 15, scale: 2 }),
+  rebateUnder87a: decimal("rebate_under_87a", { precision: 15, scale: 2 }),
+  netTaxLiability: decimal("net_tax_liability", { precision: 15, scale: 2 }),
+  educationCess: decimal("education_cess", { precision: 15, scale: 2 }),
+  totalTaxPayable: decimal("total_tax_payable", { precision: 15, scale: 2 }),
+  
+  // Tax Payments
+  tdsDeducted: decimal("tds_deducted", { precision: 15, scale: 2 }),
+  advanceTaxPaid: decimal("advance_tax_paid", { precision: 15, scale: 2 }),
+  selfAssessmentTax: decimal("self_assessment_tax", { precision: 15, scale: 2 }),
+  totalTaxPaid: decimal("total_tax_paid", { precision: 15, scale: 2 }),
+  
+  // Refund/Payable
+  refundDue: decimal("refund_due", { precision: 15, scale: 2 }),
+  taxPayable: decimal("tax_payable", { precision: 15, scale: 2 }),
+  
+  // Detailed Breakdown (JSON)
+  incomeBreakdown: jsonb("income_breakdown"), // Source-wise income details
+  deductionBreakdown: jsonb("deduction_breakdown"), // Section-wise deductions
+  taxBreakdown: jsonb("tax_breakdown"), // Slab-wise tax calculation
+  comparisonOldVsNew: jsonb("comparison_old_vs_new"), // Regime comparison
+  
+  // ITR Preparation
+  itrForm: varchar("itr_form"), // 'ITR-1' | 'ITR-2' | 'ITR-3' | 'ITR-4'
+  itrJsonGenerated: boolean("itr_json_generated").default(false),
+  itrJsonUrl: text("itr_json_url"), // URL to downloadable ITR JSON
+  
+  // Advisory and Recommendations
+  taxSavingSuggestions: jsonb("tax_saving_suggestions"),
+  optimizationOpportunities: jsonb("optimization_opportunities"),
+  nextYearProjections: jsonb("next_year_projections"),
+  
+  // Validation and Compliance
+  validationWarnings: jsonb("validation_warnings").default([]),
+  complianceChecks: jsonb("compliance_checks"),
+  lastValidatedAt: timestamp("last_validated_at"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Tax Document Access Log for audit purposes
+export const taxDocumentAccessLog = pgTable("tax_document_access_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  documentId: varchar("document_id").references(() => taxDocuments.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Access Details
+  actionType: varchar("action_type").notNull(), // 'view' | 'download' | 'process' | 'delete' | 'share'
+  accessMethod: varchar("access_method"), // 'web' | 'mobile' | 'api'
+  accessSource: varchar("access_source"), // 'dashboard' | 'itr_wizard' | 'reports'
+  
+  // Technical Details
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  sessionId: varchar("session_id"),
+  
+  // Additional Context
+  purpose: varchar("purpose"), // 'itr_filing' | 'tax_planning' | 'verification' | 'analysis'
+  dataShared: boolean("data_shared").default(false),
+  exportFormat: varchar("export_format"), // if downloaded
+  
+  // Timestamps
+  accessedAt: timestamp("accessed_at").defaultNow(),
+});
+
+// Insert schemas for tax document tables
+export const insertTaxDocumentSchema = createInsertSchema(taxDocuments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertStructuredTaxDataSchema = createInsertSchema(structuredTaxData).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertTaxCalculationSchema = createInsertSchema(taxCalculations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertTaxDocumentAccessLogSchema = createInsertSchema(taxDocumentAccessLog).omit({
+  id: true,
+  accessedAt: true,
+});
+
+// Export tax document types
+export type TaxDocument = typeof taxDocuments.$inferSelect;
+export type StructuredTaxData = typeof structuredTaxData.$inferSelect;
+export type TaxCalculation = typeof taxCalculations.$inferSelect;
+export type TaxDocumentAccessLog = typeof taxDocumentAccessLog.$inferSelect;
+
+export type InsertTaxDocument = z.infer<typeof insertTaxDocumentSchema>;
+export type InsertStructuredTaxData = z.infer<typeof insertStructuredTaxDataSchema>;
+export type InsertTaxCalculation = z.infer<typeof insertTaxCalculationSchema>;
+export type InsertTaxDocumentAccessLog = z.infer<typeof insertTaxDocumentAccessLogSchema>;
