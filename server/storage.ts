@@ -1,4 +1,4 @@
-import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Supplier, type InsertSupplier, type EpfHolding, type PpfHolding, type EpsHolding, type GovernmentSchemeConsent, type InsertGovernmentSchemeConsent, type InsuranceHolding, type InsertInsuranceHolding, type UserBankAccount, type InsertUserBankAccount, type UserDematAccount, type InsertUserDematAccount, type AchievementCategory, type InsertAchievementCategory, type Achievement, type InsertAchievement, type UserAchievement, type InsertUserAchievement, type LearningProgress, type InsertLearningProgress, type SocialShare, type InsertSocialShare, type FinancialGoal, type InsertFinancialGoal, type TaxDocument, type InsertTaxDocument, type StructuredTaxData, type InsertStructuredTaxData, type TaxCalculation, type InsertTaxCalculation, type TaxDocumentAccessLog, type InsertTaxDocumentAccessLog, type FundExtended, type Provenance, type FundSearchParams, type FundListResponse, type SourceStatus, type MultiSourceStatus } from "@shared/schema";
+import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Supplier, type InsertSupplier, type EpfHolding, type PpfHolding, type EpsHolding, type GovernmentSchemeConsent, type InsertGovernmentSchemeConsent, type InsuranceHolding, type InsertInsuranceHolding, type UserBankAccount, type InsertUserBankAccount, type UserDematAccount, type InsertUserDematAccount, type AchievementCategory, type InsertAchievementCategory, type Achievement, type InsertAchievement, type UserAchievement, type InsertUserAchievement, type LearningProgress, type InsertLearningProgress, type SocialShare, type InsertSocialShare, type FinancialGoal, type InsertFinancialGoal, type TaxDocument, type InsertTaxDocument, type StructuredTaxData, type InsertStructuredTaxData, type TaxCalculation, type InsertTaxCalculation, type TaxDocumentAccessLog, type InsertTaxDocumentAccessLog, type FundExtended, type Provenance, type FundSearchParams, type FundListResponse, type SourceStatus, type MultiSourceStatus, type LoanProduct, type InsertLoanProduct, type LoanProvider, type InsertLoanProvider, type ProviderProduct, type InsertProviderProduct, type CreditProfile, type InsertCreditProfile, type LoanRequest, type InsertLoanRequest, type LoanOffer, type InsertLoanOffer, type LoanApplicationMarketplace, type InsertLoanApplicationMarketplace, type ProviderIntegration, type InsertProviderIntegration, type ApplicationDocument, type InsertApplicationDocument } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, and, desc, asc, gte, lte, like, sql } from "drizzle-orm";
@@ -353,6 +353,62 @@ export interface IStorage {
   getUserLoans(userId: string): Promise<any[]>;
   updateLoanStatus(id: string, updates: any): Promise<any | undefined>;
   getCollateralValuation(loanId: string): Promise<any | undefined>;
+  
+  // Loan Marketplace methods
+  // Credit Profile methods
+  getCreditProfile(userId: string): Promise<CreditProfile | undefined>;
+  createCreditProfile(profile: InsertCreditProfile): Promise<CreditProfile>;
+  updateCreditProfile(userId: string, updates: Partial<CreditProfile>): Promise<CreditProfile | undefined>;
+  
+  // Loan Product methods
+  getLoanProducts(): Promise<LoanProduct[]>;
+  getLoanProduct(id: string): Promise<LoanProduct | undefined>;
+  getLoanProductByKey(productKey: string): Promise<LoanProduct | undefined>;
+  createLoanProduct(product: InsertLoanProduct): Promise<LoanProduct>;
+  updateLoanProduct(id: string, updates: Partial<LoanProduct>): Promise<LoanProduct | undefined>;
+  
+  // Loan Provider methods
+  getLoanProviders(): Promise<LoanProvider[]>;
+  getLoanProvider(id: string): Promise<LoanProvider | undefined>;
+  getLoanProviderByKey(providerKey: string): Promise<LoanProvider | undefined>;
+  createLoanProvider(provider: InsertLoanProvider): Promise<LoanProvider>;
+  updateLoanProvider(id: string, updates: Partial<LoanProvider>): Promise<LoanProvider | undefined>;
+  
+  // Provider Product methods
+  getProviderProducts(): Promise<ProviderProduct[]>;
+  getProviderProductsByProvider(providerId: string, productKey?: string): Promise<ProviderProduct[]>;
+  createProviderProduct(product: InsertProviderProduct): Promise<ProviderProduct>;
+  updateProviderProduct(id: string, updates: Partial<ProviderProduct>): Promise<ProviderProduct | undefined>;
+  
+  // Loan Request methods
+  getLoanRequests(userId?: string): Promise<LoanRequest[]>;
+  getLoanRequest(id: string): Promise<LoanRequest | undefined>;
+  createLoanRequest(request: InsertLoanRequest): Promise<LoanRequest>;
+  updateLoanRequest(id: string, updates: Partial<LoanRequest>): Promise<LoanRequest | undefined>;
+  
+  // Loan Offer methods
+  getLoanOffers(): Promise<LoanOffer[]>;
+  getLoanOffersByRequest(requestId: string): Promise<LoanOffer[]>;
+  getLoanOffer(id: string): Promise<LoanOffer | undefined>;
+  createLoanOffer(offer: InsertLoanOffer): Promise<LoanOffer>;
+  updateLoanOffer(id: string, updates: Partial<LoanOffer>): Promise<LoanOffer | undefined>;
+  
+  // Loan Application Marketplace methods
+  getLoanApplicationsMarketplace(userId?: string): Promise<LoanApplicationMarketplace[]>;
+  getLoanApplicationMarketplace(id: string): Promise<LoanApplicationMarketplace | undefined>;
+  createLoanApplicationMarketplace(application: InsertLoanApplicationMarketplace): Promise<LoanApplicationMarketplace>;
+  updateLoanApplicationMarketplace(id: string, updates: Partial<LoanApplicationMarketplace>): Promise<LoanApplicationMarketplace | undefined>;
+  
+  // Provider Integration methods
+  getProviderIntegrations(): Promise<ProviderIntegration[]>;
+  getProviderIntegrationsByProvider(providerId: string): Promise<ProviderIntegration[]>;
+  createProviderIntegration(integration: InsertProviderIntegration): Promise<ProviderIntegration>;
+  updateProviderIntegration(id: string, updates: Partial<ProviderIntegration>): Promise<ProviderIntegration | undefined>;
+  
+  // Application Document methods
+  getApplicationDocuments(applicationId: string): Promise<ApplicationDocument[]>;
+  createApplicationDocument(document: InsertApplicationDocument): Promise<ApplicationDocument>;
+  updateApplicationDocument(id: string, updates: Partial<ApplicationDocument>): Promise<ApplicationDocument | undefined>;
   createCollateralValuation(valuation: any): Promise<any>;
 
   // Financial Goals methods
