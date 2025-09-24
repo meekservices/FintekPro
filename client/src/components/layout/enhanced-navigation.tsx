@@ -213,7 +213,9 @@ export function EnhancedNavigation() {
           subItems: [
             { name: "Market Research", href: "/agricultural-insights", description: "Sector analysis" },
             { name: "NSDL Services", href: "/nsdl-services", description: "Demat account services" },
-            { name: "CDSL Services", href: "/cdsl-services", description: "Demat account services" }
+            { name: "CDSL Services", href: "/cdsl-services", description: "Demat account services" },
+            { name: "CAMS Services", href: "/cams-services", description: "Mutual fund registrar services" },
+            { name: "Kfintech Services", href: "/kfintech-services", description: "Mutual fund registrar services" }
           ]
         },
         {

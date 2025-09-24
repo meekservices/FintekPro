@@ -102,6 +102,8 @@ export function Footer() {
     { name: "Market Research", href: "/agricultural-insights" },
     { name: "NSDL Services", href: "/nsdl-services" },
     { name: "CDSL Services", href: "/cdsl-services" },
+    { name: "CAMS Services", href: "/cams-services" },
+    { name: "Kfintech Services", href: "/kfintech-services" },
   ];
 
   // Tools & Services - Store (Aligned with navigation)
