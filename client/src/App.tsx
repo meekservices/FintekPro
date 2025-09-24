@@ -17,6 +17,8 @@ import Unlisted from "@/pages/unlisted";
 import Loans from "@/pages/loans";
 import NSDLServices from "@/pages/nsdl-services";
 import CDSLServices from "@/pages/cdsl-services";
+import CamsServices from "@/pages/cams-services";
+import KfintechServices from "@/pages/kfintech-services";
 import AgriculturalInsights from "@/pages/agricultural-insights";
 import FinancialCalculators from "@/pages/financial-calculators";
 import NotFound from "@/pages/not-found";
@@ -78,6 +80,8 @@ function UserProtectedRoutes() {
         <Route path="/loans" component={Loans} />
         <Route path="/nsdl-services" component={NSDLServices} />
         <Route path="/cdsl-services" component={CDSLServices} />
+        <Route path="/cams-services" component={CamsServices} />
+        <Route path="/kfintech-services" component={KfintechServices} />
         <Route path="/agricultural-insights" component={AgriculturalInsights} />
         <Route path="/calculators" component={FinancialCalculators} />
         <Route path="/partner" component={PartnerPortal} />
