@@ -181,11 +181,16 @@ export function EnhancedNavigation() {
           ]
         },
         {
-          name: "Insurance",
+          name: "Insurance Marketplace",
           icon: Shield,
-          description: "Life, health and motor insurance",
+          description: "Compare insurance from 15+ providers",
           subItems: [
-            { name: "PolicyBazaar", href: "/policybazaar", description: "Compare insurance plans" },
+            { name: "Health Insurance", href: "/insurance/health", description: "Individual & family health plans from multiple providers" },
+            { name: "Life Insurance", href: "/insurance/life", description: "Term, ULIP & endowment plans comparison" },
+            { name: "Motor Insurance", href: "/insurance/motor", description: "Car & two-wheeler insurance quotes" },
+            { name: "Travel Insurance", href: "/insurance/travel", description: "Domestic & international travel coverage" },
+            { name: "Home Insurance", href: "/insurance/home", description: "Property and contents protection" },
+            { name: "All Insurance", href: "/insurance", description: "Complete insurance marketplace" },
             { name: "CIBIL Score", href: "/cibil", description: "Credit score monitoring" }
           ]
         },
