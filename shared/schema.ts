@@ -3337,6 +3337,434 @@ export type InsertCollateralValuation = z.infer<typeof insertCollateralValuation
 export type InsuranceHolding = typeof insuranceHoldings.$inferSelect;
 export type InsertInsuranceHolding = z.infer<typeof insertInsuranceHoldingSchema>;
 
+// Loan Marketplace Tables
+// Loan Products table - Define different loan product types
+export const loanProducts = pgTable("loan_products", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  productKey: varchar("product_key").notNull().unique(), // personal, home, lap, las, business, education, vehicle
+  productName: varchar("product_name").notNull(),
+  category: varchar("category").notNull(), // secured, unsecured
+  collateralType: varchar("collateral_type"), // property, securities, vehicle, none
+  description: text("description"),
+  
+  // Product Limits
+  minAmount: decimal("min_amount", { precision: 15, scale: 2 }).notNull(),
+  maxAmount: decimal("max_amount", { precision: 15, scale: 2 }).notNull(),
+  minTenure: integer("min_tenure").notNull(), // months
+  maxTenure: integer("max_tenure").notNull(), // months
+  
+  // Eligibility Criteria
+  minAge: integer("min_age").default(18),
+  maxAge: integer("max_age").default(65),
+  minIncome: decimal("min_income", { precision: 15, scale: 2 }),
+  minCibilScore: integer("min_cibil_score").default(600),
+  
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Loan Providers table - Banks and NBFCs
+export const loanProviders = pgTable("loan_providers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  providerKey: varchar("provider_key").notNull().unique(), // icici, hdfc, bajaj_finance, tata_capital, axis, piramal
+  providerName: varchar("provider_name").notNull(),
+  providerType: varchar("provider_type").notNull(), // bank, nbfc
+  logoUrl: varchar("logo_url"),
+  description: text("description"),
+  
+  // Provider Capabilities
+  hasApi: boolean("has_api").default(false),
+  supportsPrequalification: boolean("supports_prequalification").default(false),
+  supportsInstantOffers: boolean("supports_instant_offers").default(false),
+  supportsWebhooks: boolean("supports_webhooks").default(false),
+  
+  // Contact Information
+  contactEmail: varchar("contact_email"),
+  contactPhone: varchar("contact_phone"),
+  website: varchar("website"),
+  
+  // Processing Information
+  avgProcessingTime: varchar("avg_processing_time"), // "2-3 days", "instant", etc.
+  processingCutoffTime: varchar("processing_cutoff_time"), // "5 PM"
+  
+  isActive: boolean("is_active").default(true),
+  priority: integer("priority").default(100), // Lower number = higher priority
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Provider Products table - Product offerings by each provider
+export const providerProducts = pgTable("provider_products", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  providerId: varchar("provider_id").references(() => loanProviders.id).notNull(),
+  productId: varchar("product_id").references(() => loanProducts.id).notNull(),
+  
+  // Provider-specific product details
+  providerProductName: varchar("provider_product_name"),
+  
+  // Interest Rate Information
+  baseInterestRate: decimal("base_interest_rate", { precision: 5, scale: 2 }).notNull(),
+  minInterestRate: decimal("min_interest_rate", { precision: 5, scale: 2 }).notNull(),
+  maxInterestRate: decimal("max_interest_rate", { precision: 5, scale: 2 }).notNull(),
+  rateType: varchar("rate_type").default("floating"), // fixed, floating, hybrid
+  
+  // Fee Structure
+  processingFeeType: varchar("processing_fee_type").default("percentage"), // percentage, fixed
+  processingFeeValue: decimal("processing_fee_value", { precision: 8, scale: 2 }).notNull(),
+  maxProcessingFee: decimal("max_processing_fee", { precision: 15, scale: 2 }),
+  prepaymentCharges: decimal("prepayment_charges", { precision: 5, scale: 2 }).default("0"),
+  latePaymentFee: decimal("late_payment_fee", { precision: 15, scale: 2 }),
+  
+  // Provider-specific limits
+  minAmount: decimal("min_amount", { precision: 15, scale: 2 }),
+  maxAmount: decimal("max_amount", { precision: 15, scale: 2 }),
+  minTenure: integer("min_tenure"),
+  maxTenure: integer("max_tenure"),
+  
+  // Eligibility Rules (JSON for flexible conditions)
+  eligibilityRules: jsonb("eligibility_rules").default({}),
+  
+  // Pricing Model (JSON for complex rate structures)
+  pricingModel: jsonb("pricing_model").default({}),
+  
+  // Required Documents
+  documentsRequired: jsonb("documents_required").default([]),
+  
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Credit Profiles table - Enhanced client credit information
+export const creditProfiles = pgTable("credit_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  
+  // Credit Bureau Information
+  cibilScore: integer("cibil_score"),
+  experianScore: integer("experian_score"),
+  equifaxScore: integer("equifax_score"),
+  highMarkScore: integer("high_mark_score"),
+  lastCreditPullDate: timestamp("last_credit_pull_date"),
+  
+  // Financial Information
+  monthlyIncome: decimal("monthly_income", { precision: 15, scale: 2 }),
+  annualIncome: decimal("annual_income", { precision: 15, scale: 2 }),
+  employmentType: varchar("employment_type"), // salaried, self_employed, business, professional
+  workExperience: integer("work_experience"), // years
+  companyType: varchar("company_type"), // government, private, psu, mnc, sme
+  
+  // Existing Obligations
+  existingEMIs: decimal("existing_emis", { precision: 15, scale: 2 }).default("0"),
+  existingCreditCards: integer("existing_credit_cards").default(0),
+  totalCreditLimit: decimal("total_credit_limit", { precision: 15, scale: 2 }).default("0"),
+  creditUtilization: decimal("credit_utilization", { precision: 5, scale: 2 }).default("0"),
+  
+  // Assets and Liabilities
+  netWorth: decimal("net_worth", { precision: 15, scale: 2 }),
+  currentAssets: decimal("current_assets", { precision: 15, scale: 2 }),
+  totalLiabilities: decimal("total_liabilities", { precision: 15, scale: 2 }),
+  propertyOwnership: boolean("property_ownership").default(false),
+  propertyValue: decimal("property_value", { precision: 15, scale: 2 }),
+  securitiesPortfolio: decimal("securities_portfolio", { precision: 15, scale: 2 }),
+  
+  // Banking Relationship
+  bankingHistory: integer("banking_history").default(0), // years with current bank
+  primaryBankName: varchar("primary_bank_name"),
+  averageMonthlyBalance: decimal("average_monthly_balance", { precision: 15, scale: 2 }),
+  
+  // Loan History
+  totalLoansAvailed: integer("total_loans_availed").default(0),
+  loansClosedSuccessfully: integer("loans_closed_successfully").default(0),
+  anyDefaultHistory: boolean("any_default_history").default(false),
+  lastLoanDate: timestamp("last_loan_date"),
+  
+  // Risk Assessment
+  riskProfile: varchar("risk_profile").default("medium"), // low, medium, high
+  debtToIncomeRatio: decimal("debt_to_income_ratio", { precision: 5, scale: 2 }),
+  
+  // Raw Bureau Data (for detailed analysis)
+  bureauRawData: jsonb("bureau_raw_data"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Loan Requests table - Client loan requirements
+export const loanRequests = pgTable("loan_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  productId: varchar("product_id").references(() => loanProducts.id).notNull(),
+  
+  // Loan Requirements
+  requestedAmount: decimal("requested_amount", { precision: 15, scale: 2 }).notNull(),
+  preferredTenure: integer("preferred_tenure").notNull(), // months
+  purpose: text("purpose"),
+  
+  // Collateral Information (for secured loans)
+  collateralDetails: jsonb("collateral_details"),
+  estimatedCollateralValue: decimal("estimated_collateral_value", { precision: 15, scale: 2 }),
+  
+  // Request Status
+  status: varchar("status").default("active"), // active, expired, converted
+  validityExpiry: timestamp("validity_expiry").default(sql`NOW() + INTERVAL '7 days'`),
+  
+  // Metadata
+  sourceChannel: varchar("source_channel").default("web"), // web, mobile, agent
+  referralCode: varchar("referral_code"),
+  utmSource: varchar("utm_source"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Loan Offers table - Generated offers from providers
+export const loanOffers = pgTable("loan_offers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  requestId: varchar("request_id").references(() => loanRequests.id).notNull(),
+  providerId: varchar("provider_id").references(() => loanProviders.id).notNull(),
+  productId: varchar("product_id").references(() => loanProducts.id).notNull(),
+  
+  // Offer Details
+  approvedAmount: decimal("approved_amount", { precision: 15, scale: 2 }).notNull(),
+  interestRate: decimal("interest_rate", { precision: 5, scale: 2 }).notNull(),
+  tenure: integer("tenure").notNull(), // months
+  emi: decimal("emi", { precision: 15, scale: 2 }).notNull(),
+  
+  // Fee Structure
+  processingFee: decimal("processing_fee", { precision: 15, scale: 2 }).notNull(),
+  legalCharges: decimal("legal_charges", { precision: 15, scale: 2 }).default("0"),
+  otherCharges: decimal("other_charges", { precision: 15, scale: 2 }).default("0"),
+  totalCost: decimal("total_cost", { precision: 15, scale: 2 }).notNull(),
+  
+  // Risk Assessment
+  eligibilityScore: decimal("eligibility_score", { precision: 5, scale: 2 }).notNull(),
+  qualityScore: decimal("quality_score", { precision: 5, scale: 2 }).notNull(), // Overall offer quality
+  approvalProbability: decimal("approval_probability", { precision: 5, scale: 2 }).default("95"),
+  
+  // Offer Metadata
+  offerSource: varchar("offer_source").notNull(), // api, rules_engine
+  rateType: varchar("rate_type").default("floating"),
+  ltvRatio: decimal("ltv_ratio", { precision: 5, scale: 2 }),
+  
+  // Terms and Conditions
+  terms: jsonb("terms").default([]),
+  specialOffers: jsonb("special_offers").default([]),
+  
+  // Offer Validity
+  validUntil: timestamp("valid_until").notNull(),
+  isActive: boolean("is_active").default(true),
+  
+  // Tracking
+  viewedAt: timestamp("viewed_at"),
+  selectedAt: timestamp("selected_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Loan Applications Marketplace - Application workflow management
+export const loanApplicationsMarketplace = pgTable("loan_applications_marketplace", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  offerId: varchar("offer_id").references(() => loanOffers.id).notNull(),
+  providerId: varchar("provider_id").references(() => loanProviders.id).notNull(),
+  productId: varchar("product_id").references(() => loanProducts.id).notNull(),
+  
+  // Application Reference
+  applicationNumber: varchar("application_number").unique(),
+  providerApplicationRef: varchar("provider_application_ref"), // Provider's internal reference
+  
+  // Application Status
+  status: varchar("status").default("draft"), // draft, submitted, under_review, approved, rejected, disbursed, cancelled
+  stage: varchar("stage").default("initiated"), // initiated, documents_pending, documents_submitted, processing, approved, disbursed
+  
+  // KYC and Document Status
+  kycStatus: varchar("kyc_status").default("pending"), // pending, in_progress, completed, rejected
+  documentStatus: varchar("document_status").default("pending"), // pending, uploaded, verified, rejected
+  
+  // Application Details
+  finalAmount: decimal("final_amount", { precision: 15, scale: 2 }).notNull(),
+  finalInterestRate: decimal("final_interest_rate", { precision: 5, scale: 2 }).notNull(),
+  finalTenure: integer("final_tenure").notNull(),
+  finalEMI: decimal("final_emi", { precision: 15, scale: 2 }).notNull(),
+  
+  // Processing Information
+  submittedAt: timestamp("submitted_at"),
+  approvedAt: timestamp("approved_at"),
+  rejectedAt: timestamp("rejected_at"),
+  disbursedAt: timestamp("disbursed_at"),
+  rejectionReason: text("rejection_reason"),
+  
+  // Disbursement Details
+  disbursalAmount: decimal("disbursal_amount", { precision: 15, scale: 2 }),
+  disbursalMethod: varchar("disbursal_method"), // bank_transfer, rtgs, neft
+  disbursalAccountNumber: varchar("disbursal_account_number"),
+  disbursalIfsc: varchar("disbursal_ifsc"),
+  
+  // Application Checklist
+  checklist: jsonb("checklist").default([]),
+  nextSteps: jsonb("next_steps").default([]),
+  
+  // Timeline
+  timeline: jsonb("timeline").default([]),
+  
+  // Communication
+  lastCommunicationDate: timestamp("last_communication_date"),
+  communicationPreference: varchar("communication_preference").default("email"), // email, sms, whatsapp
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Provider Integrations table - API integration configurations
+export const providerIntegrations = pgTable("provider_integrations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  providerId: varchar("provider_id").references(() => loanProviders.id).notNull(),
+  
+  // Integration Details
+  adapterKey: varchar("adapter_key").notNull(), // icici_api, hdfc_api, bajaj_rules, etc.
+  integrationName: varchar("integration_name").notNull(),
+  integrationType: varchar("integration_type").notNull(), // api, rules_engine, webhook
+  
+  // API Configuration
+  baseUrl: varchar("base_url"),
+  authenticationMethod: varchar("authentication_method"), // api_key, oauth2, certificate
+  authConfig: jsonb("auth_config"), // Store auth credentials securely
+  
+  // Webhook Configuration
+  webhookUrl: varchar("webhook_url"),
+  webhookSecret: varchar("webhook_secret"),
+  webhookEvents: jsonb("webhook_events").default([]),
+  
+  // Integration Status
+  isEnabled: boolean("is_enabled").default(true),
+  lastHealthCheck: timestamp("last_health_check"),
+  healthStatus: varchar("health_status").default("unknown"), // healthy, warning, error, unknown
+  
+  // Rate Limiting
+  rateLimitPerMinute: integer("rate_limit_per_minute").default(60),
+  rateLimitPerDay: integer("rate_limit_per_day").default(1000),
+  
+  // Configuration Metadata
+  configVersion: varchar("config_version").default("1.0"),
+  supportedFeatures: jsonb("supported_features").default([]),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Application Documents table - Document management for loan applications
+export const applicationDocuments = pgTable("application_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  applicationId: varchar("application_id").references(() => loanApplicationsMarketplace.id).notNull(),
+  
+  // Document Information
+  documentType: varchar("document_type").notNull(), // pan_card, aadhar, salary_slip, bank_statement, etc.
+  documentName: varchar("document_name").notNull(),
+  documentCategory: varchar("document_category").notNull(), // identity, income, address, collateral
+  
+  // File Details
+  fileName: varchar("file_name").notNull(),
+  fileFormat: varchar("file_format").notNull(), // pdf, jpg, png
+  fileSize: integer("file_size"), // in bytes
+  objectStorageKey: varchar("object_storage_key"), // Reference to object storage
+  
+  // Document Status
+  status: varchar("status").default("uploaded"), // uploaded, processing, verified, rejected
+  verificationStatus: varchar("verification_status").default("pending"), // pending, verified, rejected
+  verificationNotes: text("verification_notes"),
+  verifiedBy: varchar("verified_by"),
+  verifiedAt: timestamp("verified_at"),
+  
+  // Provider Integration
+  providerDocumentId: varchar("provider_document_id"), // Provider's document reference
+  sentToProvider: boolean("sent_to_provider").default(false),
+  sentToProviderAt: timestamp("sent_to_provider_at"),
+  
+  // Metadata
+  isRequired: boolean("is_required").default(true),
+  uploadedVia: varchar("uploaded_via").default("web"), // web, mobile, email, whatsapp
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Create insert schemas for loan marketplace tables
+export const insertLoanProductSchema = createInsertSchema(loanProducts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertLoanProviderSchema = createInsertSchema(loanProviders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertProviderProductSchema = createInsertSchema(providerProducts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCreditProfileSchema = createInsertSchema(creditProfiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertLoanRequestSchema = createInsertSchema(loanRequests).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertLoanOfferSchema = createInsertSchema(loanOffers).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertLoanApplicationMarketplaceSchema = createInsertSchema(loanApplicationsMarketplace).omit({
+  id: true,
+  applicationNumber: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertProviderIntegrationSchema = createInsertSchema(providerIntegrations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertApplicationDocumentSchema = createInsertSchema(applicationDocuments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Export types for loan marketplace tables
+export type LoanProduct = typeof loanProducts.$inferSelect;
+export type InsertLoanProduct = z.infer<typeof insertLoanProductSchema>;
+export type LoanProvider = typeof loanProviders.$inferSelect;
+export type InsertLoanProvider = z.infer<typeof insertLoanProviderSchema>;
+export type ProviderProduct = typeof providerProducts.$inferSelect;
+export type InsertProviderProduct = z.infer<typeof insertProviderProductSchema>;
+export type CreditProfile = typeof creditProfiles.$inferSelect;
+export type InsertCreditProfile = z.infer<typeof insertCreditProfileSchema>;
+export type LoanRequest = typeof loanRequests.$inferSelect;
+export type InsertLoanRequest = z.infer<typeof insertLoanRequestSchema>;
+export type LoanOffer = typeof loanOffers.$inferSelect;
+export type InsertLoanOffer = z.infer<typeof insertLoanOfferSchema>;
+export type LoanApplicationMarketplace = typeof loanApplicationsMarketplace.$inferSelect;
+export type InsertLoanApplicationMarketplace = z.infer<typeof insertLoanApplicationMarketplaceSchema>;
+export type ProviderIntegration = typeof providerIntegrations.$inferSelect;
+export type InsertProviderIntegration = z.infer<typeof insertProviderIntegrationSchema>;
+export type ApplicationDocument = typeof applicationDocuments.$inferSelect;
+export type InsertApplicationDocument = z.infer<typeof insertApplicationDocumentSchema>;
+
 // Financial Goals types and schema
 export const insertFinancialGoalSchema = createInsertSchema(financialGoals).omit({
   id: true,
