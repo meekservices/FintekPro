@@ -29,7 +29,7 @@ const require = createRequire(import.meta.url);
 import { finnhubService } from './finnhub-service';
 import { bajajFinanceAPI } from './bajaj-finance-api';
 import { tataCapitalAPI } from './tata-capital-api';
-import { PolicyBazaarAPI } from './policybazaar-api';
+import { InsuranceMarketplaceAPI } from './policybazaar-api';
 import { CibilAPI } from './cibil-api';
 import { getPersonalizedLoanRecommendations } from './intelligent-loan-recommendations';
 import { clientEnrichmentService } from './client-enrichment-service';
@@ -19941,13 +19941,22 @@ System Security Data:`;
   });
 
   // PolicyBazaar API endpoints
-  app.post("/api/policybazaar/quotes", PolicyBazaarAPI.getInsuranceQuotes);
-  app.post("/api/policybazaar/health-calculator", PolicyBazaarAPI.calculateHealthInsurance);
-  app.post("/api/policybazaar/life-calculator", PolicyBazaarAPI.calculateLifeInsurance);
-  app.post("/api/policybazaar/motor-calculator", PolicyBazaarAPI.calculateMotorInsurance);
-  app.post("/api/policybazaar/travel-calculator", PolicyBazaarAPI.calculateTravelInsurance);
-  app.post("/api/policybazaar/purchase", PolicyBazaarAPI.purchasePolicy);
-  app.post("/api/policybazaar/status", PolicyBazaarAPI.getPolicyStatus);
+  // Enhanced Insurance Marketplace API Routes
+  app.post("/api/policybazaar/quotes", InsuranceMarketplaceAPI.getInsuranceQuotes);
+  app.post("/api/policybazaar/health-calculator", InsuranceMarketplaceAPI.calculateHealthInsurance);
+  app.post("/api/policybazaar/life-calculator", InsuranceMarketplaceAPI.calculateLifeInsurance);
+  app.post("/api/policybazaar/motor-calculator", InsuranceMarketplaceAPI.calculateMotorInsurance);
+  app.post("/api/policybazaar/travel-calculator", InsuranceMarketplaceAPI.calculateTravelInsurance);
+  app.post("/api/policybazaar/purchase", InsuranceMarketplaceAPI.purchasePolicy);
+  app.post("/api/policybazaar/status", InsuranceMarketplaceAPI.getPolicyStatus);
+  
+  // New Marketplace Features
+  app.post("/api/insurance/compare", InsuranceMarketplaceAPI.compareInsurancePlans);
+  app.get("/api/insurance/providers/:type", (req, res) => {
+    const insuranceType = req.params.type;
+    const providers = InsuranceMarketplaceAPI.getProvidersByType(insuranceType);
+    res.json({ success: true, data: providers });
+  });
 
   // CIBIL API endpoints
   app.post("/api/cibil/credit-score", CibilAPI.checkCreditScore);

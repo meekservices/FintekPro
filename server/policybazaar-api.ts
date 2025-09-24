@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
 
-// PolicyBazaar API Service - Custom Implementation
-// Based on PolicyBazaar's insurance comparison and purchase platform
-export class PolicyBazaarAPI {
+// Insurance Marketplace API Service - Comprehensive Multi-Vendor Platform
+// Enhanced implementation supporting 15+ insurance providers across all categories
+export class InsuranceMarketplaceAPI {
   
   // Insurance quotes comparison
   static async getInsuranceQuotes(req: Request, res: Response) {
@@ -19,56 +19,7 @@ export class PolicyBazaarAPI {
       // Calculate base premium based on age and coverage
       const basePremium = this.calculateBasePremium(insuranceType, age, coverage);
       
-      const quotes = [
-        {
-          insurerId: "HDFC_LIFE",
-          insurerName: "HDFC Life",
-          planName: `${insuranceType} Premium Plan`,
-          premium: basePremium * 0.95,
-          sumInsured: coverage || 500000,
-          policyTerm: insuranceType === 'Life Insurance' ? 25 : 1,
-          features: ["Cashless hospitals", "Pre-existing diseases covered", "Online claim settlement"],
-          rating: 4.5,
-          claimSettlementRatio: 98.2,
-          logo: "hdfc-life"
-        },
-        {
-          insurerId: "LIC",
-          insurerName: "LIC of India", 
-          planName: `${insuranceType} Secure Plan`,
-          premium: basePremium * 0.88,
-          sumInsured: coverage || 500000,
-          policyTerm: insuranceType === 'Life Insurance' ? 30 : 1,
-          features: ["Government backing", "Bonus benefits", "Maturity benefits"],
-          rating: 4.3,
-          claimSettlementRatio: 97.8,
-          logo: "lic"
-        },
-        {
-          insurerId: "ICICI_LOMBARD",
-          insurerName: "ICICI Lombard",
-          planName: `${insuranceType} Comprehensive Plan`,
-          premium: basePremium * 1.05,
-          sumInsured: coverage || 500000,
-          policyTerm: insuranceType === 'Life Insurance' ? 20 : 1,
-          features: ["No room rent limit", "Wellness programs", "24/7 customer support"],
-          rating: 4.4,
-          claimSettlementRatio: 96.8,
-          logo: "icici-lombard"
-        },
-        {
-          insurerId: "BAJAJ_ALLIANZ",
-          insurerName: "Bajaj Allianz",
-          planName: `${insuranceType} Gold Plan`,
-          premium: basePremium * 0.92,
-          sumInsured: coverage || 500000,
-          policyTerm: insuranceType === 'Life Insurance' ? 25 : 1,
-          features: ["Unlimited restoration", "Day care procedures", "OPD benefits"],
-          rating: 4.2,
-          claimSettlementRatio: 95.5,
-          logo: "bajaj-allianz"
-        }
-      ];
+      const quotes = this.generateProviderQuotes(insuranceType, basePremium, coverage);
 
       res.json({
         success: true,
@@ -525,6 +476,295 @@ export class PolicyBazaarAPI {
         error: "Failed to get policy status"
       });
     }
+  }
+
+  // Comprehensive Insurance Provider Database
+  private static insuranceProviders = {
+    health: [
+      { id: "STAR_HEALTH", name: "Star Health", rating: 4.2, claimRatio: 95.8, logo: "star-health", multiplier: 0.88 },
+      { id: "ICICI_LOMBARD", name: "ICICI Lombard", rating: 4.4, claimRatio: 96.8, logo: "icici-lombard", multiplier: 1.05 },
+      { id: "HDFC_ERGO", name: "HDFC ERGO", rating: 4.3, claimRatio: 97.2, logo: "hdfc-ergo", multiplier: 0.92 },
+      { id: "BAJAJ_ALLIANZ", name: "Bajaj Allianz General", rating: 4.1, claimRatio: 95.5, logo: "bajaj-allianz", multiplier: 0.90 },
+      { id: "SBI_GENERAL", name: "SBI General", rating: 4.0, claimRatio: 94.2, logo: "sbi-general", multiplier: 0.85 },
+      { id: "NEW_INDIA", name: "New India Assurance", rating: 3.9, claimRatio: 93.5, logo: "new-india", multiplier: 0.82 }
+    ],
+    life: [
+      { id: "LIC", name: "LIC of India", rating: 4.3, claimRatio: 97.8, logo: "lic", multiplier: 0.88 },
+      { id: "HDFC_LIFE", name: "HDFC Life", rating: 4.5, claimRatio: 98.2, logo: "hdfc-life", multiplier: 0.95 },
+      { id: "ICICI_PRUDENTIAL", name: "ICICI Prudential", rating: 4.4, claimRatio: 97.5, logo: "icici-prudential", multiplier: 1.02 },
+      { id: "SBI_LIFE", name: "SBI Life", rating: 4.2, claimRatio: 96.8, logo: "sbi-life", multiplier: 0.90 },
+      { id: "BAJAJ_ALLIANZ_LIFE", name: "Bajaj Allianz Life", rating: 4.1, claimRatio: 96.2, logo: "bajaj-allianz-life", multiplier: 0.87 },
+      { id: "MAX_LIFE", name: "Max Life Insurance", rating: 4.3, claimRatio: 97.1, logo: "max-life", multiplier: 0.93 }
+    ],
+    motor: [
+      { id: "TATA_AIG", name: "Tata AIG", rating: 4.2, claimRatio: 96.5, logo: "tata-aig", multiplier: 0.95 },
+      { id: "ICICI_LOMBARD", name: "ICICI Lombard", rating: 4.4, claimRatio: 96.8, logo: "icici-lombard", multiplier: 1.05 },
+      { id: "HDFC_ERGO", name: "HDFC ERGO", rating: 4.3, claimRatio: 97.2, logo: "hdfc-ergo", multiplier: 0.98 },
+      { id: "BAJAJ_ALLIANZ", name: "Bajaj Allianz General", rating: 4.1, claimRatio: 95.5, logo: "bajaj-allianz", multiplier: 0.92 },
+      { id: "ROYAL_SUNDARAM", name: "Royal Sundaram", rating: 4.0, claimRatio: 94.8, logo: "royal-sundaram", multiplier: 0.89 },
+      { id: "ORIENTAL", name: "Oriental Insurance", rating: 3.8, claimRatio: 93.2, logo: "oriental", multiplier: 0.85 }
+    ],
+    travel: [
+      { id: "TATA_AIG", name: "Tata AIG", rating: 4.2, claimRatio: 96.5, logo: "tata-aig", multiplier: 0.95 },
+      { id: "ICICI_LOMBARD", name: "ICICI Lombard", rating: 4.4, claimRatio: 96.8, logo: "icici-lombard", multiplier: 1.05 },
+      { id: "HDFC_ERGO", name: "HDFC ERGO", rating: 4.3, claimRatio: 97.2, logo: "hdfc-ergo", multiplier: 0.98 },
+      { id: "RELIGARE", name: "Religare Health Travel", rating: 4.1, claimRatio: 95.8, logo: "religare", multiplier: 0.90 },
+      { id: "DIGIT", name: "Digit Insurance", rating: 4.0, claimRatio: 94.5, logo: "digit", multiplier: 0.88 }
+    ],
+    home: [
+      { id: "ICICI_LOMBARD", name: "ICICI Lombard", rating: 4.4, claimRatio: 96.8, logo: "icici-lombard", multiplier: 1.05 },
+      { id: "HDFC_ERGO", name: "HDFC ERGO", rating: 4.3, claimRatio: 97.2, logo: "hdfc-ergo", multiplier: 0.98 },
+      { id: "BAJAJ_ALLIANZ", name: "Bajaj Allianz General", rating: 4.1, claimRatio: 95.5, logo: "bajaj-allianz", multiplier: 0.92 },
+      { id: "TATA_AIG", name: "Tata AIG", rating: 4.2, claimRatio: 96.5, logo: "tata-aig", multiplier: 0.95 }
+    ]
+  };
+
+  // Generate provider quotes for marketplace
+  private static generateProviderQuotes(insuranceType: string, basePremium: number, coverage?: number) {
+    const typeKey = insuranceType.toLowerCase().replace(' insurance', '') as keyof typeof this.insuranceProviders;
+    const providers = this.insuranceProviders[typeKey] || this.insuranceProviders.health;
+    
+    return providers.map(provider => ({
+      insurerId: provider.id,
+      insurerName: provider.name,
+      planName: `${insuranceType} ${this.getPlanVariant()}`,
+      premium: Math.round(basePremium * provider.multiplier),
+      sumInsured: coverage || 500000,
+      policyTerm: insuranceType.toLowerCase().includes('life') ? Math.floor(Math.random() * 10) + 20 : 1,
+      features: this.getPlanFeatures(insuranceType),
+      rating: provider.rating,
+      claimSettlementRatio: provider.claimRatio,
+      logo: provider.logo,
+      specialOffers: this.getSpecialOffers(provider.id),
+      benefits: this.getBenefits(insuranceType),
+      exclusions: this.getExclusions(insuranceType)
+    }));
+  }
+
+  private static getPlanVariant(): string {
+    const variants = ['Premium Plan', 'Comprehensive Plan', 'Smart Plan', 'Secure Plan', 'Elite Plan', 'Gold Plan'];
+    return variants[Math.floor(Math.random() * variants.length)];
+  }
+
+  private static getPlanFeatures(insuranceType: string): string[] {
+    const features = {
+      'health insurance': [
+        'Cashless hospitalization at 9000+ hospitals',
+        'Pre-existing diseases covered after waiting period',
+        'Online claim settlement in 30 minutes',
+        'No room rent limit',
+        'Maternity coverage',
+        'Day care procedures covered'
+      ],
+      'life insurance': [
+        'High sum assured at low premium',
+        'Tax benefits under Section 80C',
+        'Flexible premium payment options',
+        'Accidental death benefit',
+        'Terminal illness coverage',
+        'Loan facility available'
+      ],
+      'motor insurance': [
+        'Cashless claims at 4000+ garages',
+        'Zero depreciation coverage',
+        '24x7 roadside assistance',
+        'Engine protection cover',
+        'Return to invoice benefit',
+        'Personal accident cover'
+      ],
+      'travel insurance': [
+        'Worldwide medical coverage',
+        'Trip cancellation protection',
+        'Baggage loss coverage',
+        'Flight delay compensation',
+        'Adventure sports coverage',
+        'Pre-existing conditions covered'
+      ],
+      'home insurance': [
+        'Structure and contents coverage',
+        'Natural calamity protection',
+        'Burglary and theft coverage',
+        'Public liability cover',
+        'Temporary accommodation',
+        'Loss of rent coverage'
+      ]
+    };
+    
+    const typeFeatures = features[insuranceType.toLowerCase() as keyof typeof features] || features['health insurance'];
+    return typeFeatures.slice(0, 4); // Return 4 random features
+  }
+
+  private static getSpecialOffers(providerId: string): string[] {
+    const offers = [
+      'Get 10% discount on online purchase',
+      'Free health checkup worth ₹2000',
+      'No medical tests for sum insured up to ₹5 lakhs',
+      '50% discount on second year premium',
+      'Refer a friend and get ₹500 cashback'
+    ];
+    return [offers[Math.floor(Math.random() * offers.length)]];
+  }
+
+  private static getBenefits(insuranceType: string): string[] {
+    const benefits = {
+      'health insurance': [
+        'Unlimited restoration of sum insured',
+        'Wellness programs and health coaching',
+        'Telemedicine consultations included',
+        'Annual health checkups covered'
+      ],
+      'life insurance': [
+        'Guaranteed death benefit payout',
+        'Flexible premium payment terms',
+        'Riders available for additional protection',
+        'Loyalty additions for long-term policies'
+      ],
+      'motor insurance': [
+        'No inspection required for new vehicles',
+        'Instant policy issuance',
+        'Multi-year policy discounts available',
+        'Emergency fuel and battery service'
+      ],
+      'travel insurance': [
+        'Coverage in 150+ countries',
+        'Instant claims settlement',
+        '24/7 travel assistance helpline',
+        'COVID-19 coverage included'
+      ]
+    };
+    
+    const typeBenefits = benefits[insuranceType.toLowerCase() as keyof typeof benefits] || benefits['health insurance'];
+    return typeBenefits.slice(0, 3);
+  }
+
+  private static getExclusions(insuranceType: string): string[] {
+    const exclusions = {
+      'health insurance': [
+        'Pre-existing diseases (2-4 year waiting period)',
+        'Cosmetic treatments and surgeries',
+        'War and nuclear risks',
+        'Self-inflicted injuries'
+      ],
+      'life insurance': [
+        'Suicide within first year',
+        'Death due to intoxication',
+        'War and nuclear risks',
+        'Pre-existing terminal illness'
+      ],
+      'motor insurance': [
+        'Normal wear and tear',
+        'Mechanical breakdown',
+        'Driving under influence',
+        'Use for commercial purposes (for private car policy)'
+      ],
+      'travel insurance': [
+        'Pre-existing medical conditions',
+        'Adventure sports (unless specifically covered)',
+        'Pregnancy-related complications',
+        'Travel against government advisory'
+      ]
+    };
+    
+    const typeExclusions = exclusions[insuranceType.toLowerCase() as keyof typeof exclusions] || exclusions['health insurance'];
+    return typeExclusions.slice(0, 3);
+  }
+
+  // Marketplace comparison endpoint
+  static async compareInsurancePlans(req: Request, res: Response) {
+    try {
+      const { insuranceType, selectedProviders, criteria } = req.body;
+
+      if (!insuranceType) {
+        return res.status(400).json({
+          success: false,
+          error: "Insurance type is required"
+        });
+      }
+
+      const basePremium = this.calculateBasePremium(insuranceType, criteria?.age || 30, criteria?.coverage);
+      let quotes = this.generateProviderQuotes(insuranceType, basePremium, criteria?.coverage);
+
+      // Filter by selected providers if specified
+      if (selectedProviders && selectedProviders.length > 0) {
+        quotes = quotes.filter(quote => selectedProviders.includes(quote.insurerId));
+      }
+
+      // Sort by criteria
+      if (criteria?.sortBy) {
+        quotes.sort((a, b) => {
+          switch (criteria.sortBy) {
+            case 'premium':
+              return a.premium - b.premium;
+            case 'rating':
+              return b.rating - a.rating;
+            case 'claimRatio':
+              return b.claimSettlementRatio - a.claimSettlementRatio;
+            default:
+              return 0;
+          }
+        });
+      }
+
+      res.json({
+        success: true,
+        data: {
+          comparisons: quotes,
+          bestValue: quotes.reduce((min, quote) => quote.premium < min.premium ? quote : min),
+          topRated: quotes.reduce((max, quote) => quote.rating > max.rating ? quote : max),
+          bestClaims: quotes.reduce((max, quote) => quote.claimSettlementRatio > max.claimSettlementRatio ? quote : max),
+          comparisonMatrix: this.generateComparisonMatrix(quotes),
+          lastUpdated: new Date().toISOString()
+        }
+      });
+    } catch (error) {
+      console.error("Error comparing insurance plans:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to compare insurance plans"
+      });
+    }
+  }
+
+  private static generateComparisonMatrix(quotes: any[]) {
+    const criteria = ['premium', 'rating', 'claimSettlementRatio', 'features', 'benefits'];
+    
+    return criteria.map(criterion => ({
+      criterion: criterion.charAt(0).toUpperCase() + criterion.slice(1),
+      values: quotes.map(quote => ({
+        providerId: quote.insurerId,
+        value: criterion === 'features' || criterion === 'benefits' 
+          ? quote[criterion].length 
+          : quote[criterion] || 'N/A'
+      }))
+    }));
+  }
+
+  // Get providers by insurance type
+  static getProvidersByType(insuranceType: string) {
+    const typeKey = insuranceType.toLowerCase().replace(' insurance', '') as keyof typeof this.insuranceProviders;
+    const providers = this.insuranceProviders[typeKey] || this.insuranceProviders.health;
+    
+    return providers.map(provider => ({
+      id: provider.id,
+      name: provider.name,
+      rating: provider.rating,
+      claimRatio: provider.claimRatio,
+      logo: provider.logo,
+      specialization: this.getProviderSpecialization(provider.id, insuranceType)
+    }));
+  }
+
+  private static getProviderSpecialization(providerId: string, insuranceType: string): string[] {
+    const specializations = {
+      'STAR_HEALTH': ['Family health plans', 'Senior citizen coverage', 'Maternity benefits'],
+      'LIC': ['Term insurance', 'Endowment plans', 'Pension schemes'],
+      'TATA_AIG': ['Motor insurance', 'Travel insurance', 'Home insurance'],
+      'ICICI_LOMBARD': ['Comprehensive coverage', 'Digital services', 'Quick claims'],
+      'HDFC_ERGO': ['Health insurance', 'Motor insurance', 'Travel insurance'],
+      'BAJAJ_ALLIANZ': ['Life insurance', 'Health insurance', 'Investment plans']
+    };
+    
+    return specializations[providerId as keyof typeof specializations] || ['General insurance solutions'];
   }
 
   // Private helper methods
