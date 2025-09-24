@@ -727,6 +727,269 @@ export default function Loans() {
                     </Card>
                   ))}
                 </div>
+
+                {/* Interactive Side-by-Side Comparison Table */}
+                {selectedOffers.length >= 2 && (
+                  <Card className="mt-8">
+                    <CardHeader>
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <CardTitle className="text-xl">Side-by-Side Comparison</CardTitle>
+                          <p className="text-gray-600">Compare selected offers in detail</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelectedOffers([])}
+                            data-testid="clear-comparison"
+                          >
+                            Clear All
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              const bestOffer = selectedOffers.map(id => offers.find(o => o.id === id))
+                                .filter(Boolean)
+                                .sort((a, b) => a!.interestRate - b!.interestRate)[0];
+                              if (bestOffer) applyForLoan(bestOffer.id);
+                            }}
+                            data-testid="apply-best-offer"
+                          >
+                            Apply to Best Offer
+                          </Button>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left py-3 px-2 font-medium text-gray-900">Criteria</th>
+                              {selectedOffers.map((offerId) => {
+                                const offer = offers.find(o => o.id === offerId);
+                                return offer ? (
+                                  <th key={offerId} className="text-center py-3 px-4 min-w-[200px]" data-testid={`comparison-header-${offerId}`}>
+                                    <div className="space-y-1">
+                                      <div className="font-semibold text-gray-900">{offer.providerName}</div>
+                                      <div className="text-xs text-gray-600">{offer.productName}</div>
+                                      <div className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${getRiskColor(offer.approvalProbability)}`}>
+                                        {offer.approvalProbability}% Match
+                                      </div>
+                                    </div>
+                                  </th>
+                                ) : null;
+                              })}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {/* Interest Rate Row */}
+                            <tr className="border-b hover:bg-gray-50">
+                              <td className="py-4 px-2 font-medium text-gray-900">Interest Rate</td>
+                              {selectedOffers.map((offerId) => {
+                                const offer = offers.find(o => o.id === offerId);
+                                if (!offer) return null;
+                                const bestRate = Math.min(...selectedOffers.map(id => offers.find(o => o.id === id)?.interestRate || Infinity));
+                                const isBest = offer.interestRate === bestRate;
+                                return (
+                                  <td key={offerId} className={`py-4 px-4 text-center ${isBest ? 'bg-green-50' : ''}`} data-testid={`rate-${offerId}`}>
+                                    <div className={`text-xl font-bold ${isBest ? 'text-green-600' : 'text-gray-900'}`}>
+                                      {offer.interestRate}%
+                                    </div>
+                                    {isBest && <div className="text-xs text-green-600 font-medium">LOWEST</div>}
+                                    <div className="text-xs text-gray-500">per annum</div>
+                                  </td>
+                                );
+                              })}
+                            </tr>
+
+                            {/* Monthly EMI Row */}
+                            <tr className="border-b hover:bg-gray-50">
+                              <td className="py-4 px-2 font-medium text-gray-900">Monthly EMI</td>
+                              {selectedOffers.map((offerId) => {
+                                const offer = offers.find(o => o.id === offerId);
+                                if (!offer) return null;
+                                const lowestEmi = Math.min(...selectedOffers.map(id => offers.find(o => o.id === id)?.monthlyEmi || Infinity));
+                                const isBest = offer.monthlyEmi === lowestEmi;
+                                return (
+                                  <td key={offerId} className={`py-4 px-4 text-center ${isBest ? 'bg-green-50' : ''}`} data-testid={`emi-${offerId}`}>
+                                    <div className={`text-lg font-semibold ${isBest ? 'text-green-600' : 'text-gray-900'}`}>
+                                      {formatCurrency(offer.monthlyEmi)}
+                                    </div>
+                                    {isBest && <div className="text-xs text-green-600 font-medium">LOWEST</div>}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+
+                            {/* Processing Fee Row */}
+                            <tr className="border-b hover:bg-gray-50">
+                              <td className="py-4 px-2 font-medium text-gray-900">Processing Fee</td>
+                              {selectedOffers.map((offerId) => {
+                                const offer = offers.find(o => o.id === offerId);
+                                if (!offer) return null;
+                                const lowestFee = Math.min(...selectedOffers.map(id => offers.find(o => o.id === id)?.processingFee || Infinity));
+                                const isBest = offer.processingFee === lowestFee;
+                                return (
+                                  <td key={offerId} className={`py-4 px-4 text-center ${isBest ? 'bg-green-50' : ''}`} data-testid={`fee-${offerId}`}>
+                                    <div className={`text-lg font-semibold ${isBest ? 'text-green-600' : 'text-gray-900'}`}>
+                                      {offer.processingFee}%
+                                    </div>
+                                    {isBest && <div className="text-xs text-green-600 font-medium">LOWEST</div>}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+
+                            {/* Total Interest Row */}
+                            <tr className="border-b hover:bg-gray-50">
+                              <td className="py-4 px-2 font-medium text-gray-900">Total Interest</td>
+                              {selectedOffers.map((offerId) => {
+                                const offer = offers.find(o => o.id === offerId);
+                                if (!offer) return null;
+                                const lowestInterest = Math.min(...selectedOffers.map(id => offers.find(o => o.id === id)?.totalInterest || Infinity));
+                                const isBest = offer.totalInterest === lowestInterest;
+                                return (
+                                  <td key={offerId} className={`py-4 px-4 text-center ${isBest ? 'bg-green-50' : ''}`} data-testid={`total-interest-${offerId}`}>
+                                    <div className={`text-lg font-semibold ${isBest ? 'text-green-600' : 'text-red-600'}`}>
+                                      {formatCurrency(offer.totalInterest)}
+                                    </div>
+                                    {isBest && <div className="text-xs text-green-600 font-medium">LOWEST</div>}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+
+                            {/* Response Time Row */}
+                            <tr className="border-b hover:bg-gray-50">
+                              <td className="py-4 px-2 font-medium text-gray-900">Response Time</td>
+                              {selectedOffers.map((offerId) => {
+                                const offer = offers.find(o => o.id === offerId);
+                                if (!offer) return null;
+                                return (
+                                  <td key={offerId} className="py-4 px-4 text-center" data-testid={`response-time-${offerId}`}>
+                                    <div className="text-lg font-semibold text-gray-900">
+                                      {offer.responseTime}
+                                    </div>
+                                  </td>
+                                );
+                              })}
+                            </tr>
+
+                            {/* Tenure Options Row */}
+                            <tr className="border-b hover:bg-gray-50">
+                              <td className="py-4 px-2 font-medium text-gray-900">Tenure Options</td>
+                              {selectedOffers.map((offerId) => {
+                                const offer = offers.find(o => o.id === offerId);
+                                if (!offer) return null;
+                                return (
+                                  <td key={offerId} className="py-4 px-4 text-center" data-testid={`tenure-${offerId}`}>
+                                    <div className="text-sm text-gray-600">
+                                      {offer.minTenure} - {offer.maxTenure} years
+                                    </div>
+                                  </td>
+                                );
+                              })}
+                            </tr>
+
+                            {/* Key Features Row */}
+                            <tr className="border-b hover:bg-gray-50">
+                              <td className="py-4 px-2 font-medium text-gray-900">Key Features</td>
+                              {selectedOffers.map((offerId) => {
+                                const offer = offers.find(o => o.id === offerId);
+                                if (!offer) return null;
+                                return (
+                                  <td key={offerId} className="py-4 px-4" data-testid={`features-${offerId}`}>
+                                    <div className="space-y-1">
+                                      {offer.features.slice(0, 4).map((feature, index) => (
+                                        <div key={index} className="flex items-center gap-1 text-xs">
+                                          <CheckCircle className="h-3 w-3 text-green-500 flex-shrink-0" />
+                                          <span className="text-left">{feature}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </td>
+                                );
+                              })}
+                            </tr>
+
+                            {/* Action Buttons Row */}
+                            <tr>
+                              <td className="py-4 px-2 font-medium text-gray-900">Actions</td>
+                              {selectedOffers.map((offerId) => {
+                                const offer = offers.find(o => o.id === offerId);
+                                if (!offer) return null;
+                                return (
+                                  <td key={offerId} className="py-4 px-4" data-testid={`actions-${offerId}`}>
+                                    <div className="space-y-2">
+                                      <Button
+                                        className="w-full"
+                                        onClick={() => applyForLoan(offer.id)}
+                                        data-testid={`comparison-apply-${offerId}`}
+                                      >
+                                        Apply Now
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="w-full"
+                                        onClick={() => toggleOfferSelection(offer.id)}
+                                        data-testid={`comparison-remove-${offerId}`}
+                                      >
+                                        Remove
+                                      </Button>
+                                    </div>
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Comparison Insights */}
+                      <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Target className="h-5 w-5 text-blue-600" />
+                          <h4 className="font-semibold text-blue-900">Comparison Insights</h4>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                          {(() => {
+                            const selectedOfferData = selectedOffers.map(id => offers.find(o => o.id === id)).filter(Boolean);
+                            const bestRate = Math.min(...selectedOfferData.map(o => o!.interestRate));
+                            const worstRate = Math.max(...selectedOfferData.map(o => o!.interestRate));
+                            const bestEmi = Math.min(...selectedOfferData.map(o => o!.monthlyEmi));
+                            const worstEmi = Math.max(...selectedOfferData.map(o => o!.monthlyEmi));
+                            const rateDifference = worstRate - bestRate;
+                            const emiDifference = worstEmi - bestEmi;
+                            const bestRateOffer = selectedOfferData.find(o => o!.interestRate === bestRate);
+                            
+                            return (
+                              <>
+                                <div className="space-y-1">
+                                  <p className="text-blue-800 font-medium">Rate Difference</p>
+                                  <p className="text-blue-600">{rateDifference.toFixed(2)}% spread</p>
+                                  <p className="text-xs text-blue-600">Best: {bestRate}% | Worst: {worstRate}%</p>
+                                </div>
+                                <div className="space-y-1">
+                                  <p className="text-blue-800 font-medium">EMI Difference</p>
+                                  <p className="text-blue-600">{formatCurrency(emiDifference)} monthly</p>
+                                  <p className="text-xs text-blue-600">{formatCurrency(emiDifference * 12)} annually</p>
+                                </div>
+                                <div className="space-y-1">
+                                  <p className="text-blue-800 font-medium">Best Overall</p>
+                                  <p className="text-blue-600 font-semibold">{bestRateOffer?.providerName}</p>
+                                  <p className="text-xs text-blue-600">Lowest rate & competitive terms</p>
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
             )}
           </TabsContent>
