@@ -49,6 +49,7 @@ import AIPortfolioService from './ai-portfolio-service';
 import { FundComparisonService } from './services/fund-comparison-service';
 import { PortfolioComparisonService } from './services/portfolio-comparison-service';
 import { LoanOrchestrator } from './loan-marketplace/loan-orchestrator';
+import { taxOrchestrator } from './services/tax-orchestrator';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -13113,6 +13114,241 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error sending daily insights:", error);
       res.status(500).json({ error: "Failed to send daily insights" });
+    }
+  });
+
+  // ============ UNIFIED TAX SMART FILING API ROUTES ============
+  
+  // Create new tax session
+  app.post("/api/tax/session", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { panNumber, assessmentYear } = req.body;
+      
+      if (!panNumber || !assessmentYear) {
+        return res.status(400).json({ error: "PAN number and assessment year are required" });
+      }
+
+      // Check for existing session
+      const existingSession = await taxOrchestrator.getSessionSummary(`${req.user.id}-${panNumber}-${assessmentYear}`);
+      if (existingSession.session) {
+        return res.json(existingSession.session);
+      }
+
+      const session = await taxOrchestrator.createSession({
+        userId: req.user.id,
+        panNumber,
+        assessmentYear,
+        financialYear: `${parseInt(assessmentYear.split('-')[0]) - 1}-${parseInt(assessmentYear.split('-')[1]) - 1}`
+      });
+
+      res.status(201).json(session);
+    } catch (error) {
+      console.error("Error creating tax session:", error);
+      res.status(500).json({ error: "Failed to create tax session" });
+    }
+  });
+
+  // Get tax session by ID
+  app.get("/api/tax/session/:sessionId", async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const summary = await taxOrchestrator.getSessionSummary(sessionId);
+      
+      if (!summary.session) {
+        return res.status(404).json({ error: "Tax session not found" });
+      }
+      
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching tax session:", error);
+      res.status(500).json({ error: "Failed to fetch tax session" });
+    }
+  });
+
+  // Get user's tax sessions
+  app.get("/api/tax/sessions", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      // In real implementation, fetch from database
+      // For now, return empty array
+      res.json([]);
+    } catch (error) {
+      console.error("Error fetching tax sessions:", error);
+      res.status(500).json({ error: "Failed to fetch tax sessions" });
+    }
+  });
+
+  // Initialize data sources for session
+  app.post("/api/tax/session/:sessionId/initialize", async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const dataSources = await taxOrchestrator.initializeDataSources(sessionId);
+      await taxOrchestrator.updateSessionProgress(sessionId, 1, "aggregating");
+      
+      res.json({ dataSources, message: "Data sources initialized successfully" });
+    } catch (error) {
+      console.error("Error initializing data sources:", error);
+      res.status(500).json({ error: "Failed to initialize data sources" });
+    }
+  });
+
+  // Sync all data sources
+  app.post("/api/tax/session/:sessionId/sync-all", async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const result = await taxOrchestrator.aggregateData(sessionId);
+      
+      if (result.success) {
+        await taxOrchestrator.updateSessionProgress(sessionId, 2, "prefilled");
+      }
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error syncing data sources:", error);
+      res.status(500).json({ error: "Failed to sync data sources" });
+    }
+  });
+
+  // Validate session data
+  app.post("/api/tax/session/:sessionId/validate", async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const issues = await taxOrchestrator.validateSessionData(sessionId);
+      await taxOrchestrator.updateSessionProgress(sessionId, 3, "validated");
+      
+      res.json({ 
+        issues,
+        summary: {
+          totalIssues: issues.length,
+          errors: issues.filter(i => i.severity === 'error').length,
+          warnings: issues.filter(i => i.severity === 'warning').length,
+          suggestions: issues.filter(i => i.severity === 'suggestion').length
+        }
+      });
+    } catch (error) {
+      console.error("Error validating tax data:", error);
+      res.status(500).json({ error: "Failed to validate tax data" });
+    }
+  });
+
+  // Generate AI optimization suggestions
+  app.post("/api/tax/session/:sessionId/optimize", async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const suggestions = await taxOrchestrator.generateOptimizationSuggestions(sessionId);
+      await taxOrchestrator.updateSessionProgress(sessionId, 4, "optimized");
+      
+      res.json({ 
+        suggestions,
+        summary: {
+          totalSuggestions: suggestions.length,
+          potentialSavings: suggestions.reduce((sum, s) => sum + parseFloat(s.potentialSaving || '0'), 0)
+        }
+      });
+    } catch (error) {
+      console.error("Error generating optimization suggestions:", error);
+      res.status(500).json({ error: "Failed to generate optimization suggestions" });
+    }
+  });
+
+  // Generate ITR JSON
+  app.post("/api/tax/session/:sessionId/generate", async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const result = await taxOrchestrator.generateItrJson(sessionId);
+      await taxOrchestrator.updateSessionProgress(sessionId, 5, "generated");
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error generating ITR JSON:", error);
+      res.status(500).json({ error: "Failed to generate ITR JSON" });
+    }
+  });
+
+  // Submit ITR for filing
+  app.post("/api/tax/session/:sessionId/file", async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const { itrJson, verificationMethod = "aadhaar" } = req.body;
+      
+      if (!itrJson) {
+        return res.status(400).json({ error: "ITR JSON is required for filing" });
+      }
+
+      const filingRecord = await taxOrchestrator.submitFiling(sessionId, itrJson, verificationMethod);
+      await taxOrchestrator.updateSessionProgress(sessionId, 6, "filed");
+      
+      res.json(filingRecord);
+    } catch (error) {
+      console.error("Error filing ITR:", error);
+      res.status(500).json({ error: "Failed to file ITR" });
+    }
+  });
+
+  // Get session status and progress
+  app.get("/api/tax/session/:sessionId/status", async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const summary = await taxOrchestrator.getSessionSummary(sessionId);
+      
+      res.json({
+        sessionId,
+        status: summary.session?.status || "not_found",
+        currentStep: summary.session?.currentStep || 0,
+        completionPercentage: summary.session?.completionPercentage || 0,
+        dataSourcesConnected: summary.dataSources.filter(ds => ds.status === 'connected').length,
+        totalValidationIssues: summary.validationIssues.length,
+        pendingSuggestions: summary.suggestions.filter(s => s.status === 'pending').length
+      });
+    } catch (error) {
+      console.error("Error fetching session status:", error);
+      res.status(500).json({ error: "Failed to fetch session status" });
+    }
+  });
+
+  // Get smart defaults for user
+  app.get("/api/tax/smart-defaults", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const defaults = taxOrchestrator.getSmartDefaults();
+      res.json(defaults);
+    } catch (error) {
+      console.error("Error fetching smart defaults:", error);
+      res.status(500).json({ error: "Failed to fetch smart defaults" });
+    }
+  });
+
+  // Respond to AI suggestion
+  app.post("/api/tax/suggestion/:suggestionId/respond", async (req, res) => {
+    try {
+      const { suggestionId } = req.params;
+      const { status, userResponse } = req.body;
+      
+      if (!['accepted', 'rejected', 'implemented'].includes(status)) {
+        return res.status(400).json({ error: "Invalid response status" });
+      }
+
+      // In real implementation, update suggestion in database
+      res.json({ 
+        success: true, 
+        message: `Suggestion ${status} successfully`,
+        suggestionId,
+        status,
+        userResponse 
+      });
+    } catch (error) {
+      console.error("Error responding to suggestion:", error);
+      res.status(500).json({ error: "Failed to respond to suggestion" });
     }
   });
 

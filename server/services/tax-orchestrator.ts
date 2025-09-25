@@ -37,7 +37,6 @@ export class TaxOrchestrator {
       panNumber: data.panNumber,
       assessmentYear: data.assessmentYear,
       financialYear: financialYear,
-      status: "created",
       currentStep: 1,
       completionPercentage: 5,
       dataSourcesConnected: 0,
