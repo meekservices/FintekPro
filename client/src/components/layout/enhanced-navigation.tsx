@@ -168,16 +168,18 @@ export function EnhancedNavigation() {
       title: "Financial Services",
       items: [
         {
-          name: "Loans & Credit",
+          name: "Loan Marketplace",
           icon: CreditCard,
-          description: "Personal, home and business loans",
+          description: "Compare loans across providers",
           subItems: [
-            { name: "All Loans", href: "/loans", description: "Compare and apply" },
-            { name: "ICICI Bank Loans", href: "/icici-loans", description: "ICICI loan products and applications" },
-            { name: "HDFC Bank Loans", href: "/hdfc-loans", description: "HDFC loan products and applications" },
-            { name: "Bajaj Finance", href: "/bajaj-finance", description: "EMI calculator and loans" },
-            { name: "Tata Capital", href: "/tata-capital", description: "Business and personal loans" },
-            { name: "Loan Dashboard", href: "/loan-dashboard", description: "Track applications" },
+            { name: "Personal Loans", href: "/loans?category=personal", description: "Quick personal loans from multiple lenders" },
+            { name: "Home Loans", href: "/loans?category=home", description: "Property financing solutions" },
+            { name: "Business Loans", href: "/loans?category=business", description: "SME and corporate financing" },
+            { name: "Vehicle Loans", href: "/loans?category=vehicle", description: "Car and two-wheeler financing" },
+            { name: "Education Loans", href: "/loans?category=education", description: "Student loan options" },
+            { name: "All Loans", href: "/loans", description: "Browse all loan products" },
+            { name: "Loan Providers", href: "/loans?tab=providers", description: "ICICI, HDFC, Bajaj Finance, Tata Capital" },
+            { name: "My Applications", href: "/loan-dashboard", description: "Track loan applications" },
             { name: "CIBIL Score", href: "/cibil", description: "Credit score monitoring" }
           ]
         },
