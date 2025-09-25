@@ -178,6 +178,7 @@ export function EnhancedNavigation() {
             { name: "Vehicle Loans", href: "/loans?category=vehicle", description: "Car and two-wheeler financing" },
             { name: "Education Loans", href: "/loans?category=education", description: "Student loan options" },
             { name: "All Loans", href: "/loans", description: "Browse all loan products" },
+            { name: "Loan Comparison", href: "/loan-comparison", description: "Compare multiple loan offers side-by-side" },
             { name: "Loan Providers", href: "/loans?tab=providers", description: "ICICI, HDFC, Bajaj Finance, Tata Capital" },
             { name: "My Applications", href: "/loan-dashboard", description: "Track loan applications" },
             { name: "CIBIL Score", href: "/cibil", description: "Credit score monitoring" }

@@ -13913,6 +13913,283 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ============ END SANDBOX ITR FILING API ROUTES ============
 
+  // ============ LOAN COMPARISON API ROUTES ============
+  
+  // Generate fresh loan offers for comparison
+  app.post("/api/loan-comparison/generate", async (req, res) => {
+    try {
+      const { amount, tenure, loanType, monthlyIncome, creditScore } = req.body;
+      
+      if (!amount || !tenure || !loanType || !monthlyIncome) {
+        return res.status(400).json({ error: "Missing required parameters" });
+      }
+      
+      // Mock offer generation - in production, integrate with provider APIs
+      const mockOffers = [
+        {
+          id: "offer-hdfc-1",
+          providerId: "hdfc-bank",
+          providerName: "HDFC Bank",
+          providerRating: 4.2,
+          productName: "Personal Loan Express",
+          productType: loanType,
+          approvedAmount: amount,
+          interestRate: 10.5,
+          tenure: tenure,
+          processingFee: Math.round(amount * 0.02), // 2% of loan amount
+          legalCharges: 5000,
+          otherCharges: 2500,
+          eligibilityScore: 85,
+          approvalProbability: 92,
+          qualityScore: 88,
+          features: ["Quick approval", "Minimal documentation", "Flexible tenure"],
+          terms: ["No prepayment penalty", "Digital processing"],
+          responseTime: "2-3 days",
+          rateType: "floating"
+        },
+        {
+          id: "offer-icici-1",
+          providerId: "icici-bank", 
+          providerName: "ICICI Bank",
+          providerRating: 4.1,
+          productName: "Instant Personal Loan",
+          productType: loanType,
+          approvedAmount: amount,
+          interestRate: 11.25,
+          tenure: tenure,
+          processingFee: Math.round(amount * 0.025), // 2.5% 
+          legalCharges: 4000,
+          otherCharges: 3000,
+          eligibilityScore: 82,
+          approvalProbability: 89,
+          qualityScore: 85,
+          features: ["Instant approval", "Pre-approved offers", "Online EMI payment"],
+          terms: ["Free cancellation within 7 days", "Part payment allowed"],
+          responseTime: "1-2 days",
+          rateType: "fixed"
+        },
+        {
+          id: "offer-bajaj-1",
+          providerId: "bajaj-finserv",
+          providerName: "Bajaj Finserv",
+          providerRating: 4.0,
+          productName: "Digital Personal Loan",
+          productType: loanType,
+          approvedAmount: amount,
+          interestRate: 12.0,
+          tenure: tenure,
+          processingFee: Math.round(amount * 0.015), // 1.5%
+          legalCharges: 3500,
+          otherCharges: 2000,
+          eligibilityScore: 78,
+          approvalProbability: 95,
+          qualityScore: 82,
+          features: ["100% digital process", "Flexi EMI options", "No guarantor required"],
+          terms: ["Competitive rates", "Quick disbursal"],
+          responseTime: "Same day",
+          rateType: "floating"
+        },
+        {
+          id: "offer-tata-1",
+          providerId: "tata-capital",
+          providerName: "Tata Capital",
+          providerRating: 3.9,
+          productName: "Quick Personal Loan",
+          productType: loanType,
+          approvedAmount: amount,
+          interestRate: 11.75,
+          tenure: tenure,
+          processingFee: Math.round(amount * 0.03), // 3%
+          legalCharges: 6000,
+          otherCharges: 4000,
+          eligibilityScore: 80,
+          approvalProbability: 87,
+          qualityScore: 83,
+          features: ["Doorstep service", "Flexible repayment", "Quick approval"],
+          terms: ["Transparent pricing", "Customer support"],
+          responseTime: "3-4 days",
+          rateType: "fixed"
+        },
+        {
+          id: "offer-axis-1",
+          providerId: "axis-bank",
+          providerName: "Axis Bank",
+          providerRating: 4.0,
+          productName: "Personal Loan",
+          productType: loanType,
+          approvedAmount: amount,
+          interestRate: 10.85,
+          tenure: tenure,
+          processingFee: Math.round(amount * 0.022), // 2.2%
+          legalCharges: 4500,
+          otherCharges: 2800,
+          eligibilityScore: 84,
+          approvalProbability: 90,
+          qualityScore: 86,
+          features: ["Instant approval", "Competitive rates", "Digital documentation"],
+          terms: ["No hidden charges", "Easy EMI options"],
+          responseTime: "2-3 days",
+          rateType: "floating"
+        },
+        {
+          id: "offer-kotak-1",
+          providerId: "kotak-bank",
+          providerName: "Kotak Mahindra Bank",
+          providerRating: 3.8,
+          productName: "SuperCash Personal Loan",
+          productType: loanType,
+          approvedAmount: amount,
+          interestRate: 12.5,
+          tenure: tenure,
+          processingFee: Math.round(amount * 0.035), // 3.5%
+          legalCharges: 5500,
+          otherCharges: 3500,
+          eligibilityScore: 76,
+          approvalProbability: 85,
+          qualityScore: 79,
+          features: ["Quick processing", "Attractive rates", "Easy application"],
+          terms: ["Minimal documentation", "Fast disbursal"],
+          responseTime: "2-4 days",
+          rateType: "fixed"
+        }
+      ];
+      
+      // Adjust rates based on credit score
+      const creditScoreAdjustment = creditScore ? (750 - creditScore) * 0.01 : 0;
+      const adjustedOffers = mockOffers.map(offer => ({
+        ...offer,
+        interestRate: Math.max(8.5, offer.interestRate + creditScoreAdjustment),
+        approvalProbability: Math.min(95, offer.approvalProbability - (creditScoreAdjustment * 5))
+      }));
+      
+      res.json({ 
+        success: true, 
+        offers: adjustedOffers,
+        generatedAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error generating loan offers:", error);
+      res.status(500).json({ error: "Failed to generate loan offers" });
+    }
+  });
+
+  // Get loan offers for comparison parameters
+  app.get("/api/loan-comparison/offers", async (req, res) => {
+    try {
+      const { amount, tenure, loanType, monthlyIncome, creditScore } = req.query;
+      
+      // Generate offers using the same logic as POST endpoint
+      const response = await fetch(`${req.protocol}://${req.get('host')}/api/loan-comparison/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount, tenure, loanType, monthlyIncome, creditScore })
+      });
+      
+      const data = await response.json();
+      res.json(data.offers || []);
+    } catch (error) {
+      console.error("Error fetching loan offers:", error);
+      res.status(500).json({ error: "Failed to fetch loan offers" });
+    }
+  });
+
+  // Save loan comparison session
+  app.post("/api/loan-comparison/save", async (req, res) => {
+    try {
+      const { 
+        comparisonName, 
+        comparisonAmount, 
+        comparisonTenure, 
+        loanType,
+        selectedOffers, 
+        comparisonCriteria 
+      } = req.body;
+      
+      if (!comparisonName || !selectedOffers || selectedOffers.length < 2) {
+        return res.status(400).json({ error: "Invalid comparison data" });
+      }
+      
+      // Mock save - in production, save to database
+      const comparisonId = `comparison-${Date.now()}`;
+      const savedComparison = {
+        id: comparisonId,
+        userId: req.user?.id || 'demo-user',
+        comparisonName,
+        comparisonAmount,
+        comparisonTenure,
+        loanType,
+        selectedOffers,
+        comparisonCriteria,
+        createdAt: new Date().toISOString()
+      };
+      
+      res.json({ 
+        success: true, 
+        comparison: savedComparison,
+        message: "Comparison saved successfully"
+      });
+    } catch (error) {
+      console.error("Error saving comparison:", error);
+      res.status(500).json({ error: "Failed to save comparison" });
+    }
+  });
+
+  // Get saved comparisons for user
+  app.get("/api/loan-comparison/saved", async (req, res) => {
+    try {
+      // Mock saved comparisons - in production, fetch from database
+      const savedComparisons = [
+        {
+          id: "comparison-1",
+          comparisonName: "Home Loan Comparison - Dec 2024",
+          comparisonAmount: 2500000,
+          comparisonTenure: 240, // 20 years
+          loanType: "home",
+          selectedOffers: ["offer-hdfc-1", "offer-icici-1", "offer-axis-1"],
+          createdAt: new Date(Date.now() - 86400000).toISOString() // 1 day ago
+        },
+        {
+          id: "comparison-2",
+          comparisonName: "Personal Loan Comparison - Dec 2024",
+          comparisonAmount: 500000,
+          comparisonTenure: 60, // 5 years
+          loanType: "personal",
+          selectedOffers: ["offer-bajaj-1", "offer-tata-1"],
+          createdAt: new Date(Date.now() - 172800000).toISOString() // 2 days ago
+        }
+      ];
+      
+      res.json(savedComparisons);
+    } catch (error) {
+      console.error("Error fetching saved comparisons:", error);
+      res.status(500).json({ error: "Failed to fetch saved comparisons" });
+    }
+  });
+
+  // Get comparison analytics
+  app.get("/api/loan-comparison/analytics/:comparisonId", async (req, res) => {
+    try {
+      const { comparisonId } = req.params;
+      
+      // Mock analytics data - in production, fetch from database
+      const analytics = {
+        comparisonId,
+        totalViews: Math.floor(Math.random() * 50) + 10,
+        avgTimeSpent: Math.floor(Math.random() * 300) + 120, // seconds
+        mostComparedProviders: ["HDFC Bank", "ICICI Bank", "Bajaj Finserv"],
+        popularCriteria: ["Interest Rate", "Total Cost", "Processing Fee"],
+        conversionRate: Math.floor(Math.random() * 30) + 15 // percentage
+      };
+      
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching comparison analytics:", error);
+      res.status(500).json({ error: "Failed to fetch analytics" });
+    }
+  });
+
+  // ============ END LOAN COMPARISON API ROUTES ============
+
   // ============ ADMIN PANEL ROUTES ============
   
   // Test endpoint without auth to verify real data
