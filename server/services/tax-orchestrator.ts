@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { GoogleGenAI } from "@google/genai";
 import type { 
   TaxSession, 
   InsertTaxSession, 
@@ -11,6 +12,9 @@ import type {
   AiOptimizationSuggestion,
   InsertAiOptimizationSuggestion
 } from "@shared/schema";
+
+// Initialize Gemini AI client for tax optimization
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
 // Tax orchestrator service for unified smart filing workflow
 export class TaxOrchestrator {
@@ -43,13 +47,18 @@ export class TaxOrchestrator {
       validationIssuesCount: 0
     };
 
+    // Get AI suggestions for ITR form and tax regime
+    const itrSuggestion = await this.suggestItrForm({ panNumber: data.panNumber });
+    const regimeSuggestion = await this.suggestTaxRegime({ panNumber: data.panNumber });
+
     // For now, create in-memory session (will implement database storage)
     const session: TaxSession = {
       id: randomUUID(),
       ...sessionData,
-      suggestedItrForm: this.suggestItrForm(data.panNumber),
-      suggestedTaxRegime: "new",
-      autoSelectionReason: "Recommended based on recent tax changes and typical taxpayer profile",
+      status: "created",
+      suggestedItrForm: itrSuggestion.form,
+      suggestedTaxRegime: regimeSuggestion.regime,
+      autoSelectionReason: `${itrSuggestion.reason} ${regimeSuggestion.reason}`,
       aggregationStartedAt: null,
       aggregationCompletedAt: null,
       validationCompletedAt: null,
@@ -93,10 +102,127 @@ export class TaxOrchestrator {
   }
 
   // AI-powered ITR form suggestion
-  private suggestItrForm(panNumber: string): string {
-    // Basic heuristic - in real implementation, this would use AI/ML
-    // For now, default to ITR-1 (most common for salaried individuals)
-    return "ITR-1";
+  private async suggestItrForm(userProfile: any): Promise<{
+    form: string;
+    reason: string;
+    confidence: number;
+  }> {
+    try {
+      const prompt = `You are a tax expert AI. Based on the user profile, suggest the most appropriate ITR form.
+      
+User Profile: ${JSON.stringify(userProfile)}
+
+Analyze:
+1. Income sources and types
+2. Deductions and investments
+3. Residency status
+4. Business ownership
+
+ITR Forms:
+- ITR-1: Salary, pension, house property (one house), other sources
+- ITR-2: Capital gains, multiple house properties, foreign assets
+- ITR-3: Business/profession income
+- ITR-4: Presumptive business income
+
+Respond with JSON:
+{
+  "form": "ITR-X",
+  "reason": "explanation for choice",
+  "confidence": 0.85
+}`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-1.5-pro",
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "object",
+            properties: {
+              form: { type: "string" },
+              reason: { type: "string" },
+              confidence: { type: "number" }
+            },
+            required: ["form", "reason", "confidence"]
+          }
+        },
+        contents: prompt,
+      });
+
+      const result = JSON.parse(response.text || "{}");
+      return {
+        form: result.form || "ITR-1",
+        reason: result.reason || "Default selection for salaried individuals",
+        confidence: Math.max(0.1, Math.min(1.0, result.confidence || 0.7))
+      };
+    } catch (error) {
+      console.error("AI ITR form suggestion error:", error);
+      return {
+        form: "ITR-1",
+        reason: "Default selection - AI analysis unavailable",
+        confidence: 0.5
+      };
+    }
+  }
+
+  // AI-powered tax regime recommendation
+  private async suggestTaxRegime(userProfile: any): Promise<{
+    regime: "old" | "new";
+    reason: string;
+    estimatedSavings: number;
+  }> {
+    try {
+      const prompt = `You are a tax optimization expert. Analyze the user profile and recommend the best tax regime.
+
+User Profile: ${JSON.stringify(userProfile)}
+
+Tax Regimes:
+1. Old Regime: Higher tax rates but allows deductions under 80C, 80D, HRA, etc.
+2. New Regime: Lower tax rates but minimal deductions allowed
+
+Analyze:
+1. Income level and slabs
+2. Current deductions and investments
+3. Potential tax savings in each regime
+4. Provide estimated annual savings
+
+Respond with JSON:
+{
+  "regime": "old" or "new",
+  "reason": "detailed explanation for choice",
+  "estimatedSavings": 15000
+}`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-1.5-pro",
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "object",
+            properties: {
+              regime: { type: "string", enum: ["old", "new"] },
+              reason: { type: "string" },
+              estimatedSavings: { type: "number" }
+            },
+            required: ["regime", "reason", "estimatedSavings"]
+          }
+        },
+        contents: prompt,
+      });
+
+      const result = JSON.parse(response.text || "{}");
+      return {
+        regime: result.regime || "new",
+        reason: result.reason || "New regime typically benefits most taxpayers",
+        estimatedSavings: Math.max(0, result.estimatedSavings || 0)
+      };
+    } catch (error) {
+      console.error("AI tax regime suggestion error:", error);
+      return {
+        regime: "new",
+        reason: "New regime recommended as default - AI analysis unavailable",
+        estimatedSavings: 0
+      };
+    }
   }
 
   // Aggregate data from all connected sources

@@ -716,7 +716,7 @@ export default function TaxSmartFiling() {
 
   // Step 6: Receipt & Track
   const renderReceiptStep = () => {
-    const filingRecord = sessionData?.filingRecord;
+    const filingRecord = sessionData?.filingRecord || null;
     
     return (
       <Card data-testid="card-receipt-step">
