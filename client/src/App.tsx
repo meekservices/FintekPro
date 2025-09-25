@@ -63,6 +63,7 @@ import AdminProposalsPage from "@/pages/admin-proposals";
 import ClientProposalsPage from "@/pages/client-proposals";
 import TaxDocuments from "@/pages/tax-documents";
 import ITRPrefilled from "@/pages/itr-prefilled";
+import TaxDataCenter from "@/pages/tax-data-center";
 
 function UserProtectedRoutes() {
   return (
@@ -100,6 +101,7 @@ function UserProtectedRoutes() {
         <Route path="/my-proposals" component={ClientProposalsPage} />
         <Route path="/achievements" component={Achievements} />
         <Route path="/capital-gains" component={CapitalGainsReports} />
+        <Route path="/tax-data-center" component={TaxDataCenter} />
         <Route path="/tax-documents" component={TaxDocuments} />
         <Route path="/itr-prefilled" component={ITRPrefilled} />
         <Route path="/ib-trading" component={IBTradingPage} />
