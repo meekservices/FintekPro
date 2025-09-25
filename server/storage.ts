@@ -1,4 +1,4 @@
-import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Supplier, type InsertSupplier, type EpfHolding, type PpfHolding, type EpsHolding, type GovernmentSchemeConsent, type InsertGovernmentSchemeConsent, type InsuranceHolding, type InsertInsuranceHolding, type UserBankAccount, type InsertUserBankAccount, type UserDematAccount, type InsertUserDematAccount, type AchievementCategory, type InsertAchievementCategory, type Achievement, type InsertAchievement, type UserAchievement, type InsertUserAchievement, type LearningProgress, type InsertLearningProgress, type SocialShare, type InsertSocialShare, type FinancialGoal, type InsertFinancialGoal, type TaxDocument, type InsertTaxDocument, type StructuredTaxData, type InsertStructuredTaxData, type TaxCalculation, type InsertTaxCalculation, type TaxDocumentAccessLog, type InsertTaxDocumentAccessLog, type FundExtended, type Provenance, type FundSearchParams, type FundListResponse, type SourceStatus, type MultiSourceStatus, type LoanProduct, type InsertLoanProduct, type LoanProvider, type InsertLoanProvider, type ProviderProduct, type InsertProviderProduct, type CreditProfile, type InsertCreditProfile, type LoanRequest, type InsertLoanRequest, type LoanOffer, type InsertLoanOffer, type LoanApplicationMarketplace, type InsertLoanApplicationMarketplace, type ProviderIntegration, type InsertProviderIntegration, type ApplicationDocument, type InsertApplicationDocument } from "@shared/schema";
+import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Supplier, type InsertSupplier, type EpfHolding, type PpfHolding, type EpsHolding, type GovernmentSchemeConsent, type InsertGovernmentSchemeConsent, type InsuranceHolding, type InsertInsuranceHolding, type UserBankAccount, type InsertUserBankAccount, type UserDematAccount, type InsertUserDematAccount, type AchievementCategory, type InsertAchievementCategory, type Achievement, type InsertAchievement, type UserAchievement, type InsertUserAchievement, type LearningProgress, type InsertLearningProgress, type SocialShare, type InsertSocialShare, type FinancialGoal, type InsertFinancialGoal, type TaxDocument, type InsertTaxDocument, type StructuredTaxData, type InsertStructuredTaxData, type TaxCalculation, type InsertTaxCalculation, type TaxDocumentAccessLog, type InsertTaxDocumentAccessLog, type TaxSession, type InsertTaxSession, type TaxDataSource, type InsertTaxDataSource, type ValidationIssue, type InsertValidationIssue, type FilingRecord, type InsertFilingRecord, type AiOptimizationSuggestion, type InsertAiOptimizationSuggestion, type FundExtended, type Provenance, type FundSearchParams, type FundListResponse, type SourceStatus, type MultiSourceStatus, type LoanProduct, type InsertLoanProduct, type LoanProvider, type InsertLoanProvider, type ProviderProduct, type InsertProviderProduct, type CreditProfile, type InsertCreditProfile, type LoanRequest, type InsertLoanRequest, type LoanOffer, type InsertLoanOffer, type LoanApplicationMarketplace, type InsertLoanApplicationMarketplace, type ProviderIntegration, type InsertProviderIntegration, type ApplicationDocument, type InsertApplicationDocument } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, and, desc, asc, gte, lte, like, sql } from "drizzle-orm";
@@ -505,6 +505,49 @@ export interface IStorage {
   validateTaxData(documentId: string): Promise<{ isValid: boolean; warnings: string[]; errors: string[] }>;
   generateITRJson(userId: string, financialYear: string): Promise<{ itrJson: string; warnings: string[] }>;
   calculateTaxLiability(userId: string, financialYear: string, taxRegime: 'old' | 'new'): Promise<TaxCalculation>;
+  
+  // Unified Tax Smart Filing Workflow methods
+  // Tax Session methods
+  createTaxSession(session: InsertTaxSession): Promise<TaxSession>;
+  getTaxSessions(userId: string): Promise<TaxSession[]>;
+  getTaxSession(id: string): Promise<TaxSession | undefined>;
+  getTaxSessionByPanAndYear(userId: string, panNumber: string, assessmentYear: string): Promise<TaxSession | undefined>;
+  updateTaxSession(id: string, updates: Partial<TaxSession>): Promise<TaxSession | undefined>;
+  deleteTaxSession(id: string): Promise<boolean>;
+  updateTaxSessionStatus(id: string, status: string, currentStep?: number): Promise<TaxSession | undefined>;
+  
+  // Tax Data Source methods
+  getTaxDataSources(sessionId: string): Promise<TaxDataSource[]>;
+  getTaxDataSource(id: string): Promise<TaxDataSource | undefined>;
+  createTaxDataSource(dataSource: InsertTaxDataSource): Promise<TaxDataSource>;
+  updateTaxDataSource(id: string, updates: Partial<TaxDataSource>): Promise<TaxDataSource | undefined>;
+  deleteTaxDataSource(id: string): Promise<boolean>;
+  updateDataSourceStatus(id: string, status: string, recordsCount?: number, lastSync?: Date): Promise<TaxDataSource | undefined>;
+  
+  // Validation Issue methods
+  getValidationIssues(sessionId: string, severity?: string): Promise<ValidationIssue[]>;
+  getValidationIssue(id: string): Promise<ValidationIssue | undefined>;
+  createValidationIssue(issue: InsertValidationIssue): Promise<ValidationIssue>;
+  updateValidationIssue(id: string, updates: Partial<ValidationIssue>): Promise<ValidationIssue | undefined>;
+  deleteValidationIssue(id: string): Promise<boolean>;
+  resolveValidationIssue(id: string, resolvedBy: string): Promise<ValidationIssue | undefined>;
+  getValidationIssuesBySection(sessionId: string, section: string): Promise<ValidationIssue[]>;
+  
+  // Filing Record methods
+  getFilingRecords(sessionId: string): Promise<FilingRecord[]>;
+  getFilingRecord(id: string): Promise<FilingRecord | undefined>;
+  getFilingRecordByAckNumber(acknowledgmentNumber: string): Promise<FilingRecord | undefined>;
+  createFilingRecord(record: InsertFilingRecord): Promise<FilingRecord>;
+  updateFilingRecord(id: string, updates: Partial<FilingRecord>): Promise<FilingRecord | undefined>;
+  updateFilingStatus(id: string, status: string, verificationDate?: Date): Promise<FilingRecord | undefined>;
+  
+  // AI Optimization Suggestion methods
+  getAiOptimizationSuggestions(sessionId: string, category?: string): Promise<AiOptimizationSuggestion[]>;
+  getAiOptimizationSuggestion(id: string): Promise<AiOptimizationSuggestion | undefined>;
+  createAiOptimizationSuggestion(suggestion: InsertAiOptimizationSuggestion): Promise<AiOptimizationSuggestion>;
+  updateAiOptimizationSuggestion(id: string, updates: Partial<AiOptimizationSuggestion>): Promise<AiOptimizationSuggestion | undefined>;
+  respondToSuggestion(id: string, status: string, userResponse?: string): Promise<AiOptimizationSuggestion | undefined>;
+  getPendingSuggestions(sessionId: string): Promise<AiOptimizationSuggestion[]>;
 }
 
 export class DatabaseStorage implements IStorage {
