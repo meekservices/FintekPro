@@ -23025,6 +23025,62 @@ System Security Data:`;
     }
   });
 
+  // Secure endpoint for users to view their own PAN data (masked)
+  app.get("/api/pan-consent/my-data", async (req: any, res: any) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const panStatus = await PANConsentService.getPANStatusForUser(req.user.id);
+
+      res.json({ 
+        success: true, 
+        data: panStatus
+      });
+
+    } catch (error: any) {
+      console.error("Error getting user PAN data:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to get PAN data"
+      });
+    }
+  });
+
+  // Secure endpoint for users to view their own masked PAN
+  app.get("/api/pan-consent/masked", async (req: any, res: any) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const maskedInfo = await PANConsentService.getMaskedPANForUser(req.user.id, req.sessionID);
+
+      if (!maskedInfo) {
+        return res.json({ 
+          success: true, 
+          data: { hasPan: false } 
+        });
+      }
+
+      res.json({ 
+        success: true, 
+        data: {
+          hasPan: true,
+          ...maskedInfo
+        }
+      });
+
+    } catch (error: any) {
+      console.error("Error getting masked PAN:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to get masked PAN"
+      });
+    }
+  });
+
   // Add AML routes
   app.use(amlRoutes);
 

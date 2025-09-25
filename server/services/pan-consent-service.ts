@@ -192,10 +192,11 @@ export class PANConsentService {
       }
 
       // Update last used timestamp and usage count
+      const currentUsageCount = consent.usageCount || 0;
       await db.update(panConsents)
         .set({ 
           lastUsed: new Date(),
-          usageCount: consent.usageCount + 1
+          usageCount: currentUsageCount + 1
         })
         .where(eq(panConsents.id, consent.id));
 
@@ -205,7 +206,7 @@ export class PANConsentService {
         userId,
         action: "accessed",
         actionDetails: {
-          usageCount: consent.usageCount + 1
+          usageCount: currentUsageCount + 1
         },
         apiEndpoint,
         requestId,
@@ -338,6 +339,120 @@ export class PANConsentService {
       console.error('Error getting PAN audit log:', error);
       return [];
     }
+  }
+
+  /**
+   * Get masked PAN for user display (secure client access)
+   */
+  static async getMaskedPANForUser(userId: string, requestId?: string): Promise<{
+    maskedPan: string;
+    panVerified: boolean;
+    consentStatus: string;
+    lastUsed?: Date;
+    usageCount: number;
+  } | null> {
+    try {
+      const consent = await this.getActivePANConsent(userId);
+      
+      if (!consent) {
+        return null;
+      }
+
+      // Get the actual PAN to create proper mask
+      const actualPan = this.decryptPAN(consent.encryptedPan);
+      
+      // Create masked version (show first 3 and last 2 characters)
+      const maskedPan = actualPan.substring(0, 3) + 'X'.repeat(5) + actualPan.substring(8, 10);
+
+      // Log this access
+      await this.logPANAccess({
+        consentId: consent.id,
+        userId,
+        action: "viewed_masked",
+        actionDetails: {
+          maskedView: true,
+          accessType: "user_dashboard"
+        },
+        requestId,
+        accessReason: "User viewing own PAN information"
+      });
+
+      return {
+        maskedPan,
+        panVerified: consent.panVerified || false,
+        consentStatus: consent.isActive ? 'active' : 'inactive',
+        lastUsed: consent.lastUsed || undefined,
+        usageCount: consent.usageCount || 0
+      };
+    } catch (error) {
+      console.error('Error getting masked PAN for user:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get comprehensive PAN status for user (secure client access)
+   */
+  static async getPANStatusForUser(userId: string): Promise<{
+    hasActivePan: boolean;
+    maskedPan?: string;
+    consentDetails?: {
+      consentGiven: boolean;
+      consentTimestamp: Date;
+      consentVersion: string;
+      panVerified: boolean;
+      kycVerified: boolean;
+      lastUsed?: Date;
+      usageCount: number;
+      dataRetentionPeriod: string;
+    };
+    compliance?: {
+      isCompliant: boolean;
+      needsRenewal: boolean;
+      issues: string[];
+    };
+  }> {
+    try {
+      const consent = await this.getActivePANConsent(userId);
+      
+      if (!consent) {
+        return { hasActivePan: false };
+      }
+
+      const maskedInfo = await this.getMaskedPANForUser(userId);
+      const compliance = await this.checkConsentCompliance(userId);
+
+      return {
+        hasActivePan: true,
+        maskedPan: maskedInfo?.maskedPan,
+        consentDetails: {
+          consentGiven: consent.consentGiven || false,
+          consentTimestamp: consent.consentTimestamp,
+          consentVersion: consent.consentVersion || "1.0",
+          panVerified: consent.panVerified || false,
+          kycVerified: consent.kycVerified || false,
+          lastUsed: consent.lastUsed || undefined,
+          usageCount: consent.usageCount || 0,
+          dataRetentionPeriod: consent.dataRetentionPeriod || "7_years"
+        },
+        compliance: {
+          isCompliant: compliance.isValid && compliance.complianceStatus === 'compliant',
+          needsRenewal: compliance.needsRenewal,
+          issues: compliance.issues
+        }
+      };
+    } catch (error) {
+      console.error('Error getting PAN status for user:', error);
+      return { hasActivePan: false };
+    }
+  }
+
+  /**
+   * Verify user-specific data access (security middleware)
+   */
+  static async verifyUserDataAccess(requestingUserId: string, targetUserId: string): Promise<boolean> {
+    // Users can only access their own PAN data
+    return requestingUserId === targetUserId;
   }
 
   /**

@@ -15,6 +15,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { User, Shield, CreditCard, Building, TrendingUp, Database, FileText, Eye, Phone, Mail, Users, Link, Info, Loader2, CheckCircle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { usePanConsent } from "@/hooks/use-pan-consent";
+import { PANDataDashboard } from "@/components/pan-data-dashboard";
 
 const profileSchema = z.object({
   // Enhanced KYC Fields - Mandatory as per SEBI
@@ -1504,6 +1505,9 @@ export default function ProfilePage() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* PAN Data Security Dashboard */}
+            <PANDataDashboard className="mt-6" />
 
             {/* Action Buttons */}
             <div className="flex gap-4">
