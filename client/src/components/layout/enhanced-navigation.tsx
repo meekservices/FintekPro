@@ -177,7 +177,8 @@ export function EnhancedNavigation() {
             { name: "HDFC Bank Loans", href: "/hdfc-loans", description: "HDFC loan products and applications" },
             { name: "Bajaj Finance", href: "/bajaj-finance", description: "EMI calculator and loans" },
             { name: "Tata Capital", href: "/tata-capital", description: "Business and personal loans" },
-            { name: "Loan Dashboard", href: "/loan-dashboard", description: "Track applications" }
+            { name: "Loan Dashboard", href: "/loan-dashboard", description: "Track applications" },
+            { name: "CIBIL Score", href: "/cibil", description: "Credit score monitoring" }
           ]
         },
         {
@@ -190,8 +191,7 @@ export function EnhancedNavigation() {
             { name: "Motor Insurance", href: "/insurance/motor", description: "Car & two-wheeler insurance quotes" },
             { name: "Travel Insurance", href: "/insurance/travel", description: "Domestic & international travel coverage" },
             { name: "Home Insurance", href: "/insurance/home", description: "Property and contents protection" },
-            { name: "All Insurance", href: "/insurance", description: "Complete insurance marketplace" },
-            { name: "CIBIL Score", href: "/cibil", description: "Credit score monitoring" }
+            { name: "All Insurance", href: "/insurance", description: "Complete insurance marketplace" }
           ]
         },
         {
