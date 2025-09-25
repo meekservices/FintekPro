@@ -328,24 +328,22 @@ export function EnhancedNavigation() {
               </Link>
               
               {/* Cart Button */}
-              {isAuthenticated && (
-                <Link href="/cart">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    className={`relative ${isCollapsed ? 'w-full justify-center px-0' : 'w-full justify-start'}`}
-                    data-testid="sidebar-cart-button"
-                  >
-                    <ShoppingCart className="h-4 w-4" />
-                    {!isCollapsed && <span className="ml-2">Cart</span>}
-                    {cart && cart.totalItems > 0 && (
-                      <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 w-4 rounded-full p-0 text-xs flex items-center justify-center">
-                        {cart.totalItems}
-                      </Badge>
-                    )}
-                  </Button>
-                </Link>
-              )}
+              <Link href="/cart">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className={`relative ${isCollapsed ? 'w-full justify-center px-0' : 'w-full justify-start'}`}
+                  data-testid="sidebar-cart-button"
+                >
+                  <ShoppingCart className="h-4 w-4" />
+                  {!isCollapsed && <span className="ml-2">Cart</span>}
+                  {cart && cart.totalItems > 0 && (
+                    <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 w-4 rounded-full p-0 text-xs flex items-center justify-center">
+                      {cart.totalItems}
+                    </Badge>
+                  )}
+                </Button>
+              </Link>
             </div>
           </div>
 

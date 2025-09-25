@@ -11,25 +11,6 @@ import { Trash2, Minus, Plus, ShoppingCart, ArrowLeft, CreditCard } from "lucide
 import { Link } from "wouter";
 
 export default function Cart() {
-  // Navigation state for responsive layout
-  const [isNavCollapsed, setIsNavCollapsed] = useState(() => {
-    try {
-      const saved = localStorage.getItem('navigation-collapsed');
-      return saved ? JSON.parse(saved) : false;
-    } catch {
-      return false;
-    }
-  });
-
-  // Listen for navigation state changes
-  useEffect(() => {
-    const handleNavChange = (event: CustomEvent) => {
-      setIsNavCollapsed(event.detail.isCollapsed);
-    };
-    
-    window.addEventListener('navigation-state-changed', handleNavChange as EventListener);
-    return () => window.removeEventListener('navigation-state-changed', handleNavChange as EventListener);
-  }, []);
   const { cart, isLoading, updateCartItem, removeFromCart, clearCart, isUpdatingCartItem, isRemovingFromCart } = useCart();
   const { toast } = useToast();
   const [updatingItems, setUpdatingItems] = useState<Record<string, boolean>>({});
