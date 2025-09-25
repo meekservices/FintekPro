@@ -51,6 +51,7 @@ import { PortfolioComparisonService } from './services/portfolio-comparison-serv
 import { LoanOrchestrator } from './loan-marketplace/loan-orchestrator';
 import { taxOrchestrator } from './services/tax-orchestrator';
 import { PANConsentService } from './services/pan-consent-service';
+import { DemographicProtectionService } from './services/demographic-protection-service';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -23078,6 +23079,115 @@ System Security Data:`;
         success: false,
         error: "Failed to get masked PAN"
       });
+    }
+  });
+
+  // Demographic Protection API Routes
+  // Check demographic field restrictions
+  app.get('/api/demographic/restrictions', async (req, res) => {
+    try {
+      const restrictions = DemographicProtectionService.getDemographicFieldRestrictions();
+      res.json({ success: true, data: restrictions });
+    } catch (error) {
+      console.error('Error getting demographic restrictions:', error);
+      res.status(500).json({ success: false, error: 'Failed to get restrictions' });
+    }
+  });
+
+  // Validate demographic changes
+  app.post('/api/demographic/validate', async (req, res) => {
+    try {
+      if (!req.session?.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const { changes } = req.body;
+      const validation = DemographicProtectionService.validateBulkDemographicChanges(changes);
+      
+      res.json({ 
+        success: true, 
+        data: validation 
+      });
+    } catch (error) {
+      console.error('Error validating demographic changes:', error);
+      res.status(500).json({ success: false, error: 'Failed to validate changes' });
+    }
+  });
+
+  // Create demographic change request (initiates re-CKYC)
+  app.post('/api/demographic/request-change', async (req, res) => {
+    try {
+      if (!req.session?.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const { fieldName, currentValue, requestedValue, reason } = req.body;
+      
+      const result = await DemographicProtectionService.createDemographicChangeRequest({
+        userId: req.session.user.id,
+        fieldName,
+        currentValue,
+        requestedValue,
+        requestReason: reason,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        sessionId: req.sessionID
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error('Error creating demographic change request:', error);
+      res.status(500).json({ success: false, error: 'Failed to create change request' });
+    }
+  });
+
+  // Submit re-CKYC request
+  app.post('/api/demographic/re-ckyc', async (req, res) => {
+    try {
+      if (!req.session?.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const { changes, reason, verificationMethod, documents } = req.body;
+      
+      const result = await DemographicProtectionService.processReCkycUpdate({
+        userId: req.session.user.id,
+        changes,
+        reason,
+        verificationMethod,
+        ckycDocuments: documents
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error('Error processing re-CKYC:', error);
+      res.status(500).json({ success: false, error: 'Failed to process re-CKYC' });
+    }
+  });
+
+  // Get user's re-CKYC status
+  app.get('/api/demographic/re-ckyc-status/:userId', async (req, res) => {
+    try {
+      if (!req.session?.user?.id || req.session.user.id !== req.params.userId) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const status = await DemographicProtectionService.getUserReCkycStatus(req.params.userId);
+      res.json({ success: true, data: status });
+    } catch (error) {
+      console.error('Error getting re-CKYC status:', error);
+      res.status(500).json({ success: false, error: 'Failed to get status' });
+    }
+  });
+
+  // Get protected demographic fields list
+  app.get('/api/demographic/protected-fields', async (req, res) => {
+    try {
+      const protectedFields = DemographicProtectionService.getProtectedFields();
+      res.json({ success: true, data: protectedFields });
+    } catch (error) {
+      console.error('Error getting protected fields:', error);
+      res.status(500).json({ success: false, error: 'Failed to get protected fields' });
     }
   });
 
