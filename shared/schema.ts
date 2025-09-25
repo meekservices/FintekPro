@@ -3745,6 +3745,74 @@ export const insertApplicationDocumentSchema = createInsertSchema(applicationDoc
   updatedAt: true,
 });
 
+// Loan Comparison Sessions table - Store comparison sessions
+export const loanComparisons = pgTable("loan_comparisons", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Comparison Details
+  comparisonName: varchar("comparison_name").notNull(),
+  description: text("description"),
+  
+  // Loan Parameters for Comparison
+  comparisonAmount: decimal("comparison_amount", { precision: 15, scale: 2 }).notNull(),
+  comparisonTenure: integer("comparison_tenure").notNull(), // months
+  loanType: varchar("loan_type").notNull(), // personal, home, business, etc.
+  
+  // Selected Offers for Comparison
+  selectedOffers: jsonb("selected_offers").notNull(), // Array of offer IDs
+  
+  // Comparison Criteria & Weights
+  comparisonCriteria: jsonb("comparison_criteria").default({
+    "interest_rate": 30,
+    "processing_fee": 20, 
+    "total_cost": 25,
+    "approval_probability": 15,
+    "provider_rating": 10
+  }),
+  
+  // Comparison Results
+  winnerOfferId: varchar("winner_offer_id"),
+  comparisonScore: jsonb("comparison_score"), // Scores for each offer
+  
+  // Metadata
+  isPublic: boolean("is_public").default(false),
+  sharedWith: jsonb("shared_with").default([]), // Array of user IDs
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Loan Comparison Analytics table - Track comparison behavior
+export const loanComparisonAnalytics = pgTable("loan_comparison_analytics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  comparisonId: varchar("comparison_id").references(() => loanComparisons.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // User Interaction
+  action: varchar("action").notNull(), // view, filter, sort, share, export
+  actionDetails: jsonb("action_details"),
+  
+  // Session Info
+  sessionId: varchar("session_id"),
+  userAgent: text("user_agent"),
+  ipAddress: varchar("ip_address"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Create insert schemas for comparison tables
+export const insertLoanComparisonSchema = createInsertSchema(loanComparisons).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertLoanComparisonAnalyticsSchema = createInsertSchema(loanComparisonAnalytics).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Export types for loan marketplace tables
 export type LoanProduct = typeof loanProducts.$inferSelect;
 export type InsertLoanProduct = z.infer<typeof insertLoanProductSchema>;
@@ -3764,6 +3832,10 @@ export type ProviderIntegration = typeof providerIntegrations.$inferSelect;
 export type InsertProviderIntegration = z.infer<typeof insertProviderIntegrationSchema>;
 export type ApplicationDocument = typeof applicationDocuments.$inferSelect;
 export type InsertApplicationDocument = z.infer<typeof insertApplicationDocumentSchema>;
+export type LoanComparison = typeof loanComparisons.$inferSelect;
+export type InsertLoanComparison = z.infer<typeof insertLoanComparisonSchema>;
+export type LoanComparisonAnalytics = typeof loanComparisonAnalytics.$inferSelect;
+export type InsertLoanComparisonAnalytics = z.infer<typeof insertLoanComparisonAnalyticsSchema>;
 
 // Financial Goals types and schema
 export const insertFinancialGoalSchema = createInsertSchema(financialGoals).omit({
