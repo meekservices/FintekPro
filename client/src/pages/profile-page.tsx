@@ -12,10 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
-import { User, Shield, CreditCard, Building, TrendingUp, Database, FileText, Eye, Phone, Mail, Users, Link, Info, Loader2, CheckCircle } from "lucide-react";
+import { User, Shield, CreditCard, Building, TrendingUp, Database, FileText, Eye, Phone, Mail, Users, Link, Info, Loader2, CheckCircle, Lock } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { usePanConsent } from "@/hooks/use-pan-consent";
 import { PANDataDashboard } from "@/components/pan-data-dashboard";
+import { ReCKYCWorkflow } from "@/components/re-ckyc-workflow";
 
 const profileSchema = z.object({
   // Enhanced KYC Fields - Mandatory as per SEBI
@@ -261,6 +262,39 @@ export default function ProfilePage() {
     investmentPreference: 'balanced'
   });
   const [currentStep, setCurrentStep] = useState(0);
+  const [showReCKYCWorkflow, setShowReCKYCWorkflow] = useState(false);
+
+  // Fetch demographic protection restrictions
+  const { data: protectedFieldsData } = useQuery<{success: boolean, data: string[]}>({
+    queryKey: ['/api/demographic/protected-fields'],
+    staleTime: 5 * 60 * 1000 // 5 minutes
+  });
+
+  // Helper function to check if a field is protected
+  const isFieldProtected = (fieldName: string) => {
+    return protectedFieldsData?.data?.includes(fieldName) || false;
+  };
+
+  // Helper function to render protected field with lock icon
+  const renderProtectedField = (fieldName: string, children: React.ReactNode) => {
+    if (!isFieldProtected(fieldName)) {
+      return children;
+    }
+
+    return (
+      <div className="relative">
+        <div className="opacity-50 pointer-events-none">
+          {children}
+        </div>
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-50/80 dark:bg-gray-900/80 rounded border-2 border-orange-300 dark:border-orange-700">
+          <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400 text-sm font-medium">
+            <Lock className="h-4 w-4" />
+            <span>Re-CKYC Required</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const { data: profileData, isLoading } = useQuery<ProfileData>({
     queryKey: ["/api/profile"],
@@ -510,7 +544,32 @@ export default function ProfilePage() {
                     {profileData?.panNumber ? 'Complete' : 'Incomplete'}
                   </span>
                 </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Lock className="h-4 w-4" />
+                  <span>Protected Fields:</span>
+                  <span className="font-medium text-orange-600">
+                    {protectedFieldsData?.data?.length || 0} Fields
+                  </span>
+                </div>
               </div>
+              
+              {protectedFieldsData?.data?.length > 0 && (
+                <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <Button 
+                    onClick={() => setShowReCKYCWorkflow(true)}
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-orange-600 border-orange-300 hover:bg-orange-50 dark:text-orange-400 dark:border-orange-700 dark:hover:bg-orange-950"
+                    data-testid="button-start-re-ckyc"
+                  >
+                    <Shield className="h-4 w-4 mr-2" />
+                    Update Protected Data
+                  </Button>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-1">
+                    via Re-CKYC Process
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -771,14 +830,16 @@ export default function ProfilePage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="panNumber">PAN Number *</Label>
-                    <Input
-                      id="panNumber"
-                      {...form.register("panNumber")}
-                      placeholder="ABCDE1234F"
-                      disabled={!isEditing}
-                      className="uppercase"
-                      data-testid="input-pan-number"
-                    />
+                    {renderProtectedField("panNumber", 
+                      <Input
+                        id="panNumber"
+                        {...form.register("panNumber")}
+                        placeholder="ABCDE1234F"
+                        disabled={!isEditing}
+                        className="uppercase"
+                        data-testid="input-pan-number"
+                      />
+                    )}
                     {form.formState.errors.panNumber && (
                       <p className="text-sm text-red-600 mt-1">{form.formState.errors.panNumber.message}</p>
                     )}
@@ -1545,6 +1606,23 @@ export default function ProfilePage() {
           </form>
         </div>
       </div>
+
+      {/* Re-CKYC Workflow Modal */}
+      {showReCKYCWorkflow && (
+        <ReCKYCWorkflow
+          isOpen={showReCKYCWorkflow}
+          onClose={() => setShowReCKYCWorkflow(false)}
+          onSuccess={() => {
+            setShowReCKYCWorkflow(false);
+            // Refresh profile data after successful re-CKYC
+            queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
+            toast({
+              title: "Re-CKYC Request Submitted",
+              description: "Your demographic data change request has been submitted for verification.",
+            });
+          }}
+        />
+      )}
     </div>
   );
 }
