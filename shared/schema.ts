@@ -5289,3 +5289,90 @@ export type InsertTaxDataSource = z.infer<typeof insertTaxDataSourceSchema>;
 export type InsertValidationIssue = z.infer<typeof insertValidationIssueSchema>;
 export type InsertFilingRecord = z.infer<typeof insertFilingRecordSchema>;
 export type InsertAiOptimizationSuggestion = z.infer<typeof insertAiOptimizationSuggestionSchema>;
+
+// PAN Consent Management Table
+export const panConsents = pgTable("pan_consents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Encrypted PAN Storage
+  encryptedPan: text("encrypted_pan").notNull(), // AES-256 encrypted PAN
+  panHash: varchar("pan_hash").notNull(), // SHA-256 hash for verification
+  
+  // Consent Details
+  consentGiven: boolean("consent_given").notNull().default(true),
+  consentTimestamp: timestamp("consent_timestamp").notNull().defaultNow(),
+  consentVersion: varchar("consent_version").notNull().default("1.0"), // Privacy policy version
+  consentIPAddress: varchar("consent_ip_address"),
+  consentUserAgent: text("consent_user_agent"),
+  
+  // Purpose and Scope
+  consentPurpose: text("consent_purpose").notNull().default("Tax data aggregation and ITR filing services"),
+  dataRetentionPeriod: varchar("data_retention_period").default("7_years"), // As per IT Act
+  
+  // Audit Information
+  lastUsed: timestamp("last_used"),
+  usageCount: integer("usage_count").default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  revokedAt: timestamp("revoked_at"),
+  revokedReason: text("revoked_reason"),
+  
+  // Compliance Tracking
+  kycVerified: boolean("kyc_verified").default(false),
+  panVerified: boolean("pan_verified").default(false),
+  verificationDate: timestamp("verification_date"),
+  verificationSource: varchar("verification_source"), // manual/api/document
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_pan_consents_user_id").on(table.userId),
+  index("idx_pan_consents_active").on(table.isActive),
+]);
+
+// PAN Consent Audit Log
+export const panConsentAuditLog = pgTable("pan_consent_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  consentId: varchar("consent_id").references(() => panConsents.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Audit Details
+  action: varchar("action").notNull(), // created/accessed/updated/revoked/verified
+  actionDetails: jsonb("action_details"), // Additional context
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  sessionId: varchar("session_id"),
+  
+  // API Usage Tracking
+  apiEndpoint: varchar("api_endpoint"), // Which API used the PAN
+  requestId: varchar("request_id"), // For tracing specific requests
+  
+  // Compliance and Security
+  accessReason: text("access_reason"), // Why PAN was accessed
+  dataMinimized: boolean("data_minimized").default(true), // Was data access minimized
+  
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+}, (table) => [
+  index("idx_pan_audit_consent_id").on(table.consentId),
+  index("idx_pan_audit_user_id").on(table.userId),
+  index("idx_pan_audit_timestamp").on(table.timestamp),
+]);
+
+// PAN Consent Zod schemas
+export const insertPanConsentSchema = createInsertSchema(panConsents).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPanConsentAuditLogSchema = createInsertSchema(panConsentAuditLog).omit({
+  id: true,
+  timestamp: true,
+});
+
+export type PanConsent = typeof panConsents.$inferSelect;
+export type NewPanConsent = typeof panConsents.$inferInsert;
+export type PanConsentAuditLog = typeof panConsentAuditLog.$inferSelect;
+export type NewPanConsentAuditLog = typeof panConsentAuditLog.$inferInsert;
+export type InsertPanConsent = z.infer<typeof insertPanConsentSchema>;
+export type InsertPanConsentAuditLog = z.infer<typeof insertPanConsentAuditLogSchema>;

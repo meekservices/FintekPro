@@ -50,6 +50,7 @@ import { FundComparisonService } from './services/fund-comparison-service';
 import { PortfolioComparisonService } from './services/portfolio-comparison-service';
 import { LoanOrchestrator } from './loan-marketplace/loan-orchestrator';
 import { taxOrchestrator } from './services/tax-orchestrator';
+import { PANConsentService } from './services/pan-consent-service';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -22870,6 +22871,156 @@ System Security Data:`;
       res.status(500).json({
         success: false,
         error: "Failed to compare loan offers"
+      });
+    }
+  });
+
+  // PAN Consent Management Routes
+  app.post("/api/pan-consent", async (req: any, res: any) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { panNumber, consentVersion } = req.body;
+      
+      if (!panNumber) {
+        return res.status(400).json({ error: "PAN number is required" });
+      }
+
+      const consent = await PANConsentService.storePANConsent({
+        userId: req.user.id,
+        panNumber,
+        ipAddress: req.ip || req.connection.remoteAddress,
+        userAgent: req.get('User-Agent'),
+        sessionId: req.sessionID,
+        consentVersion: consentVersion || "1.0"
+      });
+
+      res.json({ 
+        success: true, 
+        data: {
+          id: consent.id,
+          consentGiven: consent.consentGiven,
+          consentTimestamp: consent.consentTimestamp,
+          isActive: consent.isActive
+        }
+      });
+
+    } catch (error: any) {
+      console.error("Error storing PAN consent:", error);
+      res.status(400).json({
+        success: false,
+        error: error.message || "Failed to store PAN consent"
+      });
+    }
+  });
+
+  app.get("/api/pan-consent", async (req: any, res: any) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const consent = await PANConsentService.getActivePANConsent(req.user.id);
+      
+      if (!consent) {
+        return res.json({ 
+          success: true, 
+          data: { hasConsent: false } 
+        });
+      }
+
+      res.json({ 
+        success: true, 
+        data: {
+          hasConsent: true,
+          consentGiven: consent.consentGiven,
+          consentTimestamp: consent.consentTimestamp,
+          panVerified: consent.panVerified,
+          isActive: consent.isActive
+        }
+      });
+
+    } catch (error: any) {
+      console.error("Error getting PAN consent:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to get PAN consent status"
+      });
+    }
+  });
+
+  app.delete("/api/pan-consent", async (req: any, res: any) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { reason } = req.body;
+
+      await PANConsentService.revokePANConsent(
+        req.user.id, 
+        reason || "User requested revocation",
+        req.ip || req.connection.remoteAddress,
+        req.get('User-Agent')
+      );
+
+      res.json({ 
+        success: true, 
+        message: "PAN consent revoked successfully"
+      });
+
+    } catch (error: any) {
+      console.error("Error revoking PAN consent:", error);
+      res.status(400).json({
+        success: false,
+        error: error.message || "Failed to revoke PAN consent"
+      });
+    }
+  });
+
+  app.get("/api/pan-consent/audit", async (req: any, res: any) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const limit = parseInt(req.query.limit as string) || 50;
+      const auditLogs = await PANConsentService.getPANAuditLog(req.user.id, limit);
+
+      res.json({ 
+        success: true, 
+        data: auditLogs
+      });
+
+    } catch (error: any) {
+      console.error("Error getting PAN audit log:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to get audit log"
+      });
+    }
+  });
+
+  app.get("/api/pan-consent/compliance", async (req: any, res: any) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const compliance = await PANConsentService.checkConsentCompliance(req.user.id);
+
+      res.json({ 
+        success: true, 
+        data: compliance
+      });
+
+    } catch (error: any) {
+      console.error("Error checking consent compliance:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to check consent compliance"
       });
     }
   });
