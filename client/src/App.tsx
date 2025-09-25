@@ -64,7 +64,6 @@ import ClientProposalsPage from "@/pages/client-proposals";
 import TaxDocuments from "@/pages/tax-documents";
 import ITRPrefilled from "@/pages/itr-prefilled";
 import TaxDataCenter from "@/pages/tax-data-center";
-import SandboxITRFiling from "@/pages/sandbox-itr-filing";
 import TaxSmartFiling from "@/pages/tax-smart-filing";
 import LoanComparison from "@/pages/loan-comparison";
 
@@ -116,7 +115,6 @@ function UserProtectedRoutes() {
             return null;
           }}
         </Route>
-        <Route path="/sandbox-itr-filing" component={SandboxITRFiling} />
         <Route path="/loan-comparison" component={LoanComparison} />
         <Route path="/ib-trading" component={IBTradingPage} />
         <Route path="/store" component={Store} />

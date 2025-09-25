@@ -200,17 +200,17 @@ export function EnhancedNavigation() {
         {
           name: "Tax Services",
           icon: FileText,
-          description: "Intelligent tax filing and data management",
+          description: "TaxCloud-powered filing and data management",
           subItems: [
-            // Primary Smart Workflow (85% of users)
+            // Primary TaxCloud Workflow
             { 
               name: "🚀 Smart Tax Filing", 
               href: "/tax", 
-              description: "AI-powered step-by-step tax filing with real-time validation",
+              description: "TaxCloud-powered step-by-step ITR filing with official validation",
               badge: "RECOMMENDED"
             },
             
-            // Data Management (Power users)
+            // Data Management
             { 
               name: "📊 Tax Data Center", 
               href: "/tax-data-center", 
@@ -227,14 +227,7 @@ export function EnhancedNavigation() {
               description: "Comprehensive capital gains from all brokers & AMCs"
             },
             
-            // Expert Tools (Advanced users)
-            { 
-              name: "⚡ Sandbox Filing", 
-              href: "/sandbox-itr-filing", 
-              description: "Test and validate ITR before actual filing"
-            },
-            
-            // Planning & Optimization (All users)
+            // Planning & Tools
             { 
               name: "🧮 Tax Calculators", 
               href: "/calculators?tool=tax", 
