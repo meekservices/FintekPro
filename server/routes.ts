@@ -174,6 +174,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Authentication endpoints
+  app.get("/api/auth/user", (req: any, res: any) => {
+    if (!req.user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    
+    // Return user information
+    res.json({
+      id: req.user.id,
+      email: req.user.email,
+      name: req.user.name || req.user.email,
+      role: req.user.role || 'client',
+      roles: req.user.roles || [req.user.role || 'client'],
+      isAuthenticated: true
+    });
+  });
+
+  app.post("/api/auth/logout", (req: any, res: any) => {
+    req.logout((err: any) => {
+      if (err) {
+        return res.status(500).json({ error: "Logout failed" });
+      }
+      res.json({ message: "Logged out successfully" });
+    });
+  });
+
   // Compliance monitoring endpoints
   app.get("/api/admin/compliance/events", requireAdmin, async (req, res) => {
     try {
