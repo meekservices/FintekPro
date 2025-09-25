@@ -4849,6 +4849,130 @@ export type StructuredTaxData = typeof structuredTaxData.$inferSelect;
 export type TaxCalculation = typeof taxCalculations.$inferSelect;
 export type TaxDocumentAccessLog = typeof taxDocumentAccessLog.$inferSelect;
 
+// ITR Pre-filled Forms table for intelligent tax return preparation
+export const itrPrefilledForms = pgTable("itr_prefilled_forms", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  assessmentYear: varchar("assessment_year").notNull(), // '2025-26'
+  financialYear: varchar("financial_year").notNull(), // '2024-25'
+  
+  // ITR Form Information
+  itrForm: varchar("itr_form").notNull(), // 'ITR-1' | 'ITR-2' | 'ITR-3' | 'ITR-4'
+  autoSelectedForm: boolean("auto_selected_form").default(true),
+  formSelectionReason: text("form_selection_reason"),
+  taxRegime: varchar("tax_regime").default("new"), // 'old' | 'new'
+  
+  // Data Sources Integration Status
+  form26AsIntegrated: boolean("form_26as_integrated").default(false),
+  aisIntegrated: boolean("ais_integrated").default(false),
+  camsIntegrated: boolean("cams_integrated").default(false),
+  kfintechIntegrated: boolean("kfintech_integrated").default(false),
+  nsdlIntegrated: boolean("nsdl_integrated").default(false),
+  cdslIntegrated: boolean("cdsl_integrated").default(false),
+  form16Integrated: boolean("form_16_integrated").default(false),
+  
+  // Pre-filled Data Sections
+  personalInfo: jsonb("personal_info"), // Name, PAN, address, etc.
+  incomeFromSalary: jsonb("income_from_salary"), // Salary income details
+  incomeFromHouseProperty: jsonb("income_from_house_property"),
+  incomeFromCapitalGains: jsonb("income_from_capital_gains"), // STCG, LTCG breakdown
+  incomeFromOtherSources: jsonb("income_from_other_sources"), // Interest, dividend, etc.
+  incomeFromBusinessProfession: jsonb("income_from_business_profession"),
+  
+  // Deductions (80C, 80D, etc.)
+  deductionsChapter6A: jsonb("deductions_chapter_6a"),
+  
+  // Tax Computation
+  taxComputation: jsonb("tax_computation"), // Detailed tax calculation
+  tdsDetails: jsonb("tds_details"), // TDS from Form 26AS
+  advanceTaxDetails: jsonb("advance_tax_details"),
+  
+  // Schedule-wise Data
+  scheduleCG: jsonb("schedule_cg"), // Capital Gains schedule
+  scheduleOS: jsonb("schedule_os"), // Other Sources schedule
+  scheduleVDA: jsonb("schedule_vda"), // Virtual Digital Assets
+  scheduleFSI: jsonb("schedule_fsi"), // Foreign Source Income
+  
+  // Validation and Completion Status
+  completionPercentage: integer("completion_percentage").default(0),
+  validationStatus: varchar("validation_status").default("pending"), // 'pending' | 'validated' | 'errors'
+  validationErrors: jsonb("validation_errors").default([]),
+  dataConflicts: jsonb("data_conflicts").default([]), // Conflicts between sources
+  
+  // Smart Suggestions
+  taxOptimizationSuggestions: jsonb("tax_optimization_suggestions"),
+  misssingDataAlerts: jsonb("missing_data_alerts"),
+  complianceWarnings: jsonb("compliance_warnings"),
+  
+  // Filing Status
+  readyForFiling: boolean("ready_for_filing").default(false),
+  filingStatus: varchar("filing_status").default("draft"), // 'draft' | 'reviewed' | 'filed'
+  filedAt: timestamp("filed_at"),
+  acknowledgmentNumber: varchar("acknowledgment_number"),
+  
+  // Export and Integration
+  itrJsonGenerated: boolean("itr_json_generated").default(false),
+  itrJsonData: jsonb("itr_json_data"), // Complete ITR JSON for filing
+  itrPdfUrl: text("itr_pdf_url"),
+  xmlUploadReady: boolean("xml_upload_ready").default(false),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  lastDataSync: timestamp("last_data_sync"),
+});
+
+// ITR Data Sources Sync Log for tracking data integration
+export const itrDataSourcesSync = pgTable("itr_data_sources_sync", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  itrFormId: varchar("itr_form_id").references(() => itrPrefilledForms.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Source Information
+  dataSource: varchar("data_source").notNull(), // 'cams' | 'kfintech' | 'nsdl' | 'cdsl' | 'form26as' | 'ais' | 'form16'
+  syncStatus: varchar("sync_status").default("pending"), // 'pending' | 'syncing' | 'completed' | 'failed' | 'partial'
+  
+  // Sync Statistics
+  recordsProcessed: integer("records_processed").default(0),
+  recordsSuccessful: integer("records_successful").default(0),
+  recordsFailed: integer("records_failed").default(0),
+  
+  // Data Details
+  dataCategories: jsonb("data_categories"), // Array of data types synced
+  syncedData: jsonb("synced_data"), // Summary of synced data
+  errorDetails: jsonb("error_details"), // Sync errors if any
+  
+  // Timing
+  syncStartedAt: timestamp("sync_started_at"),
+  syncCompletedAt: timestamp("sync_completed_at"),
+  nextSyncScheduled: timestamp("next_sync_scheduled"),
+  
+  // Metadata
+  apiResponse: jsonb("api_response"), // Raw API response for debugging
+  syncTrigger: varchar("sync_trigger").default("manual"), // 'manual' | 'auto' | 'scheduled'
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Insert schemas for ITR tables
+export const insertItrPrefilledFormSchema = createInsertSchema(itrPrefilledForms).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastDataSync: true,
+});
+
+export const insertItrDataSourcesSyncSchema = createInsertSchema(itrDataSourcesSync).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Export ITR types
+export type ItrPrefilledForm = typeof itrPrefilledForms.$inferSelect;
+export type ItrDataSourcesSync = typeof itrDataSourcesSync.$inferSelect;
+export type InsertItrPrefilledForm = z.infer<typeof insertItrPrefilledFormSchema>;
+export type InsertItrDataSourcesSync = z.infer<typeof insertItrDataSourcesSyncSchema>;
+
 export type InsertTaxDocument = z.infer<typeof insertTaxDocumentSchema>;
 export type InsertStructuredTaxData = z.infer<typeof insertStructuredTaxDataSchema>;
 export type InsertTaxCalculation = z.infer<typeof insertTaxCalculationSchema>;

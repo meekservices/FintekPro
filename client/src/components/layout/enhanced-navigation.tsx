@@ -201,6 +201,7 @@ export function EnhancedNavigation() {
           icon: FileText,
           description: "Income tax filing and compliance",
           subItems: [
+            { name: "ITR Pre-filled", href: "/itr-prefilled", description: "Intelligent ITR auto-population from multiple sources" },
             { name: "Capital Gains Reports", href: "/capital-gains", description: "Download capital gains statements by financial year" },
             { name: "Form 26AS & AIS", href: "/tax-documents?tab=forms", description: "Fetch and download Form 26AS & AIS by assessment year" },
             { name: "Tax Calculators", href: "/calculators?tool=tax", description: "Income tax calculation and planning tools" },

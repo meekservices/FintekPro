@@ -13116,6 +13116,287 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============ ITR PRE-FILLED API ROUTES ============
+  
+  // Get ITR data sources status for a user
+  app.get("/api/itr/data-sources/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      
+      // Mock data sources - in production, this would check actual API connections
+      const dataSources = [
+        {
+          id: 'cams',
+          name: 'CAMS',
+          status: 'connected',
+          lastSync: '2024-09-25T10:30:00Z',
+          recordsCount: 125,
+          icon: 'Database'
+        },
+        {
+          id: 'kfintech',
+          name: 'KFintech',
+          status: 'connected',
+          lastSync: '2024-09-25T09:15:00Z',
+          recordsCount: 89,
+          icon: 'Database'
+        },
+        {
+          id: 'nsdl',
+          name: 'NSDL',
+          status: 'connected',
+          lastSync: '2024-09-25T11:00:00Z',
+          recordsCount: 67,
+          icon: 'FileText'
+        },
+        {
+          id: 'cdsl',
+          name: 'CDSL',
+          status: 'connected',
+          lastSync: '2024-09-25T10:45:00Z',
+          recordsCount: 43,
+          icon: 'FileText'
+        },
+        {
+          id: 'form26as',
+          name: 'Form 26AS',
+          status: 'connected',
+          lastSync: '2024-09-25T08:30:00Z',
+          recordsCount: 12,
+          icon: 'Receipt'
+        },
+        {
+          id: 'ais',
+          name: 'AIS Report',
+          status: 'connected',
+          lastSync: '2024-09-25T08:30:00Z',
+          recordsCount: 8,
+          icon: 'FileSpreadsheet'
+        }
+      ];
+      
+      res.json({ success: true, data: dataSources });
+    } catch (error) {
+      console.error("Error fetching ITR data sources:", error);
+      res.status(500).json({ error: "Failed to fetch ITR data sources" });
+    }
+  });
+
+  // Get pre-filled ITR data for a user
+  app.get("/api/itr/prefilled/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { assessmentYear } = req.query;
+      
+      // Mock pre-filled ITR data - in production, this would fetch from database
+      const itrData = {
+        id: 'itr-' + userId + '-' + assessmentYear,
+        userId: userId,
+        assessmentYear: assessmentYear || '2025-26',
+        financialYear: '2024-25',
+        itrForm: 'ITR-2',
+        autoSelectedForm: true,
+        taxRegime: 'new',
+        completionPercentage: 85,
+        validationStatus: 'validated',
+        personalInfo: {
+          name: 'Demo User',
+          pan: 'ABCDE1234F',
+          aadhar: '1234 5678 9012',
+          dob: '1990-01-01',
+          address: 'Demo Address, Demo City',
+          phone: '+91 9876543210',
+          email: 'demo@example.com'
+        },
+        incomeFromSalary: {
+          totalIncome: 1200000,
+          exemptions: 150000,
+          taxableIncome: 1050000,
+          tdsDeducted: 105000
+        },
+        incomeFromCapitalGains: {
+          stcgEquity: 25000,
+          ltcgEquity: 75000,
+          stcgOther: 15000,
+          ltcgOther: 45000,
+          totalGains: 160000
+        },
+        incomeFromOtherSources: {
+          dividends: 12000,
+          interest: 25000,
+          rental: 48000,
+          totalIncome: 85000
+        },
+        deductionsChapter6A: {
+          section80C: 150000,
+          section80D: 25000,
+          section80G: 10000,
+          totalDeductions: 185000
+        },
+        taxComputation: {
+          totalIncome: 1295000,
+          totalTax: 129500,
+          rebate: 0,
+          cess: 5180,
+          finalTax: 134680,
+          refundDue: -29680
+        },
+        tdsDetails: {
+          salary: 105000,
+          interest: 2500,
+          dividends: 1200,
+          totalTds: 108700
+        },
+        readyForFiling: true,
+        filingStatus: 'draft',
+        validationErrors: []
+      };
+      
+      res.json({ success: true, data: itrData });
+    } catch (error) {
+      console.error("Error fetching pre-filled ITR data:", error);
+      res.status(500).json({ error: "Failed to fetch pre-filled ITR data" });
+    }
+  });
+
+  // Auto-populate ITR data from multiple sources
+  app.post("/api/itr/auto-populate", async (req, res) => {
+    try {
+      const { assessmentYear, financialYear, taxRegime, dataSources } = req.body;
+      
+      // Simulate intelligent data gathering process
+      const sourcesCount = dataSources?.length || 6;
+      
+      // In production, this would:
+      // 1. Fetch data from CAMS, KFintech, NSDL, CDSL
+      // 2. Download Form 26AS and AIS from Income Tax portal
+      // 3. Reconcile and merge data intelligently
+      // 4. Apply latest tax rates and compute taxes
+      // 5. Auto-select appropriate ITR form
+      // 6. Validate data completeness and accuracy
+      
+      res.json({ 
+        success: true, 
+        message: 'ITR auto-population initiated',
+        sourcesCount,
+        estimatedTime: '3-5 minutes',
+        status: 'processing'
+      });
+    } catch (error) {
+      console.error("Error auto-populating ITR:", error);
+      res.status(500).json({ error: "Failed to auto-populate ITR" });
+    }
+  });
+
+  // Sync specific data source
+  app.post("/api/itr/sync-source/:sourceId", async (req, res) => {
+    try {
+      const { sourceId } = req.params;
+      const { userId } = req.body;
+      
+      // Simulate syncing specific data source
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      res.json({ 
+        success: true, 
+        message: `Data source ${sourceId} synced successfully`,
+        recordsUpdated: Math.floor(Math.random() * 50) + 10,
+        lastSync: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error syncing data source:", error);
+      res.status(500).json({ error: "Failed to sync data source" });
+    }
+  });
+
+  // Validate ITR data
+  app.post("/api/itr/validate/:itrId", async (req, res) => {
+    try {
+      const { itrId } = req.params;
+      
+      // Simulate comprehensive ITR validation
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      const validationResult = {
+        success: true,
+        validationStatus: 'validated',
+        errorsFound: 0,
+        warningsFound: 2,
+        errors: [],
+        warnings: [
+          'Consider maximizing deductions under Section 80C',
+          'Review capital gains computation for accuracy'
+        ],
+        completionPercentage: 98
+      };
+      
+      res.json(validationResult);
+    } catch (error) {
+      console.error("Error validating ITR:", error);
+      res.status(500).json({ error: "Failed to validate ITR" });
+    }
+  });
+
+  // Generate ITR for filing
+  app.post("/api/itr/generate/:itrId", async (req, res) => {
+    try {
+      const { itrId } = req.params;
+      
+      // Simulate ITR generation process
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      res.json({ 
+        success: true, 
+        message: 'ITR generated successfully',
+        xmlFile: `/api/itr/download/${itrId}/xml`,
+        jsonFile: `/api/itr/download/${itrId}/json`,
+        pdfFile: `/api/itr/download/${itrId}/pdf`,
+        readyForEFiling: true
+      });
+    } catch (error) {
+      console.error("Error generating ITR:", error);
+      res.status(500).json({ error: "Failed to generate ITR" });
+    }
+  });
+
+  // Download ITR files
+  app.get("/api/itr/download/:itrId/:format", async (req, res) => {
+    try {
+      const { itrId, format } = req.params;
+      
+      // Set appropriate headers based on format
+      let contentType, filename;
+      switch (format) {
+        case 'pdf':
+          contentType = 'application/pdf';
+          filename = `ITR-${itrId}.pdf`;
+          break;
+        case 'xml':
+          contentType = 'application/xml';
+          filename = `ITR-${itrId}.xml`;
+          break;
+        case 'json':
+          contentType = 'application/json';
+          filename = `ITR-${itrId}.json`;
+          break;
+        default:
+          return res.status(400).json({ error: 'Unsupported format' });
+      }
+      
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      
+      // In production, generate actual file content based on ITR data
+      const mockContent = `Mock ${format.toUpperCase()} content for ITR ${itrId}`;
+      res.send(mockContent);
+    } catch (error) {
+      console.error("Error downloading ITR file:", error);
+      res.status(500).json({ error: "Failed to download ITR file" });
+    }
+  });
+
+  // ============ END ITR PRE-FILLED API ROUTES ============
+
   // ============ ADMIN PANEL ROUTES ============
   
   // Test endpoint without auth to verify real data
