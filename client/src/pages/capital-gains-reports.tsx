@@ -299,6 +299,8 @@ export default function CapitalGainsReports() {
                   <SelectContent>
                     <SelectItem value="nsdl">NSDL</SelectItem>
                     <SelectItem value="cdsl">CDSL</SelectItem>
+                    <SelectItem value="fintech">Fintech Reports</SelectItem>
+                    <SelectItem value="cams">CAMS (Computer Age Management Services)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
