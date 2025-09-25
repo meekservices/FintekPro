@@ -210,6 +210,7 @@ export function EnhancedNavigation() {
             
             // ITR Filing Options (Choose Your Path)
             { name: "🚀 ITR Pre-filled (Recommended)", href: "/itr-prefilled", description: "AI-powered ITR with instant e-filing through our platform", category: "ITR Filing" },
+            { name: "⚡ Sandbox ITR Filing", href: "/sandbox-itr-filing", description: "Real-time ITR filing with automated validation", category: "ITR Filing" },
             { name: "📤 Export for External Filing", href: "/export-tax-data", description: "Export data for ClearTax, Income Tax Portal, or CA", category: "ITR Filing" },
             { name: "🎯 Filing Guide", href: "/filing-guide", description: "Step-by-step guide for filing on any platform", category: "ITR Filing" },
             

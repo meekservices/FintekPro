@@ -13734,6 +13734,185 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ============ END TAX DATA CENTER API ROUTES ============
 
+  // ============ SANDBOX ITR FILING API ROUTES ============
+  
+  // Get ITR form data for user
+  app.get("/api/sandbox-itr/form/:pan/:year", async (req, res) => {
+    try {
+      const { pan, year } = req.params;
+      
+      if (!pan || !year) {
+        return res.status(400).json({ error: "PAN and year are required" });
+      }
+      
+      // Mock ITR form data - in production, fetch from database
+      const itrFormData = {
+        id: `itr-${pan}-${year}`,
+        assessmentYear: year,
+        formType: 'ITR-2',
+        status: 'validated',
+        totalIncome: 1250000,
+        taxLiability: 78750,
+        refundAmount: 46250,
+        lastUpdated: new Date().toISOString()
+      };
+      
+      res.json(itrFormData);
+    } catch (error) {
+      console.error("Error fetching ITR form data:", error);
+      res.status(500).json({ error: "Failed to fetch ITR form data" });
+    }
+  });
+
+  // Get validation results for ITR
+  app.get("/api/sandbox-itr/validation/:itrId", async (req, res) => {
+    try {
+      const { itrId } = req.params;
+      
+      if (!itrId) {
+        return res.status(400).json({ error: "ITR ID is required" });
+      }
+      
+      // Mock validation results - in production, run actual validation
+      const validationResults = {
+        errors: [],
+        warnings: [],
+        isValid: true,
+        summary: {
+          incomeSourcesVerified: true,
+          tdsMatches: true,
+          deductionsValid: true,
+          taxComputationCorrect: true
+        }
+      };
+      
+      res.json(validationResults);
+    } catch (error) {
+      console.error("Error fetching validation results:", error);
+      res.status(500).json({ error: "Failed to fetch validation results" });
+    }
+  });
+
+  // Generate ITR for submission
+  app.post("/api/sandbox-itr/generate", async (req, res) => {
+    try {
+      const { itrId, mode } = req.body;
+      
+      if (!itrId) {
+        return res.status(400).json({ error: "ITR ID is required" });
+      }
+      
+      // Mock ITR generation - in production, generate actual ITR-XML
+      const generateResult = {
+        success: true,
+        message: 'ITR generated successfully',
+        xmlFile: `/api/sandbox-itr/download/${itrId}/xml`,
+        jsonFile: `/api/sandbox-itr/download/${itrId}/json`,
+        acknowledgmentNumber: `ITR${new Date().getFullYear()}${Math.random().toString().slice(2, 10)}`,
+        generatedAt: new Date().toISOString()
+      };
+      
+      res.json(generateResult);
+    } catch (error) {
+      console.error("Error generating ITR:", error);
+      res.status(500).json({ error: "Failed to generate ITR" });
+    }
+  });
+
+  // File ITR with Income Tax Department
+  app.post("/api/sandbox-itr/file", async (req, res) => {
+    try {
+      const { itrId } = req.body;
+      
+      if (!itrId) {
+        return res.status(400).json({ error: "ITR ID is required" });
+      }
+      
+      // Mock ITR filing - in production, submit to ITD portal
+      const filingResult = {
+        success: true,
+        message: 'ITR filed successfully',
+        acknowledgmentNumber: `ITR${new Date().getFullYear()}${Math.random().toString().slice(2, 10)}`,
+        filedDate: new Date().toISOString(),
+        status: 'Successfully Submitted',
+        trackingUrl: `https://incometaxindiaefiling.gov.in/track/${Math.random().toString().slice(2, 15)}`
+      };
+      
+      res.json(filingResult);
+    } catch (error) {
+      console.error("Error filing ITR:", error);
+      res.status(500).json({ error: "Failed to file ITR" });
+    }
+  });
+
+  // Auto-populate ITR data from tax sources
+  app.post("/api/sandbox-itr/auto-populate", async (req, res) => {
+    try {
+      const { pan, assessmentYear } = req.body;
+      
+      if (!pan || !assessmentYear) {
+        return res.status(400).json({ error: "PAN and assessment year are required" });
+      }
+      
+      // Mock auto-population - in production, fetch from tax data sources
+      const populationResult = {
+        success: true,
+        message: 'ITR auto-populated from tax data sources',
+        itrId: `itr-${pan}-${assessmentYear}`,
+        dataSources: ['Form 26AS', 'AIS', 'CAMS', 'NSDL'],
+        recordsProcessed: 127,
+        populatedAt: new Date().toISOString()
+      };
+      
+      // Simulate processing delay
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      res.json(populationResult);
+    } catch (error) {
+      console.error("Error auto-populating ITR:", error);
+      res.status(500).json({ error: "Failed to auto-populate ITR" });
+    }
+  });
+
+  // Download ITR files
+  app.get("/api/sandbox-itr/download/:itrId/:format", async (req, res) => {
+    try {
+      const { itrId, format } = req.params;
+      
+      let contentType = 'application/octet-stream';
+      let filename = `ITR-${itrId}.txt`;
+      
+      switch (format.toLowerCase()) {
+        case 'pdf':
+          contentType = 'application/pdf';
+          filename = `ITR-${itrId}.pdf`;
+          break;
+        case 'xml':
+          contentType = 'application/xml';
+          filename = `ITR-${itrId}.xml`;
+          break;
+        case 'json':
+          contentType = 'application/json';
+          filename = `ITR-${itrId}.json`;
+          break;
+        default:
+          return res.status(400).json({ error: 'Unsupported format' });
+      }
+      
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      
+      // Mock file content - in production, generate actual ITR file
+      const mockContent = `Mock ${format.toUpperCase()} content for ITR ${itrId}\nGenerated at: ${new Date().toISOString()}`;
+      res.send(mockContent);
+    } catch (error) {
+      console.error("Error downloading ITR file:", error);
+      res.status(500).json({ error: "Failed to download ITR file" });
+    }
+  });
+
+  // ============ END SANDBOX ITR FILING API ROUTES ============
+
   // ============ ADMIN PANEL ROUTES ============
   
   // Test endpoint without auth to verify real data

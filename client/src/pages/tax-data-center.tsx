@@ -20,7 +20,8 @@ import {
   TrendingUp,
   Receipt,
   Banknote,
-  Calendar
+  Calendar,
+  FileSpreadsheet
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -292,13 +293,13 @@ export default function TaxDataCenter() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {Object.entries(DATA_SOURCES).map(([id, source]) => {
                   const sourceData = Array.isArray(dataSources) ? dataSources.find((s: DataSource) => s.id === id) : undefined;
-                  const Icon = source.icon;
+                  const IconComponent = source.icon;
                   
                   return (
                     <Card key={id} className="relative">
                       <CardHeader className="pb-3">
                         <div className="flex items-start justify-between">
-                          <Icon className="h-6 w-6 text-blue-600" />
+                          <IconComponent className="h-6 w-6 text-blue-600" />
                           <Badge variant={
                             sourceData?.status === 'connected' ? 'default' :
                             sourceData?.status === 'pending' ? 'secondary' :
