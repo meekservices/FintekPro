@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ProductDetailsModal } from "@/components/product-details-modal";
 import { useCart } from "@/hooks/use-cart";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { Heart, ShoppingCart, Filter, Search, Star, TrendingUp, Shield, Clock, Grid, List, SortAsc, SortDesc, X, Building2, Award, Plus } from "lucide-react";
 
 interface Product {
@@ -420,8 +421,27 @@ export default function Store() {
   
   const { addToCart, isAddingToCart } = useCart();
   const { toast } = useToast();
+  const { isAuthenticated, user } = useAuth();
 
   const handleAddToCart = (product: Product, investmentAmount?: number) => {
+    if (!isAuthenticated) {
+      toast({
+        title: "Login Required",
+        description: "Please login to add items to your cart. Your cart will be saved for later.",
+        action: (
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => window.location.href = '/login'}
+            data-testid="toast-login-button"
+          >
+            Login
+          </Button>
+        ),
+      });
+      return;
+    }
+
     addToCart({
       productId: product.id,
       quantity: 1,
