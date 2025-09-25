@@ -85,7 +85,8 @@ export default function CapitalGainsReports() {
   const [selectedSource, setSelectedSource] = useState('nsdl');
   const [accountNumber, setAccountNumber] = useState('1234567890123456');
   const [boId, setBoId] = useState('1756285624077');
-  const [financialYear, setFinancialYear] = useState('2023-24');
+  const [panNumber, setPanNumber] = useState('ABCDE1234F');
+  const [financialYear, setFinancialYear] = useState('2024-25');
   const [fromDate, setFromDate] = useState('2023-04-01');
   const [toDate, setToDate] = useState('2024-03-31');
   const [shareEmail, setShareEmail] = useState('');
@@ -150,6 +151,78 @@ export default function CapitalGainsReports() {
     },
   });
 
+  // Fetch KFintech capital gains report
+  const fetchKfintechReportMutation = useMutation({
+    mutationFn: async (data: {
+      pan: string;
+      financialYear: string;
+      transactionType?: string;
+      folioNumber?: string;
+    }) => {
+      const queryParams = new URLSearchParams({
+        pan: data.pan,
+        financialYear: data.financialYear,
+        ...(data.transactionType && { transactionType: data.transactionType }),
+        ...(data.folioNumber && { folioNumber: data.folioNumber })
+      });
+      const response = await fetch(`/api/kfintech/capital-gains?${queryParams}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "KFintech Report Generated",
+        description: "Capital gains report fetched successfully from KFintech.",
+      });
+      setActiveTab('view-report');
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Fetch Failed",
+        description: `Failed to fetch KFintech report: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Fetch CAMS capital gains report
+  const fetchCAMSReportMutation = useMutation({
+    mutationFn: async (data: {
+      pan: string;
+      financialYear: string;
+      transactionType?: string;
+      folioNumber?: string;
+    }) => {
+      const queryParams = new URLSearchParams({
+        pan: data.pan,
+        financialYear: data.financialYear,
+        ...(data.transactionType && { transactionType: data.transactionType }),
+        ...(data.folioNumber && { folioNumber: data.folioNumber })
+      });
+      const response = await fetch(`/api/cams/capital-gains?${queryParams}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "CAMS Report Generated",
+        description: "Capital gains report fetched successfully from CAMS.",
+      });
+      setActiveTab('view-report');
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Fetch Failed",
+        description: `Failed to fetch CAMS report: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
   // Save report to database
   const saveReportMutation = useMutation({
     mutationFn: async (data: { reportData: CapitalGainsReport; userId: string }) => {
@@ -205,12 +278,22 @@ export default function CapitalGainsReports() {
         fromDate,
         toDate
       });
-    } else {
+    } else if (selectedSource === 'cdsl') {
       fetchCDSLReportMutation.mutate({
         boId,
         financialYear,
         fromDate,
         toDate
+      });
+    } else if (selectedSource === 'fintech') {
+      fetchKfintechReportMutation.mutate({
+        pan: panNumber,
+        financialYear
+      });
+    } else if (selectedSource === 'cams') {
+      fetchCAMSReportMutation.mutate({
+        pan: panNumber,
+        financialYear
       });
     }
   };
@@ -268,7 +351,7 @@ export default function CapitalGainsReports() {
             Capital Gains Reports
           </h1>
           <p className="text-muted-foreground mt-2">
-            Generate, download, and share capital gains reports from NSDL and CDSL
+            Generate, download, and share capital gains reports from NSDL, CDSL, KFintech, and CAMS
           </p>
         </div>
       </div>
@@ -318,7 +401,7 @@ export default function CapitalGainsReports() {
                       data-testid="input-account-number"
                     />
                   </div>
-                ) : (
+                ) : selectedSource === 'cdsl' ? (
                   <div className="space-y-2">
                     <Label htmlFor="boId">CDSL BO ID</Label>
                     <Input
@@ -327,6 +410,18 @@ export default function CapitalGainsReports() {
                       onChange={(e) => setBoId(e.target.value)}
                       placeholder="Enter CDSL BO ID"
                       data-testid="input-bo-id"
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label htmlFor="panNumber">PAN Number</Label>
+                    <Input
+                      id="panNumber"
+                      value={panNumber}
+                      onChange={(e) => setPanNumber(e.target.value)}
+                      placeholder="Enter PAN number (ABCDE1234F)"
+                      maxLength={10}
+                      data-testid="input-pan-number"
                     />
                   </div>
                 )}
@@ -339,6 +434,7 @@ export default function CapitalGainsReports() {
                       <SelectValue placeholder="Select financial year" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="2024-25">2024-25</SelectItem>
                       <SelectItem value="2023-24">2023-24</SelectItem>
                       <SelectItem value="2022-23">2022-23</SelectItem>
                       <SelectItem value="2021-22">2021-22</SelectItem>
@@ -372,14 +468,22 @@ export default function CapitalGainsReports() {
 
               <Button
                 onClick={handleGenerateReport}
-                disabled={fetchNSDLReportMutation.isPending || fetchCDSLReportMutation.isPending}
+                disabled={
+                  fetchNSDLReportMutation.isPending || 
+                  fetchCDSLReportMutation.isPending || 
+                  fetchKfintechReportMutation.isPending || 
+                  fetchCAMSReportMutation.isPending
+                }
                 className="w-full"
                 data-testid="button-generate-report"
               >
-                {(fetchNSDLReportMutation.isPending || fetchCDSLReportMutation.isPending) && (
+                {(fetchNSDLReportMutation.isPending || 
+                  fetchCDSLReportMutation.isPending || 
+                  fetchKfintechReportMutation.isPending || 
+                  fetchCAMSReportMutation.isPending) && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
-                Generate {selectedSource.toUpperCase()} Report
+                Generate {selectedSource === 'fintech' ? 'KFintech' : selectedSource.toUpperCase()} Report
               </Button>
             </CardContent>
           </Card>
