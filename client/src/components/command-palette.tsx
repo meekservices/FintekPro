@@ -196,7 +196,7 @@ export function CommandPalette() {
       keywords: ["cart", "shopping", "items", "checkout"],
       category: "Navigation",
       priority: 4,
-      badge: cart?.totalItems > 0 ? cart.totalItems.toString() : undefined,
+      badge: cart?.totalItems && cart.totalItems > 0 ? cart.totalItems.toString() : undefined,
     },
 
     // Investment Tools

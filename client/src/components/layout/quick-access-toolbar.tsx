@@ -264,7 +264,7 @@ export function QuickAccessToolbar() {
                       >
                         <action.icon className="h-4 w-4" />
                         <span className="ml-2 hidden sm:inline">{action.label}</span>
-                        {action.badge && action.badge > 0 && (
+                        {action.badge && Number(action.badge) > 0 && (
                           <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 w-4 rounded-full p-0 text-xs flex items-center justify-center">
                             {action.badge}
                           </Badge>

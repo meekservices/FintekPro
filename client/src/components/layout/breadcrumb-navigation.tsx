@@ -66,7 +66,7 @@ export function BreadcrumbNavigation() {
     // Portfolio routes
     {
       pattern: /^\/portfolio/,
-      breadcrumbs: (pathname, searchParams) => {
+      breadcrumbs: (pathname: string, searchParams?: URLSearchParams) => {
         const breadcrumbs: BreadcrumbItem[] = [
           { label: "Dashboard", href: "/", icon: Home },
           { label: "Portfolio", href: "/portfolio", icon: PieChart }
@@ -95,7 +95,7 @@ export function BreadcrumbNavigation() {
     // Markets routes
     {
       pattern: /^\/markets/,
-      breadcrumbs: (pathname, searchParams) => {
+      breadcrumbs: (pathname: string, searchParams?: URLSearchParams) => {
         const breadcrumbs: BreadcrumbItem[] = [
           { label: "Dashboard", href: "/", icon: Home },
           { label: "Live Markets", href: "/markets", icon: TrendingUp }
@@ -120,7 +120,7 @@ export function BreadcrumbNavigation() {
     // Investment routes
     {
       pattern: /^\/mutual-funds/,
-      breadcrumbs: (pathname, searchParams) => {
+      breadcrumbs: (pathname: string, searchParams?: URLSearchParams) => {
         const breadcrumbs: BreadcrumbItem[] = [
           { label: "Dashboard", href: "/", icon: Home },
           { label: "Mutual Funds", href: "/mutual-funds", icon: BarChart3 }
@@ -186,7 +186,7 @@ export function BreadcrumbNavigation() {
     // Financial Services
     {
       pattern: /^\/loans/,
-      breadcrumbs: (pathname, searchParams) => {
+      breadcrumbs: (pathname: string, searchParams?: URLSearchParams) => {
         const breadcrumbs: BreadcrumbItem[] = [
           { label: "Dashboard", href: "/", icon: Home },
           { label: "Loans", href: "/loans", icon: CreditCard }
@@ -295,7 +295,7 @@ export function BreadcrumbNavigation() {
     // Tools and Services
     {
       pattern: /^\/calculators/,
-      breadcrumbs: (pathname, searchParams) => {
+      breadcrumbs: (pathname: string, searchParams?: URLSearchParams) => {
         const breadcrumbs: BreadcrumbItem[] = [
           { label: "Dashboard", href: "/", icon: Home },
           { label: "Calculators", href: "/calculators", icon: Calculator }
