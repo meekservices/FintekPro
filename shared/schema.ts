@@ -3837,6 +3837,65 @@ export type InsertLoanComparison = z.infer<typeof insertLoanComparisonSchema>;
 export type LoanComparisonAnalytics = typeof loanComparisonAnalytics.$inferSelect;
 export type InsertLoanComparisonAnalytics = z.infer<typeof insertLoanComparisonAnalyticsSchema>;
 
+// Loan Comparison Request/Response Schemas
+export const loanComparisonParamsSchema = z.object({
+  amount: z.number().min(50000).max(100000000),
+  tenure: z.number().min(12).max(360), // months
+  loanType: z.enum(['personal', 'home', 'business', 'vehicle', 'education']),
+  monthlyIncome: z.number().min(10000),
+  creditScore: z.number().min(300).max(850).optional()
+});
+
+export const loanOfferSchema = z.object({
+  id: z.string(),
+  providerId: z.string(),
+  providerName: z.string(),
+  providerRating: z.number().min(0).max(5),
+  productName: z.string(),
+  productType: z.string(),
+  
+  // Financial Details
+  approvedAmount: z.number(),
+  interestRate: z.number(),
+  tenure: z.number(),
+  emi: z.number(),
+  
+  // Fees
+  processingFee: z.number(),
+  legalCharges: z.number(),
+  otherCharges: z.number(),
+  totalCost: z.number(),
+  
+  // Risk & Eligibility
+  eligibilityScore: z.number(),
+  approvalProbability: z.number(),
+  qualityScore: z.number(),
+  
+  // Additional Info
+  features: z.array(z.string()),
+  terms: z.array(z.string()),
+  responseTime: z.string(),
+  rateType: z.enum(['fixed', 'floating']),
+  
+  // Calculated Fields
+  totalInterest: z.number(),
+  totalRepayment: z.number(),
+  apr: z.number(), // True Annual Percentage Rate
+  comparisonScore: z.number().optional()
+});
+
+export const comparisonCriteriaSchema = z.object({
+  interestRate: z.number().min(0).max(100),
+  processingFee: z.number().min(0).max(100),
+  totalCost: z.number().min(0).max(100),
+  approvalProbability: z.number().min(0).max(100),
+  providerRating: z.number().min(0).max(100)
+});
+
+export type LoanComparisonParams = z.infer<typeof loanComparisonParamsSchema>;
+export type LoanOfferData = z.infer<typeof loanOfferSchema>;
+export type ComparisonCriteria = z.infer<typeof comparisonCriteriaSchema>;
+
 // Financial Goals types and schema
 export const insertFinancialGoalSchema = createInsertSchema(financialGoals).omit({
   id: true,

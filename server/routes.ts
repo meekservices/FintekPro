@@ -13918,7 +13918,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Generate fresh loan offers for comparison
   app.post("/api/loan-comparison/generate", async (req, res) => {
     try {
-      const { amount, tenure, loanType, monthlyIncome, creditScore } = req.body;
+      // Import schemas for validation
+      const { loanComparisonParamsSchema } = await import("@shared/schema");
+      
+      // Validate request body
+      const validationResult = loanComparisonParamsSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          error: "Invalid request parameters",
+          details: validationResult.error.issues
+        });
+      }
+      
+      const { amount, tenure, loanType, monthlyIncome, creditScore } = validationResult.data;
       
       if (!amount || !tenure || !loanType || !monthlyIncome) {
         return res.status(400).json({ error: "Missing required parameters" });
@@ -14076,13 +14088,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get loan offers for comparison parameters
   app.get("/api/loan-comparison/offers", async (req, res) => {
     try {
-      const { amount, tenure, loanType, monthlyIncome, creditScore } = req.query;
+      // Convert query params to proper types
+      const params = {
+        amount: parseInt(req.query.amount as string),
+        tenure: parseInt(req.query.tenure as string),
+        loanType: req.query.loanType as string,
+        monthlyIncome: parseInt(req.query.monthlyIncome as string),
+        creditScore: req.query.creditScore ? parseInt(req.query.creditScore as string) : undefined
+      };
+      
+      // Validate parameters
+      const { loanComparisonParamsSchema } = await import("@shared/schema");
+      const validationResult = loanComparisonParamsSchema.safeParse(params);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          error: "Invalid query parameters",
+          details: validationResult.error.issues
+        });
+      }
       
       // Generate offers using the same logic as POST endpoint
       const response = await fetch(`${req.protocol}://${req.get('host')}/api/loan-comparison/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount, tenure, loanType, monthlyIncome, creditScore })
+        body: JSON.stringify(validationResult.data)
       });
       
       const data = await response.json();
@@ -14096,17 +14125,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Save loan comparison session
   app.post("/api/loan-comparison/save", async (req, res) => {
     try {
-      const { 
-        comparisonName, 
-        comparisonAmount, 
-        comparisonTenure, 
-        loanType,
-        selectedOffers, 
-        comparisonCriteria 
-      } = req.body;
+      // Import schemas for validation
+      const { insertLoanComparisonSchema } = await import("@shared/schema");
       
-      if (!comparisonName || !selectedOffers || selectedOffers.length < 2) {
-        return res.status(400).json({ error: "Invalid comparison data" });
+      // Validate request body
+      const validationResult = insertLoanComparisonSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          error: "Invalid comparison data",
+          details: validationResult.error.issues
+        });
+      }
+      
+      const validatedData = validationResult.data;
+      
+      if (!validatedData.selectedOffers || validatedData.selectedOffers.length < 2) {
+        return res.status(400).json({ error: "At least 2 offers must be selected for comparison" });
       }
       
       // Mock save - in production, save to database
@@ -14114,12 +14148,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const savedComparison = {
         id: comparisonId,
         userId: req.user?.id || 'demo-user',
-        comparisonName,
-        comparisonAmount,
-        comparisonTenure,
-        loanType,
-        selectedOffers,
-        comparisonCriteria,
+        ...validatedData,
         createdAt: new Date().toISOString()
       };
       
