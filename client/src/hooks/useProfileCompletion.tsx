@@ -25,7 +25,7 @@ export function useProfileCompletion(): ProfileCompletionHook {
 
   const isComplete = profile?.isProfileCompleted === true;
   const completeness = profile?.profileCompleteness || 0;
-  const shouldShowReminders = !isComplete && !!user?.id && user?.role !== "agent" && user?.role !== "admin";
+  const shouldShowReminders = !isComplete && !!user?.id && !user?.roles?.includes("agent") && !user?.roles?.includes("admin");
 
   const getReminderMessage = () => {
     if (completeness < 25) {

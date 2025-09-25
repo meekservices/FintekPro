@@ -176,23 +176,27 @@ export default function OnboardingPage() {
   };
 
   const getUploadParameters = async () => {
-    const response = await apiRequest('/api/objects/upload', 'POST');
+    const response = await apiRequest('POST', '/api/objects/upload');
+    const data = await response.json();
     return {
       method: 'PUT' as const,
-      url: response.uploadURL
+      url: data.uploadURL
     };
   };
 
   const handleDocumentComplete = async (result: { uploadURL: string; file: File }, docType: string) => {
     try {
-      const response = await apiRequest('/api/documents', 'PUT', {
-        documentURL: result.uploadURL,
-        documentType: docType,
-        documentName: result.file.name
+      const response = await apiRequest('PUT', '/api/documents', {
+        body: {
+          documentURL: result.uploadURL,
+          documentType: docType,
+          documentName: result.file.name
+        }
       });
+      const data = await response.json();
 
-      if (response.success) {
-        updateDocument(docType, response.objectPath);
+      if (data.success) {
+        updateDocument(docType, data.objectPath);
         toast({
           title: "Document uploaded successfully",
           description: `${docType} has been uploaded and secured.`
@@ -233,7 +237,8 @@ export default function OnboardingPage() {
 
   const saveOnboardingMutation = useMutation({
     mutationFn: async (data: OnboardingData) => {
-      return apiRequest('/api/onboarding', 'POST', data);
+      const response = await apiRequest('POST', '/api/onboarding', { body: data });
+      return response.json();
     },
     onSuccess: () => {
       toast({

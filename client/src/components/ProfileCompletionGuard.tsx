@@ -10,7 +10,7 @@ export default function ProfileCompletionGuard({ children }: ProfileCompletionGu
   const { user } = useAuth();
 
   // Don't guard for agent and admin roles - no reminders needed
-  if (user?.role === "agent" || user?.role === "admin") {
+  if (user?.roles?.includes("agent") || user?.roles?.includes("admin")) {
     return <>{children}</>;
   }
 
