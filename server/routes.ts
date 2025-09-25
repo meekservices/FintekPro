@@ -11084,6 +11084,172 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // KFintech capital gains report
+  app.get("/api/kfintech/capital-gains", async (req, res) => {
+    try {
+      const { pan, financialYear, transactionType, folioNumber } = req.query;
+
+      // Simulate KFintech mutual fund capital gains data
+      const kfintechCapitalGains = [
+        {
+          id: "kfintech-cg-1",
+          pan: pan || "ABCDE1234F",
+          folioNumber: "MF123456789",
+          schemeCode: "HDFC-TOP100-G",
+          schemeName: "HDFC Top 100 Fund - Growth",
+          isin: "INF179K01158",
+          amcName: "HDFC Asset Management Company Limited",
+          registrar: "KFintech",
+          financialYear: "2024-25",
+          transactionType: "LONG_TERM",
+          purchaseDate: "2023-04-15",
+          redemptionDate: "2024-08-10",
+          purchaseNav: 675.50,
+          redemptionNav: 758.25,
+          units: 148.25,
+          purchaseValue: 100120.13,
+          redemptionValue: 112445.06,
+          exitLoad: 0, // No exit load for > 1 year
+          otherCharges: 15.50,
+          grossGain: 12324.93,
+          netRealizedGain: 12309.43,
+          taxableGain: 12309.43,
+          taxRate: 12.5, // LTCG tax rate for equity mutual funds
+          taxLiability: 1538.68,
+          netGainAfterTax: 10770.75,
+          holdingPeriod: 482, // days
+          category: "Large Cap Equity"
+        },
+        {
+          id: "kfintech-cg-2",
+          pan: pan || "ABCDE1234F", 
+          folioNumber: "MF987654321",
+          schemeCode: "ICICI-BLUECHIP-G",
+          schemeName: "ICICI Prudential Bluechip Fund - Growth",
+          isin: "INF109K01013",
+          amcName: "ICICI Prudential Asset Management Company Limited",
+          registrar: "KFintech",
+          financialYear: "2024-25",
+          transactionType: "SHORT_TERM",
+          purchaseDate: "2024-02-20",
+          redemptionDate: "2024-09-15",
+          purchaseNav: 45.80,
+          redemptionNav: 52.15,
+          units: 2185.59,
+          purchaseValue: 100120.00,
+          redemptionValue: 113979.01,
+          exitLoad: 341.94, // 1% exit load for < 1 year
+          otherCharges: 25.75,
+          grossGain: 13859.01,
+          netRealizedGain: 13491.32,
+          taxableGain: 13491.32,
+          taxRate: 20, // STCG tax rate for equity mutual funds
+          taxLiability: 2698.26,
+          netGainAfterTax: 10793.06,
+          holdingPeriod: 208, // days
+          category: "Large Cap Equity"
+        },
+        {
+          id: "kfintech-cg-3",
+          pan: pan || "ABCDE1234F",
+          folioNumber: "MF456789123",
+          schemeCode: "AXIS-LONGTERM-G",
+          schemeName: "Axis Long Term Equity Fund - Growth",
+          isin: "INF846K01201",
+          amcName: "Axis Asset Management Company Limited",
+          registrar: "KFintech",
+          financialYear: "2024-25", 
+          transactionType: "LONG_TERM",
+          purchaseDate: "2022-11-25",
+          redemptionDate: "2024-07-30",
+          purchaseNav: 58.90,
+          redemptionNav: 72.45,
+          units: 1700.17,
+          purchaseValue: 100120.02,
+          redemptionValue: 123197.33,
+          exitLoad: 0,
+          otherCharges: 18.25,
+          grossGain: 23077.31,
+          netRealizedGain: 23059.06,
+          taxableGain: 23059.06,
+          taxRate: 12.5,
+          taxLiability: 2882.38,
+          netGainAfterTax: 20176.68,
+          holdingPeriod: 613, // days
+          category: "Tax Saving (ELSS)"
+        },
+        {
+          id: "kfintech-cg-4",
+          pan: pan || "ABCDE1234F",
+          folioNumber: "MF321654987",
+          schemeCode: "SBI-SMALLCAP-G", 
+          schemeName: "SBI Small Cap Fund - Growth",
+          isin: "INF200K01158",
+          amcName: "SBI Funds Management Limited",
+          registrar: "KFintech",
+          financialYear: "2024-25",
+          transactionType: "SHORT_TERM",
+          purchaseDate: "2024-03-10",
+          redemptionDate: "2024-09-05",
+          purchaseNav: 125.75,
+          redemptionNav: 142.30,
+          units: 796.41,
+          purchaseValue: 100154.16,
+          redemptionValue: 113273.52,
+          exitLoad: 339.82, // 1% exit load
+          otherCharges: 22.50,
+          grossGain: 13119.36,
+          netRealizedGain: 12757.04,
+          taxableGain: 12757.04,
+          taxRate: 20,
+          taxLiability: 2551.41,
+          netGainAfterTax: 10205.63,
+          holdingPeriod: 179, // days
+          category: "Small Cap Equity"
+        }
+      ];
+
+      // Filter by financial year if provided
+      let filteredGains = kfintechCapitalGains;
+      if (financialYear) {
+        filteredGains = filteredGains.filter(cg => cg.financialYear === financialYear);
+      }
+      if (transactionType) {
+        filteredGains = filteredGains.filter(cg => cg.transactionType === transactionType);
+      }
+      if (folioNumber) {
+        filteredGains = filteredGains.filter(cg => cg.folioNumber === folioNumber);
+      }
+
+      const summary = {
+        totalTransactions: filteredGains.length,
+        totalRealizedGains: filteredGains.reduce((sum, cg) => sum + cg.netRealizedGain, 0),
+        totalTaxLiability: filteredGains.reduce((sum, cg) => sum + cg.taxLiability, 0),
+        totalNetGainAfterTax: filteredGains.reduce((sum, cg) => sum + cg.netGainAfterTax, 0),
+        totalExitLoad: filteredGains.reduce((sum, cg) => sum + cg.exitLoad, 0),
+        longTermGains: filteredGains.filter(cg => cg.transactionType === 'LONG_TERM').length,
+        shortTermGains: filteredGains.filter(cg => cg.transactionType === 'SHORT_TERM').length,
+        averageHoldingPeriod: Math.round(filteredGains.reduce((sum, cg) => sum + cg.holdingPeriod, 0) / filteredGains.length),
+        schemeCategories: [...new Set(filteredGains.map(cg => cg.category))]
+      };
+
+      res.json({
+        status: "success",
+        data: filteredGains,
+        summary,
+        registrar: "KFintech",
+        searchCriteria: { pan, financialYear, transactionType, folioNumber },
+        lastUpdated: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error fetching KFintech capital gains:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch KFintech capital gains data"
+      });
+    }
+  });
+
   // CAMS API Integration endpoints
 
   // Get investor portfolio from CAMS
