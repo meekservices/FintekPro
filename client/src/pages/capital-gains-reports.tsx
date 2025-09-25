@@ -104,7 +104,7 @@ export default function CapitalGainsReports() {
       fromDate?: string;
       toDate?: string;
     }) => {
-      const response = await apiRequest('POST', '/api/nsdl/capital-gains', data);
+      const response = await apiRequest('POST', '/api/nsdl/capital-gains', { body: data });
       return response.json();
     },
     onSuccess: (data) => {
@@ -131,7 +131,7 @@ export default function CapitalGainsReports() {
       fromDate?: string;
       toDate?: string;
     }) => {
-      const response = await apiRequest('POST', '/api/cdsl/capital-gains', data);
+      const response = await apiRequest('POST', '/api/cdsl/capital-gains', { body: data });
       return response.json();
     },
     onSuccess: (data) => {
@@ -153,7 +153,7 @@ export default function CapitalGainsReports() {
   // Save report to database
   const saveReportMutation = useMutation({
     mutationFn: async (data: { reportData: CapitalGainsReport; userId: string }) => {
-      const response = await apiRequest('POST', '/api/capital-gains/save', data);
+      const response = await apiRequest('POST', '/api/capital-gains/save', { body: data });
       return response.json();
     },
     onSuccess: () => {
@@ -173,7 +173,7 @@ export default function CapitalGainsReports() {
       message?: string;
       includeAttachment: boolean;
     }) => {
-      const response = await apiRequest('POST', `/api/capital-gains/share/${data.reportId}`, data);
+      const response = await apiRequest('POST', `/api/capital-gains/share/${data.reportId}`, { body: data });
       return response.json();
     },
     onSuccess: () => {
