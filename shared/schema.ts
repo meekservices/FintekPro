@@ -5108,3 +5108,184 @@ export type InsertTaxDocument = z.infer<typeof insertTaxDocumentSchema>;
 export type InsertStructuredTaxData = z.infer<typeof insertStructuredTaxDataSchema>;
 export type InsertTaxCalculation = z.infer<typeof insertTaxCalculationSchema>;
 export type InsertTaxDocumentAccessLog = z.infer<typeof insertTaxDocumentAccessLogSchema>;
+
+// Unified Tax Smart Filing Workflow Tables
+// Tax Session for workflow orchestration and state management
+export const taxSessions = pgTable("tax_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  panNumber: varchar("pan_number").notNull(),
+  assessmentYear: varchar("assessment_year").notNull(), // 2024-25, 2025-26
+  financialYear: varchar("financial_year").notNull(), // 2023-24, 2024-25
+  
+  // Workflow State
+  status: varchar("status").default("created").notNull(), // created | aggregating | prefilled | validated | optimized | generated | filed
+  currentStep: integer("current_step").default(1), // 1-6 for wizard steps
+  
+  // AI Suggestions
+  suggestedItrForm: varchar("suggested_itr_form"), // ITR-1, ITR-2, etc.
+  suggestedTaxRegime: varchar("suggested_tax_regime").default("new"), // old | new
+  autoSelectionReason: text("auto_selection_reason"), // AI explanation for suggestions
+  
+  // Progress Metrics
+  completionPercentage: integer("completion_percentage").default(0),
+  dataSourcesConnected: integer("data_sources_connected").default(0),
+  validationIssuesCount: integer("validation_issues_count").default(0),
+  
+  // Timing
+  aggregationStartedAt: timestamp("aggregation_started_at"),
+  aggregationCompletedAt: timestamp("aggregation_completed_at"),
+  validationCompletedAt: timestamp("validation_completed_at"),
+  filingCompletedAt: timestamp("filing_completed_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Tax Data Sources for tracking connection and sync status
+export const taxDataSources = pgTable("tax_data_sources", {
+  id: varchar("id").primaryKey(),
+  sessionId: varchar("session_id").references(() => taxSessions.id).notNull(),
+  name: varchar("name").notNull(), // Form 26AS, AIS, CAMS, NSDL, etc.
+  status: varchar("status").default("disconnected").notNull(), // connected | disconnected | syncing | error
+  
+  // Data Metrics
+  lastSync: timestamp("last_sync"),
+  recordsCount: integer("records_count").default(0),
+  dataTypes: jsonb("data_types").default([]), // ['TDS', 'salary', 'capital_gains']
+  
+  // Sync Information
+  syncDuration: integer("sync_duration"), // milliseconds
+  errorMessage: text("error_message"),
+  apiEndpoint: varchar("api_endpoint"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Validation Issues for structured error reporting
+export const validationIssues = pgTable("validation_issues", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").references(() => taxSessions.id).notNull(),
+  
+  // Issue Classification
+  section: varchar("section").notNull(), // income, deductions, personal_info, etc.
+  field: varchar("field"), // specific field name
+  severity: varchar("severity").notNull(), // error | warning | suggestion
+  
+  // Issue Details
+  message: text("message").notNull(),
+  fixHint: text("fix_hint"), // AI-generated suggestion to fix
+  autoFixable: boolean("auto_fixable").default(false),
+  
+  // Resolution
+  status: varchar("status").default("open").notNull(), // open | resolved | ignored
+  resolvedAt: timestamp("resolved_at"),
+  resolvedBy: varchar("resolved_by"), // user | auto | ai
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Filing Records for tracking ITR submission status
+export const filingRecords = pgTable("filing_records", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").references(() => taxSessions.id).notNull(),
+  
+  // Filing Information
+  acknowledgmentNumber: varchar("acknowledgment_number").unique(),
+  receiptNumber: varchar("receipt_number"),
+  filingDate: timestamp("filing_date").notNull(),
+  
+  // Tax Details
+  itrForm: varchar("itr_form").notNull(),
+  taxRegime: varchar("tax_regime").notNull(),
+  totalIncome: decimal("total_income", { precision: 15, scale: 2 }),
+  taxLiability: decimal("tax_liability", { precision: 15, scale: 2 }),
+  refundAmount: decimal("refund_amount", { precision: 15, scale: 2 }),
+  taxPayable: decimal("tax_payable", { precision: 15, scale: 2 }),
+  
+  // Filing Status
+  status: varchar("status").default("filed").notNull(), // filed | processing | verified | failed | defective
+  verificationDate: timestamp("verification_date"),
+  
+  // Documents
+  itrJsonUrl: text("itr_json_url"),
+  itrPdfUrl: text("itr_pdf_url"),
+  itrVUrl: text("itr_v_url"), // ITR-V acknowledgment
+  
+  // Processing
+  processingErrors: jsonb("processing_errors").default([]),
+  apiResponse: jsonb("api_response"), // Raw response from filing API
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// AI Optimization Suggestions for intelligent recommendations
+export const aiOptimizationSuggestions = pgTable("ai_optimization_suggestions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").references(() => taxSessions.id).notNull(),
+  
+  // Suggestion Type
+  category: varchar("category").notNull(), // tax_regime | deductions | investments | structure
+  suggestionType: varchar("suggestion_type").notNull(), // regime_switch | add_deduction | investment_reallocation
+  
+  // Suggestion Details
+  title: varchar("title").notNull(),
+  description: text("description").notNull(),
+  potentialSaving: decimal("potential_saving", { precision: 10, scale: 2 }),
+  confidence: decimal("confidence", { precision: 3, scale: 2 }), // 0.00 to 1.00
+  
+  // Implementation
+  actionRequired: text("action_required"), // What user needs to do
+  automatable: boolean("automatable").default(false),
+  implementationSteps: jsonb("implementation_steps").default([]),
+  
+  // User Response
+  status: varchar("status").default("pending").notNull(), // pending | accepted | rejected | implemented
+  userResponse: text("user_response"),
+  respondedAt: timestamp("responded_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Insert schemas for unified tax workflow tables
+export const insertTaxSessionSchema = createInsertSchema(taxSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertTaxDataSourceSchema = createInsertSchema(taxDataSources).omit({
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertValidationIssueSchema = createInsertSchema(validationIssues).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertFilingRecordSchema = createInsertSchema(filingRecords).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAiOptimizationSuggestionSchema = createInsertSchema(aiOptimizationSuggestions).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Export unified tax workflow types
+export type TaxSession = typeof taxSessions.$inferSelect;
+export type TaxDataSource = typeof taxDataSources.$inferSelect;
+export type ValidationIssue = typeof validationIssues.$inferSelect;
+export type FilingRecord = typeof filingRecords.$inferSelect;
+export type AiOptimizationSuggestion = typeof aiOptimizationSuggestions.$inferSelect;
+
+export type InsertTaxSession = z.infer<typeof insertTaxSessionSchema>;
+export type InsertTaxDataSource = z.infer<typeof insertTaxDataSourceSchema>;
+export type InsertValidationIssue = z.infer<typeof insertValidationIssueSchema>;
+export type InsertFilingRecord = z.infer<typeof insertFilingRecordSchema>;
+export type InsertAiOptimizationSuggestion = z.infer<typeof insertAiOptimizationSuggestionSchema>;
