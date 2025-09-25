@@ -200,30 +200,46 @@ export function EnhancedNavigation() {
         {
           name: "Tax Services",
           icon: FileText,
-          description: "Complete tax data aggregation and filing solutions",
+          description: "Intelligent tax filing and data management",
           subItems: [
-            // Tax Data & Reports (Core Value - Always Available)
-            { name: "📊 Tax Data Center", href: "/tax-data-center", description: "Aggregate all your tax data from multiple sources", category: "Data & Reports" },
-            { name: "📄 Form 26AS & AIS", href: "/tax-documents?tab=forms", description: "Download Form 26AS & AIS reports instantly", category: "Data & Reports" },
-            { name: "💹 Capital Gains Reports", href: "/capital-gains", description: "Comprehensive capital gains from all brokers & AMCs", category: "Data & Reports" },
-            { name: "📋 TDS Certificates", href: "/tax-documents?tab=tds", description: "Consolidated TDS certificates from all sources", category: "Data & Reports" },
-            { name: "📈 Tax Summary Report", href: "/tax-summary", description: "Complete income summary ready for any ITR portal", category: "Data & Reports" },
+            // Primary Smart Workflow (85% of users)
+            { 
+              name: "🚀 Smart Tax Filing", 
+              href: "/tax", 
+              description: "AI-powered step-by-step tax filing with real-time validation",
+              badge: "RECOMMENDED"
+            },
             
-            // ITR Filing Options (Choose Your Path)
-            { name: "🚀 ITR Pre-filled (Recommended)", href: "/itr-prefilled", description: "AI-powered ITR with instant e-filing through our platform", category: "ITR Filing" },
-            { name: "⚡ Sandbox ITR Filing", href: "/sandbox-itr-filing", description: "Real-time ITR filing with automated validation", category: "ITR Filing" },
-            { name: "📤 Export for External Filing", href: "/export-tax-data", description: "Export data for ClearTax, Income Tax Portal, or CA", category: "ITR Filing" },
-            { name: "🎯 Filing Guide", href: "/filing-guide", description: "Step-by-step guide for filing on any platform", category: "ITR Filing" },
+            // Data Management (Power users)
+            { 
+              name: "📊 Tax Data Center", 
+              href: "/tax-data-center", 
+              description: "Advanced data aggregation from multiple sources"
+            },
+            { 
+              name: "📄 Tax Documents", 
+              href: "/tax-documents", 
+              description: "Form 26AS, AIS, and TDS certificates"
+            },
+            { 
+              name: "💹 Capital Gains Reports", 
+              href: "/capital-gains", 
+              description: "Comprehensive capital gains from all brokers & AMCs"
+            },
             
-            // Tax Planning & Tools
-            { name: "🧮 Tax Calculators", href: "/calculators?tool=tax", description: "Income tax calculation and optimization tools", category: "Tax Planning" },
-            { name: "⚖️ Regime Comparison", href: "/calculators?tool=regime", description: "Old vs New tax regime comparison", category: "Tax Planning" },
-            { name: "💡 Tax Optimization", href: "/tax-optimization", description: "Personalized tax-saving recommendations", category: "Tax Planning" },
+            // Expert Tools (Advanced users)
+            { 
+              name: "⚡ Sandbox Filing", 
+              href: "/sandbox-itr-filing", 
+              description: "Test and validate ITR before actual filing"
+            },
             
-            // Compliance & Support
-            { name: "📅 Tax Calendar", href: "/tax-calendar", description: "Important tax dates and reminders", category: "Compliance" },
-            { name: "💰 Refund Tracker", href: "/refund-tracker", description: "Track ITR refund status from any portal", category: "Compliance" },
-            { name: "⚠️ Notice Support", href: "/tax-notices", description: "Expert help with tax notices and queries", category: "Compliance" }
+            // Planning & Optimization (All users)
+            { 
+              name: "🧮 Tax Calculators", 
+              href: "/calculators?tool=tax", 
+              description: "Calculate tax liability and optimize savings"
+            }
           ]
         }
       ]

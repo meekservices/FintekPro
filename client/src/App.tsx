@@ -65,6 +65,7 @@ import TaxDocuments from "@/pages/tax-documents";
 import ITRPrefilled from "@/pages/itr-prefilled";
 import TaxDataCenter from "@/pages/tax-data-center";
 import SandboxITRFiling from "@/pages/sandbox-itr-filing";
+import TaxSmartFiling from "@/pages/tax-smart-filing";
 import LoanComparison from "@/pages/loan-comparison";
 
 function UserProtectedRoutes() {
@@ -103,9 +104,18 @@ function UserProtectedRoutes() {
         <Route path="/my-proposals" component={ClientProposalsPage} />
         <Route path="/achievements" component={Achievements} />
         <Route path="/capital-gains" component={CapitalGainsReports} />
+        {/* Unified Tax Services - Primary Route */}
+        <Route path="/tax" component={TaxSmartFiling} />
+        {/* Legacy Tax Routes - Maintained for existing users */}
         <Route path="/tax-data-center" component={TaxDataCenter} />
         <Route path="/tax-documents" component={TaxDocuments} />
-        <Route path="/itr-prefilled" component={ITRPrefilled} />
+        <Route path="/itr-prefilled">
+          {() => {
+            // Smart redirect to unified tax filing with pre-filled flag
+            window.location.href = "/tax?mode=prefilled";
+            return null;
+          }}
+        </Route>
         <Route path="/sandbox-itr-filing" component={SandboxITRFiling} />
         <Route path="/loan-comparison" component={LoanComparison} />
         <Route path="/ib-trading" component={IBTradingPage} />

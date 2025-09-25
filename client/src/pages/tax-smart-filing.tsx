@@ -63,6 +63,18 @@ interface TaxSession {
   suggestedTaxRegime?: string;
 }
 
+interface SessionData {
+  session?: TaxSession;
+  dataSources?: DataSource[];
+  validation?: {
+    issues: ValidationIssue[];
+    summary: { totalIssues: number; errors: number; warnings: number; suggestions: number; };
+  };
+  suggestions?: OptimizationSuggestion[];
+  filingRecord?: FilingRecord;
+  taxCalculation?: any;
+}
+
 interface DataSource {
   id: string;
   name: string;
@@ -410,7 +422,7 @@ export default function TaxSmartFiling() {
 
   // Step 2: Auto-Aggregate
   const renderAggregateStep = () => {
-    const dataSources = sessionData?.dataSources || [];
+    const dataSources = (sessionData as SessionData)?.dataSources || [];
     
     return (
       <Card data-testid="card-aggregate-step">
@@ -489,7 +501,10 @@ export default function TaxSmartFiling() {
 
   // Step 3: Review & Validate
   const renderReviewStep = () => {
-    const validationData = sessionData?.validation || { issues: [], summary: { totalIssues: 0 } };
+    const validationData = (sessionData as SessionData)?.validation || { 
+      issues: [], 
+      summary: { totalIssues: 0, errors: 0, warnings: 0, suggestions: 0 } 
+    };
     
     return (
       <Card data-testid="card-review-step">
@@ -567,7 +582,7 @@ export default function TaxSmartFiling() {
 
   // Step 4: AI Optimization
   const renderOptimizeStep = () => {
-    const suggestions = sessionData?.suggestions || [];
+    const suggestions = (sessionData as SessionData)?.suggestions || [];
     
     return (
       <Card data-testid="card-optimize-step">
@@ -716,7 +731,7 @@ export default function TaxSmartFiling() {
 
   // Step 6: Receipt & Track
   const renderReceiptStep = () => {
-    const filingRecord = sessionData?.filingRecord || null;
+    const filingRecord = (sessionData as SessionData)?.filingRecord;
     
     return (
       <Card data-testid="card-receipt-step">
