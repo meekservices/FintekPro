@@ -168,12 +168,56 @@ export function EnhancedNavigation() {
       title: "Financial Services",
       items: [
         {
+          name: "Property Services",
+          icon: Building2,
+          description: "Complete real estate solutions and financing",
+          subItems: [
+            // Primary Property Hub
+            { 
+              name: "🏠 Property Services Hub", 
+              href: "/property", 
+              description: "Unified platform for all property needs",
+              badge: "RECOMMENDED"
+            },
+            
+            // Financing Solutions
+            { 
+              name: "🏦 Home Loans", 
+              href: "/loans?category=home", 
+              description: "Compare home loans from multiple lenders"
+            },
+            { 
+              name: "🏢 Loan Against Property", 
+              href: "/loans?category=lap", 
+              description: "Leverage property for business needs"
+            },
+            
+            // Investment & Insurance
+            { 
+              name: "📈 Property Investment", 
+              href: "/property#investment", 
+              description: "REITs and property funds"
+            },
+            { 
+              name: "🛡️ Home Insurance", 
+              href: "/insurance/home", 
+              description: "Comprehensive property protection"
+            },
+            
+            // Tools & Calculators
+            { 
+              name: "🧮 Property Calculators", 
+              href: "/calculators?category=property", 
+              description: "EMI, eligibility, and valuation tools"
+            }
+          ]
+        },
+        {
           name: "Loan Marketplace",
           icon: CreditCard,
-          description: "Compare loans across providers",
+          description: "Personal and business loans",
           subItems: [
             { name: "Personal Loans", href: "/loans?category=personal", description: "Quick personal loans from multiple lenders" },
-            { name: "Home Loans", href: "/loans?category=home", description: "Property financing solutions" },
             { name: "Business Loans", href: "/loans?category=business", description: "SME and corporate financing" },
             { name: "Vehicle Loans", href: "/loans?category=vehicle", description: "Car and two-wheeler financing" },
             { name: "Education Loans", href: "/loans?category=education", description: "Student loan options" },

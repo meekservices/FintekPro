@@ -65,6 +65,7 @@ import TaxDocuments from "@/pages/tax-documents";
 import ITRPrefilled from "@/pages/itr-prefilled";
 import TaxDataCenter from "@/pages/tax-data-center";
 import TaxSmartFiling from "@/pages/tax-smart-filing";
+import PropertyServices from "@/pages/property-services";
 import LoanComparison from "@/pages/loan-comparison";
 
 function UserProtectedRoutes() {
@@ -115,6 +116,8 @@ function UserProtectedRoutes() {
             return null;
           }}
         </Route>
+        {/* Unified Property Services Hub */}
+        <Route path="/property" component={PropertyServices} />
         <Route path="/loan-comparison" component={LoanComparison} />
         <Route path="/ib-trading" component={IBTradingPage} />
         <Route path="/store" component={Store} />
