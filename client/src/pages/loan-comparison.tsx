@@ -31,7 +31,8 @@ import {
   PieChart,
   Award,
   Target,
-  Percent
+  Percent,
+  Plus
 } from "lucide-react";
 import { XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart as RechartsPieChart, Cell, Pie } from "recharts";
 import { apiRequest, queryClient } from "@/lib/queryClient";
