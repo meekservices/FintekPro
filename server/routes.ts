@@ -23943,6 +23943,248 @@ System Security Data:`;
     }
   });
 
+  // Yield Tracker Service Routes
+  
+  // Import yield tracker service
+  const { yieldTrackerService } = await import('./yield-tracker-service');
+
+  // Create new yield tracker
+  app.post('/api/yield-tracker/create', async (req, res) => {
+    try {
+      if (!req.session?.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const tracker = await yieldTrackerService.createTracker(req.session.user.id, req.body);
+      
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'create_yield_tracker', 
+        resourceId: tracker.id,
+        outcome: 'success'
+      });
+      
+      res.json(tracker);
+    } catch (error) {
+      console.error('Error creating yield tracker:', error);
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'create_yield_tracker', 
+        outcome: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      res.status(500).json({ message: 'Failed to create yield tracker' });
+    }
+  });
+
+  // Update tracker price with market data
+  app.put('/api/yield-tracker/:id/price', async (req, res) => {
+    try {
+      if (!req.session?.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const { currentPrice, marketData } = req.body;
+      if (!currentPrice) {
+        return res.status(400).json({ message: 'Current price is required' });
+      }
+
+      const tracker = await yieldTrackerService.updateTrackerPrice(req.params.id, currentPrice, marketData);
+      if (!tracker) {
+        return res.status(404).json({ message: 'Tracker not found' });
+      }
+
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'update_tracker_price', 
+        resourceId: req.params.id,
+        outcome: 'success'
+      });
+      
+      res.json(tracker);
+    } catch (error) {
+      console.error('Error updating tracker price:', error);
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'update_tracker_price', 
+        outcome: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      res.status(500).json({ message: 'Failed to update tracker price' });
+    }
+  });
+
+  // Get yield metrics for tracker
+  app.get('/api/yield-tracker/:id/metrics', async (req, res) => {
+    try {
+      if (!req.session?.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const tracker = await storage.getYieldTracker(req.params.id);
+      if (!tracker) {
+        return res.status(404).json({ message: 'Tracker not found' });
+      }
+
+      if (tracker.userId !== req.session.user.id) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+
+      const metrics = yieldTrackerService.calculateYieldMetrics(tracker);
+      const benchmarkComparison = yieldTrackerService.calculateBenchmarkComparison(tracker);
+      
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_yield_metrics', 
+        resourceId: req.params.id,
+        outcome: 'success'
+      });
+      
+      res.json({ metrics, benchmarkComparison });
+    } catch (error) {
+      console.error('Error calculating yield metrics:', error);
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_yield_metrics', 
+        outcome: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      res.status(500).json({ message: 'Failed to calculate yield metrics' });
+    }
+  });
+
+  // Get performance analysis
+  app.get('/api/yield-tracker/performance-analysis', async (req, res) => {
+    try {
+      if (!req.session?.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const { period = '1Y' } = req.query;
+      const analysis = await yieldTrackerService.generatePerformanceAnalysis(req.session.user.id, period as string);
+      
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_performance_analysis', 
+        resourceId: req.session.user.id,
+        outcome: 'success'
+      });
+      
+      res.json(analysis);
+    } catch (error) {
+      console.error('Error generating performance analysis:', error);
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_performance_analysis', 
+        outcome: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      res.status(500).json({ message: 'Failed to generate performance analysis' });
+    }
+  });
+
+  // Get portfolio yield summary
+  app.get('/api/yield-tracker/portfolio-yield', async (req, res) => {
+    try {
+      if (!req.session?.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const { portfolioId } = req.query;
+      const portfolioYield = await yieldTrackerService.calculatePortfolioYield(
+        req.session.user.id, 
+        portfolioId as string
+      );
+      
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_portfolio_yield', 
+        resourceId: req.session.user.id,
+        outcome: 'success'
+      });
+      
+      res.json(portfolioYield);
+    } catch (error) {
+      console.error('Error calculating portfolio yield:', error);
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_portfolio_yield', 
+        outcome: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      res.status(500).json({ message: 'Failed to calculate portfolio yield' });
+    }
+  });
+
+  // Get optimization suggestions
+  app.get('/api/yield-tracker/optimization-suggestions', async (req, res) => {
+    try {
+      if (!req.session?.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const suggestions = await yieldTrackerService.generateOptimizationSuggestions(req.session.user.id);
+      
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_optimization_suggestions', 
+        resourceId: req.session.user.id,
+        outcome: 'success'
+      });
+      
+      res.json(suggestions);
+    } catch (error) {
+      console.error('Error generating optimization suggestions:', error);
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_optimization_suggestions', 
+        outcome: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      res.status(500).json({ message: 'Failed to generate optimization suggestions' });
+    }
+  });
+
+  // Bulk tracker price update (for scheduled updates)
+  app.post('/api/yield-tracker/bulk-update', async (req, res) => {
+    try {
+      if (!req.session?.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const { updates } = req.body; // Array of { trackerId, currentPrice, marketData }
+      if (!Array.isArray(updates)) {
+        return res.status(400).json({ message: 'Updates array is required' });
+      }
+
+      const results = [];
+      for (const update of updates) {
+        try {
+          const tracker = await yieldTrackerService.updateTrackerPrice(
+            update.trackerId, 
+            update.currentPrice, 
+            update.marketData
+          );
+          if (tracker) {
+            results.push({ trackerId: update.trackerId, success: true, data: tracker });
+          } else {
+            results.push({ trackerId: update.trackerId, success: false, error: 'Tracker not found' });
+          }
+        } catch (err) {
+          results.push({ 
+            trackerId: update.trackerId, 
+            success: false, 
+            error: err instanceof Error ? err.message : 'Unknown error' 
+          });
+        }
+      }
+      
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'bulk_update_trackers', 
+        resourceId: `${updates.length}_trackers`,
+        outcome: 'success'
+      });
+      
+      res.json({ results });
+    } catch (error) {
+      console.error('Error bulk updating trackers:', error);
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'bulk_update_trackers', 
+        outcome: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      res.status(500).json({ message: 'Failed to bulk update trackers' });
+    }
+  });
+
   // Add AML routes
   app.use(amlRoutes);
 
