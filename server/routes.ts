@@ -23549,6 +23549,400 @@ System Security Data:`;
     }
   });
 
+  // Investment Ideas and Smart Market Research Routes
+  
+  // Import smart investment service
+  const { smartInvestmentService } = await import('./smart-investment-service');
+  const { insertInvestmentIdeaSchema, insertInvestmentIdeaTrackingSchema, insertInvestmentIdeaAlertSchema, insertYieldTrackerSchema } = await import('@shared/schema');
+
+  // Get investment ideas for user
+  app.get('/api/investment-ideas', async (req, res) => {
+    try {
+      if (!req.session?.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const ideas = await storage.getActiveInvestmentIdeas(req.session.user.id);
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_investment_ideas', 
+        resourceId: req.session.user.id,
+        outcome: 'success'
+      });
+      
+      res.json(ideas);
+    } catch (error) {
+      console.error('Error fetching investment ideas:', error);
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_investment_ideas', 
+        outcome: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      res.status(500).json({ message: 'Failed to fetch investment ideas' });
+    }
+  });
+
+  // Generate new investment recommendations
+  app.post('/api/investment-ideas/generate', async (req, res) => {
+    try {
+      if (!req.session?.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const { symbols } = req.body;
+      if (!symbols || !Array.isArray(symbols)) {
+        return res.status(400).json({ message: 'Symbols array is required' });
+      }
+
+      const recommendations = await smartInvestmentService.getMarketRecommendations(symbols, req.session.user.id);
+      
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'generate_investment_ideas', 
+        resourceId: symbols.join(','),
+        outcome: 'success'
+      });
+      
+      res.json({ recommendations });
+    } catch (error) {
+      console.error('Error generating investment ideas:', error);
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'generate_investment_ideas', 
+        outcome: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      res.status(500).json({ message: 'Failed to generate investment ideas' });
+    }
+  });
+
+  // Save investment idea
+  app.post('/api/investment-ideas', async (req, res) => {
+    try {
+      if (!req.session?.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const ideaData = insertInvestmentIdeaSchema.parse({
+        ...req.body,
+        userId: req.session.user.id
+      });
+
+      const idea = await storage.createInvestmentIdea(ideaData);
+      
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'create_investment_idea', 
+        resourceId: idea.id,
+        outcome: 'success'
+      });
+      
+      res.json(idea);
+    } catch (error) {
+      console.error('Error creating investment idea:', error);
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'create_investment_idea', 
+        outcome: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      res.status(500).json({ message: 'Failed to create investment idea' });
+    }
+  });
+
+  // Get specific investment idea
+  app.get('/api/investment-ideas/:id', async (req, res) => {
+    try {
+      if (!req.session?.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const idea = await storage.getInvestmentIdea(req.params.id);
+      if (!idea) {
+        return res.status(404).json({ message: 'Investment idea not found' });
+      }
+
+      if (idea.userId !== req.session.user.id) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_investment_idea', 
+        resourceId: req.params.id,
+        outcome: 'success'
+      });
+      
+      res.json(idea);
+    } catch (error) {
+      console.error('Error fetching investment idea:', error);
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_investment_idea', 
+        outcome: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      res.status(500).json({ message: 'Failed to fetch investment idea' });
+    }
+  });
+
+  // Update investment idea
+  app.put('/api/investment-ideas/:id', async (req, res) => {
+    try {
+      if (!req.session?.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const idea = await storage.getInvestmentIdea(req.params.id);
+      if (!idea) {
+        return res.status(404).json({ message: 'Investment idea not found' });
+      }
+
+      if (idea.userId !== req.session.user.id) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+
+      const updated = await storage.updateInvestmentIdea(req.params.id, req.body);
+      
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'update_investment_idea', 
+        resourceId: req.params.id,
+        outcome: 'success'
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error('Error updating investment idea:', error);
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'update_investment_idea', 
+        outcome: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      res.status(500).json({ message: 'Failed to update investment idea' });
+    }
+  });
+
+  // Get investment idea tracking data
+  app.get('/api/investment-ideas/:id/tracking', async (req, res) => {
+    try {
+      if (!req.session?.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const idea = await storage.getInvestmentIdea(req.params.id);
+      if (!idea || idea.userId !== req.session.user.id) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+
+      const tracking = await storage.getInvestmentIdeaTracking(req.params.id);
+      
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_idea_tracking', 
+        resourceId: req.params.id,
+        outcome: 'success'
+      });
+      
+      res.json(tracking);
+    } catch (error) {
+      console.error('Error fetching tracking data:', error);
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_idea_tracking', 
+        outcome: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      res.status(500).json({ message: 'Failed to fetch tracking data' });
+    }
+  });
+
+  // Get user alerts
+  app.get('/api/investment-alerts', async (req, res) => {
+    try {
+      if (!req.session?.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const alerts = await storage.getInvestmentIdeaAlerts(req.session.user.id);
+      
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_investment_alerts', 
+        resourceId: req.session.user.id,
+        outcome: 'success'
+      });
+      
+      res.json(alerts);
+    } catch (error) {
+      console.error('Error fetching alerts:', error);
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_investment_alerts', 
+        outcome: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      res.status(500).json({ message: 'Failed to fetch alerts' });
+    }
+  });
+
+  // Get unread alerts
+  app.get('/api/investment-alerts/unread', async (req, res) => {
+    try {
+      if (!req.session?.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const alerts = await storage.getUnreadAlerts(req.session.user.id);
+      
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_unread_alerts', 
+        resourceId: req.session.user.id,
+        outcome: 'success'
+      });
+      
+      res.json(alerts);
+    } catch (error) {
+      console.error('Error fetching unread alerts:', error);
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_unread_alerts', 
+        outcome: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      res.status(500).json({ message: 'Failed to fetch unread alerts' });
+    }
+  });
+
+  // Mark alert as read
+  app.put('/api/investment-alerts/:id/read', async (req, res) => {
+    try {
+      if (!req.session?.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const alert = await storage.markAlertAsRead(req.params.id);
+      
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'mark_alert_read', 
+        resourceId: req.params.id,
+        outcome: 'success'
+      });
+      
+      res.json(alert);
+    } catch (error) {
+      console.error('Error marking alert as read:', error);
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'mark_alert_read', 
+        outcome: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      res.status(500).json({ message: 'Failed to mark alert as read' });
+    }
+  });
+
+  // Get yield trackers
+  app.get('/api/yield-tracker', async (req, res) => {
+    try {
+      if (!req.session?.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const trackers = await storage.getYieldTrackers(req.session.user.id);
+      
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_yield_trackers', 
+        resourceId: req.session.user.id,
+        outcome: 'success'
+      });
+      
+      res.json(trackers);
+    } catch (error) {
+      console.error('Error fetching yield trackers:', error);
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_yield_trackers', 
+        outcome: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      res.status(500).json({ message: 'Failed to fetch yield trackers' });
+    }
+  });
+
+  // Create yield tracker
+  app.post('/api/yield-tracker', async (req, res) => {
+    try {
+      if (!req.session?.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const trackerData = insertYieldTrackerSchema.parse({
+        ...req.body,
+        userId: req.session.user.id
+      });
+
+      const tracker = await storage.createYieldTracker(trackerData);
+      
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'create_yield_tracker', 
+        resourceId: tracker.id,
+        outcome: 'success'
+      });
+      
+      res.json(tracker);
+    } catch (error) {
+      console.error('Error creating yield tracker:', error);
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'create_yield_tracker', 
+        outcome: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      res.status(500).json({ message: 'Failed to create yield tracker' });
+    }
+  });
+
+  // Update yield tracker
+  app.put('/api/yield-tracker/:id', async (req, res) => {
+    try {
+      if (!req.session?.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const tracker = await storage.getYieldTracker(req.params.id);
+      if (!tracker || tracker.userId !== req.session.user.id) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+
+      const updated = await storage.updateYieldTracker(req.params.id, req.body);
+      
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'update_yield_tracker', 
+        resourceId: req.params.id,
+        outcome: 'success'
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error('Error updating yield tracker:', error);
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'update_yield_tracker', 
+        outcome: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      res.status(500).json({ message: 'Failed to update yield tracker' });
+    }
+  });
+
+  // Get AI-powered investment recommendations for popular symbols
+  app.get('/api/investment-ideas/recommendations/popular', async (req, res) => {
+    try {
+      const popularSymbols = ['RELIANCE', 'TCS', 'HDFC', 'INFY', 'ICICIBANK', 'KOTAKBANK', 'LT', 'HDFCBANK'];
+      const recommendations = await smartInvestmentService.getMarketRecommendations(popularSymbols.slice(0, 5), 'system');
+      
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_popular_recommendations', 
+        outcome: 'success',
+        riskLevel: 'low'
+      });
+      
+      res.json({ recommendations });
+    } catch (error) {
+      console.error('Error fetching popular recommendations:', error);
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_popular_recommendations', 
+        outcome: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      res.status(500).json({ message: 'Failed to fetch recommendations' });
+    }
+  });
+
   // Add AML routes
   app.use(amlRoutes);
 

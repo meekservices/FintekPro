@@ -1,4 +1,4 @@
-import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Supplier, type InsertSupplier, type EpfHolding, type PpfHolding, type EpsHolding, type GovernmentSchemeConsent, type InsertGovernmentSchemeConsent, type InsuranceHolding, type InsertInsuranceHolding, type UserBankAccount, type InsertUserBankAccount, type UserDematAccount, type InsertUserDematAccount, type AchievementCategory, type InsertAchievementCategory, type Achievement, type InsertAchievement, type UserAchievement, type InsertUserAchievement, type LearningProgress, type InsertLearningProgress, type SocialShare, type InsertSocialShare, type FinancialGoal, type InsertFinancialGoal, type TaxDocument, type InsertTaxDocument, type StructuredTaxData, type InsertStructuredTaxData, type TaxCalculation, type InsertTaxCalculation, type TaxDocumentAccessLog, type InsertTaxDocumentAccessLog, type TaxSession, type InsertTaxSession, type TaxDataSource, type InsertTaxDataSource, type ValidationIssue, type InsertValidationIssue, type FilingRecord, type InsertFilingRecord, type AiOptimizationSuggestion, type InsertAiOptimizationSuggestion, type FundExtended, type Provenance, type FundSearchParams, type FundListResponse, type SourceStatus, type MultiSourceStatus, type LoanProduct, type InsertLoanProduct, type LoanProvider, type InsertLoanProvider, type ProviderProduct, type InsertProviderProduct, type CreditProfile, type InsertCreditProfile, type LoanRequest, type InsertLoanRequest, type LoanOffer, type InsertLoanOffer, type LoanApplicationMarketplace, type InsertLoanApplicationMarketplace, type ProviderIntegration, type InsertProviderIntegration, type ApplicationDocument, type InsertApplicationDocument } from "@shared/schema";
+import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Supplier, type InsertSupplier, type EpfHolding, type PpfHolding, type EpsHolding, type GovernmentSchemeConsent, type InsertGovernmentSchemeConsent, type InsuranceHolding, type InsertInsuranceHolding, type UserBankAccount, type InsertUserBankAccount, type UserDematAccount, type InsertUserDematAccount, type AchievementCategory, type InsertAchievementCategory, type Achievement, type InsertAchievement, type UserAchievement, type InsertUserAchievement, type LearningProgress, type InsertLearningProgress, type SocialShare, type InsertSocialShare, type FinancialGoal, type InsertFinancialGoal, type TaxDocument, type InsertTaxDocument, type StructuredTaxData, type InsertStructuredTaxData, type TaxCalculation, type InsertTaxCalculation, type TaxDocumentAccessLog, type InsertTaxDocumentAccessLog, type TaxSession, type InsertTaxSession, type TaxDataSource, type InsertTaxDataSource, type ValidationIssue, type InsertValidationIssue, type FilingRecord, type InsertFilingRecord, type AiOptimizationSuggestion, type InsertAiOptimizationSuggestion, type FundExtended, type Provenance, type FundSearchParams, type FundListResponse, type SourceStatus, type MultiSourceStatus, type LoanProduct, type InsertLoanProduct, type LoanProvider, type InsertLoanProvider, type ProviderProduct, type InsertProviderProduct, type CreditProfile, type InsertCreditProfile, type LoanRequest, type InsertLoanRequest, type LoanOffer, type InsertLoanOffer, type LoanApplicationMarketplace, type InsertLoanApplicationMarketplace, type ProviderIntegration, type InsertProviderIntegration, type ApplicationDocument, type InsertApplicationDocument, type InvestmentIdea, type InsertInvestmentIdea, type InvestmentIdeaTracking, type InsertInvestmentIdeaTracking, type InvestmentIdeaAlert, type InsertInvestmentIdeaAlert, type YieldTracker, type InsertYieldTracker } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, and, desc, asc, gte, lte, like, sql } from "drizzle-orm";
@@ -548,6 +548,32 @@ export interface IStorage {
   updateAiOptimizationSuggestion(id: string, updates: Partial<AiOptimizationSuggestion>): Promise<AiOptimizationSuggestion | undefined>;
   respondToSuggestion(id: string, status: string, userResponse?: string): Promise<AiOptimizationSuggestion | undefined>;
   getPendingSuggestions(sessionId: string): Promise<AiOptimizationSuggestion[]>;
+
+  // Investment Ideas methods
+  createInvestmentIdea(idea: InsertInvestmentIdea): Promise<InvestmentIdea>;
+  getInvestmentIdeas(userId: string): Promise<InvestmentIdea[]>;
+  getInvestmentIdea(id: string): Promise<InvestmentIdea | undefined>;
+  updateInvestmentIdea(id: string, updates: Partial<InvestmentIdea>): Promise<InvestmentIdea | undefined>;
+  deleteInvestmentIdea(id: string): Promise<boolean>;
+  getActiveInvestmentIdeas(userId: string): Promise<InvestmentIdea[]>;
+  
+  // Investment Idea Tracking methods
+  createInvestmentIdeaTracking(tracking: InsertInvestmentIdeaTracking): Promise<InvestmentIdeaTracking>;
+  getInvestmentIdeaTracking(ideaId: string): Promise<InvestmentIdeaTracking[]>;
+  getLatestIdeaTracking(ideaId: string): Promise<InvestmentIdeaTracking | undefined>;
+  
+  // Investment Idea Alerts methods
+  createInvestmentIdeaAlert(alert: InsertInvestmentIdeaAlert): Promise<InvestmentIdeaAlert>;
+  getInvestmentIdeaAlerts(userId: string): Promise<InvestmentIdeaAlert[]>;
+  getUnreadAlerts(userId: string): Promise<InvestmentIdeaAlert[]>;
+  markAlertAsRead(id: string): Promise<InvestmentIdeaAlert | undefined>;
+  
+  // Yield Tracker methods
+  createYieldTracker(tracker: InsertYieldTracker): Promise<YieldTracker>;
+  getYieldTrackers(userId: string): Promise<YieldTracker[]>;
+  getYieldTracker(id: string): Promise<YieldTracker | undefined>;
+  updateYieldTracker(id: string, updates: Partial<YieldTracker>): Promise<YieldTracker | undefined>;
+  deleteYieldTracker(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2684,6 +2710,153 @@ export class DatabaseStorage implements IStorage {
         // Add more slabs as needed
       ]
     };
+  }
+
+  // Investment Ideas methods
+  async createInvestmentIdea(idea: InsertInvestmentIdea): Promise<InvestmentIdea> {
+    const [result] = await db.insert(schema.investmentIdeas).values(idea).returning();
+    return result;
+  }
+
+  async getInvestmentIdeas(userId: string): Promise<InvestmentIdea[]> {
+    return await db
+      .select()
+      .from(schema.investmentIdeas)
+      .where(eq(schema.investmentIdeas.userId, userId))
+      .orderBy(desc(schema.investmentIdeas.suggestedAt));
+  }
+
+  async getInvestmentIdea(id: string): Promise<InvestmentIdea | undefined> {
+    const [result] = await db
+      .select()
+      .from(schema.investmentIdeas)
+      .where(eq(schema.investmentIdeas.id, id))
+      .limit(1);
+    return result;
+  }
+
+  async updateInvestmentIdea(id: string, updates: Partial<InvestmentIdea>): Promise<InvestmentIdea | undefined> {
+    const [result] = await db
+      .update(schema.investmentIdeas)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.investmentIdeas.id, id))
+      .returning();
+    return result;
+  }
+
+  async deleteInvestmentIdea(id: string): Promise<boolean> {
+    const result = await db
+      .delete(schema.investmentIdeas)
+      .where(eq(schema.investmentIdeas.id, id));
+    return result.rowCount > 0;
+  }
+
+  async getActiveInvestmentIdeas(userId: string): Promise<InvestmentIdea[]> {
+    return await db
+      .select()
+      .from(schema.investmentIdeas)
+      .where(and(
+        eq(schema.investmentIdeas.userId, userId),
+        eq(schema.investmentIdeas.isActive, true)
+      ))
+      .orderBy(desc(schema.investmentIdeas.suggestedAt));
+  }
+
+  // Investment Idea Tracking methods
+  async createInvestmentIdeaTracking(tracking: InsertInvestmentIdeaTracking): Promise<InvestmentIdeaTracking> {
+    const [result] = await db.insert(schema.investmentIdeaTracking).values(tracking).returning();
+    return result;
+  }
+
+  async getInvestmentIdeaTracking(ideaId: string): Promise<InvestmentIdeaTracking[]> {
+    return await db
+      .select()
+      .from(schema.investmentIdeaTracking)
+      .where(eq(schema.investmentIdeaTracking.ideaId, ideaId))
+      .orderBy(desc(schema.investmentIdeaTracking.trackingDate));
+  }
+
+  async getLatestIdeaTracking(ideaId: string): Promise<InvestmentIdeaTracking | undefined> {
+    const [result] = await db
+      .select()
+      .from(schema.investmentIdeaTracking)
+      .where(eq(schema.investmentIdeaTracking.ideaId, ideaId))
+      .orderBy(desc(schema.investmentIdeaTracking.trackingDate))
+      .limit(1);
+    return result;
+  }
+
+  // Investment Idea Alerts methods
+  async createInvestmentIdeaAlert(alert: InsertInvestmentIdeaAlert): Promise<InvestmentIdeaAlert> {
+    const [result] = await db.insert(schema.investmentIdeaAlerts).values(alert).returning();
+    return result;
+  }
+
+  async getInvestmentIdeaAlerts(userId: string): Promise<InvestmentIdeaAlert[]> {
+    return await db
+      .select()
+      .from(schema.investmentIdeaAlerts)
+      .where(eq(schema.investmentIdeaAlerts.userId, userId))
+      .orderBy(desc(schema.investmentIdeaAlerts.triggeredAt));
+  }
+
+  async getUnreadAlerts(userId: string): Promise<InvestmentIdeaAlert[]> {
+    return await db
+      .select()
+      .from(schema.investmentIdeaAlerts)
+      .where(and(
+        eq(schema.investmentIdeaAlerts.userId, userId),
+        eq(schema.investmentIdeaAlerts.isRead, false)
+      ))
+      .orderBy(desc(schema.investmentIdeaAlerts.triggeredAt));
+  }
+
+  async markAlertAsRead(id: string): Promise<InvestmentIdeaAlert | undefined> {
+    const [result] = await db
+      .update(schema.investmentIdeaAlerts)
+      .set({ isRead: true, readAt: new Date() })
+      .where(eq(schema.investmentIdeaAlerts.id, id))
+      .returning();
+    return result;
+  }
+
+  // Yield Tracker methods
+  async createYieldTracker(tracker: InsertYieldTracker): Promise<YieldTracker> {
+    const [result] = await db.insert(schema.yieldTracker).values(tracker).returning();
+    return result;
+  }
+
+  async getYieldTrackers(userId: string): Promise<YieldTracker[]> {
+    return await db
+      .select()
+      .from(schema.yieldTracker)
+      .where(eq(schema.yieldTracker.userId, userId))
+      .orderBy(desc(schema.yieldTracker.lastUpdated));
+  }
+
+  async getYieldTracker(id: string): Promise<YieldTracker | undefined> {
+    const [result] = await db
+      .select()
+      .from(schema.yieldTracker)
+      .where(eq(schema.yieldTracker.id, id))
+      .limit(1);
+    return result;
+  }
+
+  async updateYieldTracker(id: string, updates: Partial<YieldTracker>): Promise<YieldTracker | undefined> {
+    const [result] = await db
+      .update(schema.yieldTracker)
+      .set({ ...updates, lastUpdated: new Date() })
+      .where(eq(schema.yieldTracker.id, id))
+      .returning();
+    return result;
+  }
+
+  async deleteYieldTracker(id: string): Promise<boolean> {
+    const result = await db
+      .delete(schema.yieldTracker)
+      .where(eq(schema.yieldTracker.id, id));
+    return result.rowCount > 0;
   }
 }
 
