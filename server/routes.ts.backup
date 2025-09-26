@@ -159,7 +159,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         action: 'GDPR consent recorded',
         ipAddress: req.ip || req.connection.remoteAddress,
         userAgent: req.get('User-Agent'),
-        outcome: 'success', riskLevel: 'low',
+        outcome: 'success',
         riskLevel: 'low',
         details: { preferences, timestamp, version }
       });
@@ -257,7 +257,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           action: `Resolved security alert: ${alertId}`,
           ipAddress: req.ip || req.connection.remoteAddress,
           userAgent: req.get('User-Agent'),
-          outcome: 'success', riskLevel: 'low',
+          outcome: 'success',
           riskLevel: 'medium',
           details: { alertId }
         });
@@ -23570,7 +23570,7 @@ System Security Data:`;
         userId: req.session.user.id,
         ipAddress: req.ip,
         userAgent: req.get('User-Agent'),
-        outcome: 'success', riskLevel: 'low',
+        outcome: 'success',
         riskLevel: 'low'
       });
       
@@ -23612,7 +23612,7 @@ System Security Data:`;
         userId: req.session.user.id,
         ipAddress: req.ip,
         userAgent: req.get('User-Agent'),
-        outcome: 'success', riskLevel: 'low',
+        outcome: 'success',
         riskLevel: 'low'
       });
       
@@ -23647,18 +23647,18 @@ System Security Data:`;
 
       const idea = await storage.createInvestmentIdea(ideaData);
       
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'create_investment_idea', 
-        resource: idea.id,
-        outcome: 'success', riskLevel: 'low'
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'create_investment_idea', 
+        resourceId: idea.id,
+        outcome: 'success'
       });
       
       res.json(idea);
     } catch (error) {
       console.error('Error creating investment idea:', error);
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'create_investment_idea', 
-        outcome: 'failure', riskLevel: 'medium',
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'create_investment_idea', 
+        outcome: 'error',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
       res.status(500).json({ message: 'Failed to create investment idea' });
@@ -23681,18 +23681,18 @@ System Security Data:`;
         return res.status(403).json({ message: 'Access denied' });
       }
 
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'read_investment_idea', 
-        resource: req.params.id,
-        outcome: 'success', riskLevel: 'low'
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_investment_idea', 
+        resourceId: req.params.id,
+        outcome: 'success'
       });
       
       res.json(idea);
     } catch (error) {
       console.error('Error fetching investment idea:', error);
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'read_investment_idea', 
-        outcome: 'failure', riskLevel: 'medium',
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_investment_idea', 
+        outcome: 'error',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
       res.status(500).json({ message: 'Failed to fetch investment idea' });
@@ -23717,18 +23717,18 @@ System Security Data:`;
 
       const updated = await storage.updateInvestmentIdea(req.params.id, req.body);
       
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'update_investment_idea', 
-        resource: req.params.id,
-        outcome: 'success', riskLevel: 'low'
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'update_investment_idea', 
+        resourceId: req.params.id,
+        outcome: 'success'
       });
       
       res.json(updated);
     } catch (error) {
       console.error('Error updating investment idea:', error);
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'update_investment_idea', 
-        outcome: 'failure', riskLevel: 'medium',
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'update_investment_idea', 
+        outcome: 'error',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
       res.status(500).json({ message: 'Failed to update investment idea' });
@@ -23749,18 +23749,18 @@ System Security Data:`;
 
       const tracking = await storage.getInvestmentIdeaTracking(req.params.id);
       
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'read_idea_tracking', 
-        resource: req.params.id,
-        outcome: 'success', riskLevel: 'low'
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_idea_tracking', 
+        resourceId: req.params.id,
+        outcome: 'success'
       });
       
       res.json(tracking);
     } catch (error) {
       console.error('Error fetching tracking data:', error);
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'read_idea_tracking', 
-        outcome: 'failure', riskLevel: 'medium',
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_idea_tracking', 
+        outcome: 'error',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
       res.status(500).json({ message: 'Failed to fetch tracking data' });
@@ -23776,18 +23776,18 @@ System Security Data:`;
 
       const alerts = await storage.getInvestmentIdeaAlerts(req.session.user.id);
       
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'read_investment_alerts', 
-        resource: req.session.user.id,
-        outcome: 'success', riskLevel: 'low'
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_investment_alerts', 
+        resourceId: req.session.user.id,
+        outcome: 'success'
       });
       
       res.json(alerts);
     } catch (error) {
       console.error('Error fetching alerts:', error);
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'read_investment_alerts', 
-        outcome: 'failure', riskLevel: 'medium',
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_investment_alerts', 
+        outcome: 'error',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
       res.status(500).json({ message: 'Failed to fetch alerts' });
@@ -23803,18 +23803,18 @@ System Security Data:`;
 
       const alerts = await storage.getUnreadAlerts(req.session.user.id);
       
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'read_unread_alerts', 
-        resource: req.session.user.id,
-        outcome: 'success', riskLevel: 'low'
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_unread_alerts', 
+        resourceId: req.session.user.id,
+        outcome: 'success'
       });
       
       res.json(alerts);
     } catch (error) {
       console.error('Error fetching unread alerts:', error);
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'read_unread_alerts', 
-        outcome: 'failure', riskLevel: 'medium',
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_unread_alerts', 
+        outcome: 'error',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
       res.status(500).json({ message: 'Failed to fetch unread alerts' });
@@ -23830,18 +23830,18 @@ System Security Data:`;
 
       const alert = await storage.markAlertAsRead(req.params.id);
       
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'mark_alert_read', 
-        resource: req.params.id,
-        outcome: 'success', riskLevel: 'low'
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'mark_alert_read', 
+        resourceId: req.params.id,
+        outcome: 'success'
       });
       
       res.json(alert);
     } catch (error) {
       console.error('Error marking alert as read:', error);
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'mark_alert_read', 
-        outcome: 'failure', riskLevel: 'medium',
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'mark_alert_read', 
+        outcome: 'error',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
       res.status(500).json({ message: 'Failed to mark alert as read' });
@@ -23857,18 +23857,18 @@ System Security Data:`;
 
       const trackers = await storage.getYieldTrackers(req.session.user.id);
       
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'read_yield_trackers', 
-        resource: req.session.user.id,
-        outcome: 'success', riskLevel: 'low'
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_yield_trackers', 
+        resourceId: req.session.user.id,
+        outcome: 'success'
       });
       
       res.json(trackers);
     } catch (error) {
       console.error('Error fetching yield trackers:', error);
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'read_yield_trackers', 
-        outcome: 'failure', riskLevel: 'medium',
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_yield_trackers', 
+        outcome: 'error',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
       res.status(500).json({ message: 'Failed to fetch yield trackers' });
@@ -23889,18 +23889,18 @@ System Security Data:`;
 
       const tracker = await storage.createYieldTracker(trackerData);
       
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'create_yield_tracker', 
-        resource: tracker.id,
-        outcome: 'success', riskLevel: 'low'
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'create_yield_tracker', 
+        resourceId: tracker.id,
+        outcome: 'success'
       });
       
       res.json(tracker);
     } catch (error) {
       console.error('Error creating yield tracker:', error);
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'create_yield_tracker', 
-        outcome: 'failure', riskLevel: 'medium',
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'create_yield_tracker', 
+        outcome: 'error',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
       res.status(500).json({ message: 'Failed to create yield tracker' });
@@ -23921,18 +23921,18 @@ System Security Data:`;
 
       const updated = await storage.updateYieldTracker(req.params.id, req.body);
       
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'update_yield_tracker', 
-        resource: req.params.id,
-        outcome: 'success', riskLevel: 'low'
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'update_yield_tracker', 
+        resourceId: req.params.id,
+        outcome: 'success'
       });
       
       res.json(updated);
     } catch (error) {
       console.error('Error updating yield tracker:', error);
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'update_yield_tracker', 
-        outcome: 'failure', riskLevel: 'medium',
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'update_yield_tracker', 
+        outcome: 'error',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
       res.status(500).json({ message: 'Failed to update yield tracker' });
@@ -23945,18 +23945,18 @@ System Security Data:`;
       const popularSymbols = ['RELIANCE', 'TCS', 'HDFC', 'INFY', 'ICICIBANK', 'KOTAKBANK', 'LT', 'HDFCBANK'];
       const recommendations = await smartInvestmentService.getMarketRecommendations(popularSymbols.slice(0, 5), 'system');
       
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'read_popular_recommendations', 
-        outcome: 'success', riskLevel: 'low',
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_popular_recommendations', 
+        outcome: 'success',
         riskLevel: 'low'
       });
       
       res.json({ recommendations });
     } catch (error) {
       console.error('Error fetching popular recommendations:', error);
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'read_popular_recommendations', 
-        outcome: 'failure', riskLevel: 'medium',
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_popular_recommendations', 
+        outcome: 'error',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
       res.status(500).json({ message: 'Failed to fetch recommendations' });
@@ -23977,18 +23977,18 @@ System Security Data:`;
 
       const tracker = await yieldTrackerService.createTracker(req.session.user.id, req.body);
       
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'create_yield_tracker', 
-        resource: tracker.id,
-        outcome: 'success', riskLevel: 'low'
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'create_yield_tracker', 
+        resourceId: tracker.id,
+        outcome: 'success'
       });
       
       res.json(tracker);
     } catch (error) {
       console.error('Error creating yield tracker:', error);
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'create_yield_tracker', 
-        outcome: 'failure', riskLevel: 'medium',
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'create_yield_tracker', 
+        outcome: 'error',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
       res.status(500).json({ message: 'Failed to create yield tracker' });
@@ -24012,18 +24012,18 @@ System Security Data:`;
         return res.status(404).json({ message: 'Tracker not found' });
       }
 
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'update_tracker_price', 
-        resource: req.params.id,
-        outcome: 'success', riskLevel: 'low'
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'update_tracker_price', 
+        resourceId: req.params.id,
+        outcome: 'success'
       });
       
       res.json(tracker);
     } catch (error) {
       console.error('Error updating tracker price:', error);
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'update_tracker_price', 
-        outcome: 'failure', riskLevel: 'medium',
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'update_tracker_price', 
+        outcome: 'error',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
       res.status(500).json({ message: 'Failed to update tracker price' });
@@ -24049,18 +24049,18 @@ System Security Data:`;
       const metrics = yieldTrackerService.calculateYieldMetrics(tracker);
       const benchmarkComparison = yieldTrackerService.calculateBenchmarkComparison(tracker);
       
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'read_yield_metrics', 
-        resource: req.params.id,
-        outcome: 'success', riskLevel: 'low'
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_yield_metrics', 
+        resourceId: req.params.id,
+        outcome: 'success'
       });
       
       res.json({ metrics, benchmarkComparison });
     } catch (error) {
       console.error('Error calculating yield metrics:', error);
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'read_yield_metrics', 
-        outcome: 'failure', riskLevel: 'medium',
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_yield_metrics', 
+        outcome: 'error',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
       res.status(500).json({ message: 'Failed to calculate yield metrics' });
@@ -24077,18 +24077,18 @@ System Security Data:`;
       const { period = '1Y' } = req.query;
       const analysis = await yieldTrackerService.generatePerformanceAnalysis(req.session.user.id, period as string);
       
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'read_performance_analysis', 
-        resource: req.session.user.id,
-        outcome: 'success', riskLevel: 'low'
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_performance_analysis', 
+        resourceId: req.session.user.id,
+        outcome: 'success'
       });
       
       res.json(analysis);
     } catch (error) {
       console.error('Error generating performance analysis:', error);
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'read_performance_analysis', 
-        outcome: 'failure', riskLevel: 'medium',
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_performance_analysis', 
+        outcome: 'error',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
       res.status(500).json({ message: 'Failed to generate performance analysis' });
@@ -24108,18 +24108,18 @@ System Security Data:`;
         portfolioId as string
       );
       
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'read_portfolio_yield', 
-        resource: req.session.user.id,
-        outcome: 'success', riskLevel: 'low'
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_portfolio_yield', 
+        resourceId: req.session.user.id,
+        outcome: 'success'
       });
       
       res.json(portfolioYield);
     } catch (error) {
       console.error('Error calculating portfolio yield:', error);
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'read_portfolio_yield', 
-        outcome: 'failure', riskLevel: 'medium',
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_portfolio_yield', 
+        outcome: 'error',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
       res.status(500).json({ message: 'Failed to calculate portfolio yield' });
@@ -24135,18 +24135,18 @@ System Security Data:`;
 
       const suggestions = await yieldTrackerService.generateOptimizationSuggestions(req.session.user.id);
       
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'read_optimization_suggestions', 
-        resource: req.session.user.id,
-        outcome: 'success', riskLevel: 'low'
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_optimization_suggestions', 
+        resourceId: req.session.user.id,
+        outcome: 'success'
       });
       
       res.json(suggestions);
     } catch (error) {
       console.error('Error generating optimization suggestions:', error);
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'read_optimization_suggestions', 
-        outcome: 'failure', riskLevel: 'medium',
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'read_optimization_suggestions', 
+        outcome: 'error',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
       res.status(500).json({ message: 'Failed to generate optimization suggestions' });
@@ -24187,18 +24187,18 @@ System Security Data:`;
         }
       }
       
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'bulk_update_trackers', 
-        resource: `${updates.length}_trackers`,
-        outcome: 'success', riskLevel: 'low'
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'bulk_update_trackers', 
+        resourceId: `${updates.length}_trackers`,
+        outcome: 'success'
       });
       
       res.json({ results });
     } catch (error) {
       console.error('Error bulk updating trackers:', error);
-      complianceMonitor.logEvent({ 
-        eventType: 'data_access', action: 'bulk_update_trackers', 
-        outcome: 'failure', riskLevel: 'medium',
+      complianceMonitor.logDataAccess(req, { 
+        operation: 'bulk_update_trackers', 
+        outcome: 'error',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
       res.status(500).json({ message: 'Failed to bulk update trackers' });
