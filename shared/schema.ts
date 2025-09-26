@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, decimal, timestamp, jsonb, boolean, index, integer, date } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, decimal, timestamp, jsonb, boolean, index, integer, date, bigint } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -5376,3 +5376,191 @@ export type PanConsentAuditLog = typeof panConsentAuditLog.$inferSelect;
 export type NewPanConsentAuditLog = typeof panConsentAuditLog.$inferInsert;
 export type InsertPanConsent = z.infer<typeof insertPanConsentSchema>;
 export type InsertPanConsentAuditLog = z.infer<typeof insertPanConsentAuditLogSchema>;
+
+// Smart Market Research & Investment Idea Tracking Tables
+export const investmentIdeas = pgTable("investment_ideas", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  symbol: varchar("symbol").notNull(),
+  companyName: varchar("company_name").notNull(),
+  ideaTitle: varchar("idea_title").notNull(),
+  ideaDescription: text("idea_description").notNull(),
+  
+  // Investment Parameters
+  entryPrice: decimal("entry_price", { precision: 10, scale: 2 }).notNull(),
+  currentPrice: decimal("current_price", { precision: 10, scale: 2 }),
+  targetPrice: decimal("target_price", { precision: 10, scale: 2 }).notNull(),
+  stopLoss: decimal("stop_loss", { precision: 10, scale: 2 }).notNull(),
+  
+  // Position Details
+  recommendedQuantity: integer("recommended_quantity"),
+  actualQuantity: integer("actual_quantity").default(0),
+  recommendedInvestment: decimal("recommended_investment", { precision: 12, scale: 2 }),
+  actualInvestment: decimal("actual_investment", { precision: 12, scale: 2 }).default("0"),
+  
+  // Risk & Analysis
+  riskLevel: varchar("risk_level").notNull(), // low, medium, high
+  timeHorizon: varchar("time_horizon").notNull(), // short, medium, long
+  sector: varchar("sector"),
+  marketCap: varchar("market_cap"), // small, mid, large
+  
+  // Technical Analysis
+  technicalIndicators: jsonb("technical_indicators"), // RSI, MACD, etc.
+  supportLevel: decimal("support_level", { precision: 10, scale: 2 }),
+  resistanceLevel: decimal("resistance_level", { precision: 10, scale: 2 }),
+  
+  // AI Analysis
+  aiConfidenceScore: decimal("ai_confidence_score", { precision: 3, scale: 2 }),
+  aiReasoning: text("ai_reasoning"),
+  catalysts: jsonb("catalysts"), // array of expected catalysts
+  risks: jsonb("risks"), // array of potential risks
+  
+  // Status & Tracking
+  status: varchar("status").default("suggested"), // suggested, tracking, closed, stopped_out
+  isActive: boolean("is_active").default(true),
+  suggestedAt: timestamp("suggested_at").default(sql`CURRENT_TIMESTAMP`),
+  enteredAt: timestamp("entered_at"),
+  exitedAt: timestamp("exited_at"),
+  
+  // Performance Tracking
+  currentReturn: decimal("current_return", { precision: 8, scale: 4 }), // percentage
+  realizedReturn: decimal("realized_return", { precision: 8, scale: 4 }), // percentage
+  maxDrawdown: decimal("max_drawdown", { precision: 8, scale: 4 }), // percentage
+  daysHeld: integer("days_held").default(0),
+  
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const investmentIdeaTracking = pgTable("investment_idea_tracking", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ideaId: varchar("idea_id").references(() => investmentIdeas.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Daily Tracking Data
+  trackingDate: timestamp("tracking_date").notNull(),
+  openPrice: decimal("open_price", { precision: 10, scale: 2 }),
+  closePrice: decimal("close_price", { precision: 10, scale: 2 }).notNull(),
+  highPrice: decimal("high_price", { precision: 10, scale: 2 }),
+  lowPrice: decimal("low_price", { precision: 10, scale: 2 }),
+  volume: bigint("volume", { mode: "number" }),
+  
+  // Performance Metrics
+  dailyReturn: decimal("daily_return", { precision: 8, scale: 4 }), // percentage
+  cumulativeReturn: decimal("cumulative_return", { precision: 8, scale: 4 }), // percentage
+  unrealizedPnL: decimal("unrealized_pnl", { precision: 12, scale: 2 }),
+  
+  // Technical Indicators (updated daily)
+  rsi: decimal("rsi", { precision: 5, scale: 2 }),
+  macd: decimal("macd", { precision: 8, scale: 4 }),
+  macdSignal: decimal("macd_signal", { precision: 8, scale: 4 }),
+  sma20: decimal("sma_20", { precision: 10, scale: 2 }),
+  sma50: decimal("sma_50", { precision: 10, scale: 2 }),
+  ema12: decimal("ema_12", { precision: 10, scale: 2 }),
+  ema26: decimal("ema_26", { precision: 10, scale: 2 }),
+  
+  // Risk Metrics
+  volatility: decimal("volatility", { precision: 8, scale: 4 }),
+  beta: decimal("beta", { precision: 6, scale: 4 }),
+  
+  // Events & Notes
+  events: jsonb("events"), // corporate actions, news, etc.
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const investmentIdeaAlerts = pgTable("investment_idea_alerts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ideaId: varchar("idea_id").references(() => investmentIdeas.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  alertType: varchar("alert_type").notNull(), // target_reached, stop_loss_triggered, technical_signal, news_alert
+  alertMessage: text("alert_message").notNull(),
+  triggerPrice: decimal("trigger_price", { precision: 10, scale: 2 }),
+  actualPrice: decimal("actual_price", { precision: 10, scale: 2 }),
+  
+  severity: varchar("severity").default("medium"), // low, medium, high, critical
+  isRead: boolean("is_read").default(false),
+  isActionable: boolean("is_actionable").default(false),
+  
+  triggeredAt: timestamp("triggered_at").default(sql`CURRENT_TIMESTAMP`),
+  readAt: timestamp("read_at"),
+});
+
+export const yieldTracker = pgTable("yield_tracker", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  ideaId: varchar("idea_id").references(() => investmentIdeas.id),
+  
+  // Portfolio/Strategy Details
+  strategyName: varchar("strategy_name").notNull(),
+  strategyType: varchar("strategy_type").notNull(), // single_stock, portfolio, sector_rotation, thematic
+  
+  // Performance Metrics
+  totalInvestment: decimal("total_investment", { precision: 15, scale: 2 }).notNull(),
+  currentValue: decimal("current_value", { precision: 15, scale: 2 }),
+  totalReturn: decimal("total_return", { precision: 15, scale: 2 }),
+  totalReturnPercent: decimal("total_return_percent", { precision: 8, scale: 4 }),
+  
+  // Yield Calculations
+  dividendYield: decimal("dividend_yield", { precision: 6, scale: 4 }),
+  capitalGainsYield: decimal("capital_gains_yield", { precision: 8, scale: 4 }),
+  totalYield: decimal("total_yield", { precision: 8, scale: 4 }),
+  annualizedReturn: decimal("annualized_return", { precision: 8, scale: 4 }),
+  
+  // Risk-Adjusted Returns
+  sharpeRatio: decimal("sharpe_ratio", { precision: 6, scale: 4 }),
+  sortinoRatio: decimal("sortino_ratio", { precision: 6, scale: 4 }),
+  maxDrawdown: decimal("max_drawdown", { precision: 8, scale: 4 }),
+  volatility: decimal("volatility", { precision: 8, scale: 4 }),
+  
+  // Benchmarking
+  benchmarkReturn: decimal("benchmark_return", { precision: 8, scale: 4 }),
+  alpha: decimal("alpha", { precision: 8, scale: 4 }),
+  beta: decimal("beta", { precision: 6, scale: 4 }),
+  
+  // Time Tracking
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date"),
+  daysActive: integer("days_active"),
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  
+  lastUpdated: timestamp("last_updated").default(sql`CURRENT_TIMESTAMP`),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Investment Ideas Zod schemas
+export const insertInvestmentIdeaSchema = createInsertSchema(investmentIdeas).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertInvestmentIdeaTrackingSchema = createInsertSchema(investmentIdeaTracking).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertInvestmentIdeaAlertSchema = createInsertSchema(investmentIdeaAlerts).omit({
+  id: true,
+  triggeredAt: true,
+});
+
+export const insertYieldTrackerSchema = createInsertSchema(yieldTracker).omit({
+  id: true,
+  createdAt: true,
+  lastUpdated: true,
+});
+
+// Investment Ideas types
+export type InvestmentIdea = typeof investmentIdeas.$inferSelect;
+export type InsertInvestmentIdea = z.infer<typeof insertInvestmentIdeaSchema>;
+export type InvestmentIdeaTracking = typeof investmentIdeaTracking.$inferSelect;
+export type InsertInvestmentIdeaTracking = z.infer<typeof insertInvestmentIdeaTrackingSchema>;
+export type InvestmentIdeaAlert = typeof investmentIdeaAlerts.$inferSelect;
+export type InsertInvestmentIdeaAlert = z.infer<typeof insertInvestmentIdeaAlertSchema>;
+export type YieldTracker = typeof yieldTracker.$inferSelect;
+export type InsertYieldTracker = z.infer<typeof insertYieldTrackerSchema>;
