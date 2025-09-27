@@ -33,7 +33,7 @@ import { RiskAssessment } from "@/components/wealth/risk-assessment";
 import { InvestmentRecommendations } from "@/components/wealth/investment-recommendations";
 import { Proposals } from "@/components/wealth/proposals";
 
-export default function InvestSmart() {
+export default function PremiumInvestments() {
   const [activeTab, setActiveTab] = useState("dashboard");
 
   // Investment capacity analysis based on CIBIL obligations
@@ -64,8 +64,8 @@ export default function InvestSmart() {
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
         <div className="text-center space-y-2">
-          <h1 className="text-4xl font-bold text-gray-900">FintekPro InvestSmart</h1>
-          <p className="text-xl text-muted-foreground">Transform your ₹72,000 monthly surplus into ₹4.2 crores - Your CIBIL profile is perfect for wealth building</p>
+          <h1 className="text-4xl font-bold text-gray-900">FintekPro Premium Investments</h1>
+          <p className="text-xl text-muted-foreground">Access REITs, InvITs, PMS & AIF with your ₹72,000 monthly surplus - Elite investment opportunities for sophisticated investors</p>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
