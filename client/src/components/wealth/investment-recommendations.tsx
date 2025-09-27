@@ -1038,8 +1038,19 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
         </CardContent>
       </Card>
 
-          {/* AI Timeline & Milestones */}
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* AI Timeline & Milestones */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-gray-900">
+            <Clock className="w-5 h-5 text-gray-600" />
+            AI Investment Timeline & Milestones
+          </CardTitle>
+          <CardDescription className="text-gray-700">
+            Strategic milestones in your premium investment journey
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card className="border-green-200 bg-green-50">
               <CardContent className="p-4 text-center">
                 <div className="space-y-2">
@@ -1164,8 +1175,7 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
       </Card>
 
       {/* No Recommendations State */}
-      {(!goalRecommendations || !Array.isArray(goalRecommendations) || goalRecommendations.length === 0) && 
-       (!rebalanceRecommendations || !Array.isArray(rebalanceRecommendations) || rebalanceRecommendations.length === 0) && (
+      {(!goalRecommendations?.length && !rebalanceRecommendations?.length) && (
         <Card data-testid="card-no-recommendations">
           <CardContent className="p-6 text-center space-y-4">
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
