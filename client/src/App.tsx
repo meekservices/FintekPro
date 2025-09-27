@@ -34,6 +34,7 @@ import WhatsAppAuthPage from "@/pages/whatsapp-auth-page";
 import AgentDashboard from "@/pages/agent-dashboard";
 import IBTradingPage from "@/pages/ib-trading";
 import Store from "@/pages/store";
+import GiftCity from "@/pages/gift-city";
 import Cart from "@/pages/cart";
 import ApiMonitorDemo from "@/pages/api-monitor-demo";
 import ICICILoans from "@/pages/icici-loans";
@@ -123,6 +124,7 @@ function UserProtectedRoutes() {
         <Route path="/investment-dashboard" component={InvestmentDashboard} />
         <Route path="/ib-trading" component={IBTradingPage} />
         <Route path="/store" component={Store} />
+        <Route path="/gift-city" component={GiftCity} />
         <Route path="/cart" component={Cart} />
         <Route path="/api-monitor" component={ApiMonitorDemo} />
         <Route path="/icici-loans" component={ICICILoans} />

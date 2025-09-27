@@ -313,7 +313,7 @@ const categoryInfo = {
   }
 };
 
-export default function Store() {
+export default function StorePage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedSubcategory, setSelectedSubcategory] = useState("All");
