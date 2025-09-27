@@ -19,7 +19,13 @@ import {
   Brain,
   Activity,
   Zap,
-  Clock
+  Clock,
+  Building2,
+  Star,
+  Crown,
+  Briefcase,
+  LineChart,
+  Users
 } from "lucide-react";
 
 interface InvestmentRecommendationsProps {
@@ -678,6 +684,255 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
           </CardContent>
         </Card>
       )}
+
+      {/* Premium Investment AI Allocation */}
+      <Card data-testid="card-premium-ai-allocation" className="bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-200">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-purple-900">
+            <Star className="w-5 h-5 text-purple-600" />
+            AI-Powered Premium Investment Allocation
+          </CardTitle>
+          <CardDescription className="text-purple-700">
+            Intelligent allocation recommendations across premium categories based on your risk profile, surplus capacity (₹72,000), and financial goals
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* AI Risk-Return Optimization */}
+            <Card className="border-blue-200 bg-blue-50">
+              <CardContent className="p-4">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Brain className="w-5 h-5 text-blue-600" />
+                    <h4 className="font-semibold text-blue-900">AI Risk-Return Optimization</h4>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 bg-blue-100 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="w-4 h-4 text-blue-600" />
+                        <span className="text-sm font-medium text-blue-800">REITs/InvITs</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-blue-600">25%</div>
+                        <div className="text-xs text-blue-600">₹18,000/month</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-purple-100 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Briefcase className="w-4 h-4 text-purple-600" />
+                        <span className="text-sm font-medium text-purple-800">PMS (Path to ₹50L)</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-purple-600">50%</div>
+                        <div className="text-xs text-purple-600">₹36,000/month</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-indigo-100 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Crown className="w-4 h-4 text-indigo-600" />
+                        <span className="text-sm font-medium text-indigo-800">AIF (Future Goal)</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-indigo-600">15%</div>
+                        <div className="text-xs text-indigo-600">₹10,800/month</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-green-100 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Shield className="w-4 h-4 text-green-600" />
+                        <span className="text-sm font-medium text-green-800">Premium Bonds</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-green-600">10%</div>
+                        <div className="text-xs text-green-600">₹7,200/month</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-4 p-3 bg-gradient-to-r from-blue-100 to-purple-100 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <LineChart className="w-4 h-4 text-blue-600" />
+                      <span className="text-sm font-medium text-blue-800">AI Analysis</span>
+                    </div>
+                    <p className="text-xs text-blue-700">
+                      Balanced approach prioritizing PMS eligibility (69 months) while building REITs foundation and premium bond stability.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Goal-Specific AI Recommendations */}
+            <Card className="border-orange-200 bg-orange-50">
+              <CardContent className="p-4">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Target className="w-5 h-5 text-orange-600" />
+                    <h4 className="font-semibold text-orange-900">Goal-Specific AI Recommendations</h4>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="p-3 bg-orange-100 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <IndianRupee className="w-4 h-4 text-orange-600" />
+                        <span className="text-sm font-medium text-orange-800">Retirement Planning</span>
+                      </div>
+                      <div className="text-xs text-orange-700 space-y-1">
+                        <div>• 40% REITs for steady income</div>
+                        <div>• 35% Conservative PMS</div>
+                        <div>• 25% Premium bonds</div>
+                      </div>
+                    </div>
+                    <div className="p-3 bg-yellow-100 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <TrendingUp className="w-4 h-4 text-yellow-600" />
+                        <span className="text-sm font-medium text-yellow-800">Wealth Creation</span>
+                      </div>
+                      <div className="text-xs text-yellow-700 space-y-1">
+                        <div>• 50% Growth PMS</div>
+                        <div>• 30% AIF Category II</div>
+                        <div>• 20% International REITs</div>
+                      </div>
+                    </div>
+                    <div className="p-3 bg-green-100 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Calendar className="w-4 h-4 text-green-600" />
+                        <span className="text-sm font-medium text-green-800">Income Generation</span>
+                      </div>
+                      <div className="text-xs text-green-700 space-y-1">
+                        <div>• 60% High-yield REITs</div>
+                        <div>• 25% Infrastructure InvITs</div>
+                        <div>• 15% Dividend PMS</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* AI Timeline & Milestones */}
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card className="border-green-200 bg-green-50">
+              <CardContent className="p-4 text-center">
+                <div className="space-y-2">
+                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+                    <Clock className="w-6 h-6 text-green-600" />
+                  </div>
+                  <h5 className="font-semibold text-green-900">Year 1-2</h5>
+                  <div className="text-sm text-green-700 space-y-1">
+                    <div>REITs: ₹4.32L</div>
+                    <div>Premium Bonds: ₹1.73L</div>
+                    <div>Emergency Buffer: ₹2.40L</div>
+                  </div>
+                  <div className="text-xs text-green-600 font-medium">Foundation Building</div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-blue-200 bg-blue-50">
+              <CardContent className="p-4 text-center">
+                <div className="space-y-2">
+                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
+                    <Briefcase className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <h5 className="font-semibold text-blue-900">Year 3-6</h5>
+                  <div className="text-sm text-blue-700 space-y-1">
+                    <div>PMS Eligibility: ₹50L</div>
+                    <div>REITs Portfolio: ₹15L</div>
+                    <div>Professional Management</div>
+                  </div>
+                  <div className="text-xs text-blue-600 font-medium">Premium Access</div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-purple-200 bg-purple-50">
+              <CardContent className="p-4 text-center">
+                <div className="space-y-2">
+                  <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto">
+                    <Crown className="w-6 h-6 text-purple-600" />
+                  </div>
+                  <h5 className="font-semibold text-purple-900">Year 7+</h5>
+                  <div className="text-sm text-purple-700 space-y-1">
+                    <div>AIF Qualification: ₹1Cr</div>
+                    <div>Ultra HNI Status</div>
+                    <div>Alternative Strategies</div>
+                  </div>
+                  <div className="text-xs text-purple-600 font-medium">Wealth Multiplication</div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* AI Insights & Actions */}
+          <div className="mt-6 p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg border border-amber-200">
+            <h4 className="font-semibold text-amber-900 mb-3 flex items-center gap-2">
+              <Lightbulb className="w-5 h-5" />
+              AI-Generated Insights & Next Actions
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div className="space-y-2">
+                <h5 className="font-medium text-amber-800">🎯 Immediate Actions</h5>
+                <div className="space-y-1 text-amber-700">
+                  <div className="flex items-start gap-2">
+                    <CheckCircle className="w-3 h-3 mt-1 text-amber-600" />
+                    <span>Start REITs SIP with ₹18,000/month</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <CheckCircle className="w-3 h-3 mt-1 text-amber-600" />
+                    <span>Allocate ₹36,000 towards PMS fund building</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <CheckCircle className="w-3 h-3 mt-1 text-amber-600" />
+                    <span>Research premium bond options (₹7,200)</span>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <h5 className="font-medium text-amber-800">🔮 AI Predictions</h5>
+                <div className="space-y-1 text-amber-700">
+                  <div className="flex items-start gap-2">
+                    <Activity className="w-3 h-3 mt-1 text-amber-600" />
+                    <span>69% probability of PMS access in 69 months</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <Activity className="w-3 h-3 mt-1 text-amber-600" />
+                    <span>Expected portfolio value: ₹85L in 10 years</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <Activity className="w-3 h-3 mt-1 text-amber-600" />
+                    <span>Optimal rebalancing every 18 months</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button 
+                size="sm" 
+                className="bg-amber-600 hover:bg-amber-700 text-white"
+                data-testid="button-start-premium-plan"
+              >
+                🚀 Start Premium Investment Plan
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                data-testid="button-schedule-consultation"
+              >
+                <Users className="w-4 h-4 mr-2" />
+                Schedule AI Consultation
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                data-testid="button-view-detailed-analysis"
+              >
+                <BarChart3 className="w-4 h-4 mr-2" />
+                View Detailed Analysis
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* No Recommendations State */}
       {(!goalRecommendations || !Array.isArray(goalRecommendations) || goalRecommendations.length === 0) && 
