@@ -25,7 +25,8 @@ import {
   Crown,
   Briefcase,
   LineChart,
-  Users
+  Users,
+  Coins
 } from "lucide-react";
 
 interface InvestmentRecommendationsProps {
@@ -36,6 +37,7 @@ interface InvestmentRecommendationsProps {
 export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRecommendationsProps) {
   const [selectedRecommendation, setSelectedRecommendation] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [selectedRiskProfile, setSelectedRiskProfile] = useState<'conservative' | 'moderate' | 'aggressive'>('moderate');
 
   // Fetch goal-based recommendations if goalId is provided
   const { data: goalRecommendations, isLoading: goalLoading } = useQuery<any[]>({
@@ -66,6 +68,47 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
     queryKey: ["/api/ai-investsmart-health"],
     refetchInterval: 60000, // Refresh every minute
   });
+
+  // Comprehensive allocation models based on risk profile
+  const getAllocationModels = () => {
+    return {
+      conservative: {
+        corePortfolio: { total: 70, equity: 35, debt: 25, hybrid: 10 },
+        alternatives: { total: 20, gold: 12, silver: 5, commodities: 3 },
+        premium: { total: 10, reits: 4, pms: 3, aif: 1, bonds: 2 },
+        analysis: {
+          expectedReturn: "10-12%",
+          riskLevel: "Low",
+          maturityPeriod: "5-7 years",
+          recommendation: "Stable growth with capital preservation. Heavy emphasis on debt funds and gold for inflation protection."
+        }
+      },
+      moderate: {
+        corePortfolio: { total: 60, equity: 35, debt: 15, hybrid: 10 },
+        alternatives: { total: 25, gold: 15, silver: 5, commodities: 5 },
+        premium: { total: 15, reits: 6, pms: 5, aif: 2, bonds: 2 },
+        analysis: {
+          expectedReturn: "12-15%",
+          riskLevel: "Medium",
+          maturityPeriod: "7-10 years",
+          recommendation: "Balanced approach optimizing growth with risk management. Strategic allocation to premium investments for enhanced returns."
+        }
+      },
+      aggressive: {
+        corePortfolio: { total: 50, equity: 40, debt: 5, hybrid: 5 },
+        alternatives: { total: 25, gold: 10, silver: 5, commodities: 10 },
+        premium: { total: 25, reits: 8, pms: 10, aif: 5, bonds: 2 },
+        analysis: {
+          expectedReturn: "15-18%",
+          riskLevel: "High",
+          maturityPeriod: "10+ years",
+          recommendation: "Growth-focused strategy with significant premium investment allocation. Higher commodity exposure for market opportunities."
+        }
+      }
+    };
+  };
+
+  const getCurrentAllocation = () => getAllocationModels()[selectedRiskProfile];
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -685,89 +728,273 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
         </Card>
       )}
 
-      {/* Premium Investment AI Allocation */}
-      <Card data-testid="card-premium-ai-allocation" className="bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-200">
+      {/* Comprehensive AI Asset Allocation */}
+      <Card data-testid="card-comprehensive-ai-allocation" className="bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-200">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-purple-900">
             <Star className="w-5 h-5 text-purple-600" />
-            AI-Powered Premium Investment Allocation
+            AI-Powered Comprehensive Asset Allocation
           </CardTitle>
           <CardDescription className="text-purple-700">
-            Intelligent allocation recommendations across premium categories based on your risk profile, surplus capacity (₹72,000), and financial goals
+            Intelligent allocation across all asset classes: Core Portfolio (Mutual Funds), Alternative Assets (Commodities & Precious Metals), and Premium Investments - optimized for ₹72,000 monthly surplus
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* AI Risk-Return Optimization */}
-            <Card className="border-blue-200 bg-blue-50">
+          {/* Risk Profile Selector */}
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <Brain className="w-5 h-5 text-purple-600" />
+              <h4 className="font-semibold text-purple-900">Select Risk Profile</h4>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <Button 
+                variant={selectedRiskProfile === 'conservative' ? 'default' : 'outline'}
+                size="sm"
+                className="h-auto p-3 flex flex-col items-center gap-1"
+                data-testid="button-conservative-risk"
+                onClick={() => setSelectedRiskProfile('conservative')}
+              >
+                <Shield className="w-4 h-4" />
+                <span className="text-xs font-medium">Conservative</span>
+                <span className="text-xs text-muted-foreground">Low Risk</span>
+              </Button>
+              <Button 
+                variant={selectedRiskProfile === 'moderate' ? 'default' : 'outline'}
+                size="sm"
+                className="h-auto p-3 flex flex-col items-center gap-1"
+                data-testid="button-moderate-risk"
+                onClick={() => setSelectedRiskProfile('moderate')}
+              >
+                <Target className="w-4 h-4" />
+                <span className="text-xs font-medium">Moderate</span>
+                <span className="text-xs text-muted-foreground">Balanced</span>
+              </Button>
+              <Button 
+                variant={selectedRiskProfile === 'aggressive' ? 'default' : 'outline'}
+                size="sm"
+                className="h-auto p-3 flex flex-col items-center gap-1"
+                data-testid="button-aggressive-risk"
+                onClick={() => setSelectedRiskProfile('aggressive')}
+              >
+                <TrendingUp className="w-4 h-4" />
+                <span className="text-xs font-medium">Aggressive</span>
+                <span className="text-xs text-muted-foreground">High Growth</span>
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Core Portfolio - Mutual Funds */}
+            <Card className="border-green-200 bg-green-50">
               <CardContent className="p-4">
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
-                    <Brain className="w-5 h-5 text-blue-600" />
-                    <h4 className="font-semibold text-blue-900">AI Risk-Return Optimization</h4>
+                    <PieChart className="w-5 h-5 text-green-600" />
+                    <h4 className="font-semibold text-green-900">Core Portfolio</h4>
+                    <span className="text-xs bg-green-200 text-green-800 px-2 py-1 rounded">{getCurrentAllocation().corePortfolio.total}%</span>
                   </div>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between p-3 bg-blue-100 rounded-lg">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between p-2 bg-green-100 rounded">
                       <div className="flex items-center gap-2">
-                        <Building2 className="w-4 h-4 text-blue-600" />
-                        <span className="text-sm font-medium text-blue-800">REITs/InvITs</span>
+                        <div className="w-2 h-2 bg-green-600 rounded-full"></div>
+                        <span className="text-xs font-medium text-green-800">Equity Funds</span>
                       </div>
                       <div className="text-right">
-                        <div className="text-lg font-bold text-blue-600">25%</div>
-                        <div className="text-xs text-blue-600">₹18,000/month</div>
+                        <div className="text-sm font-bold text-green-600">{getCurrentAllocation().corePortfolio.equity}%</div>
+                        <div className="text-xs text-green-600">₹{(72000 * getCurrentAllocation().corePortfolio.equity / 100).toLocaleString()}/month</div>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between p-3 bg-purple-100 rounded-lg">
+                    <div className="flex items-center justify-between p-2 bg-green-100 rounded">
                       <div className="flex items-center gap-2">
-                        <Briefcase className="w-4 h-4 text-purple-600" />
-                        <span className="text-sm font-medium text-purple-800">PMS (Path to ₹50L)</span>
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span className="text-xs font-medium text-green-800">Debt Funds</span>
                       </div>
                       <div className="text-right">
-                        <div className="text-lg font-bold text-purple-600">50%</div>
-                        <div className="text-xs text-purple-600">₹36,000/month</div>
+                        <div className="text-sm font-bold text-green-600">{getCurrentAllocation().corePortfolio.debt}%</div>
+                        <div className="text-xs text-green-600">₹{(72000 * getCurrentAllocation().corePortfolio.debt / 100).toLocaleString()}/month</div>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between p-3 bg-indigo-100 rounded-lg">
+                    <div className="flex items-center justify-between p-2 bg-green-100 rounded">
                       <div className="flex items-center gap-2">
-                        <Crown className="w-4 h-4 text-indigo-600" />
-                        <span className="text-sm font-medium text-indigo-800">AIF (Future Goal)</span>
+                        <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                        <span className="text-xs font-medium text-green-800">Hybrid Funds</span>
                       </div>
                       <div className="text-right">
-                        <div className="text-lg font-bold text-indigo-600">15%</div>
-                        <div className="text-xs text-indigo-600">₹10,800/month</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-green-100 rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <Shield className="w-4 h-4 text-green-600" />
-                        <span className="text-sm font-medium text-green-800">Premium Bonds</span>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-lg font-bold text-green-600">10%</div>
-                        <div className="text-xs text-green-600">₹7,200/month</div>
+                        <div className="text-sm font-bold text-green-600">{getCurrentAllocation().corePortfolio.hybrid}%</div>
+                        <div className="text-xs text-green-600">₹{(72000 * getCurrentAllocation().corePortfolio.hybrid / 100).toLocaleString()}/month</div>
                       </div>
                     </div>
                   </div>
-                  <div className="mt-4 p-3 bg-gradient-to-r from-blue-100 to-purple-100 rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <LineChart className="w-4 h-4 text-blue-600" />
-                      <span className="text-sm font-medium text-blue-800">AI Analysis</span>
-                    </div>
-                    <p className="text-xs text-blue-700">
-                      Balanced approach prioritizing PMS eligibility (69 months) while building REITs foundation and premium bond stability.
+                  <div className="p-2 bg-gradient-to-r from-green-100 to-emerald-100 rounded">
+                    <p className="text-xs text-green-700">
+                      Foundation of diversified portfolio with professional management and liquidity
                     </p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Goal-Specific AI Recommendations */}
+            {/* Alternative Assets */}
+            <Card className="border-amber-200 bg-amber-50">
+              <CardContent className="p-4">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Coins className="w-5 h-5 text-amber-600" />
+                    <h4 className="font-semibold text-amber-900">Alternative Assets</h4>
+                    <span className="text-xs bg-amber-200 text-amber-800 px-2 py-1 rounded">{getCurrentAllocation().alternatives.total}%</span>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between p-2 bg-amber-100 rounded">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-yellow-600 rounded-full"></div>
+                        <span className="text-xs font-medium text-amber-800">Gold ETF/Digital</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-bold text-amber-600">{getCurrentAllocation().alternatives.gold}%</div>
+                        <div className="text-xs text-amber-600">₹{(72000 * getCurrentAllocation().alternatives.gold / 100).toLocaleString()}/month</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between p-2 bg-amber-100 rounded">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                        <span className="text-xs font-medium text-amber-800">Silver ETF</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-bold text-amber-600">{getCurrentAllocation().alternatives.silver}%</div>
+                        <div className="text-xs text-amber-600">₹{(72000 * getCurrentAllocation().alternatives.silver / 100).toLocaleString()}/month</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between p-2 bg-amber-100 rounded">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-amber-600 rounded-full"></div>
+                        <span className="text-xs font-medium text-amber-800">Commodities</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-bold text-amber-600">{getCurrentAllocation().alternatives.commodities}%</div>
+                        <div className="text-xs text-amber-600">₹{(72000 * getCurrentAllocation().alternatives.commodities / 100).toLocaleString()}/month</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-2 bg-gradient-to-r from-amber-100 to-yellow-100 rounded">
+                    <p className="text-xs text-amber-700">
+                      Inflation hedge and portfolio diversification through precious metals and commodities
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Premium Investments */}
+            <Card className="border-blue-200 bg-blue-50">
+              <CardContent className="p-4">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Crown className="w-5 h-5 text-blue-600" />
+                    <h4 className="font-semibold text-blue-900">Premium Investments</h4>
+                    <span className="text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded">{getCurrentAllocation().premium.total}%</span>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between p-2 bg-blue-100 rounded">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="w-3 h-3 text-blue-600" />
+                        <span className="text-xs font-medium text-blue-800">REITs/InvITs</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-bold text-blue-600">{getCurrentAllocation().premium.reits}%</div>
+                        <div className="text-xs text-blue-600">₹{(72000 * getCurrentAllocation().premium.reits / 100).toLocaleString()}/month</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between p-2 bg-purple-100 rounded">
+                      <div className="flex items-center gap-2">
+                        <Briefcase className="w-3 h-3 text-purple-600" />
+                        <span className="text-xs font-medium text-purple-800">PMS</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-bold text-purple-600">{getCurrentAllocation().premium.pms}%</div>
+                        <div className="text-xs text-purple-600">₹{(72000 * getCurrentAllocation().premium.pms / 100).toLocaleString()}/month</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between p-2 bg-indigo-100 rounded">
+                      <div className="flex items-center gap-2">
+                        <Star className="w-3 h-3 text-indigo-600" />
+                        <span className="text-xs font-medium text-indigo-800">AIF</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-bold text-indigo-600">{getCurrentAllocation().premium.aif}%</div>
+                        <div className="text-xs text-indigo-600">₹{(72000 * getCurrentAllocation().premium.aif / 100).toLocaleString()}/month</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between p-2 bg-green-100 rounded">
+                      <div className="flex items-center gap-2">
+                        <Shield className="w-3 h-3 text-green-600" />
+                        <span className="text-xs font-medium text-green-800">Premium Bonds</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-bold text-green-600">{getCurrentAllocation().premium.bonds}%</div>
+                        <div className="text-xs text-green-600">₹{(72000 * getCurrentAllocation().premium.bonds / 100).toLocaleString()}/month</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-2 bg-gradient-to-r from-blue-100 to-purple-100 rounded">
+                    <p className="text-xs text-blue-700">
+                      High-ticket investments for enhanced returns and portfolio sophistication
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* AI Analysis Summary */}
+          <div className="mt-6 p-4 bg-gradient-to-r from-purple-100 to-indigo-100 rounded-lg border border-purple-200">
+            <div className="flex items-center gap-2 mb-3">
+              <Brain className="w-5 h-5 text-purple-600" />
+              <h4 className="font-semibold text-purple-900">AI Portfolio Analysis - {selectedRiskProfile.charAt(0).toUpperCase() + selectedRiskProfile.slice(1)} Profile</h4>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-purple-700">Expected Annual Return:</span>
+                  <span className="font-semibold text-purple-900">{getCurrentAllocation().analysis.expectedReturn}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-purple-700">Risk Level:</span>
+                  <span className="font-semibold text-purple-900">{getCurrentAllocation().analysis.riskLevel}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-purple-700">Portfolio Maturity:</span>
+                  <span className="font-semibold text-purple-900">{getCurrentAllocation().analysis.maturityPeriod}</span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <p className="text-xs text-purple-700">
+                  {getCurrentAllocation().analysis.recommendation}
+                </p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Goal-Specific AI Recommendations */}
+      <Card className="bg-gradient-to-r from-orange-50 to-yellow-50 border-orange-200 mt-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-orange-900">
+            <Target className="w-5 h-5 text-orange-600" />
+            Goal-Specific AI Investment Strategies
+          </CardTitle>
+          <CardDescription className="text-orange-700">
+            Tailored allocation recommendations based on specific financial objectives
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <Card className="border-orange-200 bg-orange-50">
               <CardContent className="p-4">
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
                     <Target className="w-5 h-5 text-orange-600" />
-                    <h4 className="font-semibold text-orange-900">Goal-Specific AI Recommendations</h4>
+                    <h4 className="font-semibold text-orange-900">Retirement Planning</h4>
                   </div>
                   <div className="space-y-3">
                     <div className="p-3 bg-orange-100 rounded-lg">
@@ -808,6 +1035,8 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
               </CardContent>
             </Card>
           </div>
+        </CardContent>
+      </Card>
 
           {/* AI Timeline & Milestones */}
           <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
