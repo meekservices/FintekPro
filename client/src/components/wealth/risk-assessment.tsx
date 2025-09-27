@@ -15,7 +15,13 @@ import {
   BarChart3,
   Zap,
   Calculator,
-  Clock
+  Clock,
+  Building2,
+  Star,
+  Crown,
+  FileText,
+  IndianRupee,
+  Briefcase
 } from "lucide-react";
 
 interface RiskQuestion {
@@ -31,6 +37,28 @@ interface InvestmentRecommendation {
   riskLevel: string;
   expectedReturn: string;
   liquidity: string;
+}
+
+interface PremiumInvestmentSuitability {
+  category: 'REITs/InvITs' | 'PMS' | 'AIF' | 'Premium Bonds';
+  suitabilityScore: number;
+  suitabilityLevel: 'Not Suitable' | 'Suitable with Caution' | 'Suitable' | 'Highly Suitable';
+  minInvestment: string;
+  riskProfile: string;
+  expectedReturns: string;
+  regulations: string[];
+  pros: string[];
+  cons: string[];
+  timelineToAccess: string;
+  monthlyInvestmentSuggestion: string;
+}
+
+interface FinancialProfile {
+  monthlyIncome: number;
+  monthlyExpenses: number;
+  existingInvestments: number;
+  liquidCash: number;
+  riskCapacity: number;
 }
 
 const riskQuestions: RiskQuestion[] = [
@@ -85,6 +113,139 @@ const riskQuestions: RiskQuestion[] = [
     ]
   }
 ];
+
+const getPremiumInvestmentSuitability = (riskProfile: string, riskScore: number): PremiumInvestmentSuitability[] => {
+  // Simulated financial profile - in real app this would come from user data
+  const financialProfile: FinancialProfile = {
+    monthlyIncome: 150000,
+    monthlyExpenses: 78000,
+    existingInvestments: 850000,
+    liquidCash: 250000,
+    riskCapacity: 72000 // Monthly surplus
+  };
+
+  const assessments: PremiumInvestmentSuitability[] = [
+    {
+      category: 'REITs/InvITs',
+      suitabilityScore: riskScore >= 10 ? 85 : riskScore >= 8 ? 70 : 45,
+      suitabilityLevel: riskScore >= 12 ? 'Highly Suitable' : riskScore >= 10 ? 'Suitable' : riskScore >= 8 ? 'Suitable with Caution' : 'Not Suitable',
+      minInvestment: '₹10,000-₹25,000',
+      riskProfile: 'Low to Medium Risk',
+      expectedReturns: '7-9% annually',
+      regulations: [
+        'NEW: 1-year holding for LTCG (Budget 2024-25)',
+        '₹1.25L annual LTCG exemption',
+        '12.5% tax on LTCG above exemption',
+        'Regular dividend income taxable'
+      ],
+      pros: [
+        'Professional real estate management',
+        'Diversified property portfolio',
+        'Regular dividend distributions',
+        'Exchange-traded liquidity',
+        'Lower entry barrier than direct real estate'
+      ],
+      cons: [
+        'Market volatility affects NAV',
+        'Interest rate sensitivity',
+        'Management fees (1-2%)',
+        'Limited growth compared to direct equity'
+      ],
+      timelineToAccess: 'Immediate',
+      monthlyInvestmentSuggestion: `₹${(financialProfile.riskCapacity * 0.15).toLocaleString('en-IN')}`
+    },
+    {
+      category: 'PMS',
+      suitabilityScore: riskScore >= 12 ? 75 : riskScore >= 10 ? 65 : 35,
+      suitabilityLevel: riskScore >= 12 ? 'Suitable' : riskScore >= 10 ? 'Suitable with Caution' : 'Not Suitable',
+      minInvestment: '₹50,00,000',
+      riskProfile: 'Medium to High Risk',
+      expectedReturns: '12-18% annually',
+      regulations: [
+        'SEBI registered investment advisors',
+        'Minimum ₹50L investment mandatory',
+        'Direct equity/debt investments',
+        'Customized portfolio management'
+      ],
+      pros: [
+        'Professional fund management',
+        'Customized investment strategy',
+        'Direct ownership of securities',
+        'Potential for alpha generation',
+        'Tax-efficient compared to mutual funds'
+      ],
+      cons: [
+        'High minimum investment',
+        'Management fees (2-3% + performance)',
+        'Manager risk dependency',
+        'Less regulatory oversight than MFs'
+      ],
+      timelineToAccess: `${Math.ceil(5000000 / financialProfile.riskCapacity)} months with ₹72K monthly`,
+      monthlyInvestmentSuggestion: `Save ₹${financialProfile.riskCapacity.toLocaleString('en-IN')} towards PMS goal`
+    },
+    {
+      category: 'AIF',
+      suitabilityScore: riskScore >= 15 ? 80 : riskScore >= 12 ? 65 : 30,
+      suitabilityLevel: riskScore >= 15 ? 'Suitable' : riskScore >= 12 ? 'Suitable with Caution' : 'Not Suitable',
+      minInvestment: '₹1,00,00,000',
+      riskProfile: 'High to Very High Risk',
+      expectedReturns: '15-25% annually',
+      regulations: [
+        'SEBI Category I/II/III classification',
+        'Minimum ₹1Cr investment per investor',
+        'Maximum 1000 investors per fund',
+        'Sophisticated investor requirements'
+      ],
+      pros: [
+        'Access to alternative strategies',
+        'Potential for superior returns',
+        'Professional management',
+        'Diversification beyond traditional assets',
+        'Tax pass-through benefits'
+      ],
+      cons: [
+        'Very high minimum investment',
+        'Limited liquidity (lock-in periods)',
+        'Complex strategies and risks',
+        'High fees and carry structures',
+        'Manager and strategy risk'
+      ],
+      timelineToAccess: `${Math.ceil(10000000 / financialProfile.riskCapacity)} months with ₹72K monthly`,
+      monthlyInvestmentSuggestion: `Build wealth systematically towards ₹1Cr target`
+    },
+    {
+      category: 'Premium Bonds',
+      suitabilityScore: riskScore >= 6 ? 90 : 80,
+      suitabilityLevel: riskScore >= 8 ? 'Highly Suitable' : 'Suitable',
+      minInvestment: '₹10,000',
+      riskProfile: 'Low to Medium Risk',
+      expectedReturns: '8-12% annually',
+      regulations: [
+        'Corporate bonds - SEBI regulated',
+        'Tax-free bonds - Government backed',
+        'NCDs with credit ratings',
+        'Regular interest payments'
+      ],
+      pros: [
+        'Fixed income predictability',
+        'Credit rating transparency',
+        'Better yields than FDs',
+        'Portfolio diversification',
+        'Tax benefits (for tax-free bonds)'
+      ],
+      cons: [
+        'Interest rate risk',
+        'Credit risk for corporate bonds',
+        'Limited liquidity in secondary market',
+        'Inflation impact on real returns'
+      ],
+      timelineToAccess: 'Immediate',
+      monthlyInvestmentSuggestion: `₹${(financialProfile.riskCapacity * 0.25).toLocaleString('en-IN')}`
+    }
+  ];
+
+  return assessments;
+};
 
 export function RiskAssessment() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -226,6 +387,7 @@ export function RiskAssessment() {
   const allQuestionsAnswered = riskQuestions.every(q => answers[q.id]);
   const profileInfo = getRiskProfileDescription();
   const recommendations = getInvestmentRecommendations();
+  const premiumAssessments = showResults ? getPremiumInvestmentSuitability(riskProfile, riskScore) : [];
 
   return (
     <div className="space-y-6">
@@ -399,6 +561,167 @@ export function RiskAssessment() {
                     ))}
                   </div>
                 </div>
+
+                {/* Premium Investment Suitability Assessment */}
+                <Card data-testid="card-premium-investment-suitability" className="bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-amber-800">
+                      <Star className="w-5 h-5 text-amber-600" />
+                      Premium Investment Suitability Assessment
+                    </CardTitle>
+                    <CardDescription className="text-amber-700">
+                      Based on your risk profile and financial capacity - aligned with current regulations
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {premiumAssessments.map((assessment, index) => (
+                        <Card key={index} className={`border-2 transition-colors ${
+                          assessment.suitabilityLevel === 'Highly Suitable' ? 'border-green-300 bg-green-50' :
+                          assessment.suitabilityLevel === 'Suitable' ? 'border-blue-300 bg-blue-50' :
+                          assessment.suitabilityLevel === 'Suitable with Caution' ? 'border-yellow-300 bg-yellow-50' :
+                          'border-red-300 bg-red-50'
+                        }`} data-testid={`premium-assessment-${index}`}>
+                          <CardContent className="p-4">
+                            <div className="space-y-4">
+                              {/* Header */}
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  {assessment.category === 'REITs/InvITs' ? <Building2 className="w-5 h-5 text-blue-600" /> :
+                                   assessment.category === 'PMS' ? <Briefcase className="w-5 h-5 text-purple-600" /> :
+                                   assessment.category === 'AIF' ? <Crown className="w-5 h-5 text-indigo-600" /> :
+                                   <FileText className="w-5 h-5 text-green-600" />}
+                                  <h4 className="font-semibold">{assessment.category}</h4>
+                                </div>
+                                <Badge variant={
+                                  assessment.suitabilityLevel === 'Highly Suitable' ? 'default' :
+                                  assessment.suitabilityLevel === 'Suitable' ? 'secondary' :
+                                  assessment.suitabilityLevel === 'Suitable with Caution' ? 'outline' :
+                                  'destructive'
+                                } className="text-xs">
+                                  {assessment.suitabilityLevel}
+                                </Badge>
+                              </div>
+
+                              {/* Suitability Score */}
+                              <div className="space-y-2">
+                                <div className="flex justify-between items-center">
+                                  <span className="text-sm font-medium">Suitability Score</span>
+                                  <span className="font-bold">{assessment.suitabilityScore}/100</span>
+                                </div>
+                                <Progress value={assessment.suitabilityScore} className="h-2" />
+                              </div>
+
+                              {/* Key Details */}
+                              <div className="grid grid-cols-2 gap-3 text-sm">
+                                <div>
+                                  <span className="text-muted-foreground">Min Investment:</span>
+                                  <p className="font-medium">{assessment.minInvestment}</p>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">Expected Returns:</span>
+                                  <p className="font-medium">{assessment.expectedReturns}</p>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">Risk Level:</span>
+                                  <p className="font-medium">{assessment.riskProfile}</p>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">Access Timeline:</span>
+                                  <p className="font-medium">{assessment.timelineToAccess}</p>
+                                </div>
+                              </div>
+
+                              {/* Current Regulations */}
+                              <div className="space-y-2">
+                                <h5 className="text-sm font-medium">📋 Current Regulations</h5>
+                                <div className="space-y-1">
+                                  {assessment.regulations.slice(0, 2).map((reg, regIndex) => (
+                                    <div key={regIndex} className="text-xs bg-blue-100 text-blue-800 p-2 rounded">
+                                      {reg}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* Pros & Cons */}
+                              <div className="grid grid-cols-1 gap-3">
+                                <div className="space-y-2">
+                                  <h5 className="text-sm font-medium text-green-700">✅ Key Benefits</h5>
+                                  <div className="space-y-1">
+                                    {assessment.pros.slice(0, 2).map((pro, proIndex) => (
+                                      <div key={proIndex} className="text-xs text-green-600 flex items-start gap-1">
+                                        <CheckCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                                        <span>{pro}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="space-y-2">
+                                  <h5 className="text-sm font-medium text-orange-700">⚠️ Key Risks</h5>
+                                  <div className="space-y-1">
+                                    {assessment.cons.slice(0, 2).map((con, conIndex) => (
+                                      <div key={conIndex} className="text-xs text-orange-600 flex items-start gap-1">
+                                        <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                                        <span>{con}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Investment Suggestion */}
+                              <div className="p-3 bg-amber-100 rounded-lg">
+                                <h5 className="text-sm font-medium text-amber-800 mb-1">💡 Investment Suggestion</h5>
+                                <p className="text-sm text-amber-700">{assessment.monthlyInvestmentSuggestion}</p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+
+                    {/* Overall Premium Investment Strategy */}
+                    <div className="mt-6 p-4 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg border border-purple-200">
+                      <h4 className="font-semibold text-purple-900 mb-3 flex items-center gap-2">
+                        <Star className="w-5 h-5" />
+                        Your Premium Investment Journey
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div className="space-y-2">
+                          <h5 className="font-medium text-purple-800">🎯 Start Now</h5>
+                          <div className="space-y-1">
+                            {premiumAssessments
+                              .filter(a => a.timelineToAccess === 'Immediate')
+                              .map((a, i) => (
+                                <div key={i} className="text-purple-700">• {a.category}</div>
+                              ))}
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <h5 className="font-medium text-purple-800">📈 Medium Term (2-6 years)</h5>
+                          <div className="space-y-1">
+                            {premiumAssessments
+                              .filter(a => a.category === 'PMS')
+                              .map((a, i) => (
+                                <div key={i} className="text-purple-700">• {a.category} - {a.timelineToAccess}</div>
+                              ))}
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <h5 className="font-medium text-purple-800">🏆 Long Term (7+ years)</h5>
+                          <div className="space-y-1">
+                            {premiumAssessments
+                              .filter(a => a.category === 'AIF')
+                              .map((a, i) => (
+                                <div key={i} className="text-purple-700">• {a.category} - {a.timelineToAccess}</div>
+                              ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
 
                 {/* Risk Management Tips */}
                 <Card data-testid="card-risk-management-tips">
