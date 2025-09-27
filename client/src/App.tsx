@@ -71,6 +71,7 @@ import LoanComparison from "@/pages/loan-comparison";
 import InvestmentDashboard from "@/pages/investment-dashboard";
 import NRIServices from "@/pages/nri-services";
 import ITRTaxServices from "@/pages/itr-tax-services";
+import DomesticTrading from "@/pages/domestic-trading";
 
 function UserProtectedRoutes() {
   return (
@@ -129,6 +130,7 @@ function UserProtectedRoutes() {
         <Route path="/gift-city" component={GiftCity} />
         <Route path="/nri-services" component={NRIServices} />
         <Route path="/itr-tax-services" component={ITRTaxServices} />
+        <Route path="/domestic-trading" component={DomesticTrading} />
         <Route path="/cart" component={Cart} />
         <Route path="/api-monitor" component={ApiMonitorDemo} />
         <Route path="/icici-loans" component={ICICILoans} />
