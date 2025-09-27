@@ -514,142 +514,189 @@ export default function PremiumInvestments() {
               </CardContent>
             </Card>
 
-            {/* High-Impact Investment Opportunities */}
-            <Card data-testid="card-high-impact-investments">
+            {/* Premium Investment Opportunities */}
+            <Card data-testid="card-premium-investments" className="bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-emerald-600" />
-                  🚀 High-Impact Investment Opportunities
+                <CardTitle className="flex items-center gap-2 text-amber-800">
+                  <Star className="w-6 h-6 text-amber-600" />
+                  🏆 Premium Investment Opportunities
                 </CardTitle>
-                <CardDescription>
-                  Maximize your ₹72,000 monthly surplus with these proven wealth-building strategies
+                <CardDescription className="text-amber-700">
+                  Sophisticated investment products tailored for your ₹72,000 monthly surplus capacity
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <h4 className="font-bold text-emerald-800">🎯 Recommended Investment Mix</h4>
-                    <div className="space-y-3">
-                      <div className="p-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg">
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="font-bold">Large Cap Equity Funds</span>
-                          <span className="font-bold">₹25,000/month</span>
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-sm opacity-90">Expected Return: 12-15% annually</p>
-                          <p className="text-sm opacity-90">Risk: Moderate | Perfect for your credit profile</p>
-                        </div>
-                      </div>
-                      
-                      <div className="p-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg">
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="font-bold">Mid Cap Growth Funds</span>
-                          <span className="font-bold">₹20,000/month</span>
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-sm opacity-90">Expected Return: 15-18% annually</p>
-                          <p className="text-sm opacity-90">Risk: Higher | Ideal for long-term goals</p>
-                        </div>
-                      </div>
-                      
-                      <div className="p-4 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg">
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="font-bold">Hybrid Debt Funds</span>
-                          <span className="font-bold">₹15,000/month</span>
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-sm opacity-90">Expected Return: 8-10% annually</p>
-                          <p className="text-sm opacity-90">Risk: Low | Stable wealth building</p>
-                        </div>
-                      </div>
-                      
-                      <div className="p-4 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-lg">
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="font-bold">Gold/REIT Funds</span>
-                          <span className="font-bold">₹12,000/month</span>
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-sm opacity-90">Expected Return: 10-12% annually</p>
-                          <p className="text-sm opacity-90">Risk: Moderate | Inflation hedge</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <h4 className="font-bold text-emerald-800">💰 Projected Wealth Growth</h4>
-                    <div className="space-y-3">
-                      <div className="p-4 bg-gradient-to-br from-emerald-50 to-green-100 rounded-lg border border-emerald-200">
-                        <div className="text-center mb-3">
-                          <div className="text-3xl font-bold text-emerald-700">₹4.2 Crores</div>
-                          <p className="text-sm text-emerald-600 font-medium">Projected wealth in 10 years</p>
-                          <p className="text-xs text-emerald-500">vs ₹1.8 Cr with current investments only</p>
-                        </div>
-                        <div className="space-y-2 text-sm">
-                          <div className="flex justify-between">
-                            <span>Total Investment</span>
-                            <span className="font-medium">₹1.38 Cr</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Expected Returns</span>
-                            <span className="font-bold text-emerald-700">₹2.82 Cr</span>
-                          </div>
-                          <div className="flex justify-between border-t pt-1 font-bold">
-                            <span className="text-emerald-800">Extra Wealth Created</span>
-                            <span className="text-emerald-700">₹2.4 Cr</span>
-                          </div>
-                        </div>
-                        <div className="mt-3 p-2 bg-yellow-100 rounded text-center">
-                          <p className="text-xs font-bold text-yellow-800">🔥 204% additional wealth with smart investing!</p>
-                        </div>
-                      </div>
-                      
-                      <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200">
-                        <h5 className="font-bold text-blue-800 mb-2">Why Start Now?</h5>
-                        <div className="space-y-2 text-sm text-blue-700">
-                          <div className="flex items-center gap-2">
-                            <CheckCircle className="w-4 h-4 text-blue-600" />
-                            <span>Credit score of 785 = Best fund options</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <CheckCircle className="w-4 h-4 text-blue-600" />
-                            <span>Low obligation ratio = High investment capacity</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <CheckCircle className="w-4 h-4 text-blue-600" />
-                            <span>Market timing = Favorable for SIP entry</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <CheckCircle className="w-4 h-4 text-blue-600" />
-                            <span>Tax benefits = Section 80C, ELSS savings</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Button 
-                    size="lg"
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
-                    onClick={() => setActiveTab("recommendations")}
-                    data-testid="button-get-personalized-plan"
-                  >
-                    <Lightbulb className="w-5 h-5 mr-2" />
-                    Get My Personalized Investment Plan
-                  </Button>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
                   
-                  <Button 
-                    size="lg"
-                    variant="outline"
-                    className="border-2 border-emerald-600 text-emerald-700 hover:bg-emerald-50"
-                    onClick={() => setActiveTab("goals")}
-                    data-testid="button-start-goal-planning"
-                  >
-                    <Target className="w-5 h-5 mr-2" />
-                    Start Goal-Based Investing
-                  </Button>
+                  {/* REITs & InvITs */}
+                  <Card data-testid="card-reits-invits" className="border-2 border-blue-200 hover:border-blue-300 transition-colors">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Building2 className="w-6 h-6 text-blue-600" />
+                        <div>
+                          <h4 className="font-semibold text-blue-900">REITs & InvITs</h4>
+                          <p className="text-xs text-blue-600">Real Estate & Infrastructure</p>
+                        </div>
+                      </div>
+                      <div className="space-y-2 mb-4">
+                        <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs">1-Year LTCG (New)</Badge>
+                        <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs">₹1.25L Tax Exemption</Badge>
+                        <div className="text-sm font-medium text-blue-900">Expected Yield: 7-9%</div>
+                        <div className="text-xs text-blue-600">Minimum: ₹10,000-₹25,000</div>
+                      </div>
+                      <div className="text-xs text-gray-600 mb-3">
+                        <p>✓ Embassy Office Parks REIT: 7.2%</p>
+                        <p>✓ Mindspace Business Parks: 6.8%</p>
+                        <p>✓ PowerGrid InvIT: 7.5%</p>
+                      </div>
+                      <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+                        Invest ₹{(financialAnalysis.additionalCapacity * 0.15).toLocaleString('en-IN')}/month
+                      </Button>
+                    </CardContent>
+                  </Card>
+
+                  {/* Portfolio Management Services */}
+                  <Card data-testid="card-pms" className="border-2 border-purple-200 hover:border-purple-300 transition-colors">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <PieChart className="w-6 h-6 text-purple-600" />
+                        <div>
+                          <h4 className="font-semibold text-purple-900">PMS</h4>
+                          <p className="text-xs text-purple-600">Portfolio Management</p>
+                        </div>
+                      </div>
+                      <div className="space-y-2 mb-4">
+                        <Badge variant="secondary" className="bg-purple-100 text-purple-800 text-xs">Min: ₹50L</Badge>
+                        <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs">Professional Management</Badge>
+                        <div className="text-sm font-medium text-purple-900">Expected Returns: 12-18%</div>
+                        <div className="text-xs text-purple-600">Fee: 2-3% + Performance</div>
+                      </div>
+                      <div className="text-xs text-gray-600 mb-3">
+                        <p>✓ ICICI Prudential PMS: 15.2%</p>
+                        <p>✓ HDFC Portfolio Management: 14.8%</p>
+                        <p>✓ Kotak Mahindra PMS: 16.1%</p>
+                      </div>
+                      <div className="text-xs text-green-600 mb-2">
+                        With ₹72K/month: Reach ₹50L in {Math.ceil(5000000 / financialAnalysis.additionalCapacity)} months
+                      </div>
+                      <Button size="sm" variant="outline" className="w-full border-purple-300 text-purple-700 hover:bg-purple-50">
+                        Track Progress to ₹50L
+                      </Button>
+                    </CardContent>
+                  </Card>
+
+                  {/* Alternative Investment Funds */}
+                  <Card data-testid="card-aif" className="border-2 border-indigo-200 hover:border-indigo-300 transition-colors">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <TrendingUp className="w-6 h-6 text-indigo-600" />
+                        <div>
+                          <h4 className="font-semibold text-indigo-900">AIF</h4>
+                          <p className="text-xs text-indigo-600">Alternative Investment Funds</p>
+                        </div>
+                      </div>
+                      <div className="space-y-2 mb-4">
+                        <Badge variant="secondary" className="bg-indigo-100 text-indigo-800 text-xs">Min: ₹1Cr</Badge>
+                        <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 text-xs">High Return Potential</Badge>
+                        <div className="text-sm font-medium text-indigo-900">Expected Returns: 15-25%</div>
+                        <div className="text-xs text-indigo-600">Category I/II/III</div>
+                      </div>
+                      <div className="text-xs text-gray-600 mb-3">
+                        <p>✓ PE/VC Funds (Cat I): 18-22%</p>
+                        <p>✓ Debt Funds (Cat II): 12-16%</p>
+                        <p>✓ Hedge Funds (Cat III): 15-25%</p>
+                      </div>
+                      <div className="text-xs text-green-600 mb-2">
+                        With ₹72K/month: Reach ₹1Cr in {Math.ceil(10000000 / financialAnalysis.additionalCapacity)} months
+                      </div>
+                      <Button size="sm" variant="outline" className="w-full border-indigo-300 text-indigo-700 hover:bg-indigo-50">
+                        Track Progress to ₹1Cr
+                      </Button>
+                    </CardContent>
+                  </Card>
+
+                  {/* High-Yield Bonds & Debentures */}
+                  <Card data-testid="card-bonds" className="border-2 border-green-200 hover:border-green-300 transition-colors">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <FileText className="w-6 h-6 text-green-600" />
+                        <div>
+                          <h4 className="font-semibold text-green-900">Premium Bonds</h4>
+                          <p className="text-xs text-green-600">High-Yield Fixed Income</p>
+                        </div>
+                      </div>
+                      <div className="space-y-2 mb-4">
+                        <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs">Fixed Returns</Badge>
+                        <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs">Lower Risk</Badge>
+                        <div className="text-sm font-medium text-green-900">Yields: 8-12%</div>
+                        <div className="text-xs text-green-600">Minimum: ₹10,000</div>
+                      </div>
+                      <div className="text-xs text-gray-600 mb-3">
+                        <p>✓ Corporate Bonds: 9-11%</p>
+                        <p>✓ Tax-Free Bonds: 5.5-6.5%</p>
+                        <p>✓ NCDs: 8-12%</p>
+                      </div>
+                      <Button size="sm" className="w-full bg-green-600 hover:bg-green-700 text-white">
+                        Invest ₹{(financialAnalysis.additionalCapacity * 0.25).toLocaleString('en-IN')}/month
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Allocation Strategy */}
+                <div className="bg-white rounded-lg p-6 border border-amber-200">
+                  <h4 className="font-semibold text-amber-900 mb-4 flex items-center gap-2">
+                    <Calculator className="w-5 h-5" />
+                    Optimal Allocation for ₹72,000 Monthly Surplus
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-3">
+                      <h5 className="font-medium text-gray-900">Immediate Allocation (Available Now)</h5>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center p-2 bg-blue-50 rounded">
+                          <span className="text-sm">REITs & InvITs (15%)</span>
+                          <span className="font-medium text-blue-600">₹{(financialAnalysis.additionalCapacity * 0.15).toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="flex justify-between items-center p-2 bg-green-50 rounded">
+                          <span className="text-sm">Premium Bonds (25%)</span>
+                          <span className="font-medium text-green-600">₹{(financialAnalysis.additionalCapacity * 0.25).toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                          <span className="text-sm">Liquid/Emergency (20%)</span>
+                          <span className="font-medium text-gray-600">₹{(financialAnalysis.additionalCapacity * 0.20).toLocaleString('en-IN')}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <h5 className="font-medium text-gray-900">Future Goals (Accumulation Strategy)</h5>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center p-2 bg-purple-50 rounded">
+                          <span className="text-sm">PMS Target (₹50L)</span>
+                          <span className="font-medium text-purple-600">{Math.ceil(5000000 / financialAnalysis.additionalCapacity)} months</span>
+                        </div>
+                        <div className="flex justify-between items-center p-2 bg-indigo-50 rounded">
+                          <span className="text-sm">AIF Target (₹1Cr)</span>
+                          <span className="font-medium text-indigo-600">{Math.ceil(10000000 / financialAnalysis.additionalCapacity)} months</span>
+                        </div>
+                        <div className="flex justify-between items-center p-2 bg-amber-50 rounded">
+                          <span className="text-sm">Total Annual Investment</span>
+                          <span className="font-medium text-amber-600">₹{(financialAnalysis.additionalCapacity * 12).toLocaleString('en-IN')}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-6 text-center">
+                    <Button 
+                      size="lg"
+                      className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white"
+                      onClick={() => setActiveTab("recommendations")}
+                      data-testid="button-start-premium-investing"
+                    >
+                      <Star className="w-5 h-5 mr-2" />
+                      Start Premium Investment Journey
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
