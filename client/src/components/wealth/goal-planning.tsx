@@ -18,7 +18,12 @@ import {
   TrendingUp,
   Calendar,
   IndianRupee,
-  PieChart
+  PieChart,
+  Building2,
+  Star,
+  Crown,
+  Shield,
+  Briefcase
 } from "lucide-react";
 
 interface FinancialGoal {
@@ -111,20 +116,48 @@ export function GoalPlanning() {
     const monthsToGoal = calculateMonthsToGoal(goal.targetDate);
     const remainingAmount = goal.targetAmount - goal.currentAmount;
     
+    // Short-term goals (< 1 year) - Capital preservation focus
     if (monthsToGoal <= 12) {
-      return ["Liquid Funds", "Ultra Short Duration Funds", "Fixed Deposits"];
-    } else if (monthsToGoal <= 36) {
-      return ["Short Duration Funds", "Conservative Hybrid Funds", "Arbitrage Funds"];
-    } else if (monthsToGoal <= 60) {
-      return ["Balanced Advantage Funds", "Multi Asset Funds", "Equity Savings Funds"];
-    } else {
+      return ["Liquid Funds", "Ultra Short Duration Funds", "Premium Corporate Bonds", "Fixed Deposits"];
+    } 
+    // Medium-term goals (1-3 years) - Stability with modest growth
+    else if (monthsToGoal <= 36) {
+      return ["Short Duration Funds", "Conservative Hybrid Funds", "High-Grade Corporate Bonds", "REITs (for income)"];
+    } 
+    // Medium-long term (3-5 years) - Balanced approach
+    else if (monthsToGoal <= 60) {
+      return ["Balanced Advantage Funds", "Multi Asset Funds", "REITs", "InvITs (for yield)"];
+    } 
+    // Long-term goals (5+ years) - Include premium investments based on goal type and amount
+    else {
+      let baseRecommendations: string[] = [];
+      let premiumRecommendations: string[] = [];
+      
+      // Base recommendations by risk profile
       if (goal.riskProfile === "aggressive") {
-        return ["Large Cap Funds", "Flexi Cap Funds", "Mid Cap Funds", "ELSS"];
+        baseRecommendations = ["Large Cap Funds", "Flexi Cap Funds", "Mid Cap Funds", "ELSS"];
       } else if (goal.riskProfile === "moderate") {
-        return ["Large Cap Funds", "Balanced Advantage Funds", "Conservative Hybrid Funds"];
+        baseRecommendations = ["Large Cap Funds", "Balanced Advantage Funds", "REITs", "InvITs"];
       } else {
-        return ["Conservative Hybrid Funds", "Short Duration Funds", "PPF", "NSC"];
+        baseRecommendations = ["Conservative Hybrid Funds", "High-Grade Corporate Bonds", "PPF", "REITs"];
       }
+      
+      // Add premium investment recommendations based on goal specifics
+      if (goal.targetAmount >= 5000000) { // ₹50L+ goals
+        if (goal.name.toLowerCase().includes('retirement')) {
+          premiumRecommendations = ["PMS (Conservative)", "REITs Portfolio", "Premium Bonds"];
+        } else if (goal.name.toLowerCase().includes('wealth') || goal.name.toLowerCase().includes('corpus')) {
+          premiumRecommendations = ["PMS (Growth)", "AIF Category I/II", "International REITs"];
+        } else if (goal.name.toLowerCase().includes('home') || goal.name.toLowerCase().includes('property')) {
+          premiumRecommendations = ["REITs (Real Estate)", "Infrastructure InvITs", "PMS (Real Estate Focus)"];
+        } else if (goal.name.toLowerCase().includes('education')) {
+          premiumRecommendations = ["Education-focused PMS", "International Funds", "REITs (Stable Income)"];
+        }
+      } else if (goal.targetAmount >= 1000000) { // ₹10L+ goals
+        premiumRecommendations = ["REITs (Diversified)", "InvITs (Infrastructure)", "Premium Corporate Bonds"];
+      }
+      
+      return [...baseRecommendations, ...premiumRecommendations].slice(0, 6); // Limit to 6 recommendations
     }
   };
 
@@ -400,6 +433,236 @@ export function GoalPlanning() {
                 {formatCurrency(goals.reduce((sum, goal) => sum + goal.monthlyContribution, 0))}
               </p>
               <p className="text-sm text-muted-foreground">Monthly Investment Needed</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Premium Investment Allocation Guidance */}
+      <Card data-testid="card-premium-allocation-guidance" className="bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-200">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-purple-900">
+            <Star className="w-5 h-5 text-purple-600" />
+            Premium Investment Allocation by Objective
+          </CardTitle>
+          <CardDescription className="text-purple-700">
+            Optimize your goal achievement with strategic premium investment allocations
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Retirement Planning */}
+            <Card className="border-green-200 bg-green-50">
+              <CardContent className="p-4">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-5 h-5 text-green-600" />
+                    <h4 className="font-semibold text-green-900">Retirement Planning</h4>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="text-sm">
+                      <p className="font-medium text-green-800">Optimal Allocation:</p>
+                      <ul className="text-green-700 space-y-1 ml-4">
+                        <li>• 40% REITs/InvITs (steady income)</li>
+                        <li>• 30% PMS Conservative</li>
+                        <li>• 20% Premium Bonds</li>
+                        <li>• 10% Equity Funds</li>
+                      </ul>
+                    </div>
+                    <div className="bg-green-100 p-3 rounded-lg">
+                      <p className="text-xs text-green-800">
+                        <strong>Target:</strong> ₹2Cr+ corpus<br/>
+                        <strong>Timeline:</strong> 15-20 years<br/>
+                        <strong>Monthly:</strong> ₹45,000-60,000
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Wealth Creation */}
+            <Card className="border-blue-200 bg-blue-50">
+              <CardContent className="p-4">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-blue-600" />
+                    <h4 className="font-semibold text-blue-900">Wealth Creation</h4>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="text-sm">
+                      <p className="font-medium text-blue-800">Optimal Allocation:</p>
+                      <ul className="text-blue-700 space-y-1 ml-4">
+                        <li>• 50% Growth PMS</li>
+                        <li>• 25% AIF Category II</li>
+                        <li>• 15% International REITs</li>
+                        <li>• 10% Tech/Innovation Funds</li>
+                      </ul>
+                    </div>
+                    <div className="bg-blue-100 p-3 rounded-lg">
+                      <p className="text-xs text-blue-800">
+                        <strong>Target:</strong> ₹5Cr+ corpus<br/>
+                        <strong>Timeline:</strong> 10-15 years<br/>
+                        <strong>Monthly:</strong> ₹72,000 (current surplus)
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Income Generation */}
+            <Card className="border-orange-200 bg-orange-50">
+              <CardContent className="p-4">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <IndianRupee className="w-5 h-5 text-orange-600" />
+                    <h4 className="font-semibold text-orange-900">Income Generation</h4>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="text-sm">
+                      <p className="font-medium text-orange-800">Optimal Allocation:</p>
+                      <ul className="text-orange-700 space-y-1 ml-4">
+                        <li>• 60% REITs (dividend yield)</li>
+                        <li>• 25% Infrastructure InvITs</li>
+                        <li>• 10% Premium Corporate Bonds</li>
+                        <li>• 5% Dividend-focused PMS</li>
+                      </ul>
+                    </div>
+                    <div className="bg-orange-100 p-3 rounded-lg">
+                      <p className="text-xs text-orange-800">
+                        <strong>Target:</strong> ₹50L-1Cr corpus<br/>
+                        <strong>Yield:</strong> 7-9% annually<br/>
+                        <strong>Monthly Income:</strong> ₹30,000-75,000
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Real Estate Goals */}
+            <Card className="border-amber-200 bg-amber-50">
+              <CardContent className="p-4">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-5 h-5 text-amber-600" />
+                    <h4 className="font-semibold text-amber-900">Property Purchase</h4>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="text-sm">
+                      <p className="font-medium text-amber-800">Optimal Allocation:</p>
+                      <ul className="text-amber-700 space-y-1 ml-4">
+                        <li>• 40% Commercial REITs</li>
+                        <li>• 30% Real Estate PMS</li>
+                        <li>• 20% Infrastructure InvITs</li>
+                        <li>• 10% Large Cap Funds</li>
+                      </ul>
+                    </div>
+                    <div className="bg-amber-100 p-3 rounded-lg">
+                      <p className="text-xs text-amber-800">
+                        <strong>Target:</strong> ₹1Cr+ property<br/>
+                        <strong>Timeline:</strong> 7-10 years<br/>
+                        <strong>Leverage:</strong> Real estate expertise
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Education Planning */}
+            <Card className="border-purple-200 bg-purple-50">
+              <CardContent className="p-4">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <GraduationCap className="w-5 h-5 text-purple-600" />
+                    <h4 className="font-semibold text-purple-900">Education Planning</h4>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="text-sm">
+                      <p className="font-medium text-purple-800">Optimal Allocation:</p>
+                      <ul className="text-purple-700 space-y-1 ml-4">
+                        <li>• 40% Education-focused PMS</li>
+                        <li>• 30% International Funds</li>
+                        <li>• 20% REITs (stability)</li>
+                        <li>• 10% Child Education Plans</li>
+                      </ul>
+                    </div>
+                    <div className="bg-purple-100 p-3 rounded-lg">
+                      <p className="text-xs text-purple-800">
+                        <strong>Target:</strong> ₹50L-1Cr corpus<br/>
+                        <strong>Timeline:</strong> 10-18 years<br/>
+                        <strong>Focus:</strong> Global education access
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Ultra HNI Goals */}
+            <Card className="border-indigo-200 bg-indigo-50">
+              <CardContent className="p-4">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Crown className="w-5 h-5 text-indigo-600" />
+                    <h4 className="font-semibold text-indigo-900">Ultra HNI Portfolio</h4>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="text-sm">
+                      <p className="font-medium text-indigo-800">Optimal Allocation:</p>
+                      <ul className="text-indigo-700 space-y-1 ml-4">
+                        <li>• 40% AIF Category III</li>
+                        <li>• 30% Multi-Manager PMS</li>
+                        <li>• 20% Global REITs/InvITs</li>
+                        <li>• 10% Alternative Investments</li>
+                      </ul>
+                    </div>
+                    <div className="bg-indigo-100 p-3 rounded-lg">
+                      <p className="text-xs text-indigo-800">
+                        <strong>Target:</strong> ₹10Cr+ portfolio<br/>
+                        <strong>Timeline:</strong> Path to ₹1Cr first<br/>
+                        <strong>Strategy:</strong> Aggressive wealth multiplication
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Current Surplus Integration */}
+          <div className="mt-6 p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border border-green-200">
+            <h4 className="font-semibold text-green-900 mb-3 flex items-center gap-2">
+              <Briefcase className="w-5 h-5" />
+              Your ₹72,000 Monthly Surplus Optimization
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div className="space-y-2">
+                <h5 className="font-medium text-green-800">🎯 Immediate (0-2 years)</h5>
+                <div className="space-y-1 text-green-700">
+                  <div>• ₹20,000 → REITs/InvITs</div>
+                  <div>• ₹15,000 → Premium Bonds</div>
+                  <div>• ₹10,000 → Emergency fund top-up</div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <h5 className="font-medium text-blue-800">📈 Medium-term (2-6 years)</h5>
+                <div className="space-y-1 text-blue-700">
+                  <div>• ₹72,000 → PMS eligibility path</div>
+                  <div>• Build ₹50L corpus systematically</div>
+                  <div>• Professional portfolio management</div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <h5 className="font-medium text-purple-800">🏆 Long-term (6+ years)</h5>
+                <div className="space-y-1 text-purple-700">
+                  <div>• ₹72,000 → AIF qualification (₹1Cr)</div>
+                  <div>• Alternative investment strategies</div>
+                  <div>• Ultra HNI wealth creation</div>
+                </div>
+              </div>
             </div>
           </div>
         </CardContent>
