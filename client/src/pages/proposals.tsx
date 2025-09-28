@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { 
   Bot, 
   Users, 
@@ -71,6 +73,14 @@ interface LoanRecommendation {
 
 export default function ProposalsPage() {
   const [selectedTab, setSelectedTab] = useState("ai");
+  const { toast } = useToast();
+  
+  // Fetch investment proposals from the API
+  const { data: investmentProposals, isLoading: proposalsLoading, error: proposalsError } = useQuery({
+    queryKey: ['/api/proposals'],
+    enabled: true,
+    retry: 1
+  });
   
   // Fetch personalized loan recommendations
   const { data: loanRecommendations, isLoading: loansLoading, error: loansError } = useQuery({
@@ -78,6 +88,82 @@ export default function ProposalsPage() {
     enabled: true,
     retry: 1
   });
+
+  // Approve proposal mutation
+  const approveProposalMutation = useMutation({
+    mutationFn: async (proposalId: string) => {
+      return apiRequest('POST', `/api/proposals/${proposalId}/approve`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/proposals'] });
+      toast({
+        title: "Proposal Approved",
+        description: "The investment proposal has been approved and added to your cart.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Approval Failed",
+        description: "Failed to approve the proposal. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Add to cart mutation
+  const addToCartMutation = useMutation({
+    mutationFn: async (proposalId: string) => {
+      return apiRequest('POST', `/api/proposals/${proposalId}/add-to-cart`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/cart'] });
+      toast({
+        title: "Added to Cart",
+        description: "Proposal items have been added to your cart for checkout.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Add to Cart Failed",
+        description: "Failed to add proposal to cart. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Handler functions
+  const handleApproveProposal = async (proposalId: string) => {
+    try {
+      await approveProposalMutation.mutateAsync(proposalId);
+      await addToCartMutation.mutateAsync(proposalId);
+    } catch (error) {
+      console.error('Error approving proposal:', error);
+    }
+  };
+
+  const handleViewDetails = (proposalId: string) => {
+    // Navigate to proposal details page
+    window.location.href = `/proposals/${proposalId}`;
+  };
+
+  const handleDismissProposal = async (proposalId: string) => {
+    try {
+      await apiRequest('POST', `/api/proposals/${proposalId}/reject`, {
+        body: { reason: 'Dismissed by client' }
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/proposals'] });
+      toast({
+        title: "Proposal Dismissed",
+        description: "The proposal has been dismissed.",
+      });
+    } catch (error) {
+      toast({
+        title: "Dismiss Failed",
+        description: "Failed to dismiss the proposal. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
   
   // Mock data for demonstration - no API calls needed
   const mockActionables: ActionableItem[] = [
@@ -437,13 +523,27 @@ export default function ProposalsPage() {
         </div>
         
         <div className="flex gap-2 pt-4 border-t">
-          <Button className="flex-1" variant="default">
-            Accept & Execute
+          <Button 
+            className="flex-1" 
+            variant="default"
+            onClick={() => handleApproveProposal(actionable.id)}
+            data-testid={`button-approve-${actionable.id}`}
+          >
+            Approve & Add to Cart
           </Button>
-          <Button variant="outline">
+          <Button 
+            variant="outline"
+            onClick={() => handleViewDetails(actionable.id)}
+            data-testid={`button-details-${actionable.id}`}
+          >
             More Details
           </Button>
-          <Button variant="ghost" size="sm">
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => handleDismissProposal(actionable.id)}
+            data-testid={`button-dismiss-${actionable.id}`}
+          >
             Dismiss
           </Button>
         </div>
