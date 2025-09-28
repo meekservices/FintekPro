@@ -1174,13 +1174,18 @@ export const productApplications = pgTable("product_applications", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Investment proposals table for agent portfolio improvement suggestions
+// Investment proposals table for AI and RM portfolio improvement suggestions
 export const investmentProposals = pgTable("investment_proposals", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   // Core relationships
   clientId: varchar("client_id").references(() => users.id).notNull(),
-  agentId: varchar("agent_id").references(() => users.id).notNull(),
+  agentId: varchar("agent_id").references(() => users.id), // Nullable for AI proposals
   portfolioId: varchar("portfolio_id").references(() => portfolios.id),
+  
+  // Proposal source identification
+  proposalSource: varchar("proposal_source").notNull().default("agent"), // 'ai' or 'agent' or 'hybrid'
+  aiModelVersion: varchar("ai_model_version"), // AI model version used for generation
+  aiConfidenceScore: decimal("ai_confidence_score", { precision: 5, scale: 2 }), // AI confidence 0-100
   
   // Proposal details
   title: varchar("title").notNull(),
@@ -1201,11 +1206,13 @@ export const investmentProposals = pgTable("investment_proposals", {
   projectedValue: decimal("projected_value", { precision: 15, scale: 2 }), // After time horizon
   
   // Status and approval workflow
-  status: varchar("status").default("pending"), // pending, approved, rejected, executed, cancelled
+  status: varchar("status").default("pending"), // pending, approved, rejected, executed, cancelled, in_cart
   clientResponse: text("client_response"), // Client's approval/rejection reason
   approvedAt: timestamp("approved_at"),
   rejectedAt: timestamp("rejected_at"),
   executedAt: timestamp("executed_at"),
+  addedToCartAt: timestamp("added_to_cart_at"), // When proposal was added to cart
+  cartItemId: varchar("cart_item_id"), // Reference to cart item
   
   // Payment and execution tracking
   paymentMethod: varchar("payment_method"), // mf_central, cams, kfintech
@@ -1271,6 +1278,10 @@ export const investmentProposalItems = pgTable("investment_proposal_items", {
   executedAt: timestamp("executed_at"),
   transactionId: varchar("transaction_id"),
   folioNumber: varchar("folio_number"),
+  
+  // Cart integration
+  isAddedToCart: boolean("is_added_to_cart").default(false),
+  cartItemId: varchar("cart_item_id"), // Reference to cart item when added
   
   // Timestamps
   createdAt: timestamp("created_at").defaultNow(),
@@ -3036,9 +3047,12 @@ export const userCart = pgTable("user_cart", {
 export const userCartItems = pgTable("user_cart_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   cartId: varchar("cart_id").references(() => userCart.id).notNull(),
-  productId: varchar("product_id").references(() => storeProducts.id).notNull(),
+  productId: varchar("product_id").references(() => storeProducts.id), // Nullable for proposals
+  proposalId: varchar("proposal_id").references(() => investmentProposals.id), // For proposal-based items
+  itemType: varchar("item_type").notNull().default("product"), // 'product' or 'proposal'
   quantity: integer("quantity").notNull().default(1),
   investmentAmount: decimal("investment_amount", { precision: 15, scale: 2 }),
+  proposalItemIds: text("proposal_item_ids").array(), // Array of proposal item IDs when from proposal
   addedAt: timestamp("added_at").defaultNow(),
 });
 
@@ -3084,6 +3098,11 @@ export const insertUserCartSchema = createInsertSchema(userCart).omit({
 export const insertUserCartItemSchema = createInsertSchema(userCartItems).omit({
   id: true,
   addedAt: true,
+}).refine((data) => {
+  // Either productId or proposalId must be provided, but not both
+  return (data.productId && !data.proposalId) || (!data.productId && data.proposalId);
+}, {
+  message: "Either productId or proposalId must be provided, but not both",
 });
 
 // Export types for Product Store
