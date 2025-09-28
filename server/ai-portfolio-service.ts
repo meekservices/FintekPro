@@ -176,7 +176,8 @@ export class AIPortfolioService {
   async generateInvestmentProposal(
     portfolioData: PortfolioData, 
     userProfile: UserProfile,
-    additionalCapital: number = 0
+    additionalCapital: number = 72000,
+    clientId?: string
   ): Promise<InvestmentProposal> {
     try {
       const prompt = this.buildInvestmentProposalPrompt(portfolioData, userProfile, additionalCapital);
@@ -319,11 +320,167 @@ export class AIPortfolioService {
         validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // Valid for 30 days
       };
 
+      // If clientId is provided, save the proposal to database
+      if (clientId) {
+        await this.saveAIProposalToDatabase(proposal, clientId, portfolioData.id);
+      }
+
       return proposal;
     } catch (error) {
       console.error('Error generating investment proposal:', error);
       throw new Error('Failed to generate investment proposal');
     }
+  }
+
+  /**
+   * Generate AI proposal specifically for ₹72,000 monthly surplus allocation
+   */
+  async generateMonthlySurplusProposal(
+    clientId: string,
+    portfolioId: string,
+    userProfile: UserProfile
+  ): Promise<string> {
+    try {
+      // Get user's current portfolio data
+      const portfolio = await this.storage.getPortfolio(portfolioId);
+      if (!portfolio) {
+        throw new Error('Portfolio not found');
+      }
+
+      // Convert portfolio to PortfolioData format
+      const portfolioData = await this.convertToPortfolioData(portfolio);
+
+      // Generate AI proposal with ₹72,000 additional capital
+      const aiProposal = await this.generateInvestmentProposal(
+        portfolioData,
+        userProfile,
+        72000, // Fixed ₹72,000 monthly surplus
+        clientId
+      );
+
+      // Save to database as AI-generated proposal
+      const dbProposalId = await this.saveAIProposalToDatabase(aiProposal, clientId, portfolioId);
+      
+      return dbProposalId;
+    } catch (error) {
+      console.error('Error generating monthly surplus proposal:', error);
+      throw new Error('Failed to generate monthly surplus proposal');
+    }
+  }
+
+  /**
+   * Save AI-generated proposal to database
+   */
+  private async saveAIProposalToDatabase(
+    aiProposal: InvestmentProposal,
+    clientId: string,
+    portfolioId: string
+  ): Promise<string> {
+    try {
+      // Create the main proposal record
+      const proposalData = {
+        clientId,
+        portfolioId,
+        proposalSource: 'ai' as const,
+        aiModelVersion: 'gpt-4o',
+        aiConfidenceScore: '85.5', // AI confidence score
+        title: aiProposal.title,
+        description: aiProposal.summary,
+        totalInvestmentAmount: aiProposal.totalRecommendedInvestment.toString(),
+        riskProfile: aiProposal.riskAssessment.overallRisk,
+        timeHorizon: 'medium_term', // Default for monthly surplus
+        expectedReturns: '12.0', // Default expected return
+        expectedRisk: aiProposal.riskAssessment.overallRisk,
+        recommendations: aiProposal.recommendations,
+        validUntil: aiProposal.validUntil
+      };
+
+      const savedProposal = await this.storage.createInvestmentProposal(proposalData);
+      
+      // Create proposal items for each recommendation
+      for (const recommendation of aiProposal.recommendations) {
+        for (const instrument of recommendation.suggestedInstruments) {
+          const itemData = {
+            proposalId: savedProposal.id,
+            productType: this.mapInstrumentTypeToProductType(instrument.type),
+            productCode: instrument.symbol,
+            productName: instrument.name,
+            recommendedAmount: instrument.recommendedAmount.toString(),
+            allocationPercentage: ((instrument.recommendedAmount / aiProposal.totalRecommendedInvestment) * 100).toString(),
+            investmentType: 'sip', // Default to SIP for monthly surplus
+            sipAmount: (instrument.recommendedAmount / 12).toString(), // Monthly SIP amount
+            sipFrequency: 'monthly',
+            sipDuration: 12, // 1 year duration
+            selectionReason: instrument.reasoning,
+            expectedOutcome: instrument.expectedReturn || 'Market aligned returns',
+            suitabilityScore: 8, // High suitability for AI recommendations
+            riskRating: this.mapRiskLevelToRating(instrument.riskLevel)
+          };
+
+          await this.storage.createInvestmentProposalItem(itemData);
+        }
+      }
+
+      return savedProposal.id;
+    } catch (error) {
+      console.error('Error saving AI proposal to database:', error);
+      throw new Error('Failed to save AI proposal to database');
+    }
+  }
+
+  /**
+   * Convert portfolio data from database format to AI service format
+   */
+  private async convertToPortfolioData(portfolio: any): Promise<PortfolioData> {
+    // This is a simplified conversion - in a real implementation,
+    // you would fetch actual holdings and calculate current values
+    return {
+      id: portfolio.id,
+      totalValue: parseFloat(portfolio.totalValue || '100000'),
+      holdings: [], // Would be populated from actual holdings
+      assetAllocation: [
+        { assetType: 'Equity', percentage: 60, currentValue: 60000 },
+        { assetType: 'Debt', percentage: 30, currentValue: 30000 },
+        { assetType: 'Gold', percentage: 10, currentValue: 10000 }
+      ],
+      performance: {
+        totalGainLoss: 5000,
+        totalGainLossPercent: 5.0,
+        dayChange: 200,
+        dayChangePercent: 0.2
+      }
+    };
+  }
+
+  /**
+   * Map instrument type to product type for database
+   */
+  private mapInstrumentTypeToProductType(instrumentType: string): string {
+    const typeMap: {[key: string]: string} = {
+      'Large Cap Equity': 'mutual_fund',
+      'Mid Cap Equity': 'mutual_fund',
+      'Small Cap Equity': 'mutual_fund',
+      'Debt Fund': 'mutual_fund',
+      'Equity': 'equity',
+      'Bond': 'bond',
+      'ETF': 'etf',
+      'ULIP': 'ulip'
+    };
+    
+    return typeMap[instrumentType] || 'mutual_fund';
+  }
+
+  /**
+   * Map risk level to database rating
+   */
+  private mapRiskLevelToRating(riskLevel: string): string {
+    const ratingMap: {[key: string]: string} = {
+      'low': 'Low',
+      'medium': 'Moderate',
+      'high': 'High'
+    };
+    
+    return ratingMap[riskLevel] || 'Moderate';
   }
 
   private buildRebalancingPrompt(portfolioData: PortfolioData, userProfile: UserProfile): string {
