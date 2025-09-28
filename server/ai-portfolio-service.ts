@@ -417,7 +417,7 @@ export class AIPortfolioService {
             riskRating: this.mapRiskLevelToRating(instrument.riskLevel)
           };
 
-          await this.storage.createInvestmentProposalItem(itemData);
+          await this.storage.createProposalItem(itemData);
         }
       }
 
