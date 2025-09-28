@@ -19572,6 +19572,29 @@ System Security Data:`;
     }
   });
 
+  // Generate AI proposals for monthly surplus allocation
+  app.post("/api/proposals/generate-ai", authenticateUser, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const { targetAmount = 72000 } = req.body; // Default to ₹72,000 monthly surplus
+      
+      // Generate AI proposal using the portfolio service
+      const proposal = await aiPortfolioService.generateMonthlySurplusAllocationProposal(userId, targetAmount);
+      
+      res.status(201).json({
+        success: true,
+        proposal,
+        message: `AI proposal generated for ₹${targetAmount.toLocaleString()} monthly surplus allocation`
+      });
+    } catch (error) {
+      console.error("Error generating AI proposal:", error);
+      res.status(500).json({ 
+        error: "Failed to generate AI investment proposal",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   // Proposal Items API
   app.get("/api/proposals/:proposalId/items", authenticateUser, async (req, res) => {
     try {
