@@ -33,7 +33,7 @@ import CapitalGainsReports from "@/pages/capital-gains-reports";
 import WhatsAppAuthPage from "@/pages/whatsapp-auth-page";
 import AgentDashboard from "@/pages/agent-dashboard";
 import IBTradingPage from "@/pages/ib-trading";
-import Store from "@/pages/store";
+import StorePage from "@/pages/store";
 import GiftCity from "@/pages/gift-city";
 import Cart from "@/pages/cart";
 import ApiMonitorDemo from "@/pages/api-monitor-demo";
@@ -127,7 +127,7 @@ function UserProtectedRoutes() {
         <Route path="/loan-comparison" component={LoanComparison} />
         <Route path="/investment-dashboard" component={InvestmentDashboard} />
         <Route path="/ib-trading" component={IBTradingPage} />
-        <Route path="/store" component={Store} />
+        <Route path="/store" component={StorePage} />
         <Route path="/gift-city" component={GiftCity} />
         <Route path="/nri-services" component={NRIServices} />
         <Route path="/itr-tax-services" component={ITRTaxServices} />
