@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from '@tanstack/react-query';
+import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -320,6 +321,7 @@ function FinancialProfileOverview() {
 export default function LoanRecommendationsPage() {
   const { toast } = useToast();
   const [selectedTab, setSelectedTab] = useState("all");
+  const [, setLocation] = useLocation();
   
   const { data: recommendationData, isLoading, error, refetch } = useQuery<{ data: RecommendationData }>({
     queryKey: ['/api/loans/personalized-recommendations'],
@@ -339,6 +341,18 @@ export default function LoanRecommendationsPage() {
     }
   });
 
+  // Map lender display names to adapter names
+  const getLenderAdapterName = (lenderName: string): string => {
+    const lenderMapping: { [key: string]: string } = {
+      'Bajaj Finance': 'bajaj_finance',
+      'Bajaj Finserv': 'bajaj_finance', 
+      'Tata Capital': 'tata_capital',
+      'HDFC Bank': 'hdfc_bank',
+      'ICICI Bank': 'icici_bank'
+    };
+    return lenderMapping[lenderName] || 'bajaj_finance'; // Default fallback
+  };
+
   const handleApplyClick = (recommendation: LoanRecommendation) => {
     // Track apply action
     trackRecommendationAction.mutate({
@@ -351,21 +365,17 @@ export default function LoanRecommendationsPage() {
       }
     });
 
+    // Get the adapter name for routing
+    const lenderAdapter = getLenderAdapterName(recommendation.lenderName);
+    const recommendationId = `${recommendation.loanType}-${recommendation.lenderName}-${Date.now()}`;
+    
     toast({
       title: "Application Started",
-      description: `Redirecting to ${recommendation.lenderName} application for ${recommendation.loanType} loan.`,
+      description: `Redirecting to ${recommendation.lenderName} unified application for ${recommendation.loanType} loan.`,
     });
     
-    // Redirect to specific lender portals
-    if (recommendation.lenderName === 'Bajaj Finance') {
-      window.open('/bajaj-finance?preselect=' + recommendation.loanType, '_blank');
-    } else if (recommendation.lenderName === 'Tata Capital') {
-      window.open('/tata-capital?preselect=' + recommendation.loanType, '_blank');
-    } else {
-      // Generic application flow for other lenders
-      window.open(`/loan-application?lender=${encodeURIComponent(recommendation.lenderName)}&type=${recommendation.loanType}`, '_blank');
-    }
-    // Here you would redirect to the actual application process
+    // Navigate to unified partner application page
+    setLocation(`/partner-application/${lenderAdapter}?recommendation=${recommendationId}&amount=${recommendation.recommendedAmount}&tenure=${recommendation.tenure}&type=${recommendation.loanType}`);
   };
 
   const handleRefresh = () => {
