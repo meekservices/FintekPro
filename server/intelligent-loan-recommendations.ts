@@ -679,3 +679,53 @@ export async function getPersonalizedLoanRecommendations(req: Request, res: Resp
     });
   }
 }
+
+// API endpoint for tracking recommendation actions
+export async function trackLoanRecommendationAction(req: Request, res: Response) {
+  try {
+    if (!req.user?.id) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const { recommendationId, action, metadata } = req.body;
+
+    if (!recommendationId || !action) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Store tracking data (in production, this would go to analytics/database)
+    const trackingData = {
+      userId: req.user.id,
+      recommendationId,
+      action,
+      metadata,
+      timestamp: new Date().toISOString(),
+      sessionId: req.sessionID || 'unknown'
+    };
+
+    // Log for analytics (in production, you'd store this in a tracking database)
+    console.log('Loan Recommendation Tracking:', trackingData);
+
+    // Update user engagement metrics
+    try {
+      await storage.updateUser(req.user.id, {
+        lastActivity: new Date().toISOString(),
+        engagementScore: (await storage.getUserProfile(req.user.id))?.engagementScore + 1 || 1
+      });
+    } catch (error) {
+      console.error('Error updating user engagement:', error);
+    }
+
+    res.json({
+      success: true,
+      message: 'Recommendation action tracked successfully'
+    });
+
+  } catch (error) {
+    console.error('Error tracking recommendation action:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to track recommendation action'
+    });
+  }
+}

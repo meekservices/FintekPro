@@ -325,11 +325,45 @@ export default function LoanRecommendationsPage() {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
+  const trackRecommendationAction = useMutation({
+    mutationFn: async (data: {
+      recommendationId: string;
+      action: 'view' | 'apply' | 'compare' | 'save' | 'dismiss';
+      metadata?: any;
+    }) => {
+      return await apiRequest('/api/loans/track-recommendation', {
+        method: 'POST',
+        body: data
+      });
+    }
+  });
+
   const handleApplyClick = (recommendation: LoanRecommendation) => {
+    // Track apply action
+    trackRecommendationAction.mutate({
+      recommendationId: `${recommendation.loanType}-${recommendation.lenderName}`,
+      action: 'apply',
+      metadata: {
+        amount: recommendation.recommendedAmount,
+        rate: recommendation.interestRate,
+        priority: recommendation.priority
+      }
+    });
+
     toast({
       title: "Application Started",
       description: `Redirecting to ${recommendation.lenderName} application for ${recommendation.loanType} loan.`,
     });
+    
+    // Redirect to specific lender portals
+    if (recommendation.lenderName === 'Bajaj Finance') {
+      window.open('/bajaj-finance?preselect=' + recommendation.loanType, '_blank');
+    } else if (recommendation.lenderName === 'Tata Capital') {
+      window.open('/tata-capital?preselect=' + recommendation.loanType, '_blank');
+    } else {
+      // Generic application flow for other lenders
+      window.open(`/loan-application?lender=${encodeURIComponent(recommendation.lenderName)}&type=${recommendation.loanType}`, '_blank');
+    }
     // Here you would redirect to the actual application process
   };
 

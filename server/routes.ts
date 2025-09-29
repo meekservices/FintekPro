@@ -31,7 +31,7 @@ import { bajajFinanceAPI } from './bajaj-finance-api';
 import { tataCapitalAPI } from './tata-capital-api';
 import { InsuranceMarketplaceAPI } from './policybazaar-api';
 import { CibilAPI } from './cibil-api';
-import { getPersonalizedLoanRecommendations } from './intelligent-loan-recommendations';
+import { getPersonalizedLoanRecommendations, trackLoanRecommendationAction } from './intelligent-loan-recommendations';
 import { clientEnrichmentService } from './client-enrichment-service';
 import { aiTransactionTrackerService } from './ai-transaction-tracker';
 import { aiInvestSmartMonitorService } from './ai-investsmart-monitor';
@@ -21690,6 +21690,7 @@ System Security Data:`;
   
   // Personalized Loan Recommendations
   app.get("/api/loans/personalized-recommendations", getPersonalizedLoanRecommendations);
+  app.post("/api/loans/track-recommendation", trackLoanRecommendationAction);
 
   // =============================================
   // ZOHO COMMERCE INTEGRATION ROUTES
