@@ -5551,6 +5551,68 @@ export const yieldTracker = pgTable("yield_tracker", {
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
+// Partner Application table for loan applications across lenders
+export const partnerApplications = pgTable("partner_applications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Lender and Loan Details
+  lender: varchar("lender").notNull(), // bajaj_finance, tata_capital, hdfc_bank, icici_bank
+  loanType: varchar("loan_type").notNull().default("personal"), // personal, home, business, car, etc.
+  recommendationId: varchar("recommendation_id"), // Reference to original recommendation
+  
+  // Application Details
+  loanAmount: decimal("loan_amount", { precision: 12, scale: 2 }).notNull(),
+  tenure: integer("tenure").notNull(), // in months
+  interestRate: decimal("interest_rate", { precision: 5, scale: 2 }),
+  emi: decimal("emi", { precision: 10, scale: 2 }),
+  processingFee: decimal("processing_fee", { precision: 10, scale: 2 }),
+  
+  // User Financial Information (snapshot at time of application)
+  monthlyIncome: decimal("monthly_income", { precision: 10, scale: 2 }).notNull(),
+  existingEMIs: decimal("existing_emis", { precision: 10, scale: 2 }),
+  employmentType: varchar("employment_type").notNull(), // salaried, self_employed, business, professional
+  workExperience: integer("work_experience"), // in years
+  cibilScore: integer("cibil_score"),
+  
+  // Personal Information (pre-filled from profile)
+  panNumber: varchar("pan_number"),
+  aadharNumber: varchar("aadhar_number"),
+  currentAddress: text("current_address"),
+  employerName: varchar("employer_name"),
+  companyCategory: varchar("company_category"), // for HDFC specific
+  residenceType: varchar("residence_type"), // owned, rented, company_provided
+  
+  // Banking Information
+  bankName: varchar("bank_name"),
+  accountNumber: varchar("account_number"),
+  ifscCode: varchar("ifsc_code"),
+  netSalaryCreditBank: varchar("net_salary_credit_bank"), // for HDFC specific
+  
+  // Document References (JSON array of object storage URLs)
+  documentRefs: jsonb("document_refs").default([]),
+  requiredDocuments: jsonb("required_documents").default([]), // list of required docs per lender
+  
+  // Lender-Specific Metadata
+  providerMeta: jsonb("provider_meta").default({}), // store lender-specific fields
+  
+  // Consent and Compliance
+  bureauConsent: boolean("bureau_consent").default(false),
+  ckycConsent: boolean("ckyc_consent").default(false),
+  termsAccepted: boolean("terms_accepted").default(false),
+  
+  // Application Status and Tracking
+  status: varchar("status").default("draft"), // draft, submitted, pending, approved, rejected, cancelled
+  providerApplicationId: varchar("provider_application_id"), // lender's internal ID
+  submittedAt: timestamp("submitted_at"),
+  
+  // Status Updates from Provider
+  statusUpdates: jsonb("status_updates").default([]), // array of status change events
+  
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
 // Investment Ideas Zod schemas
 export const insertInvestmentIdeaSchema = createInsertSchema(investmentIdeas).omit({
   id: true,
@@ -5574,6 +5636,12 @@ export const insertYieldTrackerSchema = createInsertSchema(yieldTracker).omit({
   lastUpdated: true,
 });
 
+export const insertPartnerApplicationSchema = createInsertSchema(partnerApplications).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Investment Ideas types
 export type InvestmentIdea = typeof investmentIdeas.$inferSelect;
 export type InsertInvestmentIdea = z.infer<typeof insertInvestmentIdeaSchema>;
@@ -5583,3 +5651,5 @@ export type InvestmentIdeaAlert = typeof investmentIdeaAlerts.$inferSelect;
 export type InsertInvestmentIdeaAlert = z.infer<typeof insertInvestmentIdeaAlertSchema>;
 export type YieldTracker = typeof yieldTracker.$inferSelect;
 export type InsertYieldTracker = z.infer<typeof insertYieldTrackerSchema>;
+export type PartnerApplication = typeof partnerApplications.$inferSelect;
+export type InsertPartnerApplication = z.infer<typeof insertPartnerApplicationSchema>;
