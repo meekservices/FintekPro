@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import { storage } from './storage';
 import { LoanProcessingService } from './loan-processing-service';
 import { CibilAPI } from './cibil-api';
+import { BajajFinanceAPI } from './bajaj-finance-api';
+import { TataCapitalAPI } from './tata-capital-api';
 
 export interface ClientFinancialProfile {
   userId: string;
@@ -192,20 +194,22 @@ export class IntelligentLoanRecommendationEngine {
 
   private async generatePersonalLoanRecommendation(profile: ClientFinancialProfile): Promise<LoanRecommendation> {
     const maxEligibleAmount = this.calculatePersonalLoanEligibility(profile);
-    const interestRate = this.calculateInterestRate(profile, 'personal');
     const recommendedTenure = profile.cibilScore > 750 ? 60 : 48; // months
-    const emi = this.calculateEMI(maxEligibleAmount, interestRate, recommendedTenure);
+    
+    // Get real-time rates from integrated lenders like Bajaj Finance
+    const lenderInfo = await this.getBestLenderWithRates(profile, 'personal', maxEligibleAmount);
+    const emi = this.calculateEMI(maxEligibleAmount, lenderInfo.rate, recommendedTenure);
 
     return {
       loanType: 'personal',
       priority: profile.creditUtilization > 60 ? 'high' : 'medium',
       eligibilityScore: this.calculateEligibilityScore(profile, 'personal'),
       recommendedAmount: maxEligibleAmount,
-      interestRate,
+      interestRate: lenderInfo.rate,
       tenure: recommendedTenure,
       emi,
-      processingFee: maxEligibleAmount * 0.025, // 2.5%
-      lenderName: this.getBestLender(profile, 'personal'),
+      processingFee: lenderInfo.processingFee,
+      lenderName: lenderInfo.lender,
       rationale: `Based on your CIBIL score of ${profile.cibilScore} and monthly income of ₹${profile.monthlyIncome.toLocaleString()}, you qualify for competitive personal loan rates. This can help consolidate existing debts or fund immediate requirements.`,
       keyBenefits: [
         'Quick approval and disbursement',
@@ -397,20 +401,22 @@ export class IntelligentLoanRecommendationEngine {
 
   private async generateCarLoanRecommendation(profile: ClientFinancialProfile): Promise<LoanRecommendation> {
     const maxEligibleAmount = Math.min(profile.monthlyIncome * 48, 2000000); // 4 years income or 20L
-    const interestRate = this.calculateInterestRate(profile, 'car');
     const recommendedTenure = 84; // 7 years
-    const emi = this.calculateEMI(maxEligibleAmount, interestRate, recommendedTenure);
+    
+    // Get real-time rates from integrated lenders
+    const lenderInfo = await this.getBestLenderWithRates(profile, 'car', maxEligibleAmount);
+    const emi = this.calculateEMI(maxEligibleAmount, lenderInfo.rate, recommendedTenure);
 
     return {
       loanType: 'car',
       priority: 'low',
       eligibilityScore: this.calculateEligibilityScore(profile, 'car'),
       recommendedAmount: maxEligibleAmount,
-      interestRate,
+      interestRate: lenderInfo.rate,
       tenure: recommendedTenure,
       emi,
-      processingFee: maxEligibleAmount * 0.01, // 1%
-      lenderName: this.getBestLender(profile, 'car'),
+      processingFee: lenderInfo.processingFee,
+      lenderName: lenderInfo.lender,
       rationale: `Based on your income and credit profile, you can easily afford a car loan. This can enhance your mobility and lifestyle while building additional credit history.`,
       keyBenefits: [
         'Asset ownership',
@@ -565,12 +571,77 @@ export class IntelligentLoanRecommendationEngine {
     return Math.round(score);
   }
 
-  private getBestLender(profile: ClientFinancialProfile, loanType: string): string {
+  private async getBestLenderWithRates(profile: ClientFinancialProfile, loanType: string, amount: number): Promise<{lender: string, rate: number, processingFee: number}> {
     const lenders = {
-      personal: ['HDFC Bank', 'ICICI Bank', 'Bajaj Finance'],
+      personal: ['Bajaj Finance', 'HDFC Bank', 'ICICI Bank'],
       home: ['SBI', 'HDFC Bank', 'LIC Housing Finance'],
       business: ['ICICI Bank', 'Axis Bank', 'Kotak Mahindra'],
-      car: ['HDFC Bank', 'Mahindra Finance', 'Tata Capital'],
+      car: ['Tata Capital', 'HDFC Bank', 'Mahindra Finance'],
+      against_property: ['Axis Bank', 'ICICI Bank', 'IndusInd Bank'],
+      against_securities: ['ICICI Bank', 'Kotak Securities', 'HDFC Securities']
+    };
+
+    const lenderList = lenders[loanType as keyof typeof lenders];
+    
+    // For Bajaj Finance personal loans, get real-time rates
+    if (loanType === 'personal' && lenderList.includes('Bajaj Finance')) {
+      try {
+        const bajajAPI = new BajajFinanceAPI();
+        const loanDetails = await bajajAPI.getPersonalLoanDetails({
+          income: profile.monthlyIncome,
+          employmentType: profile.employmentType,
+          loanAmount: amount,
+          cibilScore: profile.cibilScore
+        });
+        
+        return {
+          lender: 'Bajaj Finance',
+          rate: loanDetails.interestRate,
+          processingFee: loanDetails.processingFee
+        };
+      } catch (error) {
+        console.error('Error fetching Bajaj Finance rates:', error);
+      }
+    }
+    
+    // For Tata Capital car loans, get real-time rates
+    if (loanType === 'car' && lenderList.includes('Tata Capital')) {
+      try {
+        const tataAPI = new TataCapitalAPI();
+        const loanDetails = await tataAPI.getUsedCarLoanDetails({
+          income: profile.monthlyIncome,
+          employmentType: profile.employmentType,
+          loanAmount: amount,
+          cibilScore: profile.cibilScore
+        });
+        
+        return {
+          lender: 'Tata Capital',
+          rate: loanDetails.interestRate,
+          processingFee: loanDetails.processingFee
+        };
+      } catch (error) {
+        console.error('Error fetching Tata Capital rates:', error);
+      }
+    }
+
+    // Fallback to calculated rates for other lenders
+    const fallbackRate = this.calculateInterestRate(profile, loanType);
+    const fallbackFee = Math.min(amount * 0.025, 50000); // 2.5% or max 50k
+    
+    return {
+      lender: lenderList[0],
+      rate: fallbackRate,
+      processingFee: fallbackFee
+    };
+  }
+
+  private getBestLender(profile: ClientFinancialProfile, loanType: string): string {
+    const lenders = {
+      personal: ['Bajaj Finance', 'HDFC Bank', 'ICICI Bank'],
+      home: ['SBI', 'HDFC Bank', 'LIC Housing Finance'],
+      business: ['ICICI Bank', 'Axis Bank', 'Kotak Mahindra'],
+      car: ['Tata Capital', 'HDFC Bank', 'Mahindra Finance'],
       against_property: ['Axis Bank', 'ICICI Bank', 'IndusInd Bank'],
       against_securities: ['ICICI Bank', 'Kotak Securities', 'HDFC Securities']
     };
