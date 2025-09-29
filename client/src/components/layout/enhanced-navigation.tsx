@@ -165,6 +165,7 @@ export function EnhancedNavigation() {
           icon: CreditCard,
           description: "Comprehensive loan marketplace and banking products",
           subItems: [
+            { name: "Loan Recommendations", href: "/loan-recommendations", description: "AI-powered personalized loan suggestions", badge: "AI POWERED" },
             { name: "Bajaj Finance", href: "/bajaj-finance", description: "Personal loans, business loans, FDs" },
             { name: "Tata Capital", href: "/tata-capital", description: "Home loans, LAP, vehicle loans" },
             { name: "Personal Loans", href: "/loans?category=personal", description: "Quick approval personal loans" },
