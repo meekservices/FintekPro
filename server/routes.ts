@@ -52,6 +52,8 @@ import { LoanOrchestrator } from './loan-marketplace/loan-orchestrator';
 import { taxOrchestrator } from './services/tax-orchestrator';
 import { PANConsentService } from './services/pan-consent-service';
 import { DemographicProtectionService } from './services/demographic-protection-service';
+import { providerRegistry, type UnifiedApplicationData } from './partner-application-adapters';
+import { insertPartnerApplicationSchema } from '@shared/schema';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -14814,6 +14816,307 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============ END LOAN COMPARISON API ROUTES ============
+
+  // ============ PARTNER APPLICATION ROUTES ============
+
+  // Get application prefill data
+  app.get("/api/partner-applications/prefill/:lender", async (req, res) => {
+    try {
+      const { lender } = req.params;
+      const { recommendationId } = req.query;
+      const userId = (req as any).user?.id;
+
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      // Validate lender
+      if (!providerRegistry.getAllLenders().includes(lender)) {
+        return res.status(400).json({ error: "Invalid lender specified" });
+      }
+
+      const prefillData = await storage.getApplicationPrefillData(
+        userId, 
+        lender, 
+        recommendationId as string
+      );
+
+      res.json({ 
+        success: true, 
+        data: prefillData,
+        requiredFields: providerRegistry.getRequiredFields(lender),
+        fieldMappings: providerRegistry.getFieldMappings(lender)
+      });
+    } catch (error) {
+      console.error("Error fetching prefill data:", error);
+      res.status(500).json({ error: "Failed to fetch prefill data" });
+    }
+  });
+
+  // Create new partner application
+  app.post("/api/partner-applications", async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      // Validate request body
+      const validatedData = insertPartnerApplicationSchema.parse({
+        ...req.body,
+        userId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+
+      // Validate application data using provider adapter
+      const validation = providerRegistry.validateApplicationData(
+        validatedData.lender, 
+        validatedData.applicationData as UnifiedApplicationData
+      );
+
+      if (!validation.isValid) {
+        return res.status(400).json({ 
+          error: "Application validation failed",
+          validationErrors: validation.errors 
+        });
+      }
+
+      const application = await storage.createPartnerApplication(validatedData);
+
+      res.status(201).json({ 
+        success: true, 
+        data: application 
+      });
+    } catch (error) {
+      console.error("Error creating partner application:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          error: "Invalid application data", 
+          validationErrors: error.errors 
+        });
+      }
+      res.status(500).json({ error: "Failed to create application" });
+    }
+  });
+
+  // Get user's applications
+  app.get("/api/partner-applications", async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const applications = await storage.getPartnerApplicationsByUserId(userId);
+      res.json({ success: true, data: applications });
+    } catch (error) {
+      console.error("Error fetching partner applications:", error);
+      res.status(500).json({ error: "Failed to fetch applications" });
+    }
+  });
+
+  // Get specific application
+  app.get("/api/partner-applications/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = (req as any).user?.id;
+
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const application = await storage.getPartnerApplication(id);
+      
+      if (!application) {
+        return res.status(404).json({ error: "Application not found" });
+      }
+
+      // Check if user owns this application
+      if (application.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      res.json({ success: true, data: application });
+    } catch (error) {
+      console.error("Error fetching partner application:", error);
+      res.status(500).json({ error: "Failed to fetch application" });
+    }
+  });
+
+  // Update application
+  app.put("/api/partner-applications/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = (req as any).user?.id;
+
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      // Verify application ownership
+      const existingApplication = await storage.getPartnerApplication(id);
+      if (!existingApplication || existingApplication.userId !== userId) {
+        return res.status(404).json({ error: "Application not found" });
+      }
+
+      // Validate updated data if provided
+      if (req.body.applicationData) {
+        const validation = providerRegistry.validateApplicationData(
+          existingApplication.lender,
+          req.body.applicationData as UnifiedApplicationData
+        );
+
+        if (!validation.isValid) {
+          return res.status(400).json({
+            error: "Application validation failed",
+            validationErrors: validation.errors
+          });
+        }
+      }
+
+      const updatedApplication = await storage.updatePartnerApplication(id, {
+        ...req.body,
+        updatedAt: new Date()
+      });
+
+      res.json({ success: true, data: updatedApplication });
+    } catch (error) {
+      console.error("Error updating partner application:", error);
+      res.status(500).json({ error: "Failed to update application" });
+    }
+  });
+
+  // Submit application to lender
+  app.post("/api/partner-applications/:id/submit", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = (req as any).user?.id;
+
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      // Get application
+      const application = await storage.getPartnerApplication(id);
+      if (!application || application.userId !== userId) {
+        return res.status(404).json({ error: "Application not found" });
+      }
+
+      if (application.status !== 'draft') {
+        return res.status(400).json({ error: "Application has already been submitted" });
+      }
+
+      // Transform data to provider format
+      const providerRequest = providerRegistry.transformToProviderFormat(
+        application.lender,
+        application.applicationData as UnifiedApplicationData
+      );
+
+      // Submit to provider API (this would be the actual API call)
+      // For now, we'll simulate the submission
+      const mockProviderResponse = {
+        application_id: `${application.lender.toUpperCase()}_${Date.now()}`,
+        status: 'submitted',
+        reference_id: `REF_${Date.now()}`,
+        submission_timestamp: new Date().toISOString(),
+        next_steps: "Documents verification in progress"
+      };
+
+      // Transform provider response
+      const statusUpdate = providerRegistry.transformFromProviderFormat(
+        application.lender,
+        mockProviderResponse
+      );
+
+      // Update application status
+      const updatedApplication = await storage.updateApplicationStatus(
+        id,
+        'submitted',
+        statusUpdate.providerApplicationId,
+        [
+          {
+            status: 'submitted',
+            timestamp: new Date(),
+            message: 'Application successfully submitted to lender',
+            source: 'system'
+          }
+        ]
+      );
+
+      res.json({
+        success: true,
+        data: updatedApplication,
+        providerResponse: mockProviderResponse
+      });
+    } catch (error) {
+      console.error("Error submitting partner application:", error);
+      res.status(500).json({ error: "Failed to submit application" });
+    }
+  });
+
+  // Get application status from provider
+  app.get("/api/partner-applications/:id/status", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = (req as any).user?.id;
+
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const application = await storage.getPartnerApplication(id);
+      if (!application || application.userId !== userId) {
+        return res.status(404).json({ error: "Application not found" });
+      }
+
+      if (!application.providerApplicationId) {
+        return res.status(400).json({ error: "Application not yet submitted to provider" });
+      }
+
+      // Mock status check - in production, this would call the provider API
+      const mockStatusResponse = {
+        applicationId: application.providerApplicationId,
+        currentStatus: application.status,
+        statusHistory: application.statusUpdates || [],
+        lastUpdated: application.updatedAt,
+        expectedNextUpdate: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
+        documents_required: [],
+        notes: "Application is under review by our credit team"
+      };
+
+      res.json({
+        success: true,
+        data: mockStatusResponse
+      });
+    } catch (error) {
+      console.error("Error fetching application status:", error);
+      res.status(500).json({ error: "Failed to fetch application status" });
+    }
+  });
+
+  // Get available lenders and their requirements
+  app.get("/api/partner-applications/lenders", async (req, res) => {
+    try {
+      const lenders = providerRegistry.getAllLenders();
+      const lenderInfo = lenders.map(lender => ({
+        name: lender,
+        displayName: lender.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        requiredFields: providerRegistry.getRequiredFields(lender),
+        fieldMappings: providerRegistry.getFieldMappings(lender)
+      }));
+
+      res.json({
+        success: true,
+        data: lenderInfo
+      });
+    } catch (error) {
+      console.error("Error fetching lender information:", error);
+      res.status(500).json({ error: "Failed to fetch lender information" });
+    }
+  });
+
+  // ============ END PARTNER APPLICATION ROUTES ============
 
   // ============ ADMIN PANEL ROUTES ============
   
