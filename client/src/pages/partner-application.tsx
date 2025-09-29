@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, Upload, FileText, User, Building, CreditCard, DollarSign, Calendar, AlertCircle, ArrowLeft, ArrowRight } from "lucide-react";
+import { DocumentUploadField } from "@/components/DocumentUploadField";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -43,8 +44,8 @@ const applicationSchema = z.object({
   employmentType: z.enum(["salaried", "self_employed", "business", "professional"]),
   employerName: z.string().min(2, "Employer name is required").optional(),
   designation: z.string().min(2, "Designation is required").optional(),
-  workExperience: z.number().min(0, "Work experience must be positive"),
-  monthlyIncome: z.number().min(1, "Monthly income is required"),
+  workExperience: z.coerce.number().min(0, "Work experience must be positive"),
+  monthlyIncome: z.coerce.number().min(1, "Monthly income is required"),
   
   // Banking Information
   bankName: z.string().min(2, "Bank name is required"),
@@ -52,9 +53,18 @@ const applicationSchema = z.object({
   accountType: z.enum(["savings", "current"]).optional(),
   
   // Loan Information
-  loanAmount: z.number().min(1, "Loan amount is required"),
-  tenure: z.number().min(6, "Minimum tenure is 6 months"),
-  loanPurpose: z.string().min(5, "Loan purpose is required")
+  loanAmount: z.coerce.number().min(1, "Loan amount is required"),
+  tenure: z.coerce.number().min(6, "Minimum tenure is 6 months"),
+  loanPurpose: z.string().min(5, "Loan purpose is required"),
+  
+  // Document IDs (references to uploaded documents)
+  documentIds: z.object({
+    panCard: z.array(z.string()).optional(),
+    aadharCard: z.array(z.string()).optional(),
+    salarySlips: z.array(z.string()).optional(),
+    bankStatements: z.array(z.string()).optional(),
+    employmentLetter: z.array(z.string()).optional()
+  }).optional()
 });
 
 type ApplicationFormData = z.infer<typeof applicationSchema>;
@@ -79,6 +89,13 @@ export default function PartnerApplicationPage() {
   
   const [currentStep, setCurrentStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadedDocuments, setUploadedDocuments] = useState<Record<string, any[]>>({
+    panCard: [],
+    aadharCard: [],
+    salarySlips: [],
+    bankStatements: [],
+    employmentLetter: []
+  });
   
   const lender = params?.lender;
   const urlParams = new URLSearchParams(location.split('?')[1] || '');
@@ -101,14 +118,38 @@ export default function PartnerApplicationPage() {
   const form = useForm<ApplicationFormData>({
     resolver: zodResolver(applicationSchema),
     defaultValues: {
+      firstName: "",
+      lastName: "",
+      panNumber: "",
+      aadharNumber: "",
+      dateOfBirth: "",
       gender: "male",
-      maritalStatus: "single", 
+      maritalStatus: "single",
+      email: "",
+      mobile: "",
+      currentAddress: "",
+      currentCity: "",
+      currentState: "",
+      currentPincode: "",
       addressType: "owned",
       employmentType: "salaried",
-      accountType: "savings",
+      employerName: "",
+      designation: "",
       workExperience: 5,
+      monthlyIncome: 50000,
+      bankName: "",
+      accountNumber: "",
+      accountType: "savings",
       loanAmount: 500000,
-      tenure: 36
+      tenure: 36,
+      loanPurpose: "",
+      documentIds: {
+        panCard: [],
+        aadharCard: [],
+        salarySlips: [],
+        bankStatements: [],
+        employmentLetter: []
+      }
     }
   });
 
@@ -135,7 +176,7 @@ export default function PartnerApplicationPage() {
         employerName: data.employerName || "",
         designation: data.designation || "",
         workExperience: data.workExperience || 5,
-        monthlyIncome: data.monthlyIncome || 0,
+        monthlyIncome: data.monthlyIncome ?? 50000,
         bankName: data.bankName || "",
         accountNumber: data.accountNumber || "",
         accountType: data.accountType || "savings",
@@ -227,6 +268,7 @@ export default function PartnerApplicationPage() {
     { id: 'employment', title: 'Employment', icon: Building },
     { id: 'banking', title: 'Banking', icon: CreditCard },
     { id: 'loan', title: 'Loan Details', icon: DollarSign },
+    { id: 'documents', title: 'Documents', icon: FileText },
     { id: 'review', title: 'Review', icon: CheckCircle }
   ];
 
@@ -851,8 +893,135 @@ export default function PartnerApplicationPage() {
             </Card>
           )}
 
-          {/* Step 5: Review */}
+          {/* Step 5: Documents */}
           {currentStep === 5 && (
+            <Card data-testid="card-documents">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Document Upload
+                </CardTitle>
+                <CardDescription>
+                  Upload required documents for loan processing
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 gap-6">
+                  <DocumentUploadField
+                    documentType="panCard"
+                    label="PAN Card"
+                    required={true}
+                    multiple={false}
+                    accept="image/*,.pdf"
+                    existingDocuments={uploadedDocuments.panCard}
+                    onUploadComplete={(doc) => {
+                      setUploadedDocuments(prev => ({
+                        ...prev,
+                        panCard: [...prev.panCard, doc]
+                      }));
+                      // Update form with document ID
+                      const currentIds = form.getValues('documentIds.panCard') || [];
+                      form.setValue('documentIds.panCard', [...currentIds, doc.id]);
+                    }}
+                    onRemove={(docId) => {
+                      setUploadedDocuments(prev => ({
+                        ...prev,
+                        panCard: prev.panCard.filter(doc => doc.id !== docId)
+                      }));
+                      // Update form by removing document ID
+                      const currentIds = form.getValues('documentIds.panCard') || [];
+                      form.setValue('documentIds.panCard', currentIds.filter(id => id !== docId));
+                    }}
+                  />
+
+                  <DocumentUploadField
+                    documentType="aadharCard"
+                    label="Aadhaar Card"
+                    required={false}
+                    multiple={false}
+                    accept="image/*,.pdf"
+                    existingDocuments={uploadedDocuments.aadharCard}
+                    onUploadComplete={(doc) => {
+                      setUploadedDocuments(prev => ({
+                        ...prev,
+                        aadharCard: [...prev.aadharCard, doc]
+                      }));
+                      const currentIds = form.getValues('documentIds.aadharCard') || [];
+                      form.setValue('documentIds.aadharCard', [...currentIds, doc.id]);
+                    }}
+                    onRemove={(docId) => {
+                      setUploadedDocuments(prev => ({
+                        ...prev,
+                        aadharCard: prev.aadharCard.filter(doc => doc.id !== docId)
+                      }));
+                      const currentIds = form.getValues('documentIds.aadharCard') || [];
+                      form.setValue('documentIds.aadharCard', currentIds.filter(id => id !== docId));
+                    }}
+                  />
+
+                  <DocumentUploadField
+                    documentType="salarySlips"
+                    label="Salary Slips (Last 3 months)"
+                    required={false}
+                    multiple={true}
+                    accept="image/*,.pdf"
+                    existingDocuments={uploadedDocuments.salarySlips}
+                    onUploadComplete={(doc) => {
+                      setUploadedDocuments(prev => ({
+                        ...prev,
+                        salarySlips: [...prev.salarySlips, doc]
+                      }));
+                      const currentIds = form.getValues('documentIds.salarySlips') || [];
+                      form.setValue('documentIds.salarySlips', [...currentIds, doc.id]);
+                    }}
+                    onRemove={(docId) => {
+                      setUploadedDocuments(prev => ({
+                        ...prev,
+                        salarySlips: prev.salarySlips.filter(doc => doc.id !== docId)
+                      }));
+                      const currentIds = form.getValues('documentIds.salarySlips') || [];
+                      form.setValue('documentIds.salarySlips', currentIds.filter(id => id !== docId));
+                    }}
+                  />
+
+                  <DocumentUploadField
+                    documentType="bankStatements"
+                    label="Bank Statements (Last 6 months)"
+                    required={false}
+                    multiple={true}
+                    accept="image/*,.pdf"
+                    existingDocuments={uploadedDocuments.bankStatements}
+                    onUploadComplete={(doc) => {
+                      setUploadedDocuments(prev => ({
+                        ...prev,
+                        bankStatements: [...prev.bankStatements, doc]
+                      }));
+                      const currentIds = form.getValues('documentIds.bankStatements') || [];
+                      form.setValue('documentIds.bankStatements', [...currentIds, doc.id]);
+                    }}
+                    onRemove={(docId) => {
+                      setUploadedDocuments(prev => ({
+                        ...prev,
+                        bankStatements: prev.bankStatements.filter(doc => doc.id !== docId)
+                      }));
+                      const currentIds = form.getValues('documentIds.bankStatements') || [];
+                      form.setValue('documentIds.bankStatements', currentIds.filter(id => id !== docId));
+                    }}
+                  />
+                </div>
+
+                <Alert>
+                  <FileText className="h-4 w-4" />
+                  <AlertDescription>
+                    Document upload is optional at this stage. You can submit your application and upload documents later when requested by the lender.
+                  </AlertDescription>
+                </Alert>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Step 6: Review */}
+          {currentStep === 6 && (
             <Card data-testid="card-review">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">

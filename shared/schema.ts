@@ -5613,6 +5613,34 @@ export const partnerApplications = pgTable("partner_applications", {
   updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
+// Partner Application Documents table for document metadata
+export const partnerApplicationDocuments = pgTable("partner_application_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  applicationId: varchar("application_id").references(() => partnerApplications.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Document Details
+  documentType: varchar("document_type").notNull(), // panCard, aadharCard, salarySlips, bankStatements, employmentLetter
+  fileName: text("file_name").notNull(),
+  fileSize: integer("file_size"), // in bytes
+  mimeType: varchar("mime_type"),
+  
+  // Object Storage Details
+  filePath: text("file_path").notNull(), // normalized object storage path like /objects/uuid
+  originalUrl: text("original_url"), // original upload URL for reference
+  
+  // Metadata
+  uploadedBy: varchar("uploaded_by").references(() => users.id).notNull(),
+  isVerified: boolean("is_verified").default(false),
+  verifiedBy: varchar("verified_by").references(() => users.id),
+  verifiedAt: timestamp("verified_at"),
+  
+  // Timestamps
+  uploadedAt: timestamp("uploaded_at").default(sql`CURRENT_TIMESTAMP`),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
 // Investment Ideas Zod schemas
 export const insertInvestmentIdeaSchema = createInsertSchema(investmentIdeas).omit({
   id: true,
@@ -5653,3 +5681,14 @@ export type YieldTracker = typeof yieldTracker.$inferSelect;
 export type InsertYieldTracker = z.infer<typeof insertYieldTrackerSchema>;
 export type PartnerApplication = typeof partnerApplications.$inferSelect;
 export type InsertPartnerApplication = z.infer<typeof insertPartnerApplicationSchema>;
+
+export const insertPartnerApplicationDocumentSchema = createInsertSchema(partnerApplicationDocuments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  uploadedAt: true,
+});
+
+export type PartnerApplicationDocument = typeof partnerApplicationDocuments.$inferSelect;
+export type InsertPartnerApplicationDocument = z.infer<typeof insertPartnerApplicationDocumentSchema>;
+

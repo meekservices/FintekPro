@@ -1,4 +1,4 @@
-import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Supplier, type InsertSupplier, type EpfHolding, type PpfHolding, type EpsHolding, type GovernmentSchemeConsent, type InsertGovernmentSchemeConsent, type InsuranceHolding, type InsertInsuranceHolding, type UserBankAccount, type InsertUserBankAccount, type UserDematAccount, type InsertUserDematAccount, type AchievementCategory, type InsertAchievementCategory, type Achievement, type InsertAchievement, type UserAchievement, type InsertUserAchievement, type LearningProgress, type InsertLearningProgress, type SocialShare, type InsertSocialShare, type FinancialGoal, type InsertFinancialGoal, type TaxDocument, type InsertTaxDocument, type StructuredTaxData, type InsertStructuredTaxData, type TaxCalculation, type InsertTaxCalculation, type TaxDocumentAccessLog, type InsertTaxDocumentAccessLog, type TaxSession, type InsertTaxSession, type TaxDataSource, type InsertTaxDataSource, type ValidationIssue, type InsertValidationIssue, type FilingRecord, type InsertFilingRecord, type AiOptimizationSuggestion, type InsertAiOptimizationSuggestion, type FundExtended, type Provenance, type FundSearchParams, type FundListResponse, type SourceStatus, type MultiSourceStatus, type LoanProduct, type InsertLoanProduct, type LoanProvider, type InsertLoanProvider, type ProviderProduct, type InsertProviderProduct, type CreditProfile, type InsertCreditProfile, type LoanRequest, type InsertLoanRequest, type LoanOffer, type InsertLoanOffer, type LoanApplicationMarketplace, type InsertLoanApplicationMarketplace, type ProviderIntegration, type InsertProviderIntegration, type ApplicationDocument, type InsertApplicationDocument, type InvestmentIdea, type InsertInvestmentIdea, type InvestmentIdeaTracking, type InsertInvestmentIdeaTracking, type InvestmentIdeaAlert, type InsertInvestmentIdeaAlert, type YieldTracker, type InsertYieldTracker, type PartnerApplication, type InsertPartnerApplication } from "@shared/schema";
+import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Supplier, type InsertSupplier, type EpfHolding, type PpfHolding, type EpsHolding, type GovernmentSchemeConsent, type InsertGovernmentSchemeConsent, type InsuranceHolding, type InsertInsuranceHolding, type UserBankAccount, type InsertUserBankAccount, type UserDematAccount, type InsertUserDematAccount, type AchievementCategory, type InsertAchievementCategory, type Achievement, type InsertAchievement, type UserAchievement, type InsertUserAchievement, type LearningProgress, type InsertLearningProgress, type SocialShare, type InsertSocialShare, type FinancialGoal, type InsertFinancialGoal, type TaxDocument, type InsertTaxDocument, type StructuredTaxData, type InsertStructuredTaxData, type TaxCalculation, type InsertTaxCalculation, type TaxDocumentAccessLog, type InsertTaxDocumentAccessLog, type TaxSession, type InsertTaxSession, type TaxDataSource, type InsertTaxDataSource, type ValidationIssue, type InsertValidationIssue, type FilingRecord, type InsertFilingRecord, type AiOptimizationSuggestion, type InsertAiOptimizationSuggestion, type FundExtended, type Provenance, type FundSearchParams, type FundListResponse, type SourceStatus, type MultiSourceStatus, type LoanProduct, type InsertLoanProduct, type LoanProvider, type InsertLoanProvider, type ProviderProduct, type InsertProviderProduct, type CreditProfile, type InsertCreditProfile, type LoanRequest, type InsertLoanRequest, type LoanOffer, type InsertLoanOffer, type LoanApplicationMarketplace, type InsertLoanApplicationMarketplace, type ProviderIntegration, type InsertProviderIntegration, type PartnerApplicationDocument, type InsertPartnerApplicationDocument, type InvestmentIdea, type InsertInvestmentIdea, type InvestmentIdeaTracking, type InsertInvestmentIdeaTracking, type InvestmentIdeaAlert, type InsertInvestmentIdeaAlert, type YieldTracker, type InsertYieldTracker, type PartnerApplication, type InsertPartnerApplication } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, and, desc, asc, gte, lte, like, sql } from "drizzle-orm";
@@ -582,6 +582,14 @@ export interface IStorage {
   updatePartnerApplication(id: string, updates: Partial<PartnerApplication>): Promise<PartnerApplication | undefined>;
   updateApplicationStatus(id: string, status: string, providerApplicationId?: string, statusUpdates?: any[]): Promise<PartnerApplication | undefined>;
   getApplicationsByLender(lender: string, status?: string): Promise<PartnerApplication[]>;
+  
+  // Application Document methods
+  createApplicationDocument(document: InsertPartnerApplicationDocument): Promise<PartnerApplicationDocument>;
+  getApplicationDocuments(applicationId: string): Promise<PartnerApplicationDocument[]>;
+  getApplicationDocument(id: string): Promise<PartnerApplicationDocument | undefined>;
+  getApplicationDocumentsByType(applicationId: string, documentType: string): Promise<PartnerApplicationDocument[]>;
+  updateApplicationDocument(id: string, updates: Partial<PartnerApplicationDocument>): Promise<PartnerApplicationDocument | undefined>;
+  deleteApplicationDocument(id: string): Promise<boolean>;
   getApplicationPrefillData(userId: string, lender: string, recommendationId?: string): Promise<any>;
 }
 
@@ -2987,6 +2995,56 @@ export class DatabaseStorage implements IStorage {
     }
 
     return prefillData;
+  }
+
+  // Application Document methods
+  async createApplicationDocument(document: InsertPartnerApplicationDocument): Promise<PartnerApplicationDocument> {
+    const [result] = await db.insert(schema.partnerApplicationDocuments).values(document).returning();
+    return result;
+  }
+
+  async getApplicationDocuments(applicationId: string): Promise<PartnerApplicationDocument[]> {
+    return await db
+      .select()
+      .from(schema.partnerApplicationDocuments)
+      .where(eq(schema.partnerApplicationDocuments.applicationId, applicationId))
+      .orderBy(desc(schema.partnerApplicationDocuments.uploadedAt));
+  }
+
+  async getApplicationDocument(id: string): Promise<PartnerApplicationDocument | undefined> {
+    const [result] = await db
+      .select()
+      .from(schema.partnerApplicationDocuments)
+      .where(eq(schema.partnerApplicationDocuments.id, id))
+      .limit(1);
+    return result;
+  }
+
+  async getApplicationDocumentsByType(applicationId: string, documentType: string): Promise<PartnerApplicationDocument[]> {
+    return await db
+      .select()
+      .from(schema.partnerApplicationDocuments)
+      .where(and(
+        eq(schema.partnerApplicationDocuments.applicationId, applicationId),
+        eq(schema.partnerApplicationDocuments.documentType, documentType)
+      ))
+      .orderBy(desc(schema.partnerApplicationDocuments.uploadedAt));
+  }
+
+  async updateApplicationDocument(id: string, updates: Partial<PartnerApplicationDocument>): Promise<PartnerApplicationDocument | undefined> {
+    const [result] = await db
+      .update(schema.partnerApplicationDocuments)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.partnerApplicationDocuments.id, id))
+      .returning();
+    return result;
+  }
+
+  async deleteApplicationDocument(id: string): Promise<boolean> {
+    const result = await db
+      .delete(schema.partnerApplicationDocuments)
+      .where(eq(schema.partnerApplicationDocuments.id, id));
+    return result.rowCount > 0;
   }
 }
 

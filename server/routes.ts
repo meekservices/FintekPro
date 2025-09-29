@@ -37,13 +37,14 @@ import { aiTransactionTrackerService } from './ai-transaction-tracker';
 import { aiInvestSmartMonitorService } from './ai-investsmart-monitor';
 import amlRoutes from './aml-routes';
 import { ZohoCommerceAPI, type ZohoCommerceConfig } from './zoho-commerce-api';
-import { zohoCommerceConfig, zohoProducts, zohoCategories, zohoOrders, zohoCustomers, zohoInventory, zohoWebhooks, zohoSyncLogs, insertZohoCommerceConfigSchema, insertZohoProductSchema, insertZohoCategorySchema, insertZohoOrderSchema, insertCreditProfileSchema, insertLoanRequestSchema, insertLoanApplicationMarketplaceSchema, insertApplicationDocumentSchema } from '@shared/schema';
+import { zohoCommerceConfig, zohoProducts, zohoCategories, zohoOrders, zohoCustomers, zohoInventory, zohoWebhooks, zohoSyncLogs, insertZohoCommerceConfigSchema, insertZohoProductSchema, insertZohoCategorySchema, insertZohoOrderSchema, insertCreditProfileSchema, insertLoanRequestSchema, insertLoanApplicationMarketplaceSchema, insertApplicationDocumentSchema, insertPartnerApplicationDocumentSchema } from '@shared/schema';
 import BBPSService from './services/bbpsService';
 import { digilockerService } from './services/digilockerService';
 import { amfiService } from './amfi-service';
 import { bseService } from './bse-service';
 import { multiSourceMFService } from './services/multisource-mf-service';
 import { ObjectStorageService, ObjectNotFoundError } from './objectStorage';
+import { randomUUID } from 'crypto';
 import { ObjectPermission } from './objectAcl';
 import AIPortfolioService from './ai-portfolio-service';
 import { FundComparisonService } from './services/fund-comparison-service';
@@ -15113,6 +15114,207 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching lender information:", error);
       res.status(500).json({ error: "Failed to fetch lender information" });
+    }
+  });
+
+  // Document upload for partner applications
+  app.get("/api/partner-applications/upload-url", requireAuth, async (req, res) => {
+    try {
+      const objectStorageService = new ObjectStorageService();
+      const uploadUrl = await objectStorageService.getObjectEntityUploadURL();
+      
+      res.json({
+        success: true,
+        data: {
+          uploadUrl,
+          method: 'PUT'
+        }
+      });
+    } catch (error) {
+      console.error("Error generating upload URL:", error);
+      res.status(500).json({ error: "Failed to generate upload URL" });
+    }
+  });
+
+  // Associate uploaded document with application
+  app.post("/api/partner-applications/:applicationId/documents", requireAuth, async (req, res) => {
+    try {
+      const { applicationId } = req.params;
+      
+      // Validate request body using Zod schema
+      const validationResult = insertPartnerApplicationDocumentSchema.extend({
+        uploadedUrl: z.string().url("Invalid upload URL"),
+        mimeType: z.string().optional(),
+      }).omit({
+        id: true,
+        createdAt: true,
+        updatedAt: true,
+        uploadedAt: true,
+        uploadedBy: true,
+        applicationId: true,
+        userId: true,
+        filePath: true,
+        originalUrl: true,
+      }).safeParse(req.body);
+      
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          error: "Invalid document data",
+          details: validationResult.error.issues
+        });
+      }
+      
+      const { documentType, fileName, fileSize, uploadedUrl, mimeType } = validationResult.data;
+
+      // Verify application exists and belongs to user
+      const application = await storage.getPartnerApplication(applicationId);
+      if (!application || application.userId !== req.user.id) {
+        return res.status(404).json({ error: "Application not found" });
+      }
+
+      // Normalize the object path  
+      const objectStorageService = new ObjectStorageService();
+      const normalizedPath = objectStorageService.normalizeObjectEntityPath(uploadedUrl);
+      
+      // Set ACL policy for document access
+      await objectStorageService.trySetObjectEntityAclPolicy(normalizedPath, {
+        visibility: 'private',
+        allowedUsers: [req.user.id]
+      });
+
+      // Store document metadata in database
+      const documentRecord = await storage.createApplicationDocument({
+        applicationId,
+        userId: req.user.id,
+        documentType,
+        fileName,
+        fileSize: fileSize || 0,
+        filePath: normalizedPath,
+        originalUrl: uploadedUrl,
+        uploadedBy: req.user.id
+      });
+
+      res.json({
+        success: true,
+        data: documentRecord
+      });
+    } catch (error) {
+      console.error("Error associating document:", error);
+      res.status(500).json({ error: "Failed to associate document with application" });
+    }
+  });
+
+  // Get documents for an application
+  app.get("/api/partner-applications/:applicationId/documents", requireAuth, async (req, res) => {
+    try {
+      const { applicationId } = req.params;
+      
+      // Verify application exists and belongs to user
+      const application = await storage.getPartnerApplication(applicationId);
+      if (!application || application.userId !== req.user.id) {
+        return res.status(404).json({ error: "Application not found" });
+      }
+      
+      // Fetch documents from database
+      const documents = await storage.getApplicationDocuments(applicationId);
+      
+      res.json({
+        success: true,
+        data: documents
+      });
+    } catch (error) {
+      console.error("Error fetching application documents:", error);
+      res.status(500).json({ error: "Failed to fetch application documents" });
+    }
+  });
+
+  // Delete application document
+  app.delete("/api/partner-applications/:applicationId/documents/:documentId", requireAuth, async (req, res) => {
+    try {
+      const { applicationId, documentId } = req.params;
+      const userId = req.user.id;
+
+      // Verify application ownership
+      const application = await storage.getPartnerApplication(applicationId);
+      if (!application || application.userId !== userId) {
+        return res.status(404).json({ error: "Application not found" });
+      }
+
+      // Get document to verify ownership and get file path
+      const document = await storage.getApplicationDocument(documentId);
+      if (!document || document.applicationId !== applicationId || document.userId !== userId) {
+        return res.status(404).json({ error: "Document not found" });
+      }
+
+      // Delete from object storage
+      try {
+        await objectStorage.deleteObject(document.filePath);
+      } catch (storageError) {
+        console.warn('Failed to delete object from storage:', storageError);
+        // Continue with database deletion even if object storage fails
+      }
+
+      // Delete from database
+      const deleted = await storage.deleteApplicationDocument(documentId);
+      if (!deleted) {
+        return res.status(404).json({ error: "Document not found" });
+      }
+
+      res.json({ 
+        success: true, 
+        message: "Document deleted successfully" 
+      });
+    } catch (error) {
+      console.error('Error deleting application document:', error);
+      res.status(500).json({ error: "Failed to delete document" });
+    }
+  });
+
+  // Update application document metadata
+  app.patch("/api/partner-applications/:applicationId/documents/:documentId", requireAuth, async (req, res) => {
+    try {
+      const { applicationId, documentId } = req.params;
+      const userId = req.user.id;
+
+      // Verify application ownership
+      const application = await storage.getPartnerApplication(applicationId);
+      if (!application || application.userId !== userId) {
+        return res.status(404).json({ error: "Application not found" });
+      }
+
+      // Get document to verify ownership
+      const document = await storage.getApplicationDocument(documentId);
+      if (!document || document.applicationId !== applicationId || document.userId !== userId) {
+        return res.status(404).json({ error: "Document not found" });
+      }
+
+      // Allow updating verification status
+      const { isVerified } = req.body;
+      const updates: any = {};
+      
+      if (typeof isVerified === 'boolean') {
+        updates.isVerified = isVerified;
+        if (isVerified) {
+          updates.verifiedBy = userId;
+          updates.verifiedAt = new Date();
+        } else {
+          updates.verifiedBy = null;
+          updates.verifiedAt = null;
+        }
+      }
+
+      const updatedDocument = await storage.updateApplicationDocument(documentId, updates);
+      if (!updatedDocument) {
+        return res.status(404).json({ error: "Document not found" });
+      }
+
+      res.json({
+        success: true,
+        data: updatedDocument
+      });
+    } catch (error) {
+      console.error('Error updating application document:', error);
+      res.status(500).json({ error: "Failed to update document" });
     }
   });
 
