@@ -329,19 +329,6 @@ export function EnhancedNavigation() {
           {/* Quick Actions */}
           <div className="p-2 border-b border-gray-200">
             <div className="space-y-1">
-              {/* Store Button */}
-              <Link href="/store">
-                <Button 
-                  variant="default" 
-                  size="sm"
-                  className={`bg-green-600 hover:bg-green-700 text-white ${isCollapsed ? 'w-full justify-center px-0' : 'w-full justify-start'}`}
-                  data-testid="sidebar-store-button"
-                >
-                  <Store className="h-4 w-4" />
-                  {!isCollapsed && <span className="ml-2">Store</span>}
-                </Button>
-              </Link>
-              
               {/* Cart Button */}
               <Link href="/cart">
                 <Button 
