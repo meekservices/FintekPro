@@ -1,6 +1,4 @@
 import { useState, useEffect } from "react";
-import { EnhancedNavigation } from "@/components/layout/enhanced-navigation";
-import { Footer } from "@/components/layout/footer";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -549,27 +547,21 @@ export default function Cart() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-finance-light">
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 rounded w-48 mb-4"></div>
-            <div className="space-y-4">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-24 bg-gray-200 rounded"></div>
-              ))}
-            </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-48 mb-4"></div>
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-24 bg-gray-200 rounded"></div>
+            ))}
           </div>
-        </main>
-        <Footer />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-finance-light" data-testid="cart-page">
-      <EnhancedNavigation />
-      
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" data-testid="cart-page">
         <div className="mb-6">
           <Link href="/store">
             <Button variant="ghost" className="mb-4" data-testid="button-back-to-store">
@@ -1098,9 +1090,6 @@ export default function Cart() {
             </Tabs>
           </TabsContent>
         </Tabs>
-      </main>
-      
-      <Footer />
     </div>
   );
 }
