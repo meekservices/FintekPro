@@ -5692,3 +5692,72 @@ export const insertPartnerApplicationDocumentSchema = createInsertSchema(partner
 export type PartnerApplicationDocument = typeof partnerApplicationDocuments.$inferSelect;
 export type InsertPartnerApplicationDocument = z.infer<typeof insertPartnerApplicationDocumentSchema>;
 
+// PhonePe Payment Transactions table
+export const phonepeTransactions = pgTable("phonepe_transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Transaction Identification
+  merchantTransactionId: varchar("merchant_transaction_id").notNull().unique(), // Our generated transaction ID
+  phonepeTransactionId: varchar("phonepe_transaction_id"), // PhonePe's transaction ID
+  merchantId: varchar("merchant_id").notNull(),
+  
+  // Amount Details
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(), // Amount in rupees
+  amountInPaise: integer("amount_in_paise").notNull(), // Amount in paise (for PhonePe API)
+  currency: varchar("currency").default("INR"),
+  
+  // Payment Details
+  paymentInstrumentType: varchar("payment_instrument_type"), // UPI, CARD, NET_BANKING, WALLET
+  paymentMethod: varchar("payment_method"), // Specific method like PHONEPE_WALLET, PAYTM, etc.
+  
+  // User Information
+  merchantUserId: varchar("merchant_user_id"), // PhonePe user ID
+  mobileNumber: varchar("mobile_number"),
+  customerName: varchar("customer_name"),
+  customerEmail: varchar("customer_email"),
+  
+  // Transaction Status
+  status: varchar("status").default("PENDING").notNull(), // PENDING, SUCCESS, FAILED, PAYMENT_INITIATED, PAYMENT_PENDING
+  responseCode: varchar("response_code"), // PhonePe response code
+  responseMessage: text("response_message"), // PhonePe response message
+  
+  // URLs and Redirects
+  redirectUrl: text("redirect_url"),
+  callbackUrl: text("callback_url"),
+  paymentUrl: text("payment_url"), // PhonePe payment page URL
+  
+  // Related Entities
+  cartId: varchar("cart_id").references(() => userCart.id), // If payment for cart checkout
+  itemType: varchar("item_type"), // mutual_fund, product, proposal, loan
+  itemId: varchar("item_id"), // ID of the item being purchased
+  
+  // PhonePe Gateway Response
+  gatewayResponse: jsonb("gateway_response"), // Full response from PhonePe
+  checksum: text("checksum"), // Generated checksum for verification
+  
+  // Metadata
+  metadata: jsonb("metadata"), // Additional transaction data
+  failureReason: text("failure_reason"),
+  retryCount: integer("retry_count").default(0),
+  
+  // Timestamps
+  initiatedAt: timestamp("initiated_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  callbackReceivedAt: timestamp("callback_received_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// PhonePe Transaction Insert Schema
+export const insertPhonePeTransactionSchema = createInsertSchema(phonepeTransactions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  initiatedAt: true,
+});
+
+// PhonePe Transaction Types
+export type PhonePeTransaction = typeof phonepeTransactions.$inferSelect;
+export type InsertPhonePeTransaction = z.infer<typeof insertPhonePeTransactionSchema>;
+
