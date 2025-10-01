@@ -74,6 +74,10 @@ Preferred communication style: Simple, everyday language.
 ## Recent Changes
 
 ### Latest modifications with dates
+- **October 2025**: Implemented custom investment proposal ID system with distinct prefixes: AI- (AI-generated), AGENT- (advisor-created), CLIENT- (client-initiated) for clear proposal source identification
+- **October 2025**: Enhanced proposals page with filtering tabs (All/AI/Agent/Client), create proposal dialog for clients, and comprehensive cart integration with add-to-cart buttons
+- **October 2025**: Built complete proposal storage layer with 7 database methods supporting full CRUD operations and cart linkage for proposals
+- **October 2025**: Integrated proposal-to-cart workflow allowing proposals to be added as cart items with itemType='proposal' and automatic status tracking
 - **September 2025**: Reconstructed comprehensive client profile page with enhanced KYC/CKYC integration supporting both individual and non-individual entities across all residency statuses
 - **September 2025**: Implemented multi-provider AML screening with real-time compliance monitoring (Sumsub, ComplyCube, Sanction Scanner)
 - **September 2025**: Added CKYC (Central KYC Registry) service with KRA and CVL integration for securities trading compliance
