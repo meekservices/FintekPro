@@ -3,8 +3,13 @@ import { apiRequest } from "@/lib/queryClient";
 
 export interface CartItem {
   id: string;
+  itemType: string;
+  productId: string | null;
+  proposalId: string | null;
+  investmentId: string | null;
   quantity: number;
   investmentAmount: string | null;
+  metadata: any;
   addedAt: string;
   product: {
     id: string;
@@ -18,7 +23,7 @@ export interface CartItem {
     expectedReturns: string | null;
     provider: string;
     features: string[] | null;
-  };
+  } | null;
 }
 
 export interface Cart {

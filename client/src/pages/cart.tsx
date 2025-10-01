@@ -5,15 +5,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useCart } from "@/hooks/use-cart";
 import { useToast } from "@/hooks/use-toast";
 import { Trash2, Minus, Plus, ShoppingCart, ArrowLeft, CreditCard } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 
 export default function Cart() {
   const { cart, isLoading, updateCartItem, removeFromCart, clearCart, isUpdatingCartItem, isRemovingFromCart } = useCart();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [updatingItems, setUpdatingItems] = useState<Record<string, boolean>>({});
+  const [paymentMethod, setPaymentMethod] = useState<"phonepe" | "stripe">("phonepe");
 
   const handleQuantityChange = async (itemId: string, newQuantity: number) => {
     if (newQuantity < 1) return;
@@ -82,6 +88,59 @@ export default function Cart() {
     });
   };
 
+  const checkoutMutation = useMutation({
+    mutationFn: async (method: "phonepe" | "stripe") => {
+      if (method === "phonepe") {
+        const amountInPaise = Math.round((cart?.totalValue || 0) * 100);
+        const response: any = await apiRequest("POST", "/api/phonepe/initiate", {
+          body: {
+            amount: amountInPaise,
+          }
+        });
+        return { ...response, method: "phonepe" };
+      } else {
+        const response: any = await apiRequest("POST", "/api/stripe/checkout", {
+          body: {
+            amount: cart?.totalValue || 0,
+          }
+        });
+        return { ...response, method: "stripe" };
+      }
+    },
+    onSuccess: (data: any) => {
+      if (data.method === "phonepe" && data.redirectUrl) {
+        window.location.href = data.redirectUrl;
+      } else if (data.method === "stripe" && data.url) {
+        window.location.href = data.url;
+      } else {
+        toast({
+          title: "Checkout Error",
+          description: "Payment gateway redirect URL not received",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Checkout Failed",
+        description: error.message || "Failed to initiate payment",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const handleCheckout = () => {
+    if (!cart || cart.totalValue === 0) {
+      toast({
+        title: "Invalid Amount",
+        description: "Please add items to your cart",
+        variant: "destructive",
+      });
+      return;
+    }
+    checkoutMutation.mutate(paymentMethod);
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-finance-light">
@@ -146,80 +205,112 @@ export default function Cart() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {cart.items.map((item) => (
-                    <div 
-                      key={item.id} 
-                      className="flex items-center justify-between p-4 border rounded-lg"
-                      data-testid={`cart-item-${item.product.id}`}
-                    >
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-lg">{item.product.name}</h3>
-                        <p className="text-sm text-gray-600">{item.product.shortDescription}</p>
-                        <div className="flex items-center gap-4 mt-2">
-                          <Badge variant="outline">{item.product.category}</Badge>
-                          <span className="text-sm text-gray-500">by {item.product.provider}</span>
-                          <Badge className={
-                            item.product.riskLevel === "low" ? "bg-green-100 text-green-700" :
-                            item.product.riskLevel === "medium" ? "bg-yellow-100 text-yellow-700" :
-                            "bg-red-100 text-red-700"
-                          }>
-                            {item.product.riskLevel} risk
-                          </Badge>
+                  {cart.items.map((item) => {
+                    const isInvestment = item.itemType === "investment";
+                    const itemName = isInvestment ? item.metadata?.name : item.product?.name;
+                    const itemDescription = isInvestment ? item.metadata?.description : item.product?.shortDescription;
+                    const itemId = item.productId || item.investmentId || item.id;
+                    
+                    return (
+                      <div 
+                        key={item.id} 
+                        className="flex items-center justify-between p-4 border rounded-lg"
+                        data-testid={`cart-item-${itemId}`}
+                      >
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-lg">{itemName}</h3>
+                          <p className="text-sm text-gray-600">{itemDescription}</p>
+                          <div className="flex items-center gap-4 mt-2">
+                            {isInvestment ? (
+                              <>
+                                <Badge variant="outline">{item.metadata?.investmentType || "Investment"}</Badge>
+                                <span className="text-sm text-gray-500">{item.metadata?.fundHouse}</span>
+                                {item.metadata?.frequency && (
+                                  <Badge>{item.metadata.frequency}</Badge>
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                <Badge variant="outline">{item.product?.category}</Badge>
+                                <span className="text-sm text-gray-500">by {item.product?.provider}</span>
+                                <Badge className={
+                                  item.product?.riskLevel === "low" ? "bg-green-100 text-green-700" :
+                                  item.product?.riskLevel === "medium" ? "bg-yellow-100 text-yellow-700" :
+                                  "bg-red-100 text-red-700"
+                                }>
+                                  {item.product?.riskLevel} risk
+                                </Badge>
+                              </>
+                            )}
+                          </div>
                         </div>
-                      </div>
 
-                      <div className="flex items-center gap-4">
-                        {/* Quantity Controls */}
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-4">
+                          {/* Quantity Controls - only for products */}
+                          {!isInvestment && (
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
+                                disabled={item.quantity <= 1 || updatingItems[item.id]}
+                                data-testid={`button-decrease-quantity-${itemId}`}
+                              >
+                                <Minus className="h-4 w-4" />
+                              </Button>
+                              <span className="w-8 text-center font-medium">{item.quantity}</span>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
+                                disabled={updatingItems[item.id]}
+                                data-testid={`button-increase-quantity-${itemId}`}
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          )}
+
+                          {/* Investment Amount */}
+                          {isInvestment && (
+                            <div className="w-32">
+                              <div className="text-center">
+                                <span className="font-medium text-lg">₹{parseInt(item.investmentAmount || '0').toLocaleString()}</span>
+                                <p className="text-xs text-gray-500">Amount</p>
+                              </div>
+                            </div>
+                          )}
+
+                          {!isInvestment && (
+                            <div className="w-32">
+                              <Input
+                                type="number"
+                                placeholder="Amount"
+                                value={item.investmentAmount || item.product?.minimumInvestment || ''}
+                                onChange={(e) => handleInvestmentAmountChange(item.id, e.target.value)}
+                                min={item.product?.minimumInvestment || undefined}
+                                data-testid={`input-investment-amount-${itemId}`}
+                              />
+                              <p className="text-xs text-gray-500 mt-1">
+                                Min: ₹{parseInt(item.product?.minimumInvestment || '0').toLocaleString()}
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Remove Button */}
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
-                            disabled={item.quantity <= 1 || updatingItems[item.id]}
-                            data-testid={`button-decrease-quantity-${item.product.id}`}
+                            onClick={() => handleRemoveItem(item.id)}
+                            disabled={isRemovingFromCart}
+                            data-testid={`button-remove-${itemId}`}
                           >
-                            <Minus className="h-4 w-4" />
-                          </Button>
-                          <span className="w-8 text-center font-medium">{item.quantity}</span>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
-                            disabled={updatingItems[item.id]}
-                            data-testid={`button-increase-quantity-${item.product.id}`}
-                          >
-                            <Plus className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
-
-                        {/* Investment Amount */}
-                        <div className="w-32">
-                          <Input
-                            type="number"
-                            placeholder="Amount"
-                            value={item.investmentAmount || item.product.minimumInvestment || ''}
-                            onChange={(e) => handleInvestmentAmountChange(item.id, e.target.value)}
-                            min={item.product.minimumInvestment || undefined}
-                            data-testid={`input-investment-amount-${item.product.id}`}
-                          />
-                          <p className="text-xs text-gray-500 mt-1">
-                            Min: ₹{parseInt(item.product.minimumInvestment || '0').toLocaleString()}
-                          </p>
-                        </div>
-
-                        {/* Remove Button */}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleRemoveItem(item.id)}
-                          disabled={isRemovingFromCart}
-                          data-testid={`button-remove-${item.product.id}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
@@ -246,15 +337,41 @@ export default function Cart() {
                     </div>
                   </div>
                 </div>
+
+                {/* Payment Method Selection */}
+                <div className="mt-6 space-y-3">
+                  <Label className="text-base font-semibold">Select Payment Method</Label>
+                  <RadioGroup value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as "phonepe" | "stripe")}>
+                    <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                      <RadioGroupItem value="phonepe" id="phonepe" data-testid="radio-phonepe" />
+                      <Label htmlFor="phonepe" className="flex-1 cursor-pointer">
+                        <div className="flex items-center gap-2">
+                          <div className="font-medium">PhonePe</div>
+                          <Badge variant="secondary">Recommended</Badge>
+                        </div>
+                        <div className="text-xs text-gray-500">Fast & secure UPI payments</div>
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                      <RadioGroupItem value="stripe" id="stripe" data-testid="radio-stripe" />
+                      <Label htmlFor="stripe" className="flex-1 cursor-pointer">
+                        <div className="font-medium">Credit/Debit Card</div>
+                        <div className="text-xs text-gray-500">Pay with Stripe</div>
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                </div>
                 
                 <div className="mt-6 space-y-3">
                   <Button 
                     className="w-full bg-finance-blue hover:bg-finance-blue/90"
                     size="lg"
+                    onClick={handleCheckout}
+                    disabled={checkoutMutation.isPending}
                     data-testid="button-proceed-to-checkout"
                   >
                     <CreditCard className="h-5 w-5 mr-2" />
-                    Proceed to Checkout
+                    {checkoutMutation.isPending ? "Processing..." : "Proceed to Checkout"}
                   </Button>
                   <Link href="/store">
                     <Button variant="outline" className="w-full" data-testid="button-continue-shopping">
