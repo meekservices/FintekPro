@@ -117,8 +117,10 @@ export function EnhancedNavigation() {
           icon: Store,
           description: "Financial products and services marketplace",
           subItems: [
-            { name: "Investment Products", href: "/store?category=investments", description: "Mutual funds, bonds, debentures, MLDs" },
-            { name: "IPO & Pre-IPO", href: "/store?category=ipo", description: "Public offerings and unlisted securities" },
+            { name: "Mutual Funds", href: "/mutual-funds", description: "Domestic and international funds" },
+            { name: "Unlisted", href: "/unlisted", description: "Unlisted shares and securities" },
+            { name: "Investment Products", href: "/store?category=investments", description: "Bonds, debentures, MLDs" },
+            { name: "IPO & Pre-IPO", href: "/store?category=ipo", description: "Public offerings" },
             { name: "Global Products", href: "/store?category=global", description: "International stocks and funds" },
             { name: "Insurance Plans", href: "/store?category=insurance", description: "Life, health, motor insurance" },
             { name: "Banking Products", href: "/store?category=banking", description: "Accounts, loans, credit cards" },
@@ -148,7 +150,6 @@ export function EnhancedNavigation() {
           subItems: [
             { name: "NSE/BSE Trading", href: "/broking", description: "Equity and derivatives trading" },
             { name: "Global Markets", href: "/global-trading", description: "US, Europe, Asia stocks" },
-            { name: "Mutual Funds", href: "/mutual-funds", description: "Domestic and international funds" },
             { name: "IPO Center", href: "/ipo", description: "Current and pre-IPO opportunities" },
             { name: "F&O Trading", href: "/derivatives", description: "Futures and options" },
             { name: "Commodities", href: "/commodities", description: "MCX and NCDEX trading" },
