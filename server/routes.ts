@@ -17665,12 +17665,17 @@ System Security Data:`;
           .returning();
       }
 
-      // Get cart items with product details
+      // Get cart items with product details (leftJoin to include investment items)
       const cartItems = await db
         .select({
           id: userCartItems.id,
+          itemType: userCartItems.itemType,
+          productId: userCartItems.productId,
+          proposalId: userCartItems.proposalId,
+          investmentId: userCartItems.investmentId,
           quantity: userCartItems.quantity,
           investmentAmount: userCartItems.investmentAmount,
+          metadata: userCartItems.metadata,
           addedAt: userCartItems.addedAt,
           product: {
             id: storeProducts.id,
@@ -17687,15 +17692,25 @@ System Security Data:`;
           }
         })
         .from(userCartItems)
-        .innerJoin(storeProducts, eq(userCartItems.productId, storeProducts.id))
+        .leftJoin(storeProducts, eq(userCartItems.productId, storeProducts.id))
         .leftJoin(storeCategories, eq(storeProducts.categoryId, storeCategories.id))
         .where(eq(userCartItems.cartId, cart.id));
+
+      // Calculate total value using investmentAmount when available
+      const totalValue = cartItems.reduce((sum, item) => {
+        const amount = parseFloat(item.investmentAmount || '0');
+        if (amount > 0) return sum + amount;
+        if (item.product?.minimumInvestment) {
+          return sum + parseFloat(item.product.minimumInvestment);
+        }
+        return sum;
+      }, 0);
 
       res.json({
         cart: cart,
         items: cartItems,
         totalItems: cartItems.length,
-        totalValue: cartItems.reduce((sum, item) => sum + (parseFloat(item.investmentAmount || '0') || parseFloat(item.product.minimumInvestment || '0')), 0)
+        totalValue
       });
     } catch (error) {
       console.error("Error fetching cart:", error);
@@ -17703,7 +17718,7 @@ System Security Data:`;
     }
   });
 
-  // Add product to cart
+  // Add item to cart (products, proposals, or investments)
   app.post("/api/cart/items", requireAuth, async (req, res) => {
     try {
       const userId = (req as any).user?.id;
@@ -17711,20 +17726,49 @@ System Security Data:`;
         return res.status(401).json({ error: "User not authenticated" });
       }
 
-      const { productId, quantity = 1, investmentAmount } = req.body;
+      const { 
+        productId, 
+        proposalId, 
+        investmentId, 
+        itemType = "product", 
+        quantity = 1, 
+        investmentAmount, 
+        metadata 
+      } = req.body;
 
-      if (!productId) {
-        return res.status(400).json({ error: "Product ID is required" });
+      // Validate that exactly one ID is provided
+      const hasProduct = !!productId;
+      const hasProposal = !!proposalId;
+      const hasInvestment = !!investmentId;
+      const count = [hasProduct, hasProposal, hasInvestment].filter(Boolean).length;
+
+      if (count !== 1) {
+        return res.status(400).json({ 
+          error: "Exactly one of productId, proposalId, or investmentId must be provided" 
+        });
       }
 
-      // Verify product exists
-      const [product] = await db
-        .select()
-        .from(storeProducts)
-        .where(eq(storeProducts.id, productId));
+      // Type-specific validation
+      if (itemType === "product" && !productId) {
+        return res.status(400).json({ error: "productId is required for product items" });
+      }
+      if (itemType === "proposal" && !proposalId) {
+        return res.status(400).json({ error: "proposalId is required for proposal items" });
+      }
+      if (itemType === "investment" && !investmentId) {
+        return res.status(400).json({ error: "investmentId is required for investment items" });
+      }
 
-      if (!product) {
-        return res.status(404).json({ error: "Product not found" });
+      // For products, verify the product exists
+      if (productId) {
+        const [product] = await db
+          .select()
+          .from(storeProducts)
+          .where(eq(storeProducts.id, productId));
+
+        if (!product) {
+          return res.status(404).json({ error: "Product not found" });
+        }
       }
 
       // Get or create user's cart
@@ -17741,13 +17785,15 @@ System Security Data:`;
       }
 
       // Check if item already exists in cart
+      const whereConditions = [eq(userCartItems.cartId, cart.id)];
+      if (productId) whereConditions.push(eq(userCartItems.productId, productId));
+      if (proposalId) whereConditions.push(eq(userCartItems.proposalId, proposalId));
+      if (investmentId) whereConditions.push(eq(userCartItems.investmentId, investmentId));
+
       const [existingItem] = await db
         .select()
         .from(userCartItems)
-        .where(and(
-          eq(userCartItems.cartId, cart.id),
-          eq(userCartItems.productId, productId)
-        ));
+        .where(and(...whereConditions));
 
       if (existingItem) {
         // Update existing item
@@ -17755,7 +17801,8 @@ System Security Data:`;
           .update(userCartItems)
           .set({
             quantity: existingItem.quantity + quantity,
-            investmentAmount: investmentAmount || existingItem.investmentAmount
+            investmentAmount: investmentAmount || existingItem.investmentAmount,
+            metadata: metadata || existingItem.metadata
           })
           .where(eq(userCartItems.id, existingItem.id))
           .returning();
@@ -17767,9 +17814,13 @@ System Security Data:`;
           .insert(userCartItems)
           .values({
             cartId: cart.id,
-            productId,
+            productId: productId || null,
+            proposalId: proposalId || null,
+            investmentId: investmentId || null,
+            itemType,
             quantity,
-            investmentAmount: investmentAmount || product.minimumInvestment?.toString()
+            investmentAmount: investmentAmount?.toString() || null,
+            metadata: metadata || {}
           })
           .returning();
 

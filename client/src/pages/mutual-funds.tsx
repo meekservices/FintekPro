@@ -11,6 +11,7 @@ import { useMutualFunds, usePopularMutualFunds, useSearchMutualFunds, type Mutua
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNSEIndices, useMarketMovers, useMarketStatus } from "@/hooks/use-market-data";
 import { usePortfolios, usePortfolioPerformance, useEnhancedPortfolioHoldings } from "@/hooks/use-portfolio";
+import { InvestmentModal } from "@/components/InvestmentModal";
 
 function FundCard({ fund, sebiData, onInvestClick }: { fund: MutualFundData; sebiData?: any[]; onInvestClick: (fund: MutualFundData) => void }) {
   const navValue = parseFloat(fund.nav || "0");
@@ -512,9 +513,14 @@ export default function MutualFunds() {
 
   const isLoading = isLoadingAll || isLoadingPopular || (searchTerm.length > 2 && isSearching);
 
+  // Investment modal state
+  const [selectedFund, setSelectedFund] = useState<MutualFundData | null>(null);
+  const [isInvestmentModalOpen, setIsInvestmentModalOpen] = useState(false);
+
   // Handle invest button click
   const handleInvestClick = (fund: MutualFundData) => {
-    alert(`Redirecting to invest in ${fund.schemeName}...`);
+    setSelectedFund(fund);
+    setIsInvestmentModalOpen(true);
   };
 
   // Comprehensive refresh function
@@ -1406,6 +1412,13 @@ export default function MutualFunds() {
         </Tabs>
 
       </div>
+
+      {/* Investment Modal */}
+      <InvestmentModal
+        fund={selectedFund}
+        isOpen={isInvestmentModalOpen}
+        onClose={() => setIsInvestmentModalOpen(false)}
+      />
     </div>
   );
 }

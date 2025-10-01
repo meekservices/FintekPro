@@ -3047,12 +3047,14 @@ export const userCart = pgTable("user_cart", {
 export const userCartItems = pgTable("user_cart_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   cartId: varchar("cart_id").references(() => userCart.id).notNull(),
-  productId: varchar("product_id").references(() => storeProducts.id), // Nullable for proposals
+  productId: varchar("product_id").references(() => storeProducts.id), // Nullable for proposals/investments
   proposalId: varchar("proposal_id").references(() => investmentProposals.id), // For proposal-based items
-  itemType: varchar("item_type").notNull().default("product"), // 'product' or 'proposal'
+  investmentId: varchar("investment_id"), // For investment items (mutual fund scheme code, etc.)
+  itemType: varchar("item_type").notNull().default("product"), // 'product', 'proposal', or 'investment'
   quantity: integer("quantity").notNull().default(1),
   investmentAmount: decimal("investment_amount", { precision: 15, scale: 2 }),
   proposalItemIds: text("proposal_item_ids").array(), // Array of proposal item IDs when from proposal
+  metadata: jsonb("metadata").$type<Record<string, any>>().default({}), // Flexible metadata for any item type
   addedAt: timestamp("added_at").defaultNow(),
 });
 
@@ -3099,10 +3101,14 @@ export const insertUserCartItemSchema = createInsertSchema(userCartItems).omit({
   id: true,
   addedAt: true,
 }).refine((data) => {
-  // Either productId or proposalId must be provided, but not both
-  return (data.productId && !data.proposalId) || (!data.productId && data.proposalId);
+  // Exactly one of productId, proposalId, or investmentId must be provided
+  const hasProduct = !!data.productId;
+  const hasProposal = !!data.proposalId;
+  const hasInvestment = !!data.investmentId;
+  const count = [hasProduct, hasProposal, hasInvestment].filter(Boolean).length;
+  return count === 1;
 }, {
-  message: "Either productId or proposalId must be provided, but not both",
+  message: "Exactly one of productId, proposalId, or investmentId must be provided",
 });
 
 // Export types for Product Store
