@@ -1396,23 +1396,84 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getInvestmentProposals(options?: { clientId?: string; agentId?: string; status?: string }): Promise<InvestmentProposal[]> {
-    return [];
+    try {
+      const conditions = [];
+      if (options?.clientId) {
+        conditions.push(eq(schema.investmentProposals.clientId, options.clientId));
+      }
+      if (options?.agentId) {
+        conditions.push(eq(schema.investmentProposals.agentId, options.agentId));
+      }
+      if (options?.status) {
+        conditions.push(eq(schema.investmentProposals.status, options.status));
+      }
+
+      const query = db.select().from(schema.investmentProposals);
+
+      if (conditions.length > 0) {
+        return await query
+          .where(and(...conditions))
+          .orderBy(desc(schema.investmentProposals.createdAt));
+      }
+
+      return await query.orderBy(desc(schema.investmentProposals.createdAt));
+    } catch (error) {
+      console.error('Error fetching investment proposals:', error);
+      throw error;
+    }
   }
 
   async getInvestmentProposal(id: string): Promise<InvestmentProposal | undefined> {
-    return undefined;
+    try {
+      const [proposal] = await db
+        .select()
+        .from(schema.investmentProposals)
+        .where(eq(schema.investmentProposals.id, id))
+        .limit(1);
+      return proposal;
+    } catch (error) {
+      console.error('Error fetching investment proposal:', error);
+      throw error;
+    }
   }
 
   async createInvestmentProposal(proposal: InsertInvestmentProposal): Promise<InvestmentProposal> {
-    throw new Error("Method not implemented");
+    try {
+      const [created] = await db
+        .insert(schema.investmentProposals)
+        .values(proposal)
+        .returning();
+      return created;
+    } catch (error) {
+      console.error('Error creating investment proposal:', error);
+      throw error;
+    }
   }
 
   async updateInvestmentProposal(id: string, updates: Partial<InvestmentProposal>): Promise<InvestmentProposal | undefined> {
-    return undefined;
+    try {
+      const [updated] = await db
+        .update(schema.investmentProposals)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(schema.investmentProposals.id, id))
+        .returning();
+      return updated;
+    } catch (error) {
+      console.error('Error updating investment proposal:', error);
+      throw error;
+    }
   }
 
   async deleteInvestmentProposal(id: string): Promise<boolean> {
-    return false;
+    try {
+      const result = await db
+        .delete(schema.investmentProposals)
+        .where(eq(schema.investmentProposals.id, id));
+      return (result.rowCount ?? 0) > 0;
+    } catch (error) {
+      console.error('Error deleting investment proposal:', error);
+      throw error;
+    }
   }
 
   async getProposalItems(proposalId: string): Promise<InvestmentProposalItem[]> {
@@ -1461,7 +1522,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getProposalsByClientId(clientId: string): Promise<InvestmentProposal[]> {
-    return [];
+    try {
+      return await db
+        .select()
+        .from(schema.investmentProposals)
+        .where(eq(schema.investmentProposals.clientId, clientId))
+        .orderBy(desc(schema.investmentProposals.createdAt));
+    } catch (error) {
+      console.error('Error fetching proposals by client ID:', error);
+      throw error;
+    }
   }
 
   async getInvestmentProposalItems(proposalId: string): Promise<InvestmentProposalItem[]> {
@@ -1477,7 +1547,62 @@ export class DatabaseStorage implements IStorage {
   }
 
   async addProposalToCart(proposalId: string, userId: string): Promise<any> {
-    return { success: false, message: "Method not implemented" };
+    try {
+      const proposal = await this.getInvestmentProposal(proposalId);
+      if (!proposal) {
+        return { success: false, message: "Proposal not found" };
+      }
+
+      let userCartRecord = await db
+        .select()
+        .from(schema.userCart)
+        .where(eq(schema.userCart.userId, userId))
+        .limit(1);
+
+      if (!userCartRecord || userCartRecord.length === 0) {
+        const [newCart] = await db
+          .insert(schema.userCart)
+          .values({ userId })
+          .returning();
+        userCartRecord = [newCart];
+      }
+
+      const cartId = userCartRecord[0].id;
+
+      const [cartItem] = await db
+        .insert(schema.userCartItems)
+        .values({
+          cartId,
+          proposalId,
+          itemType: 'proposal',
+          quantity: 1,
+          investmentAmount: proposal.totalInvestmentAmount,
+          metadata: {
+            proposalTitle: proposal.title,
+            proposalDescription: proposal.description
+          }
+        })
+        .returning();
+
+      await this.updateInvestmentProposal(proposalId, {
+        status: 'in_cart',
+        addedToCartAt: new Date(),
+        cartItemId: cartItem.id
+      });
+
+      return { 
+        success: true, 
+        message: "Proposal added to cart successfully",
+        cartItemId: cartItem.id,
+        cartId
+      };
+    } catch (error) {
+      console.error('Error adding proposal to cart:', error);
+      return { 
+        success: false, 
+        message: error instanceof Error ? error.message : "Failed to add proposal to cart" 
+      };
+    }
   }
 
   async createProposalPayment(payment: InsertProposalPayment): Promise<ProposalPayment> {

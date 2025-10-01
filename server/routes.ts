@@ -151,6 +151,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
 
+  // Helper function to generate custom proposal IDs based on source
+  const generateProposalId = (source: 'ai' | 'agent' | 'client' | 'hybrid'): string => {
+    const timestamp = Date.now();
+    const randomSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
+    
+    switch (source) {
+      case 'ai':
+        return `AI-${timestamp}-${randomSuffix}`;
+      case 'agent':
+        return `AGENT-${timestamp}-${randomSuffix}`;
+      case 'client':
+        return `CLIENT-${timestamp}-${randomSuffix}`;
+      case 'hybrid':
+        return `HYBRID-${timestamp}-${randomSuffix}`;
+      default:
+        return `PROPOSAL-${timestamp}-${randomSuffix}`;
+    }
+  };
+
   // GDPR Consent endpoint
   app.post("/api/consent", async (req, res) => {
     try {
@@ -18006,6 +18025,72 @@ System Security Data:`;
     } catch (error) {
       console.error('Failed to fetch user proposals:', error);
       res.status(500).json({ error: 'Failed to fetch proposals' });
+    }
+  });
+
+  // Create new investment proposal (AI, Agent, or Client-generated)
+  app.post('/api/proposals', requireClientOrHigher, async (req: any, res: any) => {
+    try {
+      const proposalData = req.body;
+      const userId = req.user.id;
+      const userRole = req.user.role || 'client';
+      
+      // Determine proposal source based on who creates it
+      let proposalSource: 'ai' | 'agent' | 'client' = 'client';
+      if (hasRole(req.user, ['agent'])) {
+        proposalSource = 'agent';
+      } else if (proposalData.proposalSource === 'ai') {
+        proposalSource = 'ai';
+      }
+      
+      // Generate custom ID based on source
+      const proposalId = generateProposalId(proposalSource);
+      
+      // Prepare proposal object
+      const proposal = {
+        id: proposalId,
+        clientId: proposalData.clientId || userId,
+        agentId: proposalSource === 'agent' ? userId : proposalData.agentId,
+        portfolioId: proposalData.portfolioId,
+        proposalSource,
+        title: proposalData.title,
+        description: proposalData.description,
+        analysisRationale: proposalData.analysisRationale,
+        recommendations: proposalData.recommendations,
+        totalInvestmentAmount: proposalData.totalInvestmentAmount,
+        riskProfile: proposalData.riskProfile,
+        timeHorizon: proposalData.timeHorizon,
+        expectedReturns: proposalData.expectedReturns,
+        expectedRisk: proposalData.expectedRisk,
+        projectedValue: proposalData.projectedValue,
+        priority: proposalData.priority || 'medium',
+        status: 'pending',
+        validUntil: proposalData.validUntil,
+        aiModelVersion: proposalData.aiModelVersion,
+        aiConfidenceScore: proposalData.aiConfidenceScore,
+        currentAllocation: proposalData.currentAllocation,
+        targetAllocation: proposalData.targetAllocation
+      };
+      
+      // Create proposal in database
+      const createdProposal = await storage.createInvestmentProposal(proposal);
+      
+      // Log compliance event
+      complianceMonitor.logEvent({
+        userId,
+        eventType: 'proposal_created',
+        action: `${proposalSource} proposal created`,
+        ipAddress: req.ip || req.connection.remoteAddress,
+        userAgent: req.get('User-Agent'),
+        outcome: 'success',
+        riskLevel: 'low',
+        details: { proposalId, proposalSource, title: proposal.title }
+      });
+      
+      res.status(201).json(createdProposal);
+    } catch (error) {
+      console.error('Failed to create proposal:', error);
+      res.status(500).json({ error: 'Failed to create proposal' });
     }
   });
 

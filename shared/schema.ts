@@ -1176,14 +1176,14 @@ export const productApplications = pgTable("product_applications", {
 
 // Investment proposals table for AI and RM portfolio improvement suggestions
 export const investmentProposals = pgTable("investment_proposals", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey(), // Custom ID with prefix: AI-xxx, AGENT-xxx, CLIENT-xxx
   // Core relationships
   clientId: varchar("client_id").references(() => users.id).notNull(),
-  agentId: varchar("agent_id").references(() => users.id), // Nullable for AI proposals
+  agentId: varchar("agent_id").references(() => users.id), // Nullable for AI and client proposals
   portfolioId: varchar("portfolio_id").references(() => portfolios.id),
   
   // Proposal source identification
-  proposalSource: varchar("proposal_source").notNull().default("agent"), // 'ai' or 'agent' or 'hybrid'
+  proposalSource: varchar("proposal_source").notNull().default("agent"), // 'ai', 'agent', 'client', or 'hybrid'
   aiModelVersion: varchar("ai_model_version"), // AI model version used for generation
   aiConfidenceScore: decimal("ai_confidence_score", { precision: 5, scale: 2 }), // AI confidence 0-100
   
