@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Separator } from "@/components/ui/separator";
 import { ProductDetailsModal } from "@/components/product-details-modal";
 import { useCart } from "@/hooks/use-cart";
 import { useToast } from "@/hooks/use-toast";
@@ -15,7 +16,7 @@ import {
   Heart, ShoppingCart, Filter, Search, Star, TrendingUp, Shield, Clock, Grid, List, 
   SortAsc, SortDesc, X, Building2, Award, Plus, Globe, CreditCard, FileText, Users, 
   Briefcase, Banknote, Target, Crown, Landmark, Store as StoreIcon, ArrowRight, Sparkles, 
-  Zap, ChevronRight, Check, ArrowUpDown
+  Zap, ChevronRight, Check, ArrowUpDown, Package
 } from "lucide-react";
 
 interface Product {
@@ -410,7 +411,24 @@ export default function StorePage() {
     return products;
   };
 
+  // Group products by subcategory for intelligent organization
+  const getProductsBySubcategory = () => {
+    const products = getFilteredProducts();
+    const grouped: Record<string, Product[]> = {};
+    
+    products.forEach(product => {
+      const subcat = product.subcategory || "Other";
+      if (!grouped[subcat]) {
+        grouped[subcat] = [];
+      }
+      grouped[subcat].push(product);
+    });
+    
+    return grouped;
+  };
+
   const filteredProducts = getFilteredProducts();
+  const productsBySubcategory = getProductsBySubcategory();
 
   const toggleWishlist = (productId: string) => {
     setWishlist(prev => 
@@ -460,6 +478,95 @@ export default function StorePage() {
   useEffect(() => {
     setSelectedSubcategory("All");
   }, [activeTab]);
+
+  // Render product card
+  const renderProductCard = (product: Product) => (
+    <Card key={product.id} className="group hover:shadow-xl hover:scale-[1.02] transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 overflow-hidden" data-testid={`product-card-${product.id}`}>
+      <div className="absolute inset-0 bg-gradient-to-r from-finance-blue/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      <CardHeader className="relative pb-4">
+        <div className="flex justify-between items-start mb-3">
+          <div className="flex gap-2 flex-wrap">
+            {product.isFeatured && (
+              <Badge className="bg-gradient-to-r from-finance-blue to-blue-600 text-white text-xs">
+                <Star className="h-3 w-3 mr-1" />
+                Featured
+              </Badge>
+            )}
+            {product.badge && (
+              <Badge className={getBadgeColor(product.badge)}>
+                {product.badge}
+              </Badge>
+            )}
+            {product.isPremium && (
+              <Badge className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white">
+                <Crown className="h-3 w-3 mr-1" />
+                Premium
+              </Badge>
+            )}
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => toggleWishlist(product.id)}
+            className="opacity-0 group-hover:opacity-100 transition-opacity"
+            data-testid={`wishlist-${product.id}`}
+          >
+            <Heart className={`h-4 w-4 ${wishlist.includes(product.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
+          </Button>
+        </div>
+        <CardTitle className="text-lg group-hover:text-finance-blue transition-colors">
+          {product.name}
+        </CardTitle>
+        <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
+          {product.shortDescription}
+        </p>
+        <div className="flex items-center gap-2 mt-2">
+          <Building2 className="h-3 w-3 text-gray-400" />
+          <span className="text-xs text-gray-500">{product.provider}</span>
+        </div>
+      </CardHeader>
+      <CardContent className="relative space-y-4">
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <span className="text-gray-500 block">Expected Returns</span>
+            <span className="font-semibold text-green-600">{product.expectedReturns}%</span>
+          </div>
+          <div>
+            <span className="text-gray-500 block">Min Investment</span>
+            <span className="font-semibold">₹{product.minimumInvestment.toLocaleString()}</span>
+          </div>
+        </div>
+        <div className="flex items-center justify-between">
+          <Badge className={getRiskColor(product.riskLevel)}>
+            {product.riskLevel.charAt(0).toUpperCase() + product.riskLevel.slice(1)} Risk
+          </Badge>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            className="flex-1 bg-finance-blue hover:bg-finance-blue/90 group-hover:scale-105 transition-transform"
+            onClick={() => openProductDetails(product)}
+            data-testid={`view-details-${product.id}`}
+          >
+            View Details
+            <ArrowRight className="h-4 w-4 ml-2" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleAddToCart(product)}
+            disabled={isAddingToCart}
+            data-testid={`add-cart-${product.id}`}
+            className="group-hover:scale-105 transition-transform"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  // Check if we should show subcategory grouping
+  const showSubcategoryGrouping = activeTab !== "featured" && activeTab !== "all" && selectedSubcategory === "All" && Object.keys(productsBySubcategory).length > 1;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-blue-900 p-6">
@@ -591,94 +698,33 @@ export default function StorePage() {
                 </Badge>
               </div>
 
-              {/* Card View */}
+              {/* Card View with Subcategory Grouping */}
               {viewMode === "card" && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredProducts.map(product => (
-                    <Card key={product.id} className="group hover:shadow-xl hover:scale-[1.02] transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 overflow-hidden" data-testid={`product-card-${product.id}`}>
-                      <div className="absolute inset-0 bg-gradient-to-r from-finance-blue/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                      <CardHeader className="relative pb-4">
-                        <div className="flex justify-between items-start mb-3">
-                          <div className="flex gap-2 flex-wrap">
-                            {product.isFeatured && (
-                              <Badge className="bg-gradient-to-r from-finance-blue to-blue-600 text-white text-xs">
-                                <Star className="h-3 w-3 mr-1" />
-                                Featured
-                              </Badge>
-                            )}
-                            {product.badge && (
-                              <Badge className={getBadgeColor(product.badge)}>
-                                {product.badge}
-                              </Badge>
-                            )}
-                            {product.isPremium && (
-                              <Badge className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white">
-                                <Crown className="h-3 w-3 mr-1" />
-                                Premium
-                              </Badge>
-                            )}
+                <>
+                  {showSubcategoryGrouping ? (
+                    // Organized by subcategory
+                    <div className="space-y-8">
+                      {Object.entries(productsBySubcategory).map(([subcategory, products]) => (
+                        <div key={subcategory}>
+                          <div className="flex items-center gap-3 mb-4">
+                            <Package className="h-5 w-5 text-finance-blue" />
+                            <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{subcategory}</h3>
+                            <Badge variant="outline">{products.length} products</Badge>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => toggleWishlist(product.id)}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity"
-                            data-testid={`wishlist-${product.id}`}
-                          >
-                            <Heart className={`h-4 w-4 ${wishlist.includes(product.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
-                          </Button>
-                        </div>
-                        <CardTitle className="text-lg group-hover:text-finance-blue transition-colors">
-                          {product.name}
-                        </CardTitle>
-                        <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
-                          {product.shortDescription}
-                        </p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <Building2 className="h-3 w-3 text-gray-400" />
-                          <span className="text-xs text-gray-500">{product.provider}</span>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="relative space-y-4">
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                          <div>
-                            <span className="text-gray-500 block">Expected Returns</span>
-                            <span className="font-semibold text-green-600">{product.expectedReturns}%</span>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {products.map(renderProductCard)}
                           </div>
-                          <div>
-                            <span className="text-gray-500 block">Min Investment</span>
-                            <span className="font-semibold">₹{product.minimumInvestment.toLocaleString()}</span>
-                          </div>
+                          <Separator className="mt-8" />
                         </div>
-                        <div className="flex items-center justify-between">
-                          <Badge className={getRiskColor(product.riskLevel)}>
-                            {product.riskLevel.charAt(0).toUpperCase() + product.riskLevel.slice(1)} Risk
-                          </Badge>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            className="flex-1 bg-finance-blue hover:bg-finance-blue/90 group-hover:scale-105 transition-transform"
-                            onClick={() => openProductDetails(product)}
-                            data-testid={`view-details-${product.id}`}
-                          >
-                            View Details
-                            <ArrowRight className="h-4 w-4 ml-2" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleAddToCart(product)}
-                            disabled={isAddingToCart}
-                            data-testid={`add-cart-${product.id}`}
-                            className="group-hover:scale-105 transition-transform"
-                          >
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                      ))}
+                    </div>
+                  ) : (
+                    // Regular grid view
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {filteredProducts.map(renderProductCard)}
+                    </div>
+                  )}
+                </>
               )}
 
               {/* Table View */}
