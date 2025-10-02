@@ -162,7 +162,7 @@ export function EnhancedNavigation() {
       title: "Banking & Financial Services",
       items: [
         {
-          name: "Banking & Loans",
+          name: "Loans and credit",
           icon: CreditCard,
           description: "Comprehensive loan marketplace and banking products",
           subItems: [
