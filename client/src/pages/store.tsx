@@ -290,6 +290,9 @@ export default function StorePage() {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSubcategory, setSelectedSubcategory] = useState("All");
+  const [selectedRisk, setSelectedRisk] = useState("All");
+  const [selectedInvestmentRange, setSelectedInvestmentRange] = useState("All");
+  const [selectedProvider, setSelectedProvider] = useState("All");
   const [viewMode, setViewMode] = useState<"card" | "table">("card");
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
@@ -387,6 +390,30 @@ export default function StorePage() {
       products = products.filter(p => p.subcategory === selectedSubcategory);
     }
 
+    // Filter by risk level
+    if (selectedRisk !== "All") {
+      products = products.filter(p => p.riskLevel === selectedRisk.toLowerCase());
+    }
+
+    // Filter by investment range
+    if (selectedInvestmentRange !== "All") {
+      products = products.filter(p => {
+        const min = p.minimumInvestment;
+        switch(selectedInvestmentRange) {
+          case "0-5000": return min <= 5000;
+          case "5001-25000": return min > 5000 && min <= 25000;
+          case "25001-100000": return min > 25000 && min <= 100000;
+          case "100001+": return min > 100000;
+          default: return true;
+        }
+      });
+    }
+
+    // Filter by provider
+    if (selectedProvider !== "All") {
+      products = products.filter(p => p.provider === selectedProvider);
+    }
+
     // Sort products
     products.sort((a, b) => {
       let comparison = 0;
@@ -474,10 +501,29 @@ export default function StorePage() {
     ? subcategories[currentCategory as keyof typeof subcategories] || []
     : [];
 
-  // Reset subcategory when changing tabs
+  // Get unique providers from all products
+  const uniqueProviders = Array.from(new Set(mockProducts.map(p => p.provider))).sort();
+
+  // Reset all filters when changing tabs
   useEffect(() => {
     setSelectedSubcategory("All");
+    setSelectedRisk("All");
+    setSelectedInvestmentRange("All");
+    setSelectedProvider("All");
   }, [activeTab]);
+
+  // Check if any filters are active
+  const hasActiveFilters = selectedSubcategory !== "All" || selectedRisk !== "All" || 
+    selectedInvestmentRange !== "All" || selectedProvider !== "All" || searchTerm !== "";
+
+  // Clear all filters
+  const clearAllFilters = () => {
+    setSearchTerm("");
+    setSelectedSubcategory("All");
+    setSelectedRisk("All");
+    setSelectedInvestmentRange("All");
+    setSelectedProvider("All");
+  };
 
   // Render product card
   const renderProductCard = (product: Product) => (
@@ -594,60 +640,163 @@ export default function StorePage() {
       </div>
 
       <div className="max-w-7xl mx-auto">
-        {/* Search and View Mode Controls */}
+        {/* Search and Filter Controls */}
         <Card className="mb-6 shadow-lg">
           <CardContent className="p-6">
-            <div className="flex flex-col lg:flex-row gap-4">
-              {/* Search */}
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                <Input
-                  placeholder="Search products, providers, or features..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                  data-testid="search-input"
-                />
+            <div className="space-y-4">
+              {/* Search Bar Row */}
+              <div className="flex flex-col lg:flex-row gap-4">
+                {/* Search */}
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                  <Input
+                    placeholder="Search products, providers, or features..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                    data-testid="search-input"
+                  />
+                </div>
+
+                {/* View Mode Toggle */}
+                <div className="flex border rounded-lg">
+                  <Button
+                    variant={viewMode === "card" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setViewMode("card")}
+                    data-testid="view-card"
+                    className="rounded-r-none"
+                  >
+                    <Grid className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant={viewMode === "table" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setViewMode("table")}
+                    data-testid="view-table"
+                    className="rounded-l-none"
+                  >
+                    <List className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
 
-              {/* Subcategory Filter */}
-              {availableSubcategories.length > 0 && (
-                <Select value={selectedSubcategory} onValueChange={setSelectedSubcategory}>
-                  <SelectTrigger className="w-full lg:w-48" data-testid="subcategory-filter">
-                    <SelectValue placeholder="All Subcategories" />
+              {/* Advanced Filters Row */}
+              <div className="flex flex-col lg:flex-row gap-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <Filter className="h-4 w-4" />
+                  <span>Filters:</span>
+                </div>
+
+                {/* Subcategory Filter */}
+                {availableSubcategories.length > 0 && (
+                  <Select value={selectedSubcategory} onValueChange={setSelectedSubcategory}>
+                    <SelectTrigger className="w-full lg:w-48" data-testid="subcategory-filter">
+                      <SelectValue placeholder="All Subcategories" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="All">All Subcategories</SelectItem>
+                      {availableSubcategories.map(sub => (
+                        <SelectItem key={sub} value={sub}>
+                          {sub}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+
+                {/* Risk Level Filter */}
+                <Select value={selectedRisk} onValueChange={setSelectedRisk}>
+                  <SelectTrigger className="w-full lg:w-40" data-testid="risk-filter">
+                    <SelectValue placeholder="Risk Level" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="All">All Subcategories</SelectItem>
-                    {availableSubcategories.map(sub => (
-                      <SelectItem key={sub} value={sub}>
-                        {sub}
+                    <SelectItem value="All">All Risk Levels</SelectItem>
+                    <SelectItem value="Low">Low Risk</SelectItem>
+                    <SelectItem value="Medium">Medium Risk</SelectItem>
+                    <SelectItem value="High">High Risk</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {/* Investment Range Filter */}
+                <Select value={selectedInvestmentRange} onValueChange={setSelectedInvestmentRange}>
+                  <SelectTrigger className="w-full lg:w-48" data-testid="investment-range-filter">
+                    <SelectValue placeholder="Investment Range" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="All">All Investment Ranges</SelectItem>
+                    <SelectItem value="0-5000">₹0 - ₹5,000</SelectItem>
+                    <SelectItem value="5001-25000">₹5,001 - ₹25,000</SelectItem>
+                    <SelectItem value="25001-100000">₹25,001 - ₹1,00,000</SelectItem>
+                    <SelectItem value="100001+">₹1,00,000+</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {/* Provider Filter */}
+                <Select value={selectedProvider} onValueChange={setSelectedProvider}>
+                  <SelectTrigger className="w-full lg:w-56" data-testid="provider-filter">
+                    <SelectValue placeholder="Provider" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="All">All Providers</SelectItem>
+                    {uniqueProviders.map(provider => (
+                      <SelectItem key={provider} value={provider}>
+                        {provider}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              )}
 
-              {/* View Mode Toggle */}
-              <div className="flex border rounded-lg">
-                <Button
-                  variant={viewMode === "card" ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setViewMode("card")}
-                  data-testid="view-card"
-                  className="rounded-r-none"
-                >
-                  <Grid className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={viewMode === "table" ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setViewMode("table")}
-                  data-testid="view-table"
-                  className="rounded-l-none"
-                >
-                  <List className="h-4 w-4" />
-                </Button>
+                {/* Clear Filters Button */}
+                {hasActiveFilters && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={clearAllFilters}
+                    data-testid="clear-filters"
+                    className="flex items-center gap-2"
+                  >
+                    <X className="h-4 w-4" />
+                    Clear All
+                  </Button>
+                )}
               </div>
+
+              {/* Active Filters Display */}
+              {hasActiveFilters && (
+                <div className="flex flex-wrap gap-2">
+                  {searchTerm && (
+                    <Badge variant="secondary" className="flex items-center gap-1">
+                      Search: "{searchTerm}"
+                      <X className="h-3 w-3 cursor-pointer" onClick={() => setSearchTerm("")} />
+                    </Badge>
+                  )}
+                  {selectedSubcategory !== "All" && (
+                    <Badge variant="secondary" className="flex items-center gap-1">
+                      {selectedSubcategory}
+                      <X className="h-3 w-3 cursor-pointer" onClick={() => setSelectedSubcategory("All")} />
+                    </Badge>
+                  )}
+                  {selectedRisk !== "All" && (
+                    <Badge variant="secondary" className="flex items-center gap-1">
+                      {selectedRisk} Risk
+                      <X className="h-3 w-3 cursor-pointer" onClick={() => setSelectedRisk("All")} />
+                    </Badge>
+                  )}
+                  {selectedInvestmentRange !== "All" && (
+                    <Badge variant="secondary" className="flex items-center gap-1">
+                      ₹{selectedInvestmentRange}
+                      <X className="h-3 w-3 cursor-pointer" onClick={() => setSelectedInvestmentRange("All")} />
+                    </Badge>
+                  )}
+                  {selectedProvider !== "All" && (
+                    <Badge variant="secondary" className="flex items-center gap-1">
+                      {selectedProvider}
+                      <X className="h-3 w-3 cursor-pointer" onClick={() => setSelectedProvider("All")} />
+                    </Badge>
+                  )}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
