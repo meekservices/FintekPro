@@ -42,7 +42,7 @@ import BBPSService from './services/bbpsService';
 import { digilockerService } from './services/digilockerService';
 import { amfiService } from './amfi-service';
 import { bseService } from './bse-service';
-import { multiSourceMFService } from './services/multisource-mf-service';
+import { MultiSourceMFService } from './services/multisource-mf-service';
 import { ObjectStorageService, ObjectNotFoundError } from './objectStorage';
 import { randomUUID } from 'crypto';
 import { ObjectPermission } from './objectAcl';
@@ -56,6 +56,7 @@ import { DemographicProtectionService } from './services/demographic-protection-
 import { providerRegistry, type UnifiedApplicationData } from './partner-application-adapters';
 import { insertPartnerApplicationSchema } from '@shared/schema';
 import phonePeService from './phonepe';
+import { mutualFundsRefreshJob } from './mutual-funds-refresh-job';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -68,6 +69,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize AI Portfolio Service
   const aiPortfolioService = new AIPortfolioService(storage);
   
+  // Initialize Multi-Source Mutual Fund Service with database persistence
+  const multiSourceMFService = new MultiSourceMFService(storage);
+  
   // Initialize WhatsApp service with secure version
   try {
     await whatsappService.initialize();
@@ -75,6 +79,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   } catch (error) {
     console.log('⚠️ WhatsApp service initialization failed (non-critical):', error instanceof Error ? error.message : 'Unknown error');
   }
+  
+  // Start mutual funds background refresh job
+  mutualFundsRefreshJob.start();
   
   // Activity tracking middleware
   app.use((req: any, res: any, next: any) => {
@@ -6076,7 +6083,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const fundComparisonService = new FundComparisonService();
+      const fundComparisonService = new FundComparisonService(storage);
       const comparison = await fundComparisonService.compareFunds(fundCodes, timePeriod);
 
       // Store comparison in database

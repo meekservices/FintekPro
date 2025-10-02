@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { FundExtended, FundCore, FundPerformance, Provenance, NAVRecord, FundSearchParams, FundListResponse, SourceStatus, MultiSourceStatus } from '@shared/schema';
 import CrisilService, { CrisilAnalysis } from './crisil-service';
+import type { IStorage } from '../storage';
 
 // Cache configuration
 interface CacheConfig {
@@ -23,6 +24,7 @@ interface SourceHealth {
 export class MultiSourceMFService {
   private cache: CacheConfig;
   private sourceHealth: Map<string, SourceHealth>;
+  private storage: IStorage;
   private readonly CACHE_TTL = {
     SCHEMES: 24 * 60 * 60 * 1000, // 24 hours
     NAV: 5 * 60 * 1000, // 5 minutes
@@ -32,8 +34,10 @@ export class MultiSourceMFService {
   
   private readonly TIMEOUT = 15000; // 15 seconds
   private readonly MAX_RETRIES = 2;
+  private readonly DB_FIRST = true; // Use database as primary source
 
-  constructor() {
+  constructor(storage: IStorage) {
+    this.storage = storage;
     this.cache = {
       schemes: { ttl: this.CACHE_TTL.SCHEMES, data: new Map() },
       nav: { ttl: this.CACHE_TTL.NAV, data: new Map() },
@@ -53,9 +57,10 @@ export class MultiSourceMFService {
   // ===== PUBLIC METHODS =====
 
   /**
-   * Get fund details with fallback chain
+   * Get fund details with database-first approach
    */
   async getFund(schemeCode: string): Promise<FundExtended | null> {
+    // Check memory cache first
     const cacheKey = schemeCode;
     const cached = this.cache.schemes.data.get(cacheKey);
     
@@ -63,6 +68,29 @@ export class MultiSourceMFService {
       return cached.fund;
     }
 
+    // Check database if DB_FIRST is enabled
+    if (this.DB_FIRST) {
+      try {
+        const dbFund = await this.storage.getMutualFund(schemeCode);
+        if (dbFund && dbFund.lastUpdated) {
+          const age = Date.now() - new Date(dbFund.lastUpdated).getTime();
+          // Use DB data if less than 6 hours old
+          if (age < 6 * 60 * 60 * 1000) {
+            const fundExtended = this.convertDbToExtended(dbFund);
+            // Cache it
+            this.cache.schemes.data.set(cacheKey, {
+              fund: fundExtended,
+              timestamp: Date.now()
+            });
+            return fundExtended;
+          }
+        }
+      } catch (error) {
+        console.warn(`Database lookup failed for ${schemeCode}:`, error);
+      }
+    }
+
+    // Fallback to external sources
     const sources = this.getOrderedSources();
     let lastError: Error | null = null;
     const sourceChain: string[] = [];
@@ -92,6 +120,13 @@ export class MultiSourceMFService {
             fundWithProvenance = await this.enrichWithCrisilRating(fundWithProvenance);
           } catch (error) {
             console.warn(`Failed to enrich fund ${fundWithProvenance.schemeCode} with CRISIL rating:`, error);
+          }
+
+          // Save to database
+          try {
+            await this.saveFundToDatabase(fundWithProvenance);
+          } catch (error) {
+            console.warn(`Failed to save fund ${schemeCode} to database:`, error);
           }
 
           // Cache successful result
@@ -742,6 +777,122 @@ export class MultiSourceMFService {
   }
 
   /**
+   * Convert database MutualFund to FundExtended with full extended data
+   */
+  private convertDbToExtended(dbFund: any): FundExtended {
+    // Parse extendedData from database
+    const extData = dbFund.extendedData || {};
+    
+    return {
+      schemeCode: dbFund.schemeCode,
+      schemeName: dbFund.schemeName,
+      category: dbFund.category || undefined,
+      fundHouse: dbFund.fundHouse || undefined,
+      nav: dbFund.nav ? parseFloat(dbFund.nav) : undefined,
+      expenseRatio: dbFund.expenseRatio ? parseFloat(dbFund.expenseRatio) : undefined,
+      aum: dbFund.aum ? parseFloat(dbFund.aum) : undefined,
+      riskLevel: dbFund.riskLevel || undefined,
+      returns1y: dbFund.returns1y ? parseFloat(dbFund.returns1y) : undefined,
+      returns3y: dbFund.returns3y ? parseFloat(dbFund.returns3y) : undefined,
+      returns5y: dbFund.returns5y ? parseFloat(dbFund.returns5y) : undefined,
+      
+      // Restore extended data from jsonb column
+      currentNav: extData.currentNav || (dbFund.nav ? parseFloat(dbFund.nav).toString() : undefined),
+      navDate: extData.navDate,
+      returns: extData.returns || {},
+      returnStrings: extData.returnStrings || {},
+      rating: extData.rating,
+      minInvestment: extData.minInvestment,
+      exitLoad: extData.exitLoad,
+      
+      // Restore CRISIL data
+      crisilRating: dbFund.crisilRating,
+      crisilCategory: dbFund.crisilCategory,
+      crisilPercentile: dbFund.crisilPercentile ? parseFloat(dbFund.crisilPercentile) : undefined,
+      crisilEvaluationDate: dbFund.crisilEvaluationDate,
+      crisilRiskAdjustedScore: dbFund.crisilRiskAdjustedScore ? parseFloat(dbFund.crisilRiskAdjustedScore) : undefined,
+      crisilAssetQualityScore: dbFund.crisilAssetQualityScore ? parseFloat(dbFund.crisilAssetQualityScore) : undefined,
+      crisilLiquidityScore: dbFund.crisilLiquidityScore ? parseFloat(dbFund.crisilLiquidityScore) : undefined,
+      crisilConcentrationScore: dbFund.crisilConcentrationScore ? parseFloat(dbFund.crisilConcentrationScore) : undefined,
+      crisilOverallScore: dbFund.crisilOverallScore ? parseFloat(dbFund.crisilOverallScore) : undefined,
+      crisilDataSource: dbFund.crisilDataSource,
+      crisilLastUpdated: dbFund.crisilLastUpdated,
+      crisilRationale: extData.crisilRationale,
+      crisilStrengths: extData.crisilStrengths,
+      crisilConcerns: extData.crisilConcerns,
+      crisilRecommendation: extData.crisilRecommendation,
+      
+      // Restore or create provenance
+      provenance: extData.provenance || {
+        primarySource: 'Database' as any,
+        sourceChain: ['Database'],
+        lastRefreshed: dbFund.lastUpdated?.toISOString() || new Date().toISOString(),
+        dataVersion: '1.0'
+      }
+    };
+  }
+
+  /**
+   * Save fund to database with full extended data
+   */
+  private async saveFundToDatabase(fund: FundExtended): Promise<void> {
+    try {
+      // Extract commonly used fields
+      const basicData = {
+        schemeCode: fund.schemeCode,
+        schemeName: fund.schemeName,
+        category: fund.category || null,
+        fundHouse: fund.fundHouse || null,
+        nav: fund.nav?.toString() || null,
+        change: null,
+        changePercent: null,
+        expenseRatio: fund.expenseRatio?.toString() || null,
+        aum: fund.aum?.toString() || null,
+        riskLevel: fund.riskLevel || null,
+        returns1y: fund.returns1y?.toString() || null,
+        returns3y: fund.returns3y?.toString() || null,
+        returns5y: fund.returns5y?.toString() || null,
+        crisilRating: fund.crisilRating || null,
+        crisilCategory: fund.crisilCategory || null,
+        crisilPercentile: fund.crisilPercentile?.toString() || null,
+        crisilEvaluationDate: fund.crisilEvaluationDate || null,
+        crisilRiskAdjustedScore: fund.crisilRiskAdjustedScore?.toString() || null,
+        crisilAssetQualityScore: fund.crisilAssetQualityScore?.toString() || null,
+        crisilLiquidityScore: fund.crisilLiquidityScore?.toString() || null,
+        crisilConcentrationScore: fund.crisilConcentrationScore?.toString() || null,
+        crisilOverallScore: fund.crisilOverallScore?.toString() || null,
+        crisilDataSource: fund.crisilDataSource || 'calculated',
+        crisilLastUpdated: fund.crisilLastUpdated || new Date()
+      };
+      
+      // Store full FundExtended in extendedData for complete round-trip fidelity
+      const extendedData = {
+        currentNav: fund.currentNav,
+        navDate: fund.navDate,
+        returns: fund.returns,
+        returnStrings: fund.returnStrings,
+        rating: fund.rating,
+        minInvestment: fund.minInvestment,
+        exitLoad: fund.exitLoad,
+        provenance: fund.provenance,
+        // Include CRISIL extended fields if present
+        crisilRationale: fund.crisilRationale,
+        crisilStrengths: fund.crisilStrengths,
+        crisilConcerns: fund.crisilConcerns,
+        crisilRecommendation: fund.crisilRecommendation
+      };
+      
+      await this.storage.upsertMutualFund({
+        ...basicData,
+        extendedData
+      });
+    } catch (error) {
+      console.error('Error saving fund to database:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Clear cache
    */
   clearCache(): void {
@@ -769,5 +920,5 @@ export class MultiSourceMFService {
   }
 }
 
-// Singleton instance
-export const multiSourceMFService = new MultiSourceMFService();
+// Note: This service requires storage to be injected via constructor
+// It's instantiated in routes.ts where storage is available

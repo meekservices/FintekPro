@@ -933,19 +933,65 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllMutualFunds(): Promise<MutualFund[]> {
-    return [];
+    try {
+      return await db.select().from(schema.mutualFunds).orderBy(desc(schema.mutualFunds.lastUpdated));
+    } catch (error) {
+      console.error('Error fetching all mutual funds:', error);
+      return [];
+    }
   }
 
   async getMutualFund(schemeCode: string): Promise<MutualFund | undefined> {
-    return undefined;
+    try {
+      const results = await db.select()
+        .from(schema.mutualFunds)
+        .where(eq(schema.mutualFunds.schemeCode, schemeCode))
+        .limit(1);
+      return results[0];
+    } catch (error) {
+      console.error(`Error fetching mutual fund ${schemeCode}:`, error);
+      return undefined;
+    }
   }
 
   async upsertMutualFund(fund: InsertMutualFund): Promise<MutualFund> {
-    throw new Error("Method not implemented");
+    try {
+      const existing = await this.getMutualFund(fund.schemeCode);
+      
+      if (existing) {
+        const [updated] = await db.update(schema.mutualFunds)
+          .set({ ...fund, lastUpdated: new Date() })
+          .where(eq(schema.mutualFunds.schemeCode, fund.schemeCode))
+          .returning();
+        return updated;
+      } else {
+        const [created] = await db.insert(schema.mutualFunds)
+          .values(fund)
+          .returning();
+        return created;
+      }
+    } catch (error) {
+      console.error('Error upserting mutual fund:', error);
+      throw error;
+    }
   }
 
   async searchMutualFunds(query: string): Promise<MutualFund[]> {
-    return [];
+    try {
+      const searchTerm = `%${query.toLowerCase()}%`;
+      return await db.select()
+        .from(schema.mutualFunds)
+        .where(
+          sql`LOWER(${schema.mutualFunds.schemeName}) LIKE ${searchTerm} 
+              OR LOWER(${schema.mutualFunds.fundHouse}) LIKE ${searchTerm}
+              OR LOWER(${schema.mutualFunds.category}) LIKE ${searchTerm}`
+        )
+        .orderBy(desc(schema.mutualFunds.lastUpdated))
+        .limit(50);
+    } catch (error) {
+      console.error('Error searching mutual funds:', error);
+      return [];
+    }
   }
 
   async getPortfolioPerformance(portfolioId: string): Promise<any> {

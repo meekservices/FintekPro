@@ -1394,6 +1394,9 @@ export const mutualFunds = pgTable("mutual_funds", {
   crisilDataSource: varchar("crisil_data_source").default("calculated"), // calculated/api/manual
   crisilLastUpdated: timestamp("crisil_last_updated").defaultNow(),
   
+  // Extended fund data (stores currentNav, navDate, returns, returnStrings, rating, minInvestment, exitLoad, etc.)
+  extendedData: jsonb("extended_data"),
+  
   lastUpdated: timestamp("last_updated").defaultNow(),
 });
 

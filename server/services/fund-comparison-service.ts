@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { MultiSourceMFService } from './multisource-mf-service';
 import type { InsertFundComparison } from '@shared/schema';
+import type { IStorage } from '../storage';
 
 // Types for fund comparison data
 export interface FundMetrics {
@@ -61,8 +62,8 @@ export class FundComparisonService {
   private readonly MFAPI_BASE = 'https://api.mfapi.in';
   private readonly BENCHMARK_INDEX = 'NIFTY_50'; // Default benchmark
 
-  constructor() {
-    this.mfService = new MultiSourceMFService();
+  constructor(storage: IStorage) {
+    this.mfService = new MultiSourceMFService(storage);
   }
 
   /**
