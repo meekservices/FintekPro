@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ProductDetailsModal } from "@/components/product-details-modal";
 import { useCart } from "@/hooks/use-cart";
 import { useToast } from "@/hooks/use-toast";
@@ -13,7 +15,7 @@ import {
   Heart, ShoppingCart, Filter, Search, Star, TrendingUp, Shield, Clock, Grid, List, 
   SortAsc, SortDesc, X, Building2, Award, Plus, Globe, CreditCard, FileText, Users, 
   Briefcase, Banknote, Target, Crown, Landmark, Store as StoreIcon, ArrowRight, Sparkles, 
-  Zap, ChevronRight, Check
+  Zap, ChevronRight, Check, ArrowUpDown
 } from "lucide-react";
 
 interface Product {
@@ -258,13 +260,14 @@ const mockProducts: Product[] = [
   }
 ];
 
-const categories = [
-  "All",
-  "Investment Products",
-  "Global Products", 
-  "Insurance",
-  "Banking Products",
-  "Professional Services"
+const categoryTabs = [
+  { value: "featured", label: "Featured", icon: Star },
+  { value: "all", label: "All Products", icon: StoreIcon },
+  { value: "investments", label: "Investment Products", icon: TrendingUp },
+  { value: "global", label: "Global Products", icon: Globe },
+  { value: "insurance", label: "Insurance", icon: Shield },
+  { value: "banking", label: "Banking", icon: CreditCard },
+  { value: "services", label: "Services", icon: Users }
 ];
 
 const subcategories = {
@@ -275,49 +278,20 @@ const subcategories = {
   "Professional Services": ["Advisory Services", "Tax Services", "Legal Services", "Research Services"]
 };
 
-const categoryInfo = {
-  "Investment Products": {
-    description: "Mutual funds, bonds, IPOs and structured products",
-    icon: TrendingUp,
-    color: "bg-blue-50 dark:bg-blue-900/20 border-blue-200",
-    textColor: "text-blue-700 dark:text-blue-300",
-    gradient: "from-blue-500 to-indigo-600"
-  },
-  "Global Products": {
-    description: "International investment opportunities and global exposure",
-    icon: Globe,
-    color: "bg-cyan-50 dark:bg-cyan-900/20 border-cyan-200",
-    textColor: "text-cyan-700 dark:text-cyan-300",
-    gradient: "from-cyan-500 to-blue-600"
-  },
-  "Insurance": {
-    description: "Life, health and general insurance plans",
-    icon: Shield,
-    color: "bg-green-50 dark:bg-green-900/20 border-green-200",
-    textColor: "text-green-700 dark:text-green-300",
-    gradient: "from-green-500 to-emerald-600"
-  },
-  "Banking Products": {
-    description: "Accounts, deposits and banking services",
-    icon: CreditCard,
-    color: "bg-purple-50 dark:bg-purple-900/20 border-purple-200",
-    textColor: "text-purple-700 dark:text-purple-300",
-    gradient: "from-purple-500 to-violet-600"
-  },
-  "Professional Services": {
-    description: "Advisory, tax and professional consultation",
-    icon: Users,
-    color: "bg-orange-50 dark:bg-orange-900/20 border-orange-200",
-    textColor: "text-orange-700 dark:text-orange-300",
-    gradient: "from-orange-500 to-red-600"
-  }
-};
+type SortField = "name" | "returns" | "investment" | "risk";
+type SortDirection = "asc" | "desc";
 
 export default function StorePage() {
+  const [location, setLocation] = useLocation();
+  const urlParams = new URLSearchParams(window.location.search);
+  const initialTab = urlParams.get("tab") || "featured";
+  
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedSubcategory, setSelectedSubcategory] = useState("All");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [viewMode, setViewMode] = useState<"card" | "table">("card");
+  const [sortField, setSortField] = useState<SortField>("name");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -325,6 +299,28 @@ export default function StorePage() {
   const { addToCart, isAddingToCart } = useCart();
   const { toast } = useToast();
   const { isAuthenticated, user } = useAuth();
+
+  // Update URL when tab changes
+  useEffect(() => {
+    const newUrl = `/store?tab=${activeTab}`;
+    window.history.replaceState({}, '', newUrl);
+  }, [activeTab]);
+
+  // Map tab values to categories
+  const getTabCategory = (tab: string): string => {
+    switch(tab) {
+      case "featured": return "Featured";
+      case "all": return "All";
+      case "investments": return "Investment Products";
+      case "global": return "Global Products";
+      case "insurance": return "Insurance";
+      case "banking": return "Banking Products";
+      case "services": return "Professional Services";
+      default: return "All";
+    }
+  };
+
+  const currentCategory = getTabCategory(activeTab);
 
   const handleAddToCart = (product: Product) => {
     if (!isAuthenticated) {
@@ -366,15 +362,55 @@ export default function StorePage() {
     });
   };
 
-  const filteredProducts = mockProducts.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         product.shortDescription.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         product.provider.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === "All" || product.category === selectedCategory;
-    const matchesSubcategory = selectedSubcategory === "All" || product.subcategory === selectedSubcategory;
-    
-    return matchesSearch && matchesCategory && matchesSubcategory;
-  });
+  const getFilteredProducts = () => {
+    let products = mockProducts;
+
+    // Filter by tab category
+    if (activeTab === "featured") {
+      products = products.filter(p => p.isFeatured);
+    } else if (activeTab !== "all") {
+      products = products.filter(p => p.category === currentCategory);
+    }
+
+    // Filter by search
+    if (searchTerm) {
+      products = products.filter(product =>
+        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.shortDescription.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.provider.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Filter by subcategory
+    if (selectedSubcategory !== "All") {
+      products = products.filter(p => p.subcategory === selectedSubcategory);
+    }
+
+    // Sort products
+    products.sort((a, b) => {
+      let comparison = 0;
+      switch(sortField) {
+        case "name":
+          comparison = a.name.localeCompare(b.name);
+          break;
+        case "returns":
+          comparison = a.expectedReturns - b.expectedReturns;
+          break;
+        case "investment":
+          comparison = a.minimumInvestment - b.minimumInvestment;
+          break;
+        case "risk":
+          const riskOrder = { low: 1, medium: 2, high: 3 };
+          comparison = riskOrder[a.riskLevel as keyof typeof riskOrder] - riskOrder[b.riskLevel as keyof typeof riskOrder];
+          break;
+      }
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
+
+    return products;
+  };
+
+  const filteredProducts = getFilteredProducts();
 
   const toggleWishlist = (productId: string) => {
     setWishlist(prev => 
@@ -391,10 +427,10 @@ export default function StorePage() {
 
   const getRiskColor = (risk: string) => {
     switch(risk) {
-      case "low": return "bg-green-100 text-green-700 border-green-200";
-      case "medium": return "bg-yellow-100 text-yellow-700 border-yellow-200";
-      case "high": return "bg-red-100 text-red-700 border-red-200";
-      default: return "bg-gray-100 text-gray-700 border-gray-200";
+      case "low": return "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400";
+      case "medium": return "bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400";
+      case "high": return "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400";
+      default: return "bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300";
     }
   };
 
@@ -406,6 +442,24 @@ export default function StorePage() {
       default: return "bg-blue-500 text-white";
     }
   };
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
+  const availableSubcategories = currentCategory && currentCategory !== "All" && currentCategory !== "Featured" 
+    ? subcategories[currentCategory as keyof typeof subcategories] || []
+    : [];
+
+  // Reset subcategory when changing tabs
+  useEffect(() => {
+    setSelectedSubcategory("All");
+  }, [activeTab]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-blue-900 p-6">
@@ -430,36 +484,11 @@ export default function StorePage() {
             </Badge>
           </div>
         </div>
-        
-        {/* Category Overview Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-          {Object.entries(categoryInfo).map(([category, info]) => {
-            const Icon = info.icon;
-            const count = mockProducts.filter(p => p.category === category).length;
-            return (
-              <Card 
-                key={category} 
-                className={`${info.color} border cursor-pointer hover:scale-105 hover:shadow-lg transition-all duration-200 group`}
-                onClick={() => setSelectedCategory(category)}
-                data-testid={`category-card-${category.toLowerCase().replace(/\s+/g, '-')}`}
-              >
-                <CardContent className="p-6 text-center">
-                  <div className={`w-12 h-12 bg-gradient-to-r ${info.gradient} rounded-xl shadow-lg flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform`}>
-                    <Icon className="h-6 w-6 text-white" />
-                  </div>
-                  <h3 className={`font-semibold text-sm ${info.textColor} mb-1`}>{category}</h3>
-                  <p className={`text-xs ${info.textColor} opacity-75`}>{count} products</p>
-                  <ChevronRight className={`h-4 w-4 ${info.textColor} mx-auto mt-2 opacity-0 group-hover:opacity-100 transition-opacity`} />
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
       </div>
 
       <div className="max-w-7xl mx-auto">
-        {/* Search and Filters */}
-        <Card className="mb-8 shadow-lg">
+        {/* Search and View Mode Controls */}
+        <Card className="mb-6 shadow-lg">
           <CardContent className="p-6">
             <div className="flex flex-col lg:flex-row gap-4">
               {/* Search */}
@@ -473,30 +502,16 @@ export default function StorePage() {
                   data-testid="search-input"
                 />
               </div>
-              
-              {/* Category Filter */}
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger className="w-full lg:w-48" data-testid="category-filter">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map(category => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
 
               {/* Subcategory Filter */}
-              {selectedCategory !== "All" && subcategories[selectedCategory as keyof typeof subcategories] && (
+              {availableSubcategories.length > 0 && (
                 <Select value={selectedSubcategory} onValueChange={setSelectedSubcategory}>
                   <SelectTrigger className="w-full lg:w-48" data-testid="subcategory-filter">
                     <SelectValue placeholder="All Subcategories" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="All">All Subcategories</SelectItem>
-                    {subcategories[selectedCategory as keyof typeof subcategories].map(sub => (
+                    {availableSubcategories.map(sub => (
                       <SelectItem key={sub} value={sub}>
                         {sub}
                       </SelectItem>
@@ -508,19 +523,19 @@ export default function StorePage() {
               {/* View Mode Toggle */}
               <div className="flex border rounded-lg">
                 <Button
-                  variant={viewMode === "grid" ? "default" : "ghost"}
+                  variant={viewMode === "card" ? "default" : "ghost"}
                   size="sm"
-                  onClick={() => setViewMode("grid")}
-                  data-testid="view-grid"
+                  onClick={() => setViewMode("card")}
+                  data-testid="view-card"
                   className="rounded-r-none"
                 >
                   <Grid className="h-4 w-4" />
                 </Button>
                 <Button
-                  variant={viewMode === "list" ? "default" : "ghost"}
+                  variant={viewMode === "table" ? "default" : "ghost"}
                   size="sm"
-                  onClick={() => setViewMode("list")}
-                  data-testid="view-list"
+                  onClick={() => setViewMode("table")}
+                  data-testid="view-table"
                   className="rounded-l-none"
                 >
                   <List className="h-4 w-4" />
@@ -530,261 +545,284 @@ export default function StorePage() {
           </CardContent>
         </Card>
 
-        {/* Featured Products Section */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-8 h-8 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center">
-              <Star className="h-4 w-4 text-white" />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Featured Products</h2>
-            <Badge className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white">
-              Trending
-            </Badge>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {mockProducts.filter(p => p.isFeatured).slice(0, 6).map(product => (
-              <Card key={product.id} className="group hover:shadow-xl hover:scale-[1.02] transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 overflow-hidden" data-testid={`featured-product-${product.id}`}>
-                <div className="absolute inset-0 bg-gradient-to-r from-finance-blue/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                <CardHeader className="relative pb-4">
-                  <div className="flex justify-between items-start mb-3">
-                    <div className="flex gap-2 flex-wrap">
-                      <Badge className="bg-gradient-to-r from-finance-blue to-blue-600 text-white text-xs">
-                        <Star className="h-3 w-3 mr-1" />
-                        Featured
-                      </Badge>
-                      {product.badge && (
-                        <Badge className={getBadgeColor(product.badge)}>
-                          {product.badge}
-                        </Badge>
-                      )}
-                      {product.isPremium && (
-                        <Badge className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white">
-                          <Crown className="h-3 w-3 mr-1" />
-                          Premium
-                        </Badge>
-                      )}
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => toggleWishlist(product.id)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity"
-                      data-testid={`wishlist-${product.id}`}
-                    >
-                      <Heart className={`h-4 w-4 ${wishlist.includes(product.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
-                    </Button>
-                  </div>
-                  <CardTitle className="text-lg group-hover:text-finance-blue transition-colors">
-                    {product.name}
-                  </CardTitle>
-                  <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
-                    {product.shortDescription}
+        {/* Category Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="grid grid-cols-7 w-full bg-white dark:bg-gray-800 p-1 rounded-lg shadow-md">
+            {categoryTabs.map(tab => {
+              const Icon = tab.icon;
+              const count = tab.value === "featured" 
+                ? mockProducts.filter(p => p.isFeatured).length
+                : tab.value === "all"
+                ? mockProducts.length
+                : mockProducts.filter(p => p.category === getTabCategory(tab.value)).length;
+              
+              return (
+                <TabsTrigger 
+                  key={tab.value} 
+                  value={tab.value}
+                  className="data-[state=active]:bg-finance-blue data-[state=active]:text-white flex items-center gap-2"
+                  data-testid={`tab-${tab.value}`}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span className="hidden sm:inline">{tab.label}</span>
+                  <Badge variant="outline" className="ml-1 text-xs">{count}</Badge>
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
+
+          {/* Tab Content */}
+          {categoryTabs.map(tab => (
+            <TabsContent key={tab.value} value={tab.value} className="space-y-6">
+              {/* Results Header */}
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {tab.label}
+                    {selectedSubcategory !== "All" && ` - ${selectedSubcategory}`}
+                  </h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''} found
+                    {searchTerm && ` for "${searchTerm}"`}
                   </p>
-                  <div className="flex items-center gap-2 mt-2">
-                    <Building2 className="h-3 w-3 text-gray-400" />
-                    <span className="text-xs text-gray-500">{product.provider}</span>
-                  </div>
-                </CardHeader>
-                <CardContent className="relative space-y-4">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-gray-500 block">Expected Returns</span>
-                      <span className="font-semibold text-green-600">{product.expectedReturns}%</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500 block">Min Investment</span>
-                      <span className="font-semibold">₹{product.minimumInvestment.toLocaleString()}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Badge className={getRiskColor(product.riskLevel)}>
-                      {product.riskLevel.charAt(0).toUpperCase() + product.riskLevel.slice(1)} Risk
-                    </Badge>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      className="flex-1 bg-finance-blue hover:bg-finance-blue/90 group-hover:scale-105 transition-transform"
-                      onClick={() => openProductDetails(product)}
-                      data-testid={`view-details-${product.id}`}
-                    >
-                      View Details
-                      <ArrowRight className="h-4 w-4 ml-2" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleAddToCart(product)}
-                      disabled={isAddingToCart}
-                      data-testid={`add-cart-${product.id}`}
-                      className="group-hover:scale-105 transition-transform"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-
-        {/* Products Section */}
-        <div>
-          <div className="flex justify-between items-center mb-6">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                {selectedCategory !== "All" ? `${selectedCategory}` : "All Products"}
-                {selectedSubcategory !== "All" && ` - ${selectedSubcategory}`}
-              </h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                {filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''} found
-                {searchTerm && ` for "${searchTerm}"`}
-              </p>
-            </div>
-            <Badge variant="outline" className="text-finance-blue border-finance-blue">
-              {filteredProducts.length} Results
-            </Badge>
-          </div>
-
-          {/* Product Grid/List */}
-          <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-4"}>
-            {filteredProducts.map(product => (
-              <Card key={product.id} className={`hover:shadow-lg transition-all duration-200 ${viewMode === "list" ? "" : "hover:scale-[1.02]"}`} data-testid={`product-${product.id}`}>
-                {viewMode === "list" ? (
-                  <CardContent className="p-6">
-                    <div className="flex items-center gap-6">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Badge variant="outline" className="text-xs">{product.category}</Badge>
-                          {product.subcategory && (
-                            <Badge variant="outline" className="text-xs">{product.subcategory}</Badge>
-                          )}
-                          {product.badge && (
-                            <Badge className={getBadgeColor(product.badge)}>
-                              {product.badge}
-                            </Badge>
-                          )}
-                        </div>
-                        <h3 className="font-semibold text-lg mb-1">{product.name}</h3>
-                        <p className="text-sm text-gray-600 mb-2">{product.shortDescription}</p>
-                        <p className="text-xs text-gray-500">by {product.provider}</p>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-green-600 font-semibold text-lg">{product.expectedReturns}%</div>
-                        <div className="text-sm text-gray-500">Returns</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-semibold">₹{product.minimumInvestment.toLocaleString()}</div>
-                        <div className="text-sm text-gray-500">Min Investment</div>
-                      </div>
-                      <div>
-                        <Badge className={getRiskColor(product.riskLevel)}>
-                          {product.riskLevel}
-                        </Badge>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() => openProductDetails(product)}
-                          data-testid={`details-${product.id}`}
-                        >
-                          Details
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleAddToCart(product)}
-                          disabled={isAddingToCart}
-                          data-testid={`cart-${product.id}`}
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                ) : (
-                  <>
-                    <CardHeader>
-                      <div className="flex justify-between items-start mb-3">
-                        <div className="flex gap-2 flex-wrap">
-                          <Badge variant="outline" className="text-xs">{product.subcategory || product.category}</Badge>
-                          {product.badge && (
-                            <Badge className={getBadgeColor(product.badge)}>
-                              {product.badge}
-                            </Badge>
-                          )}
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => toggleWishlist(product.id)}
-                          data-testid={`wishlist-${product.id}`}
-                        >
-                          <Heart className={`h-4 w-4 ${wishlist.includes(product.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
-                        </Button>
-                      </div>
-                      <CardTitle className="text-lg">{product.name}</CardTitle>
-                      <p className="text-sm text-gray-600">{product.shortDescription}</p>
-                      <p className="text-xs text-gray-500">by {product.provider}</p>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <span className="text-gray-500 block">Returns</span>
-                          <span className="font-semibold text-green-600">{product.expectedReturns}%</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500 block">Min Investment</span>
-                          <span className="font-semibold">₹{product.minimumInvestment.toLocaleString()}</span>
-                        </div>
-                      </div>
-                      <Badge className={getRiskColor(product.riskLevel)}>
-                        {product.riskLevel.charAt(0).toUpperCase() + product.riskLevel.slice(1)} Risk
-                      </Badge>
-                      <div className="flex gap-2">
-                        <Button
-                          className="flex-1"
-                          onClick={() => openProductDetails(product)}
-                          data-testid={`details-${product.id}`}
-                        >
-                          View Details
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() => handleAddToCart(product)}
-                          disabled={isAddingToCart}
-                          data-testid={`cart-${product.id}`}
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </>
-                )}
-              </Card>
-            ))}
-          </div>
-
-          {filteredProducts.length === 0 && (
-            <div className="text-center py-12" data-testid="no-products">
-              <div className="text-gray-400 mb-4">
-                <ShoppingCart className="h-16 w-16 mx-auto" />
+                </div>
+                <Badge variant="outline" className="text-finance-blue border-finance-blue">
+                  {filteredProducts.length} Results
+                </Badge>
               </div>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No products found</h3>
-              <p className="text-gray-600 dark:text-gray-400">Try adjusting your search criteria or filters</p>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setSearchTerm("");
-                  setSelectedCategory("All");
-                  setSelectedSubcategory("All");
-                }}
-                className="mt-4"
-              >
-                Clear Filters
-              </Button>
-            </div>
-          )}
-        </div>
+
+              {/* Card View */}
+              {viewMode === "card" && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredProducts.map(product => (
+                    <Card key={product.id} className="group hover:shadow-xl hover:scale-[1.02] transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 overflow-hidden" data-testid={`product-card-${product.id}`}>
+                      <div className="absolute inset-0 bg-gradient-to-r from-finance-blue/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                      <CardHeader className="relative pb-4">
+                        <div className="flex justify-between items-start mb-3">
+                          <div className="flex gap-2 flex-wrap">
+                            {product.isFeatured && (
+                              <Badge className="bg-gradient-to-r from-finance-blue to-blue-600 text-white text-xs">
+                                <Star className="h-3 w-3 mr-1" />
+                                Featured
+                              </Badge>
+                            )}
+                            {product.badge && (
+                              <Badge className={getBadgeColor(product.badge)}>
+                                {product.badge}
+                              </Badge>
+                            )}
+                            {product.isPremium && (
+                              <Badge className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white">
+                                <Crown className="h-3 w-3 mr-1" />
+                                Premium
+                              </Badge>
+                            )}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => toggleWishlist(product.id)}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                            data-testid={`wishlist-${product.id}`}
+                          >
+                            <Heart className={`h-4 w-4 ${wishlist.includes(product.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
+                          </Button>
+                        </div>
+                        <CardTitle className="text-lg group-hover:text-finance-blue transition-colors">
+                          {product.name}
+                        </CardTitle>
+                        <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
+                          {product.shortDescription}
+                        </p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <Building2 className="h-3 w-3 text-gray-400" />
+                          <span className="text-xs text-gray-500">{product.provider}</span>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="relative space-y-4">
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <span className="text-gray-500 block">Expected Returns</span>
+                            <span className="font-semibold text-green-600">{product.expectedReturns}%</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500 block">Min Investment</span>
+                            <span className="font-semibold">₹{product.minimumInvestment.toLocaleString()}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <Badge className={getRiskColor(product.riskLevel)}>
+                            {product.riskLevel.charAt(0).toUpperCase() + product.riskLevel.slice(1)} Risk
+                          </Badge>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            className="flex-1 bg-finance-blue hover:bg-finance-blue/90 group-hover:scale-105 transition-transform"
+                            onClick={() => openProductDetails(product)}
+                            data-testid={`view-details-${product.id}`}
+                          >
+                            View Details
+                            <ArrowRight className="h-4 w-4 ml-2" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleAddToCart(product)}
+                            disabled={isAddingToCart}
+                            data-testid={`add-cart-${product.id}`}
+                            className="group-hover:scale-105 transition-transform"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+
+              {/* Table View */}
+              {viewMode === "table" && (
+                <Card>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => handleSort("name")}
+                            className="font-semibold"
+                          >
+                            Product Name
+                            <ArrowUpDown className="ml-2 h-4 w-4" />
+                          </Button>
+                        </TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead>Provider</TableHead>
+                        <TableHead>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => handleSort("returns")}
+                            className="font-semibold"
+                          >
+                            Returns
+                            <ArrowUpDown className="ml-2 h-4 w-4" />
+                          </Button>
+                        </TableHead>
+                        <TableHead>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => handleSort("investment")}
+                            className="font-semibold"
+                          >
+                            Min Investment
+                            <ArrowUpDown className="ml-2 h-4 w-4" />
+                          </Button>
+                        </TableHead>
+                        <TableHead>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => handleSort("risk")}
+                            className="font-semibold"
+                          >
+                            Risk
+                            <ArrowUpDown className="ml-2 h-4 w-4" />
+                          </Button>
+                        </TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredProducts.map(product => (
+                        <TableRow key={product.id} className="hover:bg-gray-50 dark:hover:bg-gray-800" data-testid={`product-row-${product.id}`}>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-2">
+                              {product.isFeatured && <Star className="h-4 w-4 text-yellow-500" />}
+                              <div>
+                                <div className="font-semibold">{product.name}</div>
+                                <div className="text-xs text-gray-500 line-clamp-1">{product.shortDescription}</div>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">
+                              {product.subcategory || product.category}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm">{product.provider}</TableCell>
+                          <TableCell>
+                            <span className="font-semibold text-green-600">{product.expectedReturns}%</span>
+                          </TableCell>
+                          <TableCell>
+                            <span className="font-semibold">₹{product.minimumInvestment.toLocaleString()}</span>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={getRiskColor(product.riskLevel)}>
+                              {product.riskLevel}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex gap-2 justify-end">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => toggleWishlist(product.id)}
+                                data-testid={`table-wishlist-${product.id}`}
+                              >
+                                <Heart className={`h-4 w-4 ${wishlist.includes(product.id) ? 'fill-red-500 text-red-500' : ''}`} />
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => openProductDetails(product)}
+                                data-testid={`table-details-${product.id}`}
+                              >
+                                Details
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleAddToCart(product)}
+                                disabled={isAddingToCart}
+                                data-testid={`table-cart-${product.id}`}
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </Card>
+              )}
+
+              {/* No Results */}
+              {filteredProducts.length === 0 && (
+                <div className="text-center py-12" data-testid="no-products">
+                  <div className="text-gray-400 mb-4">
+                    <ShoppingCart className="h-16 w-16 mx-auto" />
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No products found</h3>
+                  <p className="text-gray-600 dark:text-gray-400">Try adjusting your search criteria or filters</p>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSearchTerm("");
+                      setSelectedSubcategory("All");
+                    }}
+                    className="mt-4"
+                  >
+                    Clear Filters
+                  </Button>
+                </div>
+              )}
+            </TabsContent>
+          ))}
+        </Tabs>
       </div>
       
       <ProductDetailsModal 
