@@ -543,6 +543,11 @@ export class MultiSourceMFService {
    * Get historical NAV data
    */
   private async getHistoricalNAV(schemeCode: string, source: string): Promise<NAVRecord[]> {
+    // Return empty array if schemeCode is empty or invalid
+    if (!schemeCode || schemeCode.trim() === '') {
+      return [];
+    }
+
     const cacheKey = `${source}-${schemeCode}`;
     const cached = this.cache.historical.data.get(cacheKey);
     
