@@ -262,13 +262,16 @@ const mockProducts: Product[] = [
 ];
 
 const categoryTabs = [
-  { value: "featured", label: "Featured", icon: Star },
-  { value: "all", label: "All Products", icon: StoreIcon },
-  { value: "investments", label: "Investment Products", icon: TrendingUp },
+  { value: "all", label: "All Products", icon: Package },
+  { value: "mutual-funds", label: "Mutual Funds", icon: TrendingUp },
+  { value: "ipo", label: "IPO & Pre-IPO", icon: Sparkles },
+  { value: "unlisted", label: "Unlisted", icon: Crown },
+  { value: "debentures", label: "Debentures", icon: FileText },
+  { value: "mlds", label: "MLDs", icon: Landmark },
   { value: "global", label: "Global Products", icon: Globe },
-  { value: "insurance", label: "Insurance", icon: Shield },
-  { value: "banking", label: "Banking", icon: CreditCard },
-  { value: "services", label: "Services", icon: Users }
+  { value: "insurance", label: "Insurance Plans", icon: Shield },
+  { value: "banking", label: "Banking Products", icon: Banknote },
+  { value: "services", label: "Professional Services", icon: Briefcase }
 ];
 
 const subcategories = {
