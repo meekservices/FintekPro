@@ -313,21 +313,24 @@ export default function StorePage() {
     window.history.replaceState({}, '', newUrl);
   }, [activeTab]);
 
-  // Map tab values to categories
-  const getTabCategory = (tab: string): string => {
+  // Map tab values to categories and subcategories
+  const getTabFilter = (tab: string): { category?: string; subcategory?: string } => {
     switch(tab) {
-      case "featured": return "Featured";
-      case "all": return "All";
-      case "investments": return "Investment Products";
-      case "global": return "Global Products";
-      case "insurance": return "Insurance";
-      case "banking": return "Banking Products";
-      case "services": return "Professional Services";
-      default: return "All";
+      case "all": return {};
+      case "mutual-funds": return { category: "Investment Products", subcategory: "Mutual Funds" };
+      case "ipo": return { category: "Investment Products", subcategory: "IPO & Pre-IPO" };
+      case "unlisted": return { category: "Investment Products", subcategory: "Unlisted Securities" };
+      case "debentures": return { category: "Investment Products", subcategory: "Debentures & Bonds" };
+      case "mlds": return { category: "Global Products", subcategory: "Multi-Currency Deposits" };
+      case "global": return { category: "Global Products" };
+      case "insurance": return { category: "Insurance" };
+      case "banking": return { category: "Banking Products" };
+      case "services": return { category: "Professional Services" };
+      default: return {};
     }
   };
 
-  const currentCategory = getTabCategory(activeTab);
+  const currentTabFilter = getTabFilter(activeTab);
 
   const handleAddToCart = (product: Product) => {
     if (!isAuthenticated) {
@@ -372,11 +375,12 @@ export default function StorePage() {
   const getFilteredProducts = () => {
     let products = mockProducts;
 
-    // Filter by tab category
-    if (activeTab === "featured") {
-      products = products.filter(p => p.isFeatured);
-    } else if (activeTab !== "all") {
-      products = products.filter(p => p.category === currentCategory);
+    // Filter by tab (category and/or subcategory)
+    if (currentTabFilter.category) {
+      products = products.filter(p => p.category === currentTabFilter.category);
+    }
+    if (currentTabFilter.subcategory) {
+      products = products.filter(p => p.subcategory === currentTabFilter.subcategory);
     }
 
     // Filter by search
