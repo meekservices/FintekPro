@@ -309,7 +309,7 @@ export default function CamsServices() {
       {/* Main Content */}
       {selectedPan && investorValidation && (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1">
             <TabsTrigger value="portfolio" data-testid="tab-portfolio">Portfolio</TabsTrigger>
             <TabsTrigger value="transactions" data-testid="tab-transactions">Transactions</TabsTrigger>
             <TabsTrigger value="sip" data-testid="tab-sip">SIP</TabsTrigger>

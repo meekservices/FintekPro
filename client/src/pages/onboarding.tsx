@@ -295,7 +295,7 @@ export default function OnboardingPage() {
       </div>
 
       <Tabs value={currentStep} onValueChange={setCurrentStep} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1">
           {steps.map((step) => {
             const Icon = step.icon;
             const isCompleted = validateStep(step.id);

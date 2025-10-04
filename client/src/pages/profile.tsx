@@ -447,7 +447,7 @@ export default function ProfilePage() {
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-7">
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1">
               <TabsTrigger value="basic" data-testid="tab-basic">
                 <User className="h-4 w-4 mr-2" />
                 Basic Info
