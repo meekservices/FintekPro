@@ -75,6 +75,7 @@ import NRIServices from "@/pages/nri-services";
 import ITRTaxServices from "@/pages/itr-tax-services";
 import DomesticTrading from "@/pages/domestic-trading";
 import GlobalTrading from "@/pages/global-trading";
+import IntelligentTaxHub from "@/pages/intelligent-tax-hub";
 
 function UserProtectedRoutes() {
   return (
@@ -113,6 +114,7 @@ function UserProtectedRoutes() {
         <Route path="/achievements" component={Achievements} />
         <Route path="/capital-gains" component={CapitalGainsReports} />
         {/* Unified Tax Services - Primary Route */}
+        <Route path="/tax-hub" component={IntelligentTaxHub} />
         <Route path="/tax" component={TaxSmartFiling} />
         {/* Legacy Tax Routes - Maintained for existing users */}
         <Route path="/tax-data-center" component={TaxDataCenter} />
