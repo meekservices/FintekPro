@@ -45,6 +45,7 @@ interface NavigationItem {
   href?: string;
   icon: any;
   description?: string;
+  badge?: string;
   subItems?: {
     name: string;
     href: string;
@@ -211,14 +212,16 @@ export function EnhancedNavigation() {
         {
           name: "ITR & Tax Services",
           icon: Receipt,
-          description: "Complete tax filing and compliance",
+          description: "AI-powered tax filing and compliance",
+          href: "/tax-hub",
+          badge: "NEW",
           subItems: [
-            { name: "ITR Filing", href: "/itr/filing", description: "ITR-1 to ITR-7 online filing" },
-            { name: "Tax Planning", href: "/itr/planning", description: "Investment tax optimization" },
-            { name: "CA Consultation", href: "/itr/consultation", description: "Expert tax advisory" },
-            { name: "Document Management", href: "/itr/documents", description: "Form 16, 26AS, TDS certificates" },
-            { name: "Notice Handling", href: "/itr/notices", description: "IT department notice support" },
-            { name: "GST Services", href: "/itr/gst", description: "GST filing and compliance" }
+            { name: "Smart Tax Hub", href: "/tax-hub", description: "Unified AI-powered tax dashboard", badge: "NEW" },
+            { name: "Tax Smart Filing", href: "/tax", description: "Intelligent ITR filing with auto-fill" },
+            { name: "ITR Services", href: "/itr-tax-services", description: "ITR-1 to ITR-7 filing services" },
+            { name: "Tax Data Center", href: "/tax-data-center", description: "AIS, 26AS, mutual fund data" },
+            { name: "Tax Documents", href: "/tax-documents", description: "Form 16, 26AS, TDS certificates" },
+            { name: "Prefilled ITR", href: "/itr-prefilled", description: "Auto-populated tax forms" }
           ]
         }
       ]
