@@ -27,7 +27,6 @@ import {
   Loader2
 } from "lucide-react";
 import { useLocation } from "wouter";
-import { loadStripe } from "@stripe/stripe-js";
 
 interface PricingTier {
   id: string;
@@ -144,8 +143,7 @@ export default function TaxReminderSubscription() {
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const success = searchParams.get('success');
-    const canceled = searchParams.get('canceled');
-    const sessionId = searchParams.get('session_id');
+    const error = searchParams.get('error');
 
     if (success === 'true') {
       toast({
@@ -155,11 +153,18 @@ export default function TaxReminderSubscription() {
       });
       queryClient.invalidateQueries({ queryKey: ['/api/tax/reminder-subscription'] });
       window.history.replaceState({}, '', '/tax-reminder-subscription');
-    } else if (canceled === 'true') {
+    } else if (success === 'false' || error) {
+      const errorMessages: Record<string, string> = {
+        'payment_failed': 'Payment was not completed. Please try again.',
+        'invalid_callback': 'Invalid payment response received.',
+        'invalid_signature': 'Payment verification failed.',
+        'processing_error': 'An error occurred while processing your payment.'
+      };
+      
       toast({
-        title: "Payment Canceled",
-        description: "You can retry payment whenever you're ready.",
-        variant: "default",
+        title: "Payment Failed",
+        description: errorMessages[error || ''] || "Payment could not be completed. Please try again.",
+        variant: "destructive",
       });
       window.history.replaceState({}, '', '/tax-reminder-subscription');
     }
@@ -209,49 +214,30 @@ export default function TaxReminderSubscription() {
     }
   };
 
-  const handleStripeCheckout = async () => {
+  const handlePhonePeCheckout = async () => {
     if (!selectedTier || !user) return;
 
     setIsProcessingPayment(true);
 
     try {
-      if (!import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
-        toast({
-          title: "Payment Unavailable",
-          description: "Stripe is not configured. Please contact support.",
-          variant: "destructive"
-        });
-        setIsProcessingPayment(false);
-        return;
-      }
-
-      const stripe = await loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
-      
-      if (!stripe) {
-        throw new Error('Failed to load Stripe');
-      }
-
-      const response = await apiRequest('POST', '/api/tax/create-checkout-session', {
+      const response = await apiRequest('POST', '/api/tax/phonepe/initiate-payment', {
         body: {
           userId: user.id,
           itrFormType: selectedTier.formType,
-          annualPrice: selectedTier.price
+          amount: selectedTier.price,
+          serviceType: 'tax_reminder'
         }
       });
 
-      const { sessionId, url } = await response.json();
+      const data = await response.json();
 
-      if (url) {
-        window.location.href = url;
-      } else if (sessionId) {
-        const { error } = await stripe.redirectToCheckout({ sessionId });
-        
-        if (error) {
-          throw new Error(error.message || 'Failed to redirect to checkout');
-        }
+      if (data.success && data.paymentUrl) {
+        window.location.href = data.paymentUrl;
+      } else {
+        throw new Error(data.message || 'Failed to initiate payment');
       }
     } catch (error) {
-      console.error('Stripe checkout error:', error);
+      console.error('PhonePe payment initiation error:', error);
       toast({
         title: "Payment Error",
         description: error instanceof Error ? error.message : "Failed to initialize payment. Please try again.",
@@ -521,7 +507,7 @@ export default function TaxReminderSubscription() {
               </Alert>
               <div className="flex gap-4">
                 <Button
-                  onClick={handleStripeCheckout}
+                  onClick={handlePhonePeCheckout}
                   disabled={isProcessingPayment || subscriptionMutation.isPending}
                   className="flex-1"
                   data-testid="button-proceed-payment"
@@ -529,7 +515,7 @@ export default function TaxReminderSubscription() {
                   {isProcessingPayment ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Redirecting to Stripe...
+                      Redirecting to PhonePe...
                     </>
                   ) : (
                     "Proceed to Payment"

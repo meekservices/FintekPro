@@ -24030,32 +24030,27 @@ System Security Data:`;
     }
   });
 
-  // Create Stripe checkout session for tax reminder subscription
-  app.post('/api/tax/create-checkout-session', async (req, res) => {
+  // PhonePe Payment Initiation Endpoint for Tax Reminder Subscription
+  app.post('/api/tax/phonepe/initiate-payment', async (req, res) => {
     try {
-      const { stripe, isStripeEnabled } = await import('./stripe');
-      
-      if (!isStripeEnabled()) {
-        return res.status(503).json({ 
-          error: "Payment service unavailable",
-          message: "Stripe is not configured. Please contact support."
-        });
-      }
-
       if (!req.user) {
         return res.status(401).json({ error: "Authentication required" });
       }
 
-      const { userId, itrFormType, annualPrice } = req.body;
+      const { userId, itrFormType, amount, serviceType } = req.body;
 
-      if (!userId || !itrFormType || annualPrice === undefined) {
+      if (!userId || !itrFormType || amount === undefined || !serviceType) {
         return res.status(400).json({ 
-          error: "Missing required fields: userId, itrFormType, annualPrice" 
+          error: "Missing required fields: userId, itrFormType, amount, serviceType" 
         });
       }
 
       if (userId !== req.user.id) {
         return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      if (serviceType !== 'tax_reminder') {
+        return res.status(400).json({ error: "Invalid service type" });
       }
 
       const validFormTypes = ['ITR-1', 'ITR-2', 'ITR-3', 'ITR-4', 'ITR-5', 'ITR-6', 'ITR-7'];
@@ -24071,113 +24066,143 @@ System Security Data:`;
         });
       }
 
-      const session = await stripe!.checkout.sessions.create({
-        payment_method_types: ['card'],
-        line_items: [
-          {
-            price_data: {
-              currency: 'inr',
-              product_data: {
-                name: `Tax Reminder Service - ${itrFormType}`,
-                description: `Annual subscription for ${itrFormType} quarterly tax reminders`,
-              },
-              unit_amount: Math.round(annualPrice * 100),
-            },
-            quantity: 1,
-          },
-        ],
-        mode: 'payment',
-        success_url: `${process.env.NODE_ENV === 'production' ? 'https://' + req.get('host') : 'http://localhost:5000'}/tax-reminder-subscription?success=true&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${process.env.NODE_ENV === 'production' ? 'https://' + req.get('host') : 'http://localhost:5000'}/tax-reminder-subscription?canceled=true`,
-        metadata: {
-          userId,
-          itrFormType,
-          serviceType: 'tax_reminder',
-          annualPrice: annualPrice.toString(),
+      const merchantTransactionId = `TXN_${Date.now()}_${userId.substring(0, 8)}`;
+      const amountInPaise = Math.round(amount * 100);
+
+      const baseUrl = process.env.NODE_ENV === 'production' 
+        ? `https://${req.get('host')}` 
+        : 'http://localhost:5000';
+
+      const paymentData = {
+        merchantId: process.env.PHONEPE_MERCHANT_ID,
+        merchantTransactionId: merchantTransactionId,
+        merchantUserId: userId,
+        amount: amountInPaise,
+        redirectUrl: `${baseUrl}/api/tax/phonepe/callback`,
+        redirectMode: 'POST',
+        callbackUrl: `${baseUrl}/api/tax/phonepe/callback`,
+        paymentInstrument: {
+          type: 'PAY_PAGE'
+        }
+      };
+
+      const payloadBase64 = Buffer.from(JSON.stringify(paymentData)).toString('base64');
+      
+      const stringToHash = payloadBase64 + '/pg/v1/pay' + process.env.PHONEPE_SALT_KEY;
+      const sha256Hash = crypto.createHash('sha256').update(stringToHash).digest('hex');
+      const checksum = `${sha256Hash}###${process.env.PHONEPE_SALT_INDEX || '1'}`;
+
+      const phonepeApiUrl = process.env.NODE_ENV === 'production'
+        ? 'https://api.phonepe.com/apis/hermes/pg/v1'
+        : 'https://api-preprod.phonepe.com/apis/pg-sandbox/pg/v1';
+
+      const response = await fetch(`${phonepeApiUrl}/pay`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-VERIFY': checksum
         },
+        body: JSON.stringify({
+          request: payloadBase64
+        })
       });
 
-      console.log(`✅ Stripe checkout session created: ${session.id} for user ${userId}`);
+      const result = await response.json();
 
-      res.json({ 
-        success: true, 
-        sessionId: session.id,
-        url: session.url 
-      });
+      if (result.success && result.data?.instrumentResponse?.redirectInfo?.url) {
+        console.log(`✅ PhonePe payment initiated: ${merchantTransactionId} for user ${userId}`);
+        
+        res.json({
+          success: true,
+          transactionId: merchantTransactionId,
+          paymentUrl: result.data.instrumentResponse.redirectInfo.url,
+          metadata: {
+            userId,
+            itrFormType,
+            amount,
+            serviceType
+          }
+        });
+      } else {
+        console.error('PhonePe payment initiation failed:', result);
+        res.status(400).json({
+          error: "Payment initiation failed",
+          message: result.message || 'Unable to initiate payment',
+          code: result.code
+        });
+      }
     } catch (error) {
-      console.error("Error creating Stripe checkout session:", error);
+      console.error("Error initiating PhonePe payment:", error);
       res.status(500).json({ 
-        error: "Failed to create checkout session",
+        error: "Failed to initiate payment",
         details: error instanceof Error ? error.message : "Unknown error"
       });
     }
   });
 
-  // Stripe webhook for payment confirmation
-  app.post('/api/tax/webhook/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
-    const sig = req.headers['stripe-signature'];
-
-    if (!sig) {
-      return res.status(400).json({ error: 'Missing stripe-signature header' });
-    }
-
+  // PhonePe Callback Handler for Tax Reminder Subscription
+  app.post('/api/tax/phonepe/callback', async (req, res) => {
     try {
-      const { stripe, isStripeEnabled } = await import('./stripe');
+      const callbackData = req.body;
       
-      if (!isStripeEnabled()) {
-        return res.status(503).json({ error: "Stripe is not configured" });
+      if (!callbackData) {
+        return res.status(400).send('Invalid callback data');
       }
 
-      const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-      if (!webhookSecret) {
-        console.error('⚠️ STRIPE_WEBHOOK_SECRET is not configured');
-        return res.status(500).json({ error: "Webhook secret not configured" });
+      const base64Response = callbackData.response || callbackData;
+      const receivedChecksum = req.headers['x-verify'] as string;
+
+      if (!base64Response || !receivedChecksum) {
+        console.error('Missing response or checksum in PhonePe callback');
+        return res.redirect('/tax-reminder-subscription?success=false&error=invalid_callback');
       }
 
-      const event = stripe!.webhooks.constructEvent(
-        req.body,
-        sig,
-        webhookSecret
-      );
+      const [checksumHash, saltIndex] = receivedChecksum.split('###');
+      const expectedChecksum = crypto
+        .createHash('sha256')
+        .update(base64Response + process.env.PHONEPE_SALT_KEY)
+        .digest('hex');
 
-      console.log(`📩 Stripe webhook received: ${event.type}`);
+      if (checksumHash !== expectedChecksum || saltIndex !== (process.env.PHONEPE_SALT_INDEX || '1')) {
+        console.error('PhonePe callback checksum verification failed');
+        return res.redirect('/tax-reminder-subscription?success=false&error=invalid_signature');
+      }
 
-      if (event.type === 'checkout.session.completed') {
-        const session = event.data.object as any;
-        const { userId, itrFormType, serviceType, annualPrice } = session.metadata;
+      const responseData = JSON.parse(Buffer.from(base64Response, 'base64').toString('utf-8'));
 
-        if (serviceType !== 'tax_reminder') {
-          console.log(`Ignoring webhook for non-tax-reminder service: ${serviceType}`);
-          return res.json({ received: true });
-        }
+      console.log('📩 PhonePe callback received:', responseData);
 
-        console.log(`Processing payment for user ${userId}, ITR form ${itrFormType}`);
+      if (responseData.success && responseData.data?.state === 'COMPLETED') {
+        const merchantTransactionId = responseData.data.merchantTransactionId;
+        const amount = responseData.data.amount / 100;
+
+        const txnParts = merchantTransactionId.split('_');
+        const userId = txnParts[2];
 
         const validFrom = new Date();
         const validUntil = new Date();
         validUntil.setFullYear(validUntil.getFullYear() + 1);
 
-        const pricingTierMap: Record<string, string> = {
-          'ITR-1': 'itr1',
-          'ITR-2': 'itr2',
-          'ITR-3': 'itr3',
-          'ITR-4': 'itr4plus',
-          'ITR-5': 'itr4plus',
-          'ITR-6': 'itr4plus',
-          'ITR-7': 'itr4plus',
+        const pricingMap: Record<number, { tier: string, formType: string }> = {
+          299: { tier: 'itr1', formType: 'ITR-1' },
+          599: { tier: 'itr2', formType: 'ITR-2' },
+          1299: { tier: 'itr3', formType: 'ITR-3' },
+          1999: { tier: 'itr4plus', formType: 'ITR-4+' }
         };
+
+        const planInfo = pricingMap[amount] || { tier: 'itr1', formType: 'ITR-1' };
 
         const subscription = await storage.createTaxReminderSubscription({
           userId,
-          itrFormType,
+          itrFormType: planInfo.formType,
           subscriptionStatus: 'active',
-          pricingTier: pricingTierMap[itrFormType] || 'itr1',
-          annualPrice: annualPrice || '0',
+          pricingTier: planInfo.tier,
+          annualPrice: amount.toString(),
           isFree: false,
-          stripeSubscriptionId: session.id,
+          phonepeTransactionId: merchantTransactionId,
           validFrom: validFrom.toISOString().split('T')[0],
           validUntil: validUntil.toISOString().split('T')[0],
-          reminderChannels: ['email', 'sms'],
+          reminderChannels: ['email', 'sms', 'whatsapp'],
         });
 
         console.log(`✅ Tax reminder subscription created: ${subscription.id}`);
@@ -24199,27 +24224,28 @@ System Security Data:`;
         complianceMonitor.logEvent({
           userId,
           eventType: 'payment_completed',
-          action: 'Tax reminder subscription payment completed',
+          action: 'Tax reminder subscription payment completed via PhonePe',
           ipAddress: req.ip || req.connection.remoteAddress,
           userAgent: req.get('User-Agent'),
           outcome: 'success',
           riskLevel: 'low',
           details: {
-            sessionId: session.id,
-            amount: annualPrice,
-            itrFormType,
+            transactionId: merchantTransactionId,
+            amount: amount,
+            itrFormType: planInfo.formType,
             subscriptionId: subscription.id,
+            paymentMethod: 'PhonePe'
           }
         });
-      }
 
-      res.json({ received: true });
+        return res.redirect('/tax-reminder-subscription?success=true');
+      } else {
+        console.error('PhonePe payment failed or incomplete:', responseData);
+        return res.redirect('/tax-reminder-subscription?success=false&error=payment_failed');
+      }
     } catch (error) {
-      console.error('Error processing webhook:', error);
-      res.status(400).json({ 
-        error: 'Webhook error',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      });
+      console.error('Error processing PhonePe callback:', error);
+      return res.redirect('/tax-reminder-subscription?success=false&error=processing_error');
     }
   });
 
