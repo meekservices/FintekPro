@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { Loader2, Mail, Phone, Eye, EyeOff, Shield, MessageSquare } from "lucide-react";
+import { FaGoogle, FaApple, FaGithub, FaTwitter } from "react-icons/fa";
 
 const loginSchema = z.object({
   identifier: z.string().min(1, "Email or mobile number is required"),
@@ -548,6 +549,52 @@ export default function AuthPage() {
                   </TabsContent>
                 </Tabs>
                 
+                <div className="mt-6 pt-6 border-t">
+                  <div className="text-center space-y-4">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Or continue with
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => window.location.href = '/api/login'}
+                        data-testid="button-login-google"
+                      >
+                        <FaGoogle className="w-4 h-4 mr-2 text-red-500" />
+                        Google
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => window.location.href = '/api/login'}
+                        data-testid="button-login-apple"
+                      >
+                        <FaApple className="w-4 h-4 mr-2" />
+                        Apple
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => window.location.href = '/api/login'}
+                        data-testid="button-login-github"
+                      >
+                        <FaGithub className="w-4 h-4 mr-2" />
+                        GitHub
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => window.location.href = '/api/login'}
+                        data-testid="button-login-twitter"
+                      >
+                        <FaTwitter className="w-4 h-4 mr-2 text-blue-400" />
+                        X
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="mt-6 pt-6 border-t">
                   <div className="text-center space-y-4">
                     <p className="text-sm text-gray-600 dark:text-gray-400">
