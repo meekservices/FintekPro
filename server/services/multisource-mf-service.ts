@@ -414,7 +414,9 @@ export class MultiSourceMFService {
   private async fetchFromAMFI(type: string, param?: string): Promise<any> {
     // AMFI provides NAV data in text format
     // This is a simplified implementation - would need proper AMFI parsing
-    throw new Error('AMFI source not implemented yet');
+    // Return null to gracefully fallback to other sources
+    console.warn('AMFI source not yet implemented, falling back to other sources');
+    return null;
   }
 
   /**
