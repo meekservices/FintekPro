@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { sql, eq } from "drizzle-orm";
 import { db } from "./db";
-import { setupAuth } from "./auth";
+import { setupAuth } from "./replitAuth";
 import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema, insertCapitalGainsReportSchema, insertTransactionReportSchema, insertTransactionRecordSchema, insertCkycRecordSchema, userCart, userCartItems, storeProducts, storeCategories, fundComparisons, portfolioComparisons, comparisonHistory } from "@shared/schema";
 import { marketStoryService, type MarketData as StoryMarketData } from "./market-story-service";
 import { generateMarketInsight, analyzePortfolio, generateInvestmentStory, explainFinancialConcept } from "./gemini";

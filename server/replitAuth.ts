@@ -54,16 +54,88 @@ function updateUserSession(
   user.expires_at = user.claims?.exp;
 }
 
-async function upsertUser(
-  claims: any,
-) {
-  await storage.upsertUser({
-    id: claims["sub"],
-    email: claims["email"],
-    firstName: claims["first_name"],
-    lastName: claims["last_name"],
-    profileImageUrl: claims["profile_image_url"],
-  });
+async function upsertUser(claims: any) {
+  const existingUser = await storage.getUser(claims["sub"]);
+  
+  if (existingUser) {
+    // Update existing user with latest OAuth data
+    await storage.updateUser(claims["sub"], {
+      email: claims["email"],
+      firstName: claims["first_name"] || existingUser.firstName,
+      lastName: claims["last_name"] || existingUser.lastName,
+      profileImageUrl: claims["profile_image_url"],
+    });
+  } else {
+    // Create new user from OAuth data
+    await storage.createUser({
+      email: claims["email"] || null,
+      mobile: null,
+      password: '', // OAuth users don't have password
+      firstName: claims["first_name"] || null,
+      middleName: null,
+      lastName: claims["last_name"] || null,
+      profileImageUrl: claims["profile_image_url"] || null,
+      isEmailVerified: true, // OAuth email is verified
+      isMobileVerified: false,
+      panNumber: null,
+      aadharNumber: null,
+      passportNumber: null,
+      drivingLicense: null,
+      voterIdNumber: null,
+      dateOfBirth: null,
+      nationality: null,
+      fatherName: null,
+      motherName: null,
+      spouseName: null,
+      maritalStatus: null,
+      address: null,
+      city: null,
+      state: null,
+      pincode: null,
+      country: null,
+      occupation: null,
+      annualIncome: null,
+      investmentExperience: null,
+      riskTolerance: null,
+      sourceOfWealth: null,
+      residentStatus: null,
+      countryOfResidence: null,
+      taxResidencyCountry: null,
+      fatcaStatus: null,
+      fatcaTinNumber: null,
+      fatcaCountryOfTaxResidence: null,
+      pepStatus: null,
+      pepDetails: null,
+      isUbo: false,
+      uboDetails: null,
+      bankAccountNumber: null,
+      ifscCode: null,
+      nomineeDetails: null,
+      nomineeRelation: null,
+      euinNumber: null,
+      enableCamsApi: false,
+      enableKfintechApi: false,
+      enableNsdlApi: false,
+      enableCdslApi: false,
+      nsdlDpId: null,
+      nsdlClientId: null,
+      cdslBoId: null,
+      cdslDpId: null,
+      panVerificationConsent: false,
+      panConsentGivenAt: null,
+      panConsentIpAddress: null,
+      panConsentUserAgent: null,
+      panConsentVersion: null,
+      preferredCamsRegistration: false,
+      preferredKfintechRegistration: false,
+      preferredNsdlRegistration: false,
+      preferredCdslRegistration: false,
+      roles: ['user'],
+      isActive: true,
+      lastLoginAt: new Date(),
+      loginCount: 1,
+    });
+  }
 }
 
 export async function setupAuth(app: Express) {
@@ -78,7 +150,7 @@ export async function setupAuth(app: Express) {
     tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
     verified: passport.AuthenticateCallback
   ) => {
-    const user = {};
+    const user: any = {};
     updateUserSession(user, tokens);
     await upsertUser(tokens.claims());
     verified(null, user);
@@ -123,6 +195,30 @@ export async function setupAuth(app: Express) {
           post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
         }).href
       );
+    });
+  });
+
+  app.get("/api/user", isAuthenticated, async (req, res) => {
+    const user = req.user as any;
+    const claims = user.claims;
+    
+    const dbUser = await storage.getUser(claims["sub"]);
+    
+    if (!dbUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    
+    res.json({
+      id: dbUser.id,
+      email: dbUser.email,
+      mobile: dbUser.mobile,
+      firstName: dbUser.firstName,
+      middleName: dbUser.middleName,
+      lastName: dbUser.lastName,
+      profileImageUrl: dbUser.profileImageUrl,
+      isEmailVerified: dbUser.isEmailVerified,
+      isMobileVerified: dbUser.isMobileVerified,
+      roles: dbUser.roles,
     });
   });
 }
