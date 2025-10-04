@@ -1087,14 +1087,33 @@ export const products = pgTable("products", {
   // Product details
   name: varchar("name").notNull(),
   description: text("description"),
-  category: varchar("category").notNull(), // 'mutual_fund', 'insurance', 'loan', 'credit_card', 'deposit'
+  category: varchar("category").notNull(), // 'mutual_fund', 'insurance', 'loan', 'credit_card', 'deposit', 'bond', 'ncd', 'mld', 'ipo', 'pre_ipo', 'unlisted', 'global_stock', 'global_fund'
   subCategory: varchar("sub_category"), // Specific type within category
+  provider: varchar("provider"), // Provider/AMC/Bank name
   // Pricing and features
   basePrice: decimal("base_price", { precision: 15, scale: 2 }),
   interestRate: decimal("interest_rate", { precision: 8, scale: 4 }),
+  minimumInvestment: decimal("minimum_investment", { precision: 15, scale: 2 }),
   features: jsonb("features").default({}), // Product features and benefits
   eligibilityCriteria: jsonb("eligibility_criteria").default({}),
   documents: jsonb("documents").default([]), // Required documents
+  // Performance tracking - Short term
+  returns1m: decimal("returns_1m", { precision: 8, scale: 4 }),
+  returns3m: decimal("returns_3m", { precision: 8, scale: 4 }),
+  returns6m: decimal("returns_6m", { precision: 8, scale: 4 }),
+  // Performance tracking - Long term
+  returns1y: decimal("returns_1y", { precision: 8, scale: 4 }),
+  returns3y: decimal("returns_3y", { precision: 8, scale: 4 }),
+  returns5y: decimal("returns_5y", { precision: 8, scale: 4 }),
+  returnsSinceInception: decimal("returns_since_inception", { precision: 8, scale: 4 }),
+  // Risk and ratings
+  riskLevel: varchar("risk_level"), // 'low', 'medium', 'high', 'very_high'
+  creditRating: varchar("credit_rating"), // For bonds/NCDs: AAA, AA+, etc.
+  performanceTag: varchar("performance_tag"), // Auto-calculated: 'top_performer', 'rising_star', 'stable', 'high_growth'
+  // Product characteristics
+  isFeatured: boolean("is_featured").default(false),
+  isNew: boolean("is_new").default(false),
+  badge: varchar("badge"), // 'HOT', 'NEW', 'PREMIUM', 'TRENDING'
   // Product status and visibility
   status: varchar("status").default("draft"), // 'draft', 'active', 'suspended', 'discontinued'
   isPublic: boolean("is_public").default(false), // Visible to end users
@@ -1103,6 +1122,9 @@ export const products = pgTable("products", {
   slug: varchar("slug").unique(),
   tags: text("tags").array().default([]),
   imageUrl: varchar("image_url"),
+  // Data freshness
+  lastPerformanceUpdate: timestamp("last_performance_update"),
+  dataSource: varchar("data_source"), // 'api', 'manual', 'calculated'
   // Timestamps
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
