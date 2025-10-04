@@ -810,7 +810,7 @@ export default function StorePage() {
 
         {/* Category Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 w-full bg-white dark:bg-gray-800 p-1 rounded-lg shadow-md">
+          <TabsList className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 w-full bg-white dark:bg-gray-800 p-1 rounded-lg shadow-md gap-1">
             {categoryTabs.map(tab => {
               const Icon = tab.icon;
               const tabFilter = getTabFilter(tab.value);
