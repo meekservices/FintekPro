@@ -316,7 +316,7 @@ export function Footer() {
 
         <div className="border-t border-gray-600 mt-8 pt-8 text-center text-gray-300">
           <p data-testid="footer-copyright">
-            &copy; 2024 FinanceHub. All rights reserved. | SEBI Registered Investment Advisor
+            &copy; 2025 FintekPro. All rights reserved. | Registered Distributor of financial & Investment products.
           </p>
         </div>
       </div>
