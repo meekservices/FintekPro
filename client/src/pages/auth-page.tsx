@@ -1,13 +1,119 @@
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { useMutation } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
-import { Loader2, Shield, TrendingUp, BarChart3, MessageSquare } from "lucide-react";
+import { Loader2, Eye, EyeOff, Shield, TrendingUp, BarChart3, MessageSquare } from "lucide-react";
 import { FaGoogle, FaApple } from "react-icons/fa";
+
+const loginSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+});
+
+const registerSchema = z.object({
+  firstName: z.string().min(2, "First name must be at least 2 characters"),
+  middleName: z.string().optional(),
+  lastName: z.string().optional(),
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  confirmPassword: z.string()
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"]
+});
+
+type LoginFormData = z.infer<typeof loginSchema>;
+type RegisterFormData = z.infer<typeof registerSchema>;
 
 export default function AuthPage() {
   const [, navigate] = useLocation();
   const { user, isLoading: isAuthLoading } = useAuth();
+  const { toast } = useToast();
+  const [showPassword, setShowPassword] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+
+  const loginForm = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    }
+  });
+
+  const registerForm = useForm<RegisterFormData>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      firstName: "",
+      middleName: "",
+      lastName: "",
+      email: "",
+      password: "",
+      confirmPassword: ""
+    }
+  });
+
+  const loginMutation = useMutation({
+    mutationFn: async (data: LoginFormData) => {
+      const response = await apiRequest("POST", "/api/login/email", {
+        email: data.email,
+        password: data.password
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(["/api/user"], data);
+      toast({
+        title: "Login successful",
+        description: "Welcome back!",
+      });
+      navigate("/");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Login failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const registerMutation = useMutation({
+    mutationFn: async (data: RegisterFormData) => {
+      const response = await apiRequest("POST", "/api/register", {
+        firstName: data.firstName,
+        middleName: data.middleName,
+        lastName: data.lastName,
+        email: data.email,
+        password: data.password
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(["/api/user"], data);
+      toast({
+        title: "Registration successful",
+        description: "Welcome to FintekPro!",
+      });
+      navigate("/");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Registration failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   // Redirect if already authenticated
   if (!isAuthLoading && user) {
@@ -22,6 +128,14 @@ export default function AuthPage() {
       </div>
     );
   }
+
+  const onLoginSubmit = (data: LoginFormData) => {
+    loginMutation.mutate(data);
+  };
+
+  const onRegisterSubmit = (data: RegisterFormData) => {
+    registerMutation.mutate(data);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
@@ -41,8 +155,8 @@ export default function AuthPage() {
                 <div className="flex items-start space-x-3">
                   <Shield className="h-6 w-6 text-blue-600 mt-1 flex-shrink-0" />
                   <div>
-                    <h3 className="font-semibold text-gray-900 dark:text-white">Smart Authentication</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">Sign in securely with Google, Apple, or WhatsApp</p>
+                    <h3 className="font-semibold text-gray-900 dark:text-white">Secure Authentication</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">Multiple sign-in options for your convenience</p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3">
@@ -70,7 +184,7 @@ export default function AuthPage() {
             </div>
           </div>
 
-          {/* Sign In Card */}
+          {/* Authentication Card */}
           <div className="flex justify-center lg:justify-end">
             <Card className="w-full max-w-md">
               <CardHeader className="space-y-1 text-center">
@@ -79,60 +193,231 @@ export default function AuthPage() {
                 </div>
                 <CardTitle className="text-2xl">Sign In to FintekPro</CardTitle>
                 <CardDescription>
-                  Choose your preferred sign-in method
+                  Choose your preferred authentication method
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Google Sign In */}
-                <Button
-                  variant="outline"
-                  className="w-full h-12 text-base"
-                  onClick={() => window.location.href = '/api/login'}
-                  data-testid="button-login-google"
-                >
-                  <FaGoogle className="w-5 h-5 mr-3 text-red-500" />
-                  Continue with Google
-                </Button>
+              <CardContent>
+                <Tabs defaultValue="social" className="space-y-4">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="social" data-testid="tab-social-login">Social Login</TabsTrigger>
+                    <TabsTrigger value="traditional" data-testid="tab-traditional-login">Traditional</TabsTrigger>
+                  </TabsList>
 
-                {/* Apple Sign In */}
-                <Button
-                  variant="outline"
-                  className="w-full h-12 text-base"
-                  onClick={() => window.location.href = '/api/login'}
-                  data-testid="button-login-apple"
-                >
-                  <FaApple className="w-5 h-5 mr-3" />
-                  Continue with Apple
-                </Button>
+                  {/* Social Login Tab */}
+                  <TabsContent value="social" className="space-y-4">
+                    <div className="space-y-3">
+                      {/* Google Sign In */}
+                      <Button
+                        variant="outline"
+                        className="w-full h-12 text-base"
+                        onClick={() => window.location.href = '/api/login'}
+                        data-testid="button-login-google"
+                      >
+                        <FaGoogle className="w-5 h-5 mr-3 text-red-500" />
+                        Continue with Google
+                      </Button>
 
-                {/* Divider */}
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-white dark:bg-gray-800 px-2 text-gray-500">
-                      Or
-                    </span>
-                  </div>
-                </div>
+                      {/* Apple Sign In */}
+                      <Button
+                        variant="outline"
+                        className="w-full h-12 text-base"
+                        onClick={() => window.location.href = '/api/login'}
+                        data-testid="button-login-apple"
+                      >
+                        <FaApple className="w-5 h-5 mr-3" />
+                        Continue with Apple
+                      </Button>
 
-                {/* WhatsApp Sign In */}
-                <Link href="/whatsapp-login" data-testid="link-whatsapp-login">
-                  <Button 
-                    variant="outline" 
-                    className="w-full h-12 text-base bg-green-50 hover:bg-green-100 border-green-200 text-green-700 dark:bg-green-900/20 dark:hover:bg-green-900/30 dark:border-green-800 dark:text-green-400"
-                  >
-                    <MessageSquare className="w-5 h-5 mr-3" />
-                    Continue with WhatsApp
-                  </Button>
-                </Link>
+                      {/* WhatsApp Sign In */}
+                      <Link href="/whatsapp-login" data-testid="link-whatsapp-login">
+                        <Button 
+                          variant="outline" 
+                          className="w-full h-12 text-base bg-green-50 hover:bg-green-100 border-green-200 text-green-700 dark:bg-green-900/20 dark:hover:bg-green-900/30 dark:border-green-800 dark:text-green-400"
+                        >
+                          <MessageSquare className="w-5 h-5 mr-3" />
+                          Continue with WhatsApp
+                        </Button>
+                      </Link>
+                    </div>
+
+                    <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-4">
+                      🔒 Quick, secure, and password-free authentication
+                    </p>
+                  </TabsContent>
+
+                  {/* Traditional Login Tab */}
+                  <TabsContent value="traditional">
+                    <Tabs value={authMode} onValueChange={(v) => setAuthMode(v as "login" | "register")} className="space-y-4">
+                      <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="login" data-testid="tab-login">Login</TabsTrigger>
+                        <TabsTrigger value="register" data-testid="tab-register">Register</TabsTrigger>
+                      </TabsList>
+
+                      {/* Login Form */}
+                      <TabsContent value="login">
+                        <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
+                          <div>
+                            <Label htmlFor="login-email">Email Address</Label>
+                            <Input
+                              id="login-email"
+                              {...loginForm.register("email")}
+                              type="email"
+                              placeholder="client@example.com"
+                              data-testid="input-login-email"
+                            />
+                            {loginForm.formState.errors.email && (
+                              <p className="text-sm text-red-600 mt-1">{loginForm.formState.errors.email.message}</p>
+                            )}
+                          </div>
+
+                          <div>
+                            <Label htmlFor="login-password">Password</Label>
+                            <div className="relative">
+                              <Input
+                                id="login-password"
+                                {...loginForm.register("password")}
+                                type={showPassword ? "text" : "password"}
+                                placeholder="Enter your password"
+                                data-testid="input-login-password"
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                                onClick={() => setShowPassword(!showPassword)}
+                                data-testid="button-toggle-password"
+                              >
+                                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                              </Button>
+                            </div>
+                            {loginForm.formState.errors.password && (
+                              <p className="text-sm text-red-600 mt-1">{loginForm.formState.errors.password.message}</p>
+                            )}
+                          </div>
+
+                          <Button 
+                            type="submit" 
+                            className="w-full" 
+                            disabled={loginMutation.isPending}
+                            data-testid="button-login"
+                          >
+                            {loginMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Sign In
+                          </Button>
+                        </form>
+                      </TabsContent>
+
+                      {/* Register Form */}
+                      <TabsContent value="register">
+                        <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-4">
+                          <div>
+                            <Label htmlFor="register-firstName">First Name</Label>
+                            <Input
+                              id="register-firstName"
+                              {...registerForm.register("firstName")}
+                              placeholder="John"
+                              data-testid="input-first-name"
+                            />
+                            {registerForm.formState.errors.firstName && (
+                              <p className="text-sm text-red-600 mt-1">{registerForm.formState.errors.firstName.message}</p>
+                            )}
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label htmlFor="register-middleName">Middle Name</Label>
+                              <Input
+                                id="register-middleName"
+                                {...registerForm.register("middleName")}
+                                placeholder="Optional"
+                                data-testid="input-middle-name"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="register-lastName">Last Name</Label>
+                              <Input
+                                id="register-lastName"
+                                {...registerForm.register("lastName")}
+                                placeholder="Optional"
+                                data-testid="input-last-name"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <Label htmlFor="register-email">Email Address</Label>
+                            <Input
+                              id="register-email"
+                              {...registerForm.register("email")}
+                              type="email"
+                              placeholder="client@example.com"
+                              data-testid="input-register-email"
+                            />
+                            {registerForm.formState.errors.email && (
+                              <p className="text-sm text-red-600 mt-1">{registerForm.formState.errors.email.message}</p>
+                            )}
+                          </div>
+
+                          <div>
+                            <Label htmlFor="register-password">Password</Label>
+                            <div className="relative">
+                              <Input
+                                id="register-password"
+                                {...registerForm.register("password")}
+                                type={showPassword ? "text" : "password"}
+                                placeholder="Create a password"
+                                data-testid="input-register-password"
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                                onClick={() => setShowPassword(!showPassword)}
+                                data-testid="button-toggle-register-password"
+                              >
+                                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                              </Button>
+                            </div>
+                            {registerForm.formState.errors.password && (
+                              <p className="text-sm text-red-600 mt-1">{registerForm.formState.errors.password.message}</p>
+                            )}
+                          </div>
+
+                          <div>
+                            <Label htmlFor="register-confirmPassword">Confirm Password</Label>
+                            <Input
+                              id="register-confirmPassword"
+                              {...registerForm.register("confirmPassword")}
+                              type="password"
+                              placeholder="Confirm your password"
+                              data-testid="input-confirm-password"
+                            />
+                            {registerForm.formState.errors.confirmPassword && (
+                              <p className="text-sm text-red-600 mt-1">{registerForm.formState.errors.confirmPassword.message}</p>
+                            )}
+                          </div>
+
+                          <Button 
+                            type="submit" 
+                            className="w-full" 
+                            disabled={registerMutation.isPending}
+                            data-testid="button-register"
+                          >
+                            {registerMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Create Account
+                          </Button>
+                        </form>
+                      </TabsContent>
+                    </Tabs>
+                  </TabsContent>
+                </Tabs>
 
                 {/* Security Note */}
                 <div className="mt-6 pt-6 border-t">
                   <p className="text-xs text-center text-gray-500 dark:text-gray-400">
-                    🔒 Your data is protected with enterprise-grade encryption.<br />
-                    Quick, secure, and password-free authentication.
+                    🔒 Your data is protected with enterprise-grade encryption
                   </p>
                 </div>
               </CardContent>
