@@ -275,8 +275,8 @@ const categoryTabs = [
 ];
 
 const subcategories = {
-  "Investment Products": ["Mutual Funds", "IPO & Pre-IPO", "Debentures & Bonds", "ETFs", "Unlisted Securities"],
-  "Global Products": ["International Stocks", "International Funds", "Multi-Currency Deposits", "Global ETFs"],
+  "Investment Products": ["ETFs"],
+  "Global Products": ["International Stocks", "International Funds", "Global ETFs"],
   "Insurance": ["Life Insurance", "Health Insurance", "Motor Insurance", "Travel Insurance"],
   "Banking Products": ["Fixed Deposits", "Credit Cards", "Savings Accounts", "Current Accounts"],
   "Professional Services": ["Advisory Services", "Tax Services", "Legal Services", "Research Services"]
@@ -288,7 +288,7 @@ type SortDirection = "asc" | "desc";
 export default function StorePage() {
   const [location, setLocation] = useLocation();
   const urlParams = new URLSearchParams(window.location.search);
-  const initialTab = urlParams.get("tab") || "featured";
+  const initialTab = urlParams.get("tab") || "all";
   
   const [activeTab, setActiveTab] = useState(initialTab);
   const [searchTerm, setSearchTerm] = useState("");
@@ -504,8 +504,8 @@ export default function StorePage() {
     }
   };
 
-  const availableSubcategories = currentCategory && currentCategory !== "All" && currentCategory !== "Featured" 
-    ? subcategories[currentCategory as keyof typeof subcategories] || []
+  const availableSubcategories = currentTabFilter.category && !currentTabFilter.subcategory
+    ? subcategories[currentTabFilter.category as keyof typeof subcategories] || []
     : [];
 
   // Get unique providers from all products
@@ -810,14 +810,18 @@ export default function StorePage() {
 
         {/* Category Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid grid-cols-7 w-full bg-white dark:bg-gray-800 p-1 rounded-lg shadow-md">
+          <TabsList className="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 w-full bg-white dark:bg-gray-800 p-1 rounded-lg shadow-md">
             {categoryTabs.map(tab => {
               const Icon = tab.icon;
-              const count = tab.value === "featured" 
-                ? mockProducts.filter(p => p.isFeatured).length
-                : tab.value === "all"
-                ? mockProducts.length
-                : mockProducts.filter(p => p.category === getTabCategory(tab.value)).length;
+              const tabFilter = getTabFilter(tab.value);
+              let count = mockProducts.length;
+              if (tab.value !== "all") {
+                count = mockProducts.filter(p => {
+                  if (tabFilter.category && p.category !== tabFilter.category) return false;
+                  if (tabFilter.subcategory && p.subcategory !== tabFilter.subcategory) return false;
+                  return true;
+                }).length;
+              }
               
               return (
                 <TabsTrigger 
