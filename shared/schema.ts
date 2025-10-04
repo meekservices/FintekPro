@@ -1110,6 +1110,34 @@ export const products = pgTable("products", {
   riskLevel: varchar("risk_level"), // 'low', 'medium', 'high', 'very_high'
   creditRating: varchar("credit_rating"), // For bonds/NCDs: AAA, AA+, etc.
   performanceTag: varchar("performance_tag"), // Auto-calculated: 'top_performer', 'rising_star', 'stable', 'high_growth'
+  // Fund fact sheet details - Exit loads and fees
+  exitLoad: jsonb("exit_load"), // [{ period: "0-1 year", load: "1%" }]
+  entryLoad: decimal("entry_load", { precision: 5, scale: 2 }),
+  expenseRatio: decimal("expense_ratio", { precision: 5, scale: 2 }),
+  totalExpenseRatio: decimal("total_expense_ratio", { precision: 5, scale: 2 }), // TER
+  // Investment style and factors
+  investmentStyle: varchar("investment_style"), // 'value', 'growth', 'blend', 'income'
+  marketCapFocus: varchar("market_cap_focus"), // 'large', 'mid', 'small', 'multi'
+  strategyFactors: text("strategy_factors").array(), // ['momentum', 'quality', 'low_volatility']
+  sectorFocus: varchar("sector_focus"), // 'technology', 'healthcare', 'banking', 'diversified'
+  investmentTheme: varchar("investment_theme"), // 'esg', 'infrastructure', 'consumption', 'export'
+  // Fund fact sheet and holdings
+  fundFactSheetUrl: varchar("fund_fact_sheet_url"),
+  factSheetLastUpdated: timestamp("fact_sheet_last_updated"),
+  portfolioHoldings: jsonb("portfolio_holdings"), // Top holdings: [{ name, weight, sector }]
+  sectorAllocation: jsonb("sector_allocation"), // {technology: 25, healthcare: 15, ...}
+  assetAllocationEquity: decimal("asset_allocation_equity", { precision: 5, scale: 2 }),
+  assetAllocationDebt: decimal("asset_allocation_debt", { precision: 5, scale: 2 }),
+  assetAllocationCash: decimal("asset_allocation_cash", { precision: 5, scale: 2 }),
+  // Fund manager details
+  fundManagerName: varchar("fund_manager_name"),
+  fundManagerTenure: integer("fund_manager_tenure"), // months
+  // Performance metrics
+  benchmarkIndex: varchar("benchmark_index"), // 'NIFTY 50', 'SENSEX', 'NIFTY Midcap 100'
+  sharpeRatio: decimal("sharpe_ratio", { precision: 8, scale: 4 }),
+  alphaRatio: decimal("alpha_ratio", { precision: 8, scale: 4 }),
+  betaRatio: decimal("beta_ratio", { precision: 8, scale: 4 }),
+  standardDeviation: decimal("standard_deviation", { precision: 8, scale: 4 }),
   // Product characteristics
   isFeatured: boolean("is_featured").default(false),
   isNew: boolean("is_new").default(false),
