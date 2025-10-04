@@ -14,6 +14,7 @@ export interface IStorage {
   getUserByMobile(mobile: string): Promise<User | undefined>;
   createUser(user: Omit<User, 'id' | 'createdAt' | 'updatedAt'>): Promise<User>;
   updateUser(id: string, updates: Partial<User>): Promise<User | undefined>;
+  upsertUser(user: UpsertUser): Promise<User>;
   deleteUser(id: string): Promise<boolean>;
   updateUserStatus(id: string, isActive: boolean): Promise<User | undefined>;
   
@@ -659,6 +660,21 @@ export class DatabaseStorage implements IStorage {
       .where(eq(schema.users.id, id))
       .returning();
     return updatedUser || undefined;
+  }
+
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const [user] = await db
+      .insert(schema.users)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: schema.users.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return user;
   }
 
   async deleteUser(id: string): Promise<boolean> {
