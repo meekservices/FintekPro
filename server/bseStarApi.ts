@@ -359,6 +359,12 @@ export class BSEStarApiService {
    * Validate BSE API credentials
    */
   private validateCredentials(): boolean {
+    // Allow demo mode without strict validation
+    if (!IS_PRODUCTION) {
+      return true; // Demo mode always passes validation
+    }
+    
+    // Production mode requires real credentials
     return !!(
       BSE_CREDENTIALS.userId && 
       BSE_CREDENTIALS.password && 
