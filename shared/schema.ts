@@ -4482,6 +4482,15 @@ export interface FundExtended extends FundCore, FundPerformance {
   lastUpdated?: Date;
   provenance?: Provenance;
   
+  // Additional convenience fields for database compatibility
+  nav?: number;
+  returns1y?: number;
+  returns3y?: number;
+  returns5y?: number;
+  rating?: string;
+  minInvestment?: string;
+  exitLoad?: string;
+  
   // CRISIL Ratings Integration
   crisilRating?: number; // 1-5 scale (1 = very good performance)
   crisilCategory?: 'equity' | 'debt' | 'hybrid';
