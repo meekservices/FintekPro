@@ -77,6 +77,10 @@ import DomesticTrading from "@/pages/domestic-trading";
 import GlobalTrading from "@/pages/global-trading";
 import IntelligentTaxHub from "@/pages/intelligent-tax-hub";
 import TaxReminderSubscription from "@/pages/tax-reminder-subscription";
+import MLDs from "@/pages/mlds";
+import Insurance from "@/pages/insurance";
+import BankingProducts from "@/pages/banking-products";
+import Bonds from "@/pages/bonds";
 
 function UserProtectedRoutes() {
   return (
@@ -98,6 +102,10 @@ function UserProtectedRoutes() {
         <Route path="/fund-comparison" component={FundComparison} />
         <Route path="/portfolio-comparison" component={PortfolioComparison} />
         <Route path="/unlisted" component={Unlisted} />
+        <Route path="/bonds" component={Bonds} />
+        <Route path="/mlds" component={MLDs} />
+        <Route path="/insurance" component={Insurance} />
+        <Route path="/banking-products" component={BankingProducts} />
         <Route path="/loans" component={Loans} />
         <Route path="/nsdl-services" component={NSDLServices} />
         <Route path="/cdsl-services" component={CDSLServices} />
