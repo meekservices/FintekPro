@@ -119,15 +119,15 @@ export function EnhancedNavigation() {
           description: "Financial products and services marketplace",
           subItems: [
             { name: "All Products", href: "/store", description: "View all financial products" },
-            { name: "Mutual Funds", href: "/store?tab=mutual-funds", description: "Domestic and international funds" },
-            { name: "IPO & Pre-IPO", href: "/store?tab=ipo", description: "Public offerings and pre-IPO opportunities" },
-            { name: "Unlisted", href: "/store?tab=unlisted", description: "Unlisted shares and securities" },
-            { name: "Debentures", href: "/store?tab=debentures", description: "Non-convertible debentures and bonds" },
-            { name: "MLDs", href: "/store?tab=mlds", description: "Market linked debentures" },
-            { name: "Global Products", href: "/store?tab=global", description: "International stocks and funds" },
-            { name: "Insurance Plans", href: "/store?tab=insurance", description: "Life, health, motor insurance" },
-            { name: "Banking Products", href: "/store?tab=banking", description: "Accounts, loans, credit cards" },
-            { name: "Professional Services", href: "/store?tab=services", description: "Advisory, consultation, research" }
+            { name: "Mutual Funds", href: "/mutual-funds", description: "Domestic and international funds" },
+            { name: "IPO & Pre-IPO", href: "/ipo", description: "Public offerings and pre-IPO opportunities" },
+            { name: "Unlisted", href: "/unlisted", description: "Unlisted shares and securities" },
+            { name: "Bonds & NCDs", href: "/bonds", description: "Non-convertible debentures and bonds" },
+            { name: "MLDs", href: "/mlds", description: "Market linked debentures" },
+            { name: "Global Products", href: "/global-trading", description: "International stocks and funds" },
+            { name: "Insurance Hub", href: "/insurance", description: "Life, health, motor insurance" },
+            { name: "Banking Products", href: "/banking-products", description: "Accounts, loans, credit cards" },
+            { name: "Professional Services", href: "/professional-services", description: "Advisory, consultation, research" }
           ]
         }
       ]

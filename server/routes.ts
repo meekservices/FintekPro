@@ -1346,6 +1346,183 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // =================================================================
+  // Product Marketplace API Routes
+  // =================================================================
+  
+  // Get all products with filters
+  app.get("/api/products", async (req, res) => {
+    try {
+      const { category, subcategory, theme, style, riskLevel, minReturn1y, isFeatured, limit } = req.query;
+      
+      const filters: any = {};
+      if (category) filters.category = category as string;
+      if (subcategory) filters.subcategory = subcategory as string;
+      if (theme) filters.theme = theme as string;
+      if (style) filters.style = style as string;
+      if (riskLevel) filters.riskLevel = riskLevel as string;
+      if (minReturn1y) filters.minReturn1y = parseFloat(minReturn1y as string);
+      if (isFeatured !== undefined) filters.isFeatured = isFeatured === 'true';
+      if (limit) filters.limit = parseInt(limit as string);
+      
+      const products = await storage.getProducts(filters);
+      res.json(products);
+    } catch (error) {
+      console.error("Error fetching products:", error);
+      res.status(500).json({ error: "Failed to fetch products" });
+    }
+  });
+
+  // Get product by ID
+  app.get("/api/products/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const product = await storage.getProductById(id);
+      
+      if (!product) {
+        return res.status(404).json({ error: "Product not found" });
+      }
+      
+      res.json(product);
+    } catch (error) {
+      console.error("Error fetching product:", error);
+      res.status(500).json({ error: "Failed to fetch product" });
+    }
+  });
+
+  // Get product by slug
+  app.get("/api/products/slug/:slug", async (req, res) => {
+    try {
+      const { slug } = req.params;
+      const product = await storage.getProductBySlug(slug);
+      
+      if (!product) {
+        return res.status(404).json({ error: "Product not found" });
+      }
+      
+      res.json(product);
+    } catch (error) {
+      console.error("Error fetching product:", error);
+      res.status(500).json({ error: "Failed to fetch product" });
+    }
+  });
+
+  // Get top performing products
+  app.get("/api/products/top-performers", async (req, res) => {
+    try {
+      const { category, period, limit } = req.query;
+      
+      const products = await storage.getTopPerformers(
+        category as string | undefined,
+        period as any,
+        limit ? parseInt(limit as string) : undefined
+      );
+      
+      res.json(products);
+    } catch (error) {
+      console.error("Error fetching top performers:", error);
+      res.status(500).json({ error: "Failed to fetch top performers" });
+    }
+  });
+
+  // Get products by category
+  app.get("/api/products/category/:category", async (req, res) => {
+    try {
+      const { category } = req.params;
+      const { subcategory } = req.query;
+      
+      const products = await storage.getProductsByCategory(
+        category,
+        subcategory as string | undefined
+      );
+      
+      res.json(products);
+    } catch (error) {
+      console.error("Error fetching products by category:", error);
+      res.status(500).json({ error: "Failed to fetch products by category" });
+    }
+  });
+
+  // Get products by theme
+  app.get("/api/products/theme/:theme", async (req, res) => {
+    try {
+      const { theme } = req.params;
+      const { limit } = req.query;
+      
+      const products = await storage.getProductsByTheme(
+        theme,
+        limit ? parseInt(limit as string) : undefined
+      );
+      
+      res.json(products);
+    } catch (error) {
+      console.error("Error fetching products by theme:", error);
+      res.status(500).json({ error: "Failed to fetch products by theme" });
+    }
+  });
+
+  // Get featured products
+  app.get("/api/products/featured/all", async (req, res) => {
+    try {
+      const { limit } = req.query;
+      const products = await storage.getFeaturedProducts(
+        limit ? parseInt(limit as string) : undefined
+      );
+      res.json(products);
+    } catch (error) {
+      console.error("Error fetching featured products:", error);
+      res.status(500).json({ error: "Failed to fetch featured products" });
+    }
+  });
+
+  // Get new products
+  app.get("/api/products/new/all", async (req, res) => {
+    try {
+      const { limit } = req.query;
+      const products = await storage.getNewProducts(
+        limit ? parseInt(limit as string) : undefined
+      );
+      res.json(products);
+    } catch (error) {
+      console.error("Error fetching new products:", error);
+      res.status(500).json({ error: "Failed to fetch new products" });
+    }
+  });
+
+  // Search products
+  app.get("/api/products/search", async (req, res) => {
+    try {
+      const { q } = req.query;
+      
+      if (!q) {
+        return res.status(400).json({ error: "Search query required" });
+      }
+      
+      const products = await storage.searchProducts(q as string);
+      res.json(products);
+    } catch (error) {
+      console.error("Error searching products:", error);
+      res.status(500).json({ error: "Failed to search products" });
+    }
+  });
+
+  // Refresh product performance (admin only)
+  app.post("/api/products/:id/refresh", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const product = await storage.refreshProductPerformance(id);
+      
+      if (!product) {
+        return res.status(404).json({ error: "Product not found" });
+      }
+      
+      res.json(product);
+    } catch (error) {
+      console.error("Error refreshing product:", error);
+      res.status(500).json({ error: "Failed to refresh product" });
+    }
+  });
+
   // Loan rates API endpoint
   app.get("/api/loans/rates", async (req, res) => {
     try {
