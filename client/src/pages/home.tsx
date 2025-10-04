@@ -285,17 +285,17 @@ export default function Home() {
                 </div>
                 
                 {/* CTA Buttons */}
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <Link href="/wealth-management">
-                    <Button size="lg" className="bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-600 hover:to-orange-700 text-white font-semibold px-8 py-4 rounded-xl shadow-2xl transform hover:scale-105 transition-all">
-                      <Target className="w-5 h-5 mr-2" />
-                      Start Smart Investing
-                      <ArrowRight className="w-5 h-5 ml-2" />
+                <div className="flex flex-col sm:flex-row gap-4 w-full">
+                  <Link href="/wealth-management" className="w-full sm:w-auto">
+                    <Button size="lg" className="w-full sm:w-auto bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-600 hover:to-orange-700 text-white font-semibold px-6 sm:px-8 py-3 sm:py-4 rounded-xl shadow-2xl transform hover:scale-105 transition-all">
+                      <Target className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                      <span className="text-sm sm:text-base">Start Smart Investing</span>
+                      <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 ml-2" />
                     </Button>
                   </Link>
-                  <Button size="lg" variant="outline" className="border-2 border-white/30 text-white hover:bg-white/10 font-semibold px-8 py-4 rounded-xl backdrop-blur-sm">
-                    <PlayCircle className="w-5 h-5 mr-2" />
-                    Watch Demo
+                  <Button size="lg" variant="outline" className="w-full sm:w-auto border-2 border-white/30 text-white hover:bg-white/10 font-semibold px-6 sm:px-8 py-3 sm:py-4 rounded-xl backdrop-blur-sm">
+                    <PlayCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                    <span className="text-sm sm:text-base">Watch Demo</span>
                   </Button>
                 </div>
 
