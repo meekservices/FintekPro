@@ -1,22 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
 import { ProductDetailsModal } from "@/components/product-details-modal";
 import { useCart } from "@/hooks/use-cart";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { 
-  Heart, ShoppingCart, Filter, Search, Star, TrendingUp, Shield, Clock, Grid, List, 
-  SortAsc, SortDesc, X, Building2, Award, Plus, Globe, CreditCard, FileText, Users, 
+  Heart, ShoppingCart, Search, Star, TrendingUp, Shield, Globe, CreditCard, FileText, 
   Briefcase, Banknote, Target, Crown, Landmark, Store as StoreIcon, ArrowRight, Sparkles, 
-  Zap, ChevronRight, Check, ArrowUpDown, Package
+  Zap, ChevronRight, Plus, Building2, Award, Package, Flame
 } from "lucide-react";
 
 interface Product {
@@ -261,76 +258,34 @@ const mockProducts: Product[] = [
   }
 ];
 
-const categoryTabs = [
-  { value: "all", label: "All Products", icon: Package },
-  { value: "mutual-funds", label: "Mutual Funds", icon: TrendingUp },
-  { value: "ipo", label: "IPO & Pre-IPO", icon: Sparkles },
-  { value: "unlisted", label: "Unlisted", icon: Crown },
-  { value: "debentures", label: "Debentures", icon: FileText },
-  { value: "mlds", label: "MLDs", icon: Landmark },
-  { value: "global", label: "Global Products", icon: Globe },
-  { value: "insurance", label: "Insurance Plans", icon: Shield },
-  { value: "banking", label: "Banking Products", icon: Banknote },
-  { value: "services", label: "Professional Services", icon: Briefcase }
+// Category quick links for navigation
+const categoryLinks = [
+  { name: "Mutual Funds", icon: TrendingUp, path: "/mutual-funds", color: "from-blue-500 to-blue-600" },
+  { name: "IPO & Unlisted", icon: Sparkles, path: "/ipo", color: "from-purple-500 to-purple-600" },
+  { name: "Bonds & NCDs", icon: FileText, path: "/bonds", color: "from-green-500 to-green-600" },
+  { name: "Global Investing", icon: Globe, path: "/global-trading", color: "from-indigo-500 to-indigo-600" },
+  { name: "Insurance", icon: Shield, path: "/policybazaar", color: "from-red-500 to-red-600" },
+  { name: "Banking Products", icon: CreditCard, path: "/hdfc-banking", color: "from-yellow-500 to-yellow-600" },
+  { name: "Tax Services", icon: FileText, path: "/itr-tax-services", color: "from-orange-500 to-orange-600" },
+  { name: "Wealth Advisory", icon: Target, path: "/wealth-management", color: "from-teal-500 to-teal-600" },
 ];
-
-const subcategories = {
-  "Investment Products": ["ETFs"],
-  "Global Products": ["International Stocks", "International Funds", "Global ETFs"],
-  "Insurance": ["Life Insurance", "Health Insurance", "Motor Insurance", "Travel Insurance"],
-  "Banking Products": ["Fixed Deposits", "Credit Cards", "Savings Accounts", "Current Accounts"],
-  "Professional Services": ["Advisory Services", "Tax Services", "Legal Services", "Research Services"]
-};
 
 type SortField = "name" | "returns" | "investment" | "risk";
 type SortDirection = "asc" | "desc";
 
 export default function StorePage() {
-  const [location, setLocation] = useLocation();
-  const urlParams = new URLSearchParams(window.location.search);
-  const initialTab = urlParams.get("tab") || "all";
-  
-  const [activeTab, setActiveTab] = useState(initialTab);
+  const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedSubcategory, setSelectedSubcategory] = useState("All");
   const [selectedRisk, setSelectedRisk] = useState("All");
-  const [selectedInvestmentRange, setSelectedInvestmentRange] = useState("All");
-  const [selectedProvider, setSelectedProvider] = useState("All");
-  const [viewMode, setViewMode] = useState<"card" | "table">("card");
-  const [sortField, setSortField] = useState<SortField>("name");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [sortField, setSortField] = useState<SortField>("returns");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   
   const { addToCart, isAddingToCart } = useCart();
   const { toast } = useToast();
-  const { isAuthenticated, user } = useAuth();
-
-  // Update URL when tab changes
-  useEffect(() => {
-    const newUrl = `/store?tab=${activeTab}`;
-    window.history.replaceState({}, '', newUrl);
-  }, [activeTab]);
-
-  // Map tab values to categories and subcategories
-  const getTabFilter = (tab: string): { category?: string; subcategory?: string } => {
-    switch(tab) {
-      case "all": return {};
-      case "mutual-funds": return { category: "Investment Products", subcategory: "Mutual Funds" };
-      case "ipo": return { category: "Investment Products", subcategory: "IPO & Pre-IPO" };
-      case "unlisted": return { category: "Investment Products", subcategory: "Unlisted Securities" };
-      case "debentures": return { category: "Investment Products", subcategory: "Debentures & Bonds" };
-      case "mlds": return { category: "Global Products", subcategory: "Multi-Currency Deposits" };
-      case "global": return { category: "Global Products" };
-      case "insurance": return { category: "Insurance" };
-      case "banking": return { category: "Banking Products" };
-      case "services": return { category: "Professional Services" };
-      default: return {};
-    }
-  };
-
-  const currentTabFilter = getTabFilter(activeTab);
+  const { isAuthenticated } = useAuth();
 
   const handleAddToCart = (product: Product) => {
     if (!isAuthenticated) {
@@ -372,57 +327,37 @@ export default function StorePage() {
     });
   };
 
-  const getFilteredProducts = () => {
-    let products = mockProducts;
+  // Get featured products
+  const featuredProducts = mockProducts.filter(p => p.isFeatured);
 
-    // Filter by tab (category and/or subcategory)
-    if (currentTabFilter.category) {
-      products = products.filter(p => p.category === currentTabFilter.category);
-    }
-    if (currentTabFilter.subcategory) {
-      products = products.filter(p => p.subcategory === currentTabFilter.subcategory);
-    }
+  // Get top performing products (sorted by returns)
+  const topPerformingProducts = [...mockProducts]
+    .sort((a, b) => b.expectedReturns - a.expectedReturns)
+    .slice(0, 6);
+
+  // Get hot deals (products with HOT badge or new products)
+  const hotDealsProducts = mockProducts.filter(p => p.badge === "HOT" || p.isNew || p.badge === "PREMIUM");
+
+  // Search filtering
+  const getFilteredProducts = (products: Product[]) => {
+    let filtered = products;
 
     // Filter by search
     if (searchTerm) {
-      products = products.filter(product =>
+      filtered = filtered.filter(product =>
         product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         product.shortDescription.toLowerCase().includes(searchTerm.toLowerCase()) ||
         product.provider.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
-    // Filter by subcategory
-    if (selectedSubcategory !== "All") {
-      products = products.filter(p => p.subcategory === selectedSubcategory);
-    }
-
     // Filter by risk level
     if (selectedRisk !== "All") {
-      products = products.filter(p => p.riskLevel === selectedRisk.toLowerCase());
-    }
-
-    // Filter by investment range
-    if (selectedInvestmentRange !== "All") {
-      products = products.filter(p => {
-        const min = p.minimumInvestment;
-        switch(selectedInvestmentRange) {
-          case "0-5000": return min <= 5000;
-          case "5001-25000": return min > 5000 && min <= 25000;
-          case "25001-100000": return min > 25000 && min <= 100000;
-          case "100001+": return min > 100000;
-          default: return true;
-        }
-      });
-    }
-
-    // Filter by provider
-    if (selectedProvider !== "All") {
-      products = products.filter(p => p.provider === selectedProvider);
+      filtered = filtered.filter(p => p.riskLevel === selectedRisk.toLowerCase());
     }
 
     // Sort products
-    products.sort((a, b) => {
+    filtered.sort((a, b) => {
       let comparison = 0;
       switch(sortField) {
         case "name":
@@ -442,27 +377,8 @@ export default function StorePage() {
       return sortDirection === "asc" ? comparison : -comparison;
     });
 
-    return products;
+    return filtered;
   };
-
-  // Group products by subcategory for intelligent organization
-  const getProductsBySubcategory = () => {
-    const products = getFilteredProducts();
-    const grouped: Record<string, Product[]> = {};
-    
-    products.forEach(product => {
-      const subcat = product.subcategory || "Other";
-      if (!grouped[subcat]) {
-        grouped[subcat] = [];
-      }
-      grouped[subcat].push(product);
-    });
-    
-    return grouped;
-  };
-
-  const filteredProducts = getFilteredProducts();
-  const productsBySubcategory = getProductsBySubcategory();
 
   const toggleWishlist = (productId: string) => {
     setWishlist(prev => 
@@ -493,43 +409,6 @@ export default function StorePage() {
       case "PREMIUM": return "bg-gradient-to-r from-yellow-400 to-orange-500 text-white";
       default: return "bg-blue-500 text-white";
     }
-  };
-
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
-    } else {
-      setSortField(field);
-      setSortDirection("asc");
-    }
-  };
-
-  const availableSubcategories = currentTabFilter.category && !currentTabFilter.subcategory
-    ? subcategories[currentTabFilter.category as keyof typeof subcategories] || []
-    : [];
-
-  // Get unique providers from all products
-  const uniqueProviders = Array.from(new Set(mockProducts.map(p => p.provider))).sort();
-
-  // Reset all filters when changing tabs
-  useEffect(() => {
-    setSelectedSubcategory("All");
-    setSelectedRisk("All");
-    setSelectedInvestmentRange("All");
-    setSelectedProvider("All");
-  }, [activeTab]);
-
-  // Check if any filters are active
-  const hasActiveFilters = selectedSubcategory !== "All" || selectedRisk !== "All" || 
-    selectedInvestmentRange !== "All" || selectedProvider !== "All" || searchTerm !== "";
-
-  // Clear all filters
-  const clearAllFilters = () => {
-    setSearchTerm("");
-    setSelectedSubcategory("All");
-    setSelectedRisk("All");
-    setSelectedInvestmentRange("All");
-    setSelectedProvider("All");
   };
 
   // Render product card
@@ -618,9 +497,6 @@ export default function StorePage() {
     </Card>
   );
 
-  // Check if we should show subcategory grouping
-  const showSubcategoryGrouping = activeTab !== "featured" && activeTab !== "all" && selectedSubcategory === "All" && Object.keys(productsBySubcategory).length > 1;
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-blue-900 p-6">
       {/* Hero Section */}
@@ -634,7 +510,7 @@ export default function StorePage() {
               FintekPro Marketplace
             </h1>
             <p className="text-lg text-gray-600 dark:text-gray-300">
-              Complete financial ecosystem • Investment Products • Global Access • Professional Services
+              Curated financial products • Expert recommendations • Trusted providers
             </p>
           </div>
           <div className="ml-auto">
@@ -646,389 +522,159 @@ export default function StorePage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto">
-        {/* Search and Filter Controls */}
-        <Card className="mb-6 shadow-lg">
+      <div className="max-w-7xl mx-auto space-y-10">
+        {/* Search and Filters */}
+        <Card className="shadow-lg border-0">
           <CardContent className="p-6">
-            <div className="space-y-4">
-              {/* Search Bar Row */}
-              <div className="flex flex-col lg:flex-row gap-4">
-                {/* Search */}
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                  <Input
-                    placeholder="Search products, providers, or features..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                    data-testid="search-input"
-                  />
-                </div>
-
-                {/* View Mode Toggle */}
-                <div className="flex border rounded-lg">
-                  <Button
-                    variant={viewMode === "card" ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => setViewMode("card")}
-                    data-testid="view-card"
-                    className="rounded-r-none"
-                  >
-                    <Grid className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant={viewMode === "table" ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => setViewMode("table")}
-                    data-testid="view-table"
-                    className="rounded-l-none"
-                  >
-                    <List className="h-4 w-4" />
-                  </Button>
-                </div>
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <Input
+                  placeholder="Search products, providers, categories..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 h-12 text-base"
+                  data-testid="search-input"
+                />
               </div>
-
-              {/* Advanced Filters Row */}
-              <div className="flex flex-col lg:flex-row gap-4">
-                <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  <Filter className="h-4 w-4" />
-                  <span>Filters:</span>
-                </div>
-
-                {/* Subcategory Filter */}
-                {availableSubcategories.length > 0 && (
-                  <Select value={selectedSubcategory} onValueChange={setSelectedSubcategory}>
-                    <SelectTrigger className="w-full lg:w-48" data-testid="subcategory-filter">
-                      <SelectValue placeholder="All Subcategories" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="All">All Subcategories</SelectItem>
-                      {availableSubcategories.map(sub => (
-                        <SelectItem key={sub} value={sub}>
-                          {sub}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-
-                {/* Risk Level Filter */}
+              <div className="flex gap-3">
                 <Select value={selectedRisk} onValueChange={setSelectedRisk}>
-                  <SelectTrigger className="w-full lg:w-40" data-testid="risk-filter">
+                  <SelectTrigger className="w-40 h-12" data-testid="filter-risk">
                     <SelectValue placeholder="Risk Level" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="All">All Risk Levels</SelectItem>
+                    <SelectItem value="All">All Risks</SelectItem>
                     <SelectItem value="Low">Low Risk</SelectItem>
                     <SelectItem value="Medium">Medium Risk</SelectItem>
                     <SelectItem value="High">High Risk</SelectItem>
                   </SelectContent>
                 </Select>
-
-                {/* Investment Range Filter */}
-                <Select value={selectedInvestmentRange} onValueChange={setSelectedInvestmentRange}>
-                  <SelectTrigger className="w-full lg:w-48" data-testid="investment-range-filter">
-                    <SelectValue placeholder="Investment Range" />
+                <Select value={sortField} onValueChange={(value) => setSortField(value as SortField)}>
+                  <SelectTrigger className="w-48 h-12" data-testid="sort-select">
+                    <SelectValue placeholder="Sort by" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="All">All Investment Ranges</SelectItem>
-                    <SelectItem value="0-5000">₹0 - ₹5,000</SelectItem>
-                    <SelectItem value="5001-25000">₹5,001 - ₹25,000</SelectItem>
-                    <SelectItem value="25001-100000">₹25,001 - ₹1,00,000</SelectItem>
-                    <SelectItem value="100001+">₹1,00,000+</SelectItem>
+                    <SelectItem value="returns">Highest Returns</SelectItem>
+                    <SelectItem value="name">Name (A-Z)</SelectItem>
+                    <SelectItem value="investment">Min Investment</SelectItem>
+                    <SelectItem value="risk">Risk Level</SelectItem>
                   </SelectContent>
                 </Select>
-
-                {/* Provider Filter */}
-                <Select value={selectedProvider} onValueChange={setSelectedProvider}>
-                  <SelectTrigger className="w-full lg:w-56" data-testid="provider-filter">
-                    <SelectValue placeholder="Provider" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="All">All Providers</SelectItem>
-                    {uniqueProviders.map(provider => (
-                      <SelectItem key={provider} value={provider}>
-                        {provider}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                {/* Clear Filters Button */}
-                {hasActiveFilters && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={clearAllFilters}
-                    data-testid="clear-filters"
-                    className="flex items-center gap-2"
-                  >
-                    <X className="h-4 w-4" />
-                    Clear All
-                  </Button>
-                )}
               </div>
-
-              {/* Active Filters Display */}
-              {hasActiveFilters && (
-                <div className="flex flex-wrap gap-2">
-                  {searchTerm && (
-                    <Badge variant="secondary" className="flex items-center gap-1">
-                      Search: "{searchTerm}"
-                      <X className="h-3 w-3 cursor-pointer" onClick={() => setSearchTerm("")} />
-                    </Badge>
-                  )}
-                  {selectedSubcategory !== "All" && (
-                    <Badge variant="secondary" className="flex items-center gap-1">
-                      {selectedSubcategory}
-                      <X className="h-3 w-3 cursor-pointer" onClick={() => setSelectedSubcategory("All")} />
-                    </Badge>
-                  )}
-                  {selectedRisk !== "All" && (
-                    <Badge variant="secondary" className="flex items-center gap-1">
-                      {selectedRisk} Risk
-                      <X className="h-3 w-3 cursor-pointer" onClick={() => setSelectedRisk("All")} />
-                    </Badge>
-                  )}
-                  {selectedInvestmentRange !== "All" && (
-                    <Badge variant="secondary" className="flex items-center gap-1">
-                      ₹{selectedInvestmentRange}
-                      <X className="h-3 w-3 cursor-pointer" onClick={() => setSelectedInvestmentRange("All")} />
-                    </Badge>
-                  )}
-                  {selectedProvider !== "All" && (
-                    <Badge variant="secondary" className="flex items-center gap-1">
-                      {selectedProvider}
-                      <X className="h-3 w-3 cursor-pointer" onClick={() => setSelectedProvider("All")} />
-                    </Badge>
-                  )}
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Category Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 w-full bg-white dark:bg-gray-800 p-1 rounded-lg shadow-md gap-1">
-            {categoryTabs.map(tab => {
-              const Icon = tab.icon;
-              const tabFilter = getTabFilter(tab.value);
-              let count = mockProducts.length;
-              if (tab.value !== "all") {
-                count = mockProducts.filter(p => {
-                  if (tabFilter.category && p.category !== tabFilter.category) return false;
-                  if (tabFilter.subcategory && p.subcategory !== tabFilter.subcategory) return false;
-                  return true;
-                }).length;
-              }
-              
-              return (
-                <TabsTrigger 
-                  key={tab.value} 
-                  value={tab.value}
-                  className="data-[state=active]:bg-finance-blue data-[state=active]:text-white flex items-center gap-2"
-                  data-testid={`tab-${tab.value}`}
-                >
-                  <Icon className="h-4 w-4" />
-                  <span className="hidden sm:inline">{tab.label}</span>
-                  <Badge variant="outline" className="ml-1 text-xs">{count}</Badge>
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
+        {/* Featured Products Section */}
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-r from-finance-blue to-blue-600 rounded-lg flex items-center justify-center">
+                <Star className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Featured Products</h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Handpicked by our experts</p>
+              </div>
+            </div>
+            <Badge variant="outline" className="text-finance-blue border-finance-blue">
+              {getFilteredProducts(featuredProducts).length} Products
+            </Badge>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {getFilteredProducts(featuredProducts).map(renderProductCard)}
+          </div>
+        </div>
 
-          {/* Tab Content */}
-          {categoryTabs.map(tab => (
-            <TabsContent key={tab.value} value={tab.value} className="space-y-6">
-              {/* Results Header */}
-              <div className="flex justify-between items-center">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {tab.label}
-                    {selectedSubcategory !== "All" && ` - ${selectedSubcategory}`}
-                  </h2>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''} found
-                    {searchTerm && ` for "${searchTerm}"`}
-                  </p>
+        <Separator className="my-8" />
+
+        {/* Top Performing Section */}
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
+                <TrendingUp className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Top Performing</h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Highest returns in the market</p>
+              </div>
+            </div>
+            <Badge variant="outline" className="text-green-600 border-green-600">
+              {getFilteredProducts(topPerformingProducts).length} Products
+            </Badge>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {getFilteredProducts(topPerformingProducts).map(renderProductCard)}
+          </div>
+        </div>
+
+        <Separator className="my-8" />
+
+        {/* Hot Deals Section */}
+        {hotDealsProducts.length > 0 && (
+          <>
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gradient-to-r from-red-500 to-orange-600 rounded-lg flex items-center justify-center">
+                    <Flame className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Hot Deals & New Launches</h2>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Limited time offers and latest products</p>
+                  </div>
                 </div>
-                <Badge variant="outline" className="text-finance-blue border-finance-blue">
-                  {filteredProducts.length} Results
+                <Badge variant="outline" className="text-red-600 border-red-600">
+                  {getFilteredProducts(hotDealsProducts).length} Products
                 </Badge>
               </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {getFilteredProducts(hotDealsProducts).map(renderProductCard)}
+              </div>
+            </div>
+            <Separator className="my-8" />
+          </>
+        )}
 
-              {/* Card View with Subcategory Grouping */}
-              {viewMode === "card" && (
-                <>
-                  {showSubcategoryGrouping ? (
-                    // Organized by subcategory
-                    <div className="space-y-8">
-                      {Object.entries(productsBySubcategory).map(([subcategory, products]) => (
-                        <div key={subcategory}>
-                          <div className="flex items-center gap-3 mb-4">
-                            <Package className="h-5 w-5 text-finance-blue" />
-                            <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{subcategory}</h3>
-                            <Badge variant="outline">{products.length} products</Badge>
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {products.map(renderProductCard)}
-                          </div>
-                          <Separator className="mt-8" />
-                        </div>
-                      ))}
+        {/* Browse by Category Section */}
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
+              <Package className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Browse by Category</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Explore our complete product range</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {categoryLinks.map((category) => {
+              const Icon = category.icon;
+              return (
+                <Card
+                  key={category.name}
+                  className="group cursor-pointer hover:shadow-lg hover:scale-105 transition-all duration-300 border-0 overflow-hidden"
+                  onClick={() => setLocation(category.path)}
+                  data-testid={`category-${category.name}`}
+                >
+                  <CardContent className="p-6">
+                    <div className={`w-12 h-12 bg-gradient-to-r ${category.color} rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+                      <Icon className="h-6 w-6 text-white" />
                     </div>
-                  ) : (
-                    // Regular grid view
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {filteredProducts.map(renderProductCard)}
+                    <h3 className="font-semibold text-gray-900 dark:text-white group-hover:text-finance-blue transition-colors">
+                      {category.name}
+                    </h3>
+                    <div className="flex items-center gap-1 mt-2 text-sm text-gray-600 dark:text-gray-400 group-hover:text-finance-blue transition-colors">
+                      <span>Explore</span>
+                      <ChevronRight className="h-4 w-4" />
                     </div>
-                  )}
-                </>
-              )}
-
-              {/* Table View */}
-              {viewMode === "table" && (
-                <Card>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => handleSort("name")}
-                            className="font-semibold"
-                          >
-                            Product Name
-                            <ArrowUpDown className="ml-2 h-4 w-4" />
-                          </Button>
-                        </TableHead>
-                        <TableHead>Category</TableHead>
-                        <TableHead>Provider</TableHead>
-                        <TableHead>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => handleSort("returns")}
-                            className="font-semibold"
-                          >
-                            Returns
-                            <ArrowUpDown className="ml-2 h-4 w-4" />
-                          </Button>
-                        </TableHead>
-                        <TableHead>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => handleSort("investment")}
-                            className="font-semibold"
-                          >
-                            Min Investment
-                            <ArrowUpDown className="ml-2 h-4 w-4" />
-                          </Button>
-                        </TableHead>
-                        <TableHead>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => handleSort("risk")}
-                            className="font-semibold"
-                          >
-                            Risk
-                            <ArrowUpDown className="ml-2 h-4 w-4" />
-                          </Button>
-                        </TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredProducts.map(product => (
-                        <TableRow key={product.id} className="hover:bg-gray-50 dark:hover:bg-gray-800" data-testid={`product-row-${product.id}`}>
-                          <TableCell className="font-medium">
-                            <div className="flex items-center gap-2">
-                              {product.isFeatured && <Star className="h-4 w-4 text-yellow-500" />}
-                              <div>
-                                <div className="font-semibold">{product.name}</div>
-                                <div className="text-xs text-gray-500 line-clamp-1">{product.shortDescription}</div>
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="text-xs">
-                              {product.subcategory || product.category}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-sm">{product.provider}</TableCell>
-                          <TableCell>
-                            <span className="font-semibold text-green-600">{product.expectedReturns}%</span>
-                          </TableCell>
-                          <TableCell>
-                            <span className="font-semibold">₹{product.minimumInvestment.toLocaleString()}</span>
-                          </TableCell>
-                          <TableCell>
-                            <Badge className={getRiskColor(product.riskLevel)}>
-                              {product.riskLevel}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex gap-2 justify-end">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => toggleWishlist(product.id)}
-                                data-testid={`table-wishlist-${product.id}`}
-                              >
-                                <Heart className={`h-4 w-4 ${wishlist.includes(product.id) ? 'fill-red-500 text-red-500' : ''}`} />
-                              </Button>
-                              <Button
-                                size="sm"
-                                onClick={() => openProductDetails(product)}
-                                data-testid={`table-details-${product.id}`}
-                              >
-                                Details
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleAddToCart(product)}
-                                disabled={isAddingToCart}
-                                data-testid={`table-cart-${product.id}`}
-                              >
-                                <Plus className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                  </CardContent>
                 </Card>
-              )}
-
-              {/* No Results */}
-              {filteredProducts.length === 0 && (
-                <div className="text-center py-12" data-testid="no-products">
-                  <div className="text-gray-400 mb-4">
-                    <ShoppingCart className="h-16 w-16 mx-auto" />
-                  </div>
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No products found</h3>
-                  <p className="text-gray-600 dark:text-gray-400">Try adjusting your search criteria or filters</p>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setSearchTerm("");
-                      setSelectedSubcategory("All");
-                    }}
-                    className="mt-4"
-                  >
-                    Clear Filters
-                  </Button>
-                </div>
-              )}
-            </TabsContent>
-          ))}
-        </Tabs>
+              );
+            })}
+          </div>
+        </div>
       </div>
       
       <ProductDetailsModal 
