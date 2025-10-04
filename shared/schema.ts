@@ -5770,3 +5770,105 @@ export const insertPhonePeTransactionSchema = createInsertSchema(phonepeTransact
 export type PhonePeTransaction = typeof phonepeTransactions.$inferSelect;
 export type InsertPhonePeTransaction = z.infer<typeof insertPhonePeTransactionSchema>;
 
+// Tax Rules table - Dynamic tax rates and rules management
+export const taxRules = pgTable(
+  "tax_rules",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    ruleType: varchar("rule_type").notNull(), // 'capital_gains', 'income_slab', 'deduction_limit', 'exemption'
+    category: varchar("category").notNull(), // 'stcg', 'ltcg', 'old_regime', 'new_regime', etc.
+    value: decimal("value", { precision: 10, scale: 2 }).notNull(), // the rate or amount
+    minAmount: decimal("min_amount", { precision: 15, scale: 2 }), // minimum threshold (nullable)
+    maxAmount: decimal("max_amount", { precision: 15, scale: 2 }), // maximum threshold (nullable)
+    effectiveFrom: date("effective_from").notNull(), // when this rate becomes active
+    effectiveTo: date("effective_to"), // when this rate expires (nullable)
+    isActive: boolean("is_active").default(true).notNull(), // current active status
+    metadata: jsonb("metadata").default({}), // additional rule parameters
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_tax_rules_type_category").on(table.ruleType, table.category),
+    index("idx_tax_rules_effective_from").on(table.effectiveFrom),
+    index("idx_tax_rules_is_active").on(table.isActive),
+  ]
+);
+
+// Tax Reminder Subscriptions table
+export const taxReminderSubscriptions = pgTable(
+  "tax_reminder_subscriptions",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    userId: varchar("user_id").references(() => users.id).notNull(),
+    itrFormType: varchar("itr_form_type").notNull(), // 'ITR-1', 'ITR-2', 'ITR-3', etc.
+    subscriptionStatus: varchar("subscription_status").default("active").notNull(), // 'active', 'inactive', 'free_expert_tier'
+    pricingTier: varchar("pricing_tier").notNull(), // 'basic', 'standard', 'premium'
+    annualPrice: decimal("annual_price", { precision: 10, scale: 2 }).notNull(),
+    isFree: boolean("is_free").default(false).notNull(), // true if user has expert ITR filing service
+    stripeSubscriptionId: varchar("stripe_subscription_id"), // nullable
+    validFrom: date("valid_from").notNull(),
+    validUntil: date("valid_until").notNull(),
+    reminderChannels: jsonb("reminder_channels").default(sql`'["email"]'`).notNull(), // ['email', 'sms', 'whatsapp']
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_tax_reminder_subscriptions_user_id").on(table.userId),
+    index("idx_tax_reminder_subscriptions_status").on(table.subscriptionStatus),
+  ]
+);
+
+// Capital Gains Tax Reminders table
+export const capitalGainsTaxReminders = pgTable(
+  "capital_gains_tax_reminders",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    userId: varchar("user_id").references(() => users.id).notNull(),
+    subscriptionId: varchar("subscription_id").references(() => taxReminderSubscriptions.id),
+    quarter: varchar("quarter").notNull(), // 'Q1', 'Q2', 'Q3', 'Q4'
+    financialYear: varchar("financial_year").notNull(), // '2024-25'
+    dueDate: date("due_date").notNull(), // advance tax due date
+    estimatedSTCG: decimal("estimated_stcg", { precision: 15, scale: 2 }).default("0"),
+    estimatedLTCG: decimal("estimated_ltcg", { precision: 15, scale: 2 }).default("0"),
+    totalTaxLiability: decimal("total_tax_liability", { precision: 15, scale: 2 }).default("0"),
+    reminderSentAt: timestamp("reminder_sent_at"), // nullable
+    status: varchar("status").default("pending").notNull(), // 'pending', 'sent', 'paid', 'skipped'
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_capital_gains_tax_reminders_user_id").on(table.userId),
+    index("idx_capital_gains_tax_reminders_due_date").on(table.dueDate),
+    index("idx_capital_gains_tax_reminders_status").on(table.status),
+  ]
+);
+
+// Tax Rules Insert Schema
+export const insertTaxRuleSchema = createInsertSchema(taxRules).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Tax Reminder Subscriptions Insert Schema
+export const insertTaxReminderSubscriptionSchema = createInsertSchema(taxReminderSubscriptions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Capital Gains Tax Reminders Insert Schema
+export const insertCapitalGainsTaxReminderSchema = createInsertSchema(capitalGainsTaxReminders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Tax-related Types
+export type TaxRule = typeof taxRules.$inferSelect;
+export type InsertTaxRule = z.infer<typeof insertTaxRuleSchema>;
+export type TaxReminderSubscription = typeof taxReminderSubscriptions.$inferSelect;
+export type InsertTaxReminderSubscription = z.infer<typeof insertTaxReminderSubscriptionSchema>;
+export type CapitalGainsTaxReminder = typeof capitalGainsTaxReminders.$inferSelect;
+export type InsertCapitalGainsTaxReminder = z.infer<typeof insertCapitalGainsTaxReminderSchema>;
+

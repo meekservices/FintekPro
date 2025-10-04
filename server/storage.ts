@@ -1,4 +1,4 @@
-import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Supplier, type InsertSupplier, type EpfHolding, type PpfHolding, type EpsHolding, type GovernmentSchemeConsent, type InsertGovernmentSchemeConsent, type InsuranceHolding, type InsertInsuranceHolding, type UserBankAccount, type InsertUserBankAccount, type UserDematAccount, type InsertUserDematAccount, type AchievementCategory, type InsertAchievementCategory, type Achievement, type InsertAchievement, type UserAchievement, type InsertUserAchievement, type LearningProgress, type InsertLearningProgress, type SocialShare, type InsertSocialShare, type FinancialGoal, type InsertFinancialGoal, type TaxDocument, type InsertTaxDocument, type StructuredTaxData, type InsertStructuredTaxData, type TaxCalculation, type InsertTaxCalculation, type TaxDocumentAccessLog, type InsertTaxDocumentAccessLog, type TaxSession, type InsertTaxSession, type TaxDataSource, type InsertTaxDataSource, type ValidationIssue, type InsertValidationIssue, type FilingRecord, type InsertFilingRecord, type AiOptimizationSuggestion, type InsertAiOptimizationSuggestion, type FundExtended, type Provenance, type FundSearchParams, type FundListResponse, type SourceStatus, type MultiSourceStatus, type LoanProduct, type InsertLoanProduct, type LoanProvider, type InsertLoanProvider, type ProviderProduct, type InsertProviderProduct, type CreditProfile, type InsertCreditProfile, type LoanRequest, type InsertLoanRequest, type LoanOffer, type InsertLoanOffer, type LoanApplicationMarketplace, type InsertLoanApplicationMarketplace, type ProviderIntegration, type InsertProviderIntegration, type PartnerApplicationDocument, type InsertPartnerApplicationDocument, type InvestmentIdea, type InsertInvestmentIdea, type InvestmentIdeaTracking, type InsertInvestmentIdeaTracking, type InvestmentIdeaAlert, type InsertInvestmentIdeaAlert, type YieldTracker, type InsertYieldTracker, type PartnerApplication, type InsertPartnerApplication } from "@shared/schema";
+import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Supplier, type InsertSupplier, type EpfHolding, type PpfHolding, type EpsHolding, type GovernmentSchemeConsent, type InsertGovernmentSchemeConsent, type InsuranceHolding, type InsertInsuranceHolding, type UserBankAccount, type InsertUserBankAccount, type UserDematAccount, type InsertUserDematAccount, type AchievementCategory, type InsertAchievementCategory, type Achievement, type InsertAchievement, type UserAchievement, type InsertUserAchievement, type LearningProgress, type InsertLearningProgress, type SocialShare, type InsertSocialShare, type FinancialGoal, type InsertFinancialGoal, type TaxDocument, type InsertTaxDocument, type StructuredTaxData, type InsertStructuredTaxData, type TaxCalculation, type InsertTaxCalculation, type TaxDocumentAccessLog, type InsertTaxDocumentAccessLog, type TaxSession, type InsertTaxSession, type TaxDataSource, type InsertTaxDataSource, type ValidationIssue, type InsertValidationIssue, type FilingRecord, type InsertFilingRecord, type AiOptimizationSuggestion, type InsertAiOptimizationSuggestion, type FundExtended, type Provenance, type FundSearchParams, type FundListResponse, type SourceStatus, type MultiSourceStatus, type LoanProduct, type InsertLoanProduct, type LoanProvider, type InsertLoanProvider, type ProviderProduct, type InsertProviderProduct, type CreditProfile, type InsertCreditProfile, type LoanRequest, type InsertLoanRequest, type LoanOffer, type InsertLoanOffer, type LoanApplicationMarketplace, type InsertLoanApplicationMarketplace, type ProviderIntegration, type InsertProviderIntegration, type PartnerApplicationDocument, type InsertPartnerApplicationDocument, type InvestmentIdea, type InsertInvestmentIdea, type InvestmentIdeaTracking, type InsertInvestmentIdeaTracking, type InvestmentIdeaAlert, type InsertInvestmentIdeaAlert, type YieldTracker, type InsertYieldTracker, type PartnerApplication, type InsertPartnerApplication, type TaxRule, type InsertTaxRule, type TaxReminderSubscription, type InsertTaxReminderSubscription, type CapitalGainsTaxReminder, type InsertCapitalGainsTaxReminder } from "@shared/schema";
 import { type PhonePeTransaction, type InsertPhonePeTransaction } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
@@ -522,6 +522,21 @@ export interface IStorage {
   getTaxDataSources(sessionId: string): Promise<TaxDataSource[]>;
   getTaxDataSource(id: string): Promise<TaxDataSource | undefined>;
   createTaxDataSource(dataSource: InsertTaxDataSource): Promise<TaxDataSource>;
+
+  // Dynamic Tax Rules Management methods
+  getTaxRule(ruleType: string, category: string, date?: Date): Promise<TaxRule | undefined>;
+  getActiveTaxRules(): Promise<TaxRule[]>;
+  upsertTaxRule(rule: InsertTaxRule): Promise<TaxRule>;
+  
+  // Tax Reminder Subscription methods
+  createTaxReminderSubscription(subscription: InsertTaxReminderSubscription): Promise<TaxReminderSubscription>;
+  getUserTaxReminderSubscription(userId: string): Promise<TaxReminderSubscription | undefined>;
+  updateTaxReminderSubscription(id: string, updates: Partial<TaxReminderSubscription>): Promise<TaxReminderSubscription | undefined>;
+  
+  // Capital Gains Tax Reminder methods
+  createCapitalGainsReminder(reminder: InsertCapitalGainsTaxReminder): Promise<CapitalGainsTaxReminder>;
+  getUpcomingReminders(userId: string): Promise<CapitalGainsTaxReminder[]>;
+  updateCapitalGainsReminder(id: string, updates: Partial<CapitalGainsTaxReminder>): Promise<CapitalGainsTaxReminder | undefined>;
   updateTaxDataSource(id: string, updates: Partial<TaxDataSource>): Promise<TaxDataSource | undefined>;
   deleteTaxDataSource(id: string): Promise<boolean>;
   updateDataSourceStatus(id: string, status: string, recordsCount?: number, lastSync?: Date): Promise<TaxDataSource | undefined>;
@@ -3290,6 +3305,124 @@ export class DatabaseStorage implements IStorage {
       .from(schema.phonepeTransactions)
       .where(eq(schema.phonepeTransactions.status, status))
       .orderBy(desc(schema.phonepeTransactions.createdAt));
+  }
+
+  // Dynamic Tax Rules Management methods
+  async getTaxRule(ruleType: string, category: string, date?: Date): Promise<TaxRule | undefined> {
+    const queryDate = date || new Date();
+    
+    const [result] = await db
+      .select()
+      .from(schema.taxRules)
+      .where(
+        and(
+          eq(schema.taxRules.ruleType, ruleType),
+          eq(schema.taxRules.category, category),
+          eq(schema.taxRules.isActive, true),
+          lte(schema.taxRules.effectiveFrom, queryDate.toISOString().split('T')[0])
+        )
+      )
+      .orderBy(desc(schema.taxRules.effectiveFrom))
+      .limit(1);
+    
+    return result;
+  }
+
+  async getActiveTaxRules(): Promise<TaxRule[]> {
+    return await db
+      .select()
+      .from(schema.taxRules)
+      .where(eq(schema.taxRules.isActive, true))
+      .orderBy(asc(schema.taxRules.ruleType), asc(schema.taxRules.category));
+  }
+
+  async upsertTaxRule(rule: InsertTaxRule): Promise<TaxRule> {
+    const existingRule = await this.getTaxRule(rule.ruleType, rule.category, new Date(rule.effectiveFrom));
+    
+    if (existingRule) {
+      const [updated] = await db
+        .update(schema.taxRules)
+        .set({ ...rule, updatedAt: new Date() })
+        .where(eq(schema.taxRules.id, existingRule.id))
+        .returning();
+      return updated;
+    } else {
+      const [inserted] = await db
+        .insert(schema.taxRules)
+        .values(rule)
+        .returning();
+      return inserted;
+    }
+  }
+
+  // Tax Reminder Subscription methods
+  async createTaxReminderSubscription(subscription: InsertTaxReminderSubscription): Promise<TaxReminderSubscription> {
+    const [result] = await db
+      .insert(schema.taxReminderSubscriptions)
+      .values(subscription)
+      .returning();
+    return result;
+  }
+
+  async getUserTaxReminderSubscription(userId: string): Promise<TaxReminderSubscription | undefined> {
+    const [result] = await db
+      .select()
+      .from(schema.taxReminderSubscriptions)
+      .where(
+        and(
+          eq(schema.taxReminderSubscriptions.userId, userId),
+          eq(schema.taxReminderSubscriptions.subscriptionStatus, 'active')
+        )
+      )
+      .orderBy(desc(schema.taxReminderSubscriptions.createdAt))
+      .limit(1);
+    
+    return result;
+  }
+
+  async updateTaxReminderSubscription(id: string, updates: Partial<TaxReminderSubscription>): Promise<TaxReminderSubscription | undefined> {
+    const [result] = await db
+      .update(schema.taxReminderSubscriptions)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.taxReminderSubscriptions.id, id))
+      .returning();
+    
+    return result;
+  }
+
+  // Capital Gains Tax Reminder methods
+  async createCapitalGainsReminder(reminder: InsertCapitalGainsTaxReminder): Promise<CapitalGainsTaxReminder> {
+    const [result] = await db
+      .insert(schema.capitalGainsTaxReminders)
+      .values(reminder)
+      .returning();
+    return result;
+  }
+
+  async getUpcomingReminders(userId: string): Promise<CapitalGainsTaxReminder[]> {
+    const today = new Date().toISOString().split('T')[0];
+    
+    return await db
+      .select()
+      .from(schema.capitalGainsTaxReminders)
+      .where(
+        and(
+          eq(schema.capitalGainsTaxReminders.userId, userId),
+          gte(schema.capitalGainsTaxReminders.dueDate, today),
+          eq(schema.capitalGainsTaxReminders.status, 'pending')
+        )
+      )
+      .orderBy(asc(schema.capitalGainsTaxReminders.dueDate));
+  }
+
+  async updateCapitalGainsReminder(id: string, updates: Partial<CapitalGainsTaxReminder>): Promise<CapitalGainsTaxReminder | undefined> {
+    const [result] = await db
+      .update(schema.capitalGainsTaxReminders)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.capitalGainsTaxReminders.id, id))
+      .returning();
+    
+    return result;
   }
 }
 
