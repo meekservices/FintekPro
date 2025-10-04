@@ -23856,6 +23856,180 @@ System Security Data:`;
     }
   });
 
+  // ===== CAPITAL GAINS PORTFOLIO CALCULATION & REMINDERS =====
+  
+  // Calculate capital gains from user's portfolio
+  app.post("/api/tax/calculate-portfolio-gains/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      
+      if (!userId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+      
+      const { capitalGainsCalculator } = await import('./services/capital-gains-calculator');
+      const gainsBreakdown = await capitalGainsCalculator.calculatePortfolioGains(userId);
+      
+      res.json({
+        success: true,
+        data: {
+          userId,
+          stcgAmount: gainsBreakdown.stcgAmount,
+          ltcgAmount: gainsBreakdown.ltcgAmount,
+          stcgTax: gainsBreakdown.stcgTax,
+          ltcgTax: gainsBreakdown.ltcgTax,
+          totalTaxLiability: gainsBreakdown.totalTaxLiability,
+          holdings: gainsBreakdown.holdings,
+          calculatedAt: new Date().toISOString()
+        }
+      });
+    } catch (error) {
+      console.error("Error calculating portfolio gains:", error);
+      res.status(500).json({ 
+        error: "Failed to calculate capital gains from portfolio",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+  
+  // Get capital gains reminders for user
+  app.get("/api/tax/capital-gains-reminders/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      
+      if (!userId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+      
+      const { capitalGainsCalculator } = await import('./services/capital-gains-calculator');
+      const reminders = await capitalGainsCalculator.getRemindersForUser(userId);
+      
+      // Format reminders for response
+      const formattedReminders = reminders.map((reminder: any) => ({
+        id: reminder.id,
+        quarter: reminder.quarter,
+        financialYear: reminder.financialYear,
+        dueDate: reminder.dueDate,
+        estimatedSTCG: parseFloat(reminder.estimatedSTCG || '0'),
+        estimatedLTCG: parseFloat(reminder.estimatedLTCG || '0'),
+        totalTaxLiability: parseFloat(reminder.totalTaxLiability || '0'),
+        status: reminder.status,
+        reminderSentAt: reminder.reminderSentAt,
+        createdAt: reminder.createdAt
+      }));
+      
+      res.json({
+        success: true,
+        data: {
+          userId,
+          reminders: formattedReminders,
+          totalReminders: formattedReminders.length
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching capital gains reminders:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch capital gains reminders",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+  
+  // Generate quarterly reminders for user
+  app.post("/api/tax/generate-quarterly-reminders/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { financialYear, subscriptionId } = req.body;
+      
+      if (!userId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+      
+      if (!financialYear) {
+        return res.status(400).json({ error: "Financial year is required (format: YYYY-YY)" });
+      }
+      
+      // Check if user has an active subscription
+      const subscription = subscriptionId 
+        ? await storage.getUserTaxReminderSubscription(userId)
+        : null;
+      
+      if (!subscription || subscription.subscriptionStatus !== 'active') {
+        return res.status(403).json({ 
+          error: "Active tax reminder subscription required to generate reminders",
+          requiresSubscription: true
+        });
+      }
+      
+      const { capitalGainsCalculator } = await import('./services/capital-gains-calculator');
+      const reminders = await capitalGainsCalculator.generateQuarterlyReminders(
+        userId,
+        subscription.id,
+        financialYear
+      );
+      
+      res.json({
+        success: true,
+        data: {
+          userId,
+          financialYear,
+          remindersCreated: reminders.length,
+          reminders: reminders.map(r => ({
+            quarter: r.quarter,
+            dueDate: r.dueDate,
+            estimatedSTCG: r.estimatedSTCG,
+            estimatedLTCG: r.estimatedLTCG,
+            totalTaxLiability: r.totalTaxLiability,
+            cumulativePercentage: r.cumulativePercentage
+          }))
+        }
+      });
+    } catch (error) {
+      console.error("Error generating quarterly reminders:", error);
+      res.status(500).json({ 
+        error: "Failed to generate quarterly reminders",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+  
+  // Check expert ITR filing subscription
+  app.get("/api/tax/check-expert-filing/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      
+      if (!userId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+      
+      // Check if user has expert ITR filing service
+      const subscription = await storage.getUserTaxReminderSubscription(userId);
+      
+      const isFreeEligible = subscription?.isFree === true || 
+                             subscription?.subscriptionStatus === 'free_expert_tier';
+      
+      res.json({
+        success: true,
+        data: {
+          userId,
+          isFreeEligible,
+          hasActiveSubscription: subscription?.subscriptionStatus === 'active',
+          subscriptionDetails: subscription ? {
+            pricingTier: subscription.pricingTier,
+            itrFormType: subscription.itrFormType,
+            validUntil: subscription.validUntil
+          } : null
+        }
+      });
+    } catch (error) {
+      console.error("Error checking expert filing eligibility:", error);
+      res.status(500).json({ 
+        error: "Failed to check expert filing eligibility",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   // Get BBPS categories
   app.get("/api/bbps/categories", async (req, res) => {
     try {

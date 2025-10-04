@@ -194,5 +194,17 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
+    
+    // Initialize Capital Gains Tax Reminder Scheduler
+    try {
+      import('./services/reminder-scheduler').then(({ reminderScheduler }) => {
+        reminderScheduler.start();
+        log('✅ Capital Gains Tax Reminder Scheduler initialized');
+      }).catch(error => {
+        console.error('❌ Failed to initialize reminder scheduler:', error);
+      });
+    } catch (error) {
+      console.error('❌ Error importing reminder scheduler:', error);
+    }
   });
 })();
