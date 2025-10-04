@@ -76,6 +76,7 @@ import ITRTaxServices from "@/pages/itr-tax-services";
 import DomesticTrading from "@/pages/domestic-trading";
 import GlobalTrading from "@/pages/global-trading";
 import IntelligentTaxHub from "@/pages/intelligent-tax-hub";
+import TaxReminderSubscription from "@/pages/tax-reminder-subscription";
 
 function UserProtectedRoutes() {
   return (
@@ -116,6 +117,7 @@ function UserProtectedRoutes() {
         {/* Unified Tax Services - Primary Route */}
         <Route path="/tax-hub" component={IntelligentTaxHub} />
         <Route path="/tax" component={TaxSmartFiling} />
+        <Route path="/tax-reminder-subscription" component={TaxReminderSubscription} />
         {/* Legacy Tax Routes - Maintained for existing users */}
         <Route path="/tax-data-center" component={TaxDataCenter} />
         <Route path="/tax-documents" component={TaxDocuments} />

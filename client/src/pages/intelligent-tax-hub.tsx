@@ -60,6 +60,8 @@ import {
   RadialBarChart,
   RadialBar
 } from "recharts";
+import TaxReminderDashboard from "@/components/tax-reminder-dashboard";
+import { Link } from "wouter";
 
 // TypeScript Interfaces
 interface TaxHealthScore {
@@ -1417,7 +1419,7 @@ export default function IntelligentTaxHub() {
 
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5 gap-2" data-testid="tabs-main">
+        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-6 gap-2" data-testid="tabs-main">
           <TabsTrigger value="dashboard" className="flex items-center gap-2" data-testid="tab-dashboard">
             <Activity className="h-4 w-4" />
             <span className="hidden sm:inline">Dashboard</span>
@@ -1429,6 +1431,10 @@ export default function IntelligentTaxHub() {
           <TabsTrigger value="regime" className="flex items-center gap-2" data-testid="tab-regime">
             <ArrowUpDown className="h-4 w-4" />
             <span className="hidden sm:inline">Regime Comparison</span>
+          </TabsTrigger>
+          <TabsTrigger value="reminders" className="flex items-center gap-2" data-testid="tab-reminders">
+            <Bell className="h-4 w-4" />
+            <span className="hidden sm:inline">Tax Reminders</span>
           </TabsTrigger>
           <TabsTrigger value="sources" className="flex items-center gap-2" data-testid="tab-sources">
             <Database className="h-4 w-4" />
@@ -1450,6 +1456,10 @@ export default function IntelligentTaxHub() {
 
         <TabsContent value="regime" className="mt-6">
           <RegimeComparisonTab />
+        </TabsContent>
+
+        <TabsContent value="reminders" className="mt-6" data-testid="content-reminders">
+          <TaxReminderDashboard />
         </TabsContent>
 
         <TabsContent value="sources" className="mt-6">
