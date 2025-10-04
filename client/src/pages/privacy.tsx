@@ -1,8 +1,6 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Shield, Eye, Lock, Database, UserCheck, AlertTriangle } from "lucide-react";
-import { EnhancedNavigation } from "@/components/layout/enhanced-navigation";
-import { Footer } from "@/components/layout/footer";
 
 export default function PrivacyPolicy() {
   const [isNavCollapsed, setIsNavCollapsed] = useState(() => {
@@ -25,8 +23,6 @@ export default function PrivacyPolicy() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-      <EnhancedNavigation />
-      
       <main className="py-12 px-4">
         <div className="max-w-4xl mx-auto">
         <div className="text-center mb-12">
@@ -225,8 +221,6 @@ export default function PrivacyPolicy() {
         </div>
         </div>
       </main>
-      
-      <Footer />
     </div>
   );
 }

@@ -1,6 +1,4 @@
 import { useState, useEffect } from "react";
-import { EnhancedNavigation } from "@/components/layout/enhanced-navigation";
-import { Footer } from "@/components/layout/footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -662,9 +660,7 @@ export default function PolicyBazaar() {
 
   return (
     <div className="min-h-screen bg-finance-light" data-testid="policybazaar-page">
-      <EnhancedNavigation />
-      
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
 
         {/* Insurance Type Selection */}
@@ -1070,8 +1066,6 @@ export default function PolicyBazaar() {
         </Tabs>
 
       </main>
-
-      <Footer />
     </div>
   );
 }

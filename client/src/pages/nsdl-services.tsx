@@ -10,8 +10,6 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { CreditCard, FileText, TrendingUp, IndianRupee, Shield, Clock, CheckCircle, AlertCircle } from "lucide-react";
-import { EnhancedNavigation } from "@/components/layout/enhanced-navigation";
-import { Footer } from "@/components/layout/footer";
 
 interface DematAccount {
   clientId: string;
@@ -226,9 +224,7 @@ export default function NSDLServices() {
 
   return (
     <div className="min-h-screen bg-finance-light" data-testid="nsdl-services-page">
-      <EnhancedNavigation />
-      
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-8">
         {/* Header */}
         <div>
@@ -718,8 +714,6 @@ export default function NSDLServices() {
         </Tabs>
         </div>
       </main>
-      
-      <Footer />
     </div>
   );
 }

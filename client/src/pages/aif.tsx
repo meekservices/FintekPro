@@ -1,5 +1,3 @@
-import { EnhancedNavigation } from "@/components/layout/enhanced-navigation";
-import { Footer } from "@/components/layout/footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -87,7 +85,7 @@ export default function AIF() {
   if (isAIFLoading) {
     return (
       <div className="min-h-screen bg-finance-light" data-testid="aif-page">
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0">
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Card>
             <CardContent className="p-12 text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-finance-blue mx-auto mb-6"></div>
@@ -96,15 +94,12 @@ export default function AIF() {
             </CardContent>
           </Card>
         </main>
-        <Footer />
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-finance-light" data-testid="aif-page">
-      <EnhancedNavigation />
-      
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
         {/* Page Header */}
@@ -790,8 +785,6 @@ export default function AIF() {
         </Tabs>
 
       </main>
-
-      <Footer />
     </div>
   );
 }

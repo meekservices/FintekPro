@@ -1,5 +1,3 @@
-import { EnhancedNavigation } from "@/components/layout/enhanced-navigation";
-import { Footer } from "@/components/layout/footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -145,7 +143,7 @@ export default function Unlisted() {
 
   return (
     <div className="min-h-screen bg-finance-light" data-testid="unlisted-page">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8" data-testid="unlisted-header">
           <div className="flex items-center gap-3 mb-4">
             <Gem className="w-8 h-8 text-finance-blue" />
@@ -327,8 +325,6 @@ export default function Unlisted() {
           </TabsContent>
         </Tabs>
       </div>
-
-      <Footer />
     </div>
   );
 }

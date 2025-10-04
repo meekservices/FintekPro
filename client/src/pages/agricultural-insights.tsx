@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { AgriculturalInsights } from "@/components/dashboard/agricultural-insights";
-import { EnhancedNavigation } from "@/components/layout/enhanced-navigation";
 
 export default function AgriculturalInsightsPage() {
   // Navigation state for responsive layout
@@ -24,8 +23,7 @@ export default function AgriculturalInsightsPage() {
   }, []);
   return (
     <div className="min-h-screen bg-gray-50">
-      <EnhancedNavigation />
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <AgriculturalInsights />
       </main>
     </div>
