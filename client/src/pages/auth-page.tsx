@@ -94,7 +94,7 @@ export default function AuthPage() {
       return response.json();
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(["/api/auth/user"], data);
+      queryClient.setQueryData(["/api/user"], data);
       toast({
         title: "Login successful",
         description: "Welcome back!",
@@ -123,7 +123,7 @@ export default function AuthPage() {
       return response.json();
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(["/api/auth/user"], data);
+      queryClient.setQueryData(["/api/user"], data);
       toast({
         title: "Registration successful",
         description: "Welcome to FintekPro!",
@@ -175,7 +175,7 @@ export default function AuthPage() {
         description: "Your mobile number has been verified successfully",
       });
       setShowOtpForm(false);
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
     },
     onError: (error: Error) => {
       toast({

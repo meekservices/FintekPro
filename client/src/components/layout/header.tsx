@@ -19,7 +19,7 @@ export function Header() {
   const handleLogout = async () => {
     try {
       await apiRequest("POST", "/api/logout");
-      queryClient.setQueryData(["/api/auth/user"], null);
+      queryClient.setQueryData(["/api/user"], null);
       window.location.href = "/";
     } catch (error) {
       console.error("Logout failed:", error);
