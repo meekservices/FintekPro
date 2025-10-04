@@ -57,6 +57,7 @@ import { providerRegistry, type UnifiedApplicationData } from './partner-applica
 import { insertPartnerApplicationSchema } from '@shared/schema';
 import phonePeService from './phonepe';
 import { mutualFundsRefreshJob } from './mutual-funds-refresh-job';
+import { seedProducts } from './seed-products';
 
 // Tax Calculation Request Validation Schemas
 const calculateCapitalGainsSchema = z.object({
@@ -109,6 +110,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Start mutual funds background refresh job
   mutualFundsRefreshJob.start();
+  
+  // Auto-seed products if database is empty
+  try {
+    const existingProducts = await storage.getProducts({ category: 'mutual_fund' });
+    if (!existingProducts || existingProducts.length === 0) {
+      console.log('📦 No products found, seeding sample data...');
+      const count = await seedProducts(storage);
+      console.log(`✅ Successfully seeded ${count} sample products`);
+    }
+  } catch (error) {
+    console.log('⚠️ Product seeding skipped:', error instanceof Error ? error.message : 'Unknown error');
+  }
   
   // Activity tracking middleware
   app.use((req: any, res: any, next: any) => {
@@ -233,6 +246,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Authentication endpoints are now handled by replitAuth.ts
   // Old local auth routes removed - using Replit Auth instead
+
+  // Seed products endpoint
+  app.post("/api/admin/seed-products", requireAdmin, async (req, res) => {
+    try {
+      const count = await seedProducts(storage);
+      res.json({ 
+        success: true, 
+        message: `Successfully seeded ${count} products`,
+        count
+      });
+    } catch (error) {
+      console.error("Error seeding products:", error);
+      res.status(500).json({ error: "Failed to seed products" });
+    }
+  });
 
   // Compliance monitoring endpoints
   app.get("/api/admin/compliance/events", requireAdmin, async (req, res) => {
