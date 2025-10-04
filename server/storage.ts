@@ -332,6 +332,31 @@ export interface IStorage {
   updateSupplierProduct(id: string, updates: Partial<SupplierProduct>): Promise<SupplierProduct | undefined>;
   deleteSupplierProduct(id: string): Promise<boolean>;
   
+  // Product Marketplace methods (main products table for mutual funds, bonds, IPOs, etc.)
+  getProducts(filters?: {
+    category?: string;
+    subcategory?: string;
+    theme?: string;
+    style?: string;
+    riskLevel?: string;
+    minReturn1y?: number;
+    isFeatured?: boolean;
+    limit?: number;
+  }): Promise<Product[]>;
+  getProductById(id: string): Promise<Product | undefined>;
+  getProductBySlug(slug: string): Promise<Product | undefined>;
+  createProduct(product: InsertProduct): Promise<Product>;
+  updateProduct(id: string, updates: Partial<Product>): Promise<Product | undefined>;
+  deleteProduct(id: string): Promise<boolean>;
+  getTopPerformers(category?: string, period?: '1m' | '3m' | '6m' | '1y' | '3y' | '5y', limit?: number): Promise<Product[]>;
+  getProductsByTheme(theme: string, limit?: number): Promise<Product[]>;
+  getProductsByCategory(category: string, subcategory?: string): Promise<Product[]>;
+  calculatePerformanceTag(product: Product): Promise<string | null>;
+  refreshProductPerformance(productId: string): Promise<Product | undefined>;
+  getFeaturedProducts(limit?: number): Promise<Product[]>;
+  getNewProducts(limit?: number): Promise<Product[]>;
+  searchProducts(query: string): Promise<Product[]>;
+  
   // Product Performance methods
   getProductPerformanceMetrics(productId?: string): Promise<ProductPerformanceMetric[]>;
   createProductPerformanceMetric(metric: InsertProductPerformanceMetric): Promise<ProductPerformanceMetric>;
@@ -1872,6 +1897,243 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSupplierProduct(id: string): Promise<boolean> {
     return false;
+  }
+
+  // Product Marketplace implementations
+  async getProducts(filters?: {
+    category?: string;
+    subcategory?: string;
+    theme?: string;
+    style?: string;
+    riskLevel?: string;
+    minReturn1y?: number;
+    isFeatured?: boolean;
+    limit?: number;
+  }): Promise<Product[]> {
+    let query = db.select().from(schema.products).where(eq(schema.products.isPublic, true));
+    
+    const conditions = [eq(schema.products.isPublic, true)];
+    
+    if (filters?.category) {
+      conditions.push(eq(schema.products.category, filters.category));
+    }
+    if (filters?.subcategory) {
+      conditions.push(eq(schema.products.subcategory, filters.subcategory));
+    }
+    if (filters?.theme) {
+      conditions.push(eq(schema.products.investmentTheme, filters.theme));
+    }
+    if (filters?.style) {
+      conditions.push(eq(schema.products.investmentStyle, filters.style));
+    }
+    if (filters?.riskLevel) {
+      conditions.push(eq(schema.products.riskLevel, filters.riskLevel));
+    }
+    if (filters?.isFeatured !== undefined) {
+      conditions.push(eq(schema.products.isFeatured, filters.isFeatured));
+    }
+    if (filters?.minReturn1y !== undefined) {
+      conditions.push(gte(schema.products.returns1y, filters.minReturn1y.toString()));
+    }
+    
+    const results = await db.select()
+      .from(schema.products)
+      .where(and(...conditions))
+      .orderBy(desc(schema.products.priority), desc(schema.products.updatedAt))
+      .limit(filters?.limit || 100);
+    
+    return results;
+  }
+
+  async getProductById(id: string): Promise<Product | undefined> {
+    const results = await db.select()
+      .from(schema.products)
+      .where(eq(schema.products.id, id))
+      .limit(1);
+    return results[0];
+  }
+
+  async getProductBySlug(slug: string): Promise<Product | undefined> {
+    const results = await db.select()
+      .from(schema.products)
+      .where(eq(schema.products.slug, slug))
+      .limit(1);
+    return results[0];
+  }
+
+  async createProduct(product: InsertProduct): Promise<Product> {
+    const results = await db.insert(schema.products)
+      .values({
+        ...product,
+        id: randomUUID(),
+      })
+      .returning();
+    return results[0];
+  }
+
+  async updateProduct(id: string, updates: Partial<Product>): Promise<Product | undefined> {
+    const results = await db.update(schema.products)
+      .set({
+        ...updates,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.products.id, id))
+      .returning();
+    return results[0];
+  }
+
+  async deleteProduct(id: string): Promise<boolean> {
+    const result = await db.delete(schema.products)
+      .where(eq(schema.products.id, id));
+    return true;
+  }
+
+  async getTopPerformers(category?: string, period?: '1m' | '3m' | '6m' | '1y' | '3y' | '5y', limit?: number): Promise<Product[]> {
+    const conditions = [eq(schema.products.isPublic, true)];
+    
+    if (category) {
+      conditions.push(eq(schema.products.category, category));
+    }
+    
+    let orderColumn;
+    switch (period) {
+      case '1m':
+        orderColumn = schema.products.returns1m;
+        break;
+      case '3m':
+        orderColumn = schema.products.returns3m;
+        break;
+      case '6m':
+        orderColumn = schema.products.returns6m;
+        break;
+      case '3y':
+        orderColumn = schema.products.returns3y;
+        break;
+      case '5y':
+        orderColumn = schema.products.returns5y;
+        break;
+      case '1y':
+      default:
+        orderColumn = schema.products.returns1y;
+        break;
+    }
+    
+    const results = await db.select()
+      .from(schema.products)
+      .where(and(...conditions))
+      .orderBy(desc(orderColumn))
+      .limit(limit || 10);
+    
+    return results;
+  }
+
+  async getProductsByTheme(theme: string, limit?: number): Promise<Product[]> {
+    const results = await db.select()
+      .from(schema.products)
+      .where(and(
+        eq(schema.products.isPublic, true),
+        eq(schema.products.investmentTheme, theme)
+      ))
+      .orderBy(desc(schema.products.returns1y))
+      .limit(limit || 20);
+    
+    return results;
+  }
+
+  async getProductsByCategory(category: string, subcategory?: string): Promise<Product[]> {
+    const conditions = [
+      eq(schema.products.isPublic, true),
+      eq(schema.products.category, category)
+    ];
+    
+    if (subcategory) {
+      conditions.push(eq(schema.products.subcategory, subcategory));
+    }
+    
+    const results = await db.select()
+      .from(schema.products)
+      .where(and(...conditions))
+      .orderBy(desc(schema.products.priority), desc(schema.products.returns1y))
+      .limit(100);
+    
+    return results;
+  }
+
+  async calculatePerformanceTag(product: Product): Promise<string | null> {
+    const returns1y = parseFloat(product.returns1y || '0');
+    const returns3y = parseFloat(product.returns3y || '0');
+    const returns6m = parseFloat(product.returns6m || '0');
+    const returns3m = parseFloat(product.returns3m || '0');
+    
+    if (returns1y > 20) {
+      return 'high_growth';
+    }
+    
+    if (returns1y > 15 && returns3y > 12) {
+      return 'top_performer';
+    }
+    
+    if (returns6m > 10 && returns3m > 5) {
+      return 'rising_star';
+    }
+    
+    if (product.riskLevel === 'low' && returns1y > 8) {
+      return 'stable';
+    }
+    
+    return null;
+  }
+
+  async refreshProductPerformance(productId: string): Promise<Product | undefined> {
+    const product = await this.getProductById(productId);
+    if (!product) return undefined;
+    
+    const performanceTag = await this.calculatePerformanceTag(product);
+    
+    return await this.updateProduct(productId, {
+      performanceTag,
+      dataFreshnessDate: new Date(),
+    });
+  }
+
+  async getFeaturedProducts(limit?: number): Promise<Product[]> {
+    const results = await db.select()
+      .from(schema.products)
+      .where(and(
+        eq(schema.products.isPublic, true),
+        eq(schema.products.isFeatured, true)
+      ))
+      .orderBy(desc(schema.products.priority), desc(schema.products.returns1y))
+      .limit(limit || 10);
+    
+    return results;
+  }
+
+  async getNewProducts(limit?: number): Promise<Product[]> {
+    const results = await db.select()
+      .from(schema.products)
+      .where(and(
+        eq(schema.products.isPublic, true),
+        eq(schema.products.isNew, true)
+      ))
+      .orderBy(desc(schema.products.createdAt))
+      .limit(limit || 10);
+    
+    return results;
+  }
+
+  async searchProducts(query: string): Promise<Product[]> {
+    const searchPattern = `%${query}%`;
+    const results = await db.select()
+      .from(schema.products)
+      .where(and(
+        eq(schema.products.isPublic, true),
+        sql`(${schema.products.name} ILIKE ${searchPattern} OR ${schema.products.description} ILIKE ${searchPattern})`
+      ))
+      .orderBy(desc(schema.products.priority), desc(schema.products.returns1y))
+      .limit(50);
+    
+    return results;
   }
 
   async getProductPerformanceMetrics(productId?: string): Promise<ProductPerformanceMetric[]> {
