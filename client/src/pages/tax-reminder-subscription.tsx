@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,9 +23,11 @@ import {
   Clock,
   AlertCircle,
   ChevronRight,
-  Download
+  Download,
+  Loader2
 } from "lucide-react";
 import { useLocation } from "wouter";
+import { loadStripe } from "@stripe/stripe-js";
 
 interface PricingTier {
   id: string;
@@ -125,8 +127,9 @@ const ADVANCE_TAX_DATES = [
 export default function TaxReminderSubscription() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const [selectedTier, setSelectedTier] = useState<PricingTier | null>(null);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   const { data: subscription, isLoading: subscriptionLoading } = useQuery<UserSubscription>({
     queryKey: ['/api/tax/reminder-subscription', user?.id],
@@ -137,6 +140,30 @@ export default function TaxReminderSubscription() {
     queryKey: ['/api/tax/check-expert-filing', user?.id],
     enabled: !!user
   });
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const success = searchParams.get('success');
+    const canceled = searchParams.get('canceled');
+    const sessionId = searchParams.get('session_id');
+
+    if (success === 'true') {
+      toast({
+        title: "Payment Successful!",
+        description: "Your tax reminder subscription has been activated. Quarterly reminders have been generated.",
+        duration: 5000,
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/tax/reminder-subscription'] });
+      window.history.replaceState({}, '', '/tax-reminder-subscription');
+    } else if (canceled === 'true') {
+      toast({
+        title: "Payment Canceled",
+        description: "You can retry payment whenever you're ready.",
+        variant: "default",
+      });
+      window.history.replaceState({}, '', '/tax-reminder-subscription');
+    }
+  }, [toast]);
 
   const subscriptionMutation = useMutation({
     mutationFn: (data: { itrFormType: string; pricingTier: string; annualPrice: number; isFree: boolean }) =>
@@ -183,21 +210,55 @@ export default function TaxReminderSubscription() {
   };
 
   const handleStripeCheckout = async () => {
-    if (!selectedTier) return;
+    if (!selectedTier || !user) return;
 
-    toast({
-      title: "Redirecting to Payment",
-      description: "Please wait while we set up your payment..."
-    });
+    setIsProcessingPayment(true);
 
-    setTimeout(() => {
-      subscriptionMutation.mutate({
-        itrFormType: selectedTier.formType,
-        pricingTier: selectedTier.id,
-        annualPrice: selectedTier.price,
-        isFree: false
+    try {
+      if (!import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
+        toast({
+          title: "Payment Unavailable",
+          description: "Stripe is not configured. Please contact support.",
+          variant: "destructive"
+        });
+        setIsProcessingPayment(false);
+        return;
+      }
+
+      const stripe = await loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
+      
+      if (!stripe) {
+        throw new Error('Failed to load Stripe');
+      }
+
+      const response = await apiRequest('POST', '/api/tax/create-checkout-session', {
+        body: {
+          userId: user.id,
+          itrFormType: selectedTier.formType,
+          annualPrice: selectedTier.price
+        }
       });
-    }, 1000);
+
+      const { sessionId, url } = await response.json();
+
+      if (url) {
+        window.location.href = url;
+      } else if (sessionId) {
+        const { error } = await stripe.redirectToCheckout({ sessionId });
+        
+        if (error) {
+          throw new Error(error.message || 'Failed to redirect to checkout');
+        }
+      }
+    } catch (error) {
+      console.error('Stripe checkout error:', error);
+      toast({
+        title: "Payment Error",
+        description: error instanceof Error ? error.message : "Failed to initialize payment. Please try again.",
+        variant: "destructive"
+      });
+      setIsProcessingPayment(false);
+    }
   };
 
   if (subscriptionLoading || expertFilingLoading) {
@@ -461,16 +522,23 @@ export default function TaxReminderSubscription() {
               <div className="flex gap-4">
                 <Button
                   onClick={handleStripeCheckout}
-                  disabled={subscriptionMutation.isPending}
+                  disabled={isProcessingPayment || subscriptionMutation.isPending}
                   className="flex-1"
                   data-testid="button-proceed-payment"
                 >
-                  {subscriptionMutation.isPending ? "Processing..." : "Proceed to Payment"}
+                  {isProcessingPayment ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Redirecting to Stripe...
+                    </>
+                  ) : (
+                    "Proceed to Payment"
+                  )}
                 </Button>
                 <Button
                   onClick={() => setSelectedTier(null)}
                   variant="outline"
-                  disabled={subscriptionMutation.isPending}
+                  disabled={isProcessingPayment || subscriptionMutation.isPending}
                   data-testid="button-cancel-payment"
                 >
                   Cancel

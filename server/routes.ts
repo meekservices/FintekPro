@@ -24030,6 +24030,199 @@ System Security Data:`;
     }
   });
 
+  // Create Stripe checkout session for tax reminder subscription
+  app.post('/api/tax/create-checkout-session', async (req, res) => {
+    try {
+      const { stripe, isStripeEnabled } = await import('./stripe');
+      
+      if (!isStripeEnabled()) {
+        return res.status(503).json({ 
+          error: "Payment service unavailable",
+          message: "Stripe is not configured. Please contact support."
+        });
+      }
+
+      if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { userId, itrFormType, annualPrice } = req.body;
+
+      if (!userId || !itrFormType || annualPrice === undefined) {
+        return res.status(400).json({ 
+          error: "Missing required fields: userId, itrFormType, annualPrice" 
+        });
+      }
+
+      if (userId !== req.user.id) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      const validFormTypes = ['ITR-1', 'ITR-2', 'ITR-3', 'ITR-4', 'ITR-5', 'ITR-6', 'ITR-7'];
+      if (!validFormTypes.includes(itrFormType)) {
+        return res.status(400).json({ error: "Invalid ITR form type" });
+      }
+
+      const existingSubscription = await storage.getUserTaxReminderSubscription(userId);
+      if (existingSubscription && existingSubscription.subscriptionStatus === 'active') {
+        return res.status(400).json({ 
+          error: "Active subscription already exists",
+          subscription: existingSubscription
+        });
+      }
+
+      const session = await stripe!.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price_data: {
+              currency: 'inr',
+              product_data: {
+                name: `Tax Reminder Service - ${itrFormType}`,
+                description: `Annual subscription for ${itrFormType} quarterly tax reminders`,
+              },
+              unit_amount: Math.round(annualPrice * 100),
+            },
+            quantity: 1,
+          },
+        ],
+        mode: 'payment',
+        success_url: `${process.env.NODE_ENV === 'production' ? 'https://' + req.get('host') : 'http://localhost:5000'}/tax-reminder-subscription?success=true&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${process.env.NODE_ENV === 'production' ? 'https://' + req.get('host') : 'http://localhost:5000'}/tax-reminder-subscription?canceled=true`,
+        metadata: {
+          userId,
+          itrFormType,
+          serviceType: 'tax_reminder',
+          annualPrice: annualPrice.toString(),
+        },
+      });
+
+      console.log(`✅ Stripe checkout session created: ${session.id} for user ${userId}`);
+
+      res.json({ 
+        success: true, 
+        sessionId: session.id,
+        url: session.url 
+      });
+    } catch (error) {
+      console.error("Error creating Stripe checkout session:", error);
+      res.status(500).json({ 
+        error: "Failed to create checkout session",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Stripe webhook for payment confirmation
+  app.post('/api/tax/webhook/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
+    const sig = req.headers['stripe-signature'];
+
+    if (!sig) {
+      return res.status(400).json({ error: 'Missing stripe-signature header' });
+    }
+
+    try {
+      const { stripe, isStripeEnabled } = await import('./stripe');
+      
+      if (!isStripeEnabled()) {
+        return res.status(503).json({ error: "Stripe is not configured" });
+      }
+
+      const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+      if (!webhookSecret) {
+        console.error('⚠️ STRIPE_WEBHOOK_SECRET is not configured');
+        return res.status(500).json({ error: "Webhook secret not configured" });
+      }
+
+      const event = stripe!.webhooks.constructEvent(
+        req.body,
+        sig,
+        webhookSecret
+      );
+
+      console.log(`📩 Stripe webhook received: ${event.type}`);
+
+      if (event.type === 'checkout.session.completed') {
+        const session = event.data.object as any;
+        const { userId, itrFormType, serviceType, annualPrice } = session.metadata;
+
+        if (serviceType !== 'tax_reminder') {
+          console.log(`Ignoring webhook for non-tax-reminder service: ${serviceType}`);
+          return res.json({ received: true });
+        }
+
+        console.log(`Processing payment for user ${userId}, ITR form ${itrFormType}`);
+
+        const validFrom = new Date();
+        const validUntil = new Date();
+        validUntil.setFullYear(validUntil.getFullYear() + 1);
+
+        const pricingTierMap: Record<string, string> = {
+          'ITR-1': 'itr1',
+          'ITR-2': 'itr2',
+          'ITR-3': 'itr3',
+          'ITR-4': 'itr4plus',
+          'ITR-5': 'itr4plus',
+          'ITR-6': 'itr4plus',
+          'ITR-7': 'itr4plus',
+        };
+
+        const subscription = await storage.createTaxReminderSubscription({
+          userId,
+          itrFormType,
+          subscriptionStatus: 'active',
+          pricingTier: pricingTierMap[itrFormType] || 'itr1',
+          annualPrice: annualPrice || '0',
+          isFree: false,
+          stripeSubscriptionId: session.id,
+          validFrom: validFrom.toISOString().split('T')[0],
+          validUntil: validUntil.toISOString().split('T')[0],
+          reminderChannels: ['email', 'sms'],
+        });
+
+        console.log(`✅ Tax reminder subscription created: ${subscription.id}`);
+
+        const currentYear = new Date().getFullYear();
+        const currentMonth = new Date().getMonth();
+        const financialYear = currentMonth >= 3 
+          ? `${currentYear}-${(currentYear + 1).toString().slice(-2)}`
+          : `${currentYear - 1}-${currentYear.toString().slice(-2)}`;
+
+        const reminders = await storage.createCapitalGainsTaxReminders(
+          userId,
+          financialYear,
+          subscription.id
+        );
+
+        console.log(`✅ Generated ${reminders.length} quarterly reminders for FY ${financialYear}`);
+
+        complianceMonitor.logEvent({
+          userId,
+          eventType: 'payment_completed',
+          action: 'Tax reminder subscription payment completed',
+          ipAddress: req.ip || req.connection.remoteAddress,
+          userAgent: req.get('User-Agent'),
+          outcome: 'success',
+          riskLevel: 'low',
+          details: {
+            sessionId: session.id,
+            amount: annualPrice,
+            itrFormType,
+            subscriptionId: subscription.id,
+          }
+        });
+      }
+
+      res.json({ received: true });
+    } catch (error) {
+      console.error('Error processing webhook:', error);
+      res.status(400).json({ 
+        error: 'Webhook error',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // Get BBPS categories
   app.get("/api/bbps/categories", async (req, res) => {
     try {
