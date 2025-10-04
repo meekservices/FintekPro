@@ -58,6 +58,33 @@ import { insertPartnerApplicationSchema } from '@shared/schema';
 import phonePeService from './phonepe';
 import { mutualFundsRefreshJob } from './mutual-funds-refresh-job';
 
+// Tax Calculation Request Validation Schemas
+const calculateCapitalGainsSchema = z.object({
+  stcgAmount: z.number().min(0, "STCG amount must be positive"),
+  ltcgAmount: z.number().min(0, "LTCG amount must be positive"),
+  financialYear: z.string().regex(/^\d{4}-\d{2}$/, "Financial year must be in format YYYY-YY"),
+  calculationDate: z.string().optional()
+});
+
+const calculateIncomeTaxSchema = z.object({
+  income: z.number().min(0, "Income must be positive"),
+  regime: z.enum(['old', 'new'], { errorMap: () => ({ message: "Regime must be 'old' or 'new'" }) }),
+  deductions: z.object({
+    section80C: z.number().min(0).optional(),
+    section80D: z.number().min(0).optional(),
+    standardDeduction: z.number().min(0).optional(),
+    otherDeductions: z.number().min(0).optional()
+  }).optional(),
+  financialYear: z.string().regex(/^\d{4}-\d{2}$/, "Financial year must be in format YYYY-YY").optional()
+});
+
+const taxReminderSubscriptionSchema = z.object({
+  userId: z.string().uuid("Invalid user ID format"),
+  itrFormType: z.enum(['ITR-1', 'ITR-2', 'ITR-3', 'ITR-4', 'ITR-5', 'ITR-6', 'ITR-7'], {
+    errorMap: () => ({ message: "Invalid ITR form type" })
+  })
+});
+
 export async function registerRoutes(app: Express): Promise<Server> {
   
   // Auth middleware
@@ -23454,6 +23481,378 @@ System Security Data:`;
     } catch (error) {
       console.error("Error updating tax document:", error);
       res.status(500).json({ error: "Failed to update tax document" });
+    }
+  });
+
+  // ===== TAX RULES AND CALCULATION ROUTES =====
+
+  // Get all active tax rules
+  app.get("/api/tax-rules/active", async (req, res) => {
+    try {
+      const rules = await storage.getActiveTaxRules();
+      res.json({ success: true, rules });
+    } catch (error) {
+      console.error("Error fetching active tax rules:", error);
+      res.status(500).json({ error: "Failed to fetch active tax rules" });
+    }
+  });
+
+  // Get specific tax rule for current date
+  app.get("/api/tax-rules/:ruleType/:category", async (req, res) => {
+    try {
+      const { ruleType, category } = req.params;
+      const { date } = req.query;
+      
+      const calculationDate = date ? new Date(date as string) : new Date();
+      const rule = await storage.getTaxRule(ruleType, category, calculationDate);
+      
+      if (!rule) {
+        return res.status(404).json({ 
+          error: `Tax rule not found for type '${ruleType}' and category '${category}'` 
+        });
+      }
+      
+      res.json({ success: true, rule });
+    } catch (error) {
+      console.error("Error fetching tax rule:", error);
+      res.status(500).json({ error: "Failed to fetch tax rule" });
+    }
+  });
+
+  // Calculate capital gains tax
+  app.post("/api/tax/calculate-capital-gains", async (req, res) => {
+    try {
+      const validation = calculateCapitalGainsSchema.safeParse(req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ 
+          error: "Validation failed", 
+          details: validation.error.errors 
+        });
+      }
+      
+      const { stcgAmount, ltcgAmount, financialYear, calculationDate } = validation.data;
+      const calcDate = calculationDate ? new Date(calculationDate) : new Date();
+      
+      // Fetch STCG rate from database
+      const stcgRule = await storage.getTaxRule('capital_gains', 'stcg', calcDate);
+      if (!stcgRule) {
+        return res.status(404).json({ 
+          error: "STCG tax rate not found in database. Please contact administrator." 
+        });
+      }
+      
+      // Fetch LTCG rate and exemption from database
+      const ltcgRateRule = await storage.getTaxRule('capital_gains', 'ltcg_rate', calcDate);
+      const ltcgExemptionRule = await storage.getTaxRule('capital_gains', 'ltcg_exemption', calcDate);
+      
+      if (!ltcgRateRule || !ltcgExemptionRule) {
+        return res.status(404).json({ 
+          error: "LTCG tax rate or exemption not found in database. Please contact administrator." 
+        });
+      }
+      
+      // Parse rates from database (stored as decimal)
+      const stcgRate = parseFloat(stcgRateRule.value) / 100; // Convert percentage to decimal
+      const ltcgRate = parseFloat(ltcgRateRule.value) / 100;
+      const ltcgExemption = parseFloat(ltcgExemptionRule.value);
+      
+      // Calculate taxes
+      const stcgTax = stcgAmount * stcgRate;
+      const taxableLtcg = Math.max(0, ltcgAmount - ltcgExemption);
+      const ltcgTax = taxableLtcg * ltcgRate;
+      const totalTax = stcgTax + ltcgTax;
+      
+      // Return detailed breakdown
+      res.json({
+        success: true,
+        calculation: {
+          stcgAmount,
+          ltcgAmount,
+          financialYear,
+          calculationDate: calcDate.toISOString(),
+          stcgTax: parseFloat(stcgTax.toFixed(2)),
+          ltcgTax: parseFloat(ltcgTax.toFixed(2)),
+          totalTax: parseFloat(totalTax.toFixed(2)),
+          breakdown: {
+            stcg: {
+              amount: stcgAmount,
+              rate: parseFloat(stcgRateRule.value),
+              ratePercentage: `${stcgRateRule.value}%`,
+              tax: parseFloat(stcgTax.toFixed(2)),
+              effectiveFrom: stcgRule.effectiveFrom
+            },
+            ltcg: {
+              amount: ltcgAmount,
+              exemption: ltcgExemption,
+              taxableAmount: taxableLtcg,
+              rate: parseFloat(ltcgRateRule.value),
+              ratePercentage: `${ltcgRateRule.value}%`,
+              tax: parseFloat(ltcgTax.toFixed(2)),
+              rateEffectiveFrom: ltcgRateRule.effectiveFrom,
+              exemptionEffectiveFrom: ltcgExemptionRule.effectiveFrom
+            }
+          }
+        }
+      });
+    } catch (error) {
+      console.error("Error calculating capital gains tax:", error);
+      res.status(500).json({ error: "Failed to calculate capital gains tax" });
+    }
+  });
+
+  // Calculate income tax
+  app.post("/api/tax/calculate-income-tax", async (req, res) => {
+    try {
+      const validation = calculateIncomeTaxSchema.safeParse(req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ 
+          error: "Validation failed", 
+          details: validation.error.errors 
+        });
+      }
+      
+      const { income, regime, deductions, financialYear } = validation.data;
+      
+      // Fetch all slab rates from database for the selected regime
+      const slabCategory = regime === 'old' ? 'old_regime' : 'new_regime';
+      const slabs = await storage.getTaxSlabs(slabCategory);
+      
+      if (!slabs || slabs.length === 0) {
+        return res.status(404).json({ 
+          error: `Income tax slabs not found for ${regime} regime. Please contact administrator.` 
+        });
+      }
+      
+      // Sort slabs by minAmount
+      slabs.sort((a, b) => parseFloat(a.minAmount || '0') - parseFloat(b.minAmount || '0'));
+      
+      // Calculate taxable income
+      let taxableIncome = income;
+      const deductionsApplied: any = {};
+      
+      if (regime === 'new') {
+        // New regime: Standard deduction of ₹75,000
+        const standardDeduction = 75000;
+        taxableIncome = Math.max(0, income - standardDeduction);
+        deductionsApplied.standardDeduction = standardDeduction;
+      } else {
+        // Old regime: Apply various deductions
+        let totalDeductions = 0;
+        
+        if (deductions?.section80C) {
+          const max80C = 150000;
+          const applied80C = Math.min(deductions.section80C, max80C);
+          totalDeductions += applied80C;
+          deductionsApplied.section80C = applied80C;
+        }
+        
+        if (deductions?.section80D) {
+          const max80D = 25000;
+          const applied80D = Math.min(deductions.section80D, max80D);
+          totalDeductions += applied80D;
+          deductionsApplied.section80D = applied80D;
+        }
+        
+        if (deductions?.standardDeduction) {
+          totalDeductions += deductions.standardDeduction;
+          deductionsApplied.standardDeduction = deductions.standardDeduction;
+        }
+        
+        if (deductions?.otherDeductions) {
+          totalDeductions += deductions.otherDeductions;
+          deductionsApplied.otherDeductions = deductions.otherDeductions;
+        }
+        
+        taxableIncome = Math.max(0, income - totalDeductions);
+      }
+      
+      // Calculate tax using progressive slabs
+      let totalTax = 0;
+      const slabBreakdown: any[] = [];
+      
+      for (let i = 0; i < slabs.length; i++) {
+        const slab = slabs[i];
+        const minAmount = parseFloat(slab.minAmount || '0');
+        const maxAmount = slab.maxAmount ? parseFloat(slab.maxAmount) : Infinity;
+        const rate = parseFloat(slab.value) / 100;
+        
+        if (taxableIncome > minAmount) {
+          const taxableInSlab = Math.min(taxableIncome, maxAmount) - minAmount;
+          const taxInSlab = taxableInSlab * rate;
+          totalTax += taxInSlab;
+          
+          slabBreakdown.push({
+            minAmount,
+            maxAmount: maxAmount === Infinity ? null : maxAmount,
+            rate: parseFloat(slab.value),
+            ratePercentage: `${slab.value}%`,
+            taxableAmount: parseFloat(taxableInSlab.toFixed(2)),
+            tax: parseFloat(taxInSlab.toFixed(2))
+          });
+          
+          if (taxableIncome <= maxAmount) {
+            break;
+          }
+        }
+      }
+      
+      const effectiveRate = income > 0 ? (totalTax / income) * 100 : 0;
+      
+      res.json({
+        success: true,
+        calculation: {
+          income,
+          regime,
+          taxableIncome: parseFloat(taxableIncome.toFixed(2)),
+          deductionsApplied,
+          totalTax: parseFloat(totalTax.toFixed(2)),
+          effectiveRate: parseFloat(effectiveRate.toFixed(2)),
+          effectiveRatePercentage: `${effectiveRate.toFixed(2)}%`,
+          breakdown: slabBreakdown,
+          financialYear: financialYear || 'Current'
+        }
+      });
+    } catch (error) {
+      console.error("Error calculating income tax:", error);
+      res.status(500).json({ error: "Failed to calculate income tax" });
+    }
+  });
+
+  // Create tax reminder subscription
+  app.post("/api/tax/reminder-subscription", async (req, res) => {
+    try {
+      const validation = taxReminderSubscriptionSchema.safeParse(req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ 
+          error: "Validation failed", 
+          details: validation.error.errors 
+        });
+      }
+      
+      const { userId, itrFormType } = validation.data;
+      
+      // Check if user already has a subscription
+      const existingSubscription = await storage.getUserTaxReminderSubscription(userId);
+      if (existingSubscription && existingSubscription.subscriptionStatus === 'active') {
+        return res.status(400).json({ 
+          error: "User already has an active tax reminder subscription" 
+        });
+      }
+      
+      // Determine pricing based on ITR form type
+      let annualPrice = 0;
+      let pricingTier = 'basic';
+      
+      switch (itrFormType) {
+        case 'ITR-1':
+          annualPrice = 299;
+          pricingTier = 'basic';
+          break;
+        case 'ITR-2':
+          annualPrice = 599;
+          pricingTier = 'standard';
+          break;
+        case 'ITR-3':
+          annualPrice = 1299;
+          pricingTier = 'premium';
+          break;
+        case 'ITR-4':
+        case 'ITR-5':
+        case 'ITR-6':
+        case 'ITR-7':
+          annualPrice = 1999;
+          pricingTier = 'premium';
+          break;
+        default:
+          return res.status(400).json({ error: "Invalid ITR form type" });
+      }
+      
+      // Check if user has expert ITR filing service (would need to check user profile or services)
+      // For now, we'll assume this would be checked against user's purchased services
+      const userProfile = await storage.getUserProfile(userId);
+      const hasExpertService = false; // TODO: Implement actual check for expert ITR filing service
+      
+      const isFree = hasExpertService;
+      if (isFree) {
+        annualPrice = 0;
+        pricingTier = 'free_expert_tier';
+      }
+      
+      // Create subscription
+      const validFrom = new Date();
+      const validUntil = new Date();
+      validUntil.setFullYear(validUntil.getFullYear() + 1); // 1 year subscription
+      
+      const subscription = await storage.createTaxReminderSubscription({
+        userId,
+        itrFormType,
+        subscriptionStatus: 'active',
+        pricingTier,
+        annualPrice: annualPrice.toString(),
+        isFree,
+        validFrom: validFrom.toISOString().split('T')[0],
+        validUntil: validUntil.toISOString().split('T')[0],
+        reminderChannels: ['email']
+      });
+      
+      res.json({
+        success: true,
+        subscription: {
+          id: subscription.id,
+          userId: subscription.userId,
+          itrFormType: subscription.itrFormType,
+          subscriptionStatus: subscription.subscriptionStatus,
+          pricingTier: subscription.pricingTier,
+          annualPrice: parseFloat(subscription.annualPrice),
+          isFree: subscription.isFree,
+          validFrom: subscription.validFrom,
+          validUntil: subscription.validUntil,
+          reminderChannels: subscription.reminderChannels,
+          createdAt: subscription.createdAt
+        }
+      });
+    } catch (error) {
+      console.error("Error creating tax reminder subscription:", error);
+      res.status(500).json({ error: "Failed to create tax reminder subscription" });
+    }
+  });
+
+  // Get user's tax reminder subscription
+  app.get("/api/tax/reminder-subscription/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      
+      const subscription = await storage.getUserTaxReminderSubscription(userId);
+      
+      if (!subscription) {
+        return res.status(404).json({ 
+          error: "No active tax reminder subscription found for this user" 
+        });
+      }
+      
+      res.json({
+        success: true,
+        subscription: {
+          id: subscription.id,
+          userId: subscription.userId,
+          itrFormType: subscription.itrFormType,
+          subscriptionStatus: subscription.subscriptionStatus,
+          pricingTier: subscription.pricingTier,
+          annualPrice: parseFloat(subscription.annualPrice),
+          isFree: subscription.isFree,
+          validFrom: subscription.validFrom,
+          validUntil: subscription.validUntil,
+          reminderChannels: subscription.reminderChannels,
+          createdAt: subscription.createdAt,
+          updatedAt: subscription.updatedAt
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching tax reminder subscription:", error);
+      res.status(500).json({ error: "Failed to fetch tax reminder subscription" });
     }
   });
 

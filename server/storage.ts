@@ -526,6 +526,7 @@ export interface IStorage {
   // Dynamic Tax Rules Management methods
   getTaxRule(ruleType: string, category: string, date?: Date): Promise<TaxRule | undefined>;
   getActiveTaxRules(): Promise<TaxRule[]>;
+  getTaxSlabs(category: string, date?: Date): Promise<TaxRule[]>;
   upsertTaxRule(rule: InsertTaxRule): Promise<TaxRule>;
   
   // Tax Reminder Subscription methods
@@ -3334,6 +3335,24 @@ export class DatabaseStorage implements IStorage {
       .from(schema.taxRules)
       .where(eq(schema.taxRules.isActive, true))
       .orderBy(asc(schema.taxRules.ruleType), asc(schema.taxRules.category));
+  }
+
+  async getTaxSlabs(category: string, date?: Date): Promise<TaxRule[]> {
+    const effectiveDate = date || new Date();
+    
+    return await db
+      .select()
+      .from(schema.taxRules)
+      .where(
+        and(
+          eq(schema.taxRules.ruleType, 'income_slab'),
+          eq(schema.taxRules.category, category),
+          eq(schema.taxRules.isActive, true),
+          lte(schema.taxRules.effectiveFrom, effectiveDate.toISOString().split('T')[0]),
+          sql`(${schema.taxRules.effectiveTo} IS NULL OR ${schema.taxRules.effectiveTo} >= ${effectiveDate.toISOString().split('T')[0]})`
+        )
+      )
+      .orderBy(asc(schema.taxRules.minAmount));
   }
 
   async upsertTaxRule(rule: InsertTaxRule): Promise<TaxRule> {
