@@ -4,9 +4,13 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, TrendingUp, Calendar, IndianRupee, Building2, Calculator } from "lucide-react";
-import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Shield, TrendingUp, Calendar, IndianRupee, Building2, Calculator, AlertCircle, CheckCircle2, Clock } from "lucide-react";
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 // Bond Categories Component with Real-time Data
 function BondCategoriesSection() {
@@ -89,6 +93,587 @@ function BondCategoriesSection() {
         })}
       </div>
     </section>
+  );
+}
+
+// KYC Warning Banner
+function KYCWarningBanner() {
+  return (
+    <Alert className="border-amber-200 bg-amber-50">
+      <AlertCircle className="h-4 w-4 text-amber-600" />
+      <AlertDescription className="text-amber-800">
+        <strong>Full KYC Required:</strong> All bond transactions require Full KYC verification regardless of investment amount. 
+        Please ensure your profile is complete before placing orders.
+      </AlertDescription>
+    </Alert>
+  );
+}
+
+// Government Securities Display Component
+function GovernmentSecurities() {
+  const [selectedBond, setSelectedBond] = useState<any>(null);
+  const [bidAmount, setBidAmount] = useState("");
+  const { toast } = useToast();
+
+  const { data: gsecs, isLoading } = useQuery({
+    queryKey: ["/api/bonds/trading/gsec/auctions"],
+  });
+
+  const placeOrderMutation = useMutation({
+    mutationFn: (orderData: any) => apiRequest("/api/bonds/trading/gsec/orders", "POST", orderData),
+    onSuccess: () => {
+      toast({
+        title: "Order Placed Successfully",
+        description: "Your G-Sec order has been submitted for processing.",
+      });
+      setSelectedBond(null);
+      setBidAmount("");
+      queryClient.invalidateQueries({ queryKey: ["/api/bonds/orders"] });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Order Failed",
+        description: error.message || "Failed to place order. Please check your KYC status.",
+      });
+    },
+  });
+
+  if (isLoading) {
+    return <div className="animate-pulse space-y-4">
+      {[1, 2].map(i => <div key={i} className="h-32 bg-gray-200 rounded-lg" />)}
+    </div>;
+  }
+
+  const bonds = (gsecs as any)?.bonds || [];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-900">Government Securities</h3>
+        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+          {bonds.length} Available
+        </Badge>
+      </div>
+
+      {bonds.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="p-8 text-center">
+            <Shield className="h-10 w-10 text-gray-400 mx-auto mb-3" />
+            <p className="text-gray-500">No government securities available for auction</p>
+          </CardContent>
+        </Card>
+      ) : (
+        bonds.map((bond: any) => (
+          <Card key={bond.isin} className="hover:shadow-md transition-shadow" data-testid={`gsec-${bond.isin}`}>
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <h4 className="font-semibold text-gray-900">{bond.securityName}</h4>
+                    <Badge variant="outline" className="bg-green-50 text-green-700">
+                      {bond.securityType}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-3">ISIN: {bond.isin}</p>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <p className="text-gray-500">Yield</p>
+                      <p className="font-semibold text-finance-green">{bond.indicativeYield}%</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Coupon</p>
+                      <p className="font-semibold">{bond.couponRate}%</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Maturity</p>
+                      <p className="font-semibold">{new Date(bond.maturityDate).toLocaleDateString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Min Investment</p>
+                      <p className="font-semibold">₹{bond.minimumBidAmount?.toLocaleString()}</p>
+                    </div>
+                  </div>
+
+                  {bond.auctionDate && (
+                    <p className="text-xs text-gray-500 mt-3">
+                      Auction Date: {new Date(bond.auctionDate).toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+
+                <Dialog open={selectedBond?.isin === bond.isin} onOpenChange={(open) => !open && setSelectedBond(null)}>
+                  <DialogTrigger asChild>
+                    <Button onClick={() => setSelectedBond(bond)} size="sm" data-testid={`invest-${bond.isin}`}>
+                      Place Bid
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Place Non-Competitive Bid</DialogTitle>
+                      <DialogDescription>
+                        Place your bid for {bond.securityName}
+                      </DialogDescription>
+                    </DialogHeader>
+                    
+                    <KYCWarningBanner />
+
+                    <div className="space-y-4 mt-4">
+                      <div>
+                        <label className="text-sm font-medium">Bid Amount (₹)</label>
+                        <Input
+                          type="number"
+                          placeholder={`Min: ${bond.minimumBidAmount}`}
+                          value={bidAmount}
+                          onChange={(e) => setBidAmount(e.target.value)}
+                          data-testid="bid-amount-input"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Minimum: ₹{bond.minimumBidAmount?.toLocaleString()}
+                        </p>
+                      </div>
+
+                      <div className="bg-gray-50 p-4 rounded-lg space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span>Security:</span>
+                          <span className="font-medium">{bond.securityName}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Expected Yield:</span>
+                          <span className="font-medium text-finance-green">{bond.indicativeYield}%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Maturity:</span>
+                          <span className="font-medium">{new Date(bond.maturityDate).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+
+                      <Button
+                        className="w-full"
+                        onClick={() => {
+                          const amount = parseFloat(bidAmount);
+                          if (!amount || amount < bond.minimumBidAmount) {
+                            toast({
+                              variant: "destructive",
+                              title: "Invalid Amount",
+                              description: `Minimum bid amount is ₹${bond.minimumBidAmount?.toLocaleString()}`,
+                            });
+                            return;
+                          }
+                          placeOrderMutation.mutate({
+                            isin: bond.isin,
+                            bidAmount: amount,
+                          });
+                        }}
+                        disabled={placeOrderMutation.isPending}
+                        data-testid="confirm-bid-button"
+                      >
+                        {placeOrderMutation.isPending ? "Placing Bid..." : "Confirm Bid"}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </CardContent>
+          </Card>
+        ))
+      )}
+    </div>
+  );
+}
+
+// Corporate Bonds Display Component
+function CorporateBonds() {
+  const [selectedBond, setSelectedBond] = useState<any>(null);
+  const [quantity, setQuantity] = useState("");
+  const [limitPrice, setLimitPrice] = useState("");
+  const { toast } = useToast();
+
+  const { data: corporateBonds, isLoading } = useQuery({
+    queryKey: ["/api/bonds/trading/corporate"],
+  });
+
+  const placeOrderMutation = useMutation({
+    mutationFn: (orderData: any) => apiRequest("/api/bonds/trading/corporate/orders", "POST", orderData),
+    onSuccess: () => {
+      toast({
+        title: "Order Placed Successfully",
+        description: "Your corporate bond order has been submitted.",
+      });
+      setSelectedBond(null);
+      setQuantity("");
+      setLimitPrice("");
+      queryClient.invalidateQueries({ queryKey: ["/api/bonds/orders"] });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Order Failed",
+        description: error.message || "Failed to place order. Please ensure you have Full KYC.",
+      });
+    },
+  });
+
+  if (isLoading) {
+    return <div className="animate-pulse space-y-4">
+      {[1, 2].map(i => <div key={i} className="h-32 bg-gray-200 rounded-lg" />)}
+    </div>;
+  }
+
+  const bonds = (corporateBonds as any)?.bonds || [];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-900">Corporate Bonds</h3>
+        <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+          {bonds.length} Available
+        </Badge>
+      </div>
+
+      {bonds.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="p-8 text-center">
+            <Building2 className="h-10 w-10 text-gray-400 mx-auto mb-3" />
+            <p className="text-gray-500">No corporate bonds available for trading</p>
+          </CardContent>
+        </Card>
+      ) : (
+        bonds.map((bond: any) => (
+          <Card key={bond.isin} className="hover:shadow-md transition-shadow" data-testid={`corp-bond-${bond.isin}`}>
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <h4 className="font-semibold text-gray-900">{bond.issuerName}</h4>
+                    <Badge variant="outline" className="bg-yellow-50 text-yellow-700">
+                      {bond.rating}
+                    </Badge>
+                    <Badge variant="outline">
+                      {bond.bondType}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-3">ISIN: {bond.isin}</p>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <p className="text-gray-500">Yield</p>
+                      <p className="font-semibold text-finance-green">{bond.currentYield}%</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Coupon</p>
+                      <p className="font-semibold">{bond.couponRate}%</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Maturity</p>
+                      <p className="font-semibold">{new Date(bond.maturityDate).toLocaleDateString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Face Value</p>
+                      <p className="font-semibold">₹{bond.faceValue?.toLocaleString()}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex gap-4 text-xs text-gray-500">
+                    <span>Last Price: ₹{bond.lastPrice?.toLocaleString()}</span>
+                    {bond.accruedInterest && <span>Accrued: ₹{bond.accruedInterest?.toLocaleString()}</span>}
+                  </div>
+                </div>
+
+                <Dialog open={selectedBond?.isin === bond.isin} onOpenChange={(open) => !open && setSelectedBond(null)}>
+                  <DialogTrigger asChild>
+                    <Button onClick={() => setSelectedBond(bond)} size="sm" data-testid={`buy-${bond.isin}`}>
+                      Buy
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Place Corporate Bond Order</DialogTitle>
+                      <DialogDescription>
+                        Buy {bond.issuerName} bonds
+                      </DialogDescription>
+                    </DialogHeader>
+                    
+                    <KYCWarningBanner />
+
+                    <div className="space-y-4 mt-4">
+                      <div>
+                        <label className="text-sm font-medium">Quantity</label>
+                        <Input
+                          type="number"
+                          placeholder="Number of bonds"
+                          value={quantity}
+                          onChange={(e) => setQuantity(e.target.value)}
+                          data-testid="quantity-input"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-sm font-medium">Limit Price (₹)</label>
+                        <Input
+                          type="number"
+                          placeholder={`Last: ${bond.lastPrice}`}
+                          value={limitPrice}
+                          onChange={(e) => setLimitPrice(e.target.value)}
+                          data-testid="limit-price-input"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Last traded price: ₹{bond.lastPrice?.toLocaleString()}
+                        </p>
+                      </div>
+
+                      <div className="bg-gray-50 p-4 rounded-lg space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span>Estimated Cost:</span>
+                          <span className="font-semibold">
+                            ₹{((parseFloat(quantity) || 0) * (parseFloat(limitPrice) || bond.lastPrice)).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Expected Yield:</span>
+                          <span className="font-medium text-finance-green">{bond.currentYield}%</span>
+                        </div>
+                      </div>
+
+                      <Button
+                        className="w-full"
+                        onClick={() => {
+                          const qty = parseInt(quantity);
+                          const price = parseFloat(limitPrice);
+                          if (!qty || qty <= 0) {
+                            toast({
+                              variant: "destructive",
+                              title: "Invalid Quantity",
+                              description: "Please enter a valid quantity",
+                            });
+                            return;
+                          }
+                          placeOrderMutation.mutate({
+                            isin: bond.isin,
+                            orderType: "buy",
+                            quantity: qty,
+                            orderCategory: price ? "limit" : "market",
+                            limitPrice: price || bond.lastPrice,
+                          });
+                        }}
+                        disabled={placeOrderMutation.isPending}
+                        data-testid="confirm-buy-button"
+                      >
+                        {placeOrderMutation.isPending ? "Placing Order..." : "Confirm Order"}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </CardContent>
+          </Card>
+        ))
+      )}
+    </div>
+  );
+}
+
+// Bond Holdings Component
+function BondHoldings() {
+  const { data: holdings, isLoading } = useQuery({
+    queryKey: ["/api/bonds/holdings"],
+  });
+
+  if (isLoading) {
+    return <div className="animate-pulse h-48 bg-gray-200 rounded-lg" />;
+  }
+
+  const bonds = (holdings as any)?.holdings || [];
+
+  if (bonds.length === 0) {
+    return (
+      <Card className="border-dashed">
+        <CardContent className="flex flex-col items-center justify-center py-12">
+          <Calendar className="h-12 w-12 text-gray-400 mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Bond Holdings</h3>
+          <p className="text-gray-500 text-center">
+            Your bond investments will appear here
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const totalValue = bonds.reduce((sum: number, bond: any) => sum + (bond.currentValue || 0), 0);
+  const totalInvested = bonds.reduce((sum: number, bond: any) => sum + (bond.purchaseValue || 0), 0);
+  const totalGain = totalValue - totalInvested;
+  const gainPercentage = totalInvested > 0 ? (totalGain / totalInvested) * 100 : 0;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-900">My Bond Holdings</h3>
+        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+          {bonds.length} Holdings
+        </Badge>
+      </div>
+
+      {/* Portfolio Summary */}
+      <Card className="bg-gradient-to-br from-finance-blue to-blue-600 text-white">
+        <CardContent className="p-6">
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <p className="text-blue-100 text-sm">Total Value</p>
+              <p className="text-2xl font-bold">₹{totalValue.toLocaleString()}</p>
+            </div>
+            <div>
+              <p className="text-blue-100 text-sm">Invested</p>
+              <p className="text-2xl font-bold">₹{totalInvested.toLocaleString()}</p>
+            </div>
+            <div>
+              <p className="text-blue-100 text-sm">Returns</p>
+              <p className="text-2xl font-bold">
+                {gainPercentage > 0 ? '+' : ''}{gainPercentage.toFixed(2)}%
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Holdings List */}
+      {bonds.map((holding: any) => (
+        <Card key={holding.id} data-testid={`holding-${holding.id}`}>
+          <CardContent className="p-6">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  <h4 className="font-semibold text-gray-900">{holding.bondName}</h4>
+                  <Badge variant="outline">
+                    {holding.bondType}
+                  </Badge>
+                </div>
+                
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mt-3">
+                  <div>
+                    <p className="text-gray-500">Quantity</p>
+                    <p className="font-semibold">{holding.quantity}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Current Yield</p>
+                    <p className="font-semibold text-finance-green">{holding.currentYield}%</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Maturity</p>
+                    <p className="font-semibold">{new Date(holding.maturityDate).toLocaleDateString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Current Value</p>
+                    <p className="font-semibold">₹{holding.currentValue?.toLocaleString()}</p>
+                  </div>
+                </div>
+
+                {holding.nextCouponDate && (
+                  <p className="text-xs text-gray-500 mt-3">
+                    Next Coupon: {new Date(holding.nextCouponDate).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+
+              <div className="text-right">
+                <p className="text-sm text-gray-500">P&L</p>
+                <p className={`text-lg font-semibold ${(holding.currentValue - holding.purchaseValue) >= 0 ? 'text-finance-green' : 'text-red-600'}`}>
+                  {((holding.currentValue - holding.purchaseValue) >= 0 ? '+' : '')}
+                  ₹{(holding.currentValue - holding.purchaseValue).toLocaleString()}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+// Bond Orders Component
+function BondOrders() {
+  const { data: orders, isLoading } = useQuery({
+    queryKey: ["/api/bonds/orders"],
+  });
+
+  if (isLoading) {
+    return <div className="animate-pulse h-32 bg-gray-200 rounded-lg mt-6" />;
+  }
+
+  const orderList = (orders as any)?.orders || [];
+
+  if (orderList.length === 0) {
+    return (
+      <Card className="border-dashed mt-6">
+        <CardContent className="flex flex-col items-center justify-center py-8">
+          <Clock className="h-10 w-10 text-gray-400 mb-3" />
+          <p className="text-gray-500">No recent orders</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'executed': return 'bg-green-50 text-green-700 border-green-200';
+      case 'pending': return 'bg-yellow-50 text-yellow-700 border-yellow-200';
+      case 'rejected': return 'bg-red-50 text-red-700 border-red-200';
+      default: return 'bg-gray-50 text-gray-700 border-gray-200';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'executed': return <CheckCircle2 className="h-4 w-4" />;
+      case 'pending': return <Clock className="h-4 w-4" />;
+      case 'rejected': return <AlertCircle className="h-4 w-4" />;
+      default: return <Clock className="h-4 w-4" />;
+    }
+  };
+
+  return (
+    <div className="space-y-4 mt-6">
+      <h3 className="text-lg font-semibold text-gray-900">Recent Orders</h3>
+      
+      {orderList.map((order: any) => (
+        <Card key={order.id} data-testid={`order-${order.id}`}>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  <p className="font-medium text-gray-900">{order.bondName}</p>
+                  <Badge variant="outline" className={getStatusColor(order.status)}>
+                    <span className="flex items-center gap-1">
+                      {getStatusIcon(order.status)}
+                      {order.status}
+                    </span>
+                  </Badge>
+                </div>
+                
+                <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <p className="text-gray-500">Type</p>
+                    <p className="font-medium">{order.orderType}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Quantity</p>
+                    <p className="font-medium">{order.quantity}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Amount</p>
+                    <p className="font-medium">₹{order.orderAmount?.toLocaleString()}</p>
+                  </div>
+                </div>
+
+                <p className="text-xs text-gray-500 mt-2">
+                  Placed on {new Date(order.orderDate).toLocaleString()}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
   );
 }
 
@@ -189,19 +774,14 @@ export default function Bonds() {
             {/* Bond Categories - Real-time data */}
             <BondCategoriesSection />
 
-            {/* Available Bonds */}
-            <section>
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Available Bonds</h2>
-              <Card className="border-dashed border-2 border-gray-300">
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <Shield className="h-12 w-12 text-gray-400 mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Bond Data Not Available</h3>
-                  <p className="text-gray-500 text-center">
-                    Live bond offerings will be displayed here when integrated with authorized bond platforms
-                  </p>
-                </CardContent>
-              </Card>
-            </section>
+            {/* KYC Warning */}
+            <KYCWarningBanner />
+
+            {/* Government Securities */}
+            <GovernmentSecurities />
+
+            {/* Corporate Bonds */}
+            <CorporateBonds />
 
           </TabsContent>
 
@@ -301,16 +881,8 @@ export default function Bonds() {
           </TabsContent>
 
           <TabsContent value="portfolio" className="space-y-6" data-testid="bonds-portfolio">
-            <Card className="border-dashed border-2 border-gray-300">
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <Calendar className="h-12 w-12 text-gray-400 mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">No Bond Holdings</h3>
-                <p className="text-gray-500 text-center mb-4">
-                  Your bond investments will appear here
-                </p>
-                <Button variant="outline">Invest in Bonds</Button>
-              </CardContent>
-            </Card>
+            <BondHoldings />
+            <BondOrders />
           </TabsContent>
 
           <TabsContent value="education" className="space-y-6" data-testid="bonds-education">
