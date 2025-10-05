@@ -239,6 +239,9 @@ export function setupAuth(app: Express) {
         lastUpdated: new Date(),
       });
 
+      // Auto-assign to default agent if only one agent exists
+      await storage.autoAssignDefaultAgent(user.id);
+
       req.login(user, (err) => {
         if (err) {
           console.error("Login error:", err);
