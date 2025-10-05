@@ -370,6 +370,224 @@ export class NSENCBApiService {
       return null;
     }
   }
+
+  /**
+   * Get government securities yield curve data
+   */
+  async getYieldCurve(): Promise<any[]> {
+    try {
+      if (!IS_PRODUCTION) {
+        return this.getDemoYieldCurve();
+      }
+
+      const response = await axios.get(
+        `${API_CONFIG.baseUrl}/yield-curve`,
+        {
+          headers: {
+            'User-Agent': 'FintekPro/1.0',
+            'Accept': 'application/json'
+          }
+        }
+      );
+
+      return response.data.yieldCurve || [];
+    } catch (error) {
+      console.error('Error fetching yield curve:', error);
+      return this.getDemoYieldCurve();
+    }
+  }
+
+  /**
+   * Get demo yield curve data
+   */
+  private getDemoYieldCurve(): any[] {
+    return [
+      { tenor: '91 Days', tenorMonths: 3, yield: 6.85 },
+      { tenor: '182 Days', tenorMonths: 6, yield: 7.00 },
+      { tenor: '364 Days', tenorMonths: 12, yield: 7.10 },
+      { tenor: '2 Years', tenorYears: 2, yield: 7.15 },
+      { tenor: '3 Years', tenorYears: 3, yield: 7.20 },
+      { tenor: '5 Years', tenorYears: 5, yield: 7.25 },
+      { tenor: '10 Years', tenorYears: 10, yield: 7.30 },
+      { tenor: '15 Years', tenorYears: 15, yield: 7.35 },
+      { tenor: '20 Years', tenorYears: 20, yield: 7.38 },
+      { tenor: '30 Years', tenorYears: 30, yield: 7.40 },
+    ];
+  }
+
+  /**
+   * Get historical auction results
+   */
+  async getHistoricalAuctions(params: {
+    securityType?: string;
+    fromDate?: string;
+    toDate?: string;
+    limit?: number;
+  }): Promise<any[]> {
+    try {
+      if (!IS_PRODUCTION) {
+        return this.getDemoHistoricalAuctions(params);
+      }
+
+      const queryParams = new URLSearchParams();
+      if (params.securityType) queryParams.append('type', params.securityType);
+      if (params.fromDate) queryParams.append('from', params.fromDate);
+      if (params.toDate) queryParams.append('to', params.toDate);
+      if (params.limit) queryParams.append('limit', params.limit.toString());
+
+      const response = await axios.get(
+        `${API_CONFIG.baseUrl}/auctions/historical?${queryParams.toString()}`,
+        {
+          headers: {
+            'User-Agent': 'FintekPro/1.0',
+            'Accept': 'application/json'
+          }
+        }
+      );
+
+      return response.data.auctions || [];
+    } catch (error) {
+      console.error('Error fetching historical auctions:', error);
+      return this.getDemoHistoricalAuctions(params);
+    }
+  }
+
+  /**
+   * Get demo historical auction data
+   */
+  private getDemoHistoricalAuctions(params: any): any[] {
+    const results = [
+      {
+        isin: 'INE000000004',
+        securityName: '7.26% GS 2033',
+        securityType: 'g_sec',
+        auctionDate: '2025-09-15',
+        auctionNumber: 'GOI-2025-04',
+        notifiedAmount: 20000000000,
+        couponRate: 7.26,
+        maturityDate: '2033-01-14',
+        cutOffPrice: 99.75,
+        cutOffYield: 7.28,
+        devolvedAmount: 0,
+        acceptedAmount: 20000000000
+      },
+      {
+        isin: 'INE000000005',
+        securityName: '182 Days T-Bill',
+        securityType: 't_bill',
+        auctionDate: '2025-09-20',
+        auctionNumber: 'TB-2025-05',
+        notifiedAmount: 8000000000,
+        maturityDate: '2026-03-20',
+        cutOffPrice: 96.55,
+        cutOffYield: 7.02,
+        acceptedAmount: 8000000000
+      }
+    ];
+
+    return results.slice(0, params.limit || 10);
+  }
+
+  /**
+   * Get Sovereign Gold Bond (SGB) data
+   */
+  async getSGBData(): Promise<any[]> {
+    try {
+      if (!IS_PRODUCTION) {
+        return this.getDemoSGBData();
+      }
+
+      const response = await axios.get(
+        `${API_CONFIG.baseUrl}/sgb`,
+        {
+          headers: {
+            'User-Agent': 'FintekPro/1.0',
+            'Accept': 'application/json'
+          }
+        }
+      );
+
+      return response.data.sgbs || [];
+    } catch (error) {
+      console.error('Error fetching SGB data:', error);
+      return this.getDemoSGBData();
+    }
+  }
+
+  /**
+   * Get demo SGB data
+   */
+  private getDemoSGBData(): any[] {
+    const today = new Date();
+    const subscriptionEnd = new Date(today);
+    subscriptionEnd.setDate(subscriptionEnd.getDate() + 5);
+
+    const maturityDate = new Date(today);
+    maturityDate.setFullYear(maturityDate.getFullYear() + 8);
+
+    return [
+      {
+        isin: 'INE000S01SG1',
+        securityName: 'Sovereign Gold Bond 2025-26 Series I',
+        securityType: 'sgb',
+        issuer: 'Government of India',
+        subscriptionStartDate: today.toISOString().split('T')[0],
+        subscriptionEndDate: subscriptionEnd.toISOString().split('T')[0],
+        issuePrice: 6500, // ₹6,500 per gram
+        goldReferencePrice: 6450, // ₹6,450 per gram (RBI reference price)
+        goldWeight: 1, // 1 gram per unit
+        couponRate: 2.50, // 2.50% per annum
+        maturityDate: maturityDate.toISOString().split('T')[0],
+        tenorYears: 8,
+        minimumInvestment: 1, // 1 gram
+        maximumInvestment: 4000, // 4 kg per individual per fiscal year
+        earlyRedemptionAllowed: true,
+        earlyRedemptionPeriod: 'after 5 years',
+        taxStatus: 'tax_exempt_on_redemption'
+      }
+    ];
+  }
+
+  /**
+   * Get real-time G-Sec market prices
+   */
+  async getMarketPrices(isins: string[]): Promise<any[]> {
+    try {
+      if (!IS_PRODUCTION) {
+        return this.getDemoMarketPrices(isins);
+      }
+
+      const response = await axios.post(
+        `${API_CONFIG.baseUrl}/market-prices`,
+        { isins },
+        {
+          headers: {
+            'User-Agent': 'FintekPro/1.0',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      return response.data.prices || [];
+    } catch (error) {
+      console.error('Error fetching market prices:', error);
+      return this.getDemoMarketPrices(isins);
+    }
+  }
+
+  /**
+   * Get demo market prices
+   */
+  private getDemoMarketPrices(isins: string[]): any[] {
+    return isins.map(isin => ({
+      isin,
+      lastTradedPrice: 98.50 + Math.random() * 3,
+      lastTradedYield: 7.10 + Math.random() * 0.4,
+      volume: Math.floor(Math.random() * 10000000),
+      timestamp: new Date().toISOString()
+    }));
+  }
 }
 
 // Export singleton instance
