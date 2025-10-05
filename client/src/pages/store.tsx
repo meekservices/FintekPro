@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProductDetailsModal } from "@/components/product-details-modal";
 import { useCart } from "@/hooks/use-cart";
 import { useToast } from "@/hooks/use-toast";
@@ -282,10 +283,14 @@ export default function StorePage() {
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState("all");
   
   const { addToCart, isAddingToCart } = useCart();
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
+  
+  // Get unique categories from products
+  const categories = ["all", ...Array.from(new Set(mockProducts.map(p => p.category)))];
 
   const handleAddToCart = (product: Product) => {
     if (!isAuthenticated) {
@@ -637,7 +642,7 @@ export default function StorePage() {
           </>
         )}
 
-        {/* Browse by Category Section */}
+        {/* Browse by Category Section with Tabs */}
         <div className="space-y-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
@@ -648,32 +653,53 @@ export default function StorePage() {
               <p className="text-sm text-gray-600 dark:text-gray-400">Explore our complete product range</p>
             </div>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {categoryLinks.map((category) => {
-              const Icon = category.icon;
-              return (
-                <Card
-                  key={category.name}
-                  className="group cursor-pointer hover:shadow-lg hover:scale-105 transition-all duration-300 border-0 overflow-hidden"
-                  onClick={() => setLocation(category.path)}
-                  data-testid={`category-${category.name}`}
-                >
-                  <CardContent className="p-6">
-                    <div className={`w-12 h-12 bg-gradient-to-r ${category.color} rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
-                      <Icon className="h-6 w-6 text-white" />
-                    </div>
-                    <h3 className="font-semibold text-gray-900 dark:text-white group-hover:text-finance-blue transition-colors">
-                      {category.name}
-                    </h3>
-                    <div className="flex items-center gap-1 mt-2 text-sm text-gray-600 dark:text-gray-400 group-hover:text-finance-blue transition-colors">
-                      <span>Explore</span>
-                      <ChevronRight className="h-4 w-4" />
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+          
+          <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="w-full">
+            <div className="overflow-x-auto pb-2">
+              <TabsList className="inline-flex w-auto min-w-full">
+                <TabsTrigger value="all" className="flex-shrink-0" data-testid="category-all">
+                  All Products
+                </TabsTrigger>
+                {categories.filter(c => c !== "all").map((category) => (
+                  <TabsTrigger key={category} value={category} className="flex-shrink-0" data-testid={`category-${category}`}>
+                    {category}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
+            
+            <TabsContent value={selectedCategory} className="mt-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Badge variant="outline" className="text-purple-600 border-purple-600">
+                    {getFilteredProducts(
+                      selectedCategory === "all" 
+                        ? mockProducts 
+                        : mockProducts.filter(p => p.category === selectedCategory)
+                    ).length} Products
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {getFilteredProducts(
+                    selectedCategory === "all" 
+                      ? mockProducts 
+                      : mockProducts.filter(p => p.category === selectedCategory)
+                  ).map(renderProductCard)}
+                </div>
+                {getFilteredProducts(
+                  selectedCategory === "all" 
+                    ? mockProducts 
+                    : mockProducts.filter(p => p.category === selectedCategory)
+                ).length === 0 && (
+                  <div className="text-center py-12">
+                    <Package className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                    <p className="text-gray-500 mb-2 font-medium">No products found</p>
+                    <p className="text-sm text-gray-400">Try adjusting your filters or search term</p>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
       
