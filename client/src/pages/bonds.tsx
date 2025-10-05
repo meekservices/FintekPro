@@ -669,6 +669,16 @@ export default function Bonds() {
   const [investmentAmount, setInvestmentAmount] = useState("");
   const [bondYield, setBondYield] = useState("");
   const [tenure, setTenure] = useState("");
+  
+  // Filter state
+  const [bondType, setBondType] = useState<string>("");
+  const [yieldRange, setYieldRange] = useState<string>("");
+  const [tenureFilter, setTenureFilter] = useState<string>("");
+  const [ratingFilter, setRatingFilter] = useState<string>("");
+  
+  // Comparison state
+  const [compareMode, setCompareMode] = useState(false);
+  const [selectedBonds, setSelectedBonds] = useState<string[]>([]);
 
   const calculateReturns = () => {
     const principal = parseFloat(investmentAmount) || 0;
@@ -684,6 +694,21 @@ export default function Bonds() {
   };
 
   const { maturityAmount, interestEarned } = calculateReturns();
+  
+  // Toggle bond selection for comparison
+  const toggleBondSelection = (isin: string) => {
+    setSelectedBonds(prev => 
+      prev.includes(isin) 
+        ? prev.filter(id => id !== isin)
+        : prev.length < 3 ? [...prev, isin] : prev
+    );
+  };
+  
+  // Clear comparison
+  const clearComparison = () => {
+    setSelectedBonds([]);
+    setCompareMode(false);
+  };
 
   return (
     <div className="space-y-8" data-testid="bonds-page">
@@ -708,24 +733,75 @@ export default function Bonds() {
             
             {/* Filter Section */}
             <div className="p-6 bg-white rounded-xl border border-gray-200">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <Select>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold">Filter Bonds</h3>
+                {compareMode && (
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="bg-blue-50">
+                      {selectedBonds.length} selected
+                    </Badge>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={clearComparison}
+                      data-testid="clear-comparison"
+                    >
+                      Clear
+                    </Button>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button 
+                          size="sm" 
+                          disabled={selectedBonds.length < 2}
+                          data-testid="compare-bonds-button"
+                        >
+                          Compare ({selectedBonds.length})
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-4xl">
+                        <DialogHeader>
+                          <DialogTitle>Bond Comparison</DialogTitle>
+                          <DialogDescription>
+                            Compare key features of selected bonds
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className={`grid gap-4 ${
+                          selectedBonds.length === 2 ? 'grid-cols-2' : 
+                          selectedBonds.length === 3 ? 'grid-cols-3' : 
+                          'grid-cols-1'
+                        }`}>
+                          {/* Comparison will be implemented with actual bond data */}
+                          <p className="text-sm text-gray-500">Comparison view coming soon</p>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                )}
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <Select value={bondType} onValueChange={setBondType}>
                   <SelectTrigger data-testid="bond-type-select">
                     <SelectValue placeholder="Bond Type" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="all">All Bonds</SelectItem>
                     <SelectItem value="government">Government Bonds</SelectItem>
                     <SelectItem value="corporate">Corporate Bonds</SelectItem>
                     <SelectItem value="ncd">NCDs</SelectItem>
                     <SelectItem value="tax-free">Tax Free Bonds</SelectItem>
+                    <SelectItem value="sgb">Sovereign Gold Bonds</SelectItem>
+                    <SelectItem value="infrastructure">Infrastructure Bonds</SelectItem>
                   </SelectContent>
                 </Select>
 
-                <Select>
+                <Select value={yieldRange} onValueChange={setYieldRange}>
                   <SelectTrigger data-testid="yield-range-select">
                     <SelectValue placeholder="Yield Range" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="all">All Yields</SelectItem>
+                    <SelectItem value="0-5">0% - 5%</SelectItem>
                     <SelectItem value="5-7">5% - 7%</SelectItem>
                     <SelectItem value="7-9">7% - 9%</SelectItem>
                     <SelectItem value="9-12">9% - 12%</SelectItem>
@@ -733,11 +809,13 @@ export default function Bonds() {
                   </SelectContent>
                 </Select>
 
-                <Select>
+                <Select value={tenureFilter} onValueChange={setTenureFilter}>
                   <SelectTrigger data-testid="tenure-select">
                     <SelectValue placeholder="Tenure" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="all">All Tenures</SelectItem>
+                    <SelectItem value="0-1">0-1 Year</SelectItem>
                     <SelectItem value="1-2">1-2 Years</SelectItem>
                     <SelectItem value="2-5">2-5 Years</SelectItem>
                     <SelectItem value="5-10">5-10 Years</SelectItem>
@@ -745,17 +823,27 @@ export default function Bonds() {
                   </SelectContent>
                 </Select>
 
-                <Select>
+                <Select value={ratingFilter} onValueChange={setRatingFilter}>
                   <SelectTrigger data-testid="rating-select">
                     <SelectValue placeholder="Credit Rating" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="aaa">AAA</SelectItem>
-                    <SelectItem value="aa">AA+/AA/AA-</SelectItem>
-                    <SelectItem value="a">A+/A/A-</SelectItem>
-                    <SelectItem value="bbb">BBB+/BBB/BBB-</SelectItem>
+                    <SelectItem value="all">All Ratings</SelectItem>
+                    <SelectItem value="AAA">AAA</SelectItem>
+                    <SelectItem value="AA">AA+/AA/AA-</SelectItem>
+                    <SelectItem value="A">A+/A/A-</SelectItem>
+                    <SelectItem value="BBB">BBB+/BBB/BBB-</SelectItem>
                   </SelectContent>
                 </Select>
+                
+                <Button 
+                  variant={compareMode ? "default" : "outline"}
+                  onClick={() => setCompareMode(!compareMode)}
+                  data-testid="toggle-compare-mode"
+                  className="w-full"
+                >
+                  {compareMode ? "Exit Compare" : "Compare Bonds"}
+                </Button>
               </div>
             </div>
 
