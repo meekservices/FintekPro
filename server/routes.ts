@@ -59,6 +59,7 @@ import phonePeService from './phonepe';
 import { mutualFundsRefreshJob } from './mutual-funds-refresh-job';
 import { initReKYCCron } from './rekyc-cron';
 import { seedProducts } from './seed-products';
+import { seedDefaultAgent } from './seed-default-agent';
 import { nseNcbApi } from './nseNcbApi';
 import { bseBondApi } from './bseBondApi';
 import { bseDirectApi } from './bseDirectApi';
@@ -129,6 +130,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   } catch (error) {
     console.log('⚠️ Product seeding skipped:', error instanceof Error ? error.message : 'Unknown error');
+  }
+  
+  // Seed default agent (Sangram Kesari Mohanty)
+  try {
+    await seedDefaultAgent();
+  } catch (error) {
+    console.log('⚠️ Default agent seeding skipped:', error instanceof Error ? error.message : 'Unknown error');
   }
   
   // Activity tracking middleware
