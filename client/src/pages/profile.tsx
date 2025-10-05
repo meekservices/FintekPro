@@ -248,7 +248,19 @@ const statesProvinces = {
 };
 
 export default function ProfilePage() {
-  const [activeTab, setActiveTab] = useState("basic");
+  // Read URL parameter for initial tab (support ?tab=kyc redirection from KYC status card)
+  const getInitialTab = () => {
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get('tab');
+    // Map "kyc" to "identity" since that's the actual tab name
+    if (tabParam === 'kyc') return 'identity';
+    if (tabParam && ['basic', 'identity', 'address', 'financial', 'compliance', 'banking', 'demat'].includes(tabParam)) {
+      return tabParam;
+    }
+    return 'basic';
+  };
+
+  const [activeTab, setActiveTab] = useState(getInitialTab());
   const [profileCompleteness, setProfileCompleteness] = useState(0);
   const [isAmlScreening, setIsAmlScreening] = useState(false);
   const { toast } = useToast();
