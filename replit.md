@@ -16,6 +16,7 @@ Preferred communication style: Simple, everyday language.
 - **Styling**: Tailwind CSS with CSS custom properties for theming
 - **Charts**: Recharts for data visualization
 - **Design Approach**: Mobile-first with responsive and adaptive layouts.
+- **Responsive Tab Pattern**: Horizontal scrollable tabs (overflow-x-auto) with flex-shrink-0 applied site-wide to prevent overlap on mobile devices. Implemented across 10+ pages including loans, banking, bonds, markets, and store pages.
 
 ### Technical Implementations
 - **Frontend**:
@@ -52,6 +53,11 @@ Preferred communication style: Simple, everyday language.
     - Transaction permissions linked to KYC status.
     - Daily cron jobs for reminders and reporting.
 - **Investment Proposal System**: Custom ID system (AI-, AGENT-, CLIENT-), filtering, creation dialog, cart integration, and full CRUD support.
+- **Financial Products Marketplace (Store Page)**:
+    - Slidable category tabs with real-time filtering: All Products, Investment Products, Global Products, Insurance, Banking Products, Professional Services.
+    - Product count badges showing filtered results per category.
+    - Integrated wishlist, cart functionality, and product detail modals.
+    - Featured products, top performers, and hot deals sections with advanced sorting and search.
 
 ## External Dependencies
 
