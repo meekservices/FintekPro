@@ -59,6 +59,10 @@ import phonePeService from './phonepe';
 import { mutualFundsRefreshJob } from './mutual-funds-refresh-job';
 import { initReKYCCron } from './rekyc-cron';
 import { seedProducts } from './seed-products';
+import { nseNcbApi } from './nseNcbApi';
+import { bseBondApi } from './bseBondApi';
+import { bseDirectApi } from './bseDirectApi';
+import { governmentSecurities, corporateBonds, bondOrders, bondHoldings, insertBondOrderSchema } from '@shared/schema';
 
 // Tax Calculation Request Validation Schemas
 const calculateCapitalGainsSchema = z.object({
@@ -4463,6 +4467,484 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         status: "error",
         error: "Failed to fetch bonds data from all exchanges"
+      });
+    }
+  });
+
+  // ==================================================================================
+  // BOND TRADING & ORDERS - Live Trading APIs (NSE NCB, BSE Bond, BSE Direct)
+  // ==================================================================================
+
+  // NSE NCB (Non-Competitive Bidding) - Government Securities
+  
+  // Get upcoming G-Sec/T-Bill/SDL auctions from NSE NCB
+  app.get("/api/bonds/trading/gsec/auctions", async (req, res) => {
+    try {
+      const auctions = await nseNcbApi.getUpcomingAuctions();
+      res.json({
+        status: "success",
+        data: auctions,
+        count: auctions.length
+      });
+    } catch (error) {
+      console.error("Error fetching NSE NCB auctions:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch G-Sec auctions"
+      });
+    }
+  });
+
+  // Get G-Sec details by ISIN
+  app.get("/api/bonds/trading/gsec/:isin", async (req, res) => {
+    try {
+      const { isin } = req.params;
+      const gsec = await nseNcbApi.getGSecDetails(isin);
+      
+      if (!gsec) {
+        return res.status(404).json({
+          status: "error",
+          error: "G-Sec not found"
+        });
+      }
+
+      res.json({
+        status: "success",
+        data: gsec
+      });
+    } catch (error) {
+      console.error("Error fetching G-Sec details:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch G-Sec details"
+      });
+    }
+  });
+
+  // Place NCB order for government security (requires Basic KYC)
+  app.post("/api/bonds/trading/gsec/orders", validateKYC('basic', 10000), async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const orderRequest = {
+        userId: userId,
+        clientCode: req.body.clientCode || `CLI-${userId.substring(0, 8)}`,
+        isin: req.body.isin,
+        auctionNumber: req.body.auctionNumber,
+        bidAmount: req.body.bidAmount,
+        panNumber: req.body.panNumber,
+        dematAccountNumber: req.body.dematAccountNumber
+      };
+
+      const response = await nseNcbApi.placeNCBOrder(orderRequest);
+
+      if (response.success && response.orderId) {
+        // Store bond order in database
+        const bondOrder = await db.insert(bondOrders).values({
+          orderNumber: response.orderId,
+          userId: userId,
+          clientCode: orderRequest.clientCode,
+          bondType: 'government',
+          isin: orderRequest.isin,
+          bondName: `G-Sec ${orderRequest.isin}`,
+          orderType: 'buy',
+          orderCategory: 'market',
+          quantity: Math.floor(orderRequest.bidAmount / 100), // Face value ₹100
+          faceValue: '100',
+          totalFaceValue: orderRequest.bidAmount.toString(),
+          grossAmount: orderRequest.bidAmount.toString(),
+          netAmount: orderRequest.bidAmount.toString(),
+          orderStatus: 'pending',
+          exchange: 'nse',
+          dematAccountNumber: orderRequest.dematAccountNumber,
+          kycLevel: 'basic',
+          kycValidated: true,
+          orderPlacedBy: 'client'
+        }).returning();
+
+        res.json({
+          status: "success",
+          ...response,
+          bondOrderId: bondOrder[0].id
+        });
+      } else {
+        res.status(400).json({
+          status: "error",
+          error: response.message
+        });
+      }
+    } catch (error) {
+      console.error("Error placing NCB order:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to place NCB order"
+      });
+    }
+  });
+
+  // BSE Bond API - Corporate Bonds
+  
+  // Get tradable corporate bonds from BSE
+  app.get("/api/bonds/trading/corporate", async (req, res) => {
+    try {
+      const filters = {
+        minRating: req.query.minRating as string,
+        maxTenor: req.query.maxTenor ? parseInt(req.query.maxTenor as string) : undefined,
+        minYield: req.query.minYield ? parseFloat(req.query.minYield as string) : undefined,
+        issuerSector: req.query.issuerSector as string
+      };
+
+      const bonds = await bseBondApi.getTradableBonds(filters);
+      res.json({
+        status: "success",
+        data: bonds,
+        count: bonds.length
+      });
+    } catch (error) {
+      console.error("Error fetching corporate bonds:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch corporate bonds"
+      });
+    }
+  });
+
+  // Get corporate bond details by ISIN
+  app.get("/api/bonds/trading/corporate/:isin", async (req, res) => {
+    try {
+      const { isin } = req.params;
+      const bond = await bseBondApi.getBondDetails(isin);
+      
+      if (!bond) {
+        return res.status(404).json({
+          status: "error",
+          error: "Corporate bond not found"
+        });
+      }
+
+      res.json({
+        status: "success",
+        data: bond
+      });
+    } catch (error) {
+      console.error("Error fetching corporate bond details:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch corporate bond details"
+      });
+    }
+  });
+
+  // Place corporate bond order (requires Full KYC for ₹50K+)
+  app.post("/api/bonds/trading/corporate/orders", validateKYC('full', 50000), async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const orderRequest = {
+        userId: userId,
+        clientCode: req.body.clientCode || `CLI-${userId.substring(0, 8)}`,
+        isin: req.body.isin,
+        bondType: 'corporate' as const,
+        orderType: req.body.orderType, // 'buy' or 'sell'
+        quantity: req.body.quantity,
+        orderCategory: req.body.orderCategory, // 'market' or 'limit'
+        limitPrice: req.body.limitPrice,
+        dematAccountNumber: req.body.dematAccountNumber
+      };
+
+      const response = await bseBondApi.placeBondOrder(orderRequest);
+
+      if (response.success && response.orderId) {
+        // Get bond details for storage
+        const bondDetails = await bseBondApi.getBondDetails(orderRequest.isin);
+        
+        // Store bond order in database
+        const bondOrder = await db.insert(bondOrders).values({
+          orderNumber: response.orderNumber || response.orderId,
+          userId: userId,
+          clientCode: orderRequest.clientCode,
+          bondType: 'corporate',
+          isin: orderRequest.isin,
+          bondName: bondDetails?.bondName || `Corporate Bond ${orderRequest.isin}`,
+          orderType: orderRequest.orderType,
+          orderCategory: orderRequest.orderCategory,
+          quantity: orderRequest.quantity,
+          faceValue: bondDetails?.faceValue.toString() || '1000',
+          totalFaceValue: ((bondDetails?.faceValue || 1000) * orderRequest.quantity).toString(),
+          orderPrice: response.executionDetails?.executionPrice?.toString(),
+          grossAmount: response.executionDetails?.grossAmount?.toString(),
+          accruedInterest: response.executionDetails?.accruedInterest?.toString(),
+          netAmount: response.executionDetails?.netAmount?.toString(),
+          orderStatus: 'pending',
+          exchange: 'bse',
+          dematAccountNumber: orderRequest.dematAccountNumber,
+          kycLevel: 'full',
+          kycValidated: true,
+          orderPlacedBy: 'client'
+        }).returning();
+
+        res.json({
+          status: "success",
+          ...response,
+          bondOrderId: bondOrder[0].id
+        });
+      } else {
+        res.status(400).json({
+          status: "error",
+          error: response.message
+        });
+      }
+    } catch (error) {
+      console.error("Error placing corporate bond order:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to place corporate bond order"
+      });
+    }
+  });
+
+  // BSE Direct API - Direct Market Trading
+  
+  // Get market quote for any symbol
+  app.get("/api/bonds/trading/direct/quote/:symbol", async (req, res) => {
+    try {
+      const { symbol } = req.params;
+      const segment = (req.query.segment as string) || 'equity';
+      
+      const quote = await bseDirectApi.getMarketQuote(symbol, segment);
+      
+      if (!quote) {
+        return res.status(404).json({
+          status: "error",
+          error: "Market quote not found"
+        });
+      }
+
+      res.json({
+        status: "success",
+        data: quote
+      });
+    } catch (error) {
+      console.error("Error fetching market quote:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch market quote"
+      });
+    }
+  });
+
+  // Place direct market order (requires Enhanced KYC for derivatives/high-risk)
+  app.post("/api/bonds/trading/direct/orders", validateKYC('enhanced', 200000), async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const orderRequest = {
+        userId: userId,
+        clientCode: req.body.clientCode || `CLI-${userId.substring(0, 8)}`,
+        segment: req.body.segment, // 'equity', 'derivatives', 'currency', 'commodity'
+        symbol: req.body.symbol,
+        orderType: req.body.orderType, // 'buy' or 'sell'
+        quantity: req.body.quantity,
+        orderCategory: req.body.orderCategory, // 'market', 'limit', 'stop_loss'
+        price: req.body.price,
+        stopLossPrice: req.body.stopLossPrice,
+        productType: req.body.productType, // 'delivery', 'intraday', 'margin'
+        validity: req.body.validity // 'day', 'ioc', 'gtc'
+      };
+
+      const response = await bseDirectApi.placeDirectOrder(orderRequest);
+
+      if (response.success) {
+        res.json({
+          status: "success",
+          ...response
+        });
+      } else {
+        res.status(400).json({
+          status: "error",
+          error: response.message
+        });
+      }
+    } catch (error) {
+      console.error("Error placing direct order:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to place direct order"
+      });
+    }
+  });
+
+  // Get user positions from BSE Direct
+  app.get("/api/bonds/trading/direct/positions", async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const segment = req.query.segment as string;
+      const positions = await bseDirectApi.getPositions(userId, segment);
+
+      res.json({
+        status: "success",
+        data: positions,
+        count: positions.length
+      });
+    } catch (error) {
+      console.error("Error fetching positions:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch positions"
+      });
+    }
+  });
+
+  // Get user order book from BSE Direct
+  app.get("/api/bonds/trading/direct/orderbook", async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const orderBook = await bseDirectApi.getOrderBook(userId);
+
+      res.json({
+        status: "success",
+        data: orderBook,
+        count: orderBook.length
+      });
+    } catch (error) {
+      console.error("Error fetching order book:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch order book"
+      });
+    }
+  });
+
+  // Bond Order Management
+  
+  // Get user's bond orders
+  app.get("/api/bonds/orders", async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const bondType = req.query.bondType as string;
+      const orderStatus = req.query.status as string;
+
+      let query = db.select().from(bondOrders).where(eq(bondOrders.userId, userId));
+
+      const orders = await query;
+
+      // Filter by bond type if specified
+      let filteredOrders = orders;
+      if (bondType) {
+        filteredOrders = filteredOrders.filter(o => o.bondType === bondType);
+      }
+      if (orderStatus) {
+        filteredOrders = filteredOrders.filter(o => o.orderStatus === orderStatus);
+      }
+
+      res.json({
+        status: "success",
+        data: filteredOrders,
+        count: filteredOrders.length
+      });
+    } catch (error) {
+      console.error("Error fetching bond orders:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch bond orders"
+      });
+    }
+  });
+
+  // Get bond order status
+  app.get("/api/bonds/orders/:orderId/status", async (req, res) => {
+    try {
+      const { orderId } = req.params;
+      
+      // Get order from database
+      const [order] = await db.select().from(bondOrders).where(eq(bondOrders.id, orderId));
+      
+      if (!order) {
+        return res.status(404).json({
+          status: "error",
+          error: "Order not found"
+        });
+      }
+
+      // Get live status from exchange
+      let liveStatus;
+      if (order.exchange === 'nse') {
+        liveStatus = await nseNcbApi.getOrderStatus(order.orderNumber);
+      } else if (order.exchange === 'bse') {
+        liveStatus = await bseBondApi.getOrderStatus(order.orderNumber);
+      }
+
+      res.json({
+        status: "success",
+        data: {
+          ...order,
+          liveStatus
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching order status:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch order status"
+      });
+    }
+  });
+
+  // Get user's bond holdings
+  app.get("/api/bonds/holdings", async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const bondType = req.query.bondType as string;
+      const portfolioId = req.query.portfolioId as string;
+
+      let query = db.select().from(bondHoldings).where(eq(bondHoldings.userId, userId));
+
+      const holdings = await query;
+
+      // Filter by bond type if specified
+      let filteredHoldings = holdings;
+      if (bondType) {
+        filteredHoldings = filteredHoldings.filter(h => h.bondType === bondType);
+      }
+      if (portfolioId) {
+        filteredHoldings = filteredHoldings.filter(h => h.portfolioId === portfolioId);
+      }
+
+      res.json({
+        status: "success",
+        data: filteredHoldings,
+        count: filteredHoldings.length
+      });
+    } catch (error) {
+      console.error("Error fetching bond holdings:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch bond holdings"
       });
     }
   });
