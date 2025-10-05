@@ -104,7 +104,7 @@ export function KYCStatusCard() {
 
     if (status.daysUntilExpiry !== null && status.daysUntilExpiry <= 30) {
       return (
-        <Badge variant="warning" className="gap-1 bg-yellow-500 hover:bg-yellow-600" data-testid="kyc-badge-expiring">
+        <Badge variant="default" className="gap-1 bg-yellow-500 hover:bg-yellow-600 text-white" data-testid="kyc-badge-expiring">
           <AlertTriangle className="h-3 w-3" />
           Expiring Soon ({status.daysUntilExpiry} days)
         </Badge>
