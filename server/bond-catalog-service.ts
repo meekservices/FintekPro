@@ -5,8 +5,8 @@
  * to the database for faster access and offline availability.
  */
 
-import { db } from '@db';
-import { governmentSecurities, corporateBonds } from '@shared/schema';
+import { db } from './db';
+import { governmentSecurities, corporateBonds, GovernmentSecurity, CorporateBond } from '@shared/schema';
 import { nseNcbApi } from './nseNcbApi';
 import { bseBondApi } from './bseBondApi';
 import { eq } from 'drizzle-orm';
@@ -359,7 +359,7 @@ export class BondCatalogService {
     
     const results = await query;
     
-    return results.filter(sec => {
+    return results.filter((sec: GovernmentSecurity) => {
       if (filters?.securityType && sec.securityType !== filters.securityType) {
         return false;
       }
@@ -389,7 +389,7 @@ export class BondCatalogService {
     
     const results = await query;
     
-    return results.filter(bond => {
+    return results.filter((bond: CorporateBond) => {
       if (filters?.bondType && bond.bondType !== filters.bondType) {
         return false;
       }
