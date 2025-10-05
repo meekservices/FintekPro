@@ -41,10 +41,11 @@ Preferred communication style: Simple, everyday language.
 - **Financial Calculators**: SIP, EMI, retirement, and tax calculators.
 - **Multi-Asset Support**: Equities, bonds, mutual funds, IPOs, alternative investments.
 - **KYC Compliance System**:
-    - Mandatory KYC validation for all financial transactions.
-    - **CRITICAL: ALL bond transactions require Full KYC regardless of transaction amount** - no tiered system for bonds.
-    - Tiered compliance for other assets: Basic (≤₹50K), Full (≤₹200K), Enhanced (>₹200K).
-    - Stocks and IPOs: Amount-based Enhanced KYC for trades >₹200K.
+    - **MANDATORY FULL KYC POLICY**: ALL financial transactions (stocks, mutual funds, IPOs, bonds) require Full KYC verification regardless of transaction amount.
+    - **No Tiered System**: Basic KYC tier has been deprecated. Full KYC is the baseline requirement for all transactions.
+    - **Enhanced KYC**: Reserved only for high-value transactions (>₹10 lakh) or special regulatory requirements (NRI status, PEP, etc.).
+    - **Unified Compliance**: Consistent KYC requirements across all asset classes ensure regulatory adherence and simplified user experience.
+    - **UI Warning Banners**: Amber-colored KYC warning banners displayed on all trading pages (bonds, stocks, mutual funds, IPOs) to inform users of Full KYC requirement.
     - AML screening, audit logging, and regulatory adherence (SEBI, RBI, PMLA, FATCA/CRS).
 - **Re-KYC Automation System**:
     - Risk-based periodic KYC renewal (10yr, 8yr, 2yr) with automated reminders (60/30/15 days).
