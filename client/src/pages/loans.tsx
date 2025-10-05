@@ -262,13 +262,15 @@ export default function Loans() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="marketplace" data-testid="tab-marketplace">Find Loans</TabsTrigger>
-            <TabsTrigger value="request" data-testid="tab-request">Get Offers</TabsTrigger>
-            <TabsTrigger value="compare" data-testid="tab-compare">Compare Offers</TabsTrigger>
-            <TabsTrigger value="applications" data-testid="tab-applications">My Applications</TabsTrigger>
-            <TabsTrigger value="calculator" data-testid="tab-calculator">EMI Calculator</TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto pb-2">
+            <TabsList className="inline-flex w-auto min-w-full">
+              <TabsTrigger value="marketplace" data-testid="tab-marketplace" className="flex-shrink-0">Find Loans</TabsTrigger>
+              <TabsTrigger value="request" data-testid="tab-request" className="flex-shrink-0">Get Offers</TabsTrigger>
+              <TabsTrigger value="compare" data-testid="tab-compare" className="flex-shrink-0">Compare Offers</TabsTrigger>
+              <TabsTrigger value="applications" data-testid="tab-applications" className="flex-shrink-0">My Applications</TabsTrigger>
+              <TabsTrigger value="calculator" data-testid="tab-calculator" className="flex-shrink-0">EMI Calculator</TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="marketplace" className="space-y-6" data-testid="marketplace-content">
             {/* Marketplace Overview */}

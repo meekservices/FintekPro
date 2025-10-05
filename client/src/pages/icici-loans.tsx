@@ -228,24 +228,26 @@ export default function ICICILoans() {
 
         {/* Main Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="eligibility" data-testid="tab-eligibility">
-              <Calculator className="w-4 h-4 mr-2" />
-              Eligibility Check
-            </TabsTrigger>
-            <TabsTrigger value="application" disabled={!showApplication} data-testid="tab-application">
-              <FileText className="w-4 h-4 mr-2" />
-              Apply for Loan
-            </TabsTrigger>
-            <TabsTrigger value="applications" data-testid="tab-applications">
-              <Eye className="w-4 h-4 mr-2" />
-              My Applications
-            </TabsTrigger>
-            <TabsTrigger value="products" data-testid="tab-products">
-              <CreditCard className="w-4 h-4 mr-2" />
-              Loan Products
-            </TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto pb-2">
+            <TabsList className="inline-flex w-auto min-w-full">
+              <TabsTrigger value="eligibility" data-testid="tab-eligibility" className="flex-shrink-0">
+                <Calculator className="w-4 h-4 mr-2" />
+                Eligibility Check
+              </TabsTrigger>
+              <TabsTrigger value="application" disabled={!showApplication} data-testid="tab-application" className="flex-shrink-0">
+                <FileText className="w-4 h-4 mr-2" />
+                Apply for Loan
+              </TabsTrigger>
+              <TabsTrigger value="applications" data-testid="tab-applications" className="flex-shrink-0">
+                <Eye className="w-4 h-4 mr-2" />
+                My Applications
+              </TabsTrigger>
+              <TabsTrigger value="products" data-testid="tab-products" className="flex-shrink-0">
+                <CreditCard className="w-4 h-4 mr-2" />
+                Loan Products
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* Eligibility Check Tab */}
           <TabsContent value="eligibility" className="space-y-6">

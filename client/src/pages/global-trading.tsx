@@ -445,12 +445,14 @@ export default function GlobalTrading() {
         {/* Trading Interface */}
         <div className="lg:col-span-2 space-y-6">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid grid-cols-4 w-full">
-              <TabsTrigger value="markets" data-testid="tab-markets">Markets</TabsTrigger>
-              <TabsTrigger value="positions" data-testid="tab-positions">Positions</TabsTrigger>
-              <TabsTrigger value="funds" data-testid="tab-funds">Global Funds</TabsTrigger>
-              <TabsTrigger value="currency" data-testid="tab-currency">Currency</TabsTrigger>
-            </TabsList>
+            <div className="overflow-x-auto pb-2">
+              <TabsList className="inline-flex w-auto min-w-full">
+                <TabsTrigger value="markets" data-testid="tab-markets" className="flex-shrink-0">Markets</TabsTrigger>
+                <TabsTrigger value="positions" data-testid="tab-positions" className="flex-shrink-0">Positions</TabsTrigger>
+                <TabsTrigger value="funds" data-testid="tab-funds" className="flex-shrink-0">Global Funds</TabsTrigger>
+                <TabsTrigger value="currency" data-testid="tab-currency" className="flex-shrink-0">Currency</TabsTrigger>
+              </TabsList>
+            </div>
 
             {/* Markets Tab */}
             <TabsContent value="markets" className="space-y-4">
