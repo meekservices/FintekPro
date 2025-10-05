@@ -26,21 +26,22 @@ export interface TransactionContext {
 
 /**
  * KYC Validation Levels
+ * NOTE: Basic KYC no longer used - Full KYC is mandatory minimum for all transactions
  */
 const KYC_LEVELS = {
   BASIC: {
     name: "basic",
-    maxAmount: 50000,
+    maxAmount: 0, // Deprecated - not used in transaction validation
     requirements: ["pan", "name", "email", "mobile", "address"],
   },
   FULL: {
     name: "full",
-    maxAmount: 200000,
+    maxAmount: 1000000, // Full KYC allows up to ₹10L transactions
     requirements: ["pan", "name", "email", "mobile", "address", "bank_account", "pan_verified"],
   },
   ENHANCED: {
     name: "enhanced",
-    maxAmount: Infinity,
+    maxAmount: Infinity, // Enhanced KYC for transactions >₹10L
     requirements: [
       "pan",
       "name",
@@ -57,32 +58,23 @@ const KYC_LEVELS = {
 
 /**
  * Determine required KYC level based on transaction
+ * POLICY: Full KYC mandatory for ALL financial transactions regardless of amount or asset type
+ * Enhanced KYC only for very high-value transactions (>₹10L) or special regulatory requirements
  */
 function getRequiredKYCLevel(context: TransactionContext): "basic" | "full" | "enhanced" {
-  const { amount, type } = context;
+  const { amount } = context;
 
-  // CRITICAL: ALL bond transactions require Full KYC regardless of amount
-  // This ensures strict compliance for bond trading independent of transaction size
-  if (type === "bond") {
-    return "full";
-  }
-
-  // Stock and IPO transactions - amount-based Enhanced KYC for large trades
-  if (type === "stock" || type === "ipo") {
-    if (amount > KYC_LEVELS.FULL.maxAmount) {
-      return "enhanced";
-    }
-    return "full";
-  }
-
-  // Amount-based tiering for mutual funds and SIPs
-  if (amount > KYC_LEVELS.FULL.maxAmount) {
+  // CRITICAL: Enhanced KYC required for very high-value transactions (>₹10L)
+  // This ensures additional scrutiny for large trades
+  if (amount > 1000000) {
     return "enhanced";
   }
-  if (amount > KYC_LEVELS.BASIC.maxAmount) {
-    return "full";
-  }
-  return "basic";
+
+  // MANDATORY: Full KYC required for ALL financial transactions
+  // Independent of asset type (stocks, bonds, mutual funds, IPOs, SIPs)
+  // Independent of transaction amount
+  // Ensures maximum regulatory compliance with SEBI, RBI, and PMLA standards
+  return "full";
 }
 
 /**
