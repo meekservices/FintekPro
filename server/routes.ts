@@ -41,6 +41,7 @@ import BBPSService from './services/bbpsService';
 import { digilockerService } from './services/digilockerService';
 import { amfiService } from './amfi-service';
 import { bseService } from './bse-service';
+import { validateKYC } from './kyc-middleware';
 import { MultiSourceMFService } from './services/multisource-mf-service';
 import { ObjectStorageService, ObjectNotFoundError } from './objectStorage';
 import { randomUUID } from 'crypto';
@@ -18357,34 +18358,66 @@ System Security Data:`;
     }
   });
 
-  // Client: Complete order through BSE Star API
-  app.post('/api/proposals/:proposalId/complete-order', requireClientOrHigher, async (req: any, res: any) => {
-    try {
-      const { proposalId } = req.params;
-      const { orderType = 'LUMPSUM' } = req.body;
-      const userId = req.user.id;
-      
-      // Get proposal and items
-      const proposal = await storage.getInvestmentProposal(proposalId);
-      if (!proposal) {
-        return res.status(404).json({ error: 'Proposal not found' });
+  // Client: Complete order through BSE Star API (with KYC validation)
+  app.post(
+    '/api/proposals/:proposalId/complete-order', 
+    requireClientOrHigher,
+    async (req: any, res: any, next: any) => {
+      try {
+        const { proposalId } = req.params;
+        
+        // Get proposal and items FIRST to calculate total amount
+        const proposal = await storage.getInvestmentProposal(proposalId);
+        if (!proposal) {
+          return res.status(404).json({ error: 'Proposal not found' });
+        }
+        
+        const proposalItems = await storage.getInvestmentProposalItems(proposalId);
+        if (!proposalItems || proposalItems.length === 0) {
+          return res.status(400).json({ error: 'No items found in proposal' });
+        }
+        
+        // Calculate total transaction amount from proposal items
+        const totalAmount = proposalItems.reduce((sum, item) => sum + parseFloat(item.amount || '0'), 0);
+        
+        // Inject totalAmount into request body for KYC validation
+        req.body.totalAmount = totalAmount;
+        
+        // Continue to KYC validation
+        next();
+      } catch (error) {
+        console.error('Failed to prepare order:', error);
+        res.status(500).json({ error: 'Failed to prepare order' });
       }
+    },
+    validateKYC('mutual_fund', { amountField: 'totalAmount', skipForDemo: true }),
+    async (req: any, res: any) => {
+      try {
+        const { proposalId } = req.params;
+        const { orderType = 'LUMPSUM' } = req.body;
+        const userId = req.user.id;
+        
+        // Get proposal again (already validated above)
+        const proposal = await storage.getInvestmentProposal(proposalId);
+        if (!proposal) {
+          return res.status(404).json({ error: 'Proposal not found' });
+        }
 
-      // Verify proposal belongs to user
-      if (proposal.clientId !== userId) {
-        return res.status(403).json({ error: 'Not authorized to complete this proposal' });
-      }
+        // Verify proposal belongs to user
+        if (proposal.clientId !== userId) {
+          return res.status(403).json({ error: 'Not authorized to complete this proposal' });
+        }
 
-      // Check if proposal is accepted
-      if (proposal.status !== 'accepted') {
-        return res.status(400).json({ error: 'Proposal must be accepted before completion' });
-      }
+        // Check if proposal is accepted
+        if (proposal.status !== 'accepted') {
+          return res.status(400).json({ error: 'Proposal must be accepted before completion' });
+        }
 
-      // Get proposal items
-      const proposalItems = await storage.getInvestmentProposalItems(proposalId);
-      if (!proposalItems || proposalItems.length === 0) {
-        return res.status(400).json({ error: 'No items found in proposal' });
-      }
+        // Get proposal items (already validated above)
+        const proposalItems = await storage.getInvestmentProposalItems(proposalId);
+        if (!proposalItems || proposalItems.length === 0) {
+          return res.status(400).json({ error: 'No items found in proposal' });
+        }
 
       // Prepare BSE order request
       const bseOrderRequest = {

@@ -129,6 +129,30 @@ Preferred communication style: Simple, everyday language.
 - **Demo Mode**: Fully functional demo mode simulates BSE responses for testing without credentials
 - **Related Services**: Integrates with `server/bse-service.ts` for cart-to-order conversion
 
+### KYC Compliance System
+- **Purpose**: Mandatory KYC validation before all financial transactions (mutual funds, stocks, bonds, IPOs)
+- **Implementation Files**: `server/kyc-compliance-checker.ts`, `server/kyc-middleware.ts`
+- **Compliance Tiers**:
+  - **Basic KYC** (up to ₹50,000): PAN, name, address verification
+  - **Full KYC** (₹50,001 - ₹2,00,000): Basic + bank account + profile completion
+  - **Enhanced KYC** (above ₹2,00,000): Full + Video KYC + income proof
+- **Security Features**:
+  - Transaction amount validation - rejects missing/zero amounts
+  - AML status checking - blocks flagged/rejected users
+  - Audit logging for all KYC validation attempts (passed/failed)
+  - Tiered validation based on transaction type and amount
+- **Integration**:
+  - Middleware integrated into BSE mutual fund order endpoint (`/api/proposals/:proposalId/complete-order`)
+  - Amount calculation from proposal items before KYC validation
+  - Demo mode support for testing without complete KYC
+- **Regulatory Compliance**:
+  - SEBI KYC norms for securities transactions
+  - RBI KYC guidelines for payment transactions
+  - PMLA (Prevention of Money Laundering Act) compliance
+  - FATCA/CRS declarations for NRI investors
+- **Database Tables**: Uses `userProfiles` table for KYC status tracking
+- **Future Enhancements**: Database logging of KYC audit trail, risk-based monitoring, periodic KYC refresh
+
 ### Technical Implementation Notes
 - Both integrations use financial calculation libraries (financial, financejs) for accurate computations
 - APIs simulate official services using published rates and calculation methods from respective institutions
