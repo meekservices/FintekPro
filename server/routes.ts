@@ -4038,6 +4038,246 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Advanced bond search with comprehensive filters
+  app.get("/api/bonds/search/advanced", async (req, res) => {
+    try {
+      const filters = {
+        creditRatings: req.query.creditRatings ? (req.query.creditRatings as string).split(',') : undefined,
+        minYield: req.query.minYield ? parseFloat(req.query.minYield as string) : undefined,
+        maxYield: req.query.maxYield ? parseFloat(req.query.maxYield as string) : undefined,
+        minMaturityYears: req.query.minMaturityYears ? parseInt(req.query.minMaturityYears as string) : undefined,
+        maxMaturityYears: req.query.maxMaturityYears ? parseInt(req.query.maxMaturityYears as string) : undefined,
+        bondTypes: req.query.bondTypes ? (req.query.bondTypes as string).split(',') : undefined,
+        issuers: req.query.issuers ? (req.query.issuers as string).split(',') : undefined,
+        minCouponRate: req.query.minCouponRate ? parseFloat(req.query.minCouponRate as string) : undefined,
+        maxCouponRate: req.query.maxCouponRate ? parseFloat(req.query.maxCouponRate as string) : undefined,
+        couponTypes: req.query.couponTypes ? (req.query.couponTypes as string).split(',') : undefined,
+        tradingStatus: req.query.tradingStatus as string
+      };
+
+      const bonds = await bseBondApi.advancedSearch(filters);
+
+      res.json({
+        status: "success",
+        data: bonds,
+        filters: filters,
+        count: bonds.length,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error in advanced bond search:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to perform advanced bond search"
+      });
+    }
+  });
+
+  // Get bonds by credit rating
+  app.get("/api/bonds/filter/rating", async (req, res) => {
+    try {
+      const ratings = req.query.ratings ? (req.query.ratings as string).split(',') : ['AAA'];
+      const bonds = await bseBondApi.getBondsByRating(ratings);
+
+      res.json({
+        status: "success",
+        data: bonds,
+        ratings: ratings,
+        count: bonds.length
+      });
+    } catch (error) {
+      console.error("Error fetching bonds by rating:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch bonds by rating"
+      });
+    }
+  });
+
+  // Get bonds by yield range
+  app.get("/api/bonds/filter/yield", async (req, res) => {
+    try {
+      const minYield = req.query.min ? parseFloat(req.query.min as string) : 0;
+      const maxYield = req.query.max ? parseFloat(req.query.max as string) : 15;
+      
+      const bonds = await bseBondApi.getBondsByYieldRange(minYield, maxYield);
+
+      res.json({
+        status: "success",
+        data: bonds,
+        yieldRange: { min: minYield, max: maxYield },
+        count: bonds.length
+      });
+    } catch (error) {
+      console.error("Error fetching bonds by yield:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch bonds by yield range"
+      });
+    }
+  });
+
+  // Get bonds by maturity
+  app.get("/api/bonds/filter/maturity", async (req, res) => {
+    try {
+      const params = {
+        minYears: req.query.minYears ? parseInt(req.query.minYears as string) : undefined,
+        maxYears: req.query.maxYears ? parseInt(req.query.maxYears as string) : undefined,
+        exactYears: req.query.exactYears ? parseInt(req.query.exactYears as string) : undefined
+      };
+      
+      const bonds = await bseBondApi.getBondsByMaturity(params);
+
+      res.json({
+        status: "success",
+        data: bonds,
+        maturityFilter: params,
+        count: bonds.length
+      });
+    } catch (error) {
+      console.error("Error fetching bonds by maturity:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch bonds by maturity"
+      });
+    }
+  });
+
+  // Get tax-free bonds
+  app.get("/api/bonds/tax-free-bonds", async (req, res) => {
+    try {
+      const bonds = await bseBondApi.getTaxFreeBonds();
+
+      res.json({
+        status: "success",
+        data: bonds,
+        count: bonds.length,
+        message: "Tax-free bonds with interest exempt from taxation"
+      });
+    } catch (error) {
+      console.error("Error fetching tax-free bonds:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch tax-free bonds"
+      });
+    }
+  });
+
+  // Get infrastructure bonds
+  app.get("/api/bonds/infrastructure-bonds", async (req, res) => {
+    try {
+      const bonds = await bseBondApi.getInfrastructureBonds();
+
+      res.json({
+        status: "success",
+        data: bonds,
+        count: bonds.length,
+        message: "Infrastructure bonds for long-term infrastructure projects"
+      });
+    } catch (error) {
+      console.error("Error fetching infrastructure bonds:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch infrastructure bonds"
+      });
+    }
+  });
+
+  // Get NSE NCB yield curve data
+  app.get("/api/bonds/yield-curve", async (req, res) => {
+    try {
+      const yieldCurve = await nseNcbApi.getYieldCurve();
+
+      res.json({
+        status: "success",
+        data: yieldCurve,
+        message: "Government securities yield curve across all tenors"
+      });
+    } catch (error) {
+      console.error("Error fetching yield curve:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch yield curve data"
+      });
+    }
+  });
+
+  // Get historical auction results
+  app.get("/api/bonds/auctions/historical", async (req, res) => {
+    try {
+      const params = {
+        securityType: req.query.type as string,
+        fromDate: req.query.from as string,
+        toDate: req.query.to as string,
+        limit: req.query.limit ? parseInt(req.query.limit as string) : 10
+      };
+
+      const auctions = await nseNcbApi.getHistoricalAuctions(params);
+
+      res.json({
+        status: "success",
+        data: auctions,
+        filters: params,
+        count: auctions.length
+      });
+    } catch (error) {
+      console.error("Error fetching historical auctions:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch historical auction data"
+      });
+    }
+  });
+
+  // Get Sovereign Gold Bonds data
+  app.get("/api/bonds/sgb", async (req, res) => {
+    try {
+      const sgbs = await nseNcbApi.getSGBData();
+
+      res.json({
+        status: "success",
+        data: sgbs,
+        count: sgbs.length,
+        message: "Sovereign Gold Bonds - gold-backed government securities"
+      });
+    } catch (error) {
+      console.error("Error fetching SGB data:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch SGB data"
+      });
+    }
+  });
+
+  // Get real-time bond market prices
+  app.post("/api/bonds/market-prices", async (req, res) => {
+    try {
+      const { isins } = req.body;
+      
+      if (!isins || !Array.isArray(isins)) {
+        return res.status(400).json({
+          status: "error",
+          error: "ISINs array is required"
+        });
+      }
+
+      const prices = await nseNcbApi.getMarketPrices(isins);
+
+      res.json({
+        status: "success",
+        data: prices,
+        count: prices.length,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error fetching market prices:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch market prices"
+      });
+    }
+  });
+
   // Get bonds market overview
   app.get("/api/bonds/market-overview", async (req, res) => {
     try {
