@@ -229,6 +229,7 @@ export interface IStorage {
   deleteClientAgentRelationship(id: string): Promise<boolean>;
   getAgentForClient(clientId: string, relationshipType?: string): Promise<ClientAgentRelationship | undefined>;
   getClientsForAgent(agentId: string): Promise<ClientAgentRelationship[]>;
+  autoAssignDefaultAgent(userId: string): Promise<ClientAgentRelationship | null>;
 
   // Investment proposal methods for portfolio improvement suggestions
   getInvestmentProposals(options?: { clientId?: string; agentId?: string; status?: string }): Promise<InvestmentProposal[]>;
@@ -1487,6 +1488,82 @@ export class DatabaseStorage implements IStorage {
 
   async getClientsForAgent(agentId: string): Promise<ClientAgentRelationship[]> {
     return [];
+  }
+
+  async autoAssignDefaultAgent(userId: string): Promise<ClientAgentRelationship | null> {
+    try {
+      // Check if user already has an agent assigned
+      const existingRelationship = await db
+        .select()
+        .from(schema.clientAgentRelationships)
+        .where(eq(schema.clientAgentRelationships.clientId, userId))
+        .limit(1);
+      
+      if (existingRelationship.length > 0) {
+        console.log(`User ${userId} already has an agent assigned`);
+        return null;
+      }
+
+      // Get all active agents
+      const agents = await db
+        .select()
+        .from(schema.customerCareAgents)
+        .where(eq(schema.customerCareAgents.status, 'active'));
+      
+      // Only auto-assign if there's exactly one agent
+      if (agents.length !== 1) {
+        console.log(`Auto-assignment skipped: ${agents.length} agents exist`);
+        return null;
+      }
+
+      const defaultAgent = agents[0];
+      
+      // Find the agent's user account by email, or create one if it doesn't exist
+      let [agentUser] = await db
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.email, defaultAgent.email))
+        .limit(1);
+      
+      if (!agentUser) {
+        // Create a user account for the agent
+        [agentUser] = await db
+          .insert(schema.users)
+          .values({
+            email: defaultAgent.email,
+            firstName: defaultAgent.fullName.split(' ')[0] || defaultAgent.fullName,
+            lastName: defaultAgent.fullName.split(' ').slice(1).join(' ') || '',
+            password: '', // Agents use separate authentication
+            isEmailVerified: true,
+            roles: ['agent'],
+            isActive: true,
+          })
+          .returning();
+        console.log(`Created user account for agent: ${defaultAgent.email}`);
+      }
+      
+      // Create the client-agent relationship
+      const [relationship] = await db
+        .insert(schema.clientAgentRelationships)
+        .values({
+          clientId: userId,
+          agentId: agentUser.id,
+          euinNumber: defaultAgent.euinNumber || '',
+          arnCode: defaultAgent.arnCode || null,
+          distributorId: defaultAgent.distributorId || null,
+          relationshipType: 'primary',
+          isActive: true,
+          autoPopulateEuin: true,
+          autoPopulateArn: true,
+        })
+        .returning();
+      
+      console.log(`✅ Auto-assigned user ${userId} to default agent ${defaultAgent.fullName}`);
+      return relationship;
+    } catch (error) {
+      console.error('Error auto-assigning default agent:', error);
+      return null;
+    }
   }
 
   async getInvestmentProposals(options?: { clientId?: string; agentId?: string; status?: string }): Promise<InvestmentProposal[]> {
