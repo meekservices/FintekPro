@@ -13,7 +13,6 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { Loader2, Eye, EyeOff, Shield, TrendingUp, BarChart3, MessageSquare } from "lucide-react";
-import { FaGoogle, FaApple } from "react-icons/fa";
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -206,28 +205,6 @@ export default function AuthPage() {
                   {/* Social Login Tab */}
                   <TabsContent value="social" className="space-y-4">
                     <div className="space-y-3">
-                      {/* Google Sign In */}
-                      <Button
-                        variant="outline"
-                        className="w-full h-12 text-base"
-                        onClick={() => window.location.href = '/api/login'}
-                        data-testid="button-login-google"
-                      >
-                        <FaGoogle className="w-5 h-5 mr-3 text-red-500" />
-                        Continue with Google
-                      </Button>
-
-                      {/* Apple Sign In */}
-                      <Button
-                        variant="outline"
-                        className="w-full h-12 text-base"
-                        onClick={() => window.location.href = '/api/login'}
-                        data-testid="button-login-apple"
-                      >
-                        <FaApple className="w-5 h-5 mr-3" />
-                        Continue with Apple
-                      </Button>
-
                       {/* WhatsApp Sign In */}
                       <Link href="/whatsapp-login" data-testid="link-whatsapp-login">
                         <Button 
