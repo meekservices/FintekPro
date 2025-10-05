@@ -12,6 +12,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNSEIndices, useMarketMovers, useMarketStatus } from "@/hooks/use-market-data";
 import { usePortfolios, usePortfolioPerformance, useEnhancedPortfolioHoldings } from "@/hooks/use-portfolio";
 import { InvestmentModal } from "@/components/InvestmentModal";
+import { KYCWarningBanner } from "@/components/KYCWarningBanner";
 
 function FundCard({ fund, sebiData, onInvestClick }: { fund: MutualFundData; sebiData?: any[]; onInvestClick: (fund: MutualFundData) => void }) {
   const navValue = parseFloat(fund.nav || "0");
@@ -998,6 +999,11 @@ export default function MutualFunds() {
               Advanced Filters
             </Button>
           </div>
+        </div>
+
+        {/* KYC Warning */}
+        <div className="mb-8">
+          <KYCWarningBanner />
         </div>
 
         <Tabs defaultValue="explore" className="space-y-8">
