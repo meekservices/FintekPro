@@ -206,5 +206,17 @@ app.use((req, res, next) => {
     } catch (error) {
       console.error('❌ Error importing reminder scheduler:', error);
     }
+    
+    // Initialize Bond Catalog Service
+    try {
+      import('./bond-catalog-service').then(({ bondCatalogService }) => {
+        bondCatalogService.startAutoRefresh();
+        log('✅ Bond Catalog Service initialized');
+      }).catch(error => {
+        console.error('❌ Failed to initialize bond catalog service:', error);
+      });
+    } catch (error) {
+      console.error('❌ Error importing bond catalog service:', error);
+    }
   });
 })();
