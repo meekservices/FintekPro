@@ -7,6 +7,7 @@ import { Calendar, TrendingUp, Clock, IndianRupee, Building2, FileText, External
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import type { IpoCompany, IpoNews } from "@shared/schema";
+import { KYCWarningBanner } from "@/components/KYCWarningBanner";
 
 export default function IPO() {
   const { data: upcomingIpos = [], isLoading: upcomingLoading } = useQuery({
@@ -165,6 +166,9 @@ export default function IPO() {
   return (
     <div className="space-y-8" data-testid="ipo-page">
       <div className="space-y-6">
+
+        {/* KYC Warning */}
+        <KYCWarningBanner />
 
         <Tabs defaultValue="upcoming" className="space-y-8">
           <TabsList className="grid w-full grid-cols-5">
