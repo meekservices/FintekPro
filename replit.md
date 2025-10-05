@@ -74,6 +74,10 @@ Preferred communication style: Simple, everyday language.
 ## Recent Changes
 
 ### Latest modifications with dates
+- **October 5, 2025**: Built comprehensive Re-KYC automation system with risk-based due dates (Low: 10yr, Medium: 8yr, High: 2yr) and automated reminders at 60/30/15 days before expiry
+- **October 5, 2025**: Created KYCStatusCard component displaying transaction readiness for Mutual Funds, Stocks/Broking, and International Trading with visual status badges
+- **October 5, 2025**: Integrated Re-KYC status card into profile page with URL parameter support (?tab=kyc) for seamless workflow redirection
+- **October 5, 2025**: Implemented daily cron job for Re-KYC reminder notifications via email/SMS and CSV report generation for admin monitoring
 - **October 4, 2025**: Successfully tested BSE Star MFD API integration in demo mode - order processing, status tracking, and payment integration all verified working
 - **October 4, 2025**: Fixed BSE credential validation to enable demo mode testing without requiring production credentials
 - **October 4, 2025**: Removed SEBI API endpoints (regulatory data API) to clean up console errors - BSE Star MFD API is the actual transaction processing system
@@ -151,7 +155,50 @@ Preferred communication style: Simple, everyday language.
   - PMLA (Prevention of Money Laundering Act) compliance
   - FATCA/CRS declarations for NRI investors
 - **Database Tables**: Uses `userProfiles` table for KYC status tracking
-- **Future Enhancements**: Database logging of KYC audit trail, risk-based monitoring, periodic KYC refresh
+
+### Re-KYC Automation System
+- **Purpose**: Automated periodic KYC renewal with risk-based due dates and advance reminders
+- **Implementation Files**: `server/rekyc-service.ts`, `server/rekyc-cron.ts`, `server/report-generator.ts`
+- **Frontend Components**: `client/src/components/KYCStatusCard.tsx` displays transaction readiness status
+- **Risk-Based Due Dates**:
+  - **Low Risk**: 10-year KYC validity period
+  - **Medium Risk**: 8-year KYC validity period  
+  - **High Risk**: 2-year KYC validity period
+- **Automated Reminders**:
+  - Cron job runs daily at 9:00 AM checking for expiring KYC
+  - Sends email/SMS notifications at 60, 30, and 15 days before expiry
+  - Tracks reminder history to prevent duplicate notifications
+  - Generates CSV reports of customers requiring Re-KYC
+- **Transaction Permissions**:
+  - **Mutual Funds**: Requires Basic KYC or higher (active status)
+  - **Stocks & Broking**: Requires Full KYC or higher (active status)
+  - **International Trading**: Requires Enhanced KYC (active status)
+  - Expired KYC blocks ALL transactions across asset classes
+- **API Endpoints**:
+  - `GET /api/profile/kyc-status`: Returns current KYC level, expiry date, transaction permissions, pending actions
+  - `POST /api/profile/trigger-rekyc`: Initiates Re-KYC workflow for user
+  - `POST /api/admin/trigger-rekyc-reminders`: Manual trigger for admin to send reminders
+- **Profile Integration**:
+  - KYC status card displayed prominently on profile page (`/profile`)
+  - Shows visual status badges (Active/Expiring/Expired)
+  - Permission matrix indicating which products user can trade
+  - Countdown to KYC expiry with color-coded alerts
+  - One-click "Complete Re-KYC" button redirecting to `/profile?tab=kyc`
+- **Database Fields** (userProfiles table):
+  - `kycUpdateDueDate`: Next Re-KYC due date calculated based on risk category
+  - `riskCategory`: low/medium/high determines KYC validity period
+  - `reKycRemindersSent`: JSON array tracking when reminders were sent
+  - `videoKycCompleted`: Boolean for Enhanced KYC requirement
+  - `isProfileCompleted`: Boolean for Full KYC requirement
+  - `amlStatus`: Blocks transactions if flagged/rejected
+- **Report Generation**:
+  - Daily CSV reports of customers requiring Re-KYC
+  - Stored in `generatedReports` table with download links
+  - Includes customer ID, name, current KYC level, expiry date, days remaining
+- **Regulatory Compliance**:
+  - SEBI periodic KYC update requirements for securities trading
+  - RBI customer due diligence (CDD) norms
+  - Risk-based approach aligned with PMLA guidelines
 
 ### Technical Implementation Notes
 - Both integrations use financial calculation libraries (financial, financejs) for accurate computations
