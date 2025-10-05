@@ -135,6 +135,9 @@ async function upsertUser(claims: any) {
       lastLoginAt: new Date(),
       loginCount: 1,
     });
+    
+    // Auto-assign to default agent if only one agent exists
+    await storage.autoAssignDefaultAgent(claims["sub"]);
   }
 }
 
