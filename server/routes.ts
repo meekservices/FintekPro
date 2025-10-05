@@ -57,6 +57,7 @@ import { providerRegistry, type UnifiedApplicationData } from './partner-applica
 import { insertPartnerApplicationSchema } from '@shared/schema';
 import phonePeService from './phonepe';
 import { mutualFundsRefreshJob } from './mutual-funds-refresh-job';
+import { initReKYCCron } from './rekyc-cron';
 import { seedProducts } from './seed-products';
 
 // Tax Calculation Request Validation Schemas
@@ -110,6 +111,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Start mutual funds background refresh job
   mutualFundsRefreshJob.start();
+  
+  // Start Re-KYC reminder cron job (runs daily at 9:00 AM)
+  initReKYCCron();
   
   // Auto-seed products if database is empty
   try {
@@ -553,6 +557,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating user profile:", error);
       res.status(500).json({ error: "Failed to update profile" });
+    }
+  });
+
+  // KYC Status endpoint - returns comprehensive KYC info and transaction readiness
+  app.get("/api/profile/kyc-status", requireClientOrHigher, async (req, res) => {
+    try {
+      const { getKYCStatus } = await import("./rekyc-service");
+      const userId = req.user.id;
+      
+      const kycStatus = await getKYCStatus(userId);
+      
+      res.json({
+        success: true,
+        data: kycStatus,
+      });
+    } catch (error) {
+      console.error("Error fetching KYC status:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch KYC status",
+      });
+    }
+  });
+
+  // Trigger Re-KYC process
+  app.post("/api/profile/trigger-rekyc", requireClientOrHigher, async (req, res) => {
+    try {
+      const { resetReKYCProcess } = await import("./rekyc-service");
+      const userId = req.user.id;
+      
+      const result = await resetReKYCProcess(userId);
+      
+      res.json({
+        success: true,
+        message: "Re-KYC process initiated successfully",
+        data: result,
+      });
+    } catch (error) {
+      console.error("Error triggering Re-KYC:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to trigger Re-KYC process",
+      });
+    }
+  });
+
+  // Manual Re-KYC reminder trigger (admin only)
+  app.post("/api/admin/trigger-rekyc-reminders", requireAdmin, async (req, res) => {
+    try {
+      const { triggerReKYCRemindersManually } = await import("./rekyc-cron");
+      
+      const result = await triggerReKYCRemindersManually();
+      
+      res.json({
+        success: true,
+        message: "Re-KYC reminders sent",
+        data: result,
+      });
+    } catch (error) {
+      console.error("Error triggering Re-KYC reminders:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to send Re-KYC reminders",
+      });
     }
   });
 
