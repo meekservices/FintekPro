@@ -195,15 +195,17 @@ export function BrokingDashboard() {
       <KYCWarningBanner />
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-7">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="indian-trading">Indian Markets</TabsTrigger>
-          <TabsTrigger value="derivatives">Commodities & Derivatives</TabsTrigger>
-          <TabsTrigger value="sentiment">Heatmap</TabsTrigger>
-          <TabsTrigger value="ib-trading">Global Markets</TabsTrigger>
-          <TabsTrigger value="order-book">Order Book</TabsTrigger>
-          <TabsTrigger value="watchlist">Watchlist</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto pb-2">
+          <TabsList className="inline-flex w-auto min-w-full">
+            <TabsTrigger value="overview" className="flex-shrink-0">Overview</TabsTrigger>
+            <TabsTrigger value="indian-trading" className="flex-shrink-0">Indian Markets</TabsTrigger>
+            <TabsTrigger value="derivatives" className="flex-shrink-0">Commodities & Derivatives</TabsTrigger>
+            <TabsTrigger value="sentiment" className="flex-shrink-0">Heatmap</TabsTrigger>
+            <TabsTrigger value="ib-trading" className="flex-shrink-0">Global Markets</TabsTrigger>
+            <TabsTrigger value="order-book" className="flex-shrink-0">Order Book</TabsTrigger>
+            <TabsTrigger value="watchlist" className="flex-shrink-0">Watchlist</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="overview" className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
