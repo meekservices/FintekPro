@@ -335,20 +335,22 @@ export default function Markets() {
           <Tabs defaultValue="exchanges" className="w-full">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-3xl font-bold text-gray-900">Market Data</h2>
-              <TabsList className="grid w-full max-w-md grid-cols-3">
-                <TabsTrigger value="exchanges" className="flex items-center gap-2">
-                  <Activity className="h-4 w-4" />
-                  Exchanges
-                </TabsTrigger>
-                <TabsTrigger value="movers" className="flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4" />
-                  Movers
-                </TabsTrigger>
-                <TabsTrigger value="news" className="flex items-center gap-2">
-                  <AlertCircle className="h-4 w-4" />
-                  News
-                </TabsTrigger>
-              </TabsList>
+              <div className="overflow-x-auto pb-2 max-w-md">
+                <TabsList className="inline-flex w-auto min-w-full">
+                  <TabsTrigger value="exchanges" className="flex items-center gap-2 flex-shrink-0">
+                    <Activity className="h-4 w-4" />
+                    Exchanges
+                  </TabsTrigger>
+                  <TabsTrigger value="movers" className="flex items-center gap-2 flex-shrink-0">
+                    <TrendingUp className="h-4 w-4" />
+                    Movers
+                  </TabsTrigger>
+                  <TabsTrigger value="news" className="flex items-center gap-2 flex-shrink-0">
+                    <AlertCircle className="h-4 w-4" />
+                    News
+                  </TabsTrigger>
+                </TabsList>
+              </div>
             </div>
 
             <TabsContent value="exchanges" className="space-y-8">

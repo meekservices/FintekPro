@@ -289,20 +289,22 @@ export default function FinancialCalculators() {
     <div className="container mx-auto px-4 py-8 space-y-8">
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="tax" data-testid="tab-tax-calculator">
-              <Receipt className="w-4 h-4 mr-2" />
-              Tax Calculator
-            </TabsTrigger>
-            <TabsTrigger value="sip" data-testid="tab-sip-calculator">
-              <TrendingUp className="w-4 h-4 mr-2" />
-              SIP Calculator
-            </TabsTrigger>
-            <TabsTrigger value="emi" data-testid="tab-emi-calculator">
-              <Home className="w-4 h-4 mr-2" />
-              EMI Calculator
-            </TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto pb-2">
+            <TabsList className="inline-flex w-auto min-w-full">
+              <TabsTrigger value="tax" data-testid="tab-tax-calculator" className="flex-shrink-0">
+                <Receipt className="w-4 h-4 mr-2" />
+                Tax Calculator
+              </TabsTrigger>
+              <TabsTrigger value="sip" data-testid="tab-sip-calculator" className="flex-shrink-0">
+                <TrendingUp className="w-4 h-4 mr-2" />
+                SIP Calculator
+              </TabsTrigger>
+              <TabsTrigger value="emi" data-testid="tab-emi-calculator" className="flex-shrink-0">
+                <Home className="w-4 h-4 mr-2" />
+                EMI Calculator
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* Tax Calculator Tab */}
           <TabsContent value="tax" className="space-y-6">

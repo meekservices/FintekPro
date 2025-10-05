@@ -224,13 +224,15 @@ export default function BajajFinance() {
 
         {/* Financial Calculators */}
         <Tabs defaultValue="emi" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5">
-            <TabsTrigger value="emi">EMI Calculator</TabsTrigger>
-            <TabsTrigger value="personal-loan">Personal Loan</TabsTrigger>
-            <TabsTrigger value="business-loan">Business Loan</TabsTrigger>
-            <TabsTrigger value="fixed-deposit">Fixed Deposit</TabsTrigger>
-            <TabsTrigger value="eligibility">Eligibility</TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto pb-2">
+            <TabsList className="inline-flex w-auto min-w-full">
+              <TabsTrigger value="emi" className="flex-shrink-0">EMI Calculator</TabsTrigger>
+              <TabsTrigger value="personal-loan" className="flex-shrink-0">Personal Loan</TabsTrigger>
+              <TabsTrigger value="business-loan" className="flex-shrink-0">Business Loan</TabsTrigger>
+              <TabsTrigger value="fixed-deposit" className="flex-shrink-0">Fixed Deposit</TabsTrigger>
+              <TabsTrigger value="eligibility" className="flex-shrink-0">Eligibility</TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* EMI Calculator */}
           <TabsContent value="emi">

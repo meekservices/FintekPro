@@ -259,24 +259,26 @@ export default function CkycManagement() {
       </div>
 
       <Tabs defaultValue="records" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="records" className="flex items-center gap-2">
-            <Users size={16} />
-            Records
-          </TabsTrigger>
-          <TabsTrigger value="notifications" className="flex items-center gap-2">
-            <Bell size={16} />
-            Notifications
-          </TabsTrigger>
-          <TabsTrigger value="progress" className="flex items-center gap-2">
-            <FileText size={16} />
-            Progress Tracking
-          </TabsTrigger>
-          <TabsTrigger value="logs" className="flex items-center gap-2">
-            <Settings size={16} />
-            Action Logs
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto pb-2">
+          <TabsList className="inline-flex w-auto min-w-full">
+            <TabsTrigger value="records" className="flex items-center gap-2 flex-shrink-0">
+              <Users size={16} />
+              Records
+            </TabsTrigger>
+            <TabsTrigger value="notifications" className="flex items-center gap-2 flex-shrink-0">
+              <Bell size={16} />
+              Notifications
+            </TabsTrigger>
+            <TabsTrigger value="progress" className="flex items-center gap-2 flex-shrink-0">
+              <FileText size={16} />
+              Progress Tracking
+            </TabsTrigger>
+            <TabsTrigger value="logs" className="flex items-center gap-2 flex-shrink-0">
+              <Settings size={16} />
+              Action Logs
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="records" className="space-y-4">
           <Card>

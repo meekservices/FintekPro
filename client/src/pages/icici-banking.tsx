@@ -334,24 +334,26 @@ export default function ICICIBanking() {
 
             {/* Banking Services Tabs */}
             <Tabs defaultValue="payments" className="space-y-6">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="payments" data-testid="payments-tab">
-                  <Send className="h-4 w-4 mr-2" />
-                  Payments
-                </TabsTrigger>
-                <TabsTrigger value="transactions" data-testid="transactions-tab">
-                  <History className="h-4 w-4 mr-2" />
-                  Transactions
-                </TabsTrigger>
-                <TabsTrigger value="statements" data-testid="statements-tab">
-                  <Receipt className="h-4 w-4 mr-2" />
-                  Statements
-                </TabsTrigger>
-                <TabsTrigger value="validation" data-testid="validation-tab">
-                  <Shield className="h-4 w-4 mr-2" />
-                  Validation
-                </TabsTrigger>
-              </TabsList>
+              <div className="overflow-x-auto pb-2">
+                <TabsList className="inline-flex w-auto min-w-full">
+                  <TabsTrigger value="payments" data-testid="payments-tab" className="flex-shrink-0">
+                    <Send className="h-4 w-4 mr-2" />
+                    Payments
+                  </TabsTrigger>
+                  <TabsTrigger value="transactions" data-testid="transactions-tab" className="flex-shrink-0">
+                    <History className="h-4 w-4 mr-2" />
+                    Transactions
+                  </TabsTrigger>
+                  <TabsTrigger value="statements" data-testid="statements-tab" className="flex-shrink-0">
+                    <Receipt className="h-4 w-4 mr-2" />
+                    Statements
+                  </TabsTrigger>
+                  <TabsTrigger value="validation" data-testid="validation-tab" className="flex-shrink-0">
+                    <Shield className="h-4 w-4 mr-2" />
+                    Validation
+                  </TabsTrigger>
+                </TabsList>
+              </div>
 
               {/* IMPS Payments */}
               <TabsContent value="payments">
