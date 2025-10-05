@@ -145,7 +145,7 @@ function GovernmentSecurities() {
     </div>;
   }
 
-  const bonds = (gsecs as any)?.bonds || [];
+  const bonds = (gsecs as any)?.data || [];
 
   return (
     <div className="space-y-4">
@@ -321,7 +321,7 @@ function CorporateBonds() {
     </div>;
   }
 
-  const bonds = (corporateBonds as any)?.bonds || [];
+  const bonds = (corporateBonds as any)?.data || [];
 
   return (
     <div className="space-y-4">
@@ -484,7 +484,7 @@ function BondHoldings() {
     return <div className="animate-pulse h-48 bg-gray-200 rounded-lg" />;
   }
 
-  const bonds = (holdings as any)?.holdings || [];
+  const bonds = (holdings as any)?.data || [];
 
   if (bonds.length === 0) {
     return (
@@ -600,7 +600,7 @@ function BondOrders() {
     return <div className="animate-pulse h-32 bg-gray-200 rounded-lg mt-6" />;
   }
 
-  const orderList = (orders as any)?.orders || [];
+  const orderList = (orders as any)?.data || [];
 
   if (orderList.length === 0) {
     return (
