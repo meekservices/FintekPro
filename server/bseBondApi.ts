@@ -431,6 +431,318 @@ export class BSEBondApiService {
       return [];
     }
   }
+
+  /**
+   * Advanced bond search with comprehensive filters
+   */
+  async advancedSearch(filters: {
+    creditRatings?: string[];
+    minYield?: number;
+    maxYield?: number;
+    minMaturityYears?: number;
+    maxMaturityYears?: number;
+    bondTypes?: string[];
+    issuers?: string[];
+    minCouponRate?: number;
+    maxCouponRate?: number;
+    couponTypes?: string[];
+    tradingStatus?: string;
+  }): Promise<CorporateBond[]> {
+    try {
+      const allBonds = await this.getTradableBonds();
+      
+      return allBonds.filter(bond => {
+        // Credit rating filter
+        if (filters.creditRatings && filters.creditRatings.length > 0) {
+          if (!filters.creditRatings.includes(bond.creditRating)) {
+            return false;
+          }
+        }
+        
+        // Yield range filter
+        if (filters.minYield !== undefined && bond.yieldToMaturity < filters.minYield) {
+          return false;
+        }
+        if (filters.maxYield !== undefined && bond.yieldToMaturity > filters.maxYield) {
+          return false;
+        }
+        
+        // Maturity filter
+        if (filters.minMaturityYears !== undefined && bond.tenorYears < filters.minMaturityYears) {
+          return false;
+        }
+        if (filters.maxMaturityYears !== undefined && bond.tenorYears > filters.maxMaturityYears) {
+          return false;
+        }
+        
+        // Bond type filter
+        if (filters.bondTypes && filters.bondTypes.length > 0) {
+          if (!filters.bondTypes.includes(bond.bondType)) {
+            return false;
+          }
+        }
+        
+        // Issuer filter
+        if (filters.issuers && filters.issuers.length > 0) {
+          const matchesIssuer = filters.issuers.some(issuer => 
+            bond.issuer.toLowerCase().includes(issuer.toLowerCase())
+          );
+          if (!matchesIssuer) {
+            return false;
+          }
+        }
+        
+        // Coupon rate filter
+        if (filters.minCouponRate !== undefined && bond.couponRate < filters.minCouponRate) {
+          return false;
+        }
+        if (filters.maxCouponRate !== undefined && bond.couponRate > filters.maxCouponRate) {
+          return false;
+        }
+        
+        // Coupon type filter
+        if (filters.couponTypes && filters.couponTypes.length > 0) {
+          if (!filters.couponTypes.includes(bond.couponType)) {
+            return false;
+          }
+        }
+        
+        // Trading status filter
+        if (filters.tradingStatus && bond.tradingStatus !== filters.tradingStatus) {
+          return false;
+        }
+        
+        return true;
+      });
+    } catch (error) {
+      console.error('Error in advanced bond search:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get bonds by credit rating
+   */
+  async getBondsByRating(ratings: string[]): Promise<CorporateBond[]> {
+    try {
+      const allBonds = await this.getTradableBonds();
+      return allBonds.filter(bond => ratings.includes(bond.creditRating));
+    } catch (error) {
+      console.error('Error fetching bonds by rating:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get bonds by yield range
+   */
+  async getBondsByYieldRange(minYield: number, maxYield: number): Promise<CorporateBond[]> {
+    try {
+      const allBonds = await this.getTradableBonds();
+      return allBonds.filter(bond => 
+        bond.yieldToMaturity >= minYield && bond.yieldToMaturity <= maxYield
+      );
+    } catch (error) {
+      console.error('Error fetching bonds by yield range:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get bonds by maturity period
+   */
+  async getBondsByMaturity(params: {
+    minYears?: number;
+    maxYears?: number;
+    exactYears?: number;
+  }): Promise<CorporateBond[]> {
+    try {
+      const allBonds = await this.getTradableBonds();
+      
+      return allBonds.filter(bond => {
+        if (params.exactYears !== undefined) {
+          return bond.tenorYears === params.exactYears;
+        }
+        
+        if (params.minYears !== undefined && bond.tenorYears < params.minYears) {
+          return false;
+        }
+        
+        if (params.maxYears !== undefined && bond.tenorYears > params.maxYears) {
+          return false;
+        }
+        
+        return true;
+      });
+    } catch (error) {
+      console.error('Error fetching bonds by maturity:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get tax-free bonds (special category bonds with tax benefits)
+   */
+  async getTaxFreeBonds(): Promise<any[]> {
+    try {
+      if (!IS_PRODUCTION) {
+        return this.getDemoTaxFreeBonds();
+      }
+
+      const response = await axios.get(
+        `${API_CONFIG.baseUrl}/bonds/tax-free`,
+        {
+          headers: {
+            'User-Agent': 'FintekPro/1.0',
+            'Accept': 'application/json'
+          }
+        }
+      );
+
+      return response.data.bonds || [];
+    } catch (error) {
+      console.error('Error fetching tax-free bonds:', error);
+      return this.getDemoTaxFreeBonds();
+    }
+  }
+
+  /**
+   * Get demo tax-free bonds
+   */
+  private getDemoTaxFreeBonds(): any[] {
+    const in10Years = new Date();
+    in10Years.setFullYear(in10Years.getFullYear() + 10);
+
+    return [
+      {
+        isin: 'INE005A07005',
+        securityCode: '950365',
+        bondName: 'NHAI Tax-Free Bonds 7.35% 2035',
+        issuer: 'National Highways Authority of India',
+        bondType: 'tax_free_bond',
+        faceValue: 1000,
+        couponType: 'fixed',
+        couponRate: 7.35,
+        couponFrequency: 'annual',
+        maturityDate: in10Years.toISOString().split('T')[0],
+        tenorYears: 10,
+        currentPrice: 1020.00,
+        yieldToMaturity: 7.10,
+        creditRating: 'AAA',
+        ratingAgency: 'CRISIL',
+        taxBenefit: 'Interest income exempt from tax under Section 10',
+        tradingStatus: 'active',
+        minimumLotSize: 10,
+        lastTradedPrice: 1020.00,
+        volume: 1500
+      },
+      {
+        isin: 'INE006A07006',
+        securityCode: '950366',
+        bondName: 'IRFC Tax-Free Bonds 7.28% 2034',
+        issuer: 'Indian Railway Finance Corporation',
+        bondType: 'tax_free_bond',
+        faceValue: 1000,
+        couponType: 'fixed',
+        couponRate: 7.28,
+        couponFrequency: 'annual',
+        maturityDate: in10Years.toISOString().split('T')[0],
+        tenorYears: 10,
+        currentPrice: 1015.00,
+        yieldToMaturity: 7.05,
+        creditRating: 'AAA',
+        ratingAgency: 'ICRA',
+        taxBenefit: 'Tax-exempt interest under Section 10(15)(iv)(h)',
+        tradingStatus: 'active',
+        minimumLotSize: 10,
+        lastTradedPrice: 1015.00,
+        volume: 2000
+      }
+    ];
+  }
+
+  /**
+   * Get infrastructure bonds (special infrastructure financing bonds)
+   */
+  async getInfrastructureBonds(): Promise<any[]> {
+    try {
+      if (!IS_PRODUCTION) {
+        return this.getDemoInfrastructureBonds();
+      }
+
+      const response = await axios.get(
+        `${API_CONFIG.baseUrl}/bonds/infrastructure`,
+        {
+          headers: {
+            'User-Agent': 'FintekPro/1.0',
+            'Accept': 'application/json'
+          }
+        }
+      );
+
+      return response.data.bonds || [];
+    } catch (error) {
+      console.error('Error fetching infrastructure bonds:', error);
+      return this.getDemoInfrastructureBonds();
+    }
+  }
+
+  /**
+   * Get demo infrastructure bonds
+   */
+  private getDemoInfrastructureBonds(): any[] {
+    const in8Years = new Date();
+    in8Years.setFullYear(in8Years.getFullYear() + 8);
+
+    return [
+      {
+        isin: 'INE007A07007',
+        securityCode: '950367',
+        bondName: 'NTPC Infrastructure Bond 8.15% 2033',
+        issuer: 'NTPC Limited',
+        bondType: 'infrastructure_bond',
+        faceValue: 1000,
+        couponType: 'fixed',
+        couponRate: 8.15,
+        couponFrequency: 'annual',
+        maturityDate: in8Years.toISOString().split('T')[0],
+        tenorYears: 8,
+        currentPrice: 1030.00,
+        yieldToMaturity: 7.75,
+        creditRating: 'AAA',
+        ratingAgency: 'CRISIL',
+        sector: 'Power',
+        projectType: 'Green Energy Infrastructure',
+        tradingStatus: 'active',
+        minimumLotSize: 10,
+        lastTradedPrice: 1030.00,
+        volume: 3500
+      },
+      {
+        isin: 'INE008A07008',
+        securityCode: '950368',
+        bondName: 'L&T Infrastructure Bond 8.45% 2032',
+        issuer: 'Larsen & Toubro Limited',
+        bondType: 'infrastructure_bond',
+        faceValue: 1000,
+        couponType: 'fixed',
+        couponRate: 8.45,
+        couponFrequency: 'semi_annual',
+        maturityDate: in8Years.toISOString().split('T')[0],
+        tenorYears: 8,
+        currentPrice: 1025.00,
+        yieldToMaturity: 8.05,
+        creditRating: 'AA+',
+        ratingAgency: 'ICRA',
+        sector: 'Infrastructure & Construction',
+        projectType: 'Highway & Metro Projects',
+        tradingStatus: 'active',
+        minimumLotSize: 5,
+        lastTradedPrice: 1025.00,
+        volume: 2800
+      }
+    ];
+  }
 }
 
 // Export singleton instance
