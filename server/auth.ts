@@ -11,17 +11,18 @@ declare global {
   namespace Express {
     interface User {
       id: string;
-      userId: string;
       email?: string | null;
       mobile?: string | null;
       password: string;
       firstName?: string | null;
       middleName?: string | null;
       lastName?: string | null;
-      isEmailVerified: boolean;
-      isMobileVerified: boolean;
-      createdAt: Date;
-      updatedAt: Date;
+      isEmailVerified: boolean | null;
+      isMobileVerified: boolean | null;
+      roles: string[] | null;
+      isActive: boolean | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
     }
   }
 }
@@ -186,7 +187,6 @@ export function setupAuth(app: Express) {
         annualIncome: null,
         investmentExperience: null,
         riskTolerance: null,
-        phoneNumber: null,
         passportNumber: null,
         drivingLicense: null,
         voterIdNumber: null,
@@ -217,8 +217,7 @@ export function setupAuth(app: Express) {
         nsdlClientId: null,
         cdslBoId: null,
         cdslDpId: null,
-        role: "user",
-        status: "active",
+        roles: ["user"],
         isActive: true,
         lastLoginAt: null,
         loginCount: 0,
@@ -247,7 +246,6 @@ export function setupAuth(app: Express) {
         }
         res.status(201).json({
           id: user.id,
-          userId: user.userId,
           email: user.email,
           mobile: user.mobile,
           firstName: user.firstName,
@@ -428,7 +426,8 @@ export function setupAuth(app: Express) {
       }
 
       // Check if user has agent/admin role
-      if (req.user.role !== 'agent' && req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+      const userRoles = req.user.roles || [];
+      if (!userRoles.includes('agent') && !userRoles.includes('admin') && !userRoles.includes('super_admin')) {
         return res.status(403).json({ message: "Agent access required" });
       }
 
@@ -523,7 +522,8 @@ export function setupAuth(app: Express) {
       }
 
       // Check if user has agent/admin role
-      if (req.user.role !== 'agent' && req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+      const userRoles = req.user.roles || [];
+      if (!userRoles.includes('agent') && !userRoles.includes('admin') && !userRoles.includes('super_admin')) {
         return res.status(403).json({ message: "Agent access required" });
       }
 
@@ -795,7 +795,8 @@ export function setupAuth(app: Express) {
       }
 
       // Check if user has agent/admin role
-      if (req.user.role !== 'agent' && req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+      const userRoles = req.user.roles || [];
+      if (!userRoles.includes('agent') && !userRoles.includes('admin') && !userRoles.includes('super_admin')) {
         return res.status(403).json({ message: "Agent access required" });
       }
 
@@ -838,7 +839,8 @@ export function setupAuth(app: Express) {
       }
 
       // Check if user has agent/admin role
-      if (req.user.role !== 'agent' && req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+      const userRoles = req.user.roles || [];
+      if (!userRoles.includes('agent') && !userRoles.includes('admin') && !userRoles.includes('super_admin')) {
         return res.status(403).json({ message: "Agent access required" });
       }
 
@@ -935,7 +937,8 @@ export function setupAuth(app: Express) {
       }
 
       // Check if user has agent/admin role
-      if (req.user.role !== 'agent' && req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+      const userRoles = req.user.roles || [];
+      if (!userRoles.includes('agent') && !userRoles.includes('admin') && !userRoles.includes('super_admin')) {
         return res.status(403).json({ message: "Agent access required" });
       }
 
@@ -955,7 +958,8 @@ export function setupAuth(app: Express) {
       }
 
       // Check if user has agent/admin role
-      if (req.user.role !== 'agent' && req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+      const userRoles = req.user.roles || [];
+      if (!userRoles.includes('agent') && !userRoles.includes('admin') && !userRoles.includes('super_admin')) {
         return res.status(403).json({ message: "Agent access required" });
       }
 
