@@ -11,6 +11,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { KYCWarningBanner } from "@/components/KYCWarningBanner";
 
 // Bond Categories Component with Real-time Data
 function BondCategoriesSection() {
@@ -93,19 +94,6 @@ function BondCategoriesSection() {
         })}
       </div>
     </section>
-  );
-}
-
-// KYC Warning Banner
-function KYCWarningBanner() {
-  return (
-    <Alert className="border-amber-200 bg-amber-50">
-      <AlertCircle className="h-4 w-4 text-amber-600" />
-      <AlertDescription className="text-amber-800">
-        <strong>Full KYC Required:</strong> All bond transactions require Full KYC verification regardless of investment amount. 
-        Please ensure your profile is complete before placing orders.
-      </AlertDescription>
-    </Alert>
   );
 }
 

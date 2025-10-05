@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Activity, BarChart3, TrendingUp, Globe, Building2, Coins, Wheat, RefreshCw, TrendingDown, Thermometer, Brain, Target } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { IBTrading } from "@/components/dashboard/ib-trading";
+import { KYCWarningBanner } from "@/components/KYCWarningBanner";
 
 interface StockQuote {
   symbol: string;
@@ -98,7 +99,7 @@ export function BrokingDashboard() {
   const placeOrderMutation = useMutation({
     mutationFn: async (orderData: OrderFormData) => {
       const endpoint = `/api/${orderData.exchange.toLowerCase()}/order`;
-      return await apiRequest(endpoint, "POST", orderData);
+      return await apiRequest("POST", endpoint, { body: orderData });
     },
     onSuccess: () => {
       // Reset form
@@ -189,6 +190,9 @@ export function BrokingDashboard() {
           Refresh All
         </Button>
       </div>
+
+      {/* KYC Warning */}
+      <KYCWarningBanner />
 
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="grid w-full grid-cols-7">
