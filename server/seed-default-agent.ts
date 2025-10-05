@@ -12,7 +12,22 @@ export async function seedDefaultAgent(): Promise<void> {
       .limit(1);
 
     if (existingAgent.length > 0) {
-      console.log("✅ Default agent (Sangram Kesari Mohanty) already exists");
+      // Update existing agent if ARN code or distributor ID is missing
+      const agent = existingAgent[0];
+      if (!agent.arnCode || !agent.distributorId) {
+        await db
+          .update(customerCareAgents)
+          .set({
+            fullName: "Sangram Kesari Mohanty",
+            euinNumber: "E317634",
+            arnCode: "ARN-0002",
+            distributorId: "ARN0002",
+          })
+          .where(eq(customerCareAgents.email, "sangram.m@outlook.com"));
+        console.log("✅ Default agent (Sangram Kesari Mohanty) updated with ARN code and distributor ID");
+      } else {
+        console.log("✅ Default agent (Sangram Kesari Mohanty) already exists with complete information");
+      }
       return;
     }
 
