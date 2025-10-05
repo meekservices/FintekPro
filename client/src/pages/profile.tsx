@@ -22,6 +22,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { User, Shield, AlertTriangle, CheckCircle, FileText, Building2, Globe, Star, Award, Lock, Heart, MapPin, Phone, Mail, CreditCard, Banknote, Users, Calendar } from "lucide-react";
 import { BankingTab } from "@/components/BankingDematTab";
 import { DematTab } from "@/components/DematTab";
+import { KYCStatusCard } from "@/components/KYCStatusCard";
 
 // Enhanced profile form schema for comprehensive KYC compliance
 const profileFormSchema = z.object({
@@ -442,6 +443,9 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* KYC Status Card - Prominently displayed */}
+      <KYCStatusCard />
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
