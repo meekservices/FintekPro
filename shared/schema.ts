@@ -6082,3 +6082,279 @@ export type InsertReportAccessLog = z.infer<typeof insertReportAccessLogSchema>;
 export type ClientStatement = typeof clientStatements.$inferSelect;
 export type InsertClientStatement = z.infer<typeof insertClientStatementSchema>;
 
+// Government Securities table - G-Secs, T-Bills, SDLs from NSE NCB
+export const governmentSecurities = pgTable("government_securities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Security identification
+  isin: varchar("isin").notNull().unique(),
+  securityName: text("security_name").notNull(),
+  securityType: varchar("security_type").notNull(), // 'g_sec', 't_bill', 'sdl'
+  issuer: varchar("issuer").notNull(), // 'Government of India', State name for SDL
+  
+  // Auction details
+  auctionDate: date("auction_date"),
+  auctionNumber: varchar("auction_number"),
+  notifiedAmount: decimal("notified_amount", { precision: 15, scale: 2 }),
+  ncbReservedAmount: decimal("ncb_reserved_amount", { precision: 15, scale: 2 }), // 5% for NCB
+  
+  // Bond specifications
+  faceValue: decimal("face_value", { precision: 15, scale: 2 }).default("100"),
+  couponRate: decimal("coupon_rate", { precision: 8, scale: 4 }), // Annual coupon rate
+  issueDate: date("issue_date"),
+  maturityDate: date("maturity_date").notNull(),
+  tenorYears: decimal("tenor_years", { precision: 5, scale: 2 }),
+  
+  // Pricing
+  issuePrice: decimal("issue_price", { precision: 15, scale: 4 }),
+  currentPrice: decimal("current_price", { precision: 15, scale: 4 }),
+  yieldToMaturity: decimal("yield_to_maturity", { precision: 8, scale: 4 }),
+  
+  // Trading information
+  tradingStatus: varchar("trading_status").default("active"), // 'active', 'matured', 'suspended'
+  minimumInvestment: decimal("minimum_investment", { precision: 15, scale: 2 }).default("10000"),
+  
+  // Risk metrics
+  duration: decimal("duration", { precision: 8, scale: 4 }), // Macaulay duration
+  modifiedDuration: decimal("modified_duration", { precision: 8, scale: 4 }),
+  creditRating: varchar("credit_rating").default("AAA"), // Sovereign rating
+  
+  // Metadata
+  dataSource: varchar("data_source").default("nse_ncb"), // 'nse_ncb', 'rbi', 'manual'
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Corporate Bonds table - BSE Bond market
+export const corporateBonds = pgTable("corporate_bonds", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Bond identification
+  isin: varchar("isin").notNull().unique(),
+  securityCode: varchar("security_code").unique(), // BSE scrip code
+  bondName: text("bond_name").notNull(),
+  issuer: varchar("issuer").notNull(), // Company name
+  
+  // Bond specifications
+  bondType: varchar("bond_type").notNull(), // 'corporate_bond', 'ncd', 'debenture', 'commercial_paper'
+  faceValue: decimal("face_value", { precision: 15, scale: 2 }).default("1000"),
+  couponType: varchar("coupon_type").notNull(), // 'fixed', 'floating', 'zero_coupon'
+  couponRate: decimal("coupon_rate", { precision: 8, scale: 4 }),
+  couponFrequency: varchar("coupon_frequency"), // 'annual', 'semi_annual', 'quarterly', 'monthly'
+  
+  // Dates
+  issueDate: date("issue_date"),
+  maturityDate: date("maturity_date").notNull(),
+  tenorYears: decimal("tenor_years", { precision: 5, scale: 2 }),
+  
+  // Pricing and yield
+  issuePrice: decimal("issue_price", { precision: 15, scale: 4 }),
+  currentPrice: decimal("current_price", { precision: 15, scale: 4 }),
+  yieldToMaturity: decimal("yield_to_maturity", { precision: 8, scale: 4 }),
+  yieldToCall: decimal("yield_to_call", { precision: 8, scale: 4 }),
+  
+  // Trading information
+  listingDate: date("listing_date"),
+  tradingStatus: varchar("trading_status").default("active"), // 'active', 'suspended', 'matured', 'defaulted'
+  minimumLotSize: integer("minimum_lot_size").default(1),
+  minimumInvestment: decimal("minimum_investment", { precision: 15, scale: 2 }),
+  
+  // Call/Put features
+  isCallable: boolean("is_callable").default(false),
+  callDate: date("call_date"),
+  callPrice: decimal("call_price", { precision: 15, scale: 4 }),
+  isPuttable: boolean("is_puttable").default(false),
+  putDate: date("put_date"),
+  putPrice: decimal("put_price", { precision: 15, scale: 4 }),
+  
+  // Security features
+  secured: boolean("secured").default(false),
+  securityType: varchar("security_type"), // 'senior_secured', 'subordinated', 'unsecured'
+  collateralType: text("collateral_type"),
+  
+  // Credit ratings
+  creditRating: varchar("credit_rating"), // 'AAA', 'AA+', 'AA', etc.
+  ratingAgency: varchar("rating_agency"), // 'CRISIL', 'ICRA', 'CARE', 'India Ratings'
+  ratingDate: date("rating_date"),
+  outlookStatus: varchar("outlook_status"), // 'stable', 'positive', 'negative'
+  
+  // Risk metrics
+  duration: decimal("duration", { precision: 8, scale: 4 }),
+  modifiedDuration: decimal("modified_duration", { precision: 8, scale: 4 }),
+  convexity: decimal("convexity", { precision: 10, scale: 4 }),
+  
+  // Market data
+  lastTradedPrice: decimal("last_traded_price", { precision: 15, scale: 4 }),
+  lastTradedDate: date("last_traded_date"),
+  volume: integer("volume"),
+  turnover: decimal("turnover", { precision: 15, scale: 2 }),
+  
+  // Issuer information
+  issuerSector: varchar("issuer_sector"),
+  issuerIndustry: varchar("issuer_industry"),
+  issuerCreditRating: varchar("issuer_credit_rating"),
+  
+  // Metadata
+  dataSource: varchar("data_source").default("bse_bond"), // 'bse_bond', 'manual'
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Bond Orders table - Purchase and sale orders
+export const bondOrders = pgTable("bond_orders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Order identification
+  orderNumber: varchar("order_number").notNull().unique(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  clientCode: varchar("client_code"),
+  
+  // Bond details
+  bondId: varchar("bond_id"), // References governmentSecurities or corporateBonds
+  bondType: varchar("bond_type").notNull(), // 'government', 'corporate'
+  isin: varchar("isin").notNull(),
+  bondName: text("bond_name").notNull(),
+  
+  // Order details
+  orderType: varchar("order_type").notNull(), // 'buy', 'sell'
+  orderCategory: varchar("order_category").notNull(), // 'market', 'limit'
+  quantity: integer("quantity").notNull(), // Number of bonds
+  faceValue: decimal("face_value", { precision: 15, scale: 2 }).notNull(),
+  totalFaceValue: decimal("total_face_value", { precision: 15, scale: 2 }).notNull(), // quantity * faceValue
+  
+  // Pricing
+  orderPrice: decimal("order_price", { precision: 15, scale: 4 }), // Price per bond
+  limitPrice: decimal("limit_price", { precision: 15, scale: 4 }), // For limit orders
+  grossAmount: decimal("gross_amount", { precision: 15, scale: 2 }).notNull(),
+  accruedInterest: decimal("accrued_interest", { precision: 15, scale: 4 }).default("0"),
+  netAmount: decimal("net_amount", { precision: 15, scale: 2 }).notNull(), // Includes accrued interest
+  
+  // Execution details
+  orderStatus: varchar("order_status").default("pending"), // 'pending', 'confirmed', 'executed', 'rejected', 'cancelled'
+  executionPrice: decimal("execution_price", { precision: 15, scale: 4 }),
+  executionDate: timestamp("execution_date"),
+  settlementDate: date("settlement_date"),
+  
+  // Exchange details
+  exchangeOrderId: varchar("exchange_order_id"),
+  exchangeTransactionId: varchar("exchange_transaction_id"),
+  exchange: varchar("exchange").default("bse"), // 'bse', 'nse', 'otc'
+  
+  // Payment details
+  paymentStatus: varchar("payment_status").default("pending"), // 'pending', 'paid', 'failed'
+  paymentMethod: varchar("payment_method"),
+  paymentReference: varchar("payment_reference"),
+  paymentUrl: text("payment_url"),
+  
+  // Demat account
+  dematAccountId: varchar("demat_account_id"),
+  dematAccountNumber: varchar("demat_account_number"),
+  
+  // KYC compliance
+  kycLevel: varchar("kyc_level"), // 'basic', 'full', 'enhanced'
+  kycValidated: boolean("kyc_validated").default(false),
+  
+  // Audit trail
+  orderPlacedBy: varchar("order_placed_by"), // 'client', 'advisor', 'system'
+  remarks: text("remarks"),
+  
+  // Timestamps
+  orderDate: timestamp("order_date").defaultNow(),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_bond_orders_user_id").on(table.userId),
+  index("idx_bond_orders_status").on(table.orderStatus),
+  index("idx_bond_orders_date").on(table.orderDate),
+]);
+
+// Bond Holdings table - User's bond portfolio
+export const bondHoldings = pgTable("bond_holdings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // User and portfolio
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  portfolioId: varchar("portfolio_id").references(() => portfolios.id),
+  
+  // Bond details
+  bondId: varchar("bond_id"),
+  bondType: varchar("bond_type").notNull(), // 'government', 'corporate'
+  isin: varchar("isin").notNull(),
+  bondName: text("bond_name").notNull(),
+  issuer: varchar("issuer").notNull(),
+  
+  // Holding details
+  quantity: integer("quantity").notNull(),
+  faceValue: decimal("face_value", { precision: 15, scale: 2 }).notNull(),
+  totalFaceValue: decimal("total_face_value", { precision: 15, scale: 2 }).notNull(),
+  
+  // Purchase details
+  purchaseDate: date("purchase_date").notNull(),
+  purchasePrice: decimal("purchase_price", { precision: 15, scale: 4 }).notNull(), // Price per bond
+  purchaseYield: decimal("purchase_yield", { precision: 8, scale: 4 }),
+  totalInvestedAmount: decimal("total_invested_amount", { precision: 15, scale: 2 }).notNull(),
+  
+  // Current valuation
+  currentPrice: decimal("current_price", { precision: 15, scale: 4 }),
+  currentYield: decimal("current_yield", { precision: 8, scale: 4 }),
+  currentValue: decimal("current_value", { precision: 15, scale: 2 }),
+  unrealizedGainLoss: decimal("unrealized_gain_loss", { precision: 15, scale: 2 }),
+  
+  // Bond characteristics
+  couponRate: decimal("coupon_rate", { precision: 8, scale: 4 }),
+  maturityDate: date("maturity_date").notNull(),
+  creditRating: varchar("credit_rating"),
+  
+  // Income tracking
+  totalCouponsReceived: decimal("total_coupons_received", { precision: 15, scale: 2 }).default("0"),
+  nextCouponDate: date("next_coupon_date"),
+  nextCouponAmount: decimal("next_coupon_amount", { precision: 15, scale: 4 }),
+  
+  // Demat account
+  dematAccountId: varchar("demat_account_id"),
+  dematAccountNumber: varchar("demat_account_number"),
+  
+  // Status
+  holdingStatus: varchar("holding_status").default("active"), // 'active', 'matured', 'sold'
+  
+  // Metadata
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_bond_holdings_user_id").on(table.userId),
+  index("idx_bond_holdings_portfolio_id").on(table.portfolioId),
+  index("idx_bond_holdings_status").on(table.holdingStatus),
+]);
+
+// Insert schemas for bonds
+export const insertGovernmentSecuritySchema = createInsertSchema(governmentSecurities).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertCorporateBondSchema = createInsertSchema(corporateBonds).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertBondOrderSchema = createInsertSchema(bondOrders).omit({
+  id: true,
+  createdAt: true,
+  orderDate: true,
+});
+
+export const insertBondHoldingSchema = createInsertSchema(bondHoldings).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Types for bonds
+export type GovernmentSecurity = typeof governmentSecurities.$inferSelect;
+export type InsertGovernmentSecurity = z.infer<typeof insertGovernmentSecuritySchema>;
+export type CorporateBond = typeof corporateBonds.$inferSelect;
+export type InsertCorporateBond = z.infer<typeof insertCorporateBondSchema>;
+export type BondOrder = typeof bondOrders.$inferSelect;
+export type InsertBondOrder = z.infer<typeof insertBondOrderSchema>;
+export type BondHolding = typeof bondHoldings.$inferSelect;
+export type InsertBondHolding = z.infer<typeof insertBondHoldingSchema>;
+
