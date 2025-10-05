@@ -61,8 +61,14 @@ const KYC_LEVELS = {
 function getRequiredKYCLevel(context: TransactionContext): "basic" | "full" | "enhanced" {
   const { amount, type } = context;
 
-  // High-risk transaction types always require enhanced KYC
-  if (type === "stock" || type === "bond" || type === "ipo") {
+  // CRITICAL: ALL bond transactions require Full KYC regardless of amount
+  // This ensures strict compliance for bond trading independent of transaction size
+  if (type === "bond") {
+    return "full";
+  }
+
+  // Stock and IPO transactions - amount-based Enhanced KYC for large trades
+  if (type === "stock" || type === "ipo") {
     if (amount > KYC_LEVELS.FULL.maxAmount) {
       return "enhanced";
     }

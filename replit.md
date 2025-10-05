@@ -41,7 +41,10 @@ Preferred communication style: Simple, everyday language.
 - **Financial Calculators**: SIP, EMI, retirement, and tax calculators.
 - **Multi-Asset Support**: Equities, bonds, mutual funds, IPOs, alternative investments.
 - **KYC Compliance System**:
-    - Mandatory KYC validation for all financial transactions with tiered compliance (Basic, Full, Enhanced).
+    - Mandatory KYC validation for all financial transactions.
+    - **CRITICAL: ALL bond transactions require Full KYC regardless of transaction amount** - no tiered system for bonds.
+    - Tiered compliance for other assets: Basic (≤₹50K), Full (≤₹200K), Enhanced (>₹200K).
+    - Stocks and IPOs: Amount-based Enhanced KYC for trades >₹200K.
     - AML screening, audit logging, and regulatory adherence (SEBI, RBI, PMLA, FATCA/CRS).
 - **Re-KYC Automation System**:
     - Risk-based periodic KYC renewal (10yr, 8yr, 2yr) with automated reminders (60/30/15 days).
