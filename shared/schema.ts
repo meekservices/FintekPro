@@ -6089,7 +6089,7 @@ export const governmentSecurities = pgTable("government_securities", {
   // Security identification
   isin: varchar("isin").notNull().unique(),
   securityName: text("security_name").notNull(),
-  securityType: varchar("security_type").notNull(), // 'g_sec', 't_bill', 'sdl'
+  securityType: varchar("security_type").notNull(), // 'g_sec', 't_bill', 'sdl', 'sgb', 'tax_free_bond', 'infrastructure_bond'
   issuer: varchar("issuer").notNull(), // 'Government of India', State name for SDL
   
   // Auction details
@@ -6119,6 +6119,29 @@ export const governmentSecurities = pgTable("government_securities", {
   modifiedDuration: decimal("modified_duration", { precision: 8, scale: 4 }),
   creditRating: varchar("credit_rating").default("AAA"), // Sovereign rating
   
+  // Sovereign Gold Bond (SGB) specific fields
+  goldReferencePrice: decimal("gold_reference_price", { precision: 15, scale: 2 }), // Price of gold per gram at issue
+  goldWeight: decimal("gold_weight", { precision: 10, scale: 4 }), // Grams of gold per unit
+  maxInvestmentLimit: decimal("max_investment_limit", { precision: 15, scale: 2 }), // Individual investment limit
+  earlyRedemptionAllowed: boolean("early_redemption_allowed").default(false),
+  earlyRedemptionPeriod: varchar("early_redemption_period"), // e.g., "after 5 years"
+  
+  // Tax benefits
+  taxStatus: varchar("tax_status").default("taxable"), // 'taxable', 'tax_free', 'tax_saving_eligible', 'tax_exempt_on_redemption'
+  taxBenefitSection: varchar("tax_benefit_section"), // e.g., '54EC', '80CCF'
+  taxBenefitDetails: text("tax_benefit_details"),
+  indexationBenefit: boolean("indexation_benefit").default(false),
+  
+  // Infrastructure/Sector specific
+  infrastructureSector: varchar("infrastructure_sector"), // 'power', 'roads', 'railways', 'ports', 'urban_infrastructure'
+  projectName: text("project_name"),
+  utilizationPurpose: text("utilization_purpose"), // How funds will be used
+  
+  // Additional features
+  specialFeatures: jsonb("special_features").default([]), // Array of special features
+  eligibilityCriteria: text("eligibility_criteria"),
+  lockinPeriod: varchar("lockin_period"), // Lock-in period if any
+  
   // Metadata
   dataSource: varchar("data_source").default("nse_ncb"), // 'nse_ncb', 'rbi', 'manual'
   lastUpdated: timestamp("last_updated").defaultNow(),
@@ -6136,7 +6159,7 @@ export const corporateBonds = pgTable("corporate_bonds", {
   issuer: varchar("issuer").notNull(), // Company name
   
   // Bond specifications
-  bondType: varchar("bond_type").notNull(), // 'corporate_bond', 'ncd', 'debenture', 'commercial_paper'
+  bondType: varchar("bond_type").notNull(), // 'corporate_bond', 'ncd', 'debenture', 'commercial_paper', 'tax_free_bond', 'infrastructure_bond'
   faceValue: decimal("face_value", { precision: 15, scale: 2 }).default("1000"),
   couponType: varchar("coupon_type").notNull(), // 'fixed', 'floating', 'zero_coupon'
   couponRate: decimal("coupon_rate", { precision: 8, scale: 4 }),
@@ -6193,6 +6216,22 @@ export const corporateBonds = pgTable("corporate_bonds", {
   issuerSector: varchar("issuer_sector"),
   issuerIndustry: varchar("issuer_industry"),
   issuerCreditRating: varchar("issuer_credit_rating"),
+  
+  // Tax benefits (for tax-free bonds and infrastructure bonds)
+  taxStatus: varchar("tax_status").default("taxable"), // 'taxable', 'tax_free', 'tax_saving_eligible'
+  taxBenefitSection: varchar("tax_benefit_section"), // e.g., '54EC', '80CCF'
+  taxBenefitDetails: text("tax_benefit_details"),
+  indexationBenefit: boolean("indexation_benefit").default(false),
+  
+  // Infrastructure bond specific
+  infrastructureSector: varchar("infrastructure_sector"), // 'power', 'roads', 'railways', 'ports', 'urban_infrastructure', 'renewable_energy'
+  projectName: text("project_name"),
+  utilizationPurpose: text("utilization_purpose"),
+  sebiApproved: boolean("sebi_approved").default(false), // For infrastructure bonds
+  
+  // Additional features
+  specialFeatures: jsonb("special_features").default([]),
+  lockinPeriod: varchar("lockin_period"),
   
   // Metadata
   dataSource: varchar("data_source").default("bse_bond"), // 'bse_bond', 'manual'
