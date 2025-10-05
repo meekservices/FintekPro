@@ -5931,3 +5931,154 @@ export type InsertTaxReminderSubscription = z.infer<typeof insertTaxReminderSubs
 export type CapitalGainsTaxReminder = typeof capitalGainsTaxReminders.$inferSelect;
 export type InsertCapitalGainsTaxReminder = z.infer<typeof insertCapitalGainsTaxReminderSchema>;
 
+// Generated Reports table - for client-facing report metadata
+export const generatedReports = pgTable(
+  "generated_reports",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    userId: varchar("user_id").references(() => users.id).notNull(),
+    reportType: varchar("report_type").notNull(), // 'transaction_history', 'account_statement', 'tax_report', 'capital_gains', 'dividend_income'
+    reportFormat: varchar("report_format").notNull(), // 'pdf', 'excel', 'csv'
+    reportStatus: varchar("report_status").default("pending").notNull(), // 'pending', 'generating', 'completed', 'failed'
+    
+    // Report parameters
+    dateFrom: date("date_from"),
+    dateTo: date("date_to"),
+    transactionTypes: jsonb("transaction_types"), // array of transaction types to include
+    filters: jsonb("filters"), // additional filters applied
+    
+    // Report metadata
+    reportTitle: varchar("report_title"),
+    totalTransactions: integer("total_transactions").default(0),
+    totalAmount: decimal("total_amount", { precision: 15, scale: 2 }).default("0"),
+    
+    // File storage
+    fileUrl: text("file_url"), // cloud storage URL or local path
+    fileSize: integer("file_size"), // in bytes
+    fileName: varchar("file_name"),
+    
+    // Generation tracking
+    generatedAt: timestamp("generated_at"),
+    expiresAt: timestamp("expires_at"), // for temporary reports
+    errorMessage: text("error_message"), // if generation failed
+    
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_generated_reports_user_id").on(table.userId),
+    index("idx_generated_reports_status").on(table.reportStatus),
+    index("idx_generated_reports_type").on(table.reportType),
+  ]
+);
+
+// Report Access Logs table - audit trail for report access
+export const reportAccessLogs = pgTable(
+  "report_access_logs",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    reportId: varchar("report_id").references(() => generatedReports.id),
+    userId: varchar("user_id").references(() => users.id).notNull(),
+    accessType: varchar("access_type").notNull(), // 'view', 'download', 'generate', 'share'
+    
+    // Access details
+    ipAddress: varchar("ip_address"),
+    userAgent: text("user_agent"),
+    accessLocation: varchar("access_location"), // city/country if available
+    
+    // Compliance tracking
+    purpose: text("purpose"), // reason for access (optional for audit)
+    complianceNote: text("compliance_note"), // for regulatory audit
+    isAuthorized: boolean("is_authorized").default(true),
+    
+    accessedAt: timestamp("accessed_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_report_access_logs_report_id").on(table.reportId),
+    index("idx_report_access_logs_user_id").on(table.userId),
+    index("idx_report_access_logs_accessed_at").on(table.accessedAt),
+  ]
+);
+
+// Client Statements table - account statements for specific periods
+export const clientStatements = pgTable(
+  "client_statements",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    userId: varchar("user_id").references(() => users.id).notNull(),
+    statementType: varchar("statement_type").notNull(), // 'monthly', 'quarterly', 'annual', 'custom'
+    statementPeriod: varchar("statement_period").notNull(), // 'Jan 2025', 'Q4 2024', '2024-25'
+    
+    // Period details
+    periodStart: date("period_start").notNull(),
+    periodEnd: date("period_end").notNull(),
+    financialYear: varchar("financial_year"), // '2024-25'
+    
+    // Statement summary
+    openingBalance: decimal("opening_balance", { precision: 15, scale: 2 }).default("0"),
+    closingBalance: decimal("closing_balance", { precision: 15, scale: 2 }).default("0"),
+    totalInflows: decimal("total_inflows", { precision: 15, scale: 2 }).default("0"),
+    totalOutflows: decimal("total_outflows", { precision: 15, scale: 2 }).default("0"),
+    totalGains: decimal("total_gains", { precision: 15, scale: 2 }).default("0"),
+    totalLosses: decimal("total_losses", { precision: 15, scale: 2 }).default("0"),
+    
+    // Holdings snapshot
+    equityHoldings: jsonb("equity_holdings").default([]),
+    mfHoldings: jsonb("mf_holdings").default([]),
+    bondHoldings: jsonb("bond_holdings").default([]),
+    otherHoldings: jsonb("other_holdings").default([]),
+    
+    // Transactions included
+    transactionIds: jsonb("transaction_ids").default([]), // array of transaction IDs
+    transactionCount: integer("transaction_count").default(0),
+    
+    // File storage
+    pdfUrl: text("pdf_url"),
+    excelUrl: text("excel_url"),
+    
+    // Statement metadata
+    statementNumber: varchar("statement_number").unique(), // e.g., "STMT-2025-001"
+    isConsolidated: boolean("is_consolidated").default(false), // includes all portfolios
+    portfolioId: varchar("portfolio_id"), // specific portfolio or null for consolidated
+    
+    // Generation tracking
+    generatedAt: timestamp("generated_at"),
+    sentToClient: boolean("sent_to_client").default(false),
+    sentAt: timestamp("sent_at"),
+    
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_client_statements_user_id").on(table.userId),
+    index("idx_client_statements_period").on(table.statementPeriod),
+    index("idx_client_statements_type").on(table.statementType),
+  ]
+);
+
+// Insert schemas for transaction reporting
+export const insertGeneratedReportSchema = createInsertSchema(generatedReports).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertReportAccessLogSchema = createInsertSchema(reportAccessLogs).omit({
+  id: true,
+  accessedAt: true,
+});
+
+export const insertClientStatementSchema = createInsertSchema(clientStatements).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Types for transaction reporting
+export type GeneratedReport = typeof generatedReports.$inferSelect;
+export type InsertGeneratedReport = z.infer<typeof insertGeneratedReportSchema>;
+export type ReportAccessLog = typeof reportAccessLogs.$inferSelect;
+export type InsertReportAccessLog = z.infer<typeof insertReportAccessLogSchema>;
+export type ClientStatement = typeof clientStatements.$inferSelect;
+export type InsertClientStatement = z.infer<typeof insertClientStatementSchema>;
+
