@@ -108,7 +108,7 @@ function GovernmentSecurities() {
   });
 
   const placeOrderMutation = useMutation({
-    mutationFn: (orderData: any) => apiRequest("/api/bonds/trading/gsec/orders", "POST", orderData),
+    mutationFn: (orderData: any) => apiRequest("POST", "/api/bonds/trading/gsec/orders", { body: orderData }),
     onSuccess: () => {
       toast({
         title: "Order Placed Successfully",
@@ -283,7 +283,7 @@ function CorporateBonds() {
   });
 
   const placeOrderMutation = useMutation({
-    mutationFn: (orderData: any) => apiRequest("/api/bonds/trading/corporate/orders", "POST", orderData),
+    mutationFn: (orderData: any) => apiRequest("POST", "/api/bonds/trading/corporate/orders", { body: orderData }),
     onSuccess: () => {
       toast({
         title: "Order Placed Successfully",
