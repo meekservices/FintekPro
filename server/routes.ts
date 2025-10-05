@@ -4521,8 +4521,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Place NCB order for government security (requires Basic KYC)
-  app.post("/api/bonds/trading/gsec/orders", validateKYC('basic', 10000), async (req: any, res) => {
+  // Place NCB order for government security (requires Bond KYC based on bid amount)
+  app.post("/api/bonds/trading/gsec/orders", validateKYC('bond', { amountField: 'bidAmount', defaultAmount: 10000 }), async (req: any, res) => {
     try {
       const userId = req.user?.id;
       if (!userId) {
@@ -4638,27 +4638,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Place corporate bond order (requires Full KYC for ₹50K+)
-  app.post("/api/bonds/trading/corporate/orders", validateKYC('full', 50000), async (req: any, res) => {
-    try {
-      const userId = req.user?.id;
-      if (!userId) {
-        return res.status(401).json({ error: "Authentication required" });
-      }
+  // Place corporate bond order (requires Bond KYC based on order amount)
+  app.post("/api/bonds/trading/corporate/orders", async (req: any, res, next) => {
+    // Calculate total order amount for KYC validation
+    const quantity = req.body.quantity || 1;
+    const limitPrice = req.body.limitPrice || 0;
+    const estimatedAmount = quantity * (limitPrice || 1000); // Use limit price or default ₹1000 per bond
+    req.body.amount = estimatedAmount;
+    
+    // Apply KYC middleware with calculated amount
+    return validateKYC('bond', { amountField: 'amount' })(req, res, async () => {
+      try {
+        const userId = req.user?.id;
+        if (!userId) {
+          return res.status(401).json({ error: "Authentication required" });
+        }
 
-      const orderRequest = {
-        userId: userId,
-        clientCode: req.body.clientCode || `CLI-${userId.substring(0, 8)}`,
-        isin: req.body.isin,
-        bondType: 'corporate' as const,
-        orderType: req.body.orderType, // 'buy' or 'sell'
-        quantity: req.body.quantity,
-        orderCategory: req.body.orderCategory, // 'market' or 'limit'
-        limitPrice: req.body.limitPrice,
-        dematAccountNumber: req.body.dematAccountNumber
-      };
+        const orderRequest = {
+          userId: userId,
+          clientCode: req.body.clientCode || `CLI-${userId.substring(0, 8)}`,
+          isin: req.body.isin,
+          bondType: 'corporate' as const,
+          orderType: req.body.orderType, // 'buy' or 'sell'
+          quantity: req.body.quantity,
+          orderCategory: req.body.orderCategory, // 'market' or 'limit'
+          limitPrice: req.body.limitPrice,
+          dematAccountNumber: req.body.dematAccountNumber
+        };
 
-      const response = await bseBondApi.placeBondOrder(orderRequest);
+        const response = await bseBondApi.placeBondOrder(orderRequest);
 
       if (response.success && response.orderId) {
         // Get bond details for storage
@@ -4699,14 +4707,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: "error",
           error: response.message
         });
+        }
+      } catch (error) {
+        console.error("Error placing corporate bond order:", error);
+        res.status(500).json({
+          status: "error",
+          error: "Failed to place corporate bond order"
+        });
       }
-    } catch (error) {
-      console.error("Error placing corporate bond order:", error);
-      res.status(500).json({
-        status: "error",
-        error: "Failed to place corporate bond order"
-      });
-    }
+    });
   });
 
   // BSE Direct API - Direct Market Trading
@@ -4739,29 +4748,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Place direct market order (requires Enhanced KYC for derivatives/high-risk)
-  app.post("/api/bonds/trading/direct/orders", validateKYC('enhanced', 200000), async (req: any, res) => {
-    try {
-      const userId = req.user?.id;
-      if (!userId) {
-        return res.status(401).json({ error: "Authentication required" });
-      }
+  // Place direct market order (requires Stock KYC based on order amount)
+  app.post("/api/bonds/trading/direct/orders", async (req: any, res, next) => {
+    // Calculate total order amount for KYC validation
+    const quantity = req.body.quantity || 1;
+    const price = req.body.price || 0;
+    const estimatedAmount = quantity * (price || 1000); // Use price or default ₹1000 per unit
+    req.body.amount = estimatedAmount;
+    
+    // Apply KYC middleware with calculated amount
+    return validateKYC('stock', { amountField: 'amount' })(req, res, async () => {
+      try {
+        const userId = req.user?.id;
+        if (!userId) {
+          return res.status(401).json({ error: "Authentication required" });
+        }
 
-      const orderRequest = {
-        userId: userId,
-        clientCode: req.body.clientCode || `CLI-${userId.substring(0, 8)}`,
-        segment: req.body.segment, // 'equity', 'derivatives', 'currency', 'commodity'
-        symbol: req.body.symbol,
-        orderType: req.body.orderType, // 'buy' or 'sell'
-        quantity: req.body.quantity,
-        orderCategory: req.body.orderCategory, // 'market', 'limit', 'stop_loss'
-        price: req.body.price,
-        stopLossPrice: req.body.stopLossPrice,
-        productType: req.body.productType, // 'delivery', 'intraday', 'margin'
-        validity: req.body.validity // 'day', 'ioc', 'gtc'
-      };
+        const orderRequest = {
+          userId: userId,
+          clientCode: req.body.clientCode || `CLI-${userId.substring(0, 8)}`,
+          segment: req.body.segment, // 'equity', 'derivatives', 'currency', 'commodity'
+          symbol: req.body.symbol,
+          orderType: req.body.orderType, // 'buy' or 'sell'
+          quantity: req.body.quantity,
+          orderCategory: req.body.orderCategory, // 'market', 'limit', 'stop_loss'
+          price: req.body.price,
+          stopLossPrice: req.body.stopLossPrice,
+          productType: req.body.productType, // 'delivery', 'intraday', 'margin'
+          validity: req.body.validity // 'day', 'ioc', 'gtc'
+        };
 
-      const response = await bseDirectApi.placeDirectOrder(orderRequest);
+        const response = await bseDirectApi.placeDirectOrder(orderRequest);
 
       if (response.success) {
         res.json({
@@ -4773,14 +4790,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: "error",
           error: response.message
         });
+        }
+      } catch (error) {
+        console.error("Error placing direct order:", error);
+        res.status(500).json({
+          status: "error",
+          error: "Failed to place direct order"
+        });
       }
-    } catch (error) {
-      console.error("Error placing direct order:", error);
-      res.status(500).json({
-        status: "error",
-        error: "Failed to place direct order"
-      });
-    }
+    });
   });
 
   // Get user positions from BSE Direct

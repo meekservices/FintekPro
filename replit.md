@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is FintekPro, a comprehensive financial services platform built as a full-stack TypeScript project. The application provides portfolio management, market data tracking, investment tools, and financial services including stocks, mutual funds, IPOs, bonds, and loans. It features a modern React frontend with shadcn/ui components and an Express.js backend with PostgreSQL database integration.
+FintekPro is a comprehensive full-stack TypeScript financial services platform. It offers portfolio management, market data tracking, investment tools, and a range of financial services including stocks, mutual funds, IPOs, bonds, and loans. The platform aims to provide a modern and robust solution for personal finance and investment management.
 
 ## User Preferences
 
@@ -10,198 +10,65 @@ Preferred communication style: Simple, everyday language.
 
 ## System Architecture
 
-### Frontend Architecture
+### UI/UX Decisions
 - **Framework**: React 18 with TypeScript
-- **Routing**: Wouter for client-side routing
 - **UI Library**: shadcn/ui components built on Radix UI primitives
 - **Styling**: Tailwind CSS with CSS custom properties for theming
-- **State Management**: TanStack Query (React Query) for server state management
-- **Form Handling**: React Hook Form with Zod validation
 - **Charts**: Recharts for data visualization
-- **Build Tool**: Vite for development and production builds
+- **Design Approach**: Mobile-first with responsive and adaptive layouts.
 
-### Backend Architecture
-- **Framework**: Express.js with TypeScript
-- **Database**: PostgreSQL with Drizzle ORM
-- **Schema Management**: Drizzle Kit for migrations
-- **Session Management**: Connect-pg-simple for PostgreSQL session storage
-- **API Pattern**: RESTful API with modular route structure
-- **Error Handling**: Centralized error middleware with structured error responses
+### Technical Implementations
+- **Frontend**:
+    - Routing: Wouter
+    - State Management: TanStack Query (React Query)
+    - Form Handling: React Hook Form with Zod validation
+    - Build Tool: Vite
+- **Backend**:
+    - Framework: Express.js with TypeScript
+    - Database: PostgreSQL with Drizzle ORM
+    - Schema Management: Drizzle Kit for migrations
+    - Session Management: Connect-pg-simple for PostgreSQL session storage
+    - API Pattern: RESTful API
+    - Error Handling: Centralized middleware
+- **Data Storage**:
+    - Primary Database: PostgreSQL via Neon serverless driver
+    - ORM: Drizzle ORM for type-safe queries
+    - Schema: Users, Portfolios, Watchlists, Market data caching, Asset allocation.
 
-### Data Storage Solutions
-- **Primary Database**: PostgreSQL accessed via Neon serverless driver
-- **ORM**: Drizzle ORM with type-safe queries and schema definitions
-- **Schema Structure**: 
-  - Users table with authentication data
-  - Portfolios and portfolio holdings for investment tracking
-  - Watchlists for market monitoring
-  - Market data caching for external API responses
-  - Asset allocation tracking for portfolio analysis
-
-### Key Features Implementation
-- **Portfolio Management**: Real-time portfolio tracking with asset allocation analysis and rebalancing tools
-- **Market Data Integration**: Live market quotes, charts, and news via external APIs
-- **Financial Calculators**: SIP, EMI, retirement, and tax calculators
-- **Multi-Asset Support**: Equities, bonds, mutual funds, IPOs, and alternative investments
-- **Responsive Design**: Mobile-first approach with adaptive layouts
+### Feature Specifications
+- **Portfolio Management**: Real-time tracking, asset allocation, rebalancing.
+- **Market Data Integration**: Live quotes, charts, and news.
+- **Financial Calculators**: SIP, EMI, retirement, and tax calculators.
+- **Multi-Asset Support**: Equities, bonds, mutual funds, IPOs, alternative investments.
+- **KYC Compliance System**:
+    - Mandatory KYC validation for all financial transactions with tiered compliance (Basic, Full, Enhanced).
+    - AML screening, audit logging, and regulatory adherence (SEBI, RBI, PMLA, FATCA/CRS).
+- **Re-KYC Automation System**:
+    - Risk-based periodic KYC renewal (10yr, 8yr, 2yr) with automated reminders (60/30/15 days).
+    - Transaction permissions linked to KYC status.
+    - Daily cron jobs for reminders and reporting.
+- **Investment Proposal System**: Custom ID system (AI-, AGENT-, CLIENT-), filtering, creation dialog, cart integration, and full CRUD support.
 
 ## External Dependencies
 
 ### Third-Party APIs
-- **Market Data Sources**: Real-time and historical market information for global indices
+- **Market Data Sources**: Real-time and historical market information.
+- **BSE Star MFD API**: Mutual fund transaction processing (Buy/Sell, SIP, order tracking, PhonePe integration).
+- **NSE NCB & BSE Bond API**: Government securities, corporate bond trading, and direct market access.
+- **Bajaj Finance Integration**: EMI, loan, fixed deposit calculators, and eligibility checks.
+- **Tata Capital Integration**: Personal, home, business loans, credit checks, CKYC, and GST verification.
 
 ### Database Services
-- **Neon Database**: Serverless PostgreSQL hosting with connection pooling
-- **Session Storage**: PostgreSQL-backed session management
-
-### Development Tools
-- **Replit Integration**: Development environment with cartographer and error overlay plugins
-- **TypeScript**: Full type safety across frontend and backend
-- **ESBuild**: Fast JavaScript bundling for production builds
+- **Neon Database**: Serverless PostgreSQL hosting.
 
 ### UI/UX Libraries
-- **Radix UI**: Unstyled, accessible UI primitives
-- **Tailwind CSS**: Utility-first CSS framework
-- **Lucide Icons**: Modern icon library
-- **Recharts**: Declarative charts built on D3
+- **Radix UI**: Accessible UI primitives.
+- **Tailwind CSS**: Utility-first CSS framework.
+- **Lucide Icons**: Icon library.
+- **Recharts**: Declarative charting library.
 
 ### Utility Libraries
-- **Date-fns**: Modern date utility library
-- **Class Variance Authority**: Utility for creating variant-based component APIs
-- **Zod**: TypeScript-first schema validation
-- **Nanoid**: URL-safe unique string ID generator
-
-## Recent Changes
-
-### Latest modifications with dates
-- **October 5, 2025**: Built comprehensive Re-KYC automation system with risk-based due dates (Low: 10yr, Medium: 8yr, High: 2yr) and automated reminders at 60/30/15 days before expiry
-- **October 5, 2025**: Created KYCStatusCard component displaying transaction readiness for Mutual Funds, Stocks/Broking, and International Trading with visual status badges
-- **October 5, 2025**: Integrated Re-KYC status card into profile page with URL parameter support (?tab=kyc) for seamless workflow redirection
-- **October 5, 2025**: Implemented daily cron job for Re-KYC reminder notifications via email/SMS and CSV report generation for admin monitoring
-- **October 4, 2025**: Successfully tested BSE Star MFD API integration in demo mode - order processing, status tracking, and payment integration all verified working
-- **October 4, 2025**: Fixed BSE credential validation to enable demo mode testing without requiring production credentials
-- **October 4, 2025**: Removed SEBI API endpoints (regulatory data API) to clean up console errors - BSE Star MFD API is the actual transaction processing system
-- **October 2025**: Implemented custom investment proposal ID system with distinct prefixes: AI- (AI-generated), AGENT- (advisor-created), CLIENT- (client-initiated) for clear proposal source identification
-- **October 2025**: Enhanced proposals page with filtering tabs (All/AI/Agent/Client), create proposal dialog for clients, and comprehensive cart integration with add-to-cart buttons
-- **October 2025**: Built complete proposal storage layer with 7 database methods supporting full CRUD operations and cart linkage for proposals
-- **October 2025**: Integrated proposal-to-cart workflow allowing proposals to be added as cart items with itemType='proposal' and automatic status tracking
-- **September 2025**: Reconstructed comprehensive client profile page with enhanced KYC/CKYC integration supporting both individual and non-individual entities across all residency statuses
-- **September 2025**: Implemented multi-provider AML screening with real-time compliance monitoring (Sumsub, ComplyCube, Sanction Scanner)
-- **September 2025**: Added CKYC (Central KYC Registry) service with KRA and CVL integration for securities trading compliance
-- **September 2025**: Enhanced profile management with global residency support (NRI, OCI, PIO, foreign nationals) for all countries
-- **September 2025**: Integrated comprehensive regulatory compliance features (FATCA, CRS, PEP declarations, UBO tracking)
-- **September 2025**: Added automated AML screening triggers with profile-based risk assessment and enhanced onboarding workflows
-- **September 2025**: Created tabbed profile interface with 6 comprehensive sections: Basic Info, Identity & KYC, Address, Financial Profile, Compliance, Banking & Demat
-- **September 2025**: Implemented progressive profile completeness tracking with real-time validation and consent management
-- **September 2025**: Built seamless integration between profile data and AML/CKYC services for automated compliance workflows
-
-## Financial Institution Integrations
-
-### Bajaj Finance Integration
-- **API Services**: EMI Calculator, Personal Loan, Business Loan, Fixed Deposit, Two Wheeler Loan, Insurance Premium, SIP Calculator, Loan Eligibility Checker
-- **Interface**: Complete web interface at `/bajaj-finance` with tabbed calculator sections
-- **Implementation**: Custom API simulation using published rates and calculation methods
-
-### Tata Capital Integration  
-- **API Services**: Personal Loan, Home Loan, Business Loan, Used Car Loan, Loan Against Property, Loan Against Securities, Credit Eligibility Check, GST Verification, Bank Statement Analysis, CKYC Verification
-- **Interface**: Professional web interface at `/tata-capital` with comprehensive loan calculation tools
-- **Implementation**: Based on official Tata Capital API catalogue with retail and commercial services
-
-### BSE Star MFD API Integration
-- **Purpose**: Complete mutual fund transaction processing system for Buy/Sell orders and SIP setup
-- **Status**: Fully implemented and tested in demo mode - ready for production deployment
-- **Implementation File**: `server/bseStarApi.ts`
-- **Features**:
-  - Lumpsum order placement (one-time purchases)
-  - SIP (Systematic Investment Plan) setup with mandate management
-  - Order status tracking and verification
-  - Payment gateway integration with PhonePe
-  - Client onboarding and BSE user creation
-  - Demo mode for testing without BSE credentials
-- **Database Tables**:
-  - `investment_proposals`: Stores investment proposals with AI/AGENT/CLIENT prefixes
-  - `investment_proposal_items`: Stores individual mutual fund items within proposals
-- **Test Results** (Demo Mode):
-  - ✅ Order Processing: Successfully processes lumpsum and SIP orders
-  - ✅ Status Tracking: Real-time order status monitoring
-  - ✅ Payment Integration: PhonePe payment gateway integration working
-- **Production Requirements**:
-  - BSE Star MFD registration with valid credentials (BSE_USER_ID, BSE_PASSWORD, BSE_MEMBER_ID, BSE_PASS_KEY)
-  - SEBI-authorized Mutual Fund Distributor (MFD) license with ARN code
-  - BSE environment variable set to 'production'
-  - SOAP API integration with BSE Star platform
-- **Demo Mode**: Fully functional demo mode simulates BSE responses for testing without credentials
-- **Related Services**: Integrates with `server/bse-service.ts` for cart-to-order conversion
-
-### KYC Compliance System
-- **Purpose**: Mandatory KYC validation before all financial transactions (mutual funds, stocks, bonds, IPOs)
-- **Implementation Files**: `server/kyc-compliance-checker.ts`, `server/kyc-middleware.ts`
-- **Compliance Tiers**:
-  - **Basic KYC** (up to ₹50,000): PAN, name, address verification
-  - **Full KYC** (₹50,001 - ₹2,00,000): Basic + bank account + profile completion
-  - **Enhanced KYC** (above ₹2,00,000): Full + Video KYC + income proof
-- **Security Features**:
-  - Transaction amount validation - rejects missing/zero amounts
-  - AML status checking - blocks flagged/rejected users
-  - Audit logging for all KYC validation attempts (passed/failed)
-  - Tiered validation based on transaction type and amount
-- **Integration**:
-  - Middleware integrated into BSE mutual fund order endpoint (`/api/proposals/:proposalId/complete-order`)
-  - Amount calculation from proposal items before KYC validation
-  - Demo mode support for testing without complete KYC
-- **Regulatory Compliance**:
-  - SEBI KYC norms for securities transactions
-  - RBI KYC guidelines for payment transactions
-  - PMLA (Prevention of Money Laundering Act) compliance
-  - FATCA/CRS declarations for NRI investors
-- **Database Tables**: Uses `userProfiles` table for KYC status tracking
-
-### Re-KYC Automation System
-- **Purpose**: Automated periodic KYC renewal with risk-based due dates and advance reminders
-- **Implementation Files**: `server/rekyc-service.ts`, `server/rekyc-cron.ts`, `server/report-generator.ts`
-- **Frontend Components**: `client/src/components/KYCStatusCard.tsx` displays transaction readiness status
-- **Risk-Based Due Dates**:
-  - **Low Risk**: 10-year KYC validity period
-  - **Medium Risk**: 8-year KYC validity period  
-  - **High Risk**: 2-year KYC validity period
-- **Automated Reminders**:
-  - Cron job runs daily at 9:00 AM checking for expiring KYC
-  - Sends email/SMS notifications at 60, 30, and 15 days before expiry
-  - Tracks reminder history to prevent duplicate notifications
-  - Generates CSV reports of customers requiring Re-KYC
-- **Transaction Permissions**:
-  - **Mutual Funds**: Requires Basic KYC or higher (active status)
-  - **Stocks & Broking**: Requires Full KYC or higher (active status)
-  - **International Trading**: Requires Enhanced KYC (active status)
-  - Expired KYC blocks ALL transactions across asset classes
-- **API Endpoints**:
-  - `GET /api/profile/kyc-status`: Returns current KYC level, expiry date, transaction permissions, pending actions
-  - `POST /api/profile/trigger-rekyc`: Initiates Re-KYC workflow for user
-  - `POST /api/admin/trigger-rekyc-reminders`: Manual trigger for admin to send reminders
-- **Profile Integration**:
-  - KYC status card displayed prominently on profile page (`/profile`)
-  - Shows visual status badges (Active/Expiring/Expired)
-  - Permission matrix indicating which products user can trade
-  - Countdown to KYC expiry with color-coded alerts
-  - One-click "Complete Re-KYC" button redirecting to `/profile?tab=kyc`
-- **Database Fields** (userProfiles table):
-  - `kycUpdateDueDate`: Next Re-KYC due date calculated based on risk category
-  - `riskCategory`: low/medium/high determines KYC validity period
-  - `reKycRemindersSent`: JSON array tracking when reminders were sent
-  - `videoKycCompleted`: Boolean for Enhanced KYC requirement
-  - `isProfileCompleted`: Boolean for Full KYC requirement
-  - `amlStatus`: Blocks transactions if flagged/rejected
-- **Report Generation**:
-  - Daily CSV reports of customers requiring Re-KYC
-  - Stored in `generatedReports` table with download links
-  - Includes customer ID, name, current KYC level, expiry date, days remaining
-- **Regulatory Compliance**:
-  - SEBI periodic KYC update requirements for securities trading
-  - RBI customer due diligence (CDD) norms
-  - Risk-based approach aligned with PMLA guidelines
-
-### Technical Implementation Notes
-- Both integrations use financial calculation libraries (financial, financejs) for accurate computations
-- APIs simulate official services using published rates and calculation methods from respective institutions
-- No official public developer APIs are available from either institution
-- Custom implementations provide equivalent functionality to official services
+- **Date-fns**: Date utility.
+- **Class Variance Authority**: Variant-based component APIs.
+- **Zod**: TypeScript-first schema validation.
+- **Nanoid**: URL-safe unique ID generator.
