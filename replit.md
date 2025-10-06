@@ -74,7 +74,16 @@ FintekPro is a comprehensive full-stack TypeScript financial services platform. 
   - Graceful fallback to console logging when SMTP not configured
 - **Usage**: Integrated with forgot password flow and notification service
 
+## Recent Changes (October 6, 2025)
+- **TypeScript Error Resolution**: Fixed all TypeScript errors in CKYC verification and profile pages:
+  - Added proper type definitions (CkycRecord, CkycDocument, ComplianceStatus)
+  - Fixed API request format to use body wrapper
+  - Added null/undefined safety checks
+  - Transformed CKYC form submission to use correct schema field names (panNumber, aadharNumber, annualIncome, status, etc.)
+  - Fixed userId prop propagation to ReCKYCWorkflow component
+
 ## Known Technical Debt
+- **CKYC Form Incomplete Fields**: The CKYC onboarding form currently lacks UI inputs for required schema fields (city, state, pincode). The submission handler transforms data correctly but hardcodes these fields to empty strings, which will cause backend validation to reject submissions. **Action Required**: Add form inputs for city, state, and pincode to enable successful KYC submissions.
 - **CKYC Notification Methods**: Methods `createCkycNotificationTrigger` and `updateCkycNotificationStatus` are defined in IStorage interface but implementations are commented out in DatabaseStorage class. The notification-service.ts uses these methods, causing TypeScript errors. This is non-blocking for core functionality but should be addressed in future refactoring.
 
 ## External Dependencies
