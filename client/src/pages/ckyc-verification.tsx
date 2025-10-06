@@ -18,6 +18,7 @@ interface ComplianceStatus {
   status?: string;
   reason?: string;
   requiredActions?: string[];
+  ckycNumber?: string;
 }
 
 export default function CkycVerification() {
@@ -57,7 +58,7 @@ export default function CkycVerification() {
 
   const createCkycMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest("POST", "/api/ckyc", data);
+      const res = await apiRequest("POST", "/api/ckyc", { body: data });
       return await res.json();
     },
     onSuccess: () => {
@@ -79,7 +80,7 @@ export default function CkycVerification() {
 
   const uploadDocumentMutation = useMutation({
     mutationFn: async (documentData: any) => {
-      const res = await apiRequest("POST", `/api/ckyc/${userId}/documents`, documentData);
+      const res = await apiRequest("POST", `/api/ckyc/${userId}/documents`, { body: documentData });
       return await res.json();
     },
     onSuccess: () => {
@@ -102,10 +103,29 @@ export default function CkycVerification() {
 
   const handleSubmitCkyc = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Split fullName into firstName and lastName
+    const nameParts = formData.fullName.trim().split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || nameParts[0] || '';
+    
+    // Transform formData to match schema
     createCkycMutation.mutate({
       userId,
-      ...formData,
-      verificationStatus: 'pending'
+      firstName,
+      lastName,
+      panNumber: formData.pan,
+      aadharNumber: formData.aadhar,
+      dateOfBirth: formData.dateOfBirth,
+      mobileNumber: formData.mobile,
+      emailAddress: formData.email,
+      addressLine1: formData.address,
+      occupation: formData.occupation,
+      annualIncome: formData.income,
+      status: 'pending',
+      city: '', // Required field - could extract from address or add to form
+      state: '', // Required field - could extract from address or add to form
+      pincode: '', // Required field - could add to form
     });
   };
 
@@ -188,8 +208,8 @@ export default function CkycVerification() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-4 mb-4">
-              <Badge className={getStatusColor(compliance.status)}>
-                {compliance.status?.toUpperCase()}
+              <Badge className={getStatusColor(compliance.status || 'pending')}>
+                {compliance.status?.toUpperCase() || 'PENDING'}
               </Badge>
               {compliance.ckycNumber && (
                 <div className="text-sm text-muted-foreground">
@@ -229,7 +249,7 @@ export default function CkycVerification() {
                   <Input
                     id="pan"
                     data-testid="input-pan"
-                    value={formData.pan || ckycRecord?.pan || ""}
+                    value={formData.pan || ckycRecord?.panNumber || ""}
                     onChange={(e) => setFormData({...formData, pan: e.target.value})}
                     placeholder="ABCDE1234F"
                     maxLength={10}
@@ -242,7 +262,7 @@ export default function CkycVerification() {
                   <Input
                     id="aadhar"
                     data-testid="input-aadhar"
-                    value={formData.aadhar || ckycRecord?.aadhar || ""}
+                    value={formData.aadhar || ckycRecord?.aadharNumber || ""}
                     onChange={(e) => setFormData({...formData, aadhar: e.target.value})}
                     placeholder="1234 5678 9012"
                     maxLength={14}
@@ -256,7 +276,7 @@ export default function CkycVerification() {
                 <Input
                   id="fullName"
                   data-testid="input-fullname"
-                  value={formData.fullName || ckycRecord?.fullName || ""}
+                  value={formData.fullName || `${ckycRecord?.firstName || ''} ${ckycRecord?.lastName || ''}`.trim() || ""}
                   onChange={(e) => setFormData({...formData, fullName: e.target.value})}
                   placeholder="As per government ID"
                   required
@@ -281,7 +301,7 @@ export default function CkycVerification() {
                   <Input
                     id="mobile"
                     data-testid="input-mobile"
-                    value={formData.mobile || ckycRecord?.mobile || ""}
+                    value={formData.mobile || ckycRecord?.mobileNumber || ""}
                     onChange={(e) => setFormData({...formData, mobile: e.target.value})}
                     placeholder="+91 98765 43210"
                     required
@@ -295,7 +315,7 @@ export default function CkycVerification() {
                   id="email"
                   data-testid="input-email"
                   type="email"
-                  value={formData.email || ckycRecord?.email || ""}
+                  value={formData.email || ckycRecord?.emailAddress || ""}
                   onChange={(e) => setFormData({...formData, email: e.target.value})}
                   placeholder="your@email.com"
                   required
@@ -307,7 +327,7 @@ export default function CkycVerification() {
                 <Textarea
                   id="address"
                   data-testid="textarea-address"
-                  value={formData.address || ckycRecord?.address || ""}
+                  value={formData.address || ckycRecord?.addressLine1 || ""}
                   onChange={(e) => setFormData({...formData, address: e.target.value})}
                   placeholder="Complete address as per government ID"
                   required
@@ -330,7 +350,7 @@ export default function CkycVerification() {
                 <div>
                   <Label htmlFor="income">Annual Income</Label>
                   <Select
-                    value={formData.income || ckycRecord?.income || ""}
+                    value={formData.income || ckycRecord?.annualIncome || ""}
                     onValueChange={(value) => setFormData({...formData, income: value})}
                   >
                     <SelectTrigger data-testid="select-income">
@@ -452,7 +472,7 @@ export default function CkycVerification() {
         <Card className="mt-6" data-testid="card-current-status">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              {getStatusIcon(ckycRecord.verificationStatus)}
+              {getStatusIcon(ckycRecord.status || 'pending')}
               Current Status
             </CardTitle>
           </CardHeader>
@@ -460,8 +480,8 @@ export default function CkycVerification() {
             <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Verification Status</p>
-                <Badge className={getStatusColor(ckycRecord.verificationStatus)}>
-                  {ckycRecord.verificationStatus.toUpperCase()}
+                <Badge className={getStatusColor(ckycRecord.status || 'pending')}>
+                  {ckycRecord.status?.toUpperCase() || 'PENDING'}
                 </Badge>
               </div>
 
@@ -474,7 +494,7 @@ export default function CkycVerification() {
 
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Last Updated</p>
-                <p className="text-sm">{new Date(ckycRecord.updatedAt).toLocaleDateString()}</p>
+                <p className="text-sm">{ckycRecord.updatedAt ? new Date(ckycRecord.updatedAt).toLocaleDateString() : 'N/A'}</p>
               </div>
 
               {ckycRecord.expiryDate && (
@@ -484,13 +504,6 @@ export default function CkycVerification() {
                 </div>
               )}
             </div>
-
-            {ckycRecord.remarks && (
-              <div className="mt-4">
-                <p className="text-sm text-muted-foreground mb-1">Remarks</p>
-                <p className="text-sm bg-muted p-3 rounded">{ckycRecord.remarks}</p>
-              </div>
-            )}
           </CardContent>
         </Card>
       )}
