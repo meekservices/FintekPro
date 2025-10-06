@@ -1,4 +1,4 @@
-import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Supplier, type InsertSupplier, type EpfHolding, type PpfHolding, type EpsHolding, type GovernmentSchemeConsent, type InsertGovernmentSchemeConsent, type InsuranceHolding, type InsertInsuranceHolding, type UserBankAccount, type InsertUserBankAccount, type UserDematAccount, type InsertUserDematAccount, type AchievementCategory, type InsertAchievementCategory, type Achievement, type InsertAchievement, type UserAchievement, type InsertUserAchievement, type LearningProgress, type InsertLearningProgress, type SocialShare, type InsertSocialShare, type FinancialGoal, type InsertFinancialGoal, type TaxDocument, type InsertTaxDocument, type StructuredTaxData, type InsertStructuredTaxData, type TaxCalculation, type InsertTaxCalculation, type TaxDocumentAccessLog, type InsertTaxDocumentAccessLog, type TaxSession, type InsertTaxSession, type TaxDataSource, type InsertTaxDataSource, type ValidationIssue, type InsertValidationIssue, type FilingRecord, type InsertFilingRecord, type AiOptimizationSuggestion, type InsertAiOptimizationSuggestion, type FundExtended, type Provenance, type FundSearchParams, type FundListResponse, type SourceStatus, type MultiSourceStatus, type LoanProduct, type InsertLoanProduct, type LoanProvider, type InsertLoanProvider, type ProviderProduct, type InsertProviderProduct, type CreditProfile, type InsertCreditProfile, type LoanRequest, type InsertLoanRequest, type LoanOffer, type InsertLoanOffer, type LoanApplicationMarketplace, type InsertLoanApplicationMarketplace, type ProviderIntegration, type InsertProviderIntegration, type PartnerApplicationDocument, type InsertPartnerApplicationDocument, type InvestmentIdea, type InsertInvestmentIdea, type InvestmentIdeaTracking, type InsertInvestmentIdeaTracking, type InvestmentIdeaAlert, type InsertInvestmentIdeaAlert, type YieldTracker, type InsertYieldTracker, type PartnerApplication, type InsertPartnerApplication, type TaxRule, type InsertTaxRule, type TaxReminderSubscription, type InsertTaxReminderSubscription, type CapitalGainsTaxReminder, type InsertCapitalGainsTaxReminder } from "@shared/schema";
+import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Supplier, type InsertSupplier, type EpfHolding, type PpfHolding, type EpsHolding, type GovernmentSchemeConsent, type InsertGovernmentSchemeConsent, type InsuranceHolding, type InsertInsuranceHolding, type UserBankAccount, type InsertUserBankAccount, type UserDematAccount, type InsertUserDematAccount, type AchievementCategory, type InsertAchievementCategory, type Achievement, type InsertAchievement, type UserAchievement, type InsertUserAchievement, type LearningProgress, type InsertLearningProgress, type SocialShare, type InsertSocialShare, type FinancialGoal, type InsertFinancialGoal, type TaxDocument, type InsertTaxDocument, type StructuredTaxData, type InsertStructuredTaxData, type FamilyGroup, type InsertFamilyGroup, type FamilyMember, type InsertFamilyMember, type FamilyGoal, type InsertFamilyGoal, type FamilyGoalContribution, type InsertFamilyGoalContribution, type FamilyActivityLog, type InsertFamilyActivityLog, type FamilyDiscussion, type InsertFamilyDiscussion, type FamilyBudget, type InsertFamilyBudget, type FamilyPortfolioPermission, type InsertFamilyPortfolioPermission, type TaxCalculation, type InsertTaxCalculation, type TaxDocumentAccessLog, type InsertTaxDocumentAccessLog, type TaxSession, type InsertTaxSession, type TaxDataSource, type InsertTaxDataSource, type ValidationIssue, type InsertValidationIssue, type FilingRecord, type InsertFilingRecord, type AiOptimizationSuggestion, type InsertAiOptimizationSuggestion, type FundExtended, type Provenance, type FundSearchParams, type FundListResponse, type SourceStatus, type MultiSourceStatus, type LoanProduct, type InsertLoanProduct, type LoanProvider, type InsertLoanProvider, type ProviderProduct, type InsertProviderProduct, type CreditProfile, type InsertCreditProfile, type LoanRequest, type InsertLoanRequest, type LoanOffer, type InsertLoanOffer, type LoanApplicationMarketplace, type InsertLoanApplicationMarketplace, type ProviderIntegration, type InsertProviderIntegration, type PartnerApplicationDocument, type InsertPartnerApplicationDocument, type InvestmentIdea, type InsertInvestmentIdea, type InvestmentIdeaTracking, type InsertInvestmentIdeaTracking, type InvestmentIdeaAlert, type InsertInvestmentIdeaAlert, type YieldTracker, type InsertYieldTracker, type PartnerApplication, type InsertPartnerApplication, type TaxRule, type InsertTaxRule, type TaxReminderSubscription, type InsertTaxReminderSubscription, type CapitalGainsTaxReminder, type InsertCapitalGainsTaxReminder } from "@shared/schema";
 import { type PhonePeTransaction, type InsertPhonePeTransaction } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
@@ -643,6 +643,38 @@ export interface IStorage {
   updatePhonePeTransaction(id: string, updates: Partial<PhonePeTransaction>): Promise<PhonePeTransaction | undefined>;
   getPhonePeTransactionsByUserId(userId: string): Promise<PhonePeTransaction[]>;
   getPhonePeTransactionsByStatus(status: string): Promise<PhonePeTransaction[]>;
+
+  // Family Collaboration methods
+  createFamilyGroup(data: InsertFamilyGroup): Promise<FamilyGroup>;
+  getFamilyGroup(id: string): Promise<FamilyGroup | undefined>;
+  getUserFamilies(userId: string): Promise<(FamilyGroup & {memberCount: number, role: string})[]>;
+  updateFamilyGroup(id: string, data: Partial<InsertFamilyGroup>): Promise<FamilyGroup>;
+  
+  inviteFamilyMember(data: InsertFamilyMember): Promise<FamilyMember>;
+  acceptFamilyInvitation(memberId: string, userId: string): Promise<FamilyMember>;
+  getFamilyMembers(familyId: string): Promise<(FamilyMember & {user: {email: string, firstName?: string, lastName?: string}})[]>;
+  updateMemberRole(memberId: string, role: string): Promise<FamilyMember>;
+  removeFamilyMember(memberId: string): Promise<void>;
+  checkFamilyMembership(familyId: string, userId: string): Promise<FamilyMember | undefined>;
+  
+  createFamilyGoal(data: InsertFamilyGoal): Promise<FamilyGoal>;
+  getFamilyGoals(familyId: string): Promise<FamilyGoal[]>;
+  addGoalContribution(data: InsertFamilyGoalContribution): Promise<FamilyGoalContribution>;
+  getGoalContributions(goalId: string): Promise<(FamilyGoalContribution & {user: {firstName?: string, lastName?: string}})[]>;
+  
+  logFamilyActivity(data: InsertFamilyActivityLog): Promise<FamilyActivityLog>;
+  getFamilyActivities(familyId: string, limit?: number): Promise<FamilyActivityLog[]>;
+  
+  createDiscussion(data: InsertFamilyDiscussion): Promise<FamilyDiscussion>;
+  getFamilyDiscussions(familyId: string): Promise<(FamilyDiscussion & {author: {firstName?: string, lastName?: string}, replyCount: number})[]>;
+  
+  createFamilyBudget(data: InsertFamilyBudget): Promise<FamilyBudget>;
+  getFamilyBudgets(familyId: string): Promise<FamilyBudget[]>;
+  updateBudgetSpend(budgetId: string, amount: number): Promise<FamilyBudget>;
+  
+  grantPortfolioPermission(data: InsertFamilyPortfolioPermission): Promise<FamilyPortfolioPermission>;
+  checkPortfolioPermission(portfolioId: string, userId: string): Promise<FamilyPortfolioPermission | undefined>;
+  getFamilyDashboardData(familyId: string): Promise<{totalNetWorth: number, memberCount: number, activeGoals: number, monthlyBudget: number}>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3772,6 +3804,419 @@ export class DatabaseStorage implements IStorage {
       .returning();
     
     return result;
+  }
+
+  async createFamilyGroup(data: InsertFamilyGroup): Promise<FamilyGroup> {
+    const [result] = await db
+      .insert(schema.familyGroups)
+      .values(data)
+      .returning();
+    return result;
+  }
+
+  async getFamilyGroup(id: string): Promise<FamilyGroup | undefined> {
+    const [result] = await db
+      .select()
+      .from(schema.familyGroups)
+      .where(eq(schema.familyGroups.id, id))
+      .limit(1);
+    return result;
+  }
+
+  async getUserFamilies(userId: string): Promise<(FamilyGroup & {memberCount: number, role: string})[]> {
+    const results = await db
+      .select({
+        id: schema.familyGroups.id,
+        name: schema.familyGroups.name,
+        createdBy: schema.familyGroups.createdBy,
+        groupType: schema.familyGroups.groupType,
+        description: schema.familyGroups.description,
+        settings: schema.familyGroups.settings,
+        createdAt: schema.familyGroups.createdAt,
+        updatedAt: schema.familyGroups.updatedAt,
+        memberCount: sql<number>`cast(count(distinct ${schema.familyMembers.id}) as integer)`,
+        role: schema.familyMembers.role,
+      })
+      .from(schema.familyGroups)
+      .innerJoin(
+        schema.familyMembers,
+        and(
+          eq(schema.familyMembers.familyId, schema.familyGroups.id),
+          eq(schema.familyMembers.userId, userId),
+          eq(schema.familyMembers.invitationStatus, 'accepted')
+        )
+      )
+      .groupBy(
+        schema.familyGroups.id,
+        schema.familyMembers.role
+      );
+    
+    return results as (FamilyGroup & {memberCount: number, role: string})[];
+  }
+
+  async updateFamilyGroup(id: string, data: Partial<InsertFamilyGroup>): Promise<FamilyGroup> {
+    const [result] = await db
+      .update(schema.familyGroups)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(schema.familyGroups.id, id))
+      .returning();
+    return result;
+  }
+
+  async inviteFamilyMember(data: InsertFamilyMember): Promise<FamilyMember> {
+    const [result] = await db
+      .insert(schema.familyMembers)
+      .values(data)
+      .returning();
+    return result;
+  }
+
+  async acceptFamilyInvitation(memberId: string, userId: string): Promise<FamilyMember> {
+    const [result] = await db
+      .update(schema.familyMembers)
+      .set({
+        invitationStatus: 'accepted',
+        joinedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(schema.familyMembers.id, memberId),
+          eq(schema.familyMembers.userId, userId)
+        )
+      )
+      .returning();
+    return result;
+  }
+
+  async getFamilyMembers(familyId: string): Promise<(FamilyMember & {user: {email: string, firstName?: string, lastName?: string}})[]> {
+    const results = await db
+      .select({
+        id: schema.familyMembers.id,
+        familyId: schema.familyMembers.familyId,
+        userId: schema.familyMembers.userId,
+        role: schema.familyMembers.role,
+        displayName: schema.familyMembers.displayName,
+        invitationStatus: schema.familyMembers.invitationStatus,
+        invitedBy: schema.familyMembers.invitedBy,
+        invitedAt: schema.familyMembers.invitedAt,
+        joinedAt: schema.familyMembers.joinedAt,
+        leftAt: schema.familyMembers.leftAt,
+        userEmail: schema.users.email,
+        userFirstName: schema.userProfiles.firstName,
+        userLastName: schema.userProfiles.lastName,
+      })
+      .from(schema.familyMembers)
+      .innerJoin(schema.users, eq(schema.familyMembers.userId, schema.users.id))
+      .leftJoin(schema.userProfiles, eq(schema.users.id, schema.userProfiles.userId))
+      .where(eq(schema.familyMembers.familyId, familyId));
+    
+    return results.map(r => ({
+      id: r.id,
+      familyId: r.familyId,
+      userId: r.userId,
+      role: r.role,
+      displayName: r.displayName,
+      invitationStatus: r.invitationStatus,
+      invitedBy: r.invitedBy,
+      invitedAt: r.invitedAt,
+      joinedAt: r.joinedAt,
+      leftAt: r.leftAt,
+      user: {
+        email: r.userEmail,
+        firstName: r.userFirstName || undefined,
+        lastName: r.userLastName || undefined,
+      },
+    }));
+  }
+
+  async updateMemberRole(memberId: string, role: string): Promise<FamilyMember> {
+    const [result] = await db
+      .update(schema.familyMembers)
+      .set({ role })
+      .where(eq(schema.familyMembers.id, memberId))
+      .returning();
+    return result;
+  }
+
+  async removeFamilyMember(memberId: string): Promise<void> {
+    await db
+      .update(schema.familyMembers)
+      .set({ leftAt: new Date() })
+      .where(eq(schema.familyMembers.id, memberId));
+  }
+
+  async checkFamilyMembership(familyId: string, userId: string): Promise<FamilyMember | undefined> {
+    const [result] = await db
+      .select()
+      .from(schema.familyMembers)
+      .where(
+        and(
+          eq(schema.familyMembers.familyId, familyId),
+          eq(schema.familyMembers.userId, userId),
+          eq(schema.familyMembers.invitationStatus, 'accepted')
+        )
+      )
+      .limit(1);
+    return result;
+  }
+
+  async createFamilyGoal(data: InsertFamilyGoal): Promise<FamilyGoal> {
+    const [result] = await db
+      .insert(schema.familyGoals)
+      .values(data)
+      .returning();
+    return result;
+  }
+
+  async getFamilyGoals(familyId: string): Promise<FamilyGoal[]> {
+    return await db
+      .select()
+      .from(schema.familyGoals)
+      .where(eq(schema.familyGoals.familyId, familyId))
+      .orderBy(desc(schema.familyGoals.createdAt));
+  }
+
+  async addGoalContribution(data: InsertFamilyGoalContribution): Promise<FamilyGoalContribution> {
+    const [contribution] = await db
+      .insert(schema.familyGoalContributions)
+      .values(data)
+      .returning();
+    
+    await db
+      .update(schema.familyGoals)
+      .set({
+        currentAmount: sql`${schema.familyGoals.currentAmount} + ${data.amount}`,
+      })
+      .where(eq(schema.familyGoals.id, data.goalId));
+    
+    return contribution;
+  }
+
+  async getGoalContributions(goalId: string): Promise<(FamilyGoalContribution & {user: {firstName?: string, lastName?: string}})[]> {
+    const results = await db
+      .select({
+        id: schema.familyGoalContributions.id,
+        goalId: schema.familyGoalContributions.goalId,
+        userId: schema.familyGoalContributions.userId,
+        amount: schema.familyGoalContributions.amount,
+        contributionDate: schema.familyGoalContributions.contributionDate,
+        note: schema.familyGoalContributions.note,
+        contributionType: schema.familyGoalContributions.contributionType,
+        userFirstName: schema.userProfiles.firstName,
+        userLastName: schema.userProfiles.lastName,
+      })
+      .from(schema.familyGoalContributions)
+      .leftJoin(schema.userProfiles, eq(schema.familyGoalContributions.userId, schema.userProfiles.userId))
+      .where(eq(schema.familyGoalContributions.goalId, goalId))
+      .orderBy(desc(schema.familyGoalContributions.contributionDate));
+    
+    return results.map(r => ({
+      id: r.id,
+      goalId: r.goalId,
+      userId: r.userId,
+      amount: r.amount,
+      contributionDate: r.contributionDate,
+      note: r.note,
+      contributionType: r.contributionType,
+      user: {
+        firstName: r.userFirstName || undefined,
+        lastName: r.userLastName || undefined,
+      },
+    }));
+  }
+
+  async logFamilyActivity(data: InsertFamilyActivityLog): Promise<FamilyActivityLog> {
+    const [result] = await db
+      .insert(schema.familyActivityLogs)
+      .values(data)
+      .returning();
+    return result;
+  }
+
+  async getFamilyActivities(familyId: string, limit: number = 50): Promise<FamilyActivityLog[]> {
+    return await db
+      .select()
+      .from(schema.familyActivityLogs)
+      .where(eq(schema.familyActivityLogs.familyId, familyId))
+      .orderBy(desc(schema.familyActivityLogs.createdAt))
+      .limit(limit);
+  }
+
+  async createDiscussion(data: InsertFamilyDiscussion): Promise<FamilyDiscussion> {
+    const [result] = await db
+      .insert(schema.familyDiscussions)
+      .values(data)
+      .returning();
+    return result;
+  }
+
+  async getFamilyDiscussions(familyId: string): Promise<(FamilyDiscussion & {author: {firstName?: string, lastName?: string}, replyCount: number})[]> {
+    const results = await db
+      .select({
+        id: schema.familyDiscussions.id,
+        familyId: schema.familyDiscussions.familyId,
+        topicType: schema.familyDiscussions.topicType,
+        topicId: schema.familyDiscussions.topicId,
+        subject: schema.familyDiscussions.subject,
+        authorId: schema.familyDiscussions.authorId,
+        content: schema.familyDiscussions.content,
+        parentMessageId: schema.familyDiscussions.parentMessageId,
+        attachments: schema.familyDiscussions.attachments,
+        isResolved: schema.familyDiscussions.isResolved,
+        isPinned: schema.familyDiscussions.isPinned,
+        createdAt: schema.familyDiscussions.createdAt,
+        updatedAt: schema.familyDiscussions.updatedAt,
+        authorFirstName: schema.userProfiles.firstName,
+        authorLastName: schema.userProfiles.lastName,
+        replyCount: sql<number>`cast(count(replies.id) as integer)`,
+      })
+      .from(schema.familyDiscussions)
+      .leftJoin(schema.userProfiles, eq(schema.familyDiscussions.authorId, schema.userProfiles.userId))
+      .leftJoin(
+        sql`${schema.familyDiscussions} as replies`,
+        sql`replies.parent_message_id = ${schema.familyDiscussions.id}`
+      )
+      .where(
+        and(
+          eq(schema.familyDiscussions.familyId, familyId),
+          sql`${schema.familyDiscussions.parentMessageId} IS NULL`
+        )
+      )
+      .groupBy(
+        schema.familyDiscussions.id,
+        schema.userProfiles.firstName,
+        schema.userProfiles.lastName
+      )
+      .orderBy(desc(schema.familyDiscussions.createdAt));
+    
+    return results.map(r => ({
+      id: r.id,
+      familyId: r.familyId,
+      topicType: r.topicType,
+      topicId: r.topicId,
+      subject: r.subject,
+      authorId: r.authorId,
+      content: r.content,
+      parentMessageId: r.parentMessageId,
+      attachments: r.attachments,
+      isResolved: r.isResolved,
+      isPinned: r.isPinned,
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+      author: {
+        firstName: r.authorFirstName || undefined,
+        lastName: r.authorLastName || undefined,
+      },
+      replyCount: r.replyCount || 0,
+    }));
+  }
+
+  async createFamilyBudget(data: InsertFamilyBudget): Promise<FamilyBudget> {
+    const [result] = await db
+      .insert(schema.familyBudgets)
+      .values(data)
+      .returning();
+    return result;
+  }
+
+  async getFamilyBudgets(familyId: string): Promise<FamilyBudget[]> {
+    return await db
+      .select()
+      .from(schema.familyBudgets)
+      .where(eq(schema.familyBudgets.familyId, familyId))
+      .orderBy(desc(schema.familyBudgets.createdAt));
+  }
+
+  async updateBudgetSpend(budgetId: string, amount: number): Promise<FamilyBudget> {
+    const [result] = await db
+      .update(schema.familyBudgets)
+      .set({
+        currentSpend: sql`${schema.familyBudgets.currentSpend} + ${amount}`,
+      })
+      .where(eq(schema.familyBudgets.id, budgetId))
+      .returning();
+    return result;
+  }
+
+  async grantPortfolioPermission(data: InsertFamilyPortfolioPermission): Promise<FamilyPortfolioPermission> {
+    const [result] = await db
+      .insert(schema.familyPortfolioPermissions)
+      .values(data)
+      .returning();
+    return result;
+  }
+
+  async checkPortfolioPermission(portfolioId: string, userId: string): Promise<FamilyPortfolioPermission | undefined> {
+    const [result] = await db
+      .select()
+      .from(schema.familyPortfolioPermissions)
+      .where(
+        and(
+          eq(schema.familyPortfolioPermissions.portfolioId, portfolioId),
+          eq(schema.familyPortfolioPermissions.userId, userId)
+        )
+      )
+      .limit(1);
+    return result;
+  }
+
+  async getFamilyDashboardData(familyId: string): Promise<{totalNetWorth: number, memberCount: number, activeGoals: number, monthlyBudget: number}> {
+    const memberCountResult = await db
+      .select({
+        count: sql<number>`cast(count(*) as integer)`,
+      })
+      .from(schema.familyMembers)
+      .where(
+        and(
+          eq(schema.familyMembers.familyId, familyId),
+          eq(schema.familyMembers.invitationStatus, 'accepted')
+        )
+      );
+    
+    const activeGoalsResult = await db
+      .select({
+        count: sql<number>`cast(count(*) as integer)`,
+      })
+      .from(schema.familyGoals)
+      .where(
+        and(
+          eq(schema.familyGoals.familyId, familyId),
+          eq(schema.familyGoals.status, 'active')
+        )
+      );
+    
+    const budgetResult = await db
+      .select({
+        total: sql<number>`cast(sum(${schema.familyBudgets.monthlyLimit}) as integer)`,
+      })
+      .from(schema.familyBudgets)
+      .where(eq(schema.familyBudgets.familyId, familyId));
+    
+    const portfoliosResult = await db
+      .select({
+        userId: schema.familyMembers.userId,
+        totalValue: schema.portfolios.totalValue,
+      })
+      .from(schema.familyMembers)
+      .innerJoin(schema.portfolios, eq(schema.familyMembers.userId, schema.portfolios.userId))
+      .where(
+        and(
+          eq(schema.familyMembers.familyId, familyId),
+          eq(schema.familyMembers.invitationStatus, 'accepted')
+        )
+      );
+    
+    const totalNetWorth = portfoliosResult.reduce((sum, p) => {
+      const value = parseFloat(p.totalValue || '0');
+      return sum + value;
+    }, 0);
+    
+    return {
+      totalNetWorth,
+      memberCount: memberCountResult[0]?.count || 0,
+      activeGoals: activeGoalsResult[0]?.count || 0,
+      monthlyBudget: budgetResult[0]?.total || 0,
+    };
   }
 }
 

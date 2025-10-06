@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { sql, eq } from "drizzle-orm";
 import { db } from "./db";
 import { setupAuth } from "./replitAuth";
-import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema, insertCapitalGainsReportSchema, insertTransactionReportSchema, insertTransactionRecordSchema, insertCkycRecordSchema, userCart, userCartItems, storeProducts, storeCategories, fundComparisons, portfolioComparisons, comparisonHistory } from "@shared/schema";
+import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema, insertCapitalGainsReportSchema, insertTransactionReportSchema, insertTransactionRecordSchema, insertCkycRecordSchema, userCart, userCartItems, storeProducts, storeCategories, fundComparisons, portfolioComparisons, comparisonHistory, insertFamilyGroupSchema, insertFamilyMemberSchema, insertFamilyGoalSchema, insertFamilyGoalContributionSchema, insertFamilyActivityLogSchema, insertFamilyDiscussionSchema, insertFamilyBudgetSchema } from "@shared/schema";
 import { marketStoryService, type MarketData as StoryMarketData } from "./market-story-service";
 import { generateMarketInsight, analyzePortfolio, generateInvestmentStory, explainFinancialConcept } from "./gemini";
 import { whatsappService } from "./whatsapp";
@@ -26829,6 +26829,680 @@ System Security Data:`;
       res.status(500).json({ message: 'Failed to fetch transactions' });
     }
   });
+
+  // ==================== FAMILY COLLABORATION API ROUTES ====================
+  
+  // Helper middleware to verify family membership
+  const verifyFamilyMembership = async (req: any, res: any, next: any) => {
+    try {
+      const { familyId } = req.params;
+      if (!req.user?.id) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const membership = await storage.checkFamilyMembership(familyId, req.user.id);
+      if (!membership) {
+        return res.status(403).json({ message: "Not a member of this family group" });
+      }
+      
+      req.familyMember = membership;
+      next();
+    } catch (error) {
+      console.error('Error verifying family membership:', error);
+      res.status(500).json({ message: "Failed to verify family membership" });
+    }
+  };
+
+  // 1. FAMILY GROUP MANAGEMENT
+  
+  // Create a new family group
+  app.post("/api/families", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const validatedData = insertFamilyGroupSchema.parse({
+        ...req.body,
+        createdBy: req.user.id
+      });
+
+      const familyGroup = await storage.createFamilyGroup(validatedData);
+
+      // Automatically add creator as admin member
+      await storage.inviteFamilyMember({
+        familyId: familyGroup.id,
+        userId: req.user.id,
+        role: 'admin',
+        status: 'active'
+      });
+
+      // Log activity
+      await storage.logFamilyActivity({
+        familyId: familyGroup.id,
+        userId: req.user.id,
+        activityType: 'family_created',
+        description: `Family group "${familyGroup.name}" was created`
+      });
+
+      complianceMonitor.logEvent({
+        userId: req.user.id,
+        eventType: 'family_collaboration',
+        action: 'create_family_group',
+        resource: familyGroup.id,
+        outcome: 'success',
+        riskLevel: 'low'
+      });
+
+      res.status(201).json(familyGroup);
+    } catch (error) {
+      console.error('Error creating family group:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation failed", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create family group" });
+    }
+  });
+
+  // Get all families for logged-in user
+  app.get("/api/families", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const families = await storage.getUserFamilies(req.user.id);
+
+      complianceMonitor.logEvent({
+        userId: req.user.id,
+        eventType: 'data_access',
+        action: 'list_user_families',
+        outcome: 'success',
+        riskLevel: 'low'
+      });
+
+      res.json(families);
+    } catch (error) {
+      console.error('Error fetching user families:', error);
+      res.status(500).json({ message: "Failed to fetch families" });
+    }
+  });
+
+  // Get specific family details
+  app.get("/api/families/:id", verifyFamilyMembership, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const familyGroup = await storage.getFamilyGroup(id);
+
+      if (!familyGroup) {
+        return res.status(404).json({ message: "Family group not found" });
+      }
+
+      complianceMonitor.logEvent({
+        userId: req.user.id,
+        eventType: 'data_access',
+        action: 'view_family_details',
+        resource: id,
+        outcome: 'success',
+        riskLevel: 'low'
+      });
+
+      res.json(familyGroup);
+    } catch (error) {
+      console.error('Error fetching family details:', error);
+      res.status(500).json({ message: "Failed to fetch family details" });
+    }
+  });
+
+  // Update family group
+  app.patch("/api/families/:id", verifyFamilyMembership, async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Only admin can update family group
+      if (req.familyMember.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can update family group" });
+      }
+
+      const updates = insertFamilyGroupSchema.partial().parse(req.body);
+      const updatedFamily = await storage.updateFamilyGroup(id, updates);
+
+      // Log activity
+      await storage.logFamilyActivity({
+        familyId: id,
+        userId: req.user.id,
+        activityType: 'family_updated',
+        description: `Family group details were updated`
+      });
+
+      complianceMonitor.logEvent({
+        userId: req.user.id,
+        eventType: 'family_collaboration',
+        action: 'update_family_group',
+        resource: id,
+        outcome: 'success',
+        riskLevel: 'low'
+      });
+
+      res.json(updatedFamily);
+    } catch (error) {
+      console.error('Error updating family group:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation failed", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update family group" });
+    }
+  });
+
+  // 2. FAMILY MEMBERS
+  
+  // Invite member to family
+  app.post("/api/families/:familyId/members", verifyFamilyMembership, async (req, res) => {
+    try {
+      const { familyId } = req.params;
+      
+      // Only admin can invite members
+      if (req.familyMember.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can invite members" });
+      }
+
+      const validatedData = insertFamilyMemberSchema.parse({
+        ...req.body,
+        familyId,
+        status: 'pending'
+      });
+
+      const member = await storage.inviteFamilyMember(validatedData);
+
+      // Log activity
+      await storage.logFamilyActivity({
+        familyId,
+        userId: req.user.id,
+        activityType: 'member_invited',
+        description: `User ${validatedData.displayName || validatedData.userId} was invited to the family`
+      });
+
+      complianceMonitor.logEvent({
+        userId: req.user.id,
+        eventType: 'family_collaboration',
+        action: 'invite_family_member',
+        resource: familyId,
+        outcome: 'success',
+        riskLevel: 'medium'
+      });
+
+      res.status(201).json(member);
+    } catch (error) {
+      console.error('Error inviting family member:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation failed", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to invite member" });
+    }
+  });
+
+  // Get all family members
+  app.get("/api/families/:familyId/members", verifyFamilyMembership, async (req, res) => {
+    try {
+      const { familyId } = req.params;
+      const members = await storage.getFamilyMembers(familyId);
+
+      complianceMonitor.logEvent({
+        userId: req.user.id,
+        eventType: 'data_access',
+        action: 'list_family_members',
+        resource: familyId,
+        outcome: 'success',
+        riskLevel: 'low'
+      });
+
+      res.json(members);
+    } catch (error) {
+      console.error('Error fetching family members:', error);
+      res.status(500).json({ message: "Failed to fetch family members" });
+    }
+  });
+
+  // Accept family invitation
+  app.post("/api/families/:familyId/members/:memberId/accept", async (req, res) => {
+    try {
+      const { familyId, memberId } = req.params;
+      
+      if (!req.user?.id) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const member = await storage.acceptFamilyInvitation(memberId, req.user.id);
+
+      // Log activity
+      await storage.logFamilyActivity({
+        familyId,
+        userId: req.user.id,
+        activityType: 'member_joined',
+        description: `User accepted invitation and joined the family`
+      });
+
+      complianceMonitor.logEvent({
+        userId: req.user.id,
+        eventType: 'family_collaboration',
+        action: 'accept_family_invitation',
+        resource: familyId,
+        outcome: 'success',
+        riskLevel: 'low'
+      });
+
+      res.json(member);
+    } catch (error) {
+      console.error('Error accepting invitation:', error);
+      res.status(500).json({ message: "Failed to accept invitation" });
+    }
+  });
+
+  // Update member role
+  app.patch("/api/families/:familyId/members/:memberId/role", verifyFamilyMembership, async (req, res) => {
+    try {
+      const { familyId, memberId } = req.params;
+      const { role } = req.body;
+      
+      // Only admin can update roles
+      if (req.familyMember.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can update member roles" });
+      }
+
+      if (!['admin', 'member', 'viewer'].includes(role)) {
+        return res.status(400).json({ message: "Invalid role. Must be admin, member, or viewer" });
+      }
+
+      const updatedMember = await storage.updateMemberRole(memberId, role);
+
+      // Log activity
+      await storage.logFamilyActivity({
+        familyId,
+        userId: req.user.id,
+        activityType: 'member_role_updated',
+        description: `Member role was updated to ${role}`
+      });
+
+      complianceMonitor.logEvent({
+        userId: req.user.id,
+        eventType: 'family_collaboration',
+        action: 'update_member_role',
+        resource: familyId,
+        outcome: 'success',
+        riskLevel: 'medium'
+      });
+
+      res.json(updatedMember);
+    } catch (error) {
+      console.error('Error updating member role:', error);
+      res.status(500).json({ message: "Failed to update member role" });
+    }
+  });
+
+  // Remove family member
+  app.delete("/api/families/:familyId/members/:memberId", verifyFamilyMembership, async (req, res) => {
+    try {
+      const { familyId, memberId } = req.params;
+      
+      // Only admin can remove members
+      if (req.familyMember.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can remove members" });
+      }
+
+      await storage.removeFamilyMember(memberId);
+
+      // Log activity
+      await storage.logFamilyActivity({
+        familyId,
+        userId: req.user.id,
+        activityType: 'member_removed',
+        description: `A member was removed from the family`
+      });
+
+      complianceMonitor.logEvent({
+        userId: req.user.id,
+        eventType: 'family_collaboration',
+        action: 'remove_family_member',
+        resource: familyId,
+        outcome: 'success',
+        riskLevel: 'medium'
+      });
+
+      res.json({ success: true, message: "Member removed successfully" });
+    } catch (error) {
+      console.error('Error removing family member:', error);
+      res.status(500).json({ message: "Failed to remove member" });
+    }
+  });
+
+  // 3. FAMILY GOALS
+  
+  // Create family goal
+  app.post("/api/families/:familyId/goals", verifyFamilyMembership, async (req, res) => {
+    try {
+      const { familyId } = req.params;
+      
+      // Only admin and members can create goals
+      if (req.familyMember.role === 'viewer') {
+        return res.status(403).json({ message: "Viewers cannot create goals" });
+      }
+
+      const validatedData = insertFamilyGoalSchema.parse({
+        ...req.body,
+        familyId,
+        createdBy: req.user.id
+      });
+
+      const goal = await storage.createFamilyGoal(validatedData);
+
+      // Log activity
+      await storage.logFamilyActivity({
+        familyId,
+        userId: req.user.id,
+        activityType: 'goal_created',
+        description: `New goal "${goal.name}" was created`
+      });
+
+      complianceMonitor.logEvent({
+        userId: req.user.id,
+        eventType: 'family_collaboration',
+        action: 'create_family_goal',
+        resource: familyId,
+        outcome: 'success',
+        riskLevel: 'low'
+      });
+
+      res.status(201).json(goal);
+    } catch (error) {
+      console.error('Error creating family goal:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation failed", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create goal" });
+    }
+  });
+
+  // Get all family goals
+  app.get("/api/families/:familyId/goals", verifyFamilyMembership, async (req, res) => {
+    try {
+      const { familyId } = req.params;
+      const goals = await storage.getFamilyGoals(familyId);
+
+      complianceMonitor.logEvent({
+        userId: req.user.id,
+        eventType: 'data_access',
+        action: 'list_family_goals',
+        resource: familyId,
+        outcome: 'success',
+        riskLevel: 'low'
+      });
+
+      res.json(goals);
+    } catch (error) {
+      console.error('Error fetching family goals:', error);
+      res.status(500).json({ message: "Failed to fetch goals" });
+    }
+  });
+
+  // Add contribution to goal
+  app.post("/api/families/:familyId/goals/:goalId/contribute", verifyFamilyMembership, async (req, res) => {
+    try {
+      const { familyId, goalId } = req.params;
+      
+      // Only admin and members can contribute
+      if (req.familyMember.role === 'viewer') {
+        return res.status(403).json({ message: "Viewers cannot contribute to goals" });
+      }
+
+      const validatedData = insertFamilyGoalContributionSchema.parse({
+        ...req.body,
+        goalId,
+        userId: req.user.id
+      });
+
+      const contribution = await storage.addGoalContribution(validatedData);
+
+      // Log activity
+      await storage.logFamilyActivity({
+        familyId,
+        userId: req.user.id,
+        activityType: 'goal_contribution',
+        description: `Contributed ₹${validatedData.amount} to a goal`
+      });
+
+      complianceMonitor.logEvent({
+        userId: req.user.id,
+        eventType: 'family_collaboration',
+        action: 'add_goal_contribution',
+        resource: familyId,
+        outcome: 'success',
+        riskLevel: 'low'
+      });
+
+      res.status(201).json(contribution);
+    } catch (error) {
+      console.error('Error adding goal contribution:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation failed", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to add contribution" });
+    }
+  });
+
+  // Get goal contributions
+  app.get("/api/families/:familyId/goals/:goalId/contributions", verifyFamilyMembership, async (req, res) => {
+    try {
+      const { goalId } = req.params;
+      const contributions = await storage.getGoalContributions(goalId);
+
+      complianceMonitor.logEvent({
+        userId: req.user.id,
+        eventType: 'data_access',
+        action: 'list_goal_contributions',
+        resource: goalId,
+        outcome: 'success',
+        riskLevel: 'low'
+      });
+
+      res.json(contributions);
+    } catch (error) {
+      console.error('Error fetching goal contributions:', error);
+      res.status(500).json({ message: "Failed to fetch contributions" });
+    }
+  });
+
+  // 4. FAMILY DASHBOARD
+  
+  // Get aggregated dashboard data
+  app.get("/api/families/:familyId/dashboard", verifyFamilyMembership, async (req, res) => {
+    try {
+      const { familyId } = req.params;
+      const dashboardData = await storage.getFamilyDashboardData(familyId);
+
+      complianceMonitor.logEvent({
+        userId: req.user.id,
+        eventType: 'data_access',
+        action: 'view_family_dashboard',
+        resource: familyId,
+        outcome: 'success',
+        riskLevel: 'low'
+      });
+
+      res.json(dashboardData);
+    } catch (error) {
+      console.error('Error fetching family dashboard:', error);
+      res.status(500).json({ message: "Failed to fetch dashboard data" });
+    }
+  });
+
+  // 5. FAMILY ACTIVITY LOG
+  
+  // Get family activity log
+  app.get("/api/families/:familyId/activity", verifyFamilyMembership, async (req, res) => {
+    try {
+      const { familyId } = req.params;
+      const { limit } = req.query;
+      
+      const activities = await storage.getFamilyActivities(
+        familyId, 
+        limit ? parseInt(limit as string) : undefined
+      );
+
+      complianceMonitor.logEvent({
+        userId: req.user.id,
+        eventType: 'data_access',
+        action: 'view_family_activity',
+        resource: familyId,
+        outcome: 'success',
+        riskLevel: 'low'
+      });
+
+      res.json(activities);
+    } catch (error) {
+      console.error('Error fetching family activity:', error);
+      res.status(500).json({ message: "Failed to fetch activity log" });
+    }
+  });
+
+  // 6. FAMILY DISCUSSIONS
+  
+  // Create discussion thread
+  app.post("/api/families/:familyId/discussions", verifyFamilyMembership, async (req, res) => {
+    try {
+      const { familyId } = req.params;
+      
+      // Only admin and members can create discussions
+      if (req.familyMember.role === 'viewer') {
+        return res.status(403).json({ message: "Viewers cannot create discussions" });
+      }
+
+      const validatedData = insertFamilyDiscussionSchema.parse({
+        ...req.body,
+        familyId,
+        authorId: req.user.id
+      });
+
+      const discussion = await storage.createDiscussion(validatedData);
+
+      // Log activity
+      await storage.logFamilyActivity({
+        familyId,
+        userId: req.user.id,
+        activityType: 'discussion_created',
+        description: `Started a new discussion: "${discussion.title}"`
+      });
+
+      complianceMonitor.logEvent({
+        userId: req.user.id,
+        eventType: 'family_collaboration',
+        action: 'create_family_discussion',
+        resource: familyId,
+        outcome: 'success',
+        riskLevel: 'low'
+      });
+
+      res.status(201).json(discussion);
+    } catch (error) {
+      console.error('Error creating discussion:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation failed", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create discussion" });
+    }
+  });
+
+  // Get all family discussions
+  app.get("/api/families/:familyId/discussions", verifyFamilyMembership, async (req, res) => {
+    try {
+      const { familyId } = req.params;
+      const discussions = await storage.getFamilyDiscussions(familyId);
+
+      complianceMonitor.logEvent({
+        userId: req.user.id,
+        eventType: 'data_access',
+        action: 'list_family_discussions',
+        resource: familyId,
+        outcome: 'success',
+        riskLevel: 'low'
+      });
+
+      res.json(discussions);
+    } catch (error) {
+      console.error('Error fetching family discussions:', error);
+      res.status(500).json({ message: "Failed to fetch discussions" });
+    }
+  });
+
+  // 7. FAMILY BUDGETS
+  
+  // Create family budget
+  app.post("/api/families/:familyId/budgets", verifyFamilyMembership, async (req, res) => {
+    try {
+      const { familyId } = req.params;
+      
+      // Only admin can create budgets
+      if (req.familyMember.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can create budgets" });
+      }
+
+      const validatedData = insertFamilyBudgetSchema.parse({
+        ...req.body,
+        familyId,
+        createdBy: req.user.id
+      });
+
+      const budget = await storage.createFamilyBudget(validatedData);
+
+      // Log activity
+      await storage.logFamilyActivity({
+        familyId,
+        userId: req.user.id,
+        activityType: 'budget_created',
+        description: `Created budget for "${budget.category}" with limit ₹${budget.monthlyLimit}`
+      });
+
+      complianceMonitor.logEvent({
+        userId: req.user.id,
+        eventType: 'family_collaboration',
+        action: 'create_family_budget',
+        resource: familyId,
+        outcome: 'success',
+        riskLevel: 'low'
+      });
+
+      res.status(201).json(budget);
+    } catch (error) {
+      console.error('Error creating budget:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation failed", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create budget" });
+    }
+  });
+
+  // Get all family budgets
+  app.get("/api/families/:familyId/budgets", verifyFamilyMembership, async (req, res) => {
+    try {
+      const { familyId } = req.params;
+      const budgets = await storage.getFamilyBudgets(familyId);
+
+      complianceMonitor.logEvent({
+        userId: req.user.id,
+        eventType: 'data_access',
+        action: 'list_family_budgets',
+        resource: familyId,
+        outcome: 'success',
+        riskLevel: 'low'
+      });
+
+      res.json(budgets);
+    } catch (error) {
+      console.error('Error fetching family budgets:', error);
+      res.status(500).json({ message: "Failed to fetch budgets" });
+    }
+  });
+
+  // ==================== END FAMILY COLLABORATION ROUTES ====================
 
   // Add AML routes
   app.use(amlRoutes);
