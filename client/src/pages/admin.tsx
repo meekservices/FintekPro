@@ -1609,6 +1609,116 @@ export default function AdminPanel() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* WhatsApp Auth Tab */}
+          <TabsContent value="whatsapp-auth" className="space-y-6" data-testid="whatsapp-auth-content">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  WhatsApp Authentication
+                </CardTitle>
+                <CardDescription>
+                  Test and monitor WhatsApp login functionality
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* WhatsApp Login Component */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold">Test WhatsApp Login</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Use this form to test WhatsApp authentication flow
+                    </p>
+                    <WhatsAppLogin />
+                  </div>
+
+                  {/* Authentication Stats */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold">Authentication Statistics</h3>
+                    <div className="grid gap-4">
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm font-medium">Active Sessions</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold text-green-600 dark:text-green-400">0</div>
+                          <p className="text-xs text-muted-foreground mt-1">Currently authenticated users</p>
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm font-medium">Total Logins (24h)</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold">0</div>
+                          <p className="text-xs text-muted-foreground mt-1">Successful authentications today</p>
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm font-medium">Failed Attempts</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold text-red-600 dark:text-red-400">0</div>
+                          <p className="text-xs text-muted-foreground mt-1">Failed login attempts today</p>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Recent Authentication Activity */}
+                <div className="mt-6">
+                  <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Timestamp</TableHead>
+                        <TableHead>Phone Number</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>IP Address</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                          No authentication activity recorded yet
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* WhatsApp Setup Link */}
+                <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-start gap-3">
+                    <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-blue-900 dark:text-blue-100">WhatsApp Configuration</h4>
+                      <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                        Need to configure WhatsApp settings? Visit the WhatsApp setup page.
+                      </p>
+                      <RouterLink href="/admin-whatsapp-setup">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="mt-3"
+                          data-testid="button-whatsapp-setup"
+                        >
+                          <Settings className="w-4 h-4 mr-2" />
+                          WhatsApp Setup
+                        </Button>
+                      </RouterLink>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       </div>
     </div>
