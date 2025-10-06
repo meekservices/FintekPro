@@ -419,6 +419,334 @@ function ApiStatusPanel() {
   );
 }
 
+// AI Business Intelligence Dashboard Component
+function AIBusinessIntelligenceDashboard() {
+  const { toast } = useToast();
+  const [selectedInsight, setSelectedInsight] = useState<string | null>(null);
+  
+  // Fetch all AI-powered insights
+  const { data: allInsights = [], isLoading: insightsLoading, refetch: refetchInsights } = useQuery<any[]>({
+    queryKey: ['/api/admin/business-intelligence/insights'],
+    refetchInterval: false, // Don't auto-refresh to save API costs
+  });
+  
+  // Fetch business metrics
+  const { data: businessMetrics, isLoading: metricsLoading } = useQuery<any>({
+    queryKey: ['/api/admin/business-intelligence/metrics'],
+  });
+
+  const generateInsights = useMutation({
+    mutationFn: async () => {
+      return await apiRequest('GET', '/api/admin/business-intelligence/insights');
+    },
+    onSuccess: () => {
+      toast({
+        title: "AI Insights Generated",
+        description: "Business intelligence insights have been generated successfully",
+      });
+      refetchInsights();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Generation Failed",
+        description: error.message || "Failed to generate AI insights",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const getCategoryIcon = (category: string) => {
+    switch (category) {
+      case 'profitability':
+        return <IndianRupee className="w-5 h-5" />;
+      case 'service_quality':
+        return <Target className="w-5 h-5" />;
+      case 'market_reputation':
+        return <Globe className="w-5 h-5" />;
+      case 'marketing':
+        return <Megaphone className="w-5 h-5" />;
+      case 'operations':
+        return <Settings className="w-5 h-5" />;
+      default:
+        return <Lightbulb className="w-5 h-5" />;
+    }
+  };
+
+  const getCategoryColor = (category: string) => {
+    switch (category) {
+      case 'profitability':
+        return 'from-emerald-500 to-green-600';
+      case 'service_quality':
+        return 'from-blue-500 to-cyan-600';
+      case 'market_reputation':
+        return 'from-purple-500 to-pink-600';
+      case 'marketing':
+        return 'from-orange-500 to-red-600';
+      case 'operations':
+        return 'from-indigo-500 to-purple-600';
+      default:
+        return 'from-gray-500 to-slate-600';
+    }
+  };
+
+  const getPriorityBadge = (priority: string) => {
+    const variants: Record<string, string> = {
+      critical: 'destructive',
+      high: 'default',
+      medium: 'secondary',
+      low: 'outline'
+    };
+    return variants[priority] || 'outline';
+  };
+
+  const getTrendIcon = (trend?: 'up' | 'down' | 'stable') => {
+    if (trend === 'up') return <TrendingUp className="w-4 h-4 text-green-600" />;
+    if (trend === 'down') return <TrendingDown className="w-4 h-4 text-red-600" />;
+    return <TrendingUp className="w-4 h-4 text-gray-400" />;
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header Section with Generate Button */}
+      <Card className="bg-gradient-to-r from-purple-600 to-pink-600 text-white border-0">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <Brain className="w-8 h-8" />
+                <h2 className="text-2xl font-bold">AI Business Intelligence</h2>
+              </div>
+              <p className="text-purple-100">
+                AI-powered insights to optimize profitability, service quality, marketing, and operations
+              </p>
+            </div>
+            <Button 
+              onClick={() => generateInsights.mutate()} 
+              disabled={generateInsights.isPending || insightsLoading}
+              variant="secondary"
+              size="lg"
+              className="bg-white text-purple-600 hover:bg-purple-50"
+              data-testid="button-generate-insights"
+            >
+              {generateInsights.isPending ? (
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+              ) : (
+                <Zap className="w-5 h-5 mr-2" />
+              )}
+              Generate Insights
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Business Metrics Overview */}
+      {businessMetrics && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Revenue</p>
+                  <p className="text-2xl font-bold">₹{businessMetrics.totalRevenue?.toLocaleString() || 0}</p>
+                </div>
+                <IndianRupee className="w-8 h-8 text-green-600" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Active Users</p>
+                  <p className="text-2xl font-bold">{businessMetrics.activeUsers || 0}/{businessMetrics.totalUsers || 0}</p>
+                </div>
+                <Users className="w-8 h-8 text-blue-600" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Satisfaction Score</p>
+                  <p className="text-2xl font-bold">{businessMetrics.customerSatisfaction?.toFixed(1) || 0}/5.0</p>
+                </div>
+                <Target className="w-8 h-8 text-purple-600" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Profit Margin</p>
+                  <p className="text-2xl font-bold">{((businessMetrics.profitMargin || 0) * 100).toFixed(1)}%</p>
+                </div>
+                <TrendingUp className="w-8 h-8 text-emerald-600" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* AI Insights Grid */}
+      {insightsLoading ? (
+        <Card>
+          <CardContent className="p-12 flex flex-col items-center justify-center">
+            <Loader2 className="w-12 h-12 animate-spin text-primary mb-4" />
+            <p className="text-muted-foreground">Generating AI insights...</p>
+          </CardContent>
+        </Card>
+      ) : allInsights.length === 0 ? (
+        <Card>
+          <CardContent className="p-12 flex flex-col items-center justify-center">
+            <Brain className="w-16 h-16 text-muted-foreground/30 mb-4" />
+            <p className="text-lg font-semibold text-muted-foreground mb-2">No AI insights generated yet</p>
+            <p className="text-sm text-muted-foreground mb-4">Click "Generate Insights" to analyze your business data</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {allInsights.map((insight: any) => (
+            <Card key={insight.id} className="overflow-hidden" data-testid={`insight-card-${insight.category}`}>
+              <div className={`h-2 bg-gradient-to-r ${getCategoryColor(insight.category)}`} />
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg bg-gradient-to-br ${getCategoryColor(insight.category)} text-white`}>
+                      {getCategoryIcon(insight.category)}
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg">{insight.title}</CardTitle>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant={getPriorityBadge(insight.priority) as any}>
+                          {insight.priority}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground capitalize">
+                          {insight.category.replace('_', ' ')}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">{insight.summary}</p>
+                
+                {/* Key Metrics */}
+                {insight.metrics && insight.metrics.length > 0 && (
+                  <div className="grid grid-cols-2 gap-3">
+                    {insight.metrics.slice(0, 4).map((metric: any, idx: number) => (
+                      <div key={idx} className="p-3 bg-muted rounded-lg">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-xs text-muted-foreground">{metric.label}</p>
+                          {getTrendIcon(metric.trend)}
+                        </div>
+                        <p className="text-sm font-bold">{metric.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Recommendations */}
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold">Top Recommendations:</p>
+                  <ul className="space-y-1.5">
+                    {insight.recommendations?.slice(0, 3).map((rec: string, idx: number) => (
+                      <li key={idx} className="text-xs text-muted-foreground flex items-start gap-2">
+                        <CheckCircle className="w-3 h-3 text-green-600 mt-0.5 flex-shrink-0" />
+                        <span>{rec}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Action Items */}
+                {insight.actionItems && insight.actionItems.length > 0 && (
+                  <div className="pt-3 border-t">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full"
+                      onClick={() => setSelectedInsight(insight.id)}
+                      data-testid={`button-view-details-${insight.category}`}
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      View Full Analysis
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Detailed Insight Dialog */}
+      <Dialog open={!!selectedInsight} onOpenChange={(open) => !open && setSelectedInsight(null)}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          {selectedInsight && allInsights.find((i: any) => i.id === selectedInsight) && (
+            <div>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  {getCategoryIcon(allInsights.find((i: any) => i.id === selectedInsight).category)}
+                  {allInsights.find((i: any) => i.id === selectedInsight).title}
+                </DialogTitle>
+                <DialogDescription>
+                  Detailed AI analysis and actionable recommendations
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="space-y-6 mt-6">
+                {/* Detailed Analysis */}
+                <div>
+                  <h3 className="font-semibold mb-2">Detailed Analysis</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {allInsights.find((i: any) => i.id === selectedInsight).detailedAnalysis}
+                  </p>
+                </div>
+
+                {/* All Recommendations */}
+                <div>
+                  <h3 className="font-semibold mb-2">All Recommendations</h3>
+                  <ul className="space-y-2">
+                    {allInsights.find((i: any) => i.id === selectedInsight).recommendations?.map((rec: string, idx: number) => (
+                      <li key={idx} className="text-sm flex items-start gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                        <span>{rec}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Action Items */}
+                <div>
+                  <h3 className="font-semibold mb-2">Action Items</h3>
+                  <div className="space-y-3">
+                    {allInsights.find((i: any) => i.id === selectedInsight).actionItems?.map((item: any, idx: number) => (
+                      <Card key={idx}>
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between mb-2">
+                            <h4 className="font-medium text-sm">{item.action}</h4>
+                            <Badge variant="outline" className="text-xs">{item.timeframe}</Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mb-1">
+                            <strong>Estimated Impact:</strong> {item.estimatedImpact}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 export default function AdminPanel() {
   const [selectedTab, setSelectedTab] = useState("overview");
   const { toast } = useToast();
@@ -1478,51 +1806,7 @@ export default function AdminPanel() {
 
           {/* AI Analysis Tab */}
           <TabsContent value="ai-analysis" className="space-y-6" data-testid="ai-analysis-content">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Brain className="w-5 h-5 text-primary" />
-                  AI-Powered System Analysis
-                </CardTitle>
-                <CardDescription>Advanced analytics and AI insights (Super Admin Only)</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30 rounded-lg border border-purple-200 dark:border-purple-900/50">
-                    <div className="flex items-center gap-3 mb-4">
-                      <Bot className="w-8 h-8 text-purple-600 dark:text-purple-400" />
-                      <h3 className="text-lg font-semibold">AI Analysis Dashboard</h3>
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Leverage AI to analyze system performance, user behavior patterns, and predict trends.
-                    </p>
-                    <Button className="bg-gradient-to-r from-purple-500 to-pink-600 text-white hover:from-purple-600 hover:to-pink-700" data-testid="button-run-ai-analysis">
-                      <Zap className="w-4 h-4 mr-2" />
-                      Run AI Analysis
-                    </Button>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-4 border rounded-lg">
-                      <h4 className="font-semibold mb-2">Pattern Recognition</h4>
-                      <p className="text-sm text-muted-foreground">Identify unusual patterns in user behavior</p>
-                    </div>
-                    <div className="p-4 border rounded-lg">
-                      <h4 className="font-semibold mb-2">Predictive Analytics</h4>
-                      <p className="text-sm text-muted-foreground">Forecast trends and potential issues</p>
-                    </div>
-                    <div className="p-4 border rounded-lg">
-                      <h4 className="font-semibold mb-2">Performance Optimization</h4>
-                      <p className="text-sm text-muted-foreground">AI-driven recommendations for system improvement</p>
-                    </div>
-                    <div className="p-4 border rounded-lg">
-                      <h4 className="font-semibold mb-2">Anomaly Detection</h4>
-                      <p className="text-sm text-muted-foreground">Automated detection of security threats</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <AIBusinessIntelligenceDashboard />
           </TabsContent>
 
           {/* System Errors Tab */}
