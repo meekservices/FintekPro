@@ -26,6 +26,17 @@ export function Header() {
     }
   };
 
+  // Helper function to get full client name
+  const getClientName = () => {
+    if (!user) return 'Client';
+    const firstName = user.firstName?.trim() || '';
+    const lastName = user.lastName?.trim() || '';
+    if (firstName && lastName) {
+      return `${firstName} ${lastName}`;
+    }
+    return firstName || lastName || user.email || 'Client';
+  };
+
   const navigation = [
     { name: "Markets", href: "/markets" },
     { name: "Portfolio", href: "/portfolio" },
@@ -137,8 +148,8 @@ export function Header() {
                       className="w-6 h-6 rounded-full object-cover"
                     />
                   )}
-                  <span className="text-sm font-medium text-gray-700">
-                    {user?.firstName || user?.email || 'Client'}
+                  <span className="text-sm font-medium text-gray-700" data-testid="client-name-header">
+                    {getClientName()}
                   </span>
                 </div>
                 <Link href="/ckyc">
@@ -238,8 +249,8 @@ export function Header() {
                           />
                         )}
                         <div className="flex-1">
-                          <p className="font-medium text-gray-900">
-                            {user?.firstName || 'Client'}
+                          <p className="font-medium text-gray-900" data-testid="mobile-client-name">
+                            {getClientName()}
                           </p>
                           <p className="text-sm text-gray-500">{user?.email}</p>
                         </div>
