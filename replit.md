@@ -41,6 +41,15 @@ Preferred communication style: Simple, everyday language.
 - **Market Data Integration**: Live quotes, charts, and news.
 - **Financial Calculators**: SIP, EMI, retirement, and tax calculators.
 - **Multi-Asset Support**: Equities, bonds, mutual funds, IPOs, alternative investments.
+- **Family Collaboration & Planning** (In Progress):
+    - Shared family financial groups for couples and households
+    - Permission-based access control (owner, admin, member, view-only)
+    - Shared portfolios with granular permissions (view, contribute, trade, manage)
+    - Family goals tracking (shared and individual goals with contribution tracking)
+    - Combined family net worth dashboard
+    - Family budget management with alerts
+    - Activity logging for all family financial actions
+    - Discussion threads for collaborative financial decisions
 - **KYC Compliance System**:
     - **MANDATORY FULL KYC POLICY**: ALL financial transactions (stocks, mutual funds, IPOs, bonds) require Full KYC verification regardless of transaction amount.
     - **No Tiered System**: Basic KYC tier has been deprecated. Full KYC is the baseline requirement for all transactions.

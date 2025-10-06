@@ -539,6 +539,37 @@ export const ckycStatusHistory = pgTable("ckyc_status_history", {
   changedAt: timestamp("changed_at").defaultNow(),
 });
 
+// ===== FAMILY COLLABORATION TABLES =====
+
+// Family Groups - Core table for family/couple financial planning
+export const familyGroups = pgTable("family_groups", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  groupType: varchar("group_type").default("family"), // family, couple, household
+  description: text("description"),
+  settings: jsonb("settings"), // privacy preferences, notification settings
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Family Members - Join table with roles and permissions
+export const familyMembers = pgTable("family_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  familyId: varchar("family_id").references(() => familyGroups.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  role: varchar("role").default("member"), // owner, admin, member, view_only
+  displayName: varchar("display_name"), // How they want to be called in family
+  invitationStatus: varchar("invitation_status").default("pending"), // pending, accepted, declined
+  invitedBy: varchar("invited_by").references(() => users.id),
+  invitedAt: timestamp("invited_at").defaultNow(),
+  joinedAt: timestamp("joined_at"),
+  leftAt: timestamp("left_at"),
+}, (table) => [
+  index("idx_family_members_family_id").on(table.familyId),
+  index("idx_family_members_user_id").on(table.userId),
+]);
+
 export const portfolios = pgTable("portfolios", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id).notNull(),
@@ -546,6 +577,8 @@ export const portfolios = pgTable("portfolios", {
   totalValue: decimal("total_value", { precision: 15, scale: 2 }),
   cash: decimal("cash", { precision: 15, scale: 2 }).default("0"),
   isDefault: boolean("is_default").default(false),
+  familyId: varchar("family_id").references(() => familyGroups.id), // Null for individual portfolios
+  isShared: boolean("is_shared").default(false), // Whether this is a shared family portfolio
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -6365,6 +6398,116 @@ export const bondHoldings = pgTable("bond_holdings", {
   index("idx_bond_holdings_status").on(table.holdingStatus),
 ]);
 
+// Family Portfolio Permissions - Granular access control
+export const familyPortfolioPermissions = pgTable("family_portfolio_permissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  portfolioId: varchar("portfolio_id").references(() => portfolios.id).notNull(),
+  familyId: varchar("family_id").references(() => familyGroups.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  permissionLevel: varchar("permission_level").default("view"), // view, contribute, manage, owner
+  canViewTransactions: boolean("can_view_transactions").default(true),
+  canAddFunds: boolean("can_add_funds").default(false),
+  canTrade: boolean("can_trade").default(false),
+  canWithdraw: boolean("can_withdraw").default(false),
+  grantedAt: timestamp("granted_at").defaultNow(),
+  grantedBy: varchar("granted_by").references(() => users.id),
+}, (table) => [
+  index("idx_family_portfolio_permissions_portfolio").on(table.portfolioId),
+  index("idx_family_portfolio_permissions_user").on(table.userId),
+]);
+
+// Family Goals - Shared financial goals
+export const familyGoals = pgTable("family_goals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  familyId: varchar("family_id").references(() => familyGroups.id).notNull(),
+  goalName: text("goal_name").notNull(),
+  goalType: varchar("goal_type").notNull(), // retirement, education, home_purchase, vacation, emergency_fund, debt_payoff
+  targetAmount: decimal("target_amount", { precision: 15, scale: 2 }).notNull(),
+  currentAmount: decimal("current_amount", { precision: 15, scale: 2 }).default("0"),
+  targetDate: date("target_date"),
+  priority: varchar("priority").default("medium"), // high, medium, low
+  status: varchar("status").default("active"), // active, completed, paused, cancelled
+  isShared: boolean("is_shared").default(true), // True for family goals, false for individual within family
+  ownerId: varchar("owner_id").references(() => users.id), // Primary owner/creator
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+}, (table) => [
+  index("idx_family_goals_family").on(table.familyId),
+  index("idx_family_goals_status").on(table.status),
+]);
+
+// Family Goal Contributions - Track who contributed what
+export const familyGoalContributions = pgTable("family_goal_contributions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  goalId: varchar("goal_id").references(() => familyGoals.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
+  contributionDate: timestamp("contribution_date").defaultNow(),
+  note: text("note"),
+  contributionType: varchar("contribution_type").default("manual"), // manual, auto, transfer
+}, (table) => [
+  index("idx_family_goal_contributions_goal").on(table.goalId),
+  index("idx_family_goal_contributions_user").on(table.userId),
+]);
+
+// Family Activity Log - Audit trail of all family financial activities
+export const familyActivityLogs = pgTable("family_activity_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  familyId: varchar("family_id").references(() => familyGroups.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  activityType: varchar("activity_type").notNull(), // portfolio_created, goal_added, contribution_made, member_invited, permission_changed, discussion_posted
+  entityType: varchar("entity_type"), // portfolio, goal, member, permission, discussion
+  entityId: varchar("entity_id"),
+  action: text("action").notNull(),
+  metadata: jsonb("metadata"), // Additional context like amounts, old/new values
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_family_activity_logs_family").on(table.familyId),
+  index("idx_family_activity_logs_type").on(table.activityType),
+  index("idx_family_activity_logs_created").on(table.createdAt),
+]);
+
+// Family Discussions - Communication for financial decisions
+export const familyDiscussions = pgTable("family_discussions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  familyId: varchar("family_id").references(() => familyGroups.id).notNull(),
+  topicType: varchar("topic_type").notNull(), // general, goal, portfolio, budget, investment
+  topicId: varchar("topic_id"), // Related entity ID (goal, portfolio, etc.)
+  subject: text("subject").notNull(),
+  authorId: varchar("author_id").references(() => users.id).notNull(),
+  content: text("content").notNull(),
+  parentMessageId: varchar("parent_message_id").references((): any => familyDiscussions.id), // For threaded replies
+  attachments: jsonb("attachments"), // File URLs or references
+  isResolved: boolean("is_resolved").default(false),
+  isPinned: boolean("is_pinned").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_family_discussions_family").on(table.familyId),
+  index("idx_family_discussions_topic").on(table.topicId),
+  index("idx_family_discussions_author").on(table.authorId),
+]);
+
+// Family Budgets - Shared household budgets
+export const familyBudgets = pgTable("family_budgets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  familyId: varchar("family_id").references(() => familyGroups.id).notNull(),
+  budgetName: text("budget_name").notNull(),
+  category: varchar("category").notNull(), // housing, food, transportation, utilities, entertainment, healthcare, education
+  monthlyLimit: decimal("monthly_limit", { precision: 15, scale: 2 }).notNull(),
+  currentSpend: decimal("current_spend", { precision: 15, scale: 2 }).default("0"),
+  period: varchar("period").default("monthly"), // weekly, monthly, quarterly, yearly
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date"),
+  alertThreshold: decimal("alert_threshold", { precision: 5, scale: 2 }).default("80"), // Percentage
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_family_budgets_family").on(table.familyId),
+  index("idx_family_budgets_category").on(table.category),
+]);
+
 // Insert schemas for bonds
 export const insertGovernmentSecuritySchema = createInsertSchema(governmentSecurities).omit({
   id: true,
@@ -6396,4 +6539,72 @@ export type BondOrder = typeof bondOrders.$inferSelect;
 export type InsertBondOrder = z.infer<typeof insertBondOrderSchema>;
 export type BondHolding = typeof bondHoldings.$inferSelect;
 export type InsertBondHolding = z.infer<typeof insertBondHoldingSchema>;
+
+// ===== FAMILY COLLABORATION INSERT SCHEMAS AND TYPES =====
+
+// Family Groups
+export const insertFamilyGroupSchema = createInsertSchema(familyGroups).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type FamilyGroup = typeof familyGroups.$inferSelect;
+export type InsertFamilyGroup = z.infer<typeof insertFamilyGroupSchema>;
+
+// Family Members
+export const insertFamilyMemberSchema = createInsertSchema(familyMembers).omit({
+  id: true,
+  invitedAt: true,
+});
+export type FamilyMember = typeof familyMembers.$inferSelect;
+export type InsertFamilyMember = z.infer<typeof insertFamilyMemberSchema>;
+
+// Family Portfolio Permissions
+export const insertFamilyPortfolioPermissionSchema = createInsertSchema(familyPortfolioPermissions).omit({
+  id: true,
+  grantedAt: true,
+});
+export type FamilyPortfolioPermission = typeof familyPortfolioPermissions.$inferSelect;
+export type InsertFamilyPortfolioPermission = z.infer<typeof insertFamilyPortfolioPermissionSchema>;
+
+// Family Goals
+export const insertFamilyGoalSchema = createInsertSchema(familyGoals).omit({
+  id: true,
+  createdAt: true,
+});
+export type FamilyGoal = typeof familyGoals.$inferSelect;
+export type InsertFamilyGoal = z.infer<typeof insertFamilyGoalSchema>;
+
+// Family Goal Contributions
+export const insertFamilyGoalContributionSchema = createInsertSchema(familyGoalContributions).omit({
+  id: true,
+  contributionDate: true,
+});
+export type FamilyGoalContribution = typeof familyGoalContributions.$inferSelect;
+export type InsertFamilyGoalContribution = z.infer<typeof insertFamilyGoalContributionSchema>;
+
+// Family Activity Logs
+export const insertFamilyActivityLogSchema = createInsertSchema(familyActivityLogs).omit({
+  id: true,
+  createdAt: true,
+});
+export type FamilyActivityLog = typeof familyActivityLogs.$inferSelect;
+export type InsertFamilyActivityLog = z.infer<typeof insertFamilyActivityLogSchema>;
+
+// Family Discussions
+export const insertFamilyDiscussionSchema = createInsertSchema(familyDiscussions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type FamilyDiscussion = typeof familyDiscussions.$inferSelect;
+export type InsertFamilyDiscussion = z.infer<typeof insertFamilyDiscussionSchema>;
+
+// Family Budgets
+export const insertFamilyBudgetSchema = createInsertSchema(familyBudgets).omit({
+  id: true,
+  createdAt: true,
+});
+export type FamilyBudget = typeof familyBudgets.$inferSelect;
+export type InsertFamilyBudget = z.infer<typeof insertFamilyBudgetSchema>;
 
