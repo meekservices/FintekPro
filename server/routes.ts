@@ -427,13 +427,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/whatsapp/status", requireAdmin, async (req, res) => {
+  // Public endpoint to check WhatsApp service status
+  app.get("/api/whatsapp/status", async (req, res) => {
     try {
-      const isReady = whatsappService.isClientReady();
+      const status = whatsappService.getStatus();
       
       res.json({ 
-        isReady,
-        message: isReady ? "WhatsApp client is ready" : "WhatsApp client is initializing" 
+        isReady: status.isReady,
+        hasQrCode: status.hasQrCode,
+        message: status.isReady 
+          ? "WhatsApp service is ready" 
+          : status.hasQrCode 
+            ? "WhatsApp service is waiting for QR code scan" 
+            : "WhatsApp service is initializing" 
       });
     } catch (error) {
       console.error("Error getting WhatsApp status:", error);
@@ -441,15 +447,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Separate admin-only endpoint for QR code access during setup
+  // Admin-only endpoint for QR code access during setup
   app.get("/api/admin/whatsapp/qr", requireAdmin, async (req, res) => {
     try {
-      const isReady = whatsappService.isClientReady();
-      const qrCode = await whatsappService.getQRCode();
+      const status = whatsappService.getStatus();
+      const qrCode = whatsappService.getQrCode();
       
-      if (isReady) {
+      if (status.isReady) {
         return res.json({ 
           isReady: true,
+          qrCode: null,
           message: "WhatsApp client is already authenticated" 
         });
       }
@@ -457,7 +464,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ 
         isReady: false,
         qrCode,
-        message: "Use this QR code to authenticate WhatsApp client" 
+        hasQrCode: status.hasQrCode,
+        message: qrCode 
+          ? "Scan this QR code with WhatsApp to authenticate" 
+          : "QR code not yet generated. Please wait..." 
       });
     } catch (error) {
       console.error("Error getting WhatsApp QR code:", error);

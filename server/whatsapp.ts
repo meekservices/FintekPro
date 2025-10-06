@@ -333,6 +333,17 @@ export class WhatsAppService {
       }
     }
   }
+
+  getStatus(): { isReady: boolean; hasQrCode: boolean } {
+    return {
+      isReady: this.isReady,
+      hasQrCode: this.qrCode !== null
+    };
+  }
+
+  getQrCode(): string | null {
+    return this.qrCode;
+  }
 }
 
 export const whatsappService = new WhatsAppService();
