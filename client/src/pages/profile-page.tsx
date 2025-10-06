@@ -416,7 +416,7 @@ export default function ProfilePage() {
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: ProfileFormData) => {
-      const response = await apiRequest("PUT", "/api/profile", data);
+      const response = await apiRequest("PUT", "/api/profile", { body: data });
       
       // Record PAN consent if given and not already recorded
       if (data.panNumber && data.panConsentGiven && !hasConsent) {
@@ -553,7 +553,7 @@ export default function ProfilePage() {
                 </div>
               </div>
               
-              {protectedFieldsData?.data?.length > 0 && (
+              {protectedFieldsData?.data && protectedFieldsData.data.length > 0 && (
                 <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
                   <Button 
                     onClick={() => setShowReCKYCWorkflow(true)}
@@ -1608,9 +1608,10 @@ export default function ProfilePage() {
       </div>
 
       {/* Re-CKYC Workflow Modal */}
-      {showReCKYCWorkflow && (
+      {showReCKYCWorkflow && user?.id && (
         <ReCKYCWorkflow
           isOpen={showReCKYCWorkflow}
+          userId={user.id}
           onClose={() => setShowReCKYCWorkflow(false)}
           onSuccess={() => {
             setShowReCKYCWorkflow(false);
