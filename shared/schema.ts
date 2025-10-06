@@ -373,6 +373,19 @@ export const users = pgTable("users", {
   preferredNsdlRegistration: boolean("preferred_nsdl_registration").default(false),
   preferredCdslRegistration: boolean("preferred_cdsl_registration").default(false),
   
+  // Agent and Distributor Information
+  agentId: varchar("agent_id"),
+  arnCode: varchar("arn_code"), // ARN (AMFI Registration Number) for mutual fund distributors
+  distributorId: varchar("distributor_id"), // Distributor ID for various platforms
+  
+  // Business/Entity Information (for corporate clients)
+  companyName: varchar("company_name"),
+  entityType: varchar("entity_type"), // individual/company/partnership/trust/huf etc
+  entityRegistrationNumber: varchar("entity_registration_number"), // CIN/registration number
+  incorporationDate: varchar("incorporation_date"),
+  businessNature: varchar("business_nature"), // Type/nature of business
+  countryOfCitizenship: varchar("country_of_citizenship"),
+  
   // Admin and system fields - supports multiple roles
   roles: varchar("roles").array().default(sql`ARRAY['user']`), // Array of roles: 'user', 'admin', 'superadmin', 'business_client', etc.
   isActive: boolean("is_active").default(true),
