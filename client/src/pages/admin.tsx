@@ -21,6 +21,7 @@ import { CapitalGainsReportViewer } from "@/components/reports/capital-gains-rep
 import { TransactionReportViewer } from "@/components/reports/transaction-report-viewer";
 import CkycManagement from "./admin/ckyc-management";
 import SupplierDashboard from "./admin/supplier-dashboard";
+import { WhatsAppLogin } from "@/components/whatsapp-login";
 
 
 // Enhanced API Status Panel Component
@@ -616,6 +617,14 @@ export default function AdminPanel() {
               >
                 <AlertCircle className="w-4 h-4 mr-2" />
                 Errors
+              </TabsTrigger>
+              <TabsTrigger 
+                value="whatsapp-auth" 
+                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg py-2.5"
+                data-testid="tab-whatsapp-auth"
+              >
+                <MessageSquare className="w-4 h-4 mr-2" />
+                WhatsApp
               </TabsTrigger>
             </TabsList>
           </div>
