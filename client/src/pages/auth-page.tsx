@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
@@ -31,8 +32,24 @@ const registerSchema = z.object({
   path: ["confirmPassword"]
 });
 
+const forgotPasswordSchema = z.object({
+  identifier: z.string().min(1, "Email or mobile number is required"),
+});
+
+const resetPasswordSchema = z.object({
+  identifier: z.string().min(1, "Email or mobile number is required"),
+  otp: z.string().length(6, "OTP must be 6 digits"),
+  newPassword: z.string().min(6, "Password must be at least 6 characters"),
+  confirmPassword: z.string().min(6, "Password must be at least 6 characters"),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"]
+});
+
 type LoginFormData = z.infer<typeof loginSchema>;
 type RegisterFormData = z.infer<typeof registerSchema>;
+type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
+type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>;
 
 export default function AuthPage() {
   const [, navigate] = useLocation();
@@ -40,6 +57,9 @@ export default function AuthPage() {
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
+  const [resetPasswordStep, setResetPasswordStep] = useState<"request" | "reset">("request");
+  const [resetIdentifier, setResetIdentifier] = useState("");
 
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -57,6 +77,23 @@ export default function AuthPage() {
       lastName: "",
       email: "",
       password: "",
+      confirmPassword: ""
+    }
+  });
+
+  const forgotPasswordForm = useForm<ForgotPasswordFormData>({
+    resolver: zodResolver(forgotPasswordSchema),
+    defaultValues: {
+      identifier: "",
+    }
+  });
+
+  const resetPasswordForm = useForm<ResetPasswordFormData>({
+    resolver: zodResolver(resetPasswordSchema),
+    defaultValues: {
+      identifier: "",
+      otp: "",
+      newPassword: "",
       confirmPassword: ""
     }
   });
@@ -118,6 +155,62 @@ export default function AuthPage() {
     },
   });
 
+  const forgotPasswordMutation = useMutation({
+    mutationFn: async (data: ForgotPasswordFormData) => {
+      const response = await apiRequest("POST", "/api/auth/forgot-password", {
+        body: { identifier: data.identifier }
+      });
+      return response.json();
+    },
+    onSuccess: (data, variables) => {
+      setResetIdentifier(variables.identifier);
+      setResetPasswordStep("reset");
+      resetPasswordForm.setValue("identifier", variables.identifier);
+      toast({
+        title: "OTP Sent",
+        description: data.message,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: async (data: ResetPasswordFormData) => {
+      const response = await apiRequest("POST", "/api/auth/reset-password", {
+        body: {
+          identifier: data.identifier,
+          otp: data.otp,
+          newPassword: data.newPassword
+        }
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Success",
+        description: "Password reset successfully. Please login with your new password.",
+      });
+      setForgotPasswordOpen(false);
+      setResetPasswordStep("request");
+      forgotPasswordForm.reset();
+      resetPasswordForm.reset();
+      setResetIdentifier("");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   // Redirect if already authenticated
   if (!isAuthLoading && user) {
     navigate("/");
@@ -138,6 +231,14 @@ export default function AuthPage() {
 
   const onRegisterSubmit = (data: RegisterFormData) => {
     registerMutation.mutate(data);
+  };
+
+  const onForgotPasswordSubmit = (data: ForgotPasswordFormData) => {
+    forgotPasswordMutation.mutate(data);
+  };
+
+  const onResetPasswordSubmit = (data: ResetPasswordFormData) => {
+    resetPasswordMutation.mutate(data);
   };
 
   return (
@@ -297,6 +398,137 @@ export default function AuthPage() {
                             {loginMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Sign In
                           </Button>
+
+                          {/* Forgot Password Link */}
+                          <div className="text-center mt-2">
+                            <Dialog open={forgotPasswordOpen} onOpenChange={setForgotPasswordOpen}>
+                              <DialogTrigger asChild>
+                                <Button 
+                                  variant="link" 
+                                  className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                                  data-testid="button-forgot-password"
+                                >
+                                  Forgot Password?
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent className="sm:max-w-md" data-testid="dialog-forgot-password">
+                                <DialogHeader>
+                                  <DialogTitle>
+                                    {resetPasswordStep === "request" ? "Reset Password" : "Enter OTP & New Password"}
+                                  </DialogTitle>
+                                  <DialogDescription>
+                                    {resetPasswordStep === "request" 
+                                      ? "Enter your email or mobile number to receive a password reset OTP"
+                                      : "Enter the OTP sent to your email/mobile and your new password"
+                                    }
+                                  </DialogDescription>
+                                </DialogHeader>
+
+                                {resetPasswordStep === "request" ? (
+                                  <form onSubmit={forgotPasswordForm.handleSubmit(onForgotPasswordSubmit)} className="space-y-4">
+                                    <div>
+                                      <Label htmlFor="forgot-identifier">Email or Mobile Number</Label>
+                                      <Input
+                                        id="forgot-identifier"
+                                        {...forgotPasswordForm.register("identifier")}
+                                        placeholder="user@example.com or 9876543210"
+                                        data-testid="input-forgot-identifier"
+                                      />
+                                      {forgotPasswordForm.formState.errors.identifier && (
+                                        <p className="text-sm text-red-600 mt-1">
+                                          {forgotPasswordForm.formState.errors.identifier.message}
+                                        </p>
+                                      )}
+                                    </div>
+
+                                    <Button 
+                                      type="submit" 
+                                      className="w-full" 
+                                      disabled={forgotPasswordMutation.isPending}
+                                      data-testid="button-send-otp"
+                                    >
+                                      {forgotPasswordMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                      Send OTP
+                                    </Button>
+                                  </form>
+                                ) : (
+                                  <form onSubmit={resetPasswordForm.handleSubmit(onResetPasswordSubmit)} className="space-y-4">
+                                    <div>
+                                      <Label htmlFor="reset-otp">OTP (6 digits)</Label>
+                                      <Input
+                                        id="reset-otp"
+                                        {...resetPasswordForm.register("otp")}
+                                        placeholder="123456"
+                                        maxLength={6}
+                                        data-testid="input-reset-otp"
+                                      />
+                                      {resetPasswordForm.formState.errors.otp && (
+                                        <p className="text-sm text-red-600 mt-1">
+                                          {resetPasswordForm.formState.errors.otp.message}
+                                        </p>
+                                      )}
+                                    </div>
+
+                                    <div>
+                                      <Label htmlFor="reset-new-password">New Password</Label>
+                                      <Input
+                                        id="reset-new-password"
+                                        {...resetPasswordForm.register("newPassword")}
+                                        type="password"
+                                        placeholder="Enter new password"
+                                        data-testid="input-reset-new-password"
+                                      />
+                                      {resetPasswordForm.formState.errors.newPassword && (
+                                        <p className="text-sm text-red-600 mt-1">
+                                          {resetPasswordForm.formState.errors.newPassword.message}
+                                        </p>
+                                      )}
+                                    </div>
+
+                                    <div>
+                                      <Label htmlFor="reset-confirm-password">Confirm New Password</Label>
+                                      <Input
+                                        id="reset-confirm-password"
+                                        {...resetPasswordForm.register("confirmPassword")}
+                                        type="password"
+                                        placeholder="Confirm new password"
+                                        data-testid="input-reset-confirm-password"
+                                      />
+                                      {resetPasswordForm.formState.errors.confirmPassword && (
+                                        <p className="text-sm text-red-600 mt-1">
+                                          {resetPasswordForm.formState.errors.confirmPassword.message}
+                                        </p>
+                                      )}
+                                    </div>
+
+                                    <div className="flex gap-2">
+                                      <Button 
+                                        type="button" 
+                                        variant="outline"
+                                        className="flex-1"
+                                        onClick={() => {
+                                          setResetPasswordStep("request");
+                                          resetPasswordForm.reset();
+                                        }}
+                                        data-testid="button-back-to-request"
+                                      >
+                                        Back
+                                      </Button>
+                                      <Button 
+                                        type="submit" 
+                                        className="flex-1" 
+                                        disabled={resetPasswordMutation.isPending}
+                                        data-testid="button-reset-password"
+                                      >
+                                        {resetPasswordMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                        Reset Password
+                                      </Button>
+                                    </div>
+                                  </form>
+                                )}
+                              </DialogContent>
+                            </Dialog>
+                          </div>
                         </form>
                       </TabsContent>
 
