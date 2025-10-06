@@ -55,14 +55,17 @@ function updateUserSession(
 }
 
 async function upsertUser(claims: any) {
-  const existingUser = await storage.getUser(claims["sub"]);
+  // First check if user exists by email (unique constraint)
+  const existingUserByEmail = claims["email"] 
+    ? await storage.getUserByEmail(claims["email"])
+    : null;
   
-  if (existingUser) {
+  if (existingUserByEmail) {
     // Update existing user with latest OAuth data
-    await storage.updateUser(claims["sub"], {
+    await storage.updateUser(existingUserByEmail.id, {
       email: claims["email"],
-      firstName: claims["first_name"] || existingUser.firstName,
-      lastName: claims["last_name"] || existingUser.lastName,
+      firstName: claims["first_name"] || existingUserByEmail.firstName,
+      lastName: claims["last_name"] || existingUserByEmail.lastName,
       profileImageUrl: claims["profile_image_url"],
     });
   } else {
