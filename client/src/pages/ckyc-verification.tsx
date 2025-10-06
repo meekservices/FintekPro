@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -58,6 +58,26 @@ export default function CkycVerification() {
     queryKey: [`/api/ckyc/${userId}/compliance`],
     retry: false
   });
+
+  // Initialize formData with ckycRecord values when loaded (only for empty fields)
+  useEffect(() => {
+    if (ckycRecord) {
+      setFormData(prev => ({
+        pan: prev.pan || ckycRecord.panNumber || "",
+        aadhar: prev.aadhar || ckycRecord.aadharNumber || "",
+        fullName: prev.fullName || `${ckycRecord.firstName || ''} ${ckycRecord.lastName || ''}`.trim(),
+        dateOfBirth: prev.dateOfBirth || ckycRecord.dateOfBirth?.split('T')[0] || "",
+        address: prev.address || ckycRecord.addressLine1 || "",
+        city: prev.city || ckycRecord.city || "",
+        state: prev.state || ckycRecord.state || "",
+        pincode: prev.pincode || ckycRecord.pincode || "",
+        mobile: prev.mobile || ckycRecord.mobileNumber || "",
+        email: prev.email || ckycRecord.emailAddress || "",
+        income: prev.income || ckycRecord.annualIncome || "",
+        occupation: prev.occupation || ckycRecord.occupation || ""
+      }));
+    }
+  }, [ckycRecord]);
 
   const createCkycMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -252,7 +272,7 @@ export default function CkycVerification() {
                   <Input
                     id="pan"
                     data-testid="input-pan"
-                    value={formData.pan || ckycRecord?.panNumber || ""}
+                    value={formData.pan}
                     onChange={(e) => setFormData({...formData, pan: e.target.value})}
                     placeholder="ABCDE1234F"
                     maxLength={10}
@@ -265,7 +285,7 @@ export default function CkycVerification() {
                   <Input
                     id="aadhar"
                     data-testid="input-aadhar"
-                    value={formData.aadhar || ckycRecord?.aadharNumber || ""}
+                    value={formData.aadhar}
                     onChange={(e) => setFormData({...formData, aadhar: e.target.value})}
                     placeholder="1234 5678 9012"
                     maxLength={14}
@@ -279,7 +299,7 @@ export default function CkycVerification() {
                 <Input
                   id="fullName"
                   data-testid="input-fullname"
-                  value={formData.fullName || `${ckycRecord?.firstName || ''} ${ckycRecord?.lastName || ''}`.trim() || ""}
+                  value={formData.fullName}
                   onChange={(e) => setFormData({...formData, fullName: e.target.value})}
                   placeholder="As per government ID"
                   required
@@ -293,7 +313,7 @@ export default function CkycVerification() {
                     id="dateOfBirth"
                     data-testid="input-dob"
                     type="date"
-                    value={formData.dateOfBirth || ckycRecord?.dateOfBirth?.split('T')[0] || ""}
+                    value={formData.dateOfBirth}
                     onChange={(e) => setFormData({...formData, dateOfBirth: e.target.value})}
                     required
                   />
@@ -304,7 +324,7 @@ export default function CkycVerification() {
                   <Input
                     id="mobile"
                     data-testid="input-mobile"
-                    value={formData.mobile || ckycRecord?.mobileNumber || ""}
+                    value={formData.mobile}
                     onChange={(e) => setFormData({...formData, mobile: e.target.value})}
                     placeholder="+91 98765 43210"
                     required
@@ -318,7 +338,7 @@ export default function CkycVerification() {
                   id="email"
                   data-testid="input-email"
                   type="email"
-                  value={formData.email || ckycRecord?.emailAddress || ""}
+                  value={formData.email}
                   onChange={(e) => setFormData({...formData, email: e.target.value})}
                   placeholder="your@email.com"
                   required
@@ -330,7 +350,7 @@ export default function CkycVerification() {
                 <Textarea
                   id="address"
                   data-testid="textarea-address"
-                  value={formData.address || ckycRecord?.addressLine1 || ""}
+                  value={formData.address}
                   onChange={(e) => setFormData({...formData, address: e.target.value})}
                   placeholder="Complete address as per government ID"
                   required
@@ -343,7 +363,7 @@ export default function CkycVerification() {
                   <Input
                     id="city"
                     data-testid="input-city"
-                    value={formData.city || ckycRecord?.city || ""}
+                    value={formData.city}
                     onChange={(e) => setFormData({...formData, city: e.target.value})}
                     placeholder="City"
                     required
@@ -355,7 +375,7 @@ export default function CkycVerification() {
                   <Input
                     id="state"
                     data-testid="input-state"
-                    value={formData.state || ckycRecord?.state || ""}
+                    value={formData.state}
                     onChange={(e) => setFormData({...formData, state: e.target.value})}
                     placeholder="State"
                     required
@@ -367,7 +387,7 @@ export default function CkycVerification() {
                   <Input
                     id="pincode"
                     data-testid="input-pincode"
-                    value={formData.pincode || ckycRecord?.pincode || ""}
+                    value={formData.pincode}
                     onChange={(e) => setFormData({...formData, pincode: e.target.value})}
                     placeholder="Pincode"
                     maxLength={6}
@@ -382,7 +402,7 @@ export default function CkycVerification() {
                   <Input
                     id="occupation"
                     data-testid="input-occupation"
-                    value={formData.occupation || ckycRecord?.occupation || ""}
+                    value={formData.occupation}
                     onChange={(e) => setFormData({...formData, occupation: e.target.value})}
                     placeholder="Your occupation"
                     required
@@ -392,7 +412,7 @@ export default function CkycVerification() {
                 <div>
                   <Label htmlFor="income">Annual Income</Label>
                   <Select
-                    value={formData.income || ckycRecord?.annualIncome || ""}
+                    value={formData.income}
                     onValueChange={(value) => setFormData({...formData, income: value})}
                   >
                     <SelectTrigger data-testid="select-income">
