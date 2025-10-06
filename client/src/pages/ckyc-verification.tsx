@@ -11,6 +11,14 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle, AlertCircle, Clock, Upload, FileText, Shield } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import type { CkycRecord, CkycDocument } from "@shared/schema";
+
+interface ComplianceStatus {
+  compliant: boolean;
+  status?: string;
+  reason?: string;
+  requiredActions?: string[];
+}
 
 export default function CkycVerification() {
   const { toast } = useToast();
@@ -32,17 +40,17 @@ export default function CkycVerification() {
   // Assuming we get user ID from auth context - for demo using 'demo-user-1'
   const userId = "demo-user-1";
 
-  const { data: ckycRecord, isLoading } = useQuery({
+  const { data: ckycRecord, isLoading } = useQuery<CkycRecord>({
     queryKey: [`/api/ckyc/${userId}`],
     retry: false
   });
 
-  const { data: documents } = useQuery({
+  const { data: documents } = useQuery<CkycDocument[]>({
     queryKey: [`/api/ckyc/${userId}/documents`],
     retry: false
   });
 
-  const { data: compliance } = useQuery({
+  const { data: compliance } = useQuery<ComplianceStatus>({
     queryKey: [`/api/ckyc/${userId}/compliance`],
     retry: false
   });
