@@ -64,6 +64,7 @@ import { nseNcbApi } from './nseNcbApi';
 import { bseBondApi } from './bseBondApi';
 import { bseDirectApi } from './bseDirectApi';
 import { governmentSecurities, corporateBonds, bondOrders, bondHoldings, insertBondOrderSchema } from '@shared/schema';
+import { businessIntelligence } from './business-intelligence-service';
 
 // Tax Calculation Request Validation Schemas
 const calculateCapitalGainsSchema = z.object({
@@ -16808,6 +16809,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching platform insights:", error);
       res.status(500).json({ error: "Failed to fetch platform insights" });
+    }
+  });
+
+  // AI Business Intelligence - Get all AI-powered insights
+  app.get("/api/admin/business-intelligence/insights", requireAdmin, async (req, res) => {
+    try {
+      await adminService.logActivity({
+        userId: req.user?.id || 'unknown',
+        action: 'admin_viewed_ai_insights',
+        resource: 'business-intelligence',
+        details: { timestamp: new Date().toISOString() },
+        ipAddress: req.ip
+      });
+      
+      const insights = await businessIntelligence.generateAllInsights();
+      res.json(insights);
+    } catch (error) {
+      console.error("Error generating AI insights:", error);
+      res.status(500).json({ error: "Failed to generate AI insights" });
+    }
+  });
+
+  // AI Business Intelligence - Get business metrics
+  app.get("/api/admin/business-intelligence/metrics", requireAdmin, async (req, res) => {
+    try {
+      const metrics = await businessIntelligence.getBusinessMetrics();
+      res.json(metrics);
+    } catch (error) {
+      console.error("Error fetching business metrics:", error);
+      res.status(500).json({ error: "Failed to fetch business metrics" });
+    }
+  });
+
+  // AI Business Intelligence - Get profitability insights
+  app.get("/api/admin/business-intelligence/profitability", requireAdmin, async (req, res) => {
+    try {
+      const metrics = await businessIntelligence.getBusinessMetrics();
+      const insights = await businessIntelligence.generateProfitabilityInsights(metrics);
+      res.json(insights);
+    } catch (error) {
+      console.error("Error generating profitability insights:", error);
+      res.status(500).json({ error: "Failed to generate profitability insights" });
+    }
+  });
+
+  // AI Business Intelligence - Get service quality insights
+  app.get("/api/admin/business-intelligence/service-quality", requireAdmin, async (req, res) => {
+    try {
+      const metrics = await businessIntelligence.getBusinessMetrics();
+      const insights = await businessIntelligence.generateServiceQualityInsights(metrics);
+      res.json(insights);
+    } catch (error) {
+      console.error("Error generating service quality insights:", error);
+      res.status(500).json({ error: "Failed to generate service quality insights" });
+    }
+  });
+
+  // AI Business Intelligence - Get marketing insights
+  app.get("/api/admin/business-intelligence/marketing", requireAdmin, async (req, res) => {
+    try {
+      const metrics = await businessIntelligence.getBusinessMetrics();
+      const insights = await businessIntelligence.generateMarketingInsights(metrics);
+      res.json(insights);
+    } catch (error) {
+      console.error("Error generating marketing insights:", error);
+      res.status(500).json({ error: "Failed to generate marketing insights" });
+    }
+  });
+
+  // AI Business Intelligence - Get operational insights
+  app.get("/api/admin/business-intelligence/operations", requireAdmin, async (req, res) => {
+    try {
+      const metrics = await businessIntelligence.getBusinessMetrics();
+      const insights = await businessIntelligence.generateOperationalInsights(metrics);
+      res.json(insights);
+    } catch (error) {
+      console.error("Error generating operational insights:", error);
+      res.status(500).json({ error: "Failed to generate operational insights" });
     }
   });
 
