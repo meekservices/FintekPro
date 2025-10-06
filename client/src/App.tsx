@@ -24,7 +24,7 @@ import AgriculturalInsights from "@/pages/agricultural-insights";
 import FinancialCalculators from "@/pages/financial-calculators";
 import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/auth-page";
-import AdminPanel from "@/pages/admin-panel";
+import AdminPanel from "@/pages/admin";
 import PartnerPortal from "@/pages/partner-portal";
 import Support from "@/pages/support";
 import InvestSmart from "@/pages/wealth-management";
