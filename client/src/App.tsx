@@ -82,6 +82,8 @@ import MLDs from "@/pages/mlds";
 import Insurance from "@/pages/insurance";
 import BankingProducts from "@/pages/banking-products";
 import Bonds from "@/pages/bonds";
+import FamilyList from "@/pages/family-list";
+import FamilyDashboard from "@/pages/family-dashboard";
 
 function UserProtectedRoutes() {
   return (
@@ -166,6 +168,8 @@ function UserProtectedRoutes() {
         <Route path="/digilocker" component={DigiLockerPage} />
         <Route path="/loan-application" component={LoanApplication} />
         <Route path="/loan-dashboard" component={LoanDashboard} />
+        <Route path="/families" component={FamilyList} />
+        <Route path="/families/:id" component={FamilyDashboard} />
         </Switch>
       </ProfileCompletionGuard>
     </AppLayout>

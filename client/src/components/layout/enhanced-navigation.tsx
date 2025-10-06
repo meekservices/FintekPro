@@ -34,7 +34,8 @@ import {
   Landmark,
   DollarSign,
   UserCheck,
-  Settings
+  Settings,
+  Users
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/use-cart";
@@ -144,6 +145,16 @@ export function EnhancedNavigation() {
             { name: "Goal Planning", href: "/wealth-management?tab=goals", description: "Financial goal setting and tracking" },
             { name: "Risk Assessment", href: "/wealth-management?tab=risk", description: "Portfolio risk analysis" },
             { name: "Asset Allocation", href: "/wealth-management?tab=allocation", description: "Core, Alternative, Premium tiers" }
+          ]
+        },
+        {
+          name: "Family Collaboration",
+          icon: Users,
+          description: "Collaborate with family on financial goals and budgets",
+          subItems: [
+            { name: "My Families", href: "/families", description: "View and manage your family groups" },
+            { name: "Shared Goals", href: "/families", description: "Track family financial goals together" },
+            { name: "Family Budgets", href: "/families", description: "Manage household budgets collaboratively" }
           ]
         },
         {
