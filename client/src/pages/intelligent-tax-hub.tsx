@@ -1419,32 +1419,34 @@ export default function IntelligentTaxHub() {
 
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-6 gap-2" data-testid="tabs-main">
-          <TabsTrigger value="dashboard" className="flex items-center gap-2" data-testid="tab-dashboard">
-            <Activity className="h-4 w-4" />
-            <span className="hidden sm:inline">Dashboard</span>
-          </TabsTrigger>
-          <TabsTrigger value="filing" className="flex items-center gap-2" data-testid="tab-filing">
-            <FileText className="h-4 w-4" />
-            <span className="hidden sm:inline">Smart Filing</span>
-          </TabsTrigger>
-          <TabsTrigger value="regime" className="flex items-center gap-2" data-testid="tab-regime">
-            <ArrowUpDown className="h-4 w-4" />
-            <span className="hidden sm:inline">Regime Comparison</span>
-          </TabsTrigger>
-          <TabsTrigger value="reminders" className="flex items-center gap-2" data-testid="tab-reminders">
-            <Bell className="h-4 w-4" />
-            <span className="hidden sm:inline">Tax Reminders</span>
-          </TabsTrigger>
-          <TabsTrigger value="sources" className="flex items-center gap-2" data-testid="tab-sources">
-            <Database className="h-4 w-4" />
-            <span className="hidden sm:inline">Data Sources</span>
-          </TabsTrigger>
-          <TabsTrigger value="services" className="flex items-center gap-2" data-testid="tab-services">
-            <Bell className="h-4 w-4" />
-            <span className="hidden sm:inline">Services</span>
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto pb-2">
+          <TabsList className="inline-flex w-auto min-w-full" data-testid="tabs-main">
+            <TabsTrigger value="dashboard" className="flex items-center gap-2 flex-shrink-0" data-testid="tab-dashboard">
+              <Activity className="h-4 w-4" />
+              <span className="hidden sm:inline">Dashboard</span>
+            </TabsTrigger>
+            <TabsTrigger value="filing" className="flex items-center gap-2 flex-shrink-0" data-testid="tab-filing">
+              <FileText className="h-4 w-4" />
+              <span className="hidden sm:inline">Smart Filing</span>
+            </TabsTrigger>
+            <TabsTrigger value="regime" className="flex items-center gap-2 flex-shrink-0" data-testid="tab-regime">
+              <ArrowUpDown className="h-4 w-4" />
+              <span className="hidden sm:inline">Regime Comparison</span>
+            </TabsTrigger>
+            <TabsTrigger value="reminders" className="flex items-center gap-2 flex-shrink-0" data-testid="tab-reminders">
+              <Bell className="h-4 w-4" />
+              <span className="hidden sm:inline">Tax Reminders</span>
+            </TabsTrigger>
+            <TabsTrigger value="sources" className="flex items-center gap-2 flex-shrink-0" data-testid="tab-sources">
+              <Database className="h-4 w-4" />
+              <span className="hidden sm:inline">Data Sources</span>
+            </TabsTrigger>
+            <TabsTrigger value="services" className="flex items-center gap-2 flex-shrink-0" data-testid="tab-services">
+              <Bell className="h-4 w-4" />
+              <span className="hidden sm:inline">Services</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="dashboard" className="mt-6">
           <DashboardTab />
