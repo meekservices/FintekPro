@@ -1566,7 +1566,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAgentForClient(clientId: string, relationshipType?: string): Promise<any | undefined> {
-    const query = db
+    const conditions = [eq(schema.clientAgentRelationships.clientId, clientId)];
+    
+    if (relationshipType) {
+      conditions.push(eq(schema.clientAgentRelationships.relationshipType, relationshipType));
+    }
+
+    const [result] = await db
       .select({
         id: schema.clientAgentRelationships.id,
         clientId: schema.clientAgentRelationships.clientId,
@@ -1597,13 +1603,9 @@ export class DatabaseStorage implements IStorage {
       })
       .from(schema.clientAgentRelationships)
       .innerJoin(schema.users, eq(schema.clientAgentRelationships.agentId, schema.users.id))
-      .where(eq(schema.clientAgentRelationships.clientId, clientId));
+      .where(and(...conditions))
+      .limit(1);
 
-    if (relationshipType) {
-      query.where(eq(schema.clientAgentRelationships.relationshipType, relationshipType));
-    }
-
-    const [result] = await query.limit(1);
     return result || undefined;
   }
 

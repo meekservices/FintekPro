@@ -377,14 +377,36 @@ export const users = pgTable("users", {
   agentId: varchar("agent_id"),
   arnCode: varchar("arn_code"), // ARN (AMFI Registration Number) for mutual fund distributors
   distributorId: varchar("distributor_id"), // Distributor ID for various platforms
+  complianceOfficer: varchar("compliance_officer"), // Assigned compliance officer ID
   
   // Business/Entity Information (for corporate clients)
+  clientType: varchar("client_type"), // individual/corporate/institutional
   companyName: varchar("company_name"),
   entityType: varchar("entity_type"), // individual/company/partnership/trust/huf etc
   entityRegistrationNumber: varchar("entity_registration_number"), // CIN/registration number
   incorporationDate: varchar("incorporation_date"),
   businessNature: varchar("business_nature"), // Type/nature of business
   countryOfCitizenship: varchar("country_of_citizenship"),
+  
+  // Regulatory Compliance Flags
+  isUSPerson: boolean("is_us_person").default(false), // US Person status for tax compliance
+  isEUResident: boolean("is_eu_resident").default(false), // EU Resident status for GDPR
+  gdprConsent: boolean("gdpr_consent").default(false),
+  gdprConsentDate: timestamp("gdpr_consent_date"),
+  dataProcessingConsent: boolean("data_processing_consent").default(false),
+  marketingConsent: boolean("marketing_consent").default(false),
+  
+  // Investor Classification
+  investorType: varchar("investor_type"), // retail/hni/institutional
+  investorCategory: varchar("investor_category"), // aggressive/moderate/conservative
+  financialSituation: varchar("financial_situation"),
+  investmentObjective: varchar("investment_objective"),
+  
+  // Profile Completion Status
+  profileCompleteness: integer("profile_completeness").default(0), // percentage 0-100
+  isProfileCompleted: boolean("is_profile_completed").default(false),
+  profileCompletedAt: timestamp("profile_completed_at"),
+  lastUpdated: timestamp("last_updated").defaultNow(),
   
   // Admin and system fields - supports multiple roles
   roles: varchar("roles").array().default(sql`ARRAY['user']`), // Array of roles: 'user', 'admin', 'superadmin', 'business_client', etc.

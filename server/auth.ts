@@ -974,13 +974,15 @@ export function setupAuth(app: Express) {
       }
 
       // Import AML service dynamically
-      const { AMLService } = await import("./aml-service");
+      const AMLServiceModule = await import("./aml-service");
+      const AMLService = AMLServiceModule.default;
       const amlService = new AMLService({
         environment: process.env.NODE_ENV === 'production' ? 'production' : 'sandbox'
       });
 
       // Enhanced screening data from user profile
       const screeningData = {
+        userId: user.id,
         firstName: user.firstName || user.companyName?.split(' ')[0] || '',
         lastName: user.lastName || user.companyName?.split(' ').slice(1).join(' ') || '',
         fullName: user.firstName && user.lastName 
@@ -1000,7 +1002,7 @@ export function setupAuth(app: Express) {
         companyRegistrationNumber: user.entityRegistrationNumber || undefined,
       };
 
-      const screeningResult = await amlService.screenCustomer(screeningData);
+      const screeningResult = await amlService.performFullScreening(screeningData);
 
       res.json({
         success: true,
