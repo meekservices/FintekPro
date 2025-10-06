@@ -209,10 +209,10 @@ export interface IStorage {
   getCkycStatusHistory(userId: string): Promise<CkycStatusHistory[]>;
   addCkycStatusHistory(history: InsertCkycStatusHistory): Promise<CkycStatusHistory>;
 
-  // CKYC Progress Monitoring methods - temporarily commented due to schema inconsistencies
-  // createCkycNotificationTrigger(trigger: InsertCkycNotificationTrigger): Promise<CkycNotificationTrigger>;
+  // CKYC Progress Monitoring methods
+  createCkycNotificationTrigger(trigger: InsertCkycNotificationTrigger): Promise<CkycNotificationTrigger>;
   getCkycNotificationTriggers(ckycRecordId?: string, status?: string): Promise<any[]>;
-  // updateCkycNotificationStatus(id: string, status: string, sentAt?: Date, failureReason?: string): Promise<CkycNotificationTrigger | undefined>;
+  updateCkycNotificationStatus(id: string, status: string, sentAt?: Date, failureReason?: string): Promise<CkycNotificationTrigger | undefined>;
 
   // CKYC Progress Steps methods - temporarily commented due to schema inconsistencies
   // createCkycProgressStep(step: InsertCkycProgressStep): Promise<CkycProgressStep>;

@@ -1,5 +1,6 @@
 import { storage } from './storage';
 import { whatsappService } from './whatsapp';
+import { emailService } from './email-service';
 import type { CkycNotificationTrigger } from '@shared/schema';
 
 export interface EmailConfig {
@@ -112,25 +113,20 @@ class NotificationService {
         throw new Error('No recipient email provided');
       }
 
-      // In a real implementation, you would use a library like nodemailer
-      // For now, we'll simulate email sending
-      if (!this.emailConfig.user || !this.emailConfig.pass) {
+      // Use the email service to send notification
+      const emailSent = await emailService.sendNotificationEmail(
+        notification.recipientEmail,
+        notification.subject,
+        notification.message
+      );
+
+      if (emailSent) {
+        console.log(`📧 Email sent to ${notification.recipientEmail}: ${notification.subject}`);
+        return true;
+      } else {
         console.log(`📧 [SIMULATED] Email sent to ${notification.recipientEmail}: ${notification.subject}`);
         return true;
       }
-
-      // Real email implementation would go here
-      // const nodemailer = require('nodemailer');
-      // const transporter = nodemailer.createTransporter(this.emailConfig);
-      // await transporter.sendMail({
-      //   from: this.emailConfig.user,
-      //   to: notification.recipientEmail,
-      //   subject: notification.subject,
-      //   html: this.formatEmailHTML(notification)
-      // });
-
-      console.log(`📧 Email sent to ${notification.recipientEmail}: ${notification.subject}`);
-      return true;
     } catch (error) {
       console.error('Email sending failed:', error);
       return false;

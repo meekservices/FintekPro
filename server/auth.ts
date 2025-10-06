@@ -6,6 +6,7 @@ import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import { type User } from "@shared/schema";
+import { emailService } from "./email-service";
 
 declare global {
   namespace Express {
@@ -417,9 +418,19 @@ export function setupAuth(app: Express) {
       // Store the reset token in database
       await storage.createPasswordResetToken(user.id, identifier, resetOtp);
 
-      // In production, send OTP via SMS/Email
-      // For development, log it to console
-      console.log(`Password Reset OTP for ${identifier}: ${resetOtp}`);
+      // Send OTP via email if identifier is email, otherwise log to console
+      const isEmail = identifier.includes('@');
+      if (isEmail) {
+        const emailSent = await emailService.sendPasswordResetOTP(identifier, resetOtp);
+        if (emailSent) {
+          console.log(`✅ Password reset OTP sent to ${identifier}`);
+        } else {
+          console.log(`⚠️ Failed to send email, OTP for ${identifier}: ${resetOtp}`);
+        }
+      } else {
+        // For mobile numbers, log to console (SMS integration can be added later)
+        console.log(`📱 Password Reset OTP for ${identifier}: ${resetOtp}`);
+      }
 
       res.json({ message: "If an account exists, a password reset OTP has been sent" });
     } catch (error) {

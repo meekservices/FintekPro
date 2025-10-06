@@ -4,10 +4,6 @@
 
 FintekPro is a comprehensive full-stack TypeScript financial services platform. It offers portfolio management, market data tracking, investment tools, and a range of financial services including stocks, mutual funds, IPOs, bonds, and loans. The platform aims to provide a modern and robust solution for personal finance and investment management.
 
-## User Preferences
-
-Preferred communication style: Simple, everyday language.
-
 ## System Architecture
 
 ### UI/UX Decisions
@@ -67,6 +63,19 @@ Preferred communication style: Simple, everyday language.
     - Product count badges showing filtered results per category.
     - Integrated wishlist, cart functionality, and product detail modals.
     - Featured products, top performers, and hot deals sections with advanced sorting and search.
+
+## Email Service Integration
+- **Email Provider**: Custom SMTP integration using support@fintekpro.com
+- **Implementation**: Nodemailer-based email service (server/email-service.ts)
+- **Features**:
+  - Password reset OTP emails with professional HTML templates
+  - General notification emails
+  - Configured via environment variables: EMAIL_HOST, EMAIL_PORT, EMAIL_USER, EMAIL_PASS
+  - Graceful fallback to console logging when SMTP not configured
+- **Usage**: Integrated with forgot password flow and notification service
+
+## Known Technical Debt
+- **CKYC Notification Methods**: Methods `createCkycNotificationTrigger` and `updateCkycNotificationStatus` are defined in IStorage interface but implementations are commented out in DatabaseStorage class. The notification-service.ts uses these methods, causing TypeScript errors. This is non-blocking for core functionality but should be addressed in future refactoring.
 
 ## External Dependencies
 
