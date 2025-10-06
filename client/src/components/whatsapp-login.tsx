@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, MessageSquare, Shield, CheckCircle, Clock, RefreshCw } from "lucide-react";
+import { Loader2, MessageSquare, Shield, CheckCircle, Clock, RefreshCw, AlertCircle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
 
 interface WhatsAppLoginProps {
   onSuccess?: (user: any) => void;
@@ -22,6 +23,13 @@ export function WhatsAppLogin({ onSuccess, onError }: WhatsAppLoginProps) {
   const [error, setError] = useState("");
   const [countdown, setCountdown] = useState(0);
   const { toast } = useToast();
+
+  // Check WhatsApp service status
+  const { data: serviceStatus } = useQuery({
+    queryKey: ["/api/whatsapp/status"],
+    refetchInterval: 10000, // Check every 10 seconds
+    retry: 2,
+  });
 
   // Countdown timer for resending code
   useEffect(() => {
@@ -164,6 +172,25 @@ export function WhatsAppLogin({ onSuccess, onError }: WhatsAppLoginProps) {
           </Alert>
         )}
 
+        {!serviceStatus?.isReady && (
+          <Alert className="bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
+            <AlertCircle className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-amber-800 dark:text-amber-200">
+              {serviceStatus?.hasQrCode ? (
+                <>
+                  WhatsApp login is currently unavailable. The system is waiting for authentication. 
+                  Please try again later or use email login.
+                </>
+              ) : (
+                <>
+                  WhatsApp login is currently being set up. 
+                  Please use email login or contact support.
+                </>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
+
         {step === "phone" && (
           <div className="space-y-4">
             <div className="space-y-2">
@@ -184,7 +211,7 @@ export function WhatsAppLogin({ onSuccess, onError }: WhatsAppLoginProps) {
             
             <Button 
               onClick={handleSendCode}
-              disabled={isLoading || !phoneNumber.trim()}
+              disabled={isLoading || !phoneNumber.trim() || !serviceStatus?.isReady}
               className="w-full"
               data-testid="button-send-code"
             >
