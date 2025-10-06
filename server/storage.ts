@@ -1565,8 +1565,46 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getAgentForClient(clientId: string, relationshipType?: string): Promise<ClientAgentRelationship | undefined> {
-    return undefined;
+  async getAgentForClient(clientId: string, relationshipType?: string): Promise<any | undefined> {
+    const query = db
+      .select({
+        id: schema.clientAgentRelationships.id,
+        clientId: schema.clientAgentRelationships.clientId,
+        agentId: schema.clientAgentRelationships.agentId,
+        euinNumber: schema.clientAgentRelationships.euinNumber,
+        arnCode: schema.clientAgentRelationships.arnCode,
+        amcCode: schema.clientAgentRelationships.amcCode,
+        distributorId: schema.clientAgentRelationships.distributorId,
+        relationshipType: schema.clientAgentRelationships.relationshipType,
+        isActive: schema.clientAgentRelationships.isActive,
+        assignedAt: schema.clientAgentRelationships.assignedAt,
+        assignedBy: schema.clientAgentRelationships.assignedBy,
+        commissionRate: schema.clientAgentRelationships.commissionRate,
+        feeStructure: schema.clientAgentRelationships.feeStructure,
+        autoPopulateEuin: schema.clientAgentRelationships.autoPopulateEuin,
+        autoPopulateArn: schema.clientAgentRelationships.autoPopulateArn,
+        createdAt: schema.clientAgentRelationships.createdAt,
+        updatedAt: schema.clientAgentRelationships.updatedAt,
+        agent: {
+          id: schema.users.id,
+          email: schema.users.email,
+          firstName: schema.users.firstName,
+          lastName: schema.users.lastName,
+          euinNumber: schema.users.euinNumber,
+          arnCode: schema.users.arnCode,
+          distributorId: schema.users.distributorId,
+        }
+      })
+      .from(schema.clientAgentRelationships)
+      .innerJoin(schema.users, eq(schema.clientAgentRelationships.agentId, schema.users.id))
+      .where(eq(schema.clientAgentRelationships.clientId, clientId));
+
+    if (relationshipType) {
+      query.where(eq(schema.clientAgentRelationships.relationshipType, relationshipType));
+    }
+
+    const [result] = await query.limit(1);
+    return result || undefined;
   }
 
   async getClientsForAgent(agentId: string): Promise<ClientAgentRelationship[]> {
