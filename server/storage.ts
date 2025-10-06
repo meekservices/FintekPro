@@ -24,6 +24,12 @@ export interface IStorage {
   verifyOtp(identifier: string, type: string, otp: string): Promise<boolean>;
   cleanupExpiredOtps(): Promise<void>;
   
+  // Password reset token methods
+  createPasswordResetToken(userId: string, identifier: string, token: string): Promise<any>;
+  getPasswordResetToken(userId: string, token: string): Promise<any | undefined>;
+  markPasswordResetTokenAsUsed(id: string): Promise<boolean>;
+  cleanupExpiredResetTokens(): Promise<void>;
+  
   // Portfolio methods
   getPortfoliosByUserId(userId: string): Promise<Portfolio[]>;
   getPortfoliosByUserPan(panNumber: string): Promise<Portfolio[]>;
@@ -787,6 +793,51 @@ export class DatabaseStorage implements IStorage {
     await db
       .delete(schema.otpVerifications)
       .where(lte(schema.otpVerifications.expiresAt, new Date()));
+  }
+
+  // Password reset token methods
+  async createPasswordResetToken(userId: string, identifier: string, token: string): Promise<any> {
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
+    const [resetToken] = await db
+      .insert(schema.passwordResetTokens)
+      .values({
+        userId,
+        identifier,
+        token,
+        expiresAt,
+        isUsed: false,
+      })
+      .returning();
+    return resetToken;
+  }
+
+  async getPasswordResetToken(userId: string, token: string): Promise<any | undefined> {
+    const [resetToken] = await db
+      .select()
+      .from(schema.passwordResetTokens)
+      .where(and(
+        eq(schema.passwordResetTokens.userId, userId),
+        eq(schema.passwordResetTokens.token, token),
+        eq(schema.passwordResetTokens.isUsed, false)
+      ))
+      .orderBy(desc(schema.passwordResetTokens.createdAt))
+      .limit(1);
+    return resetToken || undefined;
+  }
+
+  async markPasswordResetTokenAsUsed(id: string): Promise<boolean> {
+    const [result] = await db
+      .update(schema.passwordResetTokens)
+      .set({ isUsed: true, usedAt: new Date() })
+      .where(eq(schema.passwordResetTokens.id, id))
+      .returning();
+    return !!result;
+  }
+
+  async cleanupExpiredResetTokens(): Promise<void> {
+    await db
+      .delete(schema.passwordResetTokens)
+      .where(lte(schema.passwordResetTokens.expiresAt, new Date()));
   }
 
   // Portfolio methods
