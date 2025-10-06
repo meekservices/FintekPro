@@ -61,6 +61,7 @@ import BrokingPage from "@/pages/broking";
 import AgentPortal from "@/pages/agent-portal";
 import OnboardingPage from "@/pages/onboarding";
 import AdminProposalsPage from "@/pages/admin-proposals";
+import AdminWhatsAppSetup from "@/pages/admin-whatsapp-setup";
 import ClientProposalsPage from "@/pages/client-proposals";
 import TaxDocuments from "@/pages/tax-documents";
 import ITRPrefilled from "@/pages/itr-prefilled";
@@ -185,6 +186,7 @@ function Router() {
       {/* Agent/Admin routes - bypass profile completion but require authentication */}
       <Route path="/admin" component={AdminPanel} />
       <Route path="/admin/proposals" component={AdminProposalsPage} />
+      <Route path="/admin/whatsapp-setup" component={AdminWhatsAppSetup} />
       <Route path="/agent" component={AgentDashboard} />
       <Route path="/agent-portal" component={AgentPortal} />
       

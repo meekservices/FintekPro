@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { Link as RouterLink } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1231,10 +1232,18 @@ function MarketingToolsPanel() {
         <div className="space-y-6">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold">WhatsApp Marketing Center</h3>
-            <Button onClick={() => toast({ title: "WhatsApp Connected", description: "Your WhatsApp Business API is active and ready" })}>
-              <Phone className="w-4 h-4 mr-2" />
-              Connect WhatsApp Business
-            </Button>
+            <div className="flex gap-2">
+              <RouterLink href="/admin/whatsapp-setup">
+                <Button variant="outline">
+                  <Settings className="w-4 h-4 mr-2" />
+                  WhatsApp Setup
+                </Button>
+              </RouterLink>
+              <Button onClick={() => toast({ title: "WhatsApp Connected", description: "Your WhatsApp Business API is active and ready" })}>
+                <Phone className="w-4 h-4 mr-2" />
+                Connect WhatsApp Business
+              </Button>
+            </div>
           </div>
 
           {/* WhatsApp Overview Stats */}
