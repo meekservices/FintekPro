@@ -7,11 +7,18 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, CheckCircle2, AlertCircle, RefreshCw, Smartphone, QrCode } from "lucide-react";
 import QRCode from "react-qr-code";
 
+interface WhatsAppStatus {
+  isReady: boolean;
+  hasQrCode: boolean;
+  qrCode?: string;
+  message: string;
+}
+
 export default function AdminWhatsAppSetup() {
   const [autoRefresh, setAutoRefresh] = useState(true);
 
   // Query for WhatsApp QR code and status
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery<WhatsAppStatus>({
     queryKey: ["/api/admin/whatsapp/qr"],
     refetchInterval: autoRefresh ? 3000 : false, // Refresh every 3 seconds when autoRefresh is true
     retry: 2,
