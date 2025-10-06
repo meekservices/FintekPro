@@ -32,6 +32,9 @@ export default function CkycVerification() {
     fullName: "",
     dateOfBirth: "",
     address: "",
+    city: "",
+    state: "",
+    pincode: "",
     mobile: "",
     email: "",
     income: "",
@@ -120,12 +123,12 @@ export default function CkycVerification() {
       mobileNumber: formData.mobile,
       emailAddress: formData.email,
       addressLine1: formData.address,
+      city: formData.city,
+      state: formData.state,
+      pincode: formData.pincode,
       occupation: formData.occupation,
       annualIncome: formData.income,
       status: 'pending',
-      city: '', // Required field - could extract from address or add to form
-      state: '', // Required field - could extract from address or add to form
-      pincode: '', // Required field - could add to form
     });
   };
 
@@ -332,6 +335,45 @@ export default function CkycVerification() {
                   placeholder="Complete address as per government ID"
                   required
                 />
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="city">City</Label>
+                  <Input
+                    id="city"
+                    data-testid="input-city"
+                    value={formData.city || ckycRecord?.city || ""}
+                    onChange={(e) => setFormData({...formData, city: e.target.value})}
+                    placeholder="City"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="state">State</Label>
+                  <Input
+                    id="state"
+                    data-testid="input-state"
+                    value={formData.state || ckycRecord?.state || ""}
+                    onChange={(e) => setFormData({...formData, state: e.target.value})}
+                    placeholder="State"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="pincode">Pincode</Label>
+                  <Input
+                    id="pincode"
+                    data-testid="input-pincode"
+                    value={formData.pincode || ckycRecord?.pincode || ""}
+                    onChange={(e) => setFormData({...formData, pincode: e.target.value})}
+                    placeholder="Pincode"
+                    maxLength={6}
+                    required
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
