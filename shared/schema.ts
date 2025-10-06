@@ -434,6 +434,18 @@ export const otpVerifications = pgTable("otp_verifications", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Password reset tokens table
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  identifier: varchar("identifier").notNull(), // email or mobile used for reset
+  token: varchar("token", { length: 6 }).notNull(), // 6-digit OTP
+  expiresAt: timestamp("expires_at").notNull(), // 10 minute expiry
+  isUsed: boolean("is_used").default(false),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // CKYC (Central KYC Registry) records table
 export const ckycRecords = pgTable("ckyc_records", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
