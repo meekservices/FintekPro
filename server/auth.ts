@@ -391,6 +391,91 @@ export function setupAuth(app: Express) {
     }
   });
 
+  // Forgot Password - Send OTP
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    try {
+      const { identifier } = req.body; // Can be email or mobile
+
+      if (!identifier) {
+        return res.status(400).json({ message: "Email or mobile number is required" });
+      }
+
+      // Find user by email or mobile
+      let user = await storage.getUserByEmail(identifier);
+      if (!user) {
+        user = await storage.getUserByMobile(identifier);
+      }
+
+      if (!user) {
+        // Don't reveal if user exists or not for security
+        return res.json({ message: "If an account exists, a password reset OTP has been sent" });
+      }
+
+      // Generate 6-digit OTP
+      const resetOtp = generateOtp();
+
+      // Store the reset token in database
+      await storage.createPasswordResetToken(user.id, identifier, resetOtp);
+
+      // In production, send OTP via SMS/Email
+      // For development, log it to console
+      console.log(`Password Reset OTP for ${identifier}: ${resetOtp}`);
+
+      res.json({ message: "If an account exists, a password reset OTP has been sent" });
+    } catch (error) {
+      console.error("Forgot password error:", error);
+      res.status(500).json({ message: "Failed to process password reset request" });
+    }
+  });
+
+  // Reset Password - Verify OTP and Update Password
+  app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const { identifier, otp, newPassword } = req.body;
+
+      if (!identifier || !otp || !newPassword) {
+        return res.status(400).json({ message: "All fields are required" });
+      }
+
+      // Find user by email or mobile
+      let user = await storage.getUserByEmail(identifier);
+      if (!user) {
+        user = await storage.getUserByMobile(identifier);
+      }
+
+      if (!user) {
+        return res.status(400).json({ message: "Invalid or expired OTP" });
+      }
+
+      // Get the reset token
+      const resetToken = await storage.getPasswordResetToken(user.id, otp);
+      
+      if (!resetToken) {
+        return res.status(400).json({ message: "Invalid or expired OTP" });
+      }
+
+      // Check if token is expired (10 minutes)
+      const isExpired = new Date() > new Date(resetToken.expiresAt);
+      if (isExpired) {
+        return res.status(400).json({ message: "OTP has expired. Please request a new one" });
+      }
+
+      // Hash the new password
+      const hashedPassword = await hashPassword(newPassword);
+
+      // Update user password
+      await storage.updateUser(user.id, { password: hashedPassword });
+
+      // Mark token as used
+      await storage.markPasswordResetTokenAsUsed(resetToken.id);
+
+      res.json({ message: "Password reset successfully" });
+    } catch (error) {
+      console.error("Reset password error:", error);
+      res.status(500).json({ message: "Failed to reset password" });
+    }
+  });
+
   // Logout endpoint
   app.post("/api/logout", (req, res) => {
     req.logout((err) => {
