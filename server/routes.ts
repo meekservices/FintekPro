@@ -27583,6 +27583,142 @@ System Security Data:`;
 
   // ==================== END FAMILY COLLABORATION ROUTES ====================
 
+  // ==================== AI CHAT ASSISTANT ROUTES ====================
+  
+  const { chatOrchestrator } = await import("./chat-orchestrator");
+  
+  // Start a new chat session
+  app.post("/api/chat/sessions", isAuthenticated, async (req, res) => {
+    try {
+      const { sessionType, portfolioId } = req.body;
+      const session = await chatOrchestrator.startSession(
+        req.user!.id,
+        sessionType || 'general',
+        portfolioId
+      );
+      
+      // Get initial welcome message
+      const messages = await storage.getChatMessages(session.id);
+      
+      res.status(201).json({
+        session,
+        messages,
+      });
+    } catch (error) {
+      console.error('Error starting chat session:', error);
+      res.status(500).json({ message: "Failed to start chat session" });
+    }
+  });
+  
+  // Get user's chat sessions
+  app.get("/api/chat/sessions", isAuthenticated, async (req, res) => {
+    try {
+      const sessions = await chatOrchestrator.getUserSessions(req.user!.id);
+      res.json(sessions);
+    } catch (error) {
+      console.error('Error fetching chat sessions:', error);
+      res.status(500).json({ message: "Failed to fetch chat sessions" });
+    }
+  });
+  
+  // Get a specific session
+  app.get("/api/chat/sessions/:sessionId", isAuthenticated, async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const session = await storage.getChatSession(sessionId);
+      
+      if (!session || session.userId !== req.user!.id) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+      
+      res.json(session);
+    } catch (error) {
+      console.error('Error fetching chat session:', error);
+      res.status(500).json({ message: "Failed to fetch chat session" });
+    }
+  });
+  
+  // Get messages for a session
+  app.get("/api/chat/sessions/:sessionId/messages", isAuthenticated, async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      
+      const messages = await chatOrchestrator.getSessionHistory(
+        sessionId,
+        req.user!.id,
+        limit
+      );
+      
+      res.json(messages);
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      res.status(500).json({ message: "Failed to fetch messages" });
+    }
+  });
+  
+  // Send a message
+  app.post("/api/chat/sessions/:sessionId/messages", isAuthenticated, async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const { message } = req.body;
+      
+      if (!message || typeof message !== 'string') {
+        return res.status(400).json({ message: "Message is required" });
+      }
+      
+      const response = await chatOrchestrator.sendMessage(
+        sessionId,
+        message,
+        req.user!.id
+      );
+      
+      res.json(response);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      res.status(500).json({ message: "Failed to send message" });
+    }
+  });
+  
+  // Get pending actions for user
+  app.get("/api/chat/actions/pending", isAuthenticated, async (req, res) => {
+    try {
+      const actions = await storage.getPendingChatActions(req.user!.id);
+      res.json(actions);
+    } catch (error) {
+      console.error('Error fetching pending actions:', error);
+      res.status(500).json({ message: "Failed to fetch pending actions" });
+    }
+  });
+  
+  // Confirm or reject an action
+  app.post("/api/chat/actions/:actionId/confirm", isAuthenticated, async (req, res) => {
+    try {
+      const { actionId } = req.params;
+      const { confirmed } = req.body;
+      
+      if (typeof confirmed !== 'boolean') {
+        return res.status(400).json({ message: "confirmed must be a boolean" });
+      }
+      
+      const response = await chatOrchestrator.confirmAction(
+        actionId,
+        req.user!.id,
+        confirmed
+      );
+      
+      res.json(response);
+    } catch (error) {
+      console.error('Error confirming action:', error);
+      if (error instanceof Error && error.message.includes('not found')) {
+        return res.status(404).json({ message: error.message });
+      }
+      res.status(500).json({ message: "Failed to confirm action" });
+    }
+  });
+  
+  // ==================== END AI CHAT ASSISTANT ROUTES ====================
+
   // Add AML routes
   app.use(amlRoutes);
 
