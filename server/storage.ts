@@ -700,6 +700,25 @@ export interface IStorage {
   getAlertTemplates(category?: string): Promise<AlertTemplate[]>;
   getPopularAlertTemplates(): Promise<AlertTemplate[]>;
   createAlertFromTemplate(userId: string, templateId: string, customData?: any): Promise<UserAlert>;
+  
+  // Chat System methods
+  createChatSession(session: InsertChatSession): Promise<ChatSession>;
+  getChatSession(id: string): Promise<ChatSession | undefined>;
+  getUserChatSessions(userId: string): Promise<ChatSession[]>;
+  updateChatSession(id: string, updates: Partial<ChatSession>): Promise<ChatSession | undefined>;
+  
+  createChatMessage(message: InsertChatMessage): Promise<ChatMessage>;
+  getChatMessages(sessionId: string, limit?: number): Promise<ChatMessage[]>;
+  updateChatMessage(id: string, updates: Partial<ChatMessage>): Promise<ChatMessage | undefined>;
+  
+  getChatFunctions(): Promise<ChatFunction[]>;
+  getChatFunction(functionName: string): Promise<ChatFunction | undefined>;
+  updateChatFunctionUsage(functionName: string, success: boolean): Promise<void>;
+  
+  createChatAction(action: InsertChatAction): Promise<ChatAction>;
+  getChatAction(id: string): Promise<ChatAction | undefined>;
+  updateChatAction(id: string, updates: Partial<ChatAction>): Promise<ChatAction | undefined>;
+  getPendingChatActions(userId: string): Promise<ChatAction[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -4327,6 +4346,153 @@ export class DatabaseStorage implements IStorage {
       activeGoals: activeGoalsResult[0]?.count || 0,
       monthlyBudget: budgetResult[0]?.total || 0,
     };
+  }
+  
+  // Chat System methods
+  async createChatSession(session: InsertChatSession): Promise<ChatSession> {
+    const [result] = await db
+      .insert(schema.chatSessions)
+      .values(session)
+      .returning();
+    return result;
+  }
+
+  async getChatSession(id: string): Promise<ChatSession | undefined> {
+    const [result] = await db
+      .select()
+      .from(schema.chatSessions)
+      .where(eq(schema.chatSessions.id, id))
+      .limit(1);
+    return result;
+  }
+
+  async getUserChatSessions(userId: string): Promise<ChatSession[]> {
+    return db
+      .select()
+      .from(schema.chatSessions)
+      .where(eq(schema.chatSessions.userId, userId))
+      .orderBy(desc(schema.chatSessions.lastMessageAt));
+  }
+
+  async updateChatSession(id: string, updates: Partial<ChatSession>): Promise<ChatSession | undefined> {
+    const [result] = await db
+      .update(schema.chatSessions)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.chatSessions.id, id))
+      .returning();
+    return result;
+  }
+
+  async createChatMessage(message: InsertChatMessage): Promise<ChatMessage> {
+    const [result] = await db
+      .insert(schema.chatMessages)
+      .values(message)
+      .returning();
+    
+    await db
+      .update(schema.chatSessions)
+      .set({
+        lastMessageAt: new Date(),
+        messageCount: sql`${schema.chatSessions.messageCount} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.chatSessions.id, message.sessionId));
+    
+    return result;
+  }
+
+  async getChatMessages(sessionId: string, limit: number = 50): Promise<ChatMessage[]> {
+    return db
+      .select()
+      .from(schema.chatMessages)
+      .where(eq(schema.chatMessages.sessionId, sessionId))
+      .orderBy(asc(schema.chatMessages.createdAt))
+      .limit(limit);
+  }
+
+  async updateChatMessage(id: string, updates: Partial<ChatMessage>): Promise<ChatMessage | undefined> {
+    const [result] = await db
+      .update(schema.chatMessages)
+      .set(updates)
+      .where(eq(schema.chatMessages.id, id))
+      .returning();
+    return result;
+  }
+
+  async getChatFunctions(): Promise<ChatFunction[]> {
+    return db
+      .select()
+      .from(schema.chatFunctions)
+      .where(eq(schema.chatFunctions.isEnabled, true))
+      .orderBy(asc(schema.chatFunctions.category));
+  }
+
+  async getChatFunction(functionName: string): Promise<ChatFunction | undefined> {
+    const [result] = await db
+      .select()
+      .from(schema.chatFunctions)
+      .where(eq(schema.chatFunctions.functionName, functionName))
+      .limit(1);
+    return result;
+  }
+
+  async updateChatFunctionUsage(functionName: string, success: boolean): Promise<void> {
+    const func = await this.getChatFunction(functionName);
+    if (func) {
+      const totalCalls = (func.usageCount || 0) + 1;
+      const successCalls = success 
+        ? Math.round(((func.successRate || 0) / 100) * (func.usageCount || 0)) + 1
+        : Math.round(((func.successRate || 0) / 100) * (func.usageCount || 0));
+      const newSuccessRate = (successCalls / totalCalls) * 100;
+
+      await db
+        .update(schema.chatFunctions)
+        .set({
+          usageCount: totalCalls,
+          successRate: newSuccessRate,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.chatFunctions.functionName, functionName));
+    }
+  }
+
+  async createChatAction(action: InsertChatAction): Promise<ChatAction> {
+    const [result] = await db
+      .insert(schema.chatActions)
+      .values(action)
+      .returning();
+    return result;
+  }
+
+  async getChatAction(id: string): Promise<ChatAction | undefined> {
+    const [result] = await db
+      .select()
+      .from(schema.chatActions)
+      .where(eq(schema.chatActions.id, id))
+      .limit(1);
+    return result;
+  }
+
+  async updateChatAction(id: string, updates: Partial<ChatAction>): Promise<ChatAction | undefined> {
+    const [result] = await db
+      .update(schema.chatActions)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.chatActions.id, id))
+      .returning();
+    return result;
+  }
+
+  async getPendingChatActions(userId: string): Promise<ChatAction[]> {
+    return db
+      .select()
+      .from(schema.chatActions)
+      .where(
+        and(
+          eq(schema.chatActions.userId, userId),
+          eq(schema.chatActions.status, 'pending_confirmation')
+        )
+      )
+      .orderBy(desc(schema.chatActions.createdAt));
   }
 }
 
