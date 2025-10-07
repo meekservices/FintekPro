@@ -321,3 +321,61 @@ Provide a structured JSON response with security recommendations.`;
     throw error;
   }
 }
+export async function generateChatResponse(
+  systemPrompt: string,
+  conversationHistory: Array<{role: 'user' | 'assistant' | 'system'; content: string}>,
+  functionSchemas?: any[]
+): Promise<{ text?: string; functionCall?: { name: string; args: any } }> {
+  try {
+    // Build messages for Gemini
+    const messages = [
+      { role: 'user' as const, content: systemPrompt },
+      ...conversationHistory.map(m => ({
+        role: m.role === 'system' ? 'user' as const : m.role as 'user' | 'assistant',
+        content: m.content
+      }))
+    ];
+
+    const lastUserMessage = messages[messages.length - 1].content;
+
+    const config: any = {
+      temperature: 0.7,
+      maxOutputTokens: 2048,
+    };
+
+    // Add function declarations if provided
+    if (functionSchemas && functionSchemas.length > 0) {
+      config.tools = [{
+        functionDeclarations: functionSchemas
+      }];
+    }
+
+    const response = await ai.models.generateContent({
+      model: "gemini-1.5-flash",
+      config,
+      contents: lastUserMessage,
+    });
+
+    // Check for function calls in response
+    const functionCalls = response.functionCalls;
+    if (functionCalls && functionCalls.length > 0) {
+      const firstCall = functionCalls[0];
+      if (firstCall.name) {
+        return {
+          functionCall: {
+            name: firstCall.name,
+            args: firstCall.args || {}
+          }
+        };
+      }
+    }
+
+    // Return text response
+    return {
+      text: response.text || 'I apologize, but I couldn\'t generate a response. Please try again.'
+    };
+  } catch (error) {
+    console.error("Gemini chat error:", error);
+    throw error;
+  }
+}
