@@ -6655,3 +6655,149 @@ export const insertFamilyBudgetSchema = createInsertSchema(familyBudgets).omit({
 export type FamilyBudget = typeof familyBudgets.$inferSelect;
 export type InsertFamilyBudget = z.infer<typeof insertFamilyBudgetSchema>;
 
+// ============================================================================
+// CUSTOMIZABLE ALERT SYSTEM
+// ============================================================================
+
+// User Alerts - Customizable alerts for market changes and spending habits
+export const userAlerts = pgTable("user_alerts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Alert configuration
+  alertName: text("alert_name").notNull(),
+  alertType: varchar("alert_type").notNull(), // 'market_price', 'market_change', 'market_volume', 'spending_category', 'spending_limit', 'spending_pattern', 'portfolio_value', 'portfolio_change'
+  
+  // Alert category
+  category: varchar("category").notNull(), // 'market', 'spending', 'portfolio'
+  
+  // Market alert specific fields
+  symbol: varchar("symbol"), // Stock/fund symbol for market alerts
+  assetType: varchar("asset_type"), // 'stock', 'mutual_fund', 'bond', 'commodity', 'index'
+  
+  // Trigger conditions (JSON with flexible structure)
+  triggerCondition: jsonb("trigger_condition").notNull(), 
+  // Examples:
+  // Market Price: { type: 'price_above', value: 1500 } or { type: 'price_below', value: 1200 }
+  // Market Change: { type: 'percent_gain', value: 5 } or { type: 'percent_loss', value: 3 }
+  // Spending: { type: 'category_limit', category: 'food', period: 'monthly', value: 10000 }
+  // Portfolio: { type: 'value_below', value: 500000 }
+  
+  // Spending alert specific fields
+  spendingCategory: varchar("spending_category"), // 'food', 'transport', 'entertainment', 'utilities', 'shopping', 'healthcare', etc.
+  spendingPeriod: varchar("spending_period"), // 'daily', 'weekly', 'monthly', 'yearly'
+  
+  // Notification preferences
+  notificationChannels: jsonb("notification_channels").default(['email']), // ['email', 'whatsapp', 'sms', 'push', 'in_app']
+  
+  // Alert status and controls
+  isActive: boolean("is_active").default(true),
+  priority: varchar("priority").default("medium"), // 'high', 'medium', 'low'
+  
+  // Frequency controls (prevent spam)
+  cooldownPeriod: integer("cooldown_period").default(3600), // Seconds between repeated alerts (default 1 hour)
+  lastTriggeredAt: timestamp("last_triggered_at"),
+  triggerCount: integer("trigger_count").default(0),
+  
+  // Metadata
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_user_alerts_user_id").on(table.userId),
+  index("idx_user_alerts_type").on(table.alertType),
+  index("idx_user_alerts_category").on(table.category),
+  index("idx_user_alerts_active").on(table.isActive),
+  index("idx_user_alerts_symbol").on(table.symbol),
+]);
+
+// Alert History - Log of triggered alerts
+export const alertHistory = pgTable("alert_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  alertId: varchar("alert_id").references(() => userAlerts.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Trigger details
+  triggeredAt: timestamp("triggered_at").defaultNow(),
+  triggerValue: jsonb("trigger_value"), // Actual value that triggered the alert
+  // Example: { currentPrice: 1550, threshold: 1500 } or { spending: 12000, limit: 10000 }
+  
+  // Alert snapshot at trigger time
+  alertSnapshot: jsonb("alert_snapshot"), // Copy of alert config when triggered
+  
+  // Notification details
+  notificationStatus: varchar("notification_status").default("pending"), // 'pending', 'sent', 'failed'
+  notificationChannels: jsonb("notification_channels"),
+  notificationSentAt: timestamp("notification_sent_at"),
+  notificationError: text("notification_error"),
+  
+  // User interaction
+  isRead: boolean("is_read").default(false),
+  readAt: timestamp("read_at"),
+  isDismissed: boolean("is_dismissed").default(false),
+  dismissedAt: timestamp("dismissed_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_alert_history_alert_id").on(table.alertId),
+  index("idx_alert_history_user_id").on(table.userId),
+  index("idx_alert_history_triggered").on(table.triggeredAt),
+  index("idx_alert_history_read").on(table.isRead),
+]);
+
+// Alert Templates - Pre-defined alert templates for quick setup
+export const alertTemplates = pgTable("alert_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  templateName: text("template_name").notNull(),
+  templateType: varchar("template_type").notNull(), // 'market', 'spending', 'portfolio'
+  category: varchar("category").notNull(),
+  
+  // Template configuration
+  defaultConfig: jsonb("default_config").notNull(),
+  description: text("description"),
+  
+  // Popularity and usage
+  isPopular: boolean("is_popular").default(false),
+  usageCount: integer("usage_count").default(0),
+  
+  // Admin controls
+  isActive: boolean("is_active").default(true),
+  displayOrder: integer("display_order").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_alert_templates_type").on(table.templateType),
+  index("idx_alert_templates_popular").on(table.isPopular),
+  index("idx_alert_templates_active").on(table.isActive),
+]);
+
+// Insert schemas and types for alerts
+export const insertUserAlertSchema = createInsertSchema(userAlerts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  triggerCount: true,
+  lastTriggeredAt: true,
+});
+export type UserAlert = typeof userAlerts.$inferSelect;
+export type InsertUserAlert = z.infer<typeof insertUserAlertSchema>;
+
+export const insertAlertHistorySchema = createInsertSchema(alertHistory).omit({
+  id: true,
+  createdAt: true,
+  triggeredAt: true,
+});
+export type AlertHistory = typeof alertHistory.$inferSelect;
+export type InsertAlertHistory = z.infer<typeof insertAlertHistorySchema>;
+
+export const insertAlertTemplateSchema = createInsertSchema(alertTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  usageCount: true,
+});
+export type AlertTemplate = typeof alertTemplates.$inferSelect;
+export type InsertAlertTemplate = z.infer<typeof insertAlertTemplateSchema>;
+
