@@ -75,15 +75,21 @@ FintekPro is a comprehensive full-stack TypeScript financial services platform. 
 - **Usage**: Integrated with forgot password flow and notification service
 
 ## Recent Changes (October 7, 2025)
-- **AI Chat Assistant System**: Implemented comprehensive chatbot with Gemini AI integration
-  - Created 4 database tables: chat_sessions, chat_messages, chat_functions, chat_actions
-  - Built FunctionRegistry with 12+ callable functions (portfolio queries, market data, transactions, calculators)
-  - Implemented ChatOrchestrator service for context loading, function execution, and confirmation workflow
-  - Added chat API routes with proper authentication and error handling
-  - Created React chat UI with message bubbles, typing indicators, and action confirmation dialogs
-  - Route: /chat (accessible to authenticated users)
-  - Functions include: portfolio summary, holdings, transactions, market snapshot, security search, SIP calculator, tax implications, mutual fund orders (with confirmation), portfolio rebalancing (with confirmation)
-  - Architecture notes from review: Future enhancements needed for streaming responses, better multi-action UX, and session history hydration
+- **AI Chat Assistant System (MVP Complete)**: Implemented comprehensive chatbot with Gemini AI integration
+  - **Database Schema**: Created 4 tables (chat_sessions, chat_messages, chat_functions, chat_actions) with moderation flags and portfolio linking
+  - **Function Registry**: Built 12+ callable functions across categories:
+    - Portfolio: getUserPortfolioSummary, getUserPortfolioHoldings, getRecentTransactions, getGoalProgress
+    - Market: getMarketSnapshot, searchSecurityInfo
+    - Transactions: createEquityOrder (with confirmation), createMutualFundOrder (with confirmation), rebalancePortfolio (with confirmation)
+    - Utility: suggestRiskAdjustment, getTaxImplications
+    - Profile: getUserProfileSummary
+  - **ChatOrchestrator Service**: Handles session management, context loading, Gemini API integration, function calling, and transaction confirmation workflow
+  - **API Routes**: Full CRUD with requireAuth middleware (/api/chat/sessions, /api/chat/messages, /api/chat/actions)
+  - **React UI**: Message bubbles, input handling, confirmation dialogs at /chat
+  - **MVP Status**: Core functionality working. Future enhancements planned:
+    1. Streaming responses with SSE/websocket for real-time assistant output
+    2. Enhanced multi-action confirmation UX with full transaction details
+    3. Session history hydration (welcome message on load)
 
 ## Recent Changes (October 6, 2025)
 - **TypeScript Error Resolution**: Fixed all TypeScript errors in CKYC verification and profile pages:
