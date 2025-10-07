@@ -84,6 +84,7 @@ import BankingProducts from "@/pages/banking-products";
 import Bonds from "@/pages/bonds";
 import FamilyList from "@/pages/family-list";
 import FamilyDashboard from "@/pages/family-dashboard";
+import AIChat from "@/pages/ai-chat";
 
 function UserProtectedRoutes() {
   return (
@@ -147,6 +148,7 @@ function UserProtectedRoutes() {
         <Route path="/investment-dashboard" component={InvestmentDashboard} />
         <Route path="/ib-trading" component={IBTradingPage} />
         <Route path="/store" component={StorePage} />
+        <Route path="/chat" component={AIChat} />
         <Route path="/gift-city" component={GiftCity} />
         <Route path="/nri-services" component={NRIServices} />
         <Route path="/itr-tax-services" component={ITRTaxServices} />

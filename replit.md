@@ -74,6 +74,17 @@ FintekPro is a comprehensive full-stack TypeScript financial services platform. 
   - Graceful fallback to console logging when SMTP not configured
 - **Usage**: Integrated with forgot password flow and notification service
 
+## Recent Changes (October 7, 2025)
+- **AI Chat Assistant System**: Implemented comprehensive chatbot with Gemini AI integration
+  - Created 4 database tables: chat_sessions, chat_messages, chat_functions, chat_actions
+  - Built FunctionRegistry with 12+ callable functions (portfolio queries, market data, transactions, calculators)
+  - Implemented ChatOrchestrator service for context loading, function execution, and confirmation workflow
+  - Added chat API routes with proper authentication and error handling
+  - Created React chat UI with message bubbles, typing indicators, and action confirmation dialogs
+  - Route: /chat (accessible to authenticated users)
+  - Functions include: portfolio summary, holdings, transactions, market snapshot, security search, SIP calculator, tax implications, mutual fund orders (with confirmation), portfolio rebalancing (with confirmation)
+  - Architecture notes from review: Future enhancements needed for streaming responses, better multi-action UX, and session history hydration
+
 ## Recent Changes (October 6, 2025)
 - **TypeScript Error Resolution**: Fixed all TypeScript errors in CKYC verification and profile pages:
   - Added proper type definitions (CkycRecord, CkycDocument, ComplianceStatus)

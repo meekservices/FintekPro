@@ -27588,7 +27588,7 @@ System Security Data:`;
   const { chatOrchestrator } = await import("./chat-orchestrator");
   
   // Start a new chat session
-  app.post("/api/chat/sessions", isAuthenticated, async (req, res) => {
+  app.post("/api/chat/sessions", requireAuth, async (req, res) => {
     try {
       const { sessionType, portfolioId } = req.body;
       const session = await chatOrchestrator.startSession(
@@ -27611,7 +27611,7 @@ System Security Data:`;
   });
   
   // Get user's chat sessions
-  app.get("/api/chat/sessions", isAuthenticated, async (req, res) => {
+  app.get("/api/chat/sessions", requireAuth, async (req, res) => {
     try {
       const sessions = await chatOrchestrator.getUserSessions(req.user!.id);
       res.json(sessions);
@@ -27622,7 +27622,7 @@ System Security Data:`;
   });
   
   // Get a specific session
-  app.get("/api/chat/sessions/:sessionId", isAuthenticated, async (req, res) => {
+  app.get("/api/chat/sessions/:sessionId", requireAuth, async (req, res) => {
     try {
       const { sessionId } = req.params;
       const session = await storage.getChatSession(sessionId);
@@ -27639,7 +27639,7 @@ System Security Data:`;
   });
   
   // Get messages for a session
-  app.get("/api/chat/sessions/:sessionId/messages", isAuthenticated, async (req, res) => {
+  app.get("/api/chat/sessions/:sessionId/messages", requireAuth, async (req, res) => {
     try {
       const { sessionId } = req.params;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
@@ -27658,7 +27658,7 @@ System Security Data:`;
   });
   
   // Send a message
-  app.post("/api/chat/sessions/:sessionId/messages", isAuthenticated, async (req, res) => {
+  app.post("/api/chat/sessions/:sessionId/messages", requireAuth, async (req, res) => {
     try {
       const { sessionId } = req.params;
       const { message } = req.body;
@@ -27681,7 +27681,7 @@ System Security Data:`;
   });
   
   // Get pending actions for user
-  app.get("/api/chat/actions/pending", isAuthenticated, async (req, res) => {
+  app.get("/api/chat/actions/pending", requireAuth, async (req, res) => {
     try {
       const actions = await storage.getPendingChatActions(req.user!.id);
       res.json(actions);
@@ -27692,7 +27692,7 @@ System Security Data:`;
   });
   
   // Confirm or reject an action
-  app.post("/api/chat/actions/:actionId/confirm", isAuthenticated, async (req, res) => {
+  app.post("/api/chat/actions/:actionId/confirm", requireAuth, async (req, res) => {
     try {
       const { actionId } = req.params;
       const { confirmed } = req.body;
