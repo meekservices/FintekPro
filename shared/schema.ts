@@ -6801,3 +6801,184 @@ export const insertAlertTemplateSchema = createInsertSchema(alertTemplates).omit
 export type AlertTemplate = typeof alertTemplates.$inferSelect;
 export type InsertAlertTemplate = z.infer<typeof insertAlertTemplateSchema>;
 
+// ============================================================================
+// FINANCIAL CHATBOT SYSTEM
+// ============================================================================
+
+// Chat Sessions - Conversation threads with AI financial advisor
+export const chatSessions = pgTable("chat_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Session metadata
+  title: text("title"), // Auto-generated or user-set title
+  sessionType: varchar("session_type").default("general"), // 'general', 'transaction', 'portfolio_analysis', 'tax_advice'
+  
+  // Context for AI
+  contextData: jsonb("context_data"), // Portfolio snapshot, user preferences, etc.
+  
+  // Linked entities (for better context tracking)
+  portfolioId: varchar("portfolio_id").references(() => portfolios.id),
+  portfolioSnapshotId: varchar("portfolio_snapshot_id"), // Reference to specific snapshot
+  
+  // Session status
+  isActive: boolean("is_active").default(true),
+  lastMessageAt: timestamp("last_message_at"),
+  messageCount: integer("message_count").default(0),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_chat_sessions_user_id").on(table.userId),
+  index("idx_chat_sessions_active").on(table.isActive),
+  index("idx_chat_sessions_last_message").on(table.lastMessageAt),
+  index("idx_chat_sessions_portfolio").on(table.portfolioId),
+]);
+
+// Chat Messages - Individual messages in conversations
+export const chatMessages = pgTable("chat_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").references(() => chatSessions.id).notNull(),
+  
+  // Message details
+  role: varchar("role").notNull(), // 'user', 'assistant', 'system', 'function'
+  content: text("content").notNull(),
+  
+  // Function calling support
+  functionCall: jsonb("function_call"), // { name: 'buy_stock', arguments: {...} }
+  functionResponse: jsonb("function_response"), // Result of function execution
+  
+  // AI metadata
+  model: varchar("model").default("gemini-1.5-flash"), // Which AI model was used
+  tokens: integer("tokens"), // Token count for this message
+  
+  // Message context
+  attachments: jsonb("attachments"), // URLs, images, documents
+  metadata: jsonb("metadata"), // Additional context like market data at time of message
+  
+  // User interaction
+  isEdited: boolean("is_edited").default(false),
+  editedAt: timestamp("edited_at"),
+  
+  // Feedback
+  userRating: integer("user_rating"), // 1-5 stars for AI responses
+  feedbackText: text("feedback_text"),
+  
+  // Compliance & Moderation
+  isFlagged: boolean("is_flagged").default(false),
+  flaggedReason: text("flagged_reason"),
+  flaggedAt: timestamp("flagged_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_chat_messages_session_id").on(table.sessionId),
+  index("idx_chat_messages_role").on(table.role),
+  index("idx_chat_messages_created").on(table.createdAt),
+  index("idx_chat_messages_flagged").on(table.isFlagged),
+]);
+
+// Chat Functions - Available functions the AI can call
+export const chatFunctions = pgTable("chat_functions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Function details
+  functionName: varchar("function_name").notNull().unique(),
+  displayName: text("display_name").notNull(),
+  description: text("description").notNull(),
+  category: varchar("category").notNull(), // 'transaction', 'portfolio', 'market_data', 'analysis', 'admin'
+  
+  // Function schema for AI
+  parameters: jsonb("parameters").notNull(), // JSON Schema for function parameters
+  
+  // Access control
+  requiredRoles: jsonb("required_roles").default([]), // Roles that can use this function
+  requiresConfirmation: boolean("requires_confirmation").default(true), // User must confirm before execution
+  
+  // Usage tracking
+  isEnabled: boolean("is_enabled").default(true),
+  usageCount: integer("usage_count").default(0),
+  successRate: decimal("success_rate", { precision: 5, scale: 2 }),
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_chat_functions_category").on(table.category),
+  index("idx_chat_functions_enabled").on(table.isEnabled),
+]);
+
+// Insert schemas and types for chatbot
+export const insertChatSessionSchema = createInsertSchema(chatSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  messageCount: true,
+  lastMessageAt: true,
+});
+export type ChatSession = typeof chatSessions.$inferSelect;
+export type InsertChatSession = z.infer<typeof insertChatSessionSchema>;
+
+export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({
+  id: true,
+  createdAt: true,
+});
+export type ChatMessage = typeof chatMessages.$inferSelect;
+export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
+
+export const insertChatFunctionSchema = createInsertSchema(chatFunctions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  usageCount: true,
+  successRate: true,
+});
+export type ChatFunction = typeof chatFunctions.$inferSelect;
+export type InsertChatFunction = z.infer<typeof insertChatFunctionSchema>;
+
+// Chat Actions - Track transaction confirmations and executed actions
+export const chatActions = pgTable("chat_actions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").references(() => chatSessions.id).notNull(),
+  messageId: varchar("message_id").references(() => chatMessages.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Action details
+  actionType: varchar("action_type").notNull(), // 'transaction', 'rebalance', 'schedule_call', 'update_profile'
+  functionName: varchar("function_name").notNull(),
+  
+  // Confirmation workflow
+  status: varchar("status").default("pending_confirmation"), // 'pending_confirmation', 'confirmed', 'rejected', 'executed', 'failed'
+  userConfirmedAt: timestamp("user_confirmed_at"),
+  executedAt: timestamp("executed_at"),
+  
+  // Action parameters and results
+  actionParams: jsonb("action_params").notNull(), // Function parameters
+  actionResult: jsonb("action_result"), // Execution result
+  errorMessage: text("error_message"),
+  
+  // Linked entities
+  transactionId: varchar("transaction_id"), // If action created a transaction
+  orderId: varchar("order_id"), // If action created an order
+  
+  // Audit trail
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_chat_actions_session_id").on(table.sessionId),
+  index("idx_chat_actions_user_id").on(table.userId),
+  index("idx_chat_actions_status").on(table.status),
+  index("idx_chat_actions_action_type").on(table.actionType),
+]);
+
+export const insertChatActionSchema = createInsertSchema(chatActions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type ChatAction = typeof chatActions.$inferSelect;
+export type InsertChatAction = z.infer<typeof insertChatActionSchema>;
+
