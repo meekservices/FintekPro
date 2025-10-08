@@ -32,14 +32,18 @@ export function getSession() {
     tableName: "sessions",
   });
   return session({
+    name: 'fintekpro.sid',
     secret: process.env.SESSION_SECRET!,
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
+    rolling: true,
     cookie: {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: sessionTtl,
+      path: '/',
     },
   });
 }
