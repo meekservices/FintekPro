@@ -48,20 +48,9 @@ export function generateOtp(): string {
 }
 
 export function setupAuth(app: Express) {
-  const sessionSettings: session.SessionOptions = {
-    secret: process.env.SESSION_SECRET || "your-secret-key",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: false, // Set to true in production with HTTPS
-      maxAge: 24 * 60 * 60 * 1000 // 24 hours
-    }
-  };
-
-  app.use(session(sessionSettings));
-  app.use(passport.initialize());
-  app.use(passport.session());
-
+  // Note: Session and passport are already initialized by setupReplitAuth
+  // We only configure the local strategies here
+  
   // Configure passport for email login
   passport.use(
     "email-local",
@@ -118,25 +107,8 @@ export function setupAuth(app: Express) {
     )
   );
 
-  passport.serializeUser((user: Express.User, done) => done(null, user.id));
-  passport.deserializeUser(async (id: string, done) => {
-    try {
-      const user = await storage.getUser(id);
-      if (user) {
-        // Normalize user data for Express
-        const normalizedUser = {
-          ...user,
-          isEmailVerified: user.isEmailVerified ?? false,
-          isMobileVerified: user.isMobileVerified ?? false
-        };
-        done(null, normalizedUser);
-      } else {
-        done(null, false);
-      }
-    } catch (error) {
-      done(error);
-    }
-  });
+  // Note: serializeUser and deserializeUser are already configured by setupReplitAuth
+  // The Replit Auth serializes the entire user object, which works for both OAuth and local auth
 
   // Register endpoint
   app.post("/api/register", async (req, res) => {
