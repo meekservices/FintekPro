@@ -54,7 +54,7 @@ function updateUserSession(
   user.expires_at = user.claims?.exp;
 }
 
-async function upsertUser(claims: any) {
+async function upsertUser(claims: any): Promise<string> {
   // First check if user exists by email (unique constraint)
   const existingUserByEmail = claims["email"] 
     ? await storage.getUserByEmail(claims["email"])
@@ -68,9 +68,10 @@ async function upsertUser(claims: any) {
       lastName: claims["last_name"] || existingUserByEmail.lastName,
       profileImageUrl: claims["profile_image_url"],
     });
+    return existingUserByEmail.id;
   } else {
     // Create new user from OAuth data
-    await storage.createUser({
+    const newUser = await storage.createUser({
       email: claims["email"] || null,
       mobile: null,
       password: '', // OAuth users don't have password
@@ -140,7 +141,9 @@ async function upsertUser(claims: any) {
     });
     
     // Auto-assign to default agent if only one agent exists
-    await storage.autoAssignDefaultAgent(claims["sub"]);
+    await storage.autoAssignDefaultAgent(newUser.id);
+    
+    return newUser.id;
   }
 }
 
@@ -156,10 +159,18 @@ export async function setupAuth(app: Express) {
     tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
     verified: passport.AuthenticateCallback
   ) => {
-    const user: any = {};
-    updateUserSession(user, tokens);
-    await upsertUser(tokens.claims());
-    verified(null, user);
+    // Upsert user and get the database user ID
+    const userId = await upsertUser(tokens.claims());
+    
+    // Get the full user object from database
+    const dbUser = await storage.getUser(userId);
+    
+    if (!dbUser) {
+      return verified(new Error("User not found after upsert"));
+    }
+    
+    // Pass the database user to passport
+    verified(null, dbUser);
   };
 
   for (const domain of process.env
@@ -176,8 +187,24 @@ export async function setupAuth(app: Express) {
     passport.use(strategy);
   }
 
-  passport.serializeUser((user: Express.User, cb) => cb(null, user));
-  passport.deserializeUser((user: Express.User, cb) => cb(null, user));
+  // Serialize user by ID (works for both OAuth and local auth)
+  passport.serializeUser((user: Express.User, cb) => {
+    cb(null, user.id);
+  });
+  
+  // Deserialize user by fetching from database (works for both OAuth and local auth)
+  passport.deserializeUser(async (id: string, cb) => {
+    try {
+      const user = await storage.getUser(id);
+      if (user) {
+        cb(null, user);
+      } else {
+        cb(null, false);
+      }
+    } catch (error) {
+      cb(error);
+    }
+  });
 
   app.get("/api/login", (req, res, next) => {
     passport.authenticate(`replitauth:${req.hostname}`, {
@@ -205,55 +232,34 @@ export async function setupAuth(app: Express) {
   });
 
   app.get("/api/user", isAuthenticated, async (req, res) => {
+    // req.user is now always a database user object (from both OAuth and local auth)
     const user = req.user as any;
-    const claims = user.claims;
     
-    const dbUser = await storage.getUser(claims["sub"]);
-    
-    if (!dbUser) {
+    if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
     
     res.json({
-      id: dbUser.id,
-      email: dbUser.email,
-      mobile: dbUser.mobile,
-      firstName: dbUser.firstName,
-      middleName: dbUser.middleName,
-      lastName: dbUser.lastName,
-      profileImageUrl: dbUser.profileImageUrl,
-      isEmailVerified: dbUser.isEmailVerified,
-      isMobileVerified: dbUser.isMobileVerified,
-      roles: dbUser.roles,
+      id: user.id,
+      email: user.email,
+      mobile: user.mobile,
+      firstName: user.firstName,
+      middleName: user.middleName,
+      lastName: user.lastName,
+      profileImageUrl: user.profileImageUrl,
+      isEmailVerified: user.isEmailVerified,
+      isMobileVerified: user.isMobileVerified,
+      roles: user.roles,
     });
   });
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
-  const user = req.user as any;
-
-  if (!req.isAuthenticated() || !user.expires_at) {
+  // Check if user is authenticated via Passport (works for both OAuth and local auth)
+  if (!req.isAuthenticated()) {
     return res.status(401).json({ message: "Unauthorized" });
   }
 
-  const now = Math.floor(Date.now() / 1000);
-  if (now <= user.expires_at) {
-    return next();
-  }
-
-  const refreshToken = user.refresh_token;
-  if (!refreshToken) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
-  }
-
-  try {
-    const config = await getOidcConfig();
-    const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
-    updateUserSession(user, tokenResponse);
-    return next();
-  } catch (error) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
-  }
+  // User is authenticated, allow the request
+  next();
 };
