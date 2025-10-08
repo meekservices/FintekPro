@@ -3,7 +3,8 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { sql, eq } from "drizzle-orm";
 import { db } from "./db";
-import { setupAuth } from "./replitAuth";
+import { setupAuth as setupReplitAuth } from "./replitAuth";
+import { setupAuth as setupLocalAuth } from "./auth";
 import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema, insertCapitalGainsReportSchema, insertTransactionReportSchema, insertTransactionRecordSchema, insertCkycRecordSchema, userCart, userCartItems, storeProducts, storeCategories, fundComparisons, portfolioComparisons, comparisonHistory, insertFamilyGroupSchema, insertFamilyMemberSchema, insertFamilyGoalSchema, insertFamilyGoalContributionSchema, insertFamilyActivityLogSchema, insertFamilyDiscussionSchema, insertFamilyBudgetSchema } from "@shared/schema";
 import { marketStoryService, type MarketData as StoryMarketData } from "./market-story-service";
 import { generateMarketInsight, analyzePortfolio, generateInvestmentStory, explainFinancialConcept } from "./gemini";
@@ -95,8 +96,9 @@ const taxReminderSubscriptionSchema = z.object({
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
-  // Auth middleware
-  setupAuth(app);
+  // Auth middleware - setup both Replit Auth and local email/password auth
+  setupReplitAuth(app);
+  setupLocalAuth(app);
   
   // Initialize user passwords with proper hashing
   await storage.initializeUserPasswords();
