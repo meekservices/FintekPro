@@ -74,6 +74,15 @@ FintekPro is a comprehensive full-stack TypeScript financial services platform. 
   - Graceful fallback to console logging when SMTP not configured
 - **Usage**: Integrated with forgot password flow and notification service
 
+## Recent Changes (October 8, 2025)
+- **Authentication System Fix**: Resolved dual auth session conflicts
+  - **Root Cause**: Both Replit OAuth and local email/password auth were initializing separate session middleware, causing "doctype is not a valid token" errors
+  - **Solution**: Modified `setupAuth()` in server/auth.ts to only configure Passport strategies without re-initializing session/passport (already done by setupReplitAuth)
+  - **Removed**: Duplicate session initialization and serialize/deserialize methods from local auth
+  - **Result**: Email/password authentication now working correctly alongside Replit OAuth
+  - **Admin Credentials**: sangram@fintekpro.com / Kamini@321 (Mobile: 7795048528)
+  - **Technical Details**: Shared PostgreSQL session store (connect-pg-simple), unified Passport serialization for both OAuth and local auth
+
 ## Recent Changes (October 7, 2025)
 - **AI Chat Assistant System (MVP Complete)**: Implemented comprehensive chatbot with Gemini AI integration
   - **Database Schema**: Created 4 tables (chat_sessions, chat_messages, chat_functions, chat_actions) with moderation flags and portfolio linking
