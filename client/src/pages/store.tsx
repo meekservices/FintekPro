@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { ProductDetailsModal } from "@/components/product-details-modal";
 import { useCart } from "@/hooks/use-cart";
 import { useToast } from "@/hooks/use-toast";
@@ -655,18 +656,16 @@ export default function StorePage() {
           </div>
           
           <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="w-full">
-            <div className="overflow-x-auto pb-2">
-              <TabsList className="inline-flex w-auto min-w-full">
-                <TabsTrigger value="all" className="flex-shrink-0" data-testid="category-all">
-                  All Products
+            <ScrollableTabsList>
+              <TabsTrigger value="all" className="flex-shrink-0" data-testid="category-all">
+                All Products
+              </TabsTrigger>
+              {categories.filter(c => c !== "all").map((category) => (
+                <TabsTrigger key={category} value={category} className="flex-shrink-0" data-testid={`category-${category}`}>
+                  {category}
                 </TabsTrigger>
-                {categories.filter(c => c !== "all").map((category) => (
-                  <TabsTrigger key={category} value={category} className="flex-shrink-0" data-testid={`category-${category}`}>
-                    {category}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </div>
+              ))}
+            </ScrollableTabsList>
             
             <TabsContent value={selectedCategory} className="mt-6">
               <div className="space-y-4">

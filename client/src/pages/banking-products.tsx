@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Landmark, CreditCard, PiggyBank, TrendingUp, Shield, Star } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
@@ -86,13 +87,13 @@ export default function BankingProducts() {
         </div>
 
         <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="all" data-testid="tab-all">All Products</TabsTrigger>
-            <TabsTrigger value="savings" data-testid="tab-savings">Savings</TabsTrigger>
-            <TabsTrigger value="fixed-deposits" data-testid="tab-fd">Fixed Deposits</TabsTrigger>
-            <TabsTrigger value="credit-cards" data-testid="tab-cards">Credit Cards</TabsTrigger>
-            <TabsTrigger value="loans" data-testid="tab-loans">Loans</TabsTrigger>
-          </TabsList>
+          <ScrollableTabsList>
+            <TabsTrigger value="all" data-testid="tab-all" className="flex-shrink-0">All Products</TabsTrigger>
+            <TabsTrigger value="savings" data-testid="tab-savings" className="flex-shrink-0">Savings</TabsTrigger>
+            <TabsTrigger value="fixed-deposits" data-testid="tab-fd" className="flex-shrink-0">Fixed Deposits</TabsTrigger>
+            <TabsTrigger value="credit-cards" data-testid="tab-cards" className="flex-shrink-0">Credit Cards</TabsTrigger>
+            <TabsTrigger value="loans" data-testid="tab-loans" className="flex-shrink-0">Loans</TabsTrigger>
+          </ScrollableTabsList>
 
           <TabsContent value={selectedCategory} className="space-y-4">
             {isLoading ? (

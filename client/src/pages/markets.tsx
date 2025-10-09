@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { useMarketQuote, useMarketIndices } from "@/hooks/use-market-data";
 import { GLOBAL_INDICES } from "@/lib/constants";
 import { useState, useEffect } from "react";
@@ -335,23 +336,21 @@ export default function Markets() {
           <Tabs defaultValue="exchanges" className="w-full">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-3xl font-bold text-gray-900">Market Data</h2>
-              <div className="overflow-x-auto pb-2 max-w-md">
-                <TabsList className="inline-flex w-auto min-w-full">
-                  <TabsTrigger value="exchanges" className="flex items-center gap-2 flex-shrink-0">
-                    <Activity className="h-4 w-4" />
-                    Exchanges
-                  </TabsTrigger>
-                  <TabsTrigger value="movers" className="flex items-center gap-2 flex-shrink-0">
-                    <TrendingUp className="h-4 w-4" />
-                    Movers
-                  </TabsTrigger>
-                  <TabsTrigger value="news" className="flex items-center gap-2 flex-shrink-0">
-                    <AlertCircle className="h-4 w-4" />
-                    News
-                  </TabsTrigger>
-                </TabsList>
-              </div>
             </div>
+            <ScrollableTabsList>
+              <TabsTrigger value="exchanges" className="flex items-center gap-2 flex-shrink-0">
+                <Activity className="h-4 w-4" />
+                Exchanges
+              </TabsTrigger>
+              <TabsTrigger value="movers" className="flex items-center gap-2 flex-shrink-0">
+                <TrendingUp className="h-4 w-4" />
+                Movers
+              </TabsTrigger>
+              <TabsTrigger value="news" className="flex items-center gap-2 flex-shrink-0">
+                <AlertCircle className="h-4 w-4" />
+                News
+              </TabsTrigger>
+            </ScrollableTabsList>
 
             <TabsContent value="exchanges" className="space-y-8">
               {/* Indian Stock Exchanges */}

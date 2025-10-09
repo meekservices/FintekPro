@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -262,15 +263,13 @@ export default function Loans() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-          <div className="overflow-x-auto pb-2">
-            <TabsList className="inline-flex w-auto min-w-full">
-              <TabsTrigger value="marketplace" data-testid="tab-marketplace" className="flex-shrink-0">Find Loans</TabsTrigger>
-              <TabsTrigger value="request" data-testid="tab-request" className="flex-shrink-0">Get Offers</TabsTrigger>
-              <TabsTrigger value="compare" data-testid="tab-compare" className="flex-shrink-0">Compare Offers</TabsTrigger>
-              <TabsTrigger value="applications" data-testid="tab-applications" className="flex-shrink-0">My Applications</TabsTrigger>
-              <TabsTrigger value="calculator" data-testid="tab-calculator" className="flex-shrink-0">EMI Calculator</TabsTrigger>
-            </TabsList>
-          </div>
+          <ScrollableTabsList>
+            <TabsTrigger value="marketplace" data-testid="tab-marketplace" className="flex-shrink-0">Find Loans</TabsTrigger>
+            <TabsTrigger value="request" data-testid="tab-request" className="flex-shrink-0">Get Offers</TabsTrigger>
+            <TabsTrigger value="compare" data-testid="tab-compare" className="flex-shrink-0">Compare Offers</TabsTrigger>
+            <TabsTrigger value="applications" data-testid="tab-applications" className="flex-shrink-0">My Applications</TabsTrigger>
+            <TabsTrigger value="calculator" data-testid="tab-calculator" className="flex-shrink-0">EMI Calculator</TabsTrigger>
+          </ScrollableTabsList>
 
           <TabsContent value="marketplace" className="space-y-6" data-testid="marketplace-content">
             {/* Marketplace Overview */}

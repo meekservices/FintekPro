@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -342,11 +343,11 @@ export default function DigiLockerPage() {
       </div>
 
       <Tabs defaultValue="documents" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="documents" data-testid="tab-documents">Documents</TabsTrigger>
-          <TabsTrigger value="share" data-testid="tab-share">Share Documents</TabsTrigger>
-          <TabsTrigger value="kyc" data-testid="tab-kyc">Auto-fill KYC</TabsTrigger>
-        </TabsList>
+        <ScrollableTabsList>
+          <TabsTrigger value="documents" data-testid="tab-documents" className="flex-shrink-0">Documents</TabsTrigger>
+          <TabsTrigger value="share" data-testid="tab-share" className="flex-shrink-0">Share Documents</TabsTrigger>
+          <TabsTrigger value="kyc" data-testid="tab-kyc" className="flex-shrink-0">Auto-fill KYC</TabsTrigger>
+        </ScrollableTabsList>
 
         <TabsContent value="documents" className="space-y-4">
           <Card>

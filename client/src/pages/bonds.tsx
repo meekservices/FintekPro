@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Shield, TrendingUp, Calendar, IndianRupee, Building2, Calculator, AlertCircle, CheckCircle2, Clock } from "lucide-react";
@@ -722,14 +723,12 @@ export default function Bonds() {
         </div>
 
         <Tabs defaultValue="explore" className="space-y-8">
-          <div className="overflow-x-auto pb-2">
-            <TabsList className="inline-flex w-auto min-w-full">
-              <TabsTrigger value="explore" data-testid="tab-explore" className="flex-shrink-0">Explore Bonds</TabsTrigger>
-              <TabsTrigger value="calculator" data-testid="tab-calculator" className="flex-shrink-0">Bond Calculator</TabsTrigger>
-              <TabsTrigger value="portfolio" data-testid="tab-portfolio" className="flex-shrink-0">My Bonds</TabsTrigger>
-              <TabsTrigger value="education" data-testid="tab-education" className="flex-shrink-0">Learn</TabsTrigger>
-            </TabsList>
-          </div>
+          <ScrollableTabsList>
+            <TabsTrigger value="explore" data-testid="tab-explore" className="flex-shrink-0">Explore Bonds</TabsTrigger>
+            <TabsTrigger value="calculator" data-testid="tab-calculator" className="flex-shrink-0">Bond Calculator</TabsTrigger>
+            <TabsTrigger value="portfolio" data-testid="tab-portfolio" className="flex-shrink-0">My Bonds</TabsTrigger>
+            <TabsTrigger value="education" data-testid="tab-education" className="flex-shrink-0">Learn</TabsTrigger>
+          </ScrollableTabsList>
 
           <TabsContent value="explore" className="space-y-6" data-testid="explore-bonds">
             
