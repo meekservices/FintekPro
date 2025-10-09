@@ -26017,6 +26017,145 @@ System Security Data:`;
     }
   });
 
+  // Corporate KYC Routes - Sandbox.co.in Integration
+  const { sandboxKYCService } = await import('./services/sandbox-kyc-service');
+
+  // Verify corporate entity using Sandbox APIs
+  app.post('/api/corporate-kyc/verify-entity', async (req, res) => {
+    try {
+      if (!req.session?.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const { entityType, cin, pan, gstin, tan } = req.body;
+
+      const verificationResult = await sandboxKYCService.verifyCorporateEntity({
+        entityType,
+        cin,
+        pan,
+        gstin,
+        tan,
+      });
+
+      complianceMonitor.logEvent({
+        eventType: 'kyc_verification',
+        action: 'corporate_entity_verification',
+        resource: `${entityType}_${pan}`,
+        userId: req.session.user.id,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        outcome: verificationResult.verified ? 'success' : 'partial_success',
+        riskLevel: 'medium',
+        details: {
+          entityType,
+          verified: verificationResult.verified,
+          errors: verificationResult.errors
+        }
+      });
+
+      res.json(verificationResult);
+    } catch (error) {
+      console.error('Corporate KYC verification error:', error);
+      complianceMonitor.logEvent({
+        eventType: 'kyc_verification',
+        action: 'corporate_entity_verification',
+        userId: req.session?.user?.id,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        outcome: 'failure',
+        riskLevel: 'high',
+        details: { error: error instanceof Error ? error.message : 'Unknown error' }
+      });
+      res.status(500).json({
+        success: false,
+        message: 'Failed to verify corporate entity',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Submit corporate KYC application
+  app.post('/api/corporate-kyc/submit', async (req, res) => {
+    try {
+      if (!req.session?.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const { entityType, verificationResult, directors, beneficialOwners, companyDetails } = req.body;
+
+      // Update user profile with corporate entity details
+      await storage.updateUser(req.session.user.id, {
+        clientType: 'non_individual',
+        entityType,
+        companyName: companyDetails.companyName || verificationResult?.details?.mca?.companyName,
+        entityRegistrationNumber: companyDetails.cin,
+        companyPanNumber: companyDetails.companyPan,
+        authorizedPersons: JSON.stringify(directors),
+        beneficialOwners: JSON.stringify(beneficialOwners),
+        incorporationDate: companyDetails.dateOfIncorporation || verificationResult?.details?.mca?.dateOfIncorporation,
+        businessNature: companyDetails.businessNature,
+      });
+
+      // Create CKYC record for corporate entity
+      const ckycData = {
+        userId: req.session.user.id,
+        panNumber: companyDetails.companyPan,
+        status: verificationResult?.verified ? 'verified' : 'pending_verification',
+        verificationMethod: 'sandbox_api',
+        firstName: companyDetails.companyName,
+        address: verificationResult?.details?.mca?.registeredAddress || companyDetails.registeredAddress,
+        city: companyDetails.city,
+        state: companyDetails.state,
+        pincode: companyDetails.pincode,
+      };
+
+      await storage.createCkycRecord(ckycData);
+
+      complianceMonitor.logEvent({
+        eventType: 'kyc_submission',
+        action: 'corporate_kyc_submitted',
+        resource: `${entityType}_${companyDetails.companyPan}`,
+        userId: req.session.user.id,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        outcome: 'success',
+        riskLevel: 'medium',
+        details: {
+          entityType,
+          directorsCount: directors.length,
+          beneficialOwnersCount: beneficialOwners.length
+        }
+      });
+
+      res.json({
+        success: true,
+        message: 'Corporate KYC submitted successfully',
+        data: {
+          entityType,
+          companyName: companyDetails.companyName,
+          status: verificationResult?.verified ? 'verified' : 'pending_verification'
+        }
+      });
+    } catch (error) {
+      console.error('Corporate KYC submission error:', error);
+      complianceMonitor.logEvent({
+        eventType: 'kyc_submission',
+        action: 'corporate_kyc_submitted',
+        userId: req.session?.user?.id,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        outcome: 'failure',
+        riskLevel: 'high',
+        details: { error: error instanceof Error ? error.message : 'Unknown error' }
+      });
+      res.status(500).json({
+        success: false,
+        message: 'Failed to submit corporate KYC',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // Investment Ideas and Smart Market Research Routes
   
   // Import smart investment service
