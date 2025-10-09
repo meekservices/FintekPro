@@ -27855,6 +27855,187 @@ System Security Data:`;
 
   // ==================== END FAMILY COLLABORATION ROUTES ====================
 
+  // ==================== ALERT SYSTEM ROUTES ====================
+  
+  // Create new alert
+  app.post("/api/alerts", requireAuth, async (req, res) => {
+    try {
+      const alertData = { ...req.body, userId: req.user!.id };
+      const alert = await storage.createUserAlert(alertData);
+      res.status(201).json(alert);
+    } catch (error) {
+      console.error('Error creating alert:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation failed", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create alert" });
+    }
+  });
+
+  // Get user's alerts with optional filters
+  app.get("/api/alerts", requireAuth, async (req, res) => {
+    try {
+      const { category, type, status } = req.query;
+      let alerts = await storage.getUserAlerts(req.user!.id, category as string);
+      
+      // Apply additional filters
+      if (type) {
+        alerts = alerts.filter(a => a.alertType === type);
+      }
+      if (status === 'active') {
+        alerts = alerts.filter(a => a.isActive);
+      } else if (status === 'inactive') {
+        alerts = alerts.filter(a => !a.isActive);
+      }
+      
+      res.json(alerts);
+    } catch (error) {
+      console.error('Error fetching alerts:', error);
+      res.status(500).json({ message: "Failed to fetch alerts" });
+    }
+  });
+
+  // Get single alert
+  app.get("/api/alerts/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const alert = await storage.getUserAlert(id);
+      
+      if (!alert || alert.userId !== req.user!.id) {
+        return res.status(404).json({ message: "Alert not found" });
+      }
+      
+      res.json(alert);
+    } catch (error) {
+      console.error('Error fetching alert:', error);
+      res.status(500).json({ message: "Failed to fetch alert" });
+    }
+  });
+
+  // Update alert
+  app.patch("/api/alerts/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const alert = await storage.getUserAlert(id);
+      
+      if (!alert || alert.userId !== req.user!.id) {
+        return res.status(404).json({ message: "Alert not found" });
+      }
+      
+      const updatedAlert = await storage.updateUserAlert(id, req.body);
+      res.json(updatedAlert);
+    } catch (error) {
+      console.error('Error updating alert:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation failed", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update alert" });
+    }
+  });
+
+  // Delete alert
+  app.delete("/api/alerts/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const alert = await storage.getUserAlert(id);
+      
+      if (!alert || alert.userId !== req.user!.id) {
+        return res.status(404).json({ message: "Alert not found" });
+      }
+      
+      await storage.deleteUserAlert(id);
+      res.json({ message: "Alert deleted successfully" });
+    } catch (error) {
+      console.error('Error deleting alert:', error);
+      res.status(500).json({ message: "Failed to delete alert" });
+    }
+  });
+
+  // Toggle alert active status
+  app.post("/api/alerts/:id/toggle", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const alert = await storage.getUserAlert(id);
+      
+      if (!alert || alert.userId !== req.user!.id) {
+        return res.status(404).json({ message: "Alert not found" });
+      }
+      
+      const updatedAlert = await storage.toggleAlertStatus(id, !alert.isActive);
+      res.json(updatedAlert);
+    } catch (error) {
+      console.error('Error toggling alert:', error);
+      res.status(500).json({ message: "Failed to toggle alert" });
+    }
+  });
+
+  // Get alert history
+  app.get("/api/alerts/history", requireAuth, async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const history = await storage.getUserAlertHistory(req.user!.id, limit);
+      res.json(history);
+    } catch (error) {
+      console.error('Error fetching alert history:', error);
+      res.status(500).json({ message: "Failed to fetch alert history" });
+    }
+  });
+
+  // Mark alert history as viewed
+  app.post("/api/alerts/history/:id/viewed", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updatedHistory = await storage.markAlertAsRead(id);
+      res.json(updatedHistory);
+    } catch (error) {
+      console.error('Error marking alert as viewed:', error);
+      res.status(500).json({ message: "Failed to mark alert as viewed" });
+    }
+  });
+
+  // Dismiss alert from history
+  app.post("/api/alerts/history/:id/dismiss", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updatedHistory = await storage.dismissAlert(id);
+      res.json(updatedHistory);
+    } catch (error) {
+      console.error('Error dismissing alert:', error);
+      res.status(500).json({ message: "Failed to dismiss alert" });
+    }
+  });
+
+  // Get alert templates
+  app.get("/api/alerts/templates", requireAuth, async (req, res) => {
+    try {
+      const { category } = req.query;
+      const templates = await storage.getAlertTemplates(category as string);
+      res.json(templates);
+    } catch (error) {
+      console.error('Error fetching alert templates:', error);
+      res.status(500).json({ message: "Failed to fetch alert templates" });
+    }
+  });
+
+  // Create alert from template
+  app.post("/api/alerts/from-template", requireAuth, async (req, res) => {
+    try {
+      const { templateId, customData } = req.body;
+      
+      if (!templateId) {
+        return res.status(400).json({ message: "Template ID is required" });
+      }
+      
+      const alert = await storage.createAlertFromTemplate(req.user!.id, templateId, customData);
+      res.status(201).json(alert);
+    } catch (error) {
+      console.error('Error creating alert from template:', error);
+      res.status(500).json({ message: "Failed to create alert from template" });
+    }
+  });
+
+  // ==================== END ALERT SYSTEM ROUTES ====================
+
   // ==================== AI CHAT ASSISTANT ROUTES ====================
   
   const { chatOrchestrator } = await import("./chat-orchestrator");

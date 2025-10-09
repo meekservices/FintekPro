@@ -4348,6 +4348,197 @@ export class DatabaseStorage implements IStorage {
     };
   }
   
+  // Alert System methods
+  async createUserAlert(alert: InsertUserAlert): Promise<UserAlert> {
+    const [result] = await db
+      .insert(schema.userAlerts)
+      .values(alert)
+      .returning();
+    return result;
+  }
+
+  async getUserAlerts(userId: string, category?: string): Promise<UserAlert[]> {
+    const conditions = [eq(schema.userAlerts.userId, userId)];
+    if (category) {
+      conditions.push(eq(schema.userAlerts.category, category));
+    }
+    
+    return await db
+      .select()
+      .from(schema.userAlerts)
+      .where(and(...conditions))
+      .orderBy(desc(schema.userAlerts.createdAt));
+  }
+
+  async getUserAlert(id: string): Promise<UserAlert | undefined> {
+    const [result] = await db
+      .select()
+      .from(schema.userAlerts)
+      .where(eq(schema.userAlerts.id, id))
+      .limit(1);
+    return result;
+  }
+
+  async updateUserAlert(id: string, updates: Partial<InsertUserAlert>): Promise<UserAlert | undefined> {
+    const [result] = await db
+      .update(schema.userAlerts)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.userAlerts.id, id))
+      .returning();
+    return result;
+  }
+
+  async deleteUserAlert(id: string): Promise<boolean> {
+    const result = await db
+      .delete(schema.userAlerts)
+      .where(eq(schema.userAlerts.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async toggleAlertStatus(id: string, isActive: boolean): Promise<UserAlert | undefined> {
+    const [result] = await db
+      .update(schema.userAlerts)
+      .set({ isActive, updatedAt: new Date() })
+      .where(eq(schema.userAlerts.id, id))
+      .returning();
+    return result;
+  }
+
+  async getActiveAlertsByType(alertType: string): Promise<UserAlert[]> {
+    return await db
+      .select()
+      .from(schema.userAlerts)
+      .where(
+        and(
+          eq(schema.userAlerts.alertType, alertType),
+          eq(schema.userAlerts.isActive, true)
+        )
+      );
+  }
+
+  async createAlertHistory(history: InsertAlertHistory): Promise<AlertHistory> {
+    const [result] = await db
+      .insert(schema.alertHistory)
+      .values(history)
+      .returning();
+    
+    // Update trigger count and last triggered date for the alert
+    await db
+      .update(schema.userAlerts)
+      .set({
+        triggerCount: sql`${schema.userAlerts.triggerCount} + 1`,
+        lastTriggeredAt: new Date(),
+      })
+      .where(eq(schema.userAlerts.id, history.alertId));
+    
+    return result;
+  }
+
+  async getAlertHistory(alertId: string, limit: number = 50): Promise<AlertHistory[]> {
+    return await db
+      .select()
+      .from(schema.alertHistory)
+      .where(eq(schema.alertHistory.alertId, alertId))
+      .orderBy(desc(schema.alertHistory.triggeredAt))
+      .limit(limit);
+  }
+
+  async getUserAlertHistory(userId: string, limit: number = 50): Promise<AlertHistory[]> {
+    return await db
+      .select()
+      .from(schema.alertHistory)
+      .where(eq(schema.alertHistory.userId, userId))
+      .orderBy(desc(schema.alertHistory.triggeredAt))
+      .limit(limit);
+  }
+
+  async markAlertAsRead(historyId: string): Promise<AlertHistory | undefined> {
+    const [result] = await db
+      .update(schema.alertHistory)
+      .set({ isRead: true, isViewed: true })
+      .where(eq(schema.alertHistory.id, historyId))
+      .returning();
+    return result;
+  }
+
+  async dismissAlert(historyId: string): Promise<AlertHistory | undefined> {
+    const [result] = await db
+      .update(schema.alertHistory)
+      .set({ isDismissed: true })
+      .where(eq(schema.alertHistory.id, historyId))
+      .returning();
+    return result;
+  }
+
+  async getAlertTemplates(category?: string): Promise<AlertTemplate[]> {
+    const conditions = [eq(schema.alertTemplates.isActive, true)];
+    if (category) {
+      conditions.push(eq(schema.alertTemplates.category, category));
+    }
+    
+    return await db
+      .select()
+      .from(schema.alertTemplates)
+      .where(and(...conditions))
+      .orderBy(desc(schema.alertTemplates.isPopular), asc(schema.alertTemplates.templateName));
+  }
+
+  async getPopularAlertTemplates(): Promise<AlertTemplate[]> {
+    return await db
+      .select()
+      .from(schema.alertTemplates)
+      .where(
+        and(
+          eq(schema.alertTemplates.isActive, true),
+          eq(schema.alertTemplates.isPopular, true)
+        )
+      )
+      .orderBy(desc(schema.alertTemplates.usageCount))
+      .limit(10);
+  }
+
+  async createAlertFromTemplate(userId: string, templateId: string, customData?: any): Promise<UserAlert> {
+    const [template] = await db
+      .select()
+      .from(schema.alertTemplates)
+      .where(eq(schema.alertTemplates.id, templateId))
+      .limit(1);
+    
+    if (!template) {
+      throw new Error('Template not found');
+    }
+    
+    // Merge template default config with custom data
+    const config = { ...template.defaultConfig, ...customData };
+    
+    const [result] = await db
+      .insert(schema.userAlerts)
+      .values({
+        userId,
+        alertName: config.alertName || template.templateName,
+        alertType: template.templateType as any,
+        category: template.category as any,
+        symbol: config.symbol,
+        targetValue: config.targetValue,
+        threshold: config.threshold,
+        operator: config.operator,
+        timeframe: config.timeframe,
+        notificationChannels: config.notificationChannels || ['in_app'],
+        isActive: true,
+      })
+      .returning();
+    
+    // Increment usage count for template
+    await db
+      .update(schema.alertTemplates)
+      .set({
+        usageCount: sql`${schema.alertTemplates.usageCount} + 1`,
+      })
+      .where(eq(schema.alertTemplates.id, templateId));
+    
+    return result;
+  }
+  
   // Chat System methods
   async createChatSession(session: InsertChatSession): Promise<ChatSession> {
     const [result] = await db
