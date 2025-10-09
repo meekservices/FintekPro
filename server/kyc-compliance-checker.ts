@@ -100,6 +100,11 @@ async function checkKYCLevel(
     };
   }
 
+  // Non-individual entities have different validation rules
+  if (profile.clientType === 'non_individual') {
+    return checkCorporateKYCLevel(profile, level);
+  }
+
   const missing: string[] = [];
   const requirements = KYC_LEVELS[level.toUpperCase() as keyof typeof KYC_LEVELS].requirements;
 
@@ -138,6 +143,91 @@ async function checkKYCLevel(
       case "income_proof":
         // Income proof field may not exist - treat as optional for now
         break;
+    }
+  }
+
+  return {
+    met: missing.length === 0,
+    missing,
+    profile,
+  };
+}
+
+/**
+ * Check corporate/non-individual KYC requirements
+ * Different validation for companies, partnerships, trusts, etc.
+ */
+function checkCorporateKYCLevel(
+  profile: any,
+  level: "basic" | "full" | "enhanced"
+): {
+  met: boolean;
+  missing: string[];
+  profile: any;
+} {
+  const missing: string[] = [];
+
+  // Basic requirements for all non-individual entities
+  if (!profile.companyName && !profile.firstName) {
+    missing.push("Entity/Company name");
+  }
+
+  if (!profile.companyPanNumber && !profile.panNumber) {
+    missing.push("Entity PAN number");
+  }
+
+  if (!profile.entityRegistrationNumber) {
+    missing.push("Entity registration number (CIN/Registration ID)");
+  }
+
+  if (!profile.entityType) {
+    missing.push("Entity type");
+  }
+
+  if (!profile.address) {
+    missing.push("Registered address");
+  }
+
+  // Full KYC requirements for non-individual entities
+  if (level === "full" || level === "enhanced") {
+    if (!profile.bankAccountNumber || !profile.ifscCode) {
+      missing.push("Corporate bank account details");
+    }
+
+    if (!profile.authorizedPersons) {
+      missing.push("Authorized signatories/directors information");
+    }
+
+    if (!profile.businessNature) {
+      missing.push("Nature of business");
+    }
+
+    // Board resolution or authorization documents check
+    if (!profile.isProfileCompleted) {
+      missing.push("Entity verification documents (Board resolution, MOA/AOA)");
+    }
+  }
+
+  // Enhanced KYC for corporate entities (high-value transactions)
+  if (level === "enhanced") {
+    if (!profile.beneficialOwners) {
+      missing.push("Ultimate beneficial ownership (UBO) disclosure");
+    }
+
+    if (!profile.incorporationDate) {
+      missing.push("Date of incorporation");
+    }
+
+    // FATCA/CRS compliance for corporate entities
+    if (!profile.taxResidency) {
+      missing.push("Tax residency information");
+    }
+
+    // Additional regulatory requirements
+    if (profile.annualTurnover && profile.annualTurnover > 10000000) {
+      if (!profile.auditedFinancials) {
+        missing.push("Audited financial statements");
+      }
     }
   }
 
