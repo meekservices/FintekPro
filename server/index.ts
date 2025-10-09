@@ -218,5 +218,17 @@ app.use((req, res, next) => {
     } catch (error) {
       console.error('❌ Error importing bond catalog service:', error);
     }
+    
+    // Initialize Alert Monitoring Service
+    try {
+      import('./services/alert-monitoring-service').then(({ alertMonitoringService }) => {
+        alertMonitoringService.start();
+        log('✅ Alert Monitoring Service initialized');
+      }).catch(error => {
+        console.error('❌ Failed to initialize alert monitoring service:', error);
+      });
+    } catch (error) {
+      console.error('❌ Error importing alert monitoring service:', error);
+    }
   });
 })();
