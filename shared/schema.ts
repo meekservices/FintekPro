@@ -625,6 +625,7 @@ export const portfolios = pgTable("portfolios", {
   name: text("name").notNull(),
   totalValue: decimal("total_value", { precision: 15, scale: 2 }),
   cash: decimal("cash", { precision: 15, scale: 2 }).default("0"),
+  baseCurrency: varchar("base_currency").default("INR"), // Multi-currency support
   isDefault: boolean("is_default").default(false),
   familyId: varchar("family_id").references(() => familyGroups.id), // Null for individual portfolios
   isShared: boolean("is_shared").default(false), // Whether this is a shared family portfolio
@@ -637,6 +638,7 @@ export const portfolioHoldings = pgTable("portfolio_holdings", {
   symbol: text("symbol").notNull(),
   quantity: decimal("quantity", { precision: 15, scale: 4 }).notNull(),
   avgPrice: decimal("avg_price", { precision: 15, scale: 4 }).notNull(),
+  currency: varchar("currency").default("INR"), // Multi-currency support
   assetType: text("asset_type").notNull(), // 'equity', 'bond', 'mf', 'gold', 'silver', 'commodity', 'alternative'
   assetClass: text("asset_class"), // 'large_cap', 'mid_cap', 'small_cap', 'debt', 'hybrid', 'precious_metals', 'energy', 'agricultural'
   sector: text("sector"), // technology, banking, healthcare, energy, consumer_goods, etc.
@@ -663,6 +665,7 @@ export const marketData = pgTable("market_data", {
   changePercent: decimal("change_percent", { precision: 8, scale: 4 }),
   volume: decimal("volume", { precision: 20, scale: 0 }),
   marketCap: decimal("market_cap", { precision: 20, scale: 0 }),
+  currency: varchar("currency").default("INR"), // Multi-currency support
   data: jsonb("data"), // Additional market data from external sources
   lastUpdated: timestamp("last_updated").defaultNow(),
 });
@@ -6983,4 +6986,24 @@ export const insertChatActionSchema = createInsertSchema(chatActions).omit({
 });
 export type ChatAction = typeof chatActions.$inferSelect;
 export type InsertChatAction = z.infer<typeof insertChatActionSchema>;
+
+// Currency Rates table for multi-currency support
+export const currencyRates = pgTable("currency_rates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  baseCurrency: varchar("base_currency").notNull().default("INR"),
+  targetCurrency: varchar("target_currency").notNull(),
+  exchangeRate: decimal("exchange_rate", { precision: 18, scale: 8 }).notNull(),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  dataSource: varchar("data_source").default("exchangerate-api"),
+}, (table) => [
+  index("idx_currency_rates_base_target").on(table.baseCurrency, table.targetCurrency),
+  sql`UNIQUE(base_currency, target_currency)`,
+]);
+
+export const insertCurrencyRateSchema = createInsertSchema(currencyRates).omit({
+  id: true,
+  lastUpdated: true,
+});
+export type CurrencyRate = typeof currencyRates.$inferSelect;
+export type InsertCurrencyRate = z.infer<typeof insertCurrencyRateSchema>;
 

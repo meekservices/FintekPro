@@ -719,6 +719,11 @@ export interface IStorage {
   getChatAction(id: string): Promise<ChatAction | undefined>;
   updateChatAction(id: string, updates: Partial<ChatAction>): Promise<ChatAction | undefined>;
   getPendingChatActions(userId: string): Promise<ChatAction[]>;
+  
+  // Currency Exchange methods
+  getCurrencyRates(baseCurrency?: string): Promise<CurrencyRate[]>;
+  updateCurrencyRates(baseCurrency: string, rates: Record<string, number>): Promise<void>;
+  convertPortfolioValue(portfolioId: string, targetCurrency: string): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -4684,6 +4689,63 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(desc(schema.chatActions.createdAt));
+  }
+  
+  // Currency Exchange methods
+  async getCurrencyRates(baseCurrency?: string): Promise<CurrencyRate[]> {
+    if (baseCurrency) {
+      return db
+        .select()
+        .from(schema.currencyRates)
+        .where(eq(schema.currencyRates.baseCurrency, baseCurrency));
+    }
+    return db.select().from(schema.currencyRates);
+  }
+
+  async updateCurrencyRates(baseCurrency: string, rates: Record<string, number>): Promise<void> {
+    for (const [targetCurrency, rate] of Object.entries(rates)) {
+      await db
+        .insert(schema.currencyRates)
+        .values({
+          baseCurrency,
+          targetCurrency,
+          exchangeRate: rate.toString(),
+          dataSource: 'exchangerate-api',
+        })
+        .onConflictDoUpdate({
+          target: [schema.currencyRates.baseCurrency, schema.currencyRates.targetCurrency],
+          set: {
+            exchangeRate: rate.toString(),
+            lastUpdated: new Date(),
+          },
+        });
+    }
+  }
+
+  async convertPortfolioValue(portfolioId: string, targetCurrency: string): Promise<number> {
+    const portfolio = await this.getPortfolio(portfolioId);
+    if (!portfolio) {
+      throw new Error('Portfolio not found');
+    }
+
+    const baseCurrency = portfolio.baseCurrency || 'INR';
+    if (baseCurrency === targetCurrency) {
+      return parseFloat(portfolio.totalValue || '0');
+    }
+
+    // Get exchange rate
+    const rate = await db.query.currencyRates.findFirst({
+      where: and(
+        eq(schema.currencyRates.baseCurrency, baseCurrency),
+        eq(schema.currencyRates.targetCurrency, targetCurrency)
+      ),
+    });
+
+    if (!rate) {
+      throw new Error(`Exchange rate not found for ${baseCurrency} to ${targetCurrency}`);
+    }
+
+    return parseFloat(portfolio.totalValue || '0') * parseFloat(rate.exchangeRate);
   }
 }
 

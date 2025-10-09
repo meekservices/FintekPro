@@ -230,5 +230,18 @@ app.use((req, res, next) => {
     } catch (error) {
       console.error('❌ Error importing alert monitoring service:', error);
     }
+    
+    // Initialize Currency Exchange Service
+    try {
+      import('./services/currency-exchange-service').then(async ({ currencyExchangeService }) => {
+        await currencyExchangeService.initializeRates();
+        currencyExchangeService.startAutoRefresh();
+        log('✅ Currency Exchange Service initialized');
+      }).catch(error => {
+        console.error('❌ Failed to initialize currency exchange service:', error);
+      });
+    } catch (error) {
+      console.error('❌ Error importing currency exchange service:', error);
+    }
   });
 })();
