@@ -24,6 +24,7 @@ import { BankingTab } from "@/components/BankingDematTab";
 import { DematTab } from "@/components/DematTab";
 import { KYCStatusCard } from "@/components/KYCStatusCard";
 import { KYCVerificationDashboard } from "@/components/KYCVerificationDashboard";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 
 // Enhanced profile form schema for comprehensive KYC compliance
 const profileFormSchema = z.object({
@@ -464,40 +465,40 @@ export default function ProfilePage() {
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1">
-              <TabsTrigger value="basic" data-testid="tab-basic">
+            <ScrollableTabsList>
+              <TabsTrigger value="basic" data-testid="tab-basic" className="flex-shrink-0">
                 <User className="h-4 w-4 mr-2" />
                 Basic Info
               </TabsTrigger>
-              <TabsTrigger value="kyc-verification" data-testid="tab-kyc-verification">
+              <TabsTrigger value="kyc-verification" data-testid="tab-kyc-verification" className="flex-shrink-0">
                 <Shield className="h-4 w-4 mr-2" />
                 KYC & Verification
               </TabsTrigger>
-              <TabsTrigger value="identity" data-testid="tab-identity">
+              <TabsTrigger value="identity" data-testid="tab-identity" className="flex-shrink-0">
                 <FileText className="h-4 w-4 mr-2" />
                 Documents
               </TabsTrigger>
-              <TabsTrigger value="address" data-testid="tab-address">
+              <TabsTrigger value="address" data-testid="tab-address" className="flex-shrink-0">
                 <MapPin className="h-4 w-4 mr-2" />
                 Address
               </TabsTrigger>
-              <TabsTrigger value="financial" data-testid="tab-financial">
+              <TabsTrigger value="financial" data-testid="tab-financial" className="flex-shrink-0">
                 <Banknote className="h-4 w-4 mr-2" />
                 Financial Info
               </TabsTrigger>
-              <TabsTrigger value="compliance" data-testid="tab-compliance">
+              <TabsTrigger value="compliance" data-testid="tab-compliance" className="flex-shrink-0">
                 <Shield className="h-4 w-4 mr-2" />
                 Compliance
               </TabsTrigger>
-              <TabsTrigger value="banking" data-testid="tab-banking">
+              <TabsTrigger value="banking" data-testid="tab-banking" className="flex-shrink-0">
                 <CreditCard className="h-4 w-4 mr-2" />
                 Banking
               </TabsTrigger>
-              <TabsTrigger value="demat" data-testid="tab-demat">
+              <TabsTrigger value="demat" data-testid="tab-demat" className="flex-shrink-0">
                 <Building2 className="h-4 w-4 mr-2" />
                 Demat
               </TabsTrigger>
-            </TabsList>
+            </ScrollableTabsList>
 
             {/* Basic Information Tab */}
             <TabsContent value="basic" className="space-y-6">
