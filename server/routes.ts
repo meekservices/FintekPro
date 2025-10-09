@@ -628,6 +628,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Product-specific verification status endpoint
+  app.get("/api/profile/product-verification-status", requireClientOrHigher, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      
+      // Get user profile to determine client type and entity type
+      const profile = await storage.getUserProfile(userId);
+      if (!profile) {
+        return res.status(404).json({
+          success: false,
+          error: "User profile not found",
+        });
+      }
+
+      // Get KYC status to determine verification level
+      const { getKYCStatus } = await import("./rekyc-service");
+      const kycStatus = await getKYCStatus(userId);
+
+      // Define product verification rules
+      const products = {
+        mutualFunds: {
+          name: "Mutual Funds",
+          verified: kycStatus.currentLevel === "full" || kycStatus.currentLevel === "enhanced",
+          requiredLevel: "full",
+          canTrade: kycStatus.canTradeMutualFunds,
+        },
+        stockBroking: {
+          name: "Stock Broking",
+          verified: kycStatus.currentLevel === "full" || kycStatus.currentLevel === "enhanced",
+          requiredLevel: "full",
+          canTrade: kycStatus.canTradeBroking,
+        },
+        bonds: {
+          name: "Bonds & G-Sec",
+          verified: kycStatus.currentLevel === "full" || kycStatus.currentLevel === "enhanced",
+          requiredLevel: "full",
+          canTrade: kycStatus.currentLevel === "full" || kycStatus.currentLevel === "enhanced",
+        },
+        aif: {
+          name: "Alternative Investment Funds (AIF)",
+          verified: kycStatus.currentLevel === "enhanced",
+          requiredLevel: "enhanced",
+          canTrade: kycStatus.currentLevel === "enhanced",
+        },
+        pms: {
+          name: "Portfolio Management Services (PMS)",
+          verified: kycStatus.currentLevel === "enhanced",
+          requiredLevel: "enhanced",
+          canTrade: kycStatus.currentLevel === "enhanced",
+        },
+        global: {
+          name: "Global Investments",
+          verified: kycStatus.currentLevel === "enhanced",
+          requiredLevel: "enhanced",
+          canTrade: kycStatus.canTradeInternational,
+        },
+      };
+
+      res.json({
+        success: true,
+        data: {
+          userId,
+          clientType: profile.clientType || "individual",
+          entityType: profile.entityType,
+          currentKYCLevel: kycStatus.currentLevel,
+          isProfileCompleted: profile.isProfileCompleted,
+          products,
+          verificationMethods: {
+            digilockerVerified: profile.digilockerVerified || false,
+            sandboxVerified: profile.sandboxVerified || false,
+            videoKycCompleted: profile.videoKycCompleted || false,
+          },
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching product verification status:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch product verification status",
+      });
+    }
+  });
+
   // Manual Re-KYC reminder trigger (admin only)
   app.post("/api/admin/trigger-rekyc-reminders", requireAdmin, async (req, res) => {
     try {
