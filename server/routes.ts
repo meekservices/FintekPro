@@ -10909,6 +10909,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Currency Exchange API endpoints
+  app.get("/api/currencies/supported", async (req, res) => {
+    try {
+      const { CurrencyExchangeService } = await import("./services/currency-exchange-service.js");
+      const currencyService = CurrencyExchangeService.getInstance();
+      const currencies = currencyService.getSupportedCurrencies();
+      res.json(currencies);
+    } catch (error) {
+      console.error("Error fetching supported currencies:", error);
+      res.status(500).json({ error: "Failed to fetch supported currencies" });
+    }
+  });
+
+  app.get("/api/currencies/rates", async (req, res) => {
+    try {
+      const baseCurrency = (req.query.base as string) || "INR";
+      const rates = await db.query.currencyRates.findMany({
+        where: eq(schema.currencyRates.baseCurrency, baseCurrency),
+      });
+      
+      const ratesMap = rates.reduce((acc, rate) => {
+        acc[rate.targetCurrency] = parseFloat(rate.exchangeRate);
+        return acc;
+      }, {} as Record<string, number>);
+
+      res.json({
+        base: baseCurrency,
+        rates: ratesMap,
+        lastUpdated: rates[0]?.lastUpdated || new Date(),
+      });
+    } catch (error) {
+      console.error("Error fetching exchange rates:", error);
+      res.status(500).json({ error: "Failed to fetch exchange rates" });
+    }
+  });
+
+  app.post("/api/currencies/refresh", requireAuth, async (req: any, res) => {
+    try {
+      const { CurrencyExchangeService } = await import("./services/currency-exchange-service.js");
+      const currencyService = CurrencyExchangeService.getInstance();
+      
+      const baseCurrency = req.body.baseCurrency || "INR";
+      await currencyService.updateCurrencyRates(baseCurrency);
+      
+      res.json({ 
+        success: true, 
+        message: `Exchange rates refreshed for ${baseCurrency}`,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error refreshing exchange rates:", error);
+      res.status(500).json({ error: "Failed to refresh exchange rates" });
+    }
+  });
+
+  app.get("/api/portfolios/:id/convert", requireOwnPortfolio, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const targetCurrency = (req.query.targetCurrency as string) || "USD";
+      
+      const { CurrencyExchangeService } = await import("./services/currency-exchange-service.js");
+      const currencyService = CurrencyExchangeService.getInstance();
+      
+      const portfolio = await storage.getPortfolio(id);
+      if (!portfolio) {
+        return res.status(404).json({ error: "Portfolio not found" });
+      }
+
+      const holdings = await storage.getPortfolioHoldings(id);
+      const baseCurrency = portfolio.baseCurrency || "INR";
+      
+      const convertedHoldings = await Promise.all(
+        holdings.map(async (holding) => {
+          const originalValue = parseFloat(holding.currentValue);
+          const convertedValue = await currencyService.convertAmount(
+            originalValue,
+            baseCurrency,
+            targetCurrency
+          );
+          
+          return {
+            ...holding,
+            originalCurrency: baseCurrency,
+            originalValue: originalValue,
+            convertedCurrency: targetCurrency,
+            convertedValue: convertedValue,
+          };
+        })
+      );
+
+      const totalOriginalValue = holdings.reduce((sum, h) => sum + parseFloat(h.currentValue), 0);
+      const totalConvertedValue = await currencyService.convertAmount(
+        totalOriginalValue,
+        baseCurrency,
+        targetCurrency
+      );
+
+      res.json({
+        portfolioId: id,
+        baseCurrency,
+        targetCurrency,
+        totalOriginalValue,
+        totalConvertedValue,
+        holdings: convertedHoldings,
+      });
+    } catch (error) {
+      console.error("Error converting portfolio:", error);
+      res.status(500).json({ error: "Failed to convert portfolio" });
+    }
+  });
+
   // Risk Profiling API endpoints
   
   // Get all risk profiles (Admin/Support only)

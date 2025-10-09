@@ -75,6 +75,32 @@ FintekPro is a comprehensive full-stack TypeScript financial services platform. 
 - **Usage**: Integrated with forgot password flow and notification service
 
 ## Recent Changes (October 9, 2025)
+- **Multi-Currency Support Implementation**: Comprehensive multi-currency functionality for global investments
+  - **Database Schema**: Created currency_rates table with exchange rates storage, added currency columns to portfolios, portfolio_holdings, and market_data tables
+  - **Exchange Rate Service**: Auto-refreshing currency exchange service (server/services/currency-exchange-service.ts) fetching live rates from exchangerate-api.com every 24 hours
+  - **Supported Currencies**: INR, USD, EUR, GBP, JPY, AUD, CAD, SGD, AED (9 major currencies)
+  - **UI Components**: 
+    - CurrencySelector dropdown with flag emojis
+    - CurrencyDisplay component with locale-aware formatting (Intl.NumberFormat)
+    - Currency preference settings in Profile page
+    - Live exchange rates table with manual refresh option
+  - **Portfolio Integration**: Currency selector in portfolio header, real-time portfolio value conversion, dual display showing original and converted amounts
+  - **Market Data Integration**: Currency selector on Markets page for viewing global indices in preferred currency
+  - **API Endpoints**: /api/currencies for supported currencies, /api/currencies/rates for exchange rates, /api/currencies/refresh for manual updates, /api/portfolios/:id/convert for portfolio conversions
+  - **Storage Layer**: Added getCurrencyRates, updateCurrencyRates, convertPortfolioValue methods to IStorage interface
+  
+- **Alert System Implementation**: Complete customizable alert system for market monitoring and spending tracking
+  - **Database Tables**: user_alerts, alert_history, alert_templates with comprehensive schema
+  - **Alert Types**: Market Price Alert, Market Change Alert, Spending Budget Alert, Portfolio Value Alert
+  - **Notification Channels**: Email, SMS, Push, In-app with multi-channel support
+  - **Monitoring Service**: Background alert-monitoring-service.ts runs every 5 minutes checking alert conditions, respects cooldown periods
+  - **UI Components**: AlertsPage (/alerts) with tabs for My Alerts, Alert History, Templates, Settings
+  - **Features**: Create/edit/delete alerts, toggle active status, alert templates, alert history with trigger details, notification preferences
+  
+- **Bond Database Tables**: Fixed critical errors by creating government_securities and corporate_bonds tables
+  - Tables now exist for NSE NCB (G-Secs, T-Bills, SDLs, SGBs) and BSE Bond market integration
+  - Bond catalog service no longer throws table missing errors
+  
 - **ScrollableTabsList Component Implementation**: Created universal scrollable tabs navigation system for improved mobile UX
   - **Component Features**: Horizontal scroll container with left/right arrow buttons, smart overflow detection using ResizeObserver, smooth scroll animation on arrow clicks
   - **Visual Indicators**: Gradient fade effects on both sides showing additional content, auto-hiding arrows when content fits or fully scrolled

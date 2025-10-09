@@ -19,12 +19,67 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { User, Shield, AlertTriangle, CheckCircle, FileText, Building2, Globe, Star, Award, Lock, Heart, MapPin, Phone, Mail, CreditCard, Banknote, Users, Calendar } from "lucide-react";
+import { User, Shield, AlertTriangle, CheckCircle, FileText, Building2, Globe, Star, Award, Lock, Heart, MapPin, Phone, Mail, CreditCard, Banknote, Users, Calendar, RefreshCw } from "lucide-react";
 import { BankingTab } from "@/components/BankingDematTab";
 import { DematTab } from "@/components/DematTab";
 import { KYCStatusCard } from "@/components/KYCStatusCard";
 import { KYCVerificationDashboard } from "@/components/KYCVerificationDashboard";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
+import { CurrencySelector } from "@/components/CurrencySelector";
+import { CurrencyDisplay } from "@/components/CurrencyDisplay";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
+// Exchange Rates Table Component
+function ExchangeRatesTable({ baseCurrency }: { baseCurrency: string }) {
+  const { data: ratesData, isLoading } = useQuery({
+    queryKey: ["/api/currencies/rates", baseCurrency],
+    queryFn: async () => {
+      const response = await fetch(`/api/currencies/rates?base=${baseCurrency}`);
+      if (!response.ok) throw new Error("Failed to fetch exchange rates");
+      return response.json();
+    },
+  });
+
+  if (isLoading) {
+    return <div className="text-sm text-gray-500">Loading exchange rates...</div>;
+  }
+
+  if (!ratesData || !ratesData.rates) {
+    return <div className="text-sm text-gray-500">No exchange rates available</div>;
+  }
+
+  const rates = Object.entries(ratesData.rates) as [string, number][];
+
+  return (
+    <div className="space-y-2">
+      <div className="text-xs text-gray-500">
+        Last updated: {new Date(ratesData.lastUpdated).toLocaleString()}
+      </div>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Currency</TableHead>
+            <TableHead className="text-right">Exchange Rate</TableHead>
+            <TableHead className="text-right">Sample Conversion</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rates.map(([currency, rate]) => (
+            <TableRow key={currency}>
+              <TableCell className="font-medium">{currency}</TableCell>
+              <TableCell className="text-right">
+                <CurrencyDisplay amount={rate} currency={baseCurrency} showSymbol={false} />
+              </TableCell>
+              <TableCell className="text-right text-sm text-gray-600">
+                1 {baseCurrency} = {rate.toFixed(4)} {currency}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
 
 // Enhanced profile form schema for comprehensive KYC compliance
 const profileFormSchema = z.object({
@@ -497,6 +552,10 @@ export default function ProfilePage() {
               <TabsTrigger value="demat" data-testid="tab-demat" className="flex-shrink-0">
                 <Building2 className="h-4 w-4 mr-2" />
                 Demat
+              </TabsTrigger>
+              <TabsTrigger value="preferences" data-testid="tab-preferences" className="flex-shrink-0">
+                <Globe className="h-4 w-4 mr-2" />
+                Preferences
               </TabsTrigger>
             </ScrollableTabsList>
 
@@ -1358,6 +1417,67 @@ export default function ProfilePage() {
             {/* Demat Tab */}
             <TabsContent value="demat" className="space-y-6">
               <DematTab />
+            </TabsContent>
+
+            {/* Preferences Tab */}
+            <TabsContent value="preferences" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Currency Preferences</CardTitle>
+                  <CardDescription>
+                    Set your preferred base currency for displaying portfolio values and market data
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="base-currency">Base Currency</Label>
+                      <p className="text-sm text-gray-500 mb-2">
+                        All portfolio values and market data will be displayed in this currency
+                      </p>
+                      <CurrencySelector 
+                        value={form.watch("baseCurrency") || "INR"}
+                        onChange={(value) => form.setValue("baseCurrency", value)}
+                        className="w-48"
+                      />
+                    </div>
+
+                    <div className="pt-4 border-t">
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-lg font-semibold">Current Exchange Rates</h3>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            try {
+                              await apiRequest("POST", "/api/currencies/refresh", { 
+                                baseCurrency: form.watch("baseCurrency") || "INR"
+                              });
+                              toast({ 
+                                title: "Success", 
+                                description: "Exchange rates refreshed successfully" 
+                              });
+                              queryClient.invalidateQueries({ queryKey: ["/api/currencies/rates"] });
+                            } catch (error) {
+                              toast({ 
+                                title: "Error", 
+                                description: "Failed to refresh exchange rates",
+                                variant: "destructive" 
+                              });
+                            }
+                          }}
+                          data-testid="button-refresh-rates"
+                        >
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Refresh Rates
+                        </Button>
+                      </div>
+
+                      <ExchangeRatesTable baseCurrency={form.watch("baseCurrency") || "INR"} />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
 

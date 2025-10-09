@@ -17,6 +17,8 @@ import { useConsent, type SchemeType } from "@/hooks/use-consent";
 import { ConsentDialog } from "@/components/ConsentDialog";
 import { ConsentAwareSchemeTab } from "@/components/ConsentAwareSchemeTab";
 import { useAuth } from "@/hooks/useAuth";
+import { CurrencySelector } from "@/components/CurrencySelector";
+import { CurrencyDisplay } from "@/components/CurrencyDisplay";
 
 export default function Portfolio() {
 
@@ -30,8 +32,23 @@ export default function Portfolio() {
   const [currentSchemeType, setCurrentSchemeType] = useState<SchemeType>("epf");
   const { checkConsent, grantConsent } = useConsent();
 
+  // Currency state
+  const defaultCurrency = portfolios?.[0]?.baseCurrency || user?.baseCurrency || "INR";
+  const [selectedCurrency, setSelectedCurrency] = useState(defaultCurrency);
+
   const { data: enhancedHoldings, isLoading: holdingsLoading, refetch: refetchHoldings } = useEnhancedPortfolioHoldings(portfolioId);
   const { data: performance, isLoading: performanceLoading } = usePortfolioPerformance(portfolioId);
+
+  // Portfolio conversion query
+  const { data: convertedPortfolio, isLoading: conversionLoading } = useQuery({
+    queryKey: ["/api/portfolios", portfolioId, "convert", selectedCurrency],
+    queryFn: async () => {
+      const response = await fetch(`/api/portfolios/${portfolioId}/convert?targetCurrency=${selectedCurrency}`);
+      if (!response.ok) throw new Error("Failed to convert portfolio");
+      return response.json();
+    },
+    enabled: !!portfolioId && selectedCurrency !== defaultCurrency,
+  });
 
   // Government Scheme Holdings data - will be conditionally fetched based on consent
   const { data: epfHoldings, isLoading: epfLoading } = useEpfHoldings();
@@ -43,6 +60,13 @@ export default function Portfolio() {
   
   const isLoading = portfoliosLoading || holdingsLoading || performanceLoading;
   const totalValue = performance ? parseFloat(performance.totalCurrentValue) : 1250000;
+
+  // Update selected currency when portfolio changes
+  useEffect(() => {
+    if (portfolios?.[0]?.baseCurrency) {
+      setSelectedCurrency(portfolios[0].baseCurrency);
+    }
+  }, [portfolios]);
 
   // Handle consent request for government scheme access
   const handleRequestConsent = (schemeType: SchemeType) => {
@@ -169,7 +193,17 @@ export default function Portfolio() {
 
             {/* Comprehensive Investment Summary */}
             <div className="mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Complete Investment Portfolio</h2>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">Complete Investment Portfolio</h2>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-gray-600">Convert to:</span>
+                  <CurrencySelector 
+                    value={selectedCurrency} 
+                    onChange={setSelectedCurrency}
+                    className="w-32"
+                  />
+                </div>
+              </div>
               
               {/* Total Portfolio Value Card - PAN Verified */}
               <Card className="mb-6 bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-200">
@@ -179,7 +213,14 @@ export default function Portfolio() {
                       <Shield className="h-4 w-4 text-green-600" />
                       <span className="text-sm text-green-700 font-medium">PAN Verified Portfolio</span>
                     </div>
-                    <Badge className="bg-green-100 text-green-800 border-green-300">Secure Access</Badge>
+                    <div className="flex items-center gap-2">
+                      {selectedCurrency !== defaultCurrency && (
+                        <Badge className="bg-blue-100 text-blue-800 border-blue-300">
+                          Converted to {selectedCurrency}
+                        </Badge>
+                      )}
+                      <Badge className="bg-green-100 text-green-800 border-green-300">Secure Access</Badge>
+                    </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                     <div className="md:col-span-2">
@@ -187,7 +228,20 @@ export default function Portfolio() {
                         <TrendingUp className="h-6 w-6 text-green-600 mr-2" />
                         Total Portfolio Value
                       </h3>
-                      <div className="text-4xl font-bold text-green-600 mb-2">₹45,67,890</div>
+                      {conversionLoading ? (
+                        <Skeleton className="h-12 w-48" />
+                      ) : selectedCurrency !== defaultCurrency && convertedPortfolio ? (
+                        <>
+                          <div className="text-4xl font-bold text-green-600 mb-2" data-testid="portfolio-total-converted">
+                            <CurrencyDisplay amount={convertedPortfolio.totalConvertedValue} currency={selectedCurrency} />
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            <CurrencyDisplay amount={convertedPortfolio.totalOriginalValue} currency={defaultCurrency} showSymbol={true} /> {defaultCurrency}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-4xl font-bold text-green-600 mb-2" data-testid="portfolio-total-original">₹45,67,890</div>
+                      )}
                       <div className="flex items-center space-x-4">
                         <span className="text-green-600 flex items-center text-lg font-medium">
                           <TrendingUp className="h-5 w-5 mr-1" />
@@ -569,6 +623,11 @@ export default function Portfolio() {
                               const dayChange = parseFloat(holding.dayChange);
                               const dayChangePercent = parseFloat(holding.dayChangePercent);
 
+                              // Find converted holding if available
+                              const convertedHolding = convertedPortfolio?.holdings?.find(
+                                (h: any) => h.id === holding.id
+                              );
+
                               return (
                                 <div 
                                   key={holding.id} 
@@ -581,13 +640,31 @@ export default function Portfolio() {
                                       <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
                                         {holding.exchange}
                                       </span>
+                                      {selectedCurrency !== defaultCurrency && (
+                                        <Badge variant="outline" className="text-xs">
+                                          {defaultCurrency}
+                                        </Badge>
+                                      )}
                                     </div>
                                     <p className="text-sm text-gray-600">
                                       Qty: {holding.quantity} | Avg: ₹{holding.avgPrice} | Current: ₹{holding.currentPrice}
                                     </p>
                                   </div>
                                   <div className="text-right space-y-1">
-                                    <p className="font-bold text-gray-900">₹{parseFloat(holding.currentValue).toLocaleString()}</p>
+                                    {selectedCurrency !== defaultCurrency && convertedHolding ? (
+                                      <>
+                                        <p className="font-bold text-gray-900" data-testid={`holding-value-converted-${holding.symbol}`}>
+                                          <CurrencyDisplay amount={convertedHolding.convertedValue} currency={selectedCurrency} />
+                                        </p>
+                                        <p className="text-xs text-gray-500">
+                                          ≈ ₹{parseFloat(holding.currentValue).toLocaleString()} {defaultCurrency}
+                                        </p>
+                                      </>
+                                    ) : (
+                                      <p className="font-bold text-gray-900" data-testid={`holding-value-${holding.symbol}`}>
+                                        ₹{parseFloat(holding.currentValue).toLocaleString()}
+                                      </p>
+                                    )}
                                     <div className={`text-sm flex items-center justify-end ${gainLoss >= 0 ? 'text-finance-green' : 'text-finance-red'}`}>
                                       {gainLoss >= 0 ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
                                       {gainLoss >= 0 ? '+' : ''}₹{gainLoss.toFixed(2)} ({gainLossPercent.toFixed(2)}%)

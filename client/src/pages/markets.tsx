@@ -43,6 +43,9 @@ import {
   Calendar
 } from "lucide-react";
 import { AgriculturalTooltip } from "@/components/agricultural-tooltip";
+import { CurrencySelector } from "@/components/CurrencySelector";
+import { CurrencyDisplay } from "@/components/CurrencyDisplay";
+import { useQuery } from "@tanstack/react-query";
 
 export default function Markets() {
 
@@ -51,20 +54,45 @@ export default function Markets() {
   const [currentStory, setCurrentStory] = useState<MarketStoryData | null>(null);
   const [activeExchange, setActiveExchange] = useState("nse");
   const [watchlist, setWatchlist] = useState<string[]>(["^NSEI", "^BSESN", "^GSPC"]);
+  const [selectedCurrency, setSelectedCurrency] = useState("INR");
   
   const { data: indices } = useMarketIndices();
   const { data: symbolQuote } = useMarketQuote(searchSymbol.toUpperCase());
   const { toast } = useToast();
 
+  // Fetch exchange rates for currency conversion
+  const { data: exchangeRates } = useQuery({
+    queryKey: ["/api/currencies/rates", selectedCurrency],
+    queryFn: async () => {
+      const response = await fetch(`/api/currencies/rates?base=${selectedCurrency}`);
+      if (!response.ok) throw new Error("Failed to fetch exchange rates");
+      return response.json();
+    },
+  });
+
+  // Convert price to selected currency
+  const convertPrice = (priceInINR: number, fromCurrency: string = "INR"): number => {
+    if (selectedCurrency === fromCurrency) return priceInINR;
+    
+    if (exchangeRates?.rates) {
+      const rate = exchangeRates.rates[selectedCurrency];
+      if (rate) {
+        return priceInINR * rate;
+      }
+    }
+    return priceInINR;
+  };
+
   // Mutation for generating AI market stories
   const generateStoryMutation = useMutation({
     mutationFn: async ({ symbols, useCurrentData = true }: { symbols?: string[], useCurrentData?: boolean }) => {
-      return await apiRequest("/api/market/story/generate", "POST", {
+      const response = await apiRequest("/api/market/story/generate", "POST", {
         body: {
           symbols: symbols || GLOBAL_INDICES.map(idx => idx.symbol),
           useCurrentData
         }
       });
+      return response.json();
     },
     onSuccess: (storyData: MarketStoryData) => {
       setCurrentStory(storyData);
@@ -133,10 +161,20 @@ export default function Markets() {
               <Globe className="h-8 w-8 mr-3 text-blue-600" />
               Global Market Indices
             </h2>
-            <Button variant="outline" size="sm">
-              <Eye className="h-4 w-4 mr-2" />
-              View All
-            </Button>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">Display in:</span>
+                <CurrencySelector
+                  value={selectedCurrency}
+                  onChange={setSelectedCurrency}
+                  className="w-40"
+                />
+              </div>
+              <Button variant="outline" size="sm">
+                <Eye className="h-4 w-4 mr-2" />
+                View All
+              </Button>
+            </div>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -184,12 +222,26 @@ export default function Markets() {
                     </h3>
                     
                     <div className="space-y-2">
-                      <p className="text-2xl font-bold text-gray-900" data-testid={`index-price-${index.symbol}`}>
-                        {indexData?.price?.toLocaleString(undefined, { 
-                          minimumFractionDigits: 2, 
-                          maximumFractionDigits: 2 
-                        }) || 'Loading...'}
-                      </p>
+                      {indexData?.price ? (
+                        <>
+                          <p className="text-2xl font-bold text-gray-900" data-testid={`index-price-${index.symbol}`}>
+                            <CurrencyDisplay 
+                              amount={convertPrice(indexData.price, "INR")} 
+                              currency={selectedCurrency} 
+                            />
+                          </p>
+                          {selectedCurrency !== "INR" && (
+                            <p className="text-xs text-gray-500">
+                              ≈ ₹{indexData.price.toLocaleString(undefined, { 
+                                minimumFractionDigits: 2, 
+                                maximumFractionDigits: 2 
+                              })} INR
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-2xl font-bold text-gray-900">Loading...</p>
+                      )}
                       
                       <div className="flex items-center justify-between">
                         <p 
