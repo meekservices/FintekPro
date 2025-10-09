@@ -289,16 +289,29 @@ export function KYCStatusCard() {
           >
             {triggerReKYCMutation.isPending ? "Processing..." : "Complete Re-KYC Now"}
           </Button>
-        ) : status.currentLevel !== "enhanced" ? (
-          <Button
-            onClick={() => window.location.href = "/profile?tab=kyc"}
-            className="w-full"
-            variant="outline"
-            data-testid="button-upgrade-kyc"
-          >
-            Upgrade to {status.currentLevel === "full" ? "Enhanced" : status.currentLevel === "basic" ? "Full" : "Basic"} KYC
-          </Button>
-        ) : null}
+        ) : (
+          <div className="flex gap-2">
+            <Button
+              onClick={() => window.location.href = "/profile"}
+              className="flex-1"
+              variant="outline"
+              data-testid="button-view-verification"
+            >
+              <Shield className="h-4 w-4 mr-2" />
+              View Full Verification Status
+            </Button>
+            {status.currentLevel !== "enhanced" && (
+              <Button
+                onClick={() => window.location.href = "/profile"}
+                className="flex-1"
+                variant="default"
+                data-testid="button-upgrade-kyc"
+              >
+                Upgrade KYC
+              </Button>
+            )}
+          </div>
+        )}
 
         {/* Additional Info */}
         <div className="text-xs text-muted-foreground space-y-1">
