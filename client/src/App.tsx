@@ -85,6 +85,7 @@ import Bonds from "@/pages/bonds";
 import FamilyList from "@/pages/family-list";
 import FamilyDashboard from "@/pages/family-dashboard";
 import AIChat from "@/pages/ai-chat";
+import CorporateKYCPage from "@/pages/CorporateKYCPage";
 
 function UserProtectedRoutes() {
   return (
@@ -172,6 +173,7 @@ function UserProtectedRoutes() {
         <Route path="/loan-dashboard" component={LoanDashboard} />
         <Route path="/families" component={FamilyList} />
         <Route path="/families/:id" component={FamilyDashboard} />
+        <Route path="/corporate-kyc" component={CorporateKYCPage} />
         </Switch>
       </ProfileCompletionGuard>
     </AppLayout>
