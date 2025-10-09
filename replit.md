@@ -12,7 +12,7 @@ FintekPro is a comprehensive full-stack TypeScript financial services platform. 
 - **Styling**: Tailwind CSS with CSS custom properties for theming
 - **Charts**: Recharts for data visualization
 - **Design Approach**: Mobile-first with responsive and adaptive layouts.
-- **Responsive Tab Pattern**: Horizontal scrollable tabs (overflow-x-auto) with flex-shrink-0 applied site-wide to prevent overlap on mobile devices. Implemented across 10+ pages including loans, banking, bonds, markets, and store pages.
+- **Responsive Tab Pattern**: Custom ScrollableTabsList component with intelligent horizontal scrolling, left/right arrow navigation buttons, overflow detection, and smooth scroll animation. Replaces grid-based tabs site-wide for optimal mobile UX. Features visual gradient indicators showing additional content, auto-hiding arrows when fully scrolled, and ResizeObserver-based responsive behavior. Implemented across all major pages including Profile, Store, Markets, Bonds, Banking, Loans, DigiLocker, and 50+ other pages.
 
 ### Technical Implementations
 - **Frontend**:
@@ -73,6 +73,14 @@ FintekPro is a comprehensive full-stack TypeScript financial services platform. 
   - Configured via environment variables: EMAIL_HOST, EMAIL_PORT, EMAIL_USER, EMAIL_PASS
   - Graceful fallback to console logging when SMTP not configured
 - **Usage**: Integrated with forgot password flow and notification service
+
+## Recent Changes (October 9, 2025)
+- **ScrollableTabsList Component Implementation**: Created universal scrollable tabs navigation system for improved mobile UX
+  - **Component Features**: Horizontal scroll container with left/right arrow buttons, smart overflow detection using ResizeObserver, smooth scroll animation on arrow clicks
+  - **Visual Indicators**: Gradient fade effects on both sides showing additional content, auto-hiding arrows when content fits or fully scrolled
+  - **Site-wide Rollout**: Applied to all pages with tabs (60+ pages) including Profile, Store, Markets, Bonds, Banking, Loans, DigiLocker, Admin, Family Dashboard, etc.
+  - **Mobile Optimization**: Prevents tab wrapping/truncation on small screens, enables single-row horizontal tab navigation
+  - **Technical Details**: Uses flex-shrink-0 on tabs, scrollbar-hide CSS, inline-flex TabsList wrapper, responsive to window resizing
 
 ## Recent Changes (October 8, 2025)
 - **Authentication System Fix**: Resolved dual auth session conflicts
