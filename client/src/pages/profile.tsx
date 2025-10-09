@@ -23,6 +23,7 @@ import { User, Shield, AlertTriangle, CheckCircle, FileText, Building2, Globe, S
 import { BankingTab } from "@/components/BankingDematTab";
 import { DematTab } from "@/components/DematTab";
 import { KYCStatusCard } from "@/components/KYCStatusCard";
+import { KYCVerificationDashboard } from "@/components/KYCVerificationDashboard";
 
 // Enhanced profile form schema for comprehensive KYC compliance
 const profileFormSchema = z.object({
@@ -468,9 +469,13 @@ export default function ProfilePage() {
                 <User className="h-4 w-4 mr-2" />
                 Basic Info
               </TabsTrigger>
+              <TabsTrigger value="kyc-verification" data-testid="tab-kyc-verification">
+                <Shield className="h-4 w-4 mr-2" />
+                KYC & Verification
+              </TabsTrigger>
               <TabsTrigger value="identity" data-testid="tab-identity">
                 <FileText className="h-4 w-4 mr-2" />
-                KYC
+                Documents
               </TabsTrigger>
               <TabsTrigger value="address" data-testid="tab-address">
                 <MapPin className="h-4 w-4 mr-2" />
@@ -683,7 +688,12 @@ export default function ProfilePage() {
               </Card>
             </TabsContent>
 
-            {/* KYC Tab */}
+            {/* KYC & Verification Dashboard Tab */}
+            <TabsContent value="kyc-verification" className="space-y-6">
+              <KYCVerificationDashboard />
+            </TabsContent>
+
+            {/* Documents Tab */}
             <TabsContent value="identity" className="space-y-6">
               <Card>
                 <CardHeader>
