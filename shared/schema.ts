@@ -527,6 +527,8 @@ export const ckycRecords = pgTable("ckyc_records", {
   // CKYC Status and Processing
   status: varchar("status").default("pending"), // pending/verified/rejected/expired
   verificationLevel: varchar("verification_level"), // basic/enhanced
+  verificationMethod: varchar("verification_method"), // digilocker/manual_upload/video_kyc/agent_assisted
+  digilockerVerified: boolean("digilocker_verified").default(false), // Indicates if verified via DigiLocker
   lastVerifiedAt: timestamp("last_verified_at"),
   expiryDate: date("expiry_date"),
   

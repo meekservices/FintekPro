@@ -211,13 +211,30 @@ export function ReCKYCWorkflow({
                     <TabsContent value="digilocker" className="space-y-4">
                       <div className="flex items-start gap-3 p-4 bg-green-50 dark:bg-green-900/10 rounded-lg">
                         <Smartphone className="h-5 w-5 text-green-600 mt-1" />
-                        <div>
+                        <div className="flex-1">
                           <h4 className="font-semibold text-green-800 dark:text-green-200">
                             DigiLocker Integration (Recommended)
                           </h4>
                           <p className="text-sm text-green-700 dark:text-green-300 mt-1">
                             Fastest and most secure method. Your documents will be verified directly from DigiLocker.
                           </p>
+                          <div className="mt-4 space-y-3">
+                            <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-900/20">
+                              <Info className="h-4 w-4 text-blue-600" />
+                              <AlertDescription className="text-sm text-blue-700 dark:text-blue-300">
+                                DigiLocker will automatically fetch your Aadhaar, PAN, and other verified documents for instant KYC completion.
+                              </AlertDescription>
+                            </Alert>
+                            <Button 
+                              onClick={() => window.open('/digilocker', '_blank')} 
+                              variant="outline"
+                              className="w-full"
+                              data-testid="button-open-digilocker"
+                            >
+                              <Smartphone className="h-4 w-4 mr-2" />
+                              Open DigiLocker to Share Documents
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </TabsContent>

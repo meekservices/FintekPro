@@ -17664,7 +17664,31 @@ System Security Data:`;
   // Create or update CKYC record
   app.post("/api/ckyc", async (req, res) => {
     try {
-      const validatedData = insertCkycRecordSchema.parse(req.body);
+      const { useDigiLocker, ...bodyData } = req.body;
+      let dataToSubmit = { ...bodyData };
+      
+      // If DigiLocker auto-population is requested, fetch and merge data
+      if (useDigiLocker && req.user?.id) {
+        try {
+          const digilockerData = await digilockerService.autoPopulateKYCFields(req.user.id);
+          
+          // Merge DigiLocker data with submitted data (submitted data takes precedence)
+          dataToSubmit = {
+            ...digilockerData,
+            ...bodyData,
+            verificationMethod: 'digilocker',
+            digilockerVerified: true,
+            documentSources: digilockerData.documentSources || []
+          };
+          
+          console.log('✅ Auto-populated KYC data from DigiLocker for user:', req.user.id);
+        } catch (digilockerError) {
+          console.error('⚠️ DigiLocker auto-population failed, using manual data:', digilockerError);
+          // Continue with manual data if DigiLocker fails
+        }
+      }
+      
+      const validatedData = insertCkycRecordSchema.parse(dataToSubmit);
       
       // Check if record already exists
       const existingRecord = await storage.getCkycRecord(validatedData.userId);
@@ -17681,7 +17705,9 @@ System Security Data:`;
         userId: validatedData.userId,
         status: validatedData.verificationStatus,
         changedBy: req.user?.id || 'system',
-        remarks: 'CKYC record created/updated'
+        remarks: useDigiLocker 
+          ? 'CKYC record created/updated via DigiLocker auto-population'
+          : 'CKYC record created/updated'
       });
       
       res.json(ckycRecord);
@@ -25927,13 +25953,35 @@ System Security Data:`;
       }
 
       const { changes, reason, verificationMethod, documents } = req.body;
+      let updatedData = { changes, documents };
+      
+      // If DigiLocker verification method is selected, auto-populate from DigiLocker
+      if (verificationMethod === 'digilocker') {
+        try {
+          const digilockerData = await digilockerService.autoPopulateKYCFields(req.session.user.id);
+          
+          // Merge DigiLocker data into changes
+          updatedData.changes = {
+            ...digilockerData,
+            ...changes // User-provided changes take precedence
+          };
+          
+          // Add DigiLocker document sources as verification proof
+          updatedData.documents = digilockerData.documentSources || [];
+          
+          console.log('✅ Re-KYC auto-populated from DigiLocker for user:', req.session.user.id);
+        } catch (digilockerError) {
+          console.error('⚠️ DigiLocker auto-population failed for Re-KYC:', digilockerError);
+          // Continue with manual data if DigiLocker fails
+        }
+      }
       
       const result = await DemographicProtectionService.processReCkycUpdate({
         userId: req.session.user.id,
-        changes,
-        reason,
+        changes: updatedData.changes,
+        reason: reason || 'Re-KYC periodic update',
         verificationMethod,
-        ckycDocuments: documents
+        ckycDocuments: updatedData.documents
       });
 
       res.json(result);

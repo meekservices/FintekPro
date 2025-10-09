@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { userProfiles } from "@shared/schema";
+import { userProfiles, ckycRecords } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
 /**
@@ -224,7 +224,7 @@ export async function checkKYCCompliance(
       result.blockers.push(`${requiredLevel.toUpperCase()} KYC required for this transaction`);
       result.requiredActions.push(...missing.map((m) => `Complete ${m}`));
       result.reason = `Missing ${requiredLevel} KYC requirements`;
-      result.level = determineCurrentLevel(profile);
+      result.level = await determineCurrentLevel(userId, profile);
       return result;
     }
 
@@ -260,16 +260,26 @@ export async function checkKYCCompliance(
 
 /**
  * Determine user's current KYC level
+ * DigiLocker verification provides enhanced trust and faster verification
  */
-function determineCurrentLevel(profile: any): "none" | "basic" | "full" | "enhanced" {
+async function determineCurrentLevel(userId: string, profile: any): Promise<"none" | "basic" | "full" | "enhanced"> {
   if (!profile) return "none";
+
+  // Check if user has DigiLocker-verified CKYC
+  const ckycRecord = await db.query.ckycRecords.findFirst({
+    where: eq(ckycRecords.userId, userId),
+  });
+
+  const hasDigiLockerVerification = ckycRecord?.digilockerVerified === true;
 
   const hasBasic =
     profile.panNumber && profile.firstName && profile.lastName && profile.address;
 
-  const hasFull = hasBasic && profile.bankAccountNumber && profile.isProfileCompleted;
+  // DigiLocker verification expedites Full KYC status
+  const hasFull = hasBasic && (profile.bankAccountNumber || hasDigiLockerVerification) && profile.isProfileCompleted;
 
-  const hasEnhanced = hasFull && profile.videoKycCompleted;
+  // Enhanced KYC requires video verification OR DigiLocker + high compliance score
+  const hasEnhanced = hasFull && (profile.videoKycCompleted || (hasDigiLockerVerification && profile.complianceScore >= 90));
 
   if (hasEnhanced) return "enhanced";
   if (hasFull) return "full";
@@ -307,7 +317,7 @@ export async function getKYCStatus(userId: string) {
     };
   }
 
-  const currentLevel = determineCurrentLevel(profile);
+  const currentLevel = await determineCurrentLevel(userId, profile);
   const completeness = calculateProfileCompleteness(profile);
 
   const nextLevel =
