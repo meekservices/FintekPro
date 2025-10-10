@@ -37,6 +37,20 @@ import { RiskAssessment } from "@/components/wealth/risk-assessment";
 import { InvestmentRecommendations } from "@/components/wealth/investment-recommendations";
 import { Proposals } from "@/components/wealth/proposals";
 
+interface FinancialAnalysis {
+  monthlyIncome: number;
+  annualIncome: number;
+  monthlyObligations: number;
+  availableForInvestment: number;
+  currentInvestments: number;
+  additionalCapacity: number;
+  obligationRatio: number;
+  totalPortfolioValue: number;
+  totalReturns: number;
+  returnPercentage: number;
+  creditScore?: number;
+}
+
 export default function PremiumInvestments() {
   const [location] = useLocation();
   
@@ -54,7 +68,7 @@ export default function PremiumInvestments() {
   }, [location]);
 
   // Fetch real-time financial analysis data
-  const { data: financialAnalysis, isLoading, error } = useQuery({
+  const { data: financialAnalysis, isLoading, error } = useQuery<FinancialAnalysis>({
     queryKey: ['/api/wealth-management/analysis'],
   });
 
