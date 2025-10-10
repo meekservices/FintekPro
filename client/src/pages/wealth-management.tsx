@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,7 +38,20 @@ import { InvestmentRecommendations } from "@/components/wealth/investment-recomm
 import { Proposals } from "@/components/wealth/proposals";
 
 export default function PremiumInvestments() {
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [location] = useLocation();
+  
+  // Get tab from URL query parameter
+  const searchParams = new URLSearchParams(location.split('?')[1] || '');
+  const tabFromUrl = searchParams.get('tab') || 'dashboard';
+  
+  const [activeTab, setActiveTab] = useState(tabFromUrl);
+
+  // Update active tab when URL changes
+  useEffect(() => {
+    const params = new URLSearchParams(location.split('?')[1] || '');
+    const tab = params.get('tab') || 'dashboard';
+    setActiveTab(tab);
+  }, [location]);
 
   // Fetch real-time financial analysis data
   const { data: financialAnalysis, isLoading, error } = useQuery({
