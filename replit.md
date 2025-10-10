@@ -2,7 +2,15 @@
 
 ## Overview
 
-FintekPro is a comprehensive full-stack TypeScript financial services platform. It offers portfolio management, market data tracking, investment tools, and a range of financial services including stocks, mutual funds, IPOs, bonds, and loans. The platform aims to provide a modern and robust solution for personal finance and investment management.
+FintekPro is a comprehensive full-stack TypeScript financial services platform designed for personal finance and investment management. It provides tools for portfolio management, real-time market data tracking, and a wide array of financial services including stocks, mutual funds, IPOs, bonds, and loans. The platform aims to deliver a modern, robust, and secure solution for users to manage their investments and financial planning, including advanced features like family collaboration, a unified KYC compliance system, and an AI-powered financial assistant.
+
+## User Preferences
+
+I want iterative development.
+I prefer detailed explanations.
+Ask before making major changes.
+Do not make changes to the folder `Z`.
+Do not make changes to the file `Y`.
 
 ## System Architecture
 
@@ -12,7 +20,7 @@ FintekPro is a comprehensive full-stack TypeScript financial services platform. 
 - **Styling**: Tailwind CSS with CSS custom properties for theming
 - **Charts**: Recharts for data visualization
 - **Design Approach**: Mobile-first with responsive and adaptive layouts.
-- **Responsive Tab Pattern**: Custom ScrollableTabsList component with intelligent horizontal scrolling, left/right arrow navigation buttons, overflow detection, and smooth scroll animation. Replaces grid-based tabs site-wide for optimal mobile UX. Features visual gradient indicators showing additional content, auto-hiding arrows when fully scrolled, and ResizeObserver-based responsive behavior. Implemented across all major pages including Profile, Store, Markets, Bonds, Banking, Loans, DigiLocker, and 50+ other pages.
+- **Responsive Tab Pattern**: Custom ScrollableTabsList component for optimal mobile UX with intelligent horizontal scrolling, navigation buttons, overflow detection, and smooth animations, implemented across all major pages.
 
 ### Technical Implementations
 - **Frontend**:
@@ -37,127 +45,26 @@ FintekPro is a comprehensive full-stack TypeScript financial services platform. 
 - **Market Data Integration**: Live quotes, charts, and news.
 - **Financial Calculators**: SIP, EMI, retirement, and tax calculators.
 - **Multi-Asset Support**: Equities, bonds, mutual funds, IPOs, alternative investments.
-- **Family Collaboration & Planning** (In Progress):
-    - Shared family financial groups for couples and households
-    - Permission-based access control (owner, admin, member, view-only)
-    - Shared portfolios with granular permissions (view, contribute, trade, manage)
-    - Family goals tracking (shared and individual goals with contribution tracking)
-    - Combined family net worth dashboard
-    - Family budget management with alerts
-    - Activity logging for all family financial actions
-    - Discussion threads for collaborative financial decisions
-- **KYC Compliance System**:
-    - **MANDATORY FULL KYC POLICY**: ALL financial transactions (stocks, mutual funds, IPOs, bonds) require Full KYC verification regardless of transaction amount.
-    - **No Tiered System**: Basic KYC tier has been deprecated. Full KYC is the baseline requirement for all transactions.
-    - **Enhanced KYC**: Reserved only for high-value transactions (>₹10 lakh) or special regulatory requirements (NRI status, PEP, etc.).
-    - **Unified Compliance**: Consistent KYC requirements across all asset classes ensure regulatory adherence and simplified user experience.
-    - **UI Warning Banners**: Amber-colored KYC warning banners displayed on all trading pages (bonds, stocks, mutual funds, IPOs) to inform users of Full KYC requirement.
-    - AML screening, audit logging, and regulatory adherence (SEBI, RBI, PMLA, FATCA/CRS).
-- **Re-KYC Automation System**:
-    - Risk-based periodic KYC renewal (10yr, 8yr, 2yr) with automated reminders (60/30/15 days).
-    - Transaction permissions linked to KYC status.
-    - Daily cron jobs for reminders and reporting.
-- **Investment Proposal System**: Custom ID system (AI-, AGENT-, CLIENT-), filtering, creation dialog, cart integration, and full CRUD support.
-- **Financial Products Marketplace (Store Page)**:
-    - Slidable category tabs with real-time filtering: All Products, Investment Products, Global Products, Insurance, Banking Products, Professional Services.
-    - Product count badges showing filtered results per category.
-    - Integrated wishlist, cart functionality, and product detail modals.
-    - Featured products, top performers, and hot deals sections with advanced sorting and search.
-
-## Email Service Integration
-- **Email Provider**: Custom SMTP integration using support@fintekpro.com
-- **Implementation**: Nodemailer-based email service (server/email-service.ts)
-- **Features**:
-  - Password reset OTP emails with professional HTML templates
-  - General notification emails
-  - Configured via environment variables: EMAIL_HOST, EMAIL_PORT, EMAIL_USER, EMAIL_PASS
-  - Graceful fallback to console logging when SMTP not configured
-- **Usage**: Integrated with forgot password flow and notification service
-
-## Recent Changes (October 9, 2025)
-- **Multi-Currency Support Implementation**: Comprehensive multi-currency functionality for global investments
-  - **Database Schema**: Created currency_rates table with exchange rates storage, added currency columns to portfolios, portfolio_holdings, and market_data tables
-  - **Exchange Rate Service**: Auto-refreshing currency exchange service (server/services/currency-exchange-service.ts) fetching live rates from exchangerate-api.com every 24 hours
-  - **Supported Currencies**: INR, USD, EUR, GBP, JPY, AUD, CAD, SGD, AED (9 major currencies)
-  - **UI Components**: 
-    - CurrencySelector dropdown with flag emojis
-    - CurrencyDisplay component with locale-aware formatting (Intl.NumberFormat)
-    - Currency preference settings in Profile page
-    - Live exchange rates table with manual refresh option
-  - **Portfolio Integration**: Currency selector in portfolio header, real-time portfolio value conversion, dual display showing original and converted amounts
-  - **Market Data Integration**: Currency selector on Markets page for viewing global indices in preferred currency
-  - **API Endpoints**: /api/currencies for supported currencies, /api/currencies/rates for exchange rates, /api/currencies/refresh for manual updates, /api/portfolios/:id/convert for portfolio conversions
-  - **Storage Layer**: Added getCurrencyRates, updateCurrencyRates, convertPortfolioValue methods to IStorage interface
-  
-- **Alert System Implementation**: Complete customizable alert system for market monitoring and spending tracking
-  - **Database Tables**: user_alerts, alert_history, alert_templates with comprehensive schema
-  - **Alert Types**: Market Price Alert, Market Change Alert, Spending Budget Alert, Portfolio Value Alert
-  - **Notification Channels**: Email, SMS, Push, In-app with multi-channel support
-  - **Monitoring Service**: Background alert-monitoring-service.ts runs every 5 minutes checking alert conditions, respects cooldown periods
-  - **UI Components**: AlertsPage (/alerts) with tabs for My Alerts, Alert History, Templates, Settings
-  - **Features**: Create/edit/delete alerts, toggle active status, alert templates, alert history with trigger details, notification preferences
-  
-- **Bond Database Tables**: Fixed critical errors by creating government_securities and corporate_bonds tables
-  - Tables now exist for NSE NCB (G-Secs, T-Bills, SDLs, SGBs) and BSE Bond market integration
-  - Bond catalog service no longer throws table missing errors
-  
-- **ScrollableTabsList Component Implementation**: Created universal scrollable tabs navigation system for improved mobile UX
-  - **Component Features**: Horizontal scroll container with left/right arrow buttons, smart overflow detection using ResizeObserver, smooth scroll animation on arrow clicks
-  - **Visual Indicators**: Gradient fade effects on both sides showing additional content, auto-hiding arrows when content fits or fully scrolled
-  - **Site-wide Rollout**: Applied to all pages with tabs (60+ pages) including Profile, Store, Markets, Bonds, Banking, Loans, DigiLocker, Admin, Family Dashboard, etc.
-  - **Mobile Optimization**: Prevents tab wrapping/truncation on small screens, enables single-row horizontal tab navigation
-  - **Technical Details**: Uses flex-shrink-0 on tabs, scrollbar-hide CSS, inline-flex TabsList wrapper, responsive to window resizing
-
-## Recent Changes (October 8, 2025)
-- **Authentication System Fix**: Resolved dual auth session conflicts
-  - **Root Cause**: Both Replit OAuth and local email/password auth were initializing separate session middleware, causing "doctype is not a valid token" errors
-  - **Solution**: Modified `setupAuth()` in server/auth.ts to only configure Passport strategies without re-initializing session/passport (already done by setupReplitAuth)
-  - **Removed**: Duplicate session initialization and serialize/deserialize methods from local auth
-  - **Result**: Email/password authentication now working correctly alongside Replit OAuth
-  - **Admin Credentials**: sangram@fintekpro.com / Kamini@321 (Mobile: 7795048528)
-  - **Technical Details**: Shared PostgreSQL session store (connect-pg-simple), unified Passport serialization for both OAuth and local auth
-
-## Recent Changes (October 7, 2025)
-- **AI Chat Assistant System (MVP Complete)**: Implemented comprehensive chatbot with Gemini AI integration
-  - **Database Schema**: Created 4 tables (chat_sessions, chat_messages, chat_functions, chat_actions) with moderation flags and portfolio linking
-  - **Function Registry**: Built 12+ callable functions across categories:
-    - Portfolio: getUserPortfolioSummary, getUserPortfolioHoldings, getRecentTransactions, getGoalProgress
-    - Market: getMarketSnapshot, searchSecurityInfo
-    - Transactions: createEquityOrder (with confirmation), createMutualFundOrder (with confirmation), rebalancePortfolio (with confirmation)
-    - Utility: suggestRiskAdjustment, getTaxImplications
-    - Profile: getUserProfileSummary
-  - **ChatOrchestrator Service**: Handles session management, context loading, Gemini API integration, function calling, and transaction confirmation workflow
-  - **API Routes**: Full CRUD with requireAuth middleware (/api/chat/sessions, /api/chat/messages, /api/chat/actions)
-  - **React UI**: Message bubbles, input handling, confirmation dialogs at /chat
-  - **MVP Status**: Core functionality working. Future enhancements planned:
-    1. Streaming responses with SSE/websocket for real-time assistant output
-    2. Enhanced multi-action confirmation UX with full transaction details
-    3. Session history hydration (welcome message on load)
-
-## Recent Changes (October 6, 2025)
-- **TypeScript Error Resolution**: Fixed all TypeScript errors in CKYC verification and profile pages:
-  - Added proper type definitions (CkycRecord, CkycDocument, ComplianceStatus)
-  - Fixed API request format to use body wrapper
-  - Added null/undefined safety checks
-  - Transformed CKYC form submission to use correct schema field names (panNumber, aadharNumber, annualIncome, status, etc.)
-  - Fixed userId prop propagation to ReCKYCWorkflow component
-- **CKYC Form Completion**: Added missing required fields to complete the CKYC onboarding form:
-  - Added city, state, and pincode input fields in a 3-column grid layout
-  - Implemented smart form initialization using useEffect that merges existing CKYC data without overwriting user edits
-  - Updated submission handler to include all required schema fields
-  - Form now properly handles both new CKYC submissions and updates to existing records
-
-## Known Technical Debt
-- **CKYC Notification Methods**: Methods `createCkycNotificationTrigger` and `updateCkycNotificationStatus` are defined in IStorage interface but implementations are commented out in DatabaseStorage class. The notification-service.ts uses these methods, causing TypeScript errors. This is non-blocking for core functionality but should be addressed in future refactoring.
+- **Family Collaboration & Planning**: Shared financial groups, permission-based access, shared goals, combined net worth, and budget management.
+- **KYC Compliance System**: MANDATORY FULL KYC for all financial transactions, with enhanced KYC for high-value transactions, integrated AML screening, and regulatory adherence.
+- **Re-KYC Automation System**: Risk-based periodic KYC renewal with automated reminders and transaction permission linking.
+- **Investment Proposal System**: Custom ID system, filtering, creation, and full CRUD support.
+- **Financial Products Marketplace (Store Page)**: Slidable category tabs, real-time filtering, wishlist, cart, and product detail modals.
+- **AI Chat Assistant System**: Integrated chatbot with Gemini AI, supporting various financial functions like portfolio summary, market data, order creation, and financial planning.
+- **Dynamic Wealth Management Financial Analysis**: Aggregates real-time client financial data for intelligent investment recommendations, providing metrics like monthly income, obligations, investment capacity, and portfolio returns.
+- **Multi-Currency Support**: Comprehensive functionality for global investments including exchange rate service, database schema for currency rates, and UI components for currency selection and display.
+- **Alert System**: Customizable alerts for market monitoring and spending tracking with various alert types, notification channels, and a background monitoring service.
 
 ## External Dependencies
 
 ### Third-Party APIs
-- **Market Data Sources**: Real-time and historical market information.
-- **BSE Star MFD API**: Mutual fund transaction processing (Buy/Sell, SIP, order tracking, PhonePe integration).
-- **NSE NCB & BSE Bond API**: Government securities, corporate bond trading, and direct market access.
+- **Market Data Sources**: Real-time and historical market information providers.
+- **BSE Star MFD API**: Mutual fund transaction processing (Buy/Sell, SIP, order tracking).
+- **NSE NCB & BSE Bond API**: Government securities, corporate bond trading.
 - **Bajaj Finance Integration**: EMI, loan, fixed deposit calculators, and eligibility checks.
 - **Tata Capital Integration**: Personal, home, business loans, credit checks, CKYC, and GST verification.
+- **exchangerate-api.com**: For live currency exchange rates.
+- **Google Gemini API**: For AI Chat Assistant functionality.
 
 ### Database Services
 - **Neon Database**: Serverless PostgreSQL hosting.
@@ -173,3 +80,4 @@ FintekPro is a comprehensive full-stack TypeScript financial services platform. 
 - **Class Variance Authority**: Variant-based component APIs.
 - **Zod**: TypeScript-first schema validation.
 - **Nanoid**: URL-safe unique ID generator.
+- **Nodemailer**: For email service integration.
