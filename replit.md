@@ -51,7 +51,7 @@ Do not make changes to the file `Y`.
 - **Investment Proposal System**: Custom ID system, filtering, creation, and full CRUD support.
 - **Financial Products Marketplace (Store Page)**: Slidable category tabs, real-time filtering, wishlist, cart, and product detail modals.
 - **AI Chat Assistant System**: Integrated chatbot with Gemini AI, supporting various financial functions like portfolio summary, market data, order creation, and financial planning.
-- **Dynamic Wealth Management Financial Analysis**: Aggregates real-time client financial data for intelligent investment recommendations, providing metrics like monthly income, obligations, investment capacity, and portfolio returns.
+- **Dynamic Wealth Management Financial Analysis**: Aggregates real-time client financial data for intelligent investment recommendations, providing metrics like monthly income, obligations, investment capacity, and portfolio returns. Progressive Planning Flow tab order: Dashboard → AI Insights → Risk Profile → Goal Planning → Retirement → Credit Obligations.
 - **Multi-Currency Support**: Comprehensive functionality for global investments including exchange rate service, database schema for currency rates, and UI components for currency selection and display.
 - **Alert System**: Customizable alerts for market monitoring and spending tracking with various alert types, notification channels, and a background monitoring service.
 
