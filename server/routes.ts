@@ -10050,6 +10050,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Wealth Management Financial Analysis endpoint
+  app.get("/api/wealth-management/analysis", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      
+      const analysis = await storage.getUserFinancialAnalysis(userId);
+      
+      if (!analysis) {
+        return res.status(404).json({ 
+          error: "Financial data not found",
+          message: "Please complete your profile and KYC to access wealth management features"
+        });
+      }
+      
+      res.json(analysis);
+    } catch (error) {
+      console.error("Error fetching financial analysis:", error);
+      res.status(500).json({ error: "Failed to fetch financial analysis" });
+    }
+  });
+
   // Government Scheme Holdings endpoints
   app.get("/api/government-schemes/epf", requireAuth, async (req: any, res) => {
     try {
