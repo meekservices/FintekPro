@@ -141,7 +141,7 @@ export function EnhancedNavigation() {
           icon: Briefcase,
           description: "AI-powered investment planning and portfolio management",
           subItems: [
-            { name: "Investment Recommendations", href: "/wealth-management", description: "AI allocation system for ₹72,000 surplus", badge: "AI POWERED" },
+            { name: "AI recommends", href: "/wealth-management", description: "AI allocation system for ₹72,000 surplus", badge: "AI POWERED" },
             { name: "Goal Planning", href: "/wealth-management?tab=goals", description: "Financial goal setting and tracking" },
             { name: "Risk Assessment", href: "/wealth-management?tab=risk", description: "Portfolio risk analysis" },
             { name: "Asset Allocation", href: "/wealth-management?tab=allocation", description: "Core, Alternative, Premium tiers" }
