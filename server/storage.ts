@@ -724,6 +724,24 @@ export interface IStorage {
   getCurrencyRates(baseCurrency?: string): Promise<CurrencyRate[]>;
   updateCurrencyRates(baseCurrency: string, rates: Record<string, number>): Promise<void>;
   convertPortfolioValue(portfolioId: string, targetCurrency: string): Promise<number>;
+  
+  // Wealth Management Financial Analysis methods
+  getUserFinancialAnalysis(userId: string): Promise<{
+    monthlyIncome: number;
+    annualIncome: number;
+    monthlyObligations: number;
+    availableForInvestment: number;
+    currentInvestments: number;
+    additionalCapacity: number;
+    obligationRatio: number;
+    creditScore: number | null;
+    totalPortfolioValue: number;
+    totalReturns: number;
+    returnPercentage: number;
+    panNumber: string | null;
+    hasCompletedKyc: boolean;
+    hasFinancialProfile: boolean;
+  } | null>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -4746,6 +4764,123 @@ export class DatabaseStorage implements IStorage {
     }
 
     return parseFloat(portfolio.totalValue || '0') * parseFloat(rate.exchangeRate);
+  }
+
+  async getUserFinancialAnalysis(userId: string): Promise<{
+    monthlyIncome: number;
+    annualIncome: number;
+    monthlyObligations: number;
+    availableForInvestment: number;
+    currentInvestments: number;
+    additionalCapacity: number;
+    obligationRatio: number;
+    creditScore: number | null;
+    totalPortfolioValue: number;
+    totalReturns: number;
+    returnPercentage: number;
+    panNumber: string | null;
+    hasCompletedKyc: boolean;
+    hasFinancialProfile: boolean;
+  } | null> {
+    try {
+      // Get user profile for PAN and basic info
+      const userProfile = await this.getUserProfile(userId);
+      const panNumber = userProfile?.panNumber || null;
+      
+      // Get CKYC record for KYC status
+      const ckycRecord = await this.getCkycRecord(userId);
+      const hasCompletedKyc = ckycRecord?.status === 'CKYC_VERIFIED' || ckycRecord?.status === 'VERIFIED';
+      
+      // Get client financial profile
+      const [financialProfile] = await db
+        .select()
+        .from(schema.clientFinancialProfiles)
+        .where(eq(schema.clientFinancialProfiles.userId, userId))
+        .limit(1);
+      
+      const hasFinancialProfile = !!financialProfile;
+      
+      // Calculate income (monthly and annual)
+      let monthlyIncome = 0;
+      let annualIncome = 0;
+      
+      if (financialProfile?.monthlyIncome) {
+        monthlyIncome = parseFloat(financialProfile.monthlyIncome);
+        annualIncome = monthlyIncome * 12;
+      } else if (financialProfile?.annualIncome) {
+        annualIncome = parseFloat(financialProfile.annualIncome);
+        monthlyIncome = annualIncome / 12;
+      } else if (userProfile?.annualIncome) {
+        // Fallback to user profile annual income
+        annualIncome = parseFloat(userProfile.annualIncome);
+        monthlyIncome = annualIncome / 12;
+      } else if (ckycRecord?.annualIncome) {
+        // Last fallback to CKYC record
+        annualIncome = parseFloat(ckycRecord.annualIncome);
+        monthlyIncome = annualIncome / 12;
+      }
+      
+      // Get monthly obligations (EMIs + credit card utilization)
+      const monthlyObligations = financialProfile?.existingEMIs 
+        ? parseFloat(financialProfile.existingEMIs) 
+        : 0;
+      
+      // Get credit score
+      const creditScore = financialProfile?.cibilScore || null;
+      
+      // Get all portfolios for the user
+      const portfolios = await this.getPortfoliosByUserId(userId);
+      
+      // Calculate total portfolio value and current investments
+      let totalPortfolioValue = 0;
+      let totalInvestedAmount = 0;
+      
+      for (const portfolio of portfolios) {
+        const portfolioValue = parseFloat(portfolio.totalValue || '0');
+        totalPortfolioValue += portfolioValue;
+        
+        // Get holdings to calculate invested amount
+        const holdings = await this.getPortfolioHoldings(portfolio.id);
+        for (const holding of holdings) {
+          const investedAmount = parseFloat(holding.quantity) * parseFloat(holding.avgPrice);
+          totalInvestedAmount += investedAmount;
+        }
+      }
+      
+      // Calculate returns
+      const totalReturns = totalPortfolioValue - totalInvestedAmount;
+      const returnPercentage = totalInvestedAmount > 0 
+        ? (totalReturns / totalInvestedAmount) * 100 
+        : 0;
+      
+      // Calculate investment metrics
+      const currentInvestments = totalInvestedAmount > 0 ? totalInvestedAmount / 12 : 0; // Monthly average
+      const availableForInvestment = monthlyIncome - monthlyObligations;
+      const additionalCapacity = availableForInvestment - currentInvestments;
+      const obligationRatio = monthlyIncome > 0 
+        ? (monthlyObligations / monthlyIncome) * 100 
+        : 0;
+      
+      return {
+        monthlyIncome: Math.round(monthlyIncome),
+        annualIncome: Math.round(annualIncome),
+        monthlyObligations: Math.round(monthlyObligations),
+        availableForInvestment: Math.round(availableForInvestment),
+        currentInvestments: Math.round(currentInvestments),
+        additionalCapacity: Math.round(additionalCapacity),
+        obligationRatio: Math.round(obligationRatio * 10) / 10, // Round to 1 decimal
+        creditScore,
+        totalPortfolioValue: Math.round(totalPortfolioValue),
+        totalReturns: Math.round(totalReturns),
+        returnPercentage: Math.round(returnPercentage * 10) / 10, // Round to 1 decimal
+        panNumber,
+        hasCompletedKyc,
+        hasFinancialProfile,
+      };
+    } catch (error) {
+      console.error('Error fetching user financial analysis:', error);
+      return null;
+    }
   }
 }
 
