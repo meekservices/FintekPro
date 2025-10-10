@@ -1,8 +1,11 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   Target, 
   TrendingUp, 
@@ -36,19 +39,10 @@ import { Proposals } from "@/components/wealth/proposals";
 export default function PremiumInvestments() {
   const [activeTab, setActiveTab] = useState("dashboard");
 
-  // Investment capacity analysis based on CIBIL obligations
-  const financialAnalysis = {
-    monthlyIncome: 180000,
-    monthlyObligations: 63000, // From CIBIL report
-    availableForInvestment: 117000, // Income - Obligations
-    currentInvestments: 45000,
-    additionalCapacity: 72000, // Available - Current
-    obligationRatio: 35, // Obligations as % of income
-    creditScore: 785,
-    totalPortfolioValue: 2850000,
-    totalReturns: 650000,
-    returnPercentage: 29.5
-  };
+  // Fetch real-time financial analysis data
+  const { data: financialAnalysis, isLoading, error } = useQuery({
+    queryKey: ['/api/wealth-management/analysis'],
+  });
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -59,13 +53,55 @@ export default function PremiumInvestments() {
     }).format(amount);
   };
 
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="max-w-7xl mx-auto space-y-8">
+          <div className="text-center space-y-2">
+            <Skeleton className="h-12 w-96 mx-auto" />
+            <Skeleton className="h-6 w-full max-w-2xl mx-auto" />
+          </div>
+          <div className="space-y-4">
+            <Skeleton className="h-64 w-full" />
+            <Skeleton className="h-64 w-full" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error || !financialAnalysis) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="max-w-7xl mx-auto space-y-8">
+          <div className="text-center space-y-2">
+            <h1 className="text-4xl font-bold text-gray-900">FintekPro Premium Investments</h1>
+            <p className="text-xl text-muted-foreground">Elite investment opportunities for sophisticated investors</p>
+          </div>
+          <Alert className="border-yellow-500 bg-yellow-50">
+            <AlertDescription className="text-center">
+              <p className="font-medium mb-2">Complete Your Profile to Access Wealth Management</p>
+              <p className="text-sm text-muted-foreground">
+                Please complete your financial profile and KYC verification to unlock personalized investment recommendations and wealth management features.
+              </p>
+            </AlertDescription>
+          </Alert>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
         <div className="text-center space-y-2">
           <h1 className="text-4xl font-bold text-gray-900">FintekPro Premium Investments</h1>
-          <p className="text-xl text-muted-foreground">Access REITs, InvITs, PMS & AIF with your ₹72,000 monthly surplus - Elite investment opportunities for sophisticated investors</p>
+          <p className="text-xl text-muted-foreground">
+            Access REITs, InvITs, PMS & AIF with your {formatCurrency(financialAnalysis.additionalCapacity)} monthly surplus - Elite investment opportunities for sophisticated investors
+          </p>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
