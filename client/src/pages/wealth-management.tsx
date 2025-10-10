@@ -110,13 +110,13 @@ export default function PremiumInvestments() {
               <BarChart3 className="w-4 h-4 mr-2" />
               Dashboard
             </TabsTrigger>
+            <TabsTrigger value="recommendations" data-testid="tab-recommendations">
+              <Lightbulb className="w-4 h-4 mr-2" />
+              AI Insights
+            </TabsTrigger>
             <TabsTrigger value="risk" data-testid="tab-risk">
               <PieChart className="w-4 h-4 mr-2" />
               Risk Profile
-            </TabsTrigger>
-            <TabsTrigger value="obligations" data-testid="tab-obligations">
-              <CreditCard className="w-4 h-4 mr-2" />
-              Credit Obligations
             </TabsTrigger>
             <TabsTrigger value="goals" data-testid="tab-goals">
               <Target className="w-4 h-4 mr-2" />
@@ -126,9 +126,9 @@ export default function PremiumInvestments() {
               <Shield className="w-4 h-4 mr-2" />
               Retirement
             </TabsTrigger>
-            <TabsTrigger value="recommendations" data-testid="tab-recommendations">
-              <Lightbulb className="w-4 h-4 mr-2" />
-              AI Insights
+            <TabsTrigger value="obligations" data-testid="tab-obligations">
+              <CreditCard className="w-4 h-4 mr-2" />
+              Credit Obligations
             </TabsTrigger>
           </TabsList>
 
