@@ -1,7 +1,7 @@
 import { db } from "../db";
 import { userAlerts, alertHistory, users } from "@shared/schema";
 import { eq, and, lte, gte, isNull, or } from "drizzle-orm";
-import { sendEmail } from "../email-service";
+import { emailService } from "../email-service";
 
 interface MarketQuote {
   symbol: string;
@@ -274,7 +274,7 @@ export class AlertMonitoringService {
     // Send email notification
     if (channels.includes('email')) {
       try {
-        await sendEmail({
+        await emailService.sendEmail({
           to: user.email || '',
           subject: `🔔 Alert: ${alert.alertName}`,
           html: `
