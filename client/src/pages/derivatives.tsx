@@ -379,11 +379,11 @@ export default function DerivativesPage() {
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Action</Label>
-                    <div className="flex gap-2">
-                      <Button variant={orderType === "buy" ? "default" : "outline"} className="flex-1" onClick={() => setOrderType("buy")}>
+                    <div className="flex flex-wrap gap-2">
+                      <Button variant={orderType === "buy" ? "default" : "outline"} className="flex-1 min-w-[100px]" onClick={() => setOrderType("buy")}>
                         Buy
                       </Button>
-                      <Button variant={orderType === "sell" ? "default" : "outline"} className="flex-1" onClick={() => setOrderType("sell")}>
+                      <Button variant={orderType === "sell" ? "default" : "outline"} className="flex-1 min-w-[100px]" onClick={() => setOrderType("sell")}>
                         Sell
                       </Button>
                     </div>
@@ -493,11 +493,11 @@ export default function DerivativesPage() {
                       </div>
                     </div>
 
-                    <div className="flex gap-2 mt-4">
-                      <Button variant="outline" size="sm" data-testid={`button-exit-${position.id}`}>
+                    <div className="flex flex-wrap gap-2 mt-4">
+                      <Button variant="outline" size="sm" className="whitespace-nowrap" data-testid={`button-exit-${position.id}`}>
                         Exit Position
                       </Button>
-                      <Button variant="outline" size="sm" data-testid={`button-modify-${position.id}`}>
+                      <Button variant="outline" size="sm" className="whitespace-nowrap" data-testid={`button-modify-${position.id}`}>
                         Modify
                       </Button>
                     </div>
