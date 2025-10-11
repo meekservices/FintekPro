@@ -17879,7 +17879,7 @@ System Security Data:`;
   // Create or update CKYC record
   app.post("/api/ckyc", async (req, res) => {
     try {
-      const { useDigiLocker, ...bodyData } = req.body;
+      const { useDigiLocker, useBSE, panNumber, ...bodyData } = req.body;
       let dataToSubmit = { ...bodyData };
       
       // If DigiLocker auto-population is requested, fetch and merge data
@@ -17898,8 +17898,49 @@ System Security Data:`;
           
           console.log('✅ Auto-populated KYC data from DigiLocker for user:', req.user.id);
         } catch (digilockerError) {
-          console.error('⚠️ DigiLocker auto-population failed, using manual data:', digilockerError);
-          // Continue with manual data if DigiLocker fails
+          console.warn('⚠️ DigiLocker auto-population failed, trying BSE Star fallback:', digilockerError);
+          
+          // Fallback to BSE Star KYC
+          if (panNumber || bodyData.panNumber) {
+            try {
+              const { bseStarKYCService } = await import('./services/bse-star-kyc-service');
+              const bseData = await bseStarKYCService.autoPopulateKYC(panNumber || bodyData.panNumber);
+              
+              dataToSubmit = {
+                ...bseData.personalInfo,
+                ...bodyData,
+                verificationMethod: 'bse_star',
+                bseVerified: true,
+                kycStatus: bseData.kycStatus,
+                verificationDate: bseData.verificationDate
+              };
+              
+              console.log('✅ Auto-populated KYC data from BSE Star for user:', req.user.id);
+            } catch (bseError) {
+              console.error('❌ BSE Star auto-population also failed:', bseError);
+              // Continue with manual data if both fail
+            }
+          }
+        }
+      } else if (useBSE && (panNumber || bodyData.panNumber)) {
+        // Direct BSE Star KYC verification requested
+        try {
+          const { bseStarKYCService } = await import('./services/bse-star-kyc-service');
+          const bseData = await bseStarKYCService.autoPopulateKYC(panNumber || bodyData.panNumber);
+          
+          dataToSubmit = {
+            ...bseData.personalInfo,
+            ...bodyData,
+            verificationMethod: 'bse_star',
+            bseVerified: true,
+            kycStatus: bseData.kycStatus,
+            verificationDate: bseData.verificationDate
+          };
+          
+          console.log('✅ Auto-populated KYC data from BSE Star for user:', req.user.id);
+        } catch (bseError) {
+          console.error('❌ BSE Star auto-population failed:', bseError);
+          // Continue with manual data if BSE fails
         }
       }
       
@@ -24212,18 +24253,146 @@ System Security Data:`;
     }
   });
 
-  // Auto-populate KYC fields from DigiLocker documents
+  // Auto-populate KYC fields from DigiLocker documents with BSE Star fallback
   app.post("/api/digilocker/auto-populate-kyc", async (req, res) => {
     try {
       if (!req.user?.id) {
         return res.status(401).json({ error: "Authentication required" });
       }
 
-      const kycData = await digilockerService.autoPopulateKYCFields(req.user.id);
-      res.json({ success: true, kycData });
+      let kycData;
+      let source = 'digilocker';
+
+      try {
+        // Try DigiLocker first
+        kycData = await digilockerService.autoPopulateKYCFields(req.user.id);
+      } catch (digilockerError) {
+        console.warn("DigiLocker KYC failed, trying BSE Star fallback:", digilockerError);
+        
+        // Fallback to BSE Star KYC if DigiLocker fails
+        const { bseStarKYCService } = await import('./services/bse-star-kyc-service');
+        
+        // Get user's PAN from profile
+        const user = await storage.getUserProfile(req.user.id);
+        if (!user?.panNumber) {
+          throw new Error("PAN number required for KYC verification");
+        }
+
+        kycData = await bseStarKYCService.autoPopulateKYC(user.panNumber);
+        source = 'bse_star';
+      }
+
+      res.json({ 
+        success: true, 
+        kycData,
+        source,
+        fallbackUsed: source === 'bse_star'
+      });
     } catch (error) {
       console.error("Error auto-populating KYC fields:", error);
-      res.status(500).json({ error: "Failed to auto-populate KYC fields" });
+      res.status(500).json({ 
+        error: "Failed to auto-populate KYC fields",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // ===== BSE STAR KYC API ROUTES =====
+  
+  // Verify PAN using BSE Star API
+  app.post("/api/bse-kyc/verify-pan", async (req, res) => {
+    try {
+      const { panNumber } = req.body;
+      
+      if (!panNumber) {
+        return res.status(400).json({ error: "PAN number is required" });
+      }
+
+      const { bseStarKYCService } = await import('./services/bse-star-kyc-service');
+      const result = await bseStarKYCService.verifyPAN(panNumber);
+      
+      res.json(result);
+    } catch (error) {
+      console.error("BSE PAN verification error:", error);
+      res.status(500).json({ 
+        error: "PAN verification failed",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Check KYC status using BSE Star API
+  app.post("/api/bse-kyc/check-status", async (req, res) => {
+    try {
+      const { panNumber, name, dob, mobile, email } = req.body;
+      
+      if (!panNumber) {
+        return res.status(400).json({ error: "PAN number is required" });
+      }
+
+      const { bseStarKYCService } = await import('./services/bse-star-kyc-service');
+      const result = await bseStarKYCService.checkKYCStatus({
+        panNumber,
+        name,
+        dob,
+        mobile,
+        email
+      });
+      
+      res.json(result);
+    } catch (error) {
+      console.error("BSE KYC status check error:", error);
+      res.status(500).json({ 
+        error: "KYC status check failed",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Auto-populate KYC using BSE Star API
+  app.post("/api/bse-kyc/auto-populate", async (req, res) => {
+    try {
+      const { panNumber } = req.body;
+      
+      if (!panNumber) {
+        return res.status(400).json({ error: "PAN number is required" });
+      }
+
+      const { bseStarKYCService } = await import('./services/bse-star-kyc-service');
+      const kycData = await bseStarKYCService.autoPopulateKYC(panNumber);
+      
+      res.json({ 
+        success: true, 
+        kycData,
+        source: 'bse_star'
+      });
+    } catch (error) {
+      console.error("BSE KYC auto-populate error:", error);
+      res.status(500).json({ 
+        error: "KYC auto-populate failed",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // BSE API health check
+  app.get("/api/bse-kyc/health", async (req, res) => {
+    try {
+      const { bseStarKYCService } = await import('./services/bse-star-kyc-service');
+      const isHealthy = await bseStarKYCService.healthCheck();
+      
+      res.json({ 
+        status: isHealthy ? 'healthy' : 'unhealthy',
+        service: 'BSE Star KYC API',
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("BSE health check error:", error);
+      res.status(503).json({ 
+        status: 'unhealthy',
+        service: 'BSE Star KYC API',
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 
