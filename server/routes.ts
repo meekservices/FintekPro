@@ -55,8 +55,8 @@ import { taxOrchestrator } from './services/tax-orchestrator';
 import { PANConsentService } from './services/pan-consent-service';
 import { DemographicProtectionService } from './services/demographic-protection-service';
 import { providerRegistry, type UnifiedApplicationData } from './partner-application-adapters';
-import { insertPartnerApplicationSchema } from '@shared/schema';
-import phonePeService from './phonepe';
+import { insertPartnerApplicationSchema, insertCashfreeTransactionSchema } from '@shared/schema';
+import { cashfreeService } from './cashfree-service';
 import { mutualFundsRefreshJob } from './mutual-funds-refresh-job';
 import { initReKYCCron } from './rekyc-cron';
 import { seedProducts } from './seed-products';
@@ -22906,176 +22906,6 @@ System Security Data:`;
     }
   });
 
-  // PhonePe Payment Gateway Routes
-  app.post('/api/payments/phonepe/initiate', async (req, res) => {
-    try {
-      const { amount, userId, phone, name, email, callbackUrl } = req.body;
-
-      if (!amount || !userId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Amount and userId are required'
-        });
-      }
-
-      if (amount <= 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'Amount must be greater than 0'
-        });
-      }
-
-      const { phonePeService } = await import('./phonepe-service');
-      
-      const paymentResponse = await phonePeService.initiatePayment({
-        amount: parseFloat(amount),
-        userId: userId.toString(),
-        phone,
-        name,
-        email,
-        callbackUrl
-      });
-
-      if (paymentResponse.success) {
-        res.json({
-          success: true,
-          message: 'Payment initiated successfully',
-          data: {
-            paymentUrl: paymentResponse.data?.instrumentResponse.redirectInfo.url,
-            merchantTransactionId: paymentResponse.data?.merchantTransactionId,
-            transactionId: paymentResponse.data?.transactionId
-          }
-        });
-      } else {
-        res.status(400).json({
-          success: false,
-          message: paymentResponse.message
-        });
-      }
-
-    } catch (error: any) {
-      console.error('PhonePe initiate payment error:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Failed to initiate payment'
-      });
-    }
-  });
-
-  app.get('/api/payments/phonepe/status/:merchantTransactionId', async (req, res) => {
-    try {
-      const { merchantTransactionId } = req.params;
-
-      if (!merchantTransactionId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Merchant transaction ID is required'
-        });
-      }
-
-      const { phonePeService } = await import('./phonepe-service');
-      
-      const statusResponse = await phonePeService.checkPaymentStatus(merchantTransactionId);
-
-      res.json({
-        success: statusResponse.success,
-        message: statusResponse.message,
-        data: statusResponse.data,
-        paymentStatus: statusResponse.data?.responseCode === 'SUCCESS' ? 'SUCCESS' : 
-                      statusResponse.data?.responseCode === 'PENDING' ? 'PENDING' : 'FAILED'
-      });
-
-    } catch (error: any) {
-      console.error('PhonePe status check error:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Failed to check payment status'
-      });
-    }
-  });
-
-  app.post('/api/payments/phonepe/callback/:merchantTransactionId', async (req, res) => {
-    try {
-      const { merchantTransactionId } = req.params;
-      const callbackData = req.body;
-
-      console.log('PhonePe callback received:', { 
-        merchantTransactionId, 
-        headers: req.headers,
-        body: callbackData 
-      });
-
-      const { phonePeService } = await import('./phonepe-service');
-
-      // Verify the callback signature
-      const receivedChecksum = req.headers['x-verify'] as string;
-      
-      if (receivedChecksum && callbackData.response) {
-        const isValidCallback = phonePeService.verifyCallback(receivedChecksum, callbackData.response);
-        
-        if (!isValidCallback) {
-          console.error('Invalid callback signature');
-          return res.status(400).json({
-            success: false,
-            message: 'Invalid callback signature'
-          });
-        }
-
-        // Process the callback data
-        const paymentData = phonePeService.processCallback(callbackData);
-        
-        // Handle payment success/failure logic here
-        if (paymentData.code === 'PAYMENT_SUCCESS') {
-          // Update your database, send notifications, etc.
-          console.log('Payment successful:', paymentData);
-          
-          // Redirect user to success page
-          res.redirect(`/payment-success?txnId=${merchantTransactionId}&amount=${paymentData.data.amount / 100}`);
-        } else {
-          console.log('Payment failed:', paymentData);
-          
-          // Redirect user to failure page
-          res.redirect(`/payment-failed?txnId=${merchantTransactionId}&reason=${paymentData.message}`);
-        }
-      } else {
-        // Direct status check fallback
-        const statusResponse = await phonePeService.checkPaymentStatus(merchantTransactionId);
-        
-        if (statusResponse.success && statusResponse.data?.responseCode === 'SUCCESS') {
-          res.redirect(`/payment-success?txnId=${merchantTransactionId}&amount=${statusResponse.data.amount / 100}`);
-        } else {
-          res.redirect(`/payment-failed?txnId=${merchantTransactionId}&reason=Payment verification failed`);
-        }
-      }
-
-    } catch (error: any) {
-      console.error('PhonePe callback error:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Callback processing failed'
-      });
-    }
-  });
-
-  app.get('/api/payments/phonepe/config', async (req, res) => {
-    try {
-      const { phonePeService } = await import('./phonepe-service');
-      const testCredentials = phonePeService.getTestCredentials();
-      
-      res.json({
-        success: true,
-        config: testCredentials
-      });
-
-    } catch (error: any) {
-      console.error('PhonePe config error:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Failed to get config'
-      });
-    }
-  });
-
   // Loan Against Securities API endpoints
   
   // Check loan eligibility
@@ -25799,225 +25629,6 @@ System Security Data:`;
     }
   });
 
-  // PhonePe Payment Initiation Endpoint for Tax Reminder Subscription
-  app.post('/api/tax/phonepe/initiate-payment', async (req, res) => {
-    try {
-      if (!req.user) {
-        return res.status(401).json({ error: "Authentication required" });
-      }
-
-      const { userId, itrFormType, amount, serviceType } = req.body;
-
-      if (!userId || !itrFormType || amount === undefined || !serviceType) {
-        return res.status(400).json({ 
-          error: "Missing required fields: userId, itrFormType, amount, serviceType" 
-        });
-      }
-
-      if (userId !== req.user.id) {
-        return res.status(403).json({ error: "Unauthorized" });
-      }
-
-      if (serviceType !== 'tax_reminder') {
-        return res.status(400).json({ error: "Invalid service type" });
-      }
-
-      const validFormTypes = ['ITR-1', 'ITR-2', 'ITR-3', 'ITR-4', 'ITR-5', 'ITR-6', 'ITR-7'];
-      if (!validFormTypes.includes(itrFormType)) {
-        return res.status(400).json({ error: "Invalid ITR form type" });
-      }
-
-      const existingSubscription = await storage.getUserTaxReminderSubscription(userId);
-      if (existingSubscription && existingSubscription.subscriptionStatus === 'active') {
-        return res.status(400).json({ 
-          error: "Active subscription already exists",
-          subscription: existingSubscription
-        });
-      }
-
-      const merchantTransactionId = `TXN_${Date.now()}_${userId.substring(0, 8)}`;
-      const amountInPaise = Math.round(amount * 100);
-
-      const baseUrl = process.env.NODE_ENV === 'production' 
-        ? `https://${req.get('host')}` 
-        : 'http://localhost:5000';
-
-      const paymentData = {
-        merchantId: process.env.PHONEPE_MERCHANT_ID,
-        merchantTransactionId: merchantTransactionId,
-        merchantUserId: userId,
-        amount: amountInPaise,
-        redirectUrl: `${baseUrl}/api/tax/phonepe/callback`,
-        redirectMode: 'POST',
-        callbackUrl: `${baseUrl}/api/tax/phonepe/callback`,
-        paymentInstrument: {
-          type: 'PAY_PAGE'
-        }
-      };
-
-      const payloadBase64 = Buffer.from(JSON.stringify(paymentData)).toString('base64');
-      
-      const stringToHash = payloadBase64 + '/pg/v1/pay' + process.env.PHONEPE_SALT_KEY;
-      const sha256Hash = crypto.createHash('sha256').update(stringToHash).digest('hex');
-      const checksum = `${sha256Hash}###${process.env.PHONEPE_SALT_INDEX || '1'}`;
-
-      const phonepeApiUrl = process.env.NODE_ENV === 'production'
-        ? 'https://api.phonepe.com/apis/hermes/pg/v1'
-        : 'https://api-preprod.phonepe.com/apis/pg-sandbox/pg/v1';
-
-      const response = await fetch(`${phonepeApiUrl}/pay`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-VERIFY': checksum
-        },
-        body: JSON.stringify({
-          request: payloadBase64
-        })
-      });
-
-      const result = await response.json();
-
-      if (result.success && result.data?.instrumentResponse?.redirectInfo?.url) {
-        console.log(`✅ PhonePe payment initiated: ${merchantTransactionId} for user ${userId}`);
-        
-        res.json({
-          success: true,
-          transactionId: merchantTransactionId,
-          paymentUrl: result.data.instrumentResponse.redirectInfo.url,
-          metadata: {
-            userId,
-            itrFormType,
-            amount,
-            serviceType
-          }
-        });
-      } else {
-        console.error('PhonePe payment initiation failed:', result);
-        res.status(400).json({
-          error: "Payment initiation failed",
-          message: result.message || 'Unable to initiate payment',
-          code: result.code
-        });
-      }
-    } catch (error) {
-      console.error("Error initiating PhonePe payment:", error);
-      res.status(500).json({ 
-        error: "Failed to initiate payment",
-        details: error instanceof Error ? error.message : "Unknown error"
-      });
-    }
-  });
-
-  // PhonePe Callback Handler for Tax Reminder Subscription
-  app.post('/api/tax/phonepe/callback', async (req, res) => {
-    try {
-      const callbackData = req.body;
-      
-      if (!callbackData) {
-        return res.status(400).send('Invalid callback data');
-      }
-
-      const base64Response = callbackData.response || callbackData;
-      const receivedChecksum = req.headers['x-verify'] as string;
-
-      if (!base64Response || !receivedChecksum) {
-        console.error('Missing response or checksum in PhonePe callback');
-        return res.redirect('/tax-reminder-subscription?success=false&error=invalid_callback');
-      }
-
-      const [checksumHash, saltIndex] = receivedChecksum.split('###');
-      const expectedChecksum = crypto
-        .createHash('sha256')
-        .update(base64Response + process.env.PHONEPE_SALT_KEY)
-        .digest('hex');
-
-      if (checksumHash !== expectedChecksum || saltIndex !== (process.env.PHONEPE_SALT_INDEX || '1')) {
-        console.error('PhonePe callback checksum verification failed');
-        return res.redirect('/tax-reminder-subscription?success=false&error=invalid_signature');
-      }
-
-      const responseData = JSON.parse(Buffer.from(base64Response, 'base64').toString('utf-8'));
-
-      console.log('📩 PhonePe callback received:', responseData);
-
-      if (responseData.success && responseData.data?.state === 'COMPLETED') {
-        const merchantTransactionId = responseData.data.merchantTransactionId;
-        const amount = responseData.data.amount / 100;
-
-        const txnParts = merchantTransactionId.split('_');
-        const userId = txnParts[2];
-
-        const validFrom = new Date();
-        const validUntil = new Date();
-        validUntil.setFullYear(validUntil.getFullYear() + 1);
-
-        const pricingMap: Record<number, { tier: string, formType: string }> = {
-          299: { tier: 'itr1', formType: 'ITR-1' },
-          599: { tier: 'itr2', formType: 'ITR-2' },
-          1299: { tier: 'itr3', formType: 'ITR-3' },
-          1999: { tier: 'itr4plus', formType: 'ITR-4+' }
-        };
-
-        const planInfo = pricingMap[amount] || { tier: 'itr1', formType: 'ITR-1' };
-
-        const subscription = await storage.createTaxReminderSubscription({
-          userId,
-          itrFormType: planInfo.formType,
-          subscriptionStatus: 'active',
-          pricingTier: planInfo.tier,
-          annualPrice: amount.toString(),
-          isFree: false,
-          phonepeTransactionId: merchantTransactionId,
-          validFrom: validFrom.toISOString().split('T')[0],
-          validUntil: validUntil.toISOString().split('T')[0],
-          reminderChannels: ['email', 'sms', 'whatsapp'],
-        });
-
-        console.log(`✅ Tax reminder subscription created: ${subscription.id}`);
-
-        const currentYear = new Date().getFullYear();
-        const currentMonth = new Date().getMonth();
-        const financialYear = currentMonth >= 3 
-          ? `${currentYear}-${(currentYear + 1).toString().slice(-2)}`
-          : `${currentYear - 1}-${currentYear.toString().slice(-2)}`;
-
-        const reminders = await storage.createCapitalGainsTaxReminders(
-          userId,
-          financialYear,
-          subscription.id
-        );
-
-        console.log(`✅ Generated ${reminders.length} quarterly reminders for FY ${financialYear}`);
-
-        complianceMonitor.logEvent({
-          userId,
-          eventType: 'payment_completed',
-          action: 'Tax reminder subscription payment completed via PhonePe',
-          ipAddress: req.ip || req.connection.remoteAddress,
-          userAgent: req.get('User-Agent'),
-          outcome: 'success',
-          riskLevel: 'low',
-          details: {
-            transactionId: merchantTransactionId,
-            amount: amount,
-            itrFormType: planInfo.formType,
-            subscriptionId: subscription.id,
-            paymentMethod: 'PhonePe'
-          }
-        });
-
-        return res.redirect('/tax-reminder-subscription?success=true');
-      } else {
-        console.error('PhonePe payment failed or incomplete:', responseData);
-        return res.redirect('/tax-reminder-subscription?success=false&error=payment_failed');
-      }
-    } catch (error) {
-      console.error('Error processing PhonePe callback:', error);
-      return res.redirect('/tax-reminder-subscription?success=false&error=processing_error');
-    }
-  });
-
   // Get BBPS categories
   app.get("/api/bbps/categories", async (req, res) => {
     try {
@@ -27600,99 +27211,61 @@ System Security Data:`;
     }
   });
 
-  // PhonePe Payment Gateway Routes
+  // ==================== CASHFREE PAYMENT GATEWAY ROUTES ====================
   
-  // Validation schema for payment initiation
-  const phonePeInitiateSchema = z.object({
-    amount: z.preprocess(
-      (val) => typeof val === 'string' ? parseFloat(val) : val,
-      z.number()
-        .positive('Amount must be greater than 0')
-        .max(10000000, 'Amount exceeds maximum limit')
-    ),
-    cartId: z.string().optional(),
-    itemType: z.string().optional(),
-    itemId: z.string().optional()
-  });
-  
-  // Initiate PhonePe payment
-  app.post('/api/phonepe/initiate', async (req, res) => {
+  // Create Cashfree order
+  app.post('/api/payments/cashfree/create-order', async (req, res) => {
     try {
       if (!req.user?.id) {
         return res.status(401).json({ message: 'Unauthorized' });
       }
 
-      // Check PhonePe config
-      if (!phonePeService.PHONEPE_CONFIG.merchantId || !phonePeService.PHONEPE_CONFIG.saltKey) {
-        return res.status(503).json({ message: 'Payment gateway not configured' });
+      const { amount, cartId, itemType, itemId, phone, email, name } = req.body;
+
+      if (!amount || amount <= 0) {
+        return res.status(400).json({ message: 'Invalid amount' });
       }
 
-      // Validate request body
-      const validation = phonePeInitiateSchema.safeParse(req.body);
-      if (!validation.success) {
-        return res.status(400).json({ 
-          message: 'Invalid request data',
-          errors: validation.error.errors 
-        });
-      }
-
-      const { amount, cartId, itemType, itemId } = validation.data;
-
-      // Get user details
       const user = await storage.getUser(req.user.id);
       if (!user) {
         return res.status(404).json({ message: 'User not found' });
       }
 
-      // Generate server-controlled redirect and callback URLs
-      const baseUrl = process.env.REPLIT_DOMAINS?.split(',')[0] || 'http://localhost:5000';
-      const redirectUrl = `${baseUrl}/payment/status`;
-      const callbackUrl = `${baseUrl}/api/phonepe/callback`;
-
-      // Initiate payment with PhonePe
-      const paymentResult = await phonePeService.initiatePayment({
+      const orderResponse = await cashfreeService.createOrder({
         amount,
         userId: user.id,
-        userName: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
-        userEmail: user.email || undefined,
-        userMobile: user.mobile || undefined,
-        cartId,
-        itemType,
-        itemId,
-        redirectUrl,
-        callbackUrl
+        phone: phone || user.mobile || '9999999999',
+        email: email || user.email || `${user.id}@example.com`,
+        name: name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Customer'
       });
 
-      if (!paymentResult.success) {
+      if (!orderResponse.success) {
         return res.status(400).json({ 
-          message: paymentResult.message || 'Payment initiation failed',
-          error: paymentResult.error
+          message: orderResponse.message || 'Order creation failed',
+          error: orderResponse.error
         });
       }
 
-      // Save transaction to database
-      const transaction = await storage.createPhonePeTransaction({
+      const transaction = await storage.createCashfreeTransaction({
         userId: user.id,
-        merchantTransactionId: paymentResult.transactionId,
-        merchantId: phonePeService.PHONEPE_CONFIG.merchantId,
+        orderId: orderResponse.orderId,
+        cashfreeOrderId: orderResponse.cashfreeOrderId,
+        paymentSessionId: orderResponse.paymentSessionId,
         amount: amount.toString(),
-        amountInPaise: Math.round(amount * 100),
-        status: 'PAYMENT_INITIATED',
-        paymentUrl: paymentResult.paymentUrl,
-        redirectUrl,
-        callbackUrl,
+        status: 'ACTIVE',
+        paymentUrl: orderResponse.paymentUrl,
         cartId,
         itemType,
         itemId,
-        customerName: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
-        customerEmail: user.email || undefined,
-        mobileNumber: user.mobile || undefined
+        customerName: name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Customer',
+        customerEmail: email || user.email,
+        customerPhone: phone || user.mobile
       });
 
       complianceMonitor.logEvent({
         eventType: 'payment',
-        action: 'initiate_phonepe_payment',
-        resource: paymentResult.transactionId,
+        action: 'create_cashfree_order',
+        resource: orderResponse.orderId,
         outcome: 'success',
         riskLevel: 'medium',
         userId: user.id
@@ -27700,85 +27273,75 @@ System Security Data:`;
 
       res.json({
         success: true,
-        transactionId: paymentResult.transactionId,
-        paymentUrl: paymentResult.paymentUrl,
-        message: paymentResult.message
+        orderId: orderResponse.orderId,
+        paymentSessionId: orderResponse.paymentSessionId,
+        paymentUrl: orderResponse.paymentUrl,
+        message: orderResponse.message
       });
 
     } catch (error) {
-      console.error('Error initiating PhonePe payment:', error);
+      console.error('Error creating Cashfree order:', error);
       complianceMonitor.logEvent({
         eventType: 'payment',
-        action: 'initiate_phonepe_payment',
+        action: 'create_cashfree_order',
         outcome: 'failure',
         riskLevel: 'high',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
-      res.status(500).json({ message: 'Failed to initiate payment' });
+      res.status(500).json({ message: 'Failed to create order' });
     }
   });
 
-  // Check PhonePe payment status
-  app.get('/api/phonepe/status/:merchantTransactionId', async (req, res) => {
+  // Get Cashfree order status
+  app.get('/api/payments/cashfree/status/:orderId', async (req, res) => {
     try {
       if (!req.user?.id) {
         return res.status(401).json({ message: 'Unauthorized' });
       }
 
-      // Check PhonePe config
-      if (!phonePeService.PHONEPE_CONFIG.merchantId || !phonePeService.PHONEPE_CONFIG.saltKey) {
-        return res.status(503).json({ message: 'Payment gateway not configured' });
-      }
+      const { orderId } = req.params;
 
-      const { merchantTransactionId } = req.params;
-
-      // Get transaction from database
-      const transaction = await storage.getPhonePeTransactionByMerchantId(merchantTransactionId);
+      const transaction = await storage.getCashfreeTransaction(orderId);
       if (!transaction) {
         return res.status(404).json({ message: 'Transaction not found' });
       }
 
-      // Verify user owns this transaction
       if (transaction.userId !== req.user.id) {
         return res.status(403).json({ message: 'Forbidden' });
       }
 
-      // Check status with PhonePe
-      const statusResult = await phonePeService.checkPaymentStatus(merchantTransactionId);
+      const statusResult = await cashfreeService.getOrderStatus(orderId);
 
-      // Update transaction in database
-      if (statusResult.success && statusResult.data) {
-        await storage.updatePhonePeTransaction(transaction.id, {
-          status: statusResult.status,
-          phonepeTransactionId: statusResult.data.transactionId,
-          paymentInstrumentType: statusResult.data.paymentInstrument?.type,
-          responseCode: statusResult.data.responseCode,
-          gatewayResponse: statusResult.data as any,
-          completedAt: statusResult.status === 'COMPLETED' ? new Date() : undefined
+      if (statusResult) {
+        await storage.updateCashfreeTransaction(transaction.id, {
+          status: statusResult.orderStatus,
+          cashfreeOrderId: statusResult.transactionId || transaction.cashfreeOrderId,
+          paymentMethod: statusResult.paymentMethod,
+          completedAt: statusResult.orderStatus === 'PAID' ? new Date() : undefined
         });
       }
 
       complianceMonitor.logEvent({
         eventType: 'payment',
-        action: 'check_phonepe_status',
-        resource: merchantTransactionId,
+        action: 'check_cashfree_status',
+        resource: orderId,
         outcome: 'success',
         riskLevel: 'low',
-        userId: req.session.user.id
+        userId: req.user.id
       });
 
       res.json({
-        success: statusResult.success,
-        status: statusResult.status,
-        data: statusResult.data,
+        success: !!statusResult,
+        status: statusResult?.orderStatus,
+        data: statusResult,
         transaction
       });
 
     } catch (error) {
-      console.error('Error checking PhonePe payment status:', error);
+      console.error('Error checking Cashfree status:', error);
       complianceMonitor.logEvent({
         eventType: 'payment',
-        action: 'check_phonepe_status',
+        action: 'check_cashfree_status',
         outcome: 'failure',
         riskLevel: 'medium',
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -27787,85 +27350,133 @@ System Security Data:`;
     }
   });
 
-  // PhonePe callback endpoint
-  app.post('/api/phonepe/callback', async (req, res) => {
+  // Handle Cashfree webhook
+  app.post('/api/payments/cashfree/webhook', async (req, res) => {
     try {
-      const { response: base64Response } = req.body;
-      const checksumHeader = req.headers['x-verify'] as string;
+      const signature = req.headers['x-webhook-signature'] as string;
+      const timestamp = req.headers['x-webhook-timestamp'] as string;
+      const rawBody = JSON.stringify(req.body);
 
-      if (!base64Response || !checksumHeader) {
-        return res.status(400).json({ message: 'Invalid callback data' });
+      if (!signature || !timestamp) {
+        return res.status(400).json({ message: 'Missing webhook headers' });
       }
 
-      // Verify checksum
-      const isValid = phonePeService.verifyCallbackChecksum(base64Response, checksumHeader);
+      const isValid = cashfreeService.verifyWebhookSignature(signature, rawBody, timestamp);
       if (!isValid) {
-        console.error('PhonePe callback checksum verification failed');
-        return res.status(400).json({ message: 'Invalid checksum' });
+        console.error('Cashfree webhook signature verification failed');
+        return res.status(400).json({ message: 'Invalid signature' });
       }
 
-      // Decode response
-      const responseData = JSON.parse(Buffer.from(base64Response, 'base64').toString());
-      const merchantTransactionId = responseData.data?.merchantTransactionId;
+      const webhookData = req.body;
+      const orderId = webhookData.data?.order?.order_id;
 
-      if (!merchantTransactionId) {
-        return res.status(400).json({ message: 'Invalid transaction ID' });
+      if (!orderId) {
+        return res.status(400).json({ message: 'Invalid order ID' });
       }
 
-      // Get transaction from database
-      const transaction = await storage.getPhonePeTransactionByMerchantId(merchantTransactionId);
+      const transaction = await storage.getCashfreeTransaction(orderId);
       if (!transaction) {
         return res.status(404).json({ message: 'Transaction not found' });
       }
 
-      // Update transaction status
-      await storage.updatePhonePeTransaction(transaction.id, {
-        status: responseData.data?.state || 'FAILED',
-        phonepeTransactionId: responseData.data?.transactionId,
-        paymentInstrumentType: responseData.data?.paymentInstrument?.type,
-        responseCode: responseData.code,
-        responseMessage: responseData.message,
-        gatewayResponse: responseData as any,
-        callbackReceivedAt: new Date(),
-        completedAt: responseData.data?.state === 'COMPLETED' ? new Date() : undefined
+      await storage.updateCashfreeTransaction(transaction.id, {
+        status: webhookData.data?.order?.order_status || 'FAILED',
+        cashfreeOrderId: webhookData.data?.order?.cf_order_id,
+        paymentMethod: webhookData.data?.payment?.payment_method,
+        gatewayResponse: webhookData as any,
+        webhookReceivedAt: new Date(),
+        completedAt: webhookData.data?.order?.order_status === 'PAID' ? new Date() : undefined
       });
 
       complianceMonitor.logEvent({
         eventType: 'payment',
-        action: 'phonepe_callback_received',
-        resource: merchantTransactionId,
+        action: 'cashfree_webhook_received',
+        resource: orderId,
         outcome: 'success',
         riskLevel: 'medium',
         userId: transaction.userId
       });
 
-      res.json({ success: true, message: 'Callback processed' });
+      res.json({ success: true, message: 'Webhook processed' });
 
     } catch (error) {
-      console.error('Error processing PhonePe callback:', error);
+      console.error('Error processing Cashfree webhook:', error);
       complianceMonitor.logEvent({
         eventType: 'payment',
-        action: 'phonepe_callback_received',
+        action: 'cashfree_webhook_received',
         outcome: 'failure',
         riskLevel: 'high',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
-      res.status(500).json({ message: 'Failed to process callback' });
+      res.status(500).json({ message: 'Failed to process webhook' });
     }
   });
 
-  // Get user's PhonePe transactions
-  app.get('/api/phonepe/transactions', async (req, res) => {
+  // Handle Cashfree callback (return URL)
+  app.get('/api/cashfree/callback', async (req, res) => {
+    try {
+      const { order_id, order_status } = req.query;
+
+      if (!order_id) {
+        return res.redirect('/payment/status?success=false&error=invalid_order');
+      }
+
+      const transaction = await storage.getCashfreeTransaction(order_id as string);
+      if (!transaction) {
+        return res.redirect('/payment/status?success=false&error=transaction_not_found');
+      }
+
+      const statusResult = await cashfreeService.getOrderStatus(order_id as string);
+
+      if (statusResult) {
+        await storage.updateCashfreeTransaction(transaction.id, {
+          status: statusResult.orderStatus,
+          cashfreeOrderId: statusResult.transactionId || transaction.cashfreeOrderId,
+          paymentMethod: statusResult.paymentMethod,
+          completedAt: statusResult.orderStatus === 'PAID' ? new Date() : undefined
+        });
+
+        complianceMonitor.logEvent({
+          eventType: 'payment',
+          action: 'cashfree_callback_received',
+          resource: order_id as string,
+          outcome: 'success',
+          riskLevel: 'low',
+          userId: transaction.userId
+        });
+
+        if (statusResult.orderStatus === 'PAID') {
+          return res.redirect('/payment/status?success=true');
+        }
+      }
+
+      return res.redirect('/payment/status?success=false&error=payment_failed');
+
+    } catch (error) {
+      console.error('Error processing Cashfree callback:', error);
+      complianceMonitor.logEvent({
+        eventType: 'payment',
+        action: 'cashfree_callback_received',
+        outcome: 'failure',
+        riskLevel: 'medium',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      return res.redirect('/payment/status?success=false&error=processing_error');
+    }
+  });
+
+  // Get user's Cashfree transactions
+  app.get('/api/cashfree/transactions', async (req, res) => {
     try {
       if (!req.user?.id) {
         return res.status(401).json({ message: 'Unauthorized' });
       }
 
-      const transactions = await storage.getPhonePeTransactionsByUserId(req.user.id);
+      const transactions = await storage.getCashfreeTransactionsByUserId(req.user.id);
 
       complianceMonitor.logEvent({
         eventType: 'data_access',
-        action: 'list_phonepe_transactions',
+        action: 'list_cashfree_transactions',
         outcome: 'success',
         riskLevel: 'low',
         userId: req.user.id
@@ -27874,10 +27485,10 @@ System Security Data:`;
       res.json(transactions);
 
     } catch (error) {
-      console.error('Error fetching PhonePe transactions:', error);
+      console.error('Error fetching Cashfree transactions:', error);
       complianceMonitor.logEvent({
         eventType: 'data_access',
-        action: 'list_phonepe_transactions',
+        action: 'list_cashfree_transactions',
         outcome: 'failure',
         riskLevel: 'low',
         error: error instanceof Error ? error.message : 'Unknown error'
