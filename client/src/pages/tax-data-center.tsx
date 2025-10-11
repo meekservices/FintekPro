@@ -4,7 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -283,11 +284,11 @@ export default function TaxDataCenter() {
 
           {/* Data Sources */}
           <Tabs defaultValue="sources" className="space-y-4">
-            <TabsList>
+            <ScrollableTabsList>
               <TabsTrigger value="sources">Data Sources</TabsTrigger>
               <TabsTrigger value="reports">Generated Reports</TabsTrigger>
               <TabsTrigger value="export">Export Options</TabsTrigger>
-            </TabsList>
+            </ScrollableTabsList>
 
             <TabsContent value="sources" className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

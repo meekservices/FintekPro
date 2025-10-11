@@ -4,7 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -206,12 +207,12 @@ export default function SandboxITRFiling() {
           {/* Filing Process Tabs */}
           {itrData && (
             <Tabs defaultValue="review" className="space-y-4">
-              <TabsList className="grid w-full grid-cols-4">
+              <ScrollableTabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="review">Review Data</TabsTrigger>
                 <TabsTrigger value="validation">Validation</TabsTrigger>
                 <TabsTrigger value="generate">Generate ITR</TabsTrigger>
                 <TabsTrigger value="file">File Return</TabsTrigger>
-              </TabsList>
+              </ScrollableTabsList>
 
               <TabsContent value="review" className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

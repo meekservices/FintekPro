@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Shield, Heart, Car, Plane, Home, Calculator, Users, Clock, CheckCircle, Star } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -686,11 +687,11 @@ export default function PolicyBazaar() {
         </div>
 
         <Tabs defaultValue="calculator" className="space-y-8">
-          <TabsList className="grid w-full grid-cols-3">
+          <ScrollableTabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="calculator" data-testid="tab-calculator">Premium Calculator</TabsTrigger>
             <TabsTrigger value="compare" data-testid="tab-compare">Compare Quotes</TabsTrigger>
             <TabsTrigger value="policies" data-testid="tab-policies">My Policies</TabsTrigger>
-          </TabsList>
+          </ScrollableTabsList>
 
           <TabsContent value="calculator" className="space-y-6" data-testid="calculator-tab">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

@@ -4,7 +4,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -290,7 +291,7 @@ export default function FinancialCalculators() {
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <div className="overflow-x-auto pb-2">
-            <TabsList className="inline-flex w-auto min-w-full">
+            <ScrollableTabsList className="inline-flex w-auto min-w-full">
               <TabsTrigger value="tax" data-testid="tab-tax-calculator" className="flex-shrink-0">
                 <Receipt className="w-4 h-4 mr-2" />
                 Tax Calculator
@@ -303,7 +304,7 @@ export default function FinancialCalculators() {
                 <Home className="w-4 h-4 mr-2" />
                 EMI Calculator
               </TabsTrigger>
-            </TabsList>
+            </ScrollableTabsList>
           </div>
 
           {/* Tax Calculator Tab */}

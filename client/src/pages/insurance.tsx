@@ -1,7 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Shield, Heart, Car, Home, Users, TrendingUp, Calculator } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
@@ -86,13 +87,13 @@ export default function Insurance() {
         </div>
 
         <Tabs value={selectedType} onValueChange={setSelectedType} className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <ScrollableTabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="all" data-testid="tab-all">All Plans</TabsTrigger>
             <TabsTrigger value="life" data-testid="tab-life">Life</TabsTrigger>
             <TabsTrigger value="health" data-testid="tab-health">Health</TabsTrigger>
             <TabsTrigger value="motor" data-testid="tab-motor">Motor</TabsTrigger>
             <TabsTrigger value="home" data-testid="tab-home">Home</TabsTrigger>
-          </TabsList>
+          </ScrollableTabsList>
 
           <TabsContent value={selectedType} className="space-y-4">
             {isLoading ? (

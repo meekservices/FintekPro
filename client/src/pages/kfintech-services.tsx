@@ -3,7 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -357,7 +358,7 @@ export default function KfintechServices() {
       {/* Main Content */}
       {selectedPan && investorValidation && (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1">
+          <ScrollableTabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1">
             <TabsTrigger value="portfolio" data-testid="tab-portfolio">Portfolio</TabsTrigger>
             <TabsTrigger value="transactions" data-testid="tab-transactions">Transactions</TabsTrigger>
             <TabsTrigger value="sip" data-testid="tab-sip">SIP</TabsTrigger>
@@ -365,7 +366,7 @@ export default function KfintechServices() {
             <TabsTrigger value="switch" data-testid="tab-switch">Switch</TabsTrigger>
             <TabsTrigger value="schemes" data-testid="tab-schemes">Schemes</TabsTrigger>
             <TabsTrigger value="statements" data-testid="tab-statements">Statements</TabsTrigger>
-          </TabsList>
+          </ScrollableTabsList>
 
           {/* Portfolio Tab */}
           <TabsContent value="portfolio" className="space-y-6">

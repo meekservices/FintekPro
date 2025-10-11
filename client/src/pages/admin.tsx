@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -825,7 +826,7 @@ export default function AdminPanel() {
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
           {/* Tabs Navigation */}
           <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-2 overflow-x-auto">
-            <TabsList className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 xl:grid-cols-15 gap-2 bg-transparent h-auto min-w-max">
+            <ScrollableTabsList className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 xl:grid-cols-15 gap-2 bg-transparent h-auto min-w-max">
               <TabsTrigger 
                 value="overview" 
                 className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg py-2.5"
@@ -954,7 +955,7 @@ export default function AdminPanel() {
                 <MessageSquare className="w-4 h-4 mr-2" />
                 WhatsApp
               </TabsTrigger>
-            </TabsList>
+            </ScrollableTabsList>
           </div>
 
           {/* Overview Tab */}

@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -574,7 +575,7 @@ export default function Cart() {
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
+          <ScrollableTabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="cart" className="flex items-center gap-2" data-testid="tab-cart">
               <ShoppingCart className="w-4 h-4" />
               Cart ({cart?.totalItems || 0})
@@ -583,7 +584,7 @@ export default function Cart() {
               <Lightbulb className="w-4 h-4" />
               Proposals ({proposals?.length || 0})
             </TabsTrigger>
-          </TabsList>
+          </ScrollableTabsList>
 
           {/* Cart Tab */}
           <TabsContent value="cart" className="space-y-6">
@@ -1025,7 +1026,7 @@ export default function Cart() {
             
             {/* Proposals Filtering Tabs */}
             <Tabs value={selectedProposalTab} onValueChange={setSelectedProposalTab} className="space-y-6">
-              <TabsList className="grid w-full grid-cols-4">
+              <ScrollableTabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="all" className="flex items-center gap-2" data-testid="tab-all">
                   <Filter className="w-4 h-4" />
                   All ({proposals?.length || 0})
@@ -1042,7 +1043,7 @@ export default function Cart() {
                   <User className="w-4 h-4" />
                   Client ({clientCount})
                 </TabsTrigger>
-              </TabsList>
+              </ScrollableTabsList>
               
               {proposalsLoading ? (
                 <Card>

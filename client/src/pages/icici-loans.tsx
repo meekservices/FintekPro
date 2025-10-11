@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -229,7 +230,7 @@ export default function ICICILoans() {
         {/* Main Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="overflow-x-auto pb-2">
-            <TabsList className="inline-flex w-auto min-w-full">
+            <ScrollableTabsList className="inline-flex w-auto min-w-full">
               <TabsTrigger value="eligibility" data-testid="tab-eligibility" className="flex-shrink-0">
                 <Calculator className="w-4 h-4 mr-2" />
                 Eligibility Check
@@ -246,7 +247,7 @@ export default function ICICILoans() {
                 <CreditCard className="w-4 h-4 mr-2" />
                 Loan Products
               </TabsTrigger>
-            </TabsList>
+            </ScrollableTabsList>
           </div>
 
           {/* Eligibility Check Tab */}

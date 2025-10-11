@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
@@ -637,11 +638,11 @@ export default function LoanComparison() {
       )}
 
       <Tabs defaultValue="offers" className="space-y-4">
-        <TabsList>
+        <ScrollableTabsList>
           <TabsTrigger value="offers">Available Offers</TabsTrigger>
           <TabsTrigger value="comparison">Side-by-Side Comparison</TabsTrigger>
           <TabsTrigger value="analytics">Visual Analytics</TabsTrigger>
-        </TabsList>
+        </ScrollableTabsList>
 
         {/* Available Offers Tab */}
         <TabsContent value="offers" className="space-y-4">

@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
@@ -611,11 +612,11 @@ export default function LoanApplication() {
 
                 {/* Application Form */}
                 <Tabs defaultValue="personal" className="w-full">
-                  <TabsList className="grid w-full grid-cols-3">
+                  <ScrollableTabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="personal">Personal Details</TabsTrigger>
                     <TabsTrigger value="financial">Financial Details</TabsTrigger>
                     <TabsTrigger value="consent">Consent & Submit</TabsTrigger>
-                  </TabsList>
+                  </ScrollableTabsList>
                   
                   <TabsContent value="personal" className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

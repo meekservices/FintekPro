@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -410,12 +411,12 @@ export default function ITRTaxServices() {
 
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid grid-cols-4 w-full max-w-2xl mx-auto">
+        <ScrollableTabsList className="grid grid-cols-4 w-full max-w-2xl mx-auto">
           <TabsTrigger value="itr-forms" data-testid="tab-itr-forms">ITR Forms</TabsTrigger>
           <TabsTrigger value="services" data-testid="tab-services">Tax Services</TabsTrigger>
           <TabsTrigger value="planning" data-testid="tab-planning">Tax Planning</TabsTrigger>
           <TabsTrigger value="compliance" data-testid="tab-compliance">Compliance</TabsTrigger>
-        </TabsList>
+        </ScrollableTabsList>
 
         {/* ITR Forms Tab */}
         <TabsContent value="itr-forms" className="space-y-6">

@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
@@ -357,11 +358,11 @@ export default function CapitalGainsReports() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid grid-cols-3 w-full max-w-md">
+        <ScrollableTabsList className="grid grid-cols-3 w-full max-w-md">
           <TabsTrigger value="generate">Generate Report</TabsTrigger>
           <TabsTrigger value="view-report">Current Report</TabsTrigger>
           <TabsTrigger value="saved-reports">Saved Reports</TabsTrigger>
-        </TabsList>
+        </ScrollableTabsList>
 
         <TabsContent value="generate" className="space-y-6">
           <Card>

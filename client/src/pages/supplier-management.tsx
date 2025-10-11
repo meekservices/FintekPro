@@ -4,7 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TrendingUp, TrendingDown, IndianRupee, Package, Users, AlertTriangle, Shield } from "lucide-react";
 import { ProfitDashboard } from "@/components/supplier/profit-dashboard";
@@ -155,12 +156,12 @@ export function SupplierManagement() {
 
       {selectedProductId && (
         <Tabs defaultValue="analysis" className="space-y-4">
-          <TabsList>
+          <ScrollableTabsList>
             <TabsTrigger value="analysis" data-testid="tab-analysis">Profit Analysis</TabsTrigger>
             <TabsTrigger value="comparison" data-testid="tab-comparison">Supplier Comparison</TabsTrigger>
             <TabsTrigger value="dashboard" data-testid="tab-dashboard">Profit Dashboard</TabsTrigger>
             <TabsTrigger value="suppliers" data-testid="tab-suppliers">All Suppliers</TabsTrigger>
-          </TabsList>
+          </ScrollableTabsList>
 
           <TabsContent value="analysis" className="space-y-4">
             {isAnalysisLoading ? (

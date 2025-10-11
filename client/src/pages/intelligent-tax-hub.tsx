@@ -4,7 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -467,10 +468,10 @@ export default function IntelligentTaxHub() {
             </CardHeader>
             <CardContent>
               <Tabs defaultValue="income" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
+                <ScrollableTabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="income" data-testid="tab-income-sources">Income Sources</TabsTrigger>
                   <TabsTrigger value="timeline" data-testid="tab-timeline">Tax Timeline</TabsTrigger>
-                </TabsList>
+                </ScrollableTabsList>
 
                 <TabsContent value="income" className="space-y-3 mt-4" data-testid="content-income-sources">
                   {incomeSources.length > 0 ? (
@@ -1420,7 +1421,7 @@ export default function IntelligentTaxHub() {
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="overflow-x-auto pb-2">
-          <TabsList className="inline-flex w-auto min-w-full" data-testid="tabs-main">
+          <ScrollableTabsList className="inline-flex w-auto min-w-full" data-testid="tabs-main">
             <TabsTrigger value="dashboard" className="flex items-center gap-2 flex-shrink-0" data-testid="tab-dashboard">
               <Activity className="h-4 w-4" />
               <span className="hidden sm:inline">Dashboard</span>
@@ -1445,7 +1446,7 @@ export default function IntelligentTaxHub() {
               <Bell className="h-4 w-4" />
               <span className="hidden sm:inline">Services</span>
             </TabsTrigger>
-          </TabsList>
+          </ScrollableTabsList>
         </div>
 
         <TabsContent value="dashboard" className="mt-6">

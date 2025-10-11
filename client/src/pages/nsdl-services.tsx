@@ -4,7 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -287,13 +288,13 @@ export default function NSDLServices() {
 
         {/* Main Services Tabs */}
         <Tabs defaultValue="holdings" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <ScrollableTabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="holdings" data-testid="tab-holdings">Holdings</TabsTrigger>
             <TabsTrigger value="account" data-testid="tab-account">Account</TabsTrigger>
             <TabsTrigger value="edis" data-testid="tab-edis">eDIS</TabsTrigger>
             <TabsTrigger value="pledge" data-testid="tab-pledge">Margin Pledge</TabsTrigger>
             <TabsTrigger value="loans" data-testid="tab-loans">Loans</TabsTrigger>
-          </TabsList>
+          </ScrollableTabsList>
 
           {/* Holdings Tab */}
           <TabsContent value="holdings" className="space-y-6">

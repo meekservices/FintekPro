@@ -5,7 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
@@ -331,13 +332,13 @@ export default function InvestmentDashboard() {
 
         {/* Main Content Tabs */}
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5" data-testid="tabs-investment-dashboard">
+          <ScrollableTabsList className="grid w-full grid-cols-5" data-testid="tabs-investment-dashboard">
             <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
             <TabsTrigger value="ideas" data-testid="tab-ideas">Investment Ideas</TabsTrigger>
             <TabsTrigger value="yield" data-testid="tab-yield">Yield Tracking</TabsTrigger>
             <TabsTrigger value="analytics" data-testid="tab-analytics">Analytics</TabsTrigger>
             <TabsTrigger value="alerts" data-testid="tab-alerts">Alerts</TabsTrigger>
-          </TabsList>
+          </ScrollableTabsList>
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">

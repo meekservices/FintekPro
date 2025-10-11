@@ -7,7 +7,8 @@ import { CommodityTracker } from "@/components/portfolio/commodity-tracker";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { usePortfoliosByPan, useEnhancedPortfolioHoldings, usePortfolioPerformance, useEpfHoldings, usePpfHoldings, useEpsHoldings, useInsuranceHoldings } from "@/hooks/use-portfolio";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, TrendingUp, TrendingDown, RefreshCw, Bot, Coins, CreditCard, PiggyBank, Shield, Target, Calculator, AlertTriangle } from "lucide-react";
@@ -131,7 +132,7 @@ export default function Portfolio() {
 
         {/* Enhanced Portfolio with Tabs */}
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1">
+          <ScrollableTabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1">
             <TabsTrigger value="overview">Portfolio Overview</TabsTrigger>
             <TabsTrigger value="insurance" className="flex items-center space-x-1">
               <Shield className="h-4 w-4" />
@@ -158,7 +159,7 @@ export default function Portfolio() {
               <span>AI Insights</span>
             </TabsTrigger>
             <TabsTrigger value="rebalance">AI Rebalancing</TabsTrigger>
-          </TabsList>
+          </ScrollableTabsList>
 
           <TabsContent value="overview" className="space-y-8">
             {/* Asset Class Summary */}

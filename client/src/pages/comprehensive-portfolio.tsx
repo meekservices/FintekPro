@@ -1,7 +1,8 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -354,14 +355,14 @@ export default function ComprehensivePortfolioPage() {
 
           {/* Holdings by Data Source */}
           <Tabs defaultValue="all" className="space-y-4">
-            <TabsList>
+            <ScrollableTabsList>
               <TabsTrigger value="all" data-testid="tab-all-holdings">All Holdings</TabsTrigger>
               {Object.keys(groupedHoldings).map(source => (
                 <TabsTrigger key={source} value={source} data-testid={`tab-${source}`}>
                   {source.toUpperCase()} ({groupedHoldings[source].length})
                 </TabsTrigger>
               ))}
-            </TabsList>
+            </ScrollableTabsList>
 
             <TabsContent value="all">
               <Card>

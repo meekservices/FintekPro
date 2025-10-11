@@ -11,7 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -447,7 +448,7 @@ export default function FamilyDashboard() {
 
         {/* Tabs */}
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
-          <TabsList className="grid grid-cols-6 w-full" data-testid="tabs-family-dashboard">
+          <ScrollableTabsList className="grid grid-cols-6 w-full" data-testid="tabs-family-dashboard">
             <TabsTrigger value="overview" data-testid="tab-overview">
               <PieChart className="h-4 w-4 mr-2" />
               Overview
@@ -472,7 +473,7 @@ export default function FamilyDashboard() {
               <MessageSquare className="h-4 w-4 mr-2" />
               Discussions
             </TabsTrigger>
-          </TabsList>
+          </ScrollableTabsList>
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">

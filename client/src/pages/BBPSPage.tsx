@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
@@ -276,11 +277,11 @@ export default function BBPSPage() {
       </div>
 
       <Tabs defaultValue="pay-bills" className="w-full" data-testid="bbps-tabs">
-        <TabsList className="grid w-full grid-cols-3" data-testid="tabs-list">
+        <ScrollableTabsList className="grid w-full grid-cols-3" data-testid="tabs-list">
           <TabsTrigger value="pay-bills" data-testid="tab-pay-bills">Pay Bills</TabsTrigger>
           <TabsTrigger value="history" data-testid="tab-history">History</TabsTrigger>
           <TabsTrigger value="transactions" data-testid="tab-transactions">Transactions</TabsTrigger>
-        </TabsList>
+        </ScrollableTabsList>
 
         <TabsContent value="pay-bills" className="space-y-6" data-testid="tab-content-pay-bills">
           <div className="grid gap-6 md:grid-cols-2">

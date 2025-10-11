@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
@@ -288,12 +289,12 @@ export default function ITRPrefilledPage() {
       </Card>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid grid-cols-4 w-full max-w-2xl">
+        <ScrollableTabsList className="grid grid-cols-4 w-full max-w-2xl">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="data-sources">Data Sources</TabsTrigger>
           <TabsTrigger value="itr-form">ITR Form</TabsTrigger>
           <TabsTrigger value="validation">Validation</TabsTrigger>
-        </TabsList>
+        </ScrollableTabsList>
 
         <TabsContent value="overview" className="space-y-6">
           {/* ITR Status Overview */}

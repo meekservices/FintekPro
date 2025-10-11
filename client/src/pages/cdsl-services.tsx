@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -333,14 +334,14 @@ export default function CDSLServices() {
 
       {/* Main Services Tabs */}
       <Tabs defaultValue="account" className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
+        <ScrollableTabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="account" data-testid="tab-account">Account</TabsTrigger>
           <TabsTrigger value="holdings" data-testid="tab-holdings">Holdings</TabsTrigger>
           <TabsTrigger value="edis" data-testid="tab-edis">eDIS</TabsTrigger>
           <TabsTrigger value="pledge" data-testid="tab-pledge">Pledge</TabsTrigger>
           <TabsTrigger value="elas" data-testid="tab-elas">eLAS</TabsTrigger>
           <TabsTrigger value="evoting" data-testid="tab-evoting">e-Voting</TabsTrigger>
-        </TabsList>
+        </ScrollableTabsList>
 
         {/* Account Setup Tab */}
         <TabsContent value="account" className="space-y-6">

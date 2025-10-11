@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Calculator, IndianRupee, TrendingUp, Shield, Bike, PiggyBank, Target, CheckCircle } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -225,13 +226,13 @@ export default function BajajFinance() {
         {/* Financial Calculators */}
         <Tabs defaultValue="emi" className="space-y-6">
           <div className="overflow-x-auto pb-2">
-            <TabsList className="inline-flex w-auto min-w-full">
+            <ScrollableTabsList className="inline-flex w-auto min-w-full">
               <TabsTrigger value="emi" className="flex-shrink-0">EMI Calculator</TabsTrigger>
               <TabsTrigger value="personal-loan" className="flex-shrink-0">Personal Loan</TabsTrigger>
               <TabsTrigger value="business-loan" className="flex-shrink-0">Business Loan</TabsTrigger>
               <TabsTrigger value="fixed-deposit" className="flex-shrink-0">Fixed Deposit</TabsTrigger>
               <TabsTrigger value="eligibility" className="flex-shrink-0">Eligibility</TabsTrigger>
-            </TabsList>
+            </ScrollableTabsList>
           </div>
 
           {/* EMI Calculator */}

@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { useAuth } from "@/hooks/useAuth";
 import { 
   Building2, Crown, Globe, TrendingUp, Shield, Award, ArrowRight, Sparkles,
@@ -301,11 +302,11 @@ export default function GiftCity() {
       </div>
 
       <Tabs value="products" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <ScrollableTabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="products" data-testid="tab-products">Premium Products</TabsTrigger>
           <TabsTrigger value="advantages" data-testid="tab-advantages">IFSC Advantages</TabsTrigger>
           <TabsTrigger value="contact" data-testid="tab-contact">Relationship Manager</TabsTrigger>
-        </TabsList>
+        </ScrollableTabsList>
 
         {/* Products Tab */}
         <TabsContent value="products" className="space-y-6">

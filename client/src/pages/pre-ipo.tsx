@@ -3,7 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -189,14 +190,14 @@ export default function PreIPOPage() {
 
       {/* Main Content Tabs */}
       <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
+        <ScrollableTabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
           <TabsTrigger value="companies" data-testid="tab-companies">Companies</TabsTrigger>
           <TabsTrigger value="portfolio" data-testid="tab-portfolio">My Portfolio</TabsTrigger>
           <TabsTrigger value="upcoming" data-testid="tab-upcoming">Upcoming</TabsTrigger>
           <TabsTrigger value="current" data-testid="tab-current">Current</TabsTrigger>
           <TabsTrigger value="insights" data-testid="tab-insights">Insights</TabsTrigger>
-        </TabsList>
+        </ScrollableTabsList>
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6">

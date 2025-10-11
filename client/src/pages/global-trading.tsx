@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -446,12 +447,12 @@ export default function GlobalTrading() {
         <div className="lg:col-span-2 space-y-6">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <div className="overflow-x-auto pb-2">
-              <TabsList className="inline-flex w-auto min-w-full">
+              <ScrollableTabsList className="inline-flex w-auto min-w-full">
                 <TabsTrigger value="markets" data-testid="tab-markets" className="flex-shrink-0">Markets</TabsTrigger>
                 <TabsTrigger value="positions" data-testid="tab-positions" className="flex-shrink-0">Positions</TabsTrigger>
                 <TabsTrigger value="funds" data-testid="tab-funds" className="flex-shrink-0">Global Funds</TabsTrigger>
                 <TabsTrigger value="currency" data-testid="tab-currency" className="flex-shrink-0">Currency</TabsTrigger>
-              </TabsList>
+              </ScrollableTabsList>
             </div>
 
             {/* Markets Tab */}

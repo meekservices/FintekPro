@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Calendar, TrendingUp, Clock, IndianRupee, Building2, FileText, ExternalLink, Bell, BookOpen, Newspaper, Target, BarChart3, AlertTriangle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -171,13 +172,13 @@ export default function IPO() {
         <KYCWarningBanner />
 
         <Tabs defaultValue="upcoming" className="space-y-8">
-          <TabsList className="grid w-full grid-cols-5">
+          <ScrollableTabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="upcoming" data-testid="tab-upcoming">Upcoming IPOs</TabsTrigger>
             <TabsTrigger value="ongoing" data-testid="tab-ongoing">Ongoing</TabsTrigger>
             <TabsTrigger value="listed" data-testid="tab-listed">Recently Listed</TabsTrigger>
             <TabsTrigger value="sme" data-testid="tab-sme">SME IPOs</TabsTrigger>
             <TabsTrigger value="applications" data-testid="tab-applications">My Applications</TabsTrigger>
-          </TabsList>
+          </ScrollableTabsList>
 
           <TabsContent value="upcoming" className="space-y-6" data-testid="upcoming-ipos">
             {upcomingLoading ? (

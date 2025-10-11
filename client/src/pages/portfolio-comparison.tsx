@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, TrendingUp, TrendingDown, Star, Plus, X, BarChart3, PieChart, Target, AlertCircle, CheckCircle, ArrowUpRight, ArrowDownRight, Shuffle, FolderOpen } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -288,12 +289,12 @@ function ComparisonResults({ comparison }: { comparison: PortfolioComparisonResu
 
       {/* Detailed Comparison */}
       <Tabs defaultValue="performance" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <ScrollableTabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="performance">Performance</TabsTrigger>
           <TabsTrigger value="risk">Risk Metrics</TabsTrigger>
           <TabsTrigger value="allocation">Asset Allocation</TabsTrigger>
           <TabsTrigger value="holdings">Top Holdings</TabsTrigger>
-        </TabsList>
+        </ScrollableTabsList>
 
         <TabsContent value="performance" className="space-y-4">
           <Card>

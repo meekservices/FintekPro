@@ -114,7 +114,7 @@ export function ScrollableTabsList({ children, className }: ScrollableTabsListPr
         </div>
       )}
 
-      <style jsx>{`
+      <style>{`
         .scrollbar-hide::-webkit-scrollbar {
           display: none;
         }

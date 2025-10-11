@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -463,7 +464,7 @@ export default function NRIServices() {
       {/* Services Section */}
       <Tabs value={activeCategory} onValueChange={setActiveCategory} className="space-y-6">
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-          <TabsList className="grid grid-cols-3 lg:grid-cols-6 w-full sm:w-auto">
+          <ScrollableTabsList className="grid grid-cols-3 lg:grid-cols-6 w-full sm:w-auto">
             {categories.map(category => (
               <TabsTrigger 
                 key={category} 
@@ -474,7 +475,7 @@ export default function NRIServices() {
                 {category}
               </TabsTrigger>
             ))}
-          </TabsList>
+          </ScrollableTabsList>
           
           <div className="flex gap-2 w-full sm:w-auto">
             <Input

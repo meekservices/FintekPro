@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Separator } from "@/components/ui/separator";
 import { WhatsAppLogin } from "@/components/whatsapp-login";
 import { MessageSquare, Mail, Smartphone, ArrowLeft, Shield } from "lucide-react";
@@ -119,7 +120,7 @@ export default function WhatsAppAuthPage() {
 
             <CardContent>
               <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-                <TabsList className="grid w-full grid-cols-2">
+                <ScrollableTabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="whatsapp" className="flex items-center gap-2" data-testid="tab-whatsapp">
                     <MessageSquare className="w-4 h-4" />
                     WhatsApp
@@ -128,7 +129,7 @@ export default function WhatsAppAuthPage() {
                     <Mail className="w-4 h-4" />
                     Email
                   </TabsTrigger>
-                </TabsList>
+                </ScrollableTabsList>
 
                 <TabsContent value="whatsapp" className="space-y-4">
                   <div className="bg-green-50 dark:bg-green-900/10 p-4 rounded-lg border border-green-200 dark:border-green-800">

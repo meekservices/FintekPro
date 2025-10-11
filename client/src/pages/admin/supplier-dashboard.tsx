@@ -4,7 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -231,7 +232,7 @@ export default function SupplierDashboard() {
       </div>
 
       <Tabs defaultValue="performance" className="space-y-6">
-        <TabsList>
+        <ScrollableTabsList>
           <TabsTrigger value="performance" data-testid="tab-product-performance">
             <BarChart3 className="w-4 h-4 mr-2" />
             Product Performance
@@ -244,7 +245,7 @@ export default function SupplierDashboard() {
             <Building2 className="w-4 h-4 mr-2" />
             Suppliers
           </TabsTrigger>
-        </TabsList>
+        </ScrollableTabsList>
 
         {/* Product Performance Tab */}
         <TabsContent value="performance" className="space-y-6">

@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { AlertCircle, Calculator, CreditCard, Home, Building, Car, TrendingUp, Shield, CheckCircle, ArrowRight } from 'lucide-react';
@@ -252,7 +253,7 @@ export default function TataCapital() {
         )}
 
         <Tabs defaultValue="personal-loan" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+          <ScrollableTabsList className="grid w-full grid-cols-5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
             <TabsTrigger value="personal-loan" className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-800">
               <CreditCard className="w-4 h-4 mr-2" />
               Personal Loan
@@ -273,7 +274,7 @@ export default function TataCapital() {
               <Shield className="w-4 h-4 mr-2" />
               Loan Against Property
             </TabsTrigger>
-          </TabsList>
+          </ScrollableTabsList>
 
           {/* Personal Loan Calculator */}
           <TabsContent value="personal-loan">

@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -260,7 +261,7 @@ export default function CkycManagement() {
 
       <Tabs defaultValue="records" className="space-y-4">
         <div className="overflow-x-auto pb-2">
-          <TabsList className="inline-flex w-auto min-w-full">
+          <ScrollableTabsList className="inline-flex w-auto min-w-full">
             <TabsTrigger value="records" className="flex items-center gap-2 flex-shrink-0">
               <Users size={16} />
               Records
@@ -277,7 +278,7 @@ export default function CkycManagement() {
               <Settings size={16} />
               Action Logs
             </TabsTrigger>
-          </TabsList>
+          </ScrollableTabsList>
         </div>
 
         <TabsContent value="records" className="space-y-4">

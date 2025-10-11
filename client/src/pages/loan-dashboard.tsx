@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
@@ -290,11 +291,11 @@ export default function LoanDashboard() {
         </div>
 
         <Tabs defaultValue="applications" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <ScrollableTabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="applications">My Applications</TabsTrigger>
             <TabsTrigger value="status">Check Status</TabsTrigger>
             <TabsTrigger value="documents">Documents</TabsTrigger>
-          </TabsList>
+          </ScrollableTabsList>
           
           <TabsContent value="applications" className="space-y-6">
             <Card>

@@ -1,7 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { TrendingUp, Shield, Calendar, DollarSign, BarChart3, Info } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
@@ -66,12 +67,12 @@ export default function MLDs() {
         </div>
 
         <Tabs defaultValue="all" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <ScrollableTabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="all" data-testid="tab-all">All MLDs</TabsTrigger>
             <TabsTrigger value="capital-protected" data-testid="tab-protected">Capital Protected</TabsTrigger>
             <TabsTrigger value="high-participation" data-testid="tab-high-participation">High Participation</TabsTrigger>
             <TabsTrigger value="exotic" data-testid="tab-exotic">Exotic Structures</TabsTrigger>
-          </TabsList>
+          </ScrollableTabsList>
 
           <TabsContent value="all" className="space-y-4">
             {isLoading ? (

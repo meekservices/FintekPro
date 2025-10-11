@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Search, TrendingUp, TrendingDown, Star, Filter, Calculator, RefreshCw, ArrowRight, Shield, Building2, Award, Clock, AlertCircle } from "lucide-react";
 import { useMutualFunds, usePopularMutualFunds, useSearchMutualFunds, type MutualFundData } from "@/hooks/use-mutual-funds";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -1007,7 +1008,7 @@ export default function MutualFunds() {
         </div>
 
         <Tabs defaultValue="explore" className="space-y-8">
-          <TabsList className="grid w-full grid-cols-5 h-14 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl">
+          <ScrollableTabsList className="grid w-full grid-cols-5 h-14 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl">
             <TabsTrigger 
               value="explore" 
               data-testid="tab-explore"
@@ -1048,7 +1049,7 @@ export default function MutualFunds() {
               <Award className="w-4 h-4" />
               Tools
             </TabsTrigger>
-          </TabsList>
+          </ScrollableTabsList>
 
           <TabsContent value="explore" className="space-y-6" data-testid="explore-funds">
             

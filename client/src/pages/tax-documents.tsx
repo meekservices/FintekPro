@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useDropzone } from "react-dropzone";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -357,12 +358,12 @@ export default function TaxDocuments() {
       </div>
 
       <Tabs defaultValue="upload" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+        <ScrollableTabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="upload" data-testid="tab-upload">Upload Documents</TabsTrigger>
           <TabsTrigger value="documents" data-testid="tab-documents">My Documents</TabsTrigger>
           <TabsTrigger value="analysis" data-testid="tab-analysis">Tax Analysis</TabsTrigger>
           <TabsTrigger value="calculate" data-testid="tab-calculate">Calculate & Generate ITR</TabsTrigger>
-        </TabsList>
+        </ScrollableTabsList>
 
         <TabsContent value="upload" className="space-y-4">
           <Card>

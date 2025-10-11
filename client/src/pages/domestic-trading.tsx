@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -342,12 +343,12 @@ export default function DomesticTrading() {
         {/* Market Data & Trading */}
         <div className="lg:col-span-2 space-y-6">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid grid-cols-4 w-full">
+            <ScrollableTabsList className="grid grid-cols-4 w-full">
               <TabsTrigger value="market" data-testid="tab-market">Market</TabsTrigger>
               <TabsTrigger value="positions" data-testid="tab-positions">Positions</TabsTrigger>
               <TabsTrigger value="orders" data-testid="tab-orders">Orders</TabsTrigger>
               <TabsTrigger value="watchlist" data-testid="tab-watchlist">Watchlist</TabsTrigger>
-            </TabsList>
+            </ScrollableTabsList>
 
             {/* Market Tab */}
             <TabsContent value="market" className="space-y-4">

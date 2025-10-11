@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Gem, TrendingUp, Calendar, IndianRupee, Building2, Calculator, Star, Eye, Lock } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -155,12 +156,12 @@ export default function Unlisted() {
         </div>
 
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <ScrollableTabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="explore" data-testid="tab-explore">Explore</TabsTrigger>
             <TabsTrigger value="portfolio" data-testid="tab-portfolio">My Investments</TabsTrigger>
             <TabsTrigger value="watchlist" data-testid="tab-watchlist">Watchlist</TabsTrigger>
             <TabsTrigger value="education" data-testid="tab-education">Learn</TabsTrigger>
-          </TabsList>
+          </ScrollableTabsList>
 
           <TabsContent value="explore" className="space-y-6" data-testid="explore-unlisted">
             <UnlistedCategoriesSection />

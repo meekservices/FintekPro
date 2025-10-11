@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
@@ -296,14 +297,14 @@ export default function PropertyServices() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:grid-cols-6" data-testid="tabs-property-services">
+        <ScrollableTabsList className="grid w-full grid-cols-3 lg:w-auto lg:grid-cols-6" data-testid="tabs-property-services">
           <TabsTrigger value="overview" className="text-sm">Overview</TabsTrigger>
           <TabsTrigger value="financing" className="text-sm">Financing</TabsTrigger>
           <TabsTrigger value="investment" className="text-sm">Investment</TabsTrigger>
           <TabsTrigger value="documentation" className="text-sm">Documentation</TabsTrigger>
           <TabsTrigger value="protection" className="text-sm">Protection</TabsTrigger>
           <TabsTrigger value="tools" className="text-sm">Tools</TabsTrigger>
-        </TabsList>
+        </ScrollableTabsList>
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6" data-testid="tab-overview">

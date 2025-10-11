@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -162,13 +163,13 @@ export default function Cibil() {
         
 
         <Tabs defaultValue="score-check" className="space-y-8">
-          <TabsList className="grid w-full grid-cols-5">
+          <ScrollableTabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="score-check" data-testid="tab-score-check">Credit Score</TabsTrigger>
             <TabsTrigger value="detailed-report" data-testid="tab-detailed-report">Detailed Report</TabsTrigger>
             <TabsTrigger value="loan-eligibility" data-testid="tab-loan-eligibility">Loan Eligibility</TabsTrigger>
             <TabsTrigger value="card-eligibility" data-testid="tab-card-eligibility">Credit Cards</TabsTrigger>
             <TabsTrigger value="monitoring" data-testid="tab-monitoring">Monitoring</TabsTrigger>
-          </TabsList>
+          </ScrollableTabsList>
 
           <TabsContent value="score-check" className="space-y-6" data-testid="score-check-tab">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -265,14 +266,14 @@ export default function Support() {
             </div>
 
             <Tabs defaultValue="general" className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
+              <ScrollableTabsList className="grid w-full grid-cols-4">
                 {faqCategories.map((category) => (
                   <TabsTrigger key={category.id} value={category.id} className="flex items-center gap-2">
                     <category.icon className="h-4 w-4" />
                     <span className="hidden sm:inline">{category.title}</span>
                   </TabsTrigger>
                 ))}
-              </TabsList>
+              </ScrollableTabsList>
 
               {filteredFaqs.map((category) => (
                 <TabsContent key={category.id} value={category.id}>

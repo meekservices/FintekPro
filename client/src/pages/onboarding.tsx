@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -295,7 +296,7 @@ export default function OnboardingPage() {
       </div>
 
       <Tabs value={currentStep} onValueChange={setCurrentStep} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1">
+        <ScrollableTabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1">
           {steps.map((step) => {
             const Icon = step.icon;
             const isCompleted = validateStep(step.id);
@@ -312,7 +313,7 @@ export default function OnboardingPage() {
               </TabsTrigger>
             );
           })}
-        </TabsList>
+        </ScrollableTabsList>
 
         {/* Basic Information */}
         <TabsContent value="basic" className="space-y-6">

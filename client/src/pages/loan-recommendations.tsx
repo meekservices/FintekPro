@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Separator } from "@/components/ui/separator";
 import {
   TrendingUp,
@@ -508,7 +509,7 @@ export default function LoanRecommendationsPage() {
 
         {/* Filter Tabs */}
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="mb-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <ScrollableTabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="all" data-testid="tab-all">
               All ({recommendations.length})
             </TabsTrigger>
@@ -521,7 +522,7 @@ export default function LoanRecommendationsPage() {
             <TabsTrigger value="low" data-testid="tab-low">
               Low Priority ({recommendations.filter(r => r.priority === 'low').length})
             </TabsTrigger>
-          </TabsList>
+          </ScrollableTabsList>
         </Tabs>
 
         {/* Recommendations Grid */}

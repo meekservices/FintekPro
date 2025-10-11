@@ -8,7 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -302,10 +303,10 @@ export default function AuthPage() {
               </CardHeader>
               <CardContent>
                 <Tabs defaultValue="social" className="space-y-4">
-                  <TabsList className="grid w-full grid-cols-2">
+                  <ScrollableTabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="social" data-testid="tab-social-login">Social Login</TabsTrigger>
                     <TabsTrigger value="traditional" data-testid="tab-traditional-login">Traditional</TabsTrigger>
-                  </TabsList>
+                  </ScrollableTabsList>
 
                   {/* Social Login Tab */}
                   <TabsContent value="social" className="space-y-4">
@@ -341,10 +342,10 @@ export default function AuthPage() {
                   {/* Traditional Login Tab */}
                   <TabsContent value="traditional">
                     <Tabs value={authMode} onValueChange={(v) => setAuthMode(v as "login" | "register")} className="space-y-4">
-                      <TabsList className="grid w-full grid-cols-2">
+                      <ScrollableTabsList className="grid w-full grid-cols-2">
                         <TabsTrigger value="login" data-testid="tab-login">Login</TabsTrigger>
                         <TabsTrigger value="register" data-testid="tab-register">Register</TabsTrigger>
-                      </TabsList>
+                      </ScrollableTabsList>
 
                       {/* Login Form */}
                       <TabsContent value="login">

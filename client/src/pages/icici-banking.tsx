@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -335,7 +336,7 @@ export default function ICICIBanking() {
             {/* Banking Services Tabs */}
             <Tabs defaultValue="payments" className="space-y-6">
               <div className="overflow-x-auto pb-2">
-                <TabsList className="inline-flex w-auto min-w-full">
+                <ScrollableTabsList className="inline-flex w-auto min-w-full">
                   <TabsTrigger value="payments" data-testid="payments-tab" className="flex-shrink-0">
                     <Send className="h-4 w-4 mr-2" />
                     Payments
@@ -352,7 +353,7 @@ export default function ICICIBanking() {
                     <Shield className="h-4 w-4 mr-2" />
                     Validation
                   </TabsTrigger>
-                </TabsList>
+                </ScrollableTabsList>
               </div>
 
               {/* IMPS Payments */}

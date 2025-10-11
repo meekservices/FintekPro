@@ -10,7 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
@@ -531,11 +532,11 @@ export default function TaxSmartFiling() {
 
           {validateMutation.isSuccess && (
             <Tabs defaultValue="errors" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
+              <ScrollableTabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="errors" data-testid="tab-errors">Errors</TabsTrigger>
                 <TabsTrigger value="warnings" data-testid="tab-warnings">Warnings</TabsTrigger>
                 <TabsTrigger value="suggestions" data-testid="tab-suggestions">Suggestions</TabsTrigger>
-              </TabsList>
+              </ScrollableTabsList>
               
               {["errors", "warnings", "suggestions"].map((severity) => (
                 <TabsContent key={severity} value={severity} className="space-y-3">

@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -372,7 +373,7 @@ export default function AgentDashboard() {
       </div>
 
       <Tabs defaultValue="proposals" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-6">
+        <ScrollableTabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="proposals" className="flex items-center gap-2">
             <TrendingUp size={16} />
             Investment Proposals
@@ -397,7 +398,7 @@ export default function AgentDashboard() {
             <Bell size={16} />
             Notifications History
           </TabsTrigger>
-        </TabsList>
+        </ScrollableTabsList>
 
         <TabsContent value="proposals" className="space-y-4">
           <Card>

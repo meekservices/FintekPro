@@ -2,7 +2,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Badge } from "@/components/ui/badge";
 import { 
   Building2, 
@@ -178,13 +179,13 @@ export default function AIF() {
         </div>
 
         <Tabs defaultValue="explore" className="space-y-8">
-          <TabsList className="grid w-full grid-cols-5">
+          <ScrollableTabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="explore" data-testid="tab-explore">Explore AIFs</TabsTrigger>
             <TabsTrigger value="categories" data-testid="tab-categories">Categories</TabsTrigger>
             <TabsTrigger value="analytics" data-testid="tab-analytics">Analytics</TabsTrigger>
             <TabsTrigger value="compliance" data-testid="tab-compliance">SEBI Compliance</TabsTrigger>
             <TabsTrigger value="compare" data-testid="tab-compare">Compare</TabsTrigger>
-          </TabsList>
+          </ScrollableTabsList>
 
           <TabsContent value="explore" className="space-y-6" data-testid="explore-aifs">
             

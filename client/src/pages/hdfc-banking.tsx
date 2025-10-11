@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -358,7 +359,7 @@ export default function HDFCBanking() {
 
             {/* Banking Services Tabs */}
             <Tabs defaultValue="payments" className="space-y-6">
-              <TabsList className="grid w-full grid-cols-4">
+              <ScrollableTabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="payments" data-testid="payments-tab">
                   <ArrowUpDown className="h-4 w-4 mr-2" />
                   Payments
@@ -375,7 +376,7 @@ export default function HDFCBanking() {
                   <Shield className="h-4 w-4 mr-2" />
                   Validation
                 </TabsTrigger>
-              </TabsList>
+              </ScrollableTabsList>
 
               {/* HDFC Bank Payments */}
               <TabsContent value="payments">
