@@ -1,4 +1,5 @@
-import { Cashfree } from "cashfree-pg";
+import axios, { AxiosInstance } from 'axios';
+import crypto from 'crypto';
 
 export interface CashfreePaymentRequest {
   amount: number;
@@ -29,18 +30,32 @@ export class CashfreeService {
   private appId: string;
   private secretKey: string;
   private environment: string;
+  private baseUrl: string;
+  private apiClient: AxiosInstance;
 
   constructor() {
     this.appId = process.env.CASHFREE_APP_ID || '';
     this.secretKey = process.env.CASHFREE_SECRET_KEY || '';
     this.environment = process.env.CASHFREE_ENVIRONMENT || 'SANDBOX';
+    
+    // Set base URL based on environment
+    this.baseUrl = this.environment === 'PRODUCTION' 
+      ? 'https://api.cashfree.com/pg'
+      : 'https://sandbox.cashfree.com/pg';
 
-    // Configure Cashfree SDK
-    Cashfree.XClientId = this.appId;
-    Cashfree.XClientSecret = this.secretKey;
-    Cashfree.XEnvironment = this.environment === 'PRODUCTION' 
-      ? Cashfree.Environment.PRODUCTION 
-      : Cashfree.Environment.SANDBOX;
+    // Create axios instance with default headers
+    this.apiClient = axios.create({
+      baseURL: this.baseUrl,
+      headers: {
+        'x-client-id': this.appId,
+        'x-client-secret': this.secretKey,
+        'x-api-version': '2023-08-01',
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    });
+
+    console.log(`✅ Cashfree service initialized (${this.environment} mode)`);
   }
 
   /**
@@ -59,7 +74,7 @@ export class CashfreeService {
       const returnUrl = paymentRequest.returnUrl || 
         `${process.env.REPLIT_DEV_DOMAIN || 'http://localhost:5000'}/api/payments/cashfree/callback`;
 
-      const request = {
+      const requestBody = {
         order_amount: paymentRequest.amount,
         order_currency: "INR",
         order_id: orderId,
@@ -76,14 +91,18 @@ export class CashfreeService {
 
       console.log('Creating Cashfree order:', { orderId, amount: paymentRequest.amount });
 
-      const response = await Cashfree.PGCreateOrder("2023-08-01", request);
+      const response = await this.apiClient.post('/orders', requestBody);
 
       if (response.data) {
+        const paymentUrl = this.environment === 'PRODUCTION' 
+          ? `https://cashfree.com/pg/view/order`
+          : `https://sandbox.cashfree.com/pg/view/order`;
+
         return {
           success: true,
           orderId: response.data.order_id,
           paymentSessionId: response.data.payment_session_id,
-          paymentUrl: `https://${this.environment === 'PRODUCTION' ? '' : 'sandbox.'}cashfree.com/pg/view/order?order_id=${response.data.order_id}&payment_session_id=${response.data.payment_session_id}`,
+          paymentUrl: `${paymentUrl}?order_id=${response.data.order_id}&payment_session_id=${response.data.payment_session_id}`,
           message: 'Order created successfully'
         };
       } else {
@@ -91,7 +110,7 @@ export class CashfreeService {
       }
 
     } catch (error: any) {
-      console.error('Cashfree order creation error:', error);
+      console.error('Cashfree order creation error:', error.response?.data || error.message);
       return {
         success: false,
         message: error.response?.data?.message || error.message || 'Failed to create order'
@@ -104,7 +123,7 @@ export class CashfreeService {
    */
   async getOrderStatus(orderId: string): Promise<CashfreeOrderStatus | null> {
     try {
-      const response = await Cashfree.PGFetchOrder("2023-08-01", orderId);
+      const response = await this.apiClient.get(`/orders/${orderId}`);
 
       if (response.data) {
         return {
@@ -118,18 +137,25 @@ export class CashfreeService {
 
       return null;
     } catch (error: any) {
-      console.error('Cashfree order status error:', error);
+      console.error('Cashfree order status error:', error.response?.data || error.message);
       return null;
     }
   }
 
   /**
    * Verify webhook signature
+   * Cashfree uses HMAC-SHA256 for webhook signature verification
    */
   verifyWebhookSignature(signature: string, rawBody: string, timestamp: string): boolean {
     try {
-      Cashfree.PGVerifyWebhookSignature(signature, rawBody, timestamp);
-      return true;
+      // Cashfree webhook signature format: timestamp.rawBody
+      const signatureData = `${timestamp}.${rawBody}`;
+      const computedSignature = crypto
+        .createHmac('sha256', this.secretKey)
+        .update(signatureData)
+        .digest('base64');
+
+      return computedSignature === signature;
     } catch (error) {
       console.error('Webhook signature verification failed:', error);
       return false;
@@ -150,7 +176,7 @@ export class CashfreeService {
         cvv: '123',
         cardHolder: 'Test User'
       },
-      testUPI: 'success@razorpay'
+      testUPI: 'test@payu'
     };
   }
 }
