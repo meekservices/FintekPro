@@ -120,17 +120,16 @@ export function EnhancedNavigation() {
         {
           name: "Profile & KYC",
           icon: UserCheck,
-          description: "Complete profile management and compliance",
+          description: "Progressive KYC for complete product access",
           subItems: [
-            { name: "Profile Type Selection", href: "/profile", description: "Choose: Individual / NRI / Non-Individual" },
-            { name: "Individual KYC", href: "/profile?tab=individual", description: "Basic info, identity, documents" },
-            { name: "NRI KYC & Onboarding", href: "/profile?tab=nri", description: "NRI profile, VKYC, NRE/NRO setup" },
-            { name: "Non-Individual KYC", href: "/profile?tab=entity", description: "Corporate, Trust, HUF, Partnership" },
-            { name: "Identity & Documents", href: "/profile?tab=kyc", description: "KYC and CKYC verification" },
-            { name: "Address Details", href: "/profile?tab=address", description: "Residential and correspondence" },
-            { name: "Financial Profile", href: "/profile?tab=financial", description: "Income, occupation, risk profile" },
-            { name: "AML & Compliance", href: "/profile?tab=compliance", description: "PEP, sanctions screening" },
-            { name: "Banking & Demat", href: "/profile?tab=accounts", description: "Account details and nominees" }
+            { name: "KYC Dashboard", href: "/profile?tab=kyc-dashboard", description: "Current tier, product access & upgrade paths", badge: "OVERVIEW" },
+            { name: "Basic KYC (Tier 1)", href: "/profile?tab=basic", description: "PAN, Aadhaar, basic profile → Unlock MF, IPO, Equity" },
+            { name: "Enhanced KYC (Tier 2)", href: "/profile?tab=enhanced", description: "Video KYC, income proof → Unlock F&O, Commodities, Global" },
+            { name: "Accredited Investor (Tier 3)", href: "/profile?tab=accredited", description: "Net worth ₹7.5Cr+ → Unlock AIF, PMS, Pre-IPO", badge: "PREMIUM" },
+            { name: "Identity & Documents", href: "/profile?tab=identity", description: "All identity proofs and verification" },
+            { name: "Address & Financial", href: "/profile?tab=financial", description: "Address, income, occupation details" },
+            { name: "Compliance & AML", href: "/profile?tab=compliance", description: "FATCA, PEP, sanctions screening" },
+            { name: "Banking & Demat", href: "/profile?tab=banking", description: "Bank accounts and demat details" }
           ]
         }
       ]
