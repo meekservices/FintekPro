@@ -3023,6 +3023,42 @@ export const ckycActionLogs = pgTable("ckyc_action_logs", {
   actionAt: timestamp("action_at").defaultNow(),
 });
 
+// KYC Form Progress - Multi-step wizard progress tracking with auto-save
+export const kycFormProgress = pgTable("kyc_form_progress", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  ckycRecordId: varchar("ckyc_record_id").references(() => ckycRecords.id),
+  
+  // Progress Tracking
+  currentStep: integer("current_step").default(1), // 1=Personal, 2=Address, 3=Bank, 4=Documents, 5=Review
+  completedSteps: jsonb("completed_steps").default([]), // Array of completed step numbers [1,2,3]
+  completionPercentage: integer("completion_percentage").default(0), // 0-100
+  
+  // Form Data for Each Step (stored as JSON)
+  personalDetailsData: jsonb("personal_details_data"), // Step 1 data
+  addressDetailsData: jsonb("address_details_data"), // Step 2 data
+  bankDetailsData: jsonb("bank_details_data"), // Step 3 data
+  documentDetailsData: jsonb("document_details_data"), // Step 4 data
+  
+  // API Auto-population Tracking
+  panDataSource: varchar("pan_data_source"), // 'bse_star', 'manual', 'digilocker'
+  aadharDataSource: varchar("aadhar_data_source"), // 'digilocker', 'bse_star', 'manual'
+  addressDataSource: varchar("address_data_source"), // 'digilocker', 'bse_star', 'manual'
+  autoPopulatedFields: jsonb("auto_populated_fields"), // List of fields auto-filled
+  
+  // Resume Capability
+  canResume: boolean("can_resume").default(true),
+  lastSavedAt: timestamp("last_saved_at").defaultNow(),
+  resumeUrl: varchar("resume_url"), // Deep link to resume at specific step
+  
+  // Status
+  isCompleted: boolean("is_completed").default(false),
+  completedAt: timestamp("completed_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Zod schemas for CKYC Progress Monitoring
 export const insertCkycNotificationTriggerSchema = createInsertSchema(ckycNotificationTriggers).omit({
   id: true,
@@ -3038,6 +3074,12 @@ export const insertCkycProgressStepSchema = createInsertSchema(ckycProgressSteps
 export const insertCkycActionLogSchema = createInsertSchema(ckycActionLogs).omit({
   id: true,
   actionAt: true,
+});
+
+export const insertKycFormProgressSchema = createInsertSchema(kycFormProgress).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 // Export types for CKYC Progress Monitoring
@@ -3097,6 +3139,8 @@ export type CkycProgressStep = typeof ckycProgressSteps.$inferSelect;
 export type InsertCkycProgressStep = z.infer<typeof insertCkycProgressStepSchema>;
 export type CkycActionLog = typeof ckycActionLogs.$inferSelect;
 export type InsertCkycActionLog = z.infer<typeof insertCkycActionLogSchema>;
+export type KycFormProgress = typeof kycFormProgress.$inferSelect;
+export type InsertKycFormProgress = z.infer<typeof insertKycFormProgressSchema>;
 
 // Client-Agent relationship types
 export type ClientAgentRelationship = typeof clientAgentRelationships.$inferSelect;
