@@ -1,0 +1,729 @@
+import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { CheckCircle2, Circle, Loader2, ArrowRight, ArrowLeft, Shield, User, MapPin, CreditCard, FileText, Eye } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
+import { Progress } from "@/components/ui/progress";
+import type { KycFormProgress } from "@shared/schema";
+
+interface StepProps {
+  data: any;
+  onChange: (field: string, value: any) => void;
+  onNext: () => void;
+  onBack: () => void;
+  isFirst: boolean;
+  isLast: boolean;
+  onAutoPopulate?: (source: string, data: any) => void;
+}
+
+const steps = [
+  { id: 1, name: "Personal Details", icon: User, description: "Basic information" },
+  { id: 2, name: "Address & Contact", icon: MapPin, description: "Where you live" },
+  { id: 3, name: "Bank Details", icon: CreditCard, description: "Account information" },
+  { id: 4, name: "Documents", icon: FileText, description: "Upload documents" },
+  { id: 5, name: "Review & Submit", icon: Eye, description: "Final review" }
+];
+
+// Step 1: Personal Details
+function PersonalDetailsStep({ data, onChange, onNext, isFirst, onAutoPopulate }: StepProps) {
+  const { toast } = useToast();
+  const [isVerifying, setIsVerifying] = useState(false);
+
+  const handlePANBlur = async () => {
+    if (!data.pan || data.pan.length !== 10) return;
+    
+    setIsVerifying(true);
+    try {
+      const response = await apiRequest("POST", "/api/bse-star-kyc/verify-pan", {
+        body: { panNumber: data.pan }
+      });
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        const autoData: Record<string, any> = {
+          fullName: result.data.name || data.fullName,
+          dateOfBirth: result.data.dob || data.dateOfBirth,
+          fatherName: result.data.fatherName || data.fatherName
+        };
+        
+        Object.keys(autoData).forEach(key => {
+          if (autoData[key] && autoData[key] !== data[key]) {
+            onChange(key, autoData[key]);
+          }
+        });
+        
+        if (onAutoPopulate) {
+          onAutoPopulate('bse_star', autoData);
+        }
+        
+        toast({
+          title: "✨ Auto-filled from BSE Star",
+          description: "Personal details populated successfully",
+        });
+      }
+    } catch (error) {
+      console.error("PAN verification failed:", error);
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="space-y-4">
+        <div className="grid gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="pan">PAN Number *</Label>
+            <Input
+              id="pan"
+              data-testid="input-pan"
+              placeholder="ABCDE1234F"
+              value={data.pan || ""}
+              onChange={(e) => onChange("pan", e.target.value.toUpperCase())}
+              onBlur={handlePANBlur}
+              maxLength={10}
+              className="uppercase"
+            />
+            {isVerifying && (
+              <p className="text-sm text-muted-foreground flex items-center gap-2">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Fetching details from BSE Star...
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="fullName">Full Name *</Label>
+            <Input
+              id="fullName"
+              data-testid="input-fullname"
+              placeholder="As per PAN card"
+              value={data.fullName || ""}
+              onChange={(e) => onChange("fullName", e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="dateOfBirth">Date of Birth *</Label>
+            <Input
+              id="dateOfBirth"
+              data-testid="input-dob"
+              type="date"
+              value={data.dateOfBirth || ""}
+              onChange={(e) => onChange("dateOfBirth", e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="fatherName">Father's Name</Label>
+            <Input
+              id="fatherName"
+              data-testid="input-fathername"
+              placeholder="Father's full name"
+              value={data.fatherName || ""}
+              onChange={(e) => onChange("fatherName", e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="gender">Gender *</Label>
+            <Select value={data.gender || ""} onValueChange={(value) => onChange("gender", value)}>
+              <SelectTrigger data-testid="select-gender">
+                <SelectValue placeholder="Select gender" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="M">Male</SelectItem>
+                <SelectItem value="F">Female</SelectItem>
+                <SelectItem value="T">Other</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+
+      <Button
+        onClick={onNext}
+        disabled={!data.pan || !data.fullName || !data.dateOfBirth || !data.gender}
+        className="w-full"
+        data-testid="button-next-personal"
+      >
+        Continue to Address <ArrowRight className="ml-2 h-4 w-4" />
+      </Button>
+    </div>
+  );
+}
+
+// Step 2: Address & Contact
+function AddressStep({ data, onChange, onNext, onBack, onAutoPopulate }: StepProps) {
+  const { toast } = useToast();
+  const [isVerifying, setIsVerifying] = useState(false);
+
+  const handleAadhaarBlur = async () => {
+    if (!data.aadhar || data.aadhar.length !== 12) return;
+    
+    setIsVerifying(true);
+    try {
+      // Try DigiLocker first
+      const response = await apiRequest("POST", "/api/digilocker/fetch-aadhaar", {
+        body: { aadhaarNumber: data.aadhar }
+      });
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        const autoData: Record<string, any> = {
+          address: result.data.address || data.address,
+          city: result.data.city || data.city,
+          state: result.data.state || data.state,
+          pincode: result.data.pincode || data.pincode
+        };
+        
+        Object.keys(autoData).forEach(key => {
+          if (autoData[key] && autoData[key] !== data[key]) {
+            onChange(key, autoData[key]);
+          }
+        });
+        
+        if (onAutoPopulate) {
+          onAutoPopulate('digilocker', autoData);
+        }
+        
+        toast({
+          title: "✨ Auto-filled from DigiLocker",
+          description: "Address details populated successfully",
+        });
+      }
+    } catch (error) {
+      console.error("Aadhaar verification failed:", error);
+      // Fallback to BSE Star if DigiLocker fails
+      try {
+        const fallbackResponse = await apiRequest("POST", "/api/bse-star-kyc/auto-populate", {
+          body: { aadhaarNumber: data.aadhar }
+        });
+        const fallbackResult = await fallbackResponse.json();
+        
+        if (fallbackResult.success && fallbackResult.data) {
+          // Apply fallback data to state
+          const fallbackAutoData: Record<string, any> = {
+            address: fallbackResult.data.address || data.address,
+            city: fallbackResult.data.city || data.city,
+            state: fallbackResult.data.state || data.state,
+            pincode: fallbackResult.data.pincode || data.pincode
+          };
+          
+          Object.keys(fallbackAutoData).forEach(key => {
+            if (fallbackAutoData[key] && fallbackAutoData[key] !== data[key]) {
+              onChange(key, fallbackAutoData[key]);
+            }
+          });
+          
+          if (onAutoPopulate) {
+            onAutoPopulate('bse_star', fallbackAutoData);
+          }
+          
+          toast({
+            title: "✨ Auto-filled from BSE Star",
+            description: "Address details populated via fallback",
+          });
+        }
+      } catch (fallbackError) {
+        console.error("Fallback also failed:", fallbackError);
+      }
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="aadhar">Aadhaar Number (Optional)</Label>
+          <Input
+            id="aadhar"
+            data-testid="input-aadhar"
+            placeholder="XXXX XXXX XXXX"
+            value={data.aadhar || ""}
+            onChange={(e) => onChange("aadhar", e.target.value.replace(/\s/g, ''))}
+            onBlur={handleAadhaarBlur}
+            maxLength={12}
+          />
+          {isVerifying && (
+            <p className="text-sm text-muted-foreground flex items-center gap-2">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Fetching address from DigiLocker...
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="address">Address *</Label>
+          <Input
+            id="address"
+            data-testid="input-address"
+            placeholder="House no., Street, Area"
+            value={data.address || ""}
+            onChange={(e) => onChange("address", e.target.value)}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="city">City *</Label>
+            <Input
+              id="city"
+              data-testid="input-city"
+              value={data.city || ""}
+              onChange={(e) => onChange("city", e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="state">State *</Label>
+            <Input
+              id="state"
+              data-testid="input-state"
+              value={data.state || ""}
+              onChange={(e) => onChange("state", e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="pincode">Pincode *</Label>
+            <Input
+              id="pincode"
+              data-testid="input-pincode"
+              maxLength={6}
+              value={data.pincode || ""}
+              onChange={(e) => onChange("pincode", e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="mobile">Mobile *</Label>
+            <Input
+              id="mobile"
+              data-testid="input-mobile"
+              maxLength={10}
+              value={data.mobile || ""}
+              onChange={(e) => onChange("mobile", e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="email">Email *</Label>
+          <Input
+            id="email"
+            data-testid="input-email"
+            type="email"
+            value={data.email || ""}
+            onChange={(e) => onChange("email", e.target.value)}
+          />
+        </div>
+      </div>
+
+      <div className="flex gap-4">
+        <Button variant="outline" onClick={onBack} className="flex-1" data-testid="button-back-address">
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back
+        </Button>
+        <Button
+          onClick={onNext}
+          disabled={!data.address || !data.city || !data.state || !data.pincode || !data.mobile || !data.email}
+          className="flex-1"
+          data-testid="button-next-address"
+        >
+          Continue to Bank Details <ArrowRight className="ml-2 h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// Step 3: Bank Details
+function BankDetailsStep({ data, onChange, onNext, onBack }: StepProps) {
+  return (
+    <div className="space-y-6">
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="bankName">Bank Name *</Label>
+          <Input
+            id="bankName"
+            data-testid="input-bankname"
+            placeholder="e.g., HDFC Bank"
+            value={data.bankName || ""}
+            onChange={(e) => onChange("bankName", e.target.value)}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="accountNumber">Account Number *</Label>
+          <Input
+            id="accountNumber"
+            data-testid="input-accountnumber"
+            placeholder="Enter account number"
+            value={data.accountNumber || ""}
+            onChange={(e) => onChange("accountNumber", e.target.value)}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="ifscCode">IFSC Code *</Label>
+          <Input
+            id="ifscCode"
+            data-testid="input-ifsc"
+            placeholder="e.g., HDFC0001234"
+            value={data.ifscCode || ""}
+            onChange={(e) => onChange("ifscCode", e.target.value.toUpperCase())}
+            maxLength={11}
+            className="uppercase"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="accountType">Account Type *</Label>
+          <Select value={data.accountType || ""} onValueChange={(value) => onChange("accountType", value)}>
+            <SelectTrigger data-testid="select-accounttype">
+              <SelectValue placeholder="Select account type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="savings">Savings</SelectItem>
+              <SelectItem value="current">Current</SelectItem>
+              <SelectItem value="nro">NRO</SelectItem>
+              <SelectItem value="nre">NRE</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="flex gap-4">
+        <Button variant="outline" onClick={onBack} className="flex-1" data-testid="button-back-bank">
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back
+        </Button>
+        <Button
+          onClick={onNext}
+          disabled={!data.bankName || !data.accountNumber || !data.ifscCode || !data.accountType}
+          className="flex-1"
+          data-testid="button-next-bank"
+        >
+          Continue to Documents <ArrowRight className="ml-2 h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// Step 4: Documents
+function DocumentsStep({ data, onChange, onNext, onBack }: StepProps) {
+  return (
+    <div className="space-y-6">
+      <div className="space-y-4">
+        <div className="p-4 border-2 border-dashed rounded-lg text-center">
+          <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-2" />
+          <p className="text-sm text-muted-foreground">
+            Document upload will be implemented with DigiLocker integration
+          </p>
+        </div>
+      </div>
+
+      <div className="flex gap-4">
+        <Button variant="outline" onClick={onBack} className="flex-1" data-testid="button-back-documents">
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back
+        </Button>
+        <Button onClick={onNext} className="flex-1" data-testid="button-next-documents">
+          Continue to Review <ArrowRight className="ml-2 h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// Step 5: Review & Submit
+function ReviewStep({ data, onBack, isLast }: StepProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    try {
+      // Submit KYC data
+      await apiRequest("POST", "/api/ckyc", {
+        body: {
+          pan: data.pan,
+          aadhar: data.aadhar,
+          fullName: data.fullName,
+          dateOfBirth: data.dateOfBirth,
+          gender: data.gender,
+          fatherName: data.fatherName,
+          address: data.address,
+          city: data.city,
+          state: data.state,
+          pincode: data.pincode,
+          mobile: data.mobile,
+          email: data.email
+        }
+      });
+
+      // Submit bank details
+      await apiRequest("POST", "/api/user-bank-accounts", {
+        body: {
+          bankName: data.bankName,
+          accountNumber: data.accountNumber,
+          ifscCode: data.ifscCode,
+          accountType: data.accountType
+        }
+      });
+
+      // Mark progress as completed
+      await apiRequest("PUT", "/api/kyc-progress", {
+        body: {
+          isCompleted: true,
+          completedAt: new Date().toISOString()
+        }
+      });
+
+      toast({
+        title: "✅ KYC Submitted Successfully",
+        description: "Your verification is under review",
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["/api/ckyc"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/kyc-progress"] });
+    } catch (error) {
+      toast({
+        title: "Submission Failed",
+        description: (error as Error).message,
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="space-y-4">
+        <h3 className="font-semibold">Personal Details</h3>
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div><span className="text-muted-foreground">PAN:</span> {data.pan}</div>
+          <div><span className="text-muted-foreground">Name:</span> {data.fullName}</div>
+          <div><span className="text-muted-foreground">DOB:</span> {data.dateOfBirth}</div>
+          <div><span className="text-muted-foreground">Gender:</span> {data.gender}</div>
+        </div>
+
+        <h3 className="font-semibold mt-4">Address</h3>
+        <div className="text-sm">
+          <p>{data.address}</p>
+          <p>{data.city}, {data.state} - {data.pincode}</p>
+          <p className="mt-2">Mobile: {data.mobile}</p>
+          <p>Email: {data.email}</p>
+        </div>
+
+        <h3 className="font-semibold mt-4">Bank Details</h3>
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div><span className="text-muted-foreground">Bank:</span> {data.bankName}</div>
+          <div><span className="text-muted-foreground">Account:</span> {data.accountNumber}</div>
+          <div><span className="text-muted-foreground">IFSC:</span> {data.ifscCode}</div>
+          <div><span className="text-muted-foreground">Type:</span> {data.accountType}</div>
+        </div>
+      </div>
+
+      <div className="flex gap-4">
+        <Button variant="outline" onClick={onBack} className="flex-1" data-testid="button-back-review">
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back
+        </Button>
+        <Button
+          onClick={handleSubmit}
+          disabled={isSubmitting}
+          className="flex-1"
+          data-testid="button-submit-kyc"
+        >
+          {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+          Submit KYC
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// Main Wizard Component
+export function MultiStepKYCWizard() {
+  const userId = "demo-user-1"; // Replace with actual user ID from auth
+  const [currentStep, setCurrentStep] = useState(1);
+  const [formData, setFormData] = useState<any>({});
+  const [autoPopulatedFields, setAutoPopulatedFields] = useState<any>({});
+  const queryClient = useQueryClient();
+
+  // Load saved progress
+  const { data: progress } = useQuery<KycFormProgress>({
+    queryKey: ["/api/kyc-progress"],
+    retry: false
+  });
+
+  // Auto-save mutation
+  const saveProgressMutation = useMutation({
+    mutationFn: async (data: any) => {
+      await apiRequest("PUT", "/api/kyc-progress", { body: data });
+    }
+  });
+
+  // Load progress on mount
+  useEffect(() => {
+    if (progress) {
+      setCurrentStep(progress.currentStep || 1);
+      setFormData({
+        ...(progress.personalDetailsData || {}),
+        ...(progress.addressDetailsData || {}),
+        ...(progress.bankDetailsData || {})
+      });
+    }
+  }, [progress]);
+
+  // Auto-save whenever formData changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (Object.keys(formData).length > 0) {
+        const stepData = {
+          currentStep,
+          completedSteps: Array.from({ length: currentStep - 1 }, (_, i) => i + 1),
+          completionPercentage: ((currentStep - 1) / steps.length) * 100,
+          personalDetailsData: currentStep >= 1 ? {
+            pan: formData.pan,
+            fullName: formData.fullName,
+            dateOfBirth: formData.dateOfBirth,
+            gender: formData.gender,
+            fatherName: formData.fatherName
+          } : null,
+          addressDetailsData: currentStep >= 2 ? {
+            aadhar: formData.aadhar,
+            address: formData.address,
+            city: formData.city,
+            state: formData.state,
+            pincode: formData.pincode,
+            mobile: formData.mobile,
+            email: formData.email
+          } : null,
+          bankDetailsData: currentStep >= 3 ? {
+            bankName: formData.bankName,
+            accountNumber: formData.accountNumber,
+            ifscCode: formData.ifscCode,
+            accountType: formData.accountType
+          } : null,
+          autoPopulatedFields,
+          lastSavedAt: new Date().toISOString()
+        };
+
+        saveProgressMutation.mutate(stepData);
+      }
+    }, 2000); // Debounce for 2 seconds
+
+    return () => clearTimeout(timer);
+  }, [formData, currentStep, autoPopulatedFields]);
+
+  const handleFieldChange = (field: string, value: any) => {
+    setFormData((prev: any) => ({ ...prev, [field]: value }));
+  };
+
+  const handleAutoPopulate = (source: string, data: any) => {
+    setAutoPopulatedFields((prev: any) => ({ ...prev, [source]: data }));
+  };
+
+  const handleNext = () => {
+    if (currentStep < steps.length) {
+      setCurrentStep(currentStep + 1);
+    }
+  };
+
+  const handleBack = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const CurrentStepComponent = [
+    PersonalDetailsStep,
+    AddressStep,
+    BankDetailsStep,
+    DocumentsStep,
+    ReviewStep
+  ][currentStep - 1];
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <Shield className="h-8 w-8 text-primary" />
+        <div>
+          <h1 className="text-3xl font-bold">Complete Your KYC</h1>
+          <p className="text-muted-foreground">Quick and secure verification process</p>
+        </div>
+      </div>
+
+      {/* Progress */}
+      <div className="space-y-2">
+        <Progress value={((currentStep - 1) / (steps.length - 1)) * 100} className="h-2" />
+        <p className="text-sm text-muted-foreground text-center">
+          Step {currentStep} of {steps.length} • {Math.round(((currentStep - 1) / (steps.length - 1)) * 100)}% Complete
+        </p>
+      </div>
+
+      {/* Stepper */}
+      <div className="flex justify-between">
+        {steps.map((step, index) => {
+          const Icon = step.icon;
+          const isCompleted = currentStep > step.id;
+          const isCurrent = currentStep === step.id;
+          
+          return (
+            <div key={step.id} className="flex flex-col items-center flex-1">
+              <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 mb-2 ${
+                isCompleted ? 'bg-primary border-primary text-primary-foreground' :
+                isCurrent ? 'border-primary text-primary' :
+                'border-gray-300 text-gray-400'
+              }`}>
+                {isCompleted ? <CheckCircle2 className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
+              </div>
+              <p className={`text-xs font-medium text-center ${isCurrent ? 'text-primary' : 'text-muted-foreground'}`}>
+                {step.name}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Current Step */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{steps[currentStep - 1].name}</CardTitle>
+          <CardDescription>{steps[currentStep - 1].description}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <CurrentStepComponent
+            data={formData}
+            onChange={handleFieldChange}
+            onNext={handleNext}
+            onBack={handleBack}
+            isFirst={currentStep === 1}
+            isLast={currentStep === steps.length}
+            onAutoPopulate={handleAutoPopulate}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Auto-save indicator */}
+      {saveProgressMutation.isPending && (
+        <p className="text-xs text-muted-foreground text-center flex items-center justify-center gap-2">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          Saving progress...
+        </p>
+      )}
+    </div>
+  );
+}

@@ -5,7 +5,7 @@ import { sql, eq } from "drizzle-orm";
 import { db } from "./db";
 import { setupAuth as setupReplitAuth } from "./replitAuth";
 import { setupAuth as setupLocalAuth } from "./auth";
-import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema, insertCapitalGainsReportSchema, insertTransactionReportSchema, insertTransactionRecordSchema, insertCkycRecordSchema, userCart, userCartItems, storeProducts, storeCategories, fundComparisons, portfolioComparisons, comparisonHistory, insertFamilyGroupSchema, insertFamilyMemberSchema, insertFamilyGoalSchema, insertFamilyGoalContributionSchema, insertFamilyActivityLogSchema, insertFamilyDiscussionSchema, insertFamilyBudgetSchema } from "@shared/schema";
+import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema, insertCapitalGainsReportSchema, insertTransactionReportSchema, insertTransactionRecordSchema, insertCkycRecordSchema, userCart, userCartItems, storeProducts, storeCategories, fundComparisons, portfolioComparisons, comparisonHistory, insertFamilyGroupSchema, insertFamilyMemberSchema, insertFamilyGoalSchema, insertFamilyGoalContributionSchema, insertFamilyActivityLogSchema, insertFamilyDiscussionSchema, insertFamilyBudgetSchema, kycFormProgress } from "@shared/schema";
 import { marketStoryService, type MarketData as StoryMarketData } from "./market-story-service";
 import { generateMarketInsight, analyzePortfolio, generateInvestmentStory, explainFinancialConcept } from "./gemini";
 import { whatsappService } from "./whatsapp";
@@ -18386,6 +18386,111 @@ System Security Data:`;
     } catch (error) {
       console.error("Error processing pending notifications:", error);
       res.status(500).json({ error: "Failed to process notifications" });
+    }
+  });
+
+  // ============ KYC FORM PROGRESS API ROUTES ============
+
+  // Get KYC form progress for current user
+  app.get("/api/kyc-progress", async (req, res) => {
+    try {
+      const userId = req.user?.id || "demo-user-1"; // Get from session
+      const result = await db
+        .select()
+        .from(kycFormProgress)
+        .where(eq(kycFormProgress.userId, userId))
+        .limit(1);
+
+      if (result.length === 0) {
+        return res.status(404).json({ error: "No progress found" });
+      }
+
+      res.json(result[0]);
+    } catch (error) {
+      console.error("Error fetching KYC progress:", error);
+      res.status(500).json({ error: "Failed to fetch KYC progress" });
+    }
+  });
+
+  // Save/Update KYC form progress
+  app.put("/api/kyc-progress", async (req, res) => {
+    try {
+      const userId = req.user?.id || "demo-user-1"; // Get from session
+      const { 
+        currentStep, 
+        completedSteps, 
+        completionPercentage,
+        personalDetailsData,
+        addressDetailsData,
+        bankDetailsData,
+        documentDetailsData,
+        panDataSource,
+        aadharDataSource,
+        addressDataSource,
+        autoPopulatedFields,
+        isCompleted,
+        completedAt
+      } = req.body;
+
+      // Check if progress exists
+      const existing = await db
+        .select()
+        .from(kycFormProgress)
+        .where(eq(kycFormProgress.userId, userId))
+        .limit(1);
+
+      let result;
+
+      if (existing.length > 0) {
+        // Update existing progress
+        result = await db
+          .update(kycFormProgress)
+          .set({
+            currentStep,
+            completedSteps,
+            completionPercentage,
+            personalDetailsData,
+            addressDetailsData,
+            bankDetailsData,
+            documentDetailsData,
+            panDataSource,
+            aadharDataSource,
+            addressDataSource,
+            autoPopulatedFields,
+            isCompleted,
+            completedAt: completedAt ? new Date(completedAt) : undefined,
+            lastSavedAt: new Date(),
+            updatedAt: new Date()
+          })
+          .where(eq(kycFormProgress.userId, userId))
+          .returning();
+      } else {
+        // Create new progress
+        result = await db
+          .insert(kycFormProgress)
+          .values({
+            userId,
+            currentStep,
+            completedSteps,
+            completionPercentage,
+            personalDetailsData,
+            addressDetailsData,
+            bankDetailsData,
+            documentDetailsData,
+            panDataSource,
+            aadharDataSource,
+            addressDataSource,
+            autoPopulatedFields,
+            isCompleted,
+            completedAt: completedAt ? new Date(completedAt) : undefined
+          })
+          .returning();
+      }
+
+      res.json(result[0]);
+    } catch (error) {
+      console.error("Error saving KYC progress:", error);
+      res.status(500).json({ error: "Failed to save KYC progress" });
     }
   });
 
