@@ -179,15 +179,17 @@ export function ConsentDialog({
           </div>
         </div>
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="gap-2 flex-col sm:flex-row">
           <Button 
-            variant="outline" 
+            variant="outline"
+            className="w-full sm:w-auto"
             onClick={() => onOpenChange(false)}
             data-testid="button-consent-cancel"
           >
             Cancel
           </Button>
-          <Button 
+          <Button
+            className="w-full sm:w-auto"
             onClick={handleGrantConsent}
             disabled={!hasReadTerms || consentMutation.isPending}
             data-testid="button-consent-grant"
