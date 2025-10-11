@@ -18,6 +18,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Bell, BellOff, Plus, TrendingUp, TrendingDown, Wallet, ShoppingCart, Edit, Trash2, Eye, X, Check } from "lucide-react";
 import { format } from "date-fns";
+import type { UserAlert, AlertHistory, AlertTemplate } from "@shared/schema";
 
 // Zod schemas for alert creation
 const marketPriceAlertSchema = z.object({
@@ -62,24 +63,24 @@ export default function AlertsPage() {
   const [activeTab, setActiveTab] = useState('my-alerts');
 
   // Fetch alerts
-  const { data: alerts = [], isLoading: alertsLoading } = useQuery({
+  const { data: alerts = [], isLoading: alertsLoading } = useQuery<UserAlert[]>({
     queryKey: ['/api/alerts'],
   });
 
   // Fetch alert history
-  const { data: alertHistory = [], isLoading: historyLoading } = useQuery({
+  const { data: alertHistory = [], isLoading: historyLoading } = useQuery<AlertHistory[]>({
     queryKey: ['/api/alerts/history'],
   });
 
   // Fetch alert templates
-  const { data: templates = [], isLoading: templatesLoading } = useQuery({
+  const { data: templates = [], isLoading: templatesLoading } = useQuery<AlertTemplate[]>({
     queryKey: ['/api/alerts/templates'],
   });
 
   // Delete alert mutation
   const deleteAlertMutation = useMutation({
     mutationFn: async (alertId: string) => {
-      await apiRequest(`/api/alerts/${alertId}`, { method: 'DELETE' });
+      await apiRequest('DELETE', `/api/alerts/${alertId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/alerts'] });
@@ -93,7 +94,7 @@ export default function AlertsPage() {
   // Toggle alert mutation
   const toggleAlertMutation = useMutation({
     mutationFn: async (alertId: string) => {
-      return await apiRequest(`/api/alerts/${alertId}/toggle`, { method: 'POST' });
+      return await apiRequest('POST', `/api/alerts/${alertId}/toggle`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/alerts'] });
@@ -104,7 +105,7 @@ export default function AlertsPage() {
   // Mark history as viewed mutation
   const markViewedMutation = useMutation({
     mutationFn: async (historyId: string) => {
-      return await apiRequest(`/api/alerts/history/${historyId}/viewed`, { method: 'POST' });
+      return await apiRequest('POST', `/api/alerts/history/${historyId}/viewed`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/alerts/history'] });
@@ -114,7 +115,7 @@ export default function AlertsPage() {
   // Dismiss alert mutation
   const dismissAlertMutation = useMutation({
     mutationFn: async (historyId: string) => {
-      return await apiRequest(`/api/alerts/history/${historyId}/dismiss`, { method: 'POST' });
+      return await apiRequest('POST', `/api/alerts/history/${historyId}/dismiss`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/alerts/history'] });
@@ -125,10 +126,8 @@ export default function AlertsPage() {
   // Use template mutation
   const useTemplateMutation = useMutation({
     mutationFn: async (templateId: string) => {
-      return await apiRequest('/api/alerts/from-template', {
-        method: 'POST',
-        body: JSON.stringify({ templateId }),
-        headers: { 'Content-Type': 'application/json' },
+      return await apiRequest('POST', '/api/alerts/from-template', {
+        body: { templateId },
       });
     },
     onSuccess: () => {
@@ -504,10 +503,8 @@ function CreateAlertDialog({ selectedType, onTypeChange, onClose }: {
 
   const createAlertMutation = useMutation({
     mutationFn: async (data: any) => {
-      return await apiRequest('/api/alerts', {
-        method: 'POST',
-        body: JSON.stringify(data),
-        headers: { 'Content-Type': 'application/json' },
+      return await apiRequest('POST', '/api/alerts', {
+        body: data,
       });
     },
     onSuccess: () => {
