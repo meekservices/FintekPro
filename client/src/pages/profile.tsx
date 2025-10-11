@@ -311,10 +311,10 @@ export default function ProfilePage() {
     const tabParam = params.get('tab');
     // Map "kyc" to "identity" since that's the actual tab name
     if (tabParam === 'kyc') return 'identity';
-    if (tabParam && ['basic', 'identity', 'address', 'financial', 'compliance', 'banking', 'demat'].includes(tabParam)) {
+    if (tabParam && ['kyc-dashboard', 'basic', 'enhanced', 'accredited', 'identity', 'address', 'financial', 'compliance', 'banking', 'demat'].includes(tabParam)) {
       return tabParam;
     }
-    return 'basic';
+    return 'kyc-dashboard'; // Default to dashboard for progressive workflow
   };
 
   const [activeTab, setActiveTab] = useState(getInitialTab());
@@ -521,9 +521,13 @@ export default function ProfilePage() {
           
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <ScrollableTabsList>
+              <TabsTrigger value="kyc-dashboard" data-testid="tab-kyc-dashboard" className="flex-shrink-0">
+                <Award className="h-4 w-4 mr-2" />
+                KYC Dashboard
+              </TabsTrigger>
               <TabsTrigger value="basic" data-testid="tab-basic" className="flex-shrink-0">
                 <User className="h-4 w-4 mr-2" />
-                Basic Info
+                Basic KYC (Tier 1)
               </TabsTrigger>
               <TabsTrigger value="kyc-verification" data-testid="tab-kyc-verification" className="flex-shrink-0">
                 <Shield className="h-4 w-4 mr-2" />
@@ -558,6 +562,150 @@ export default function ProfilePage() {
                 Preferences
               </TabsTrigger>
             </ScrollableTabsList>
+
+            {/* KYC Dashboard Tab */}
+            <TabsContent value="kyc-dashboard" className="space-y-6">
+              <KYCDashboardContent 
+                profile={profile} 
+                setActiveTab={setActiveTab} 
+              />
+</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="space-y-2 text-sm">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                            <span>Mutual Funds (Regular)</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                            <span>Equity Cash (₹50K/day)</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                            <span>IPO Retail</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                            <span>Govt Securities</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                            <span>Fixed Deposits</span>
+                          </div>
+                        </div>
+                        {(!profile?.kycTier || profile?.kycTier === 'basic') && (
+                          <Button size="sm" className="w-full mt-4" onClick={() => setActiveTab('basic')}>
+                            Complete Basic KYC
+                          </Button>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Tier 2: Enhanced */}
+                    <Card className={profile?.kycTier === 'enhanced' ? 'border-purple-500 border-2' : ''}>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          <Star className={`h-5 w-5 ${profile?.kycTier === 'enhanced' || profile?.kycTier === 'accredited_investor' ? 'text-green-600' : 'text-gray-400'}`} />
+                          Tier 2: Enhanced
+                        </CardTitle>
+                        <CardDescription>Advanced trading</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="space-y-2 text-sm">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className={`h-4 w-4 ${profile?.kycTier === 'enhanced' || profile?.kycTier === 'accredited_investor' ? 'text-green-600' : 'text-gray-400'}`} />
+                            <span>Futures & Options (F&O)</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className={`h-4 w-4 ${profile?.kycTier === 'enhanced' || profile?.kycTier === 'accredited_investor' ? 'text-green-600' : 'text-gray-400'}`} />
+                            <span>Commodities Trading</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className={`h-4 w-4 ${profile?.kycTier === 'enhanced' || profile?.kycTier === 'accredited_investor' ? 'text-green-600' : 'text-gray-400'}`} />
+                            <span>Global Trading</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className={`h-4 w-4 ${profile?.kycTier === 'enhanced' || profile?.kycTier === 'accredited_investor' ? 'text-green-600' : 'text-gray-400'}`} />
+                            <span>Margin Trading</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className={`h-4 w-4 ${profile?.kycTier === 'enhanced' || profile?.kycTier === 'accredited_investor' ? 'text-green-600' : 'text-gray-400'}`} />
+                            <span>Direct MFs & Unlimited Equity</span>
+                          </div>
+                        </div>
+                        {profile?.kycTier === 'basic' && (
+                          <Button size="sm" variant="outline" className="w-full mt-4" onClick={() => setActiveTab('enhanced')}>
+                            Upgrade to Enhanced
+                          </Button>
+                        )}
+                        {profile?.kycTier === 'enhanced' && (
+                          <Badge className="w-full justify-center mt-4 bg-green-600">Current Tier</Badge>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Tier 3: Accredited Investor */}
+                    <Card className={profile?.kycTier === 'accredited_investor' ? 'border-amber-500 border-2' : ''}>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          <Award className={`h-5 w-5 ${profile?.kycTier === 'accredited_investor' ? 'text-amber-600' : 'text-gray-400'}`} />
+                          Tier 3: Accredited
+                        </CardTitle>
+                        <CardDescription>Premium products</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="space-y-2 text-sm">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className={`h-4 w-4 ${profile?.kycTier === 'accredited_investor' ? 'text-green-600' : 'text-gray-400'}`} />
+                            <span>AIF (Cat I, II, III)</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className={`h-4 w-4 ${profile?.kycTier === 'accredited_investor' ? 'text-green-600' : 'text-gray-400'}`} />
+                            <span>PMS (Portfolio Mgmt)</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className={`h-4 w-4 ${profile?.kycTier === 'accredited_investor' ? 'text-green-600' : 'text-gray-400'}`} />
+                            <span>Pre-IPO Investments</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className={`h-4 w-4 ${profile?.kycTier === 'accredited_investor' ? 'text-green-600' : 'text-gray-400'}`} />
+                            <span>Private Equity</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className={`h-4 w-4 ${profile?.kycTier === 'accredited_investor' ? 'text-green-600' : 'text-gray-400'}`} />
+                            <span>Offshore Investments</span>
+                          </div>
+                        </div>
+                        {profile?.kycTier === 'enhanced' && (
+                          <Button size="sm" variant="outline" className="w-full mt-4" onClick={() => setActiveTab('accredited')}>
+                            Apply for Accredited Status
+                          </Button>
+                        )}
+                        {profile?.kycTier === 'accredited_investor' && (
+                          <Badge className="w-full justify-center mt-4 bg-amber-600">Premium Tier</Badge>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Next Steps Section */}
+                  {profile?.kycTier !== 'accredited_investor' && (
+                    <Alert>
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertTitle>Unlock More Products</AlertTitle>
+                      <AlertDescription>
+                        {!profile?.kycTier || profile?.kycTier === 'basic' ? (
+                          <>Complete Enhanced KYC to unlock derivatives, commodities, and global trading. Requires Video KYC, income proof, and risk assessment.</>
+                        ) : profile?.kycTier === 'enhanced' ? (
+                          <>Become an Accredited Investor to access premium products like AIF and PMS. Requires ₹2Cr+ income OR ₹7.5Cr+ net worth OR ₹5Cr+ portfolio.</>
+                        ) : null}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
 
             {/* Basic Information Tab */}
             <TabsContent value="basic" className="space-y-6">

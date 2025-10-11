@@ -763,6 +763,151 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // KYC Tier Management Routes
+  app.get("/api/profile/kyc-tier/requirements/:tier", requireClientOrHigher, async (req, res) => {
+    try {
+      const { getTierUpgradeRequirements } = await import("./kyc-tier-service");
+      const userId = req.user.id;
+      const tier = req.params.tier as "enhanced" | "accredited_investor";
+      
+      if (!["enhanced", "accredited_investor"].includes(tier)) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid tier. Must be 'enhanced' or 'accredited_investor'",
+        });
+      }
+      
+      const requirements = await getTierUpgradeRequirements(userId, tier);
+      
+      res.json({
+        success: true,
+        data: requirements,
+      });
+    } catch (error) {
+      console.error("Error fetching KYC tier requirements:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch KYC tier requirements",
+      });
+    }
+  });
+
+  app.get("/api/profile/kyc-tier/product-access", requireClientOrHigher, async (req, res) => {
+    try {
+      const { getUserProductAccess } = await import("./kyc-tier-service");
+      const userId = req.user.id;
+      
+      const productAccess = await getUserProductAccess(userId);
+      
+      res.json({
+        success: true,
+        data: productAccess,
+      });
+    } catch (error) {
+      console.error("Error fetching product access:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch product access",
+      });
+    }
+  });
+
+  app.post("/api/profile/kyc-tier/upgrade-enhanced", requireClientOrHigher, async (req, res) => {
+    try {
+      const { upgradeToEnhancedKyc } = await import("./kyc-tier-service");
+      const userId = req.user.id;
+      
+      const result = await upgradeToEnhancedKyc(userId);
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error upgrading to Enhanced KYC:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to upgrade to Enhanced KYC",
+      });
+    }
+  });
+
+  app.post("/api/profile/kyc-tier/request-accredited", requireClientOrHigher, async (req, res) => {
+    try {
+      const { requestAccreditedInvestorVerification } = await import("./kyc-tier-service");
+      const userId = req.user.id;
+      const { verificationType } = req.body;
+      
+      if (!["income_based", "networth_based", "portfolio_based", "professional"].includes(verificationType)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid verification type",
+        });
+      }
+      
+      const result = await requestAccreditedInvestorVerification(userId, verificationType);
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error requesting Accredited Investor verification:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to request Accredited Investor verification",
+      });
+    }
+  });
+
+  app.post("/api/profile/kyc-tier/verify-accredited", requireAdmin, async (req, res) => {
+    try {
+      const { verifyAccreditedInvestor } = await import("./kyc-tier-service");
+      const { userId, approved, rejectionReason } = req.body;
+      const verifiedBy = req.user.id;
+      
+      if (!userId) {
+        return res.status(400).json({
+          success: false,
+          message: "User ID is required",
+        });
+      }
+      
+      const result = await verifyAccreditedInvestor(userId, verifiedBy, approved, rejectionReason);
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error verifying Accredited Investor:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to verify Accredited Investor status",
+      });
+    }
+  });
+
+  app.get("/api/profile/kyc-tier/product-prompt/:productCode", requireClientOrHigher, async (req, res) => {
+    try {
+      const { getProductUpgradePrompt } = await import("./kyc-tier-service");
+      const { productCode } = req.params;
+      
+      const profile = await storage.getUserProfile(req.user.id);
+      if (!profile) {
+        return res.status(404).json({
+          success: false,
+          error: "User profile not found",
+        });
+      }
+      
+      const currentTier = profile.kycTier || "basic";
+      const prompt = getProductUpgradePrompt(currentTier, productCode);
+      
+      res.json({
+        success: true,
+        data: prompt,
+      });
+    } catch (error) {
+      console.error("Error fetching product upgrade prompt:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch product upgrade prompt",
+      });
+    }
+  });
+
   // Financial Goals API endpoints
   app.get("/api/financial-goals", async (req, res) => {
     try {

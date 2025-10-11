@@ -46,7 +46,13 @@ Do not make changes to the file `Y`.
 - **Financial Calculators**: SIP, EMI, retirement, and tax calculators.
 - **Multi-Asset Support**: Equities, bonds, mutual funds, IPOs, alternative investments.
 - **Family Collaboration & Planning**: Shared financial groups, permission-based access, shared goals, combined net worth, and budget management.
-- **KYC Compliance System**: MANDATORY FULL KYC for all financial transactions, with enhanced KYC for high-value transactions, integrated AML screening, and regulatory adherence.
+- **Intelligent Tiered KYC System**: Progressive 3-tier KYC framework with SEBI Accredited Investor compliance:
+  - **Tier 1 (Basic)**: PAN, Aadhaar, basic profile → Unlocks MF, equity cash (₹50K/day), IPOs, govt securities, FDs
+  - **Tier 2 (Enhanced)**: Video KYC, income proof, risk assessment → Unlocks F&O, commodities, global trading, margin trading, unlimited equity
+  - **Tier 3 (Accredited Investor)**: SEBI compliance (₹2Cr+ income OR ₹7.5Cr+ net worth OR ₹5Cr+ portfolio OR professional qualification) → Unlocks AIF, PMS, pre-IPO, private equity, offshore investments
+  - Route-specific verification: Income route needs income docs, net worth needs CA cert, portfolio needs statements, professional needs credentials
+  - Visual KYC Dashboard with product access matrix, tier progression, and smart upgrade prompts
+  - Product access control middleware with upgrade recommendations on restricted products
 - **Re-KYC Automation System**: Risk-based periodic KYC renewal with automated reminders and transaction permission linking.
 - **Investment Proposal System**: Custom ID system, filtering, creation, and full CRUD support.
 - **Financial Products Marketplace (Store Page)**: Slidable category tabs, real-time filtering, wishlist, cart, and product detail modals.
