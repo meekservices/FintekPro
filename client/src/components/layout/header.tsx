@@ -101,17 +101,17 @@ export function Header() {
             </nav>
           </div>
 
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center gap-2 sm:gap-3 lg:gap-4 flex-wrap">
             {/* Store Button */}
             <Link href="/store">
               <Button 
                 variant="default" 
                 size="sm"
-                className="bg-green-600 hover:bg-green-700 text-white"
+                className="bg-green-600 hover:bg-green-700 text-white whitespace-nowrap"
                 data-testid="header-store-button"
               >
-                <Store className="h-4 w-4 mr-2" />
-                Store
+                <Store className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Store</span>
               </Button>
             </Link>
             
@@ -121,11 +121,11 @@ export function Header() {
                 <Button 
                   variant="outline" 
                   size="sm"
-                  className="relative"
+                  className="relative whitespace-nowrap"
                   data-testid="header-cart-button"
                 >
-                  <ShoppingCart className="h-4 w-4 mr-2" />
-                  Cart
+                  <ShoppingCart className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Cart</span>
                   {cart && cart.totalItems > 0 && (
                     <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                       {cart.totalItems}
@@ -139,8 +139,8 @@ export function Header() {
             {isLoading ? (
               <div className="hidden md:block w-20 h-9 bg-gray-200 animate-pulse rounded"></div>
             ) : isAuthenticated ? (
-              <div className="hidden md:flex items-center space-x-3">
-                <div className="flex items-center space-x-2">
+              <div className="hidden md:flex items-center gap-2 lg:gap-3 flex-wrap">
+                <div className="flex items-center gap-2">
                   {user?.profileImageUrl && (
                     <img 
                       src={user.profileImageUrl} 
@@ -148,7 +148,7 @@ export function Header() {
                       className="w-6 h-6 rounded-full object-cover"
                     />
                   )}
-                  <span className="text-sm font-medium text-gray-700" data-testid="client-name-header">
+                  <span className="text-sm font-medium text-gray-700 truncate max-w-[120px]" data-testid="client-name-header">
                     {getClientName()}
                   </span>
                 </div>
@@ -156,30 +156,33 @@ export function Header() {
                   <Button 
                     variant="outline" 
                     size="sm"
+                    className="whitespace-nowrap"
                     data-testid="ckyc-button"
                   >
-                    <Shield className="h-4 w-4 mr-2" />
-                    CKYC
+                    <Shield className="h-4 w-4 lg:mr-2" />
+                    <span className="hidden lg:inline">CKYC</span>
                   </Button>
                 </Link>
                 <Link href="/profile">
                   <Button 
                     variant="outline" 
                     size="sm"
+                    className="whitespace-nowrap"
                     data-testid="profile-button"
                   >
-                    <UserIcon className="h-4 w-4 mr-2" />
-                    Profile
+                    <UserIcon className="h-4 w-4 lg:mr-2" />
+                    <span className="hidden lg:inline">Profile</span>
                   </Button>
                 </Link>
                 <Button 
                   variant="outline" 
-                  size="sm" 
+                  size="sm"
+                  className="whitespace-nowrap"
                   onClick={handleLogout}
                   data-testid="logout-button"
                 >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Logout
+                  <LogOut className="h-4 w-4 lg:mr-2" />
+                  <span className="hidden lg:inline">Logout</span>
                 </Button>
               </div>
             ) : (
