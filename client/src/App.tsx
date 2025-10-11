@@ -87,6 +87,12 @@ import FamilyDashboard from "@/pages/family-dashboard";
 import AIChat from "@/pages/ai-chat";
 import CorporateKYCPage from "@/pages/CorporateKYCPage";
 import AlertsPage from "@/pages/alerts";
+import SettingsPage from "@/pages/settings";
+import CreditReportPage from "@/pages/credit-report";
+import DerivativesPage from "@/pages/derivatives";
+import CommoditiesPage from "@/pages/commodities";
+import CreditCardsPage from "@/pages/credit-cards";
+import ProfessionalServicesPage from "@/pages/professional-services";
 
 function UserProtectedRoutes() {
   return (
@@ -176,6 +182,13 @@ function UserProtectedRoutes() {
         <Route path="/families" component={FamilyList} />
         <Route path="/families/:id" component={FamilyDashboard} />
         <Route path="/corporate-kyc" component={CorporateKYCPage} />
+        {/* New Pages */}
+        <Route path="/settings" component={SettingsPage} />
+        <Route path="/credit-report" component={CreditReportPage} />
+        <Route path="/derivatives" component={DerivativesPage} />
+        <Route path="/commodities" component={CommoditiesPage} />
+        <Route path="/credit-cards" component={CreditCardsPage} />
+        <Route path="/professional-services" component={ProfessionalServicesPage} />
         </Switch>
       </ProfileCompletionGuard>
     </AppLayout>

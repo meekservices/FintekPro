@@ -238,11 +238,11 @@ export function EnhancedNavigation() {
           icon: Crown,
           description: "Premium international financial services",
           subItems: [
-            { name: "GIFT City AIFs", href: "/gift-city/aif", description: "Alternative Investment Funds", badge: "PREMIUM" },
-            { name: "IFSC Banking", href: "/gift-city/banking", description: "International banking units" },
-            { name: "Tax Advantages", href: "/gift-city/tax-benefits", description: "10-year tax holiday" },
-            { name: "Global Exposure", href: "/gift-city/global", description: "International structures" },
-            { name: "Minimum Investment", href: "/gift-city/eligibility", description: "USD 150K+ opportunities" }
+            { name: "GIFT City Overview", href: "/gift-city", description: "Premium international services", badge: "PREMIUM" },
+            { name: "AIFs", href: "/gift-city?tab=aif", description: "Alternative Investment Funds" },
+            { name: "IFSC Banking", href: "/gift-city?tab=banking", description: "International banking units" },
+            { name: "Tax Benefits", href: "/gift-city?tab=tax-benefits", description: "10-year tax holiday" },
+            { name: "Global Exposure", href: "/gift-city?tab=global", description: "International structures" }
           ]
         }
       ]
