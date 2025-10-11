@@ -497,7 +497,7 @@ function DocumentsStep({ data, onChange, onNext, onBack }: StepProps) {
 }
 
 // Step 5: Review & Submit
-function ReviewStep({ data, onBack, isLast }: StepProps) {
+function ReviewStep({ data, onBack, isLast, autoPopulatedFields }: StepProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -560,30 +560,108 @@ function ReviewStep({ data, onBack, isLast }: StepProps) {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-4">
-        <h3 className="font-semibold">Personal Details</h3>
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div><span className="text-muted-foreground">PAN:</span> {data.pan}</div>
-          <div><span className="text-muted-foreground">Name:</span> {data.fullName}</div>
-          <div><span className="text-muted-foreground">DOB:</span> {data.dateOfBirth}</div>
-          <div><span className="text-muted-foreground">Gender:</span> {data.gender}</div>
+    <div className="space-y-6 animate-in fade-in-50 duration-500">
+      {/* Personal Details Section */}
+      <div className="rounded-lg border bg-card p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <User className="h-5 w-5 text-primary" />
+          <h3 className="font-semibold">Personal Details</h3>
         </div>
-
-        <h3 className="font-semibold mt-4">Address</h3>
-        <div className="text-sm">
-          <p>{data.address}</p>
-          <p>{data.city}, {data.state} - {data.pincode}</p>
-          <p className="mt-2">Mobile: {data.mobile}</p>
-          <p>Email: {data.email}</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">PAN:</span>
+            <span className="font-medium">{data.pan}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-muted-foreground">Name:</span>
+            <div className="flex items-center gap-1">
+              <span className="font-medium">{data.fullName}</span>
+              <AutoPopulatedBadge source={autoPopulatedFields?.fullName} />
+            </div>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-muted-foreground">DOB:</span>
+            <div className="flex items-center gap-1">
+              <span className="font-medium">{data.dateOfBirth}</span>
+              <AutoPopulatedBadge source={autoPopulatedFields?.dateOfBirth} />
+            </div>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Gender:</span>
+            <span className="font-medium">{data.gender === 'M' ? 'Male' : data.gender === 'F' ? 'Female' : 'Other'}</span>
+          </div>
         </div>
+      </div>
 
-        <h3 className="font-semibold mt-4">Bank Details</h3>
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div><span className="text-muted-foreground">Bank:</span> {data.bankName}</div>
-          <div><span className="text-muted-foreground">Account:</span> {data.accountNumber}</div>
-          <div><span className="text-muted-foreground">IFSC:</span> {data.ifscCode}</div>
-          <div><span className="text-muted-foreground">Type:</span> {data.accountType}</div>
+      {/* Address Section */}
+      <div className="rounded-lg border bg-card p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <MapPin className="h-5 w-5 text-primary" />
+          <h3 className="font-semibold">Address & Contact</h3>
+        </div>
+        <div className="space-y-2 text-sm">
+          <div className="flex justify-between items-start">
+            <span className="text-muted-foreground">Address:</span>
+            <div className="flex items-center gap-1 text-right">
+              <span className="font-medium">{data.address}</span>
+              <AutoPopulatedBadge source={autoPopulatedFields?.address} />
+            </div>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-muted-foreground">City:</span>
+            <div className="flex items-center gap-1">
+              <span className="font-medium">{data.city}</span>
+              <AutoPopulatedBadge source={autoPopulatedFields?.city} />
+            </div>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-muted-foreground">State:</span>
+            <div className="flex items-center gap-1">
+              <span className="font-medium">{data.state}</span>
+              <AutoPopulatedBadge source={autoPopulatedFields?.state} />
+            </div>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-muted-foreground">Pincode:</span>
+            <div className="flex items-center gap-1">
+              <span className="font-medium">{data.pincode}</span>
+              <AutoPopulatedBadge source={autoPopulatedFields?.pincode} />
+            </div>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Mobile:</span>
+            <span className="font-medium">{data.mobile}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Email:</span>
+            <span className="font-medium">{data.email}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Bank Details Section */}
+      <div className="rounded-lg border bg-card p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <CreditCard className="h-5 w-5 text-primary" />
+          <h3 className="font-semibold">Bank Details</h3>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Bank:</span>
+            <span className="font-medium">{data.bankName}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Account:</span>
+            <span className="font-medium">{data.accountNumber}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">IFSC:</span>
+            <span className="font-medium">{data.ifscCode}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Type:</span>
+            <span className="font-medium">{data.accountType}</span>
+          </div>
         </div>
       </div>
 
