@@ -5941,49 +5941,46 @@ export const insertPartnerApplicationDocumentSchema = createInsertSchema(partner
 export type PartnerApplicationDocument = typeof partnerApplicationDocuments.$inferSelect;
 export type InsertPartnerApplicationDocument = z.infer<typeof insertPartnerApplicationDocumentSchema>;
 
-// PhonePe Payment Transactions table
-export const phonepeTransactions = pgTable("phonepe_transactions", {
+// Cashfree Payment Transactions table
+export const cashfreeTransactions = pgTable("cashfree_transactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id).notNull(),
   
   // Transaction Identification
-  merchantTransactionId: varchar("merchant_transaction_id").notNull().unique(), // Our generated transaction ID
-  phonepeTransactionId: varchar("phonepe_transaction_id"), // PhonePe's transaction ID
-  merchantId: varchar("merchant_id").notNull(),
+  orderId: varchar("order_id").notNull().unique(), // Our generated order ID
+  cashfreeOrderId: varchar("cashfree_order_id"), // Cashfree's transaction ID
+  paymentSessionId: varchar("payment_session_id"), // Cashfree payment session ID
   
   // Amount Details
   amount: decimal("amount", { precision: 15, scale: 2 }).notNull(), // Amount in rupees
-  amountInPaise: integer("amount_in_paise").notNull(), // Amount in paise (for PhonePe API)
   currency: varchar("currency").default("INR"),
   
   // Payment Details
-  paymentInstrumentType: varchar("payment_instrument_type"), // UPI, CARD, NET_BANKING, WALLET
-  paymentMethod: varchar("payment_method"), // Specific method like PHONEPE_WALLET, PAYTM, etc.
+  paymentMethod: varchar("payment_method"), // UPI, CARD, NET_BANKING, WALLET
+  paymentInstrumentType: varchar("payment_instrument_type"), // Specific instrument type
   
   // User Information
-  merchantUserId: varchar("merchant_user_id"), // PhonePe user ID
+  customerId: varchar("customer_id"), // Cashfree customer ID
   mobileNumber: varchar("mobile_number"),
   customerName: varchar("customer_name"),
   customerEmail: varchar("customer_email"),
   
   // Transaction Status
-  status: varchar("status").default("PENDING").notNull(), // PENDING, SUCCESS, FAILED, PAYMENT_INITIATED, PAYMENT_PENDING
-  responseCode: varchar("response_code"), // PhonePe response code
-  responseMessage: text("response_message"), // PhonePe response message
+  status: varchar("status").default("PENDING").notNull(), // PENDING, SUCCESS, FAILED, ACTIVE
+  orderStatus: varchar("order_status"), // Cashfree order status
+  responseMessage: text("response_message"), // Cashfree response message
   
   // URLs and Redirects
-  redirectUrl: text("redirect_url"),
-  callbackUrl: text("callback_url"),
-  paymentUrl: text("payment_url"), // PhonePe payment page URL
+  returnUrl: text("return_url"),
+  paymentUrl: text("payment_url"), // Cashfree payment page URL
   
   // Related Entities
   cartId: varchar("cart_id").references(() => userCart.id), // If payment for cart checkout
   itemType: varchar("item_type"), // mutual_fund, product, proposal, loan
   itemId: varchar("item_id"), // ID of the item being purchased
   
-  // PhonePe Gateway Response
-  gatewayResponse: jsonb("gateway_response"), // Full response from PhonePe
-  checksum: text("checksum"), // Generated checksum for verification
+  // Cashfree Gateway Response
+  gatewayResponse: jsonb("gateway_response"), // Full response from Cashfree
   
   // Metadata
   metadata: jsonb("metadata"), // Additional transaction data
@@ -5998,17 +5995,17 @@ export const phonepeTransactions = pgTable("phonepe_transactions", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// PhonePe Transaction Insert Schema
-export const insertPhonePeTransactionSchema = createInsertSchema(phonepeTransactions).omit({
+// Cashfree Transaction Insert Schema
+export const insertCashfreeTransactionSchema = createInsertSchema(cashfreeTransactions).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
   initiatedAt: true,
 });
 
-// PhonePe Transaction Types
-export type PhonePeTransaction = typeof phonepeTransactions.$inferSelect;
-export type InsertPhonePeTransaction = z.infer<typeof insertPhonePeTransactionSchema>;
+// Cashfree Transaction Types
+export type CashfreeTransaction = typeof cashfreeTransactions.$inferSelect;
+export type InsertCashfreeTransaction = z.infer<typeof insertCashfreeTransactionSchema>;
 
 // Tax Rules table - Dynamic tax rates and rules management
 export const taxRules = pgTable(
