@@ -209,6 +209,47 @@ export const userProfiles = pgTable("user_profiles", {
   bcName: varchar("bc_name"), // Business Correspondent name
   bcAssistedDate: timestamp("bc_assisted_date"),
   
+  // Tiered KYC System - Progressive Product Access
+  kycTier: varchar("kyc_tier").default("basic"), // basic/enhanced/accredited_investor
+  kycTierUpgradedAt: timestamp("kyc_tier_upgraded_at"),
+  kycTierUpgradeRequestedAt: timestamp("kyc_tier_upgrade_requested_at"),
+  
+  // Accredited Investor Verification (Tier 3)
+  accreditedInvestorStatus: varchar("accredited_investor_status").default("not_applicable"), // not_applicable/pending/verified/rejected
+  accreditedInvestorType: varchar("accredited_investor_type"), // income_based/networth_based/portfolio_based/professional
+  accreditedInvestorVerifiedAt: timestamp("accredited_investor_verified_at"),
+  accreditedInvestorVerifiedBy: varchar("accredited_investor_verified_by"), // compliance officer
+  accreditedInvestorExpiryDate: timestamp("accredited_investor_expiry_date"), // Annual renewal required
+  
+  // Financial Metrics for Accredited Investor Qualification
+  annualIncomeAmount: decimal("annual_income_amount", { precision: 15, scale: 2 }), // Actual income amount for ₹2Cr threshold
+  annualIncomeCurrency: varchar("annual_income_currency").default("INR"),
+  netWorthAmount: decimal("net_worth_amount", { precision: 15, scale: 2 }), // Actual net worth for ₹7.5Cr threshold
+  netWorthExcludingResidence: decimal("net_worth_excluding_residence", { precision: 15, scale: 2 }),
+  netWorthCurrency: varchar("net_worth_currency").default("INR"),
+  portfolioValueAmount: decimal("portfolio_value_amount", { precision: 15, scale: 2 }), // Securities portfolio for ₹5Cr threshold
+  portfolioValueCurrency: varchar("portfolio_value_currency").default("INR"),
+  
+  // Professional Qualification for Accredited Status
+  professionalQualification: varchar("professional_qualification"), // CA/CFA/MBA_Finance/CPA/FRM
+  professionalQualificationNumber: varchar("professional_qualification_number"), // Certificate/License number
+  professionalQualificationVerified: boolean("professional_qualification_verified").default(false),
+  professionalExperienceYears: integer("professional_experience_years"),
+  
+  // Accredited Investor Documentation
+  caCertificateUrl: varchar("ca_certificate_url"), // CA certificate for net worth verification
+  caCertificateVerifiedAt: timestamp("ca_certificate_verified_at"),
+  caCertificateName: varchar("ca_certificate_name"), // Name of CA who certified
+  incomeProofDocuments: jsonb("income_proof_documents").default([]), // Array of income proof URLs
+  netWorthStatementUrl: varchar("net_worth_statement_url"),
+  portfolioStatementUrl: varchar("portfolio_statement_url"),
+  accreditedInvestorRejectionReason: text("accredited_investor_rejection_reason"),
+  
+  // Product Access Permissions (auto-calculated based on KYC tier)
+  productsUnlocked: jsonb("products_unlocked").default([]), // Array of unlocked product codes
+  productsAccessMatrix: jsonb("products_access_matrix").default({}), // Detailed access permissions
+  lastProductAccessUpdate: timestamp("last_product_access_update").defaultNow(),
+  
   // Audit and Tracking
   profileCompleteness: integer("profile_completeness").default(0), // 0-100%
   isProfileCompleted: boolean("is_profile_completed").default(false), // Mandatory KYC profile completion
