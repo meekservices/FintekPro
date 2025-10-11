@@ -214,30 +214,27 @@ export default function TaxReminderSubscription() {
     }
   };
 
-  const handlePhonePeCheckout = async () => {
+  const handleCashfreeCheckout = async () => {
     if (!selectedTier || !user) return;
 
     setIsProcessingPayment(true);
 
     try {
-      const response = await apiRequest('POST', '/api/tax/phonepe/initiate-payment', {
+      const response: any = await apiRequest('POST', '/api/payments/cashfree/create-order', {
         body: {
-          userId: user.id,
-          itrFormType: selectedTier.formType,
           amount: selectedTier.price,
-          serviceType: 'tax_reminder'
+          itemType: 'tax_reminder',
+          itemId: selectedTier.formType
         }
       });
 
-      const data = await response.json();
-
-      if (data.success && data.paymentUrl) {
-        window.location.href = data.paymentUrl;
+      if (response.success && response.paymentUrl) {
+        window.location.href = response.paymentUrl;
       } else {
-        throw new Error(data.message || 'Failed to initiate payment');
+        throw new Error(response.message || 'Failed to initiate payment');
       }
     } catch (error) {
-      console.error('PhonePe payment initiation error:', error);
+      console.error('Cashfree payment initiation error:', error);
       toast({
         title: "Payment Error",
         description: error instanceof Error ? error.message : "Failed to initialize payment. Please try again.",
@@ -507,7 +504,7 @@ export default function TaxReminderSubscription() {
               </Alert>
               <div className="flex gap-4">
                 <Button
-                  onClick={handlePhonePeCheckout}
+                  onClick={handleCashfreeCheckout}
                   disabled={isProcessingPayment || subscriptionMutation.isPending}
                   className="flex-1"
                   data-testid="button-proceed-payment"
@@ -515,7 +512,7 @@ export default function TaxReminderSubscription() {
                   {isProcessingPayment ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Redirecting to PhonePe...
+                      Redirecting to Cashfree...
                     </>
                   ) : (
                     "Proceed to Payment"
