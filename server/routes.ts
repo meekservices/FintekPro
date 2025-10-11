@@ -28263,10 +28263,67 @@ System Security Data:`;
 
   // ==================== ALERT SYSTEM ROUTES ====================
   
+  // Helper function to transform form data to triggerCondition format
+  function transformAlertData(formData: any) {
+    const { alertType, operator, targetValue, threshold, timeframe, symbol, category: spendingCategory } = formData;
+    let triggerCondition: any = {};
+    let alertData: any = {
+      ...formData,
+      userId: formData.userId,
+      alertName: formData.alertName,
+      alertType,
+      category: formData.category,
+      notificationChannels: formData.notificationChannels || ['in_app'],
+      isActive: true,
+      priority: formData.priority || 'medium',
+    };
+
+    // Transform based on alert type
+    switch (alertType) {
+      case 'market_price':
+        triggerCondition = {
+          type: operator === 'above' ? 'price_above' : 'price_below',
+          value: parseFloat(targetValue),
+        };
+        alertData.symbol = symbol;
+        break;
+      
+      case 'market_change':
+        triggerCondition = {
+          type: operator === 'increase' ? 'percent_gain' : 'percent_loss',
+          value: parseFloat(threshold),
+          timeframe: timeframe || '1d',
+        };
+        alertData.symbol = symbol;
+        break;
+      
+      case 'spending_budget':
+        triggerCondition = {
+          type: 'category_limit',
+          value: parseFloat(targetValue),
+          threshold: parseFloat(threshold || '80'),
+        };
+        alertData.spendingCategory = spendingCategory;
+        alertData.spendingPeriod = timeframe;
+        break;
+      
+      case 'portfolio_value':
+        triggerCondition = {
+          type: operator === 'gain' ? 'percent_gain' : 'percent_loss',
+          value: parseFloat(threshold),
+        };
+        break;
+    }
+
+    alertData.triggerCondition = triggerCondition;
+    return alertData;
+  }
+  
   // Create new alert
   app.post("/api/alerts", requireAuth, async (req, res) => {
     try {
-      const alertData = { ...req.body, userId: req.user!.id };
+      const formData = { ...req.body, userId: req.user!.id };
+      const alertData = transformAlertData(formData);
       const alert = await storage.createUserAlert(alertData);
       res.status(201).json(alert);
     } catch (error) {
