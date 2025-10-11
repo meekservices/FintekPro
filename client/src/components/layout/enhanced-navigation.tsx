@@ -35,7 +35,10 @@ import {
   DollarSign,
   UserCheck,
   Settings,
-  Users
+  Settings2,
+  Users,
+  Bell,
+  AlertCircle
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/use-cart";
@@ -103,10 +106,10 @@ export function EnhancedNavigation() {
     );
   };
 
-  // FintekPro comprehensive navigation structure
+  // FintekPro process flow-based navigation structure
   const navigationGroups: NavigationGroup[] = [
     {
-      title: "Core Platform",
+      title: "Getting Started",
       items: [
         {
           name: "Dashboard",
@@ -115,48 +118,77 @@ export function EnhancedNavigation() {
           description: "Portfolio overview and market summary"
         },
         {
-          name: "Store",
-          icon: Store,
-          description: "Financial products and services marketplace",
+          name: "Profile & KYC",
+          icon: UserCheck,
+          description: "Complete profile management and compliance",
           subItems: [
-            { name: "All Products", href: "/store", description: "View all financial products" },
-            { name: "Mutual Funds", href: "/mutual-funds", description: "Domestic and international funds" },
-            { name: "IPO & Pre-IPO", href: "/ipo", description: "Public offerings and pre-IPO opportunities" },
-            { name: "Unlisted", href: "/unlisted", description: "Unlisted shares and securities" },
-            { name: "Bonds & NCDs", href: "/bonds", description: "Non-convertible debentures and bonds" },
-            { name: "MLDs", href: "/mlds", description: "Market linked debentures" },
-            { name: "Global Products", href: "/global-trading", description: "International stocks and funds" },
-            { name: "Insurance Hub", href: "/insurance", description: "Life, health, motor insurance" },
-            { name: "Banking Products", href: "/banking-products", description: "Accounts, loans, credit cards" },
-            { name: "Professional Services", href: "/professional-services", description: "Advisory, consultation, research" }
+            { name: "Profile Type Selection", href: "/profile", description: "Choose: Individual / NRI / Non-Individual" },
+            { name: "Individual KYC", href: "/profile?tab=individual", description: "Basic info, identity, documents" },
+            { name: "NRI KYC & Onboarding", href: "/profile?tab=nri", description: "NRI profile, VKYC, NRE/NRO setup" },
+            { name: "Non-Individual KYC", href: "/profile?tab=entity", description: "Corporate, Trust, HUF, Partnership" },
+            { name: "Identity & Documents", href: "/profile?tab=kyc", description: "KYC and CKYC verification" },
+            { name: "Address Details", href: "/profile?tab=address", description: "Residential and correspondence" },
+            { name: "Financial Profile", href: "/profile?tab=financial", description: "Income, occupation, risk profile" },
+            { name: "AML & Compliance", href: "/profile?tab=compliance", description: "PEP, sanctions screening" },
+            { name: "Banking & Demat", href: "/profile?tab=accounts", description: "Account details and nominees" }
           ]
         }
       ]
     },
     {
-      title: "Investment Solutions",
+      title: "Research & Planning",
       items: [
         {
           name: "Wealth Management",
           icon: Briefcase,
           description: "AI-powered investment planning and portfolio management",
           subItems: [
-            { name: "AI recommends", href: "/wealth-management?tab=recommendations", description: "AI allocation system for ₹72,000 surplus", badge: "AI POWERED" },
-            { name: "Goal Planning", href: "/wealth-management?tab=goals", description: "Financial goal setting and tracking" },
+            { name: "AI Recommendations", href: "/wealth-management?tab=recommendations", description: "Smart allocation system", badge: "AI POWERED" },
+            { name: "Goal Planning", href: "/wealth-management?tab=goals", description: "Financial goal setting" },
             { name: "Risk Assessment", href: "/wealth-management?tab=risk", description: "Portfolio risk analysis" },
-            { name: "Asset Allocation", href: "/wealth-management?tab=dashboard", description: "Core, Alternative, Premium tiers" }
+            { name: "Asset Allocation", href: "/wealth-management?tab=dashboard", description: "Core, Alternative, Premium" }
           ]
         },
         {
-          name: "Family Collaboration",
-          icon: Users,
-          description: "Collaborate with family on financial goals and budgets",
+          name: "Tools & Calculators",
+          icon: Calculator,
+          description: "Financial planning and analysis tools",
           subItems: [
-            { name: "My Families", href: "/families", description: "View and manage your family groups" },
-            { name: "Shared Goals", href: "/families", description: "Track family financial goals together" },
-            { name: "Family Budgets", href: "/families", description: "Manage household budgets collaboratively" }
+            { name: "SIP Calculator", href: "/calculators?tool=sip", description: "Systematic investment planning" },
+            { name: "EMI Calculator", href: "/calculators?tool=emi", description: "Loan EMI and eligibility" },
+            { name: "Tax Calculator", href: "/calculators?tool=tax", description: "Tax planning and optimization" },
+            { name: "Retirement Planner", href: "/calculators?tool=retirement", description: "Retirement corpus planning" },
+            { name: "Goal Planner", href: "/calculators?tool=goals", description: "Financial goal achievement" },
+            { name: "All Calculators", href: "/calculators", description: "Complete calculator suite" }
           ]
-        },
+        }
+      ]
+    },
+    {
+      title: "Products & Marketplace",
+      items: [
+        {
+          name: "Store",
+          icon: Store,
+          description: "Financial products and services marketplace",
+          subItems: [
+            { name: "All Products", href: "/store", description: "View all financial products" },
+            { name: "Mutual Funds", href: "/mutual-funds", description: "Domestic and international funds" },
+            { name: "IPO & Pre-IPO", href: "/ipo", description: "Public offerings and opportunities" },
+            { name: "Unlisted Shares", href: "/unlisted", description: "Unlisted securities" },
+            { name: "Bonds & NCDs", href: "/bonds", description: "Non-convertible debentures" },
+            { name: "MLDs", href: "/mlds", description: "Market linked debentures" },
+            { name: "Global Products", href: "/global-trading", description: "International stocks and funds" },
+            { name: "Insurance Hub", href: "/insurance", description: "Life, health, motor insurance" },
+            { name: "Banking Products", href: "/banking-products", description: "Accounts, deposits, cards" },
+            { name: "Professional Services", href: "/professional-services", description: "Advisory and research" }
+          ]
+        }
+      ]
+    },
+    {
+      title: "Investing & Trading",
+      items: [
         {
           name: "Trading & Investments",
           icon: TrendingUp,
@@ -173,21 +205,32 @@ export function EnhancedNavigation() {
       ]
     },
     {
-      title: "Banking & Financial Services",
+      title: "Financial Services",
       items: [
         {
-          name: "Loans and credit",
+          name: "Loans & Credit",
           icon: CreditCard,
-          description: "Comprehensive loan marketplace and banking products",
+          description: "Comprehensive loan marketplace",
           subItems: [
-            { name: "Loan Recommendations", href: "/loan-recommendations", description: "AI-powered personalized loan suggestions", badge: "AI POWERED" },
-            { name: "Bajaj Finance", href: "/bajaj-finance", description: "Personal loans, business loans, FDs" },
-            { name: "Tata Capital", href: "/tata-capital", description: "Home loans, LAP, vehicle loans" },
-            { name: "Personal Loans", href: "/loans?category=personal", description: "Quick approval personal loans" },
-            { name: "Home Loans", href: "/loans?category=home", description: "Best home loan rates" },
-            { name: "Business Loans", href: "/loans?category=business", description: "SME and corporate financing" },
-            { name: "Loan Comparison", href: "/loan-comparison", description: "Compare offers from multiple lenders" },
-            { name: "CIBIL Score", href: "/cibil", description: "Credit monitoring and improvement" }
+            { name: "Personal Loan", href: "/loans?type=personal", description: "Instant approval, minimal docs" },
+            { name: "Home Loan", href: "/loans?type=home", description: "Best rates for property purchase" },
+            { name: "Car Loan", href: "/loans?type=car", description: "New and used vehicle financing" },
+            { name: "Loan Against Property", href: "/loans?type=lap", description: "Leverage your property value" },
+            { name: "Loan Against Securities", href: "/loans?type=las", description: "Pledge shares/mutual funds" },
+            { name: "Business Loan", href: "/loans?type=business", description: "SME and corporate financing" },
+            { name: "Education Loan", href: "/loans?type=education", description: "Study in India or abroad" },
+            { name: "Gold Loan", href: "/loans?type=gold", description: "Quick cash against gold" },
+            { name: "Credit Card", href: "/credit-cards", description: "Compare and apply for cards" },
+            { name: "Loan Comparison", href: "/loan-comparison", description: "Compare offers from lenders" }
+          ]
+        },
+        {
+          name: "Credit Management",
+          icon: BarChart3,
+          description: "Credit score and report management",
+          subItems: [
+            { name: "CIBIL Score", href: "/cibil", description: "Credit monitoring and improvement" },
+            { name: "Credit Report", href: "/credit-report", description: "Detailed credit history" }
           ]
         },
         {
@@ -195,41 +238,27 @@ export function EnhancedNavigation() {
           icon: Crown,
           description: "Premium international financial services",
           subItems: [
-            { name: "GIFT City AIFs", href: "/gift-city/aif", description: "Alternative Investment Funds with tax benefits", badge: "PREMIUM" },
-            { name: "IFSC Banking", href: "/gift-city/banking", description: "ICICI, HDFC, HSBC international units" },
-            { name: "Tax Advantages", href: "/gift-city/tax-benefits", description: "10-year tax holiday and exemptions" },
-            { name: "Global Exposure", href: "/gift-city/global", description: "International investment structures" },
-            { name: "Minimum Investment", href: "/gift-city/eligibility", description: "USD 150K+ investment opportunities" }
+            { name: "GIFT City AIFs", href: "/gift-city/aif", description: "Alternative Investment Funds", badge: "PREMIUM" },
+            { name: "IFSC Banking", href: "/gift-city/banking", description: "International banking units" },
+            { name: "Tax Advantages", href: "/gift-city/tax-benefits", description: "10-year tax holiday" },
+            { name: "Global Exposure", href: "/gift-city/global", description: "International structures" },
+            { name: "Minimum Investment", href: "/gift-city/eligibility", description: "USD 150K+ opportunities" }
           ]
         }
       ]
     },
     {
-      title: "Specialized Services",
+      title: "Tax & Compliance",
       items: [
-        {
-          name: "NRI Services",
-          icon: Globe,
-          description: "Complete NRI financial ecosystem",
-          subItems: [
-            { name: "NRI Onboarding", href: "/nri/onboarding", description: "Digital account opening with video KYC" },
-            { name: "NRE/NRO Accounts", href: "/nri/banking", description: "Non-resident banking solutions" },
-            { name: "FCNR Deposits", href: "/nri/deposits", description: "Foreign currency deposits" },
-            { name: "International Remittance", href: "/nri/remittance", description: "Money transfer to India" },
-            { name: "NRI Investments", href: "/nri/investments", description: "Mutual funds, stocks, real estate" },
-            { name: "Tax & Compliance", href: "/nri/tax", description: "FATCA, CRS, dual taxation" }
-          ]
-        },
         {
           name: "ITR & Tax Services",
           icon: Receipt,
           description: "AI-powered tax filing and compliance",
-          href: "/tax-hub",
           badge: "NEW",
           subItems: [
-            { name: "Smart Tax Hub", href: "/tax-hub", description: "Unified AI-powered tax dashboard", badge: "NEW" },
-            { name: "Tax Smart Filing", href: "/tax", description: "Intelligent ITR filing with auto-fill" },
-            { name: "ITR Services", href: "/itr-tax-services", description: "ITR-1 to ITR-7 filing services" },
+            { name: "Smart Tax Hub", href: "/tax-hub", description: "Unified AI-powered dashboard", badge: "NEW" },
+            { name: "Tax Smart Filing", href: "/tax", description: "Intelligent ITR filing" },
+            { name: "ITR Services", href: "/itr-tax-services", description: "ITR-1 to ITR-7 filing" },
             { name: "Tax Data Center", href: "/tax-data-center", description: "AIS, 26AS, mutual fund data" },
             { name: "Tax Documents", href: "/tax-documents", description: "Form 16, 26AS, TDS certificates" },
             { name: "Prefilled ITR", href: "/itr-prefilled", description: "Auto-populated tax forms" }
@@ -238,32 +267,50 @@ export function EnhancedNavigation() {
       ]
     },
     {
-      title: "Profile & Tools",
+      title: "Family & Collaboration",
       items: [
         {
-          name: "Profile & KYC",
-          icon: UserCheck,
-          description: "Complete profile management and compliance",
+          name: "Family Collaboration",
+          icon: Users,
+          description: "Collaborate with family on finances",
           subItems: [
-            { name: "Basic Information", href: "/profile?tab=basic", description: "Personal and contact details" },
-            { name: "Identity & Documents", href: "/profile?tab=kyc", description: "KYC and CKYC verification" },
-            { name: "Address Details", href: "/profile?tab=address", description: "Residential and correspondence address" },
-            { name: "Financial Profile", href: "/profile?tab=financial", description: "Income, occupation, risk profile" },
-            { name: "AML & Compliance", href: "/profile?tab=compliance", description: "PEP, sanctions screening" },
-            { name: "Banking & Demat", href: "/profile?tab=accounts", description: "Account details and nominees" }
+            { name: "My Families", href: "/families", description: "View and manage family groups" },
+            { name: "Shared Goals", href: "/families?tab=goals", description: "Track family financial goals" },
+            { name: "Family Budgets", href: "/families?tab=budgets", description: "Manage household budgets" }
           ]
-        },
+        }
+      ]
+    },
+    {
+      title: "Monitoring & Alerts",
+      items: [
         {
-          name: "Tools & Calculators",
-          icon: Calculator,
-          description: "Financial planning and analysis tools",
+          name: "Alerts & Notifications",
+          icon: Bell,
+          description: "Market alerts and spending notifications",
+          badge: "NEW",
           subItems: [
-            { name: "SIP Calculator", href: "/calculators?tool=sip", description: "Systematic investment planning" },
-            { name: "EMI Calculator", href: "/calculators?tool=emi", description: "Loan EMI and eligibility" },
-            { name: "Tax Calculator", href: "/calculators?tool=tax", description: "Tax planning and optimization" },
-            { name: "Retirement Planner", href: "/calculators?tool=retirement", description: "Retirement corpus planning" },
-            { name: "Goal Planner", href: "/calculators?tool=goals", description: "Financial goal achievement" },
-            { name: "All Calculators", href: "/calculators", description: "Complete calculator suite" }
+            { name: "My Alerts", href: "/alerts", description: "View and manage active alerts" },
+            { name: "Alert History", href: "/alerts?tab=history", description: "Past notifications and triggers" },
+            { name: "Notification Settings", href: "/alerts?tab=settings", description: "Configure alert channels" },
+            { name: "Alert Templates", href: "/alerts?tab=templates", description: "Pre-configured alert types" }
+          ]
+        }
+      ]
+    },
+    {
+      title: "Settings & Support",
+      items: [
+        {
+          name: "Settings",
+          icon: Settings2,
+          description: "Account and application settings",
+          badge: "NEW",
+          subItems: [
+            { name: "Account Settings", href: "/settings?tab=account", description: "Personal information and preferences" },
+            { name: "Notification Preferences", href: "/settings?tab=notifications", description: "Email, SMS, push settings" },
+            { name: "Security & Privacy", href: "/settings?tab=security", description: "Password, 2FA, privacy controls" },
+            { name: "Connected Accounts", href: "/settings?tab=connections", description: "Bank accounts and integrations" }
           ]
         }
       ]
