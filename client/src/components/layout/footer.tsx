@@ -1,14 +1,15 @@
 import { Link } from "wouter";
-import { Facebook, Twitter, Linkedin, Instagram, Store, Package, ShoppingCart, Calculator, Shield, CreditCard, Heart, TrendingUp, PieChart, FileText } from "lucide-react";
+import { 
+  Facebook, Twitter, Linkedin, Instagram, Home, UserCheck, Briefcase, Calculator, 
+  Store, TrendingUp, CreditCard, Receipt, Users, Bell, Settings, HelpCircle, Shield 
+} from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-
 
 export function Footer() {
   const { isAuthenticated, user } = useAuth();
   const [creditScore, setCreditScore] = useState<number | null>(null);
 
-  // Load credit score from localStorage or fetch if needed
   useEffect(() => {
     const savedScore = localStorage.getItem('userCreditScore');
     if (savedScore) {
@@ -32,72 +33,58 @@ export function Footer() {
     return "Poor";
   };
 
-  // Trading & Markets - Aligned with navigation
-  const tradingLinks = [
+  // Reorganized by process flow
+  const gettingStartedLinks = [
     { name: "Dashboard", href: "/" },
-    { name: "Portfolio Management", href: "/portfolio" },
-    { name: "Live Markets", href: "/markets" },
-    { name: "Broking Terminal", href: "/broking" },
-    { name: "IPO Center", href: "/ipo" },
-    { name: "Pre-IPO Investments", href: "/pre-ipo" },
+    { name: "Profile & KYC", href: "/profile" },
+    { name: "Onboarding", href: "/onboarding" },
   ];
 
-  // Investments - Aligned with navigation
-  const investmentLinks = [
-    { name: "Mutual Funds", href: "/mutual-funds" },
-    { name: "SIP Calculator", href: "/calculators?tool=sip" },
-    { name: "InvestSmart", href: "/investsmart" },
-    { name: "AIF Investments", href: "/aif" },
-    { name: "Investment Proposals", href: "/proposals" },
-    { name: "Unlisted Shares", href: "/unlisted" },
+  const researchLinks = [
+    { name: "Wealth Management", href: "/wealth-management" },
+    { name: "Financial Calculators", href: "/calculators" },
+    { name: "Professional Services", href: "/professional-services" },
   ];
 
-  // Financial Services - Loans & Credit (Aligned with navigation)
-  const loanLinks = [
-    { name: "All Loans", href: "/loans" },
-    { name: "ICICI Bank Loans", href: "/icici-loans" },
-    { name: "HDFC Bank Loans", href: "/hdfc-loans" },
-    { name: "Bajaj Finance", href: "/bajaj-finance" },
-    { name: "Tata Capital", href: "/tata-capital" },
-    { name: "Loan Dashboard", href: "/loan-dashboard" },
-  ];
-
-  // Financial Services - Insurance (Aligned with navigation)
-  const insuranceLinks = [
-    { name: "PolicyBazaar", href: "/policybazaar" },
-    { name: "CIBIL Score", href: "/cibil" },
-  ];
-
-  // Tools & Services - Calculators (Aligned with navigation)
-  const calculatorLinks = [
-    { name: "All Calculators", href: "/calculators" },
-    { name: "SIP Calculator", href: "/calculators?tool=sip" },
-    { name: "EMI Calculator", href: "/calculators?tool=emi" },
-    { name: "Tax Calculator", href: "/calculators?tool=tax" },
-  ];
-
-  // Tools & Services - Reports & Analysis (Aligned with navigation)
-  const reportsLinks = [
-    { name: "Market Research", href: "/agricultural-insights" },
-    { name: "NSDL Services", href: "/nsdl-services" },
-    { name: "CDSL Services", href: "/cdsl-services" },
-    { name: "CAMS Services", href: "/cams-services" },
-    { name: "Kfintech Services", href: "/kfintech-services" },
-  ];
-
-  // Tools & Services - Store (Aligned with navigation)
-  const storeLinks = [
+  const productsLinks = [
     { name: "Product Store", href: "/store" },
-    { name: "Shopping Cart", href: "/cart" },
+    { name: "Mutual Funds", href: "/mutual-funds" },
+    { name: "IPO Center", href: "/ipo" },
+    { name: "Bonds & NCDs", href: "/bonds" },
+    { name: "Insurance", href: "/insurance" },
   ];
 
-  // Support (Aligned with navigation)
+  const investingLinks = [
+    { name: "Portfolio", href: "/portfolio" },
+    { name: "NSE/BSE Trading", href: "/broking" },
+    { name: "Derivatives (F&O)", href: "/derivatives" },
+    { name: "Commodities", href: "/commodities" },
+    { name: "Global Trading", href: "/global-trading" },
+  ];
+
+  const servicesLinks = [
+    { name: "Loans", href: "/loans" },
+    { name: "Credit Cards", href: "/credit-cards" },
+    { name: "Credit Report", href: "/credit-report" },
+    { name: "GIFT City IFSC", href: "/gift-city" },
+  ];
+
+  const taxLinks = [
+    { name: "Tax Hub", href: "/tax-hub" },
+    { name: "Tax Filing", href: "/tax" },
+    { name: "ITR Services", href: "/itr-tax-services" },
+  ];
+
+  const familyAlertsLinks = [
+    { name: "Family Groups", href: "/families" },
+    { name: "Alerts & Notifications", href: "/alerts" },
+  ];
+
   const supportLinks = [
+    { name: "Settings", href: "/settings" },
+    { name: "Support", href: "/support" },
     { name: "Contact Us", href: "/contact" },
-    { name: "Support & Help", href: "/support" },
-    { name: "DigiLocker", href: "/digilocker" },
-    { name: "Terms & Conditions", href: "/terms" },
-    { name: "Privacy Policy", href: "/privacy" },
+    { name: "Terms & Privacy", href: "/terms" },
   ];
 
   return (
@@ -110,8 +97,8 @@ export function Footer() {
             <h3 className="text-xl font-bold mb-4" data-testid="footer-company-name">
               FintekPro
             </h3>
-            <p className="text-gray-300 mb-4" data-testid="footer-company-description">
-              Your complete financial services platform for investments, loans, and smart investment solutions.
+            <p className="text-gray-300 mb-4 text-sm" data-testid="footer-company-description">
+              Complete financial services platform for investments, trading, loans, tax filing, and wealth management.
             </p>
             <div className="flex space-x-4">
               <Facebook className="text-gray-300 hover:text-white cursor-pointer h-5 w-5" data-testid="social-facebook" />
@@ -121,20 +108,17 @@ export function Footer() {
             </div>
           </div>
           
-          {/* Trading & Markets */}
+          {/* Getting Started */}
           <div>
-            <h4 className="font-semibold mb-4 flex items-center gap-2" data-testid="footer-trading-title">
-              <TrendingUp className="h-4 w-4 text-blue-500" />
-              Trading & Markets
+            <h4 className="font-semibold mb-4 flex items-center gap-2" data-testid="footer-getting-started-title">
+              <Home className="h-4 w-4 text-blue-400" />
+              Getting Started
             </h4>
-            <ul className="space-y-2 text-gray-300">
-              {tradingLinks.map((link) => (
+            <ul className="space-y-2 text-gray-300 text-sm">
+              {gettingStartedLinks.map((link) => (
                 <li key={link.name}>
                   <Link href={link.href}>
-                    <span 
-                      className="hover:text-blue-500 transition-colors cursor-pointer"
-                      data-testid={`footer-trading-${link.name.toLowerCase().replace(/\s+/g, "-")}`}
-                    >
+                    <span className="hover:text-blue-400 transition-colors cursor-pointer" data-testid={`footer-start-${link.name.toLowerCase().replace(/\s+/g, "-")}`}>
                       {link.name}
                     </span>
                   </Link>
@@ -143,20 +127,17 @@ export function Footer() {
             </ul>
           </div>
           
-          {/* Investments */}
+          {/* Research & Planning */}
           <div>
-            <h4 className="font-semibold mb-4 flex items-center gap-2" data-testid="footer-investments-title">
-              <PieChart className="h-4 w-4 text-green-500" />
-              Investments
+            <h4 className="font-semibold mb-4 flex items-center gap-2" data-testid="footer-research-title">
+              <Briefcase className="h-4 w-4 text-green-400" />
+              Research & Planning
             </h4>
-            <ul className="space-y-2 text-gray-300">
-              {investmentLinks.map((link) => (
+            <ul className="space-y-2 text-gray-300 text-sm">
+              {researchLinks.map((link) => (
                 <li key={link.name}>
                   <Link href={link.href}>
-                    <span 
-                      className="hover:text-green-500 transition-colors cursor-pointer"
-                      data-testid={`footer-investment-${link.name.toLowerCase().replace(/\s+/g, "-")}`}
-                    >
+                    <span className="hover:text-green-400 transition-colors cursor-pointer" data-testid={`footer-research-${link.name.toLowerCase().replace(/\s+/g, "-")}`}>
                       {link.name}
                     </span>
                   </Link>
@@ -165,20 +146,17 @@ export function Footer() {
             </ul>
           </div>
           
-          {/* Loans & Credit */}
+          {/* Products & Marketplace */}
           <div>
-            <h4 className="font-semibold mb-4 flex items-center gap-2" data-testid="footer-loans-title">
-              <CreditCard className="h-4 w-4 text-orange-500" />
-              Loans & Credit
+            <h4 className="font-semibold mb-4 flex items-center gap-2" data-testid="footer-products-title">
+              <Store className="h-4 w-4 text-purple-400" />
+              Products
             </h4>
-            <ul className="space-y-2 text-gray-300">
-              {loanLinks.map((link) => (
+            <ul className="space-y-2 text-gray-300 text-sm">
+              {productsLinks.map((link) => (
                 <li key={link.name}>
                   <Link href={link.href}>
-                    <span 
-                      className="hover:text-orange-500 transition-colors cursor-pointer"
-                      data-testid={`footer-loan-${link.name.toLowerCase().replace(/\s+/g, "-")}`}
-                    >
+                    <span className="hover:text-purple-400 transition-colors cursor-pointer" data-testid={`footer-product-${link.name.toLowerCase().replace(/\s+/g, "-")}`}>
                       {link.name}
                     </span>
                   </Link>
@@ -187,20 +165,17 @@ export function Footer() {
             </ul>
           </div>
           
-          {/* Insurance */}
+          {/* Investing & Trading */}
           <div>
-            <h4 className="font-semibold mb-4 flex items-center gap-2" data-testid="footer-insurance-title">
-              <Shield className="h-4 w-4 text-red-500" />
-              Insurance
+            <h4 className="font-semibold mb-4 flex items-center gap-2" data-testid="footer-investing-title">
+              <TrendingUp className="h-4 w-4 text-cyan-400" />
+              Investing
             </h4>
-            <ul className="space-y-2 text-gray-300">
-              {insuranceLinks.map((link) => (
+            <ul className="space-y-2 text-gray-300 text-sm">
+              {investingLinks.map((link) => (
                 <li key={link.name}>
                   <Link href={link.href}>
-                    <span 
-                      className="hover:text-red-500 transition-colors cursor-pointer"
-                      data-testid={`footer-insurance-${link.name.toLowerCase().replace(/\s+/g, "-")}`}
-                    >
+                    <span className="hover:text-cyan-400 transition-colors cursor-pointer" data-testid={`footer-investing-${link.name.toLowerCase().replace(/\s+/g, "-")}`}>
                       {link.name}
                     </span>
                   </Link>
@@ -209,20 +184,17 @@ export function Footer() {
             </ul>
           </div>
           
-          {/* Calculators */}
+          {/* Financial Services */}
           <div>
-            <h4 className="font-semibold mb-4 flex items-center gap-2" data-testid="footer-calculators-title">
-              <Calculator className="h-4 w-4 text-purple-500" />
-              Calculators
+            <h4 className="font-semibold mb-4 flex items-center gap-2" data-testid="footer-services-title">
+              <CreditCard className="h-4 w-4 text-orange-400" />
+              Services
             </h4>
-            <ul className="space-y-2 text-gray-300">
-              {calculatorLinks.map((link) => (
+            <ul className="space-y-2 text-gray-300 text-sm">
+              {servicesLinks.map((link) => (
                 <li key={link.name}>
                   <Link href={link.href}>
-                    <span 
-                      className="hover:text-purple-500 transition-colors cursor-pointer"
-                      data-testid={`footer-calculator-${link.name.toLowerCase().replace(/\s+/g, "-")}`}
-                    >
+                    <span className="hover:text-orange-400 transition-colors cursor-pointer" data-testid={`footer-service-${link.name.toLowerCase().replace(/\s+/g, "-")}`}>
                       {link.name}
                     </span>
                   </Link>
@@ -231,20 +203,26 @@ export function Footer() {
             </ul>
           </div>
           
-          {/* Reports & Analysis */}
+          {/* Tax & Family */}
           <div>
-            <h4 className="font-semibold mb-4 flex items-center gap-2" data-testid="footer-reports-title">
-              <FileText className="h-4 w-4 text-indigo-500" />
-              Reports & Analysis
+            <h4 className="font-semibold mb-4 flex items-center gap-2" data-testid="footer-tax-title">
+              <Receipt className="h-4 w-4 text-indigo-400" />
+              Tax & Family
             </h4>
-            <ul className="space-y-2 text-gray-300">
-              {reportsLinks.map((link) => (
+            <ul className="space-y-2 text-gray-300 text-sm">
+              {taxLinks.map((link) => (
                 <li key={link.name}>
                   <Link href={link.href}>
-                    <span 
-                      className="hover:text-indigo-500 transition-colors cursor-pointer"
-                      data-testid={`footer-reports-${link.name.toLowerCase().replace(/\s+/g, "-")}`}
-                    >
+                    <span className="hover:text-indigo-400 transition-colors cursor-pointer" data-testid={`footer-tax-${link.name.toLowerCase().replace(/\s+/g, "-")}`}>
+                      {link.name}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+              {familyAlertsLinks.map((link) => (
+                <li key={link.name}>
+                  <Link href={link.href}>
+                    <span className="hover:text-indigo-400 transition-colors cursor-pointer" data-testid={`footer-family-${link.name.toLowerCase().replace(/\s+/g, "-")}`}>
                       {link.name}
                     </span>
                   </Link>
@@ -253,32 +231,17 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Store & Support */}
+          {/* Settings & Support */}
           <div>
-            <h4 className="font-semibold mb-4 flex items-center gap-2" data-testid="footer-store-title">
-              <Store className="h-4 w-4 text-green-400" />
-              Store & Support
+            <h4 className="font-semibold mb-4 flex items-center gap-2" data-testid="footer-support-title">
+              <Settings className="h-4 w-4 text-pink-400" />
+              Support
             </h4>
-            <ul className="space-y-2 text-gray-300">
-              {storeLinks.map((link) => (
-                <li key={link.name}>
-                  <Link href={link.href}>
-                    <span 
-                      className="hover:text-green-400 transition-colors cursor-pointer"
-                      data-testid={`footer-store-${link.name.toLowerCase().replace(/\s+/g, "-")}`}
-                    >
-                      {link.name}
-                    </span>
-                  </Link>
-                </li>
-              ))}
+            <ul className="space-y-2 text-gray-300 text-sm">
               {supportLinks.map((link) => (
                 <li key={link.name}>
                   <Link href={link.href}>
-                    <span 
-                      className="hover:text-green-400 transition-colors cursor-pointer"
-                      data-testid={`footer-support-${link.name.toLowerCase().replace(/\s+/g, "-")}`}
-                    >
+                    <span className="hover:text-pink-400 transition-colors cursor-pointer" data-testid={`footer-support-${link.name.toLowerCase().replace(/\s+/g, "-")}`}>
                       {link.name}
                     </span>
                   </Link>
@@ -287,7 +250,6 @@ export function Footer() {
             </ul>
           </div>
         </div>
-        
         
         {/* Credit Score Widget */}
         {isAuthenticated && creditScore && (
@@ -305,7 +267,7 @@ export function Footer() {
                   <span className="text-gray-400">({getCreditGrade(creditScore)})</span>
                 </div>
               </div>
-              <Link href="/cibil">
+              <Link href="/credit-report">
                 <span className="text-blue-400 hover:text-blue-300 transition-colors cursor-pointer text-sm">
                   View Full Report →
                 </span>
@@ -314,9 +276,9 @@ export function Footer() {
           </div>
         )}
 
-        <div className="border-t border-gray-600 mt-8 pt-8 text-center text-gray-300">
+        <div className="border-t border-gray-600 mt-8 pt-8 text-center text-gray-300 text-sm">
           <p data-testid="footer-copyright">
-            &copy; 2025 FintekPro. All rights reserved. | Registered Distributor of financial & Investment products.
+            &copy; 2025 FintekPro. All rights reserved. | Registered Distributor of Financial & Investment Products.
           </p>
         </div>
       </div>
