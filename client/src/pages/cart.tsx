@@ -58,7 +58,7 @@ export default function Cart() {
   const { toast } = useToast();
   const [location, setLocation] = useLocation();
   const [updatingItems, setUpdatingItems] = useState<Record<string, boolean>>({});
-  const [paymentMethod, setPaymentMethod] = useState<"phonepe" | "stripe">("phonepe");
+  const [paymentMethod, setPaymentMethod] = useState<"cashfree" | "stripe">("cashfree");
   
   // Proposals tab state
   const [selectedProposalTab, setSelectedProposalTab] = useState<string>("all");
@@ -173,15 +173,14 @@ export default function Cart() {
   };
 
   const checkoutMutation = useMutation({
-    mutationFn: async (method: "phonepe" | "stripe") => {
-      if (method === "phonepe") {
-        const amountInPaise = Math.round((cart?.totalValue || 0) * 100);
-        const response: any = await apiRequest("POST", "/api/phonepe/initiate", {
+    mutationFn: async (method: "cashfree" | "stripe") => {
+      if (method === "cashfree") {
+        const response: any = await apiRequest("POST", "/api/payments/cashfree/create-order", {
           body: {
-            amount: amountInPaise,
+            amount: cart?.totalValue || 0,
           }
         });
-        return { ...response, method: "phonepe" };
+        return { ...response, method: "cashfree" };
       } else {
         const response: any = await apiRequest("POST", "/api/stripe/checkout", {
           body: {
@@ -192,8 +191,8 @@ export default function Cart() {
       }
     },
     onSuccess: (data: any) => {
-      if (data.method === "phonepe" && data.redirectUrl) {
-        window.location.href = data.redirectUrl;
+      if (data.method === "cashfree" && data.paymentUrl) {
+        window.location.href = data.paymentUrl;
       } else if (data.method === "stripe" && data.url) {
         window.location.href = data.url;
       } else {
@@ -759,15 +758,15 @@ export default function Cart() {
                     {/* Payment Method Selection */}
                     <div className="mt-6 space-y-3">
                       <Label className="text-base font-semibold">Select Payment Method</Label>
-                      <RadioGroup value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as "phonepe" | "stripe")}>
+                      <RadioGroup value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as "cashfree" | "stripe")}>
                         <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
-                          <RadioGroupItem value="phonepe" id="phonepe" data-testid="radio-phonepe" />
-                          <Label htmlFor="phonepe" className="flex-1 cursor-pointer">
+                          <RadioGroupItem value="cashfree" id="cashfree" data-testid="radio-cashfree" />
+                          <Label htmlFor="cashfree" className="flex-1 cursor-pointer">
                             <div className="flex items-center gap-2">
-                              <div className="font-medium">PhonePe</div>
+                              <div className="font-medium">Cashfree</div>
                               <Badge variant="secondary">Recommended</Badge>
                             </div>
-                            <div className="text-xs text-gray-500">Fast & secure UPI payments</div>
+                            <div className="text-xs text-gray-500">UPI, Cards & more payment options</div>
                           </Label>
                         </div>
                         <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
