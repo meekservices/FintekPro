@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { CheckCircle, AlertCircle, Clock, Upload, FileText, Shield } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import type { CkycRecord, CkycDocument } from "@shared/schema";
+import { AppLayout } from "@/components/layout/app-layout";
 
 interface ComplianceStatus {
   compliant: boolean;
@@ -198,15 +199,18 @@ export default function CkycVerification() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto py-6 px-4">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <AppLayout>
+        <div className="container mx-auto py-6 px-4">
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
         </div>
-      </div>
+      </AppLayout>
     );
   }
 
   return (
+    <AppLayout>
     <div className="container mx-auto py-6 px-4 max-w-4xl">
       <div className="flex items-center gap-3 mb-6">
         <Shield className="h-8 w-8 text-primary" />
@@ -570,5 +574,6 @@ export default function CkycVerification() {
         </Card>
       )}
     </div>
+    </AppLayout>
   );
 }
