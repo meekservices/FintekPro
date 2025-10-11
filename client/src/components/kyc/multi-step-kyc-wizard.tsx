@@ -5,11 +5,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, Circle, Loader2, ArrowRight, ArrowLeft, Shield, User, MapPin, CreditCard, FileText, Eye } from "lucide-react";
+import { CheckCircle2, Circle, Loader2, ArrowRight, ArrowLeft, Shield, User, MapPin, CreditCard, FileText, Eye, Sparkles, Save, Check } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { Progress } from "@/components/ui/progress";
 import type { KycFormProgress } from "@shared/schema";
+import { cn } from "@/lib/utils";
 
 interface StepProps {
   data: any;
@@ -19,6 +21,27 @@ interface StepProps {
   isFirst: boolean;
   isLast: boolean;
   onAutoPopulate?: (source: string, data: any) => void;
+  autoPopulatedFields?: Record<string, string>;
+}
+
+// Helper component for auto-populated field indicator
+function AutoPopulatedBadge({ source }: { source?: string }) {
+  if (!source) return null;
+  
+  const sourceConfig = {
+    digilocker: { label: "DigiLocker", className: "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20" },
+    bse_star: { label: "BSE Star", className: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20" }
+  };
+  
+  const config = sourceConfig[source as keyof typeof sourceConfig];
+  if (!config) return null;
+  
+  return (
+    <Badge variant="outline" className={cn("ml-2 text-xs", config.className)}>
+      <Sparkles className="h-3 w-3 mr-1" />
+      {config.label}
+    </Badge>
+  );
 }
 
 const steps = [
@@ -30,7 +53,7 @@ const steps = [
 ];
 
 // Step 1: Personal Details
-function PersonalDetailsStep({ data, onChange, onNext, isFirst, onAutoPopulate }: StepProps) {
+function PersonalDetailsStep({ data, onChange, onNext, isFirst, onAutoPopulate, autoPopulatedFields }: StepProps) {
   const { toast } = useToast();
   const [isVerifying, setIsVerifying] = useState(false);
 
@@ -74,7 +97,7 @@ function PersonalDetailsStep({ data, onChange, onNext, isFirst, onAutoPopulate }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in-50 duration-500">
       <div className="space-y-4">
         <div className="grid gap-4">
           <div className="space-y-2">
@@ -87,10 +110,10 @@ function PersonalDetailsStep({ data, onChange, onNext, isFirst, onAutoPopulate }
               onChange={(e) => onChange("pan", e.target.value.toUpperCase())}
               onBlur={handlePANBlur}
               maxLength={10}
-              className="uppercase"
+              className="uppercase transition-all"
             />
             {isVerifying && (
-              <p className="text-sm text-muted-foreground flex items-center gap-2">
+              <p className="text-sm text-muted-foreground flex items-center gap-2 animate-in fade-in-50">
                 <Loader2 className="h-3 w-3 animate-spin" />
                 Fetching details from BSE Star...
               </p>
@@ -98,35 +121,47 @@ function PersonalDetailsStep({ data, onChange, onNext, isFirst, onAutoPopulate }
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="fullName">Full Name *</Label>
+            <div className="flex items-center">
+              <Label htmlFor="fullName">Full Name *</Label>
+              <AutoPopulatedBadge source={autoPopulatedFields?.fullName} />
+            </div>
             <Input
               id="fullName"
               data-testid="input-fullname"
               placeholder="As per PAN card"
               value={data.fullName || ""}
               onChange={(e) => onChange("fullName", e.target.value)}
+              className={cn("transition-all", autoPopulatedFields?.fullName && "border-blue-500/50")}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="dateOfBirth">Date of Birth *</Label>
+            <div className="flex items-center">
+              <Label htmlFor="dateOfBirth">Date of Birth *</Label>
+              <AutoPopulatedBadge source={autoPopulatedFields?.dateOfBirth} />
+            </div>
             <Input
               id="dateOfBirth"
               data-testid="input-dob"
               type="date"
               value={data.dateOfBirth || ""}
               onChange={(e) => onChange("dateOfBirth", e.target.value)}
+              className={cn("transition-all", autoPopulatedFields?.dateOfBirth && "border-blue-500/50")}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="fatherName">Father's Name</Label>
+            <div className="flex items-center">
+              <Label htmlFor="fatherName">Father's Name</Label>
+              <AutoPopulatedBadge source={autoPopulatedFields?.fatherName} />
+            </div>
             <Input
               id="fatherName"
               data-testid="input-fathername"
               placeholder="Father's full name"
               value={data.fatherName || ""}
               onChange={(e) => onChange("fatherName", e.target.value)}
+              className={cn("transition-all", autoPopulatedFields?.fatherName && "border-blue-500/50")}
             />
           </div>
 
@@ -159,7 +194,7 @@ function PersonalDetailsStep({ data, onChange, onNext, isFirst, onAutoPopulate }
 }
 
 // Step 2: Address & Contact
-function AddressStep({ data, onChange, onNext, onBack, onAutoPopulate }: StepProps) {
+function AddressStep({ data, onChange, onNext, onBack, onAutoPopulate, autoPopulatedFields }: StepProps) {
   const { toast } = useToast();
   const [isVerifying, setIsVerifying] = useState(false);
 
@@ -239,7 +274,7 @@ function AddressStep({ data, onChange, onNext, onBack, onAutoPopulate }: StepPro
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in-50 duration-500">
       <div className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="aadhar">Aadhaar Number (Optional)</Label>
@@ -251,6 +286,7 @@ function AddressStep({ data, onChange, onNext, onBack, onAutoPopulate }: StepPro
             onChange={(e) => onChange("aadhar", e.target.value.replace(/\s/g, ''))}
             onBlur={handleAadhaarBlur}
             maxLength={12}
+            className="transition-all"
           />
           {isVerifying && (
             <p className="text-sm text-muted-foreground flex items-center gap-2">
@@ -261,47 +297,63 @@ function AddressStep({ data, onChange, onNext, onBack, onAutoPopulate }: StepPro
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="address">Address *</Label>
+          <div className="flex items-center">
+            <Label htmlFor="address">Address *</Label>
+            <AutoPopulatedBadge source={autoPopulatedFields?.address} />
+          </div>
           <Input
             id="address"
             data-testid="input-address"
             placeholder="House no., Street, Area"
             value={data.address || ""}
             onChange={(e) => onChange("address", e.target.value)}
+            className={cn("transition-all", (autoPopulatedFields?.address === 'digilocker' && "border-green-500/50") || (autoPopulatedFields?.address === 'bse_star' && "border-blue-500/50"))}
           />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="city">City *</Label>
+            <div className="flex items-center">
+              <Label htmlFor="city">City *</Label>
+              <AutoPopulatedBadge source={autoPopulatedFields?.city} />
+            </div>
             <Input
               id="city"
               data-testid="input-city"
               value={data.city || ""}
               onChange={(e) => onChange("city", e.target.value)}
+              className={cn("transition-all", (autoPopulatedFields?.city === 'digilocker' && "border-green-500/50") || (autoPopulatedFields?.city === 'bse_star' && "border-blue-500/50"))}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="state">State *</Label>
+            <div className="flex items-center">
+              <Label htmlFor="state">State *</Label>
+              <AutoPopulatedBadge source={autoPopulatedFields?.state} />
+            </div>
             <Input
               id="state"
               data-testid="input-state"
               value={data.state || ""}
               onChange={(e) => onChange("state", e.target.value)}
+              className={cn("transition-all", (autoPopulatedFields?.state === 'digilocker' && "border-green-500/50") || (autoPopulatedFields?.state === 'bse_star' && "border-blue-500/50"))}
             />
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="pincode">Pincode *</Label>
+            <div className="flex items-center">
+              <Label htmlFor="pincode">Pincode *</Label>
+              <AutoPopulatedBadge source={autoPopulatedFields?.pincode} />
+            </div>
             <Input
               id="pincode"
               data-testid="input-pincode"
               maxLength={6}
               value={data.pincode || ""}
               onChange={(e) => onChange("pincode", e.target.value)}
+              className={cn("transition-all", (autoPopulatedFields?.pincode === 'digilocker' && "border-green-500/50") || (autoPopulatedFields?.pincode === 'bse_star' && "border-blue-500/50"))}
             />
           </div>
 
@@ -632,7 +684,13 @@ export function MultiStepKYCWizard() {
   };
 
   const handleAutoPopulate = (source: string, data: any) => {
-    setAutoPopulatedFields((prev: any) => ({ ...prev, [source]: data }));
+    const fieldSources: Record<string, string> = {};
+    Object.keys(data).forEach(key => {
+      if (data[key]) {
+        fieldSources[key] = source;
+      }
+    });
+    setAutoPopulatedFields((prev: any) => ({ ...prev, ...fieldSources }));
   };
 
   const handleNext = () => {
@@ -656,41 +714,61 @@ export function MultiStepKYCWizard() {
   ][currentStep - 1];
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6 p-4 md:p-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <Shield className="h-8 w-8 text-primary" />
-        <div>
-          <h1 className="text-3xl font-bold">Complete Your KYC</h1>
-          <p className="text-muted-foreground">Quick and secure verification process</p>
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-background p-6 md:p-8 border">
+        <div className="flex items-center gap-4">
+          <div className="p-3 rounded-xl bg-primary/10 backdrop-blur-sm">
+            <Shield className="h-8 w-8 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+              Complete Your KYC
+            </h1>
+            <p className="text-sm md:text-base text-muted-foreground mt-1">Quick and secure verification process</p>
+          </div>
         </div>
       </div>
 
       {/* Progress */}
-      <div className="space-y-2">
-        <Progress value={((currentStep - 1) / (steps.length - 1)) * 100} className="h-2" />
-        <p className="text-sm text-muted-foreground text-center">
-          Step {currentStep} of {steps.length} • {Math.round(((currentStep - 1) / (steps.length - 1)) * 100)}% Complete
-        </p>
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-medium">
+            Step {currentStep} of {steps.length}
+          </p>
+          <p className="text-sm font-medium text-primary">
+            {Math.round(((currentStep - 1) / (steps.length - 1)) * 100)}% Complete
+          </p>
+        </div>
+        <Progress value={((currentStep - 1) / (steps.length - 1)) * 100} className="h-2.5" />
       </div>
 
       {/* Stepper */}
-      <div className="flex justify-between">
+      <div className="flex justify-between items-start gap-2 overflow-x-auto pb-2">
         {steps.map((step, index) => {
           const Icon = step.icon;
           const isCompleted = currentStep > step.id;
           const isCurrent = currentStep === step.id;
           
           return (
-            <div key={step.id} className="flex flex-col items-center flex-1">
-              <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 mb-2 ${
-                isCompleted ? 'bg-primary border-primary text-primary-foreground' :
-                isCurrent ? 'border-primary text-primary' :
-                'border-gray-300 text-gray-400'
-              }`}>
-                {isCompleted ? <CheckCircle2 className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
+            <div key={step.id} className="flex flex-col items-center flex-1 min-w-[80px]">
+              <div className={cn(
+                "flex items-center justify-center w-12 h-12 rounded-full border-2 mb-2 transition-all duration-300",
+                isCompleted && "bg-primary border-primary text-primary-foreground shadow-md",
+                isCurrent && "border-primary text-primary shadow-lg scale-110",
+                !isCompleted && !isCurrent && "border-muted-foreground/30 text-muted-foreground"
+              )}>
+                {isCompleted ? (
+                  <CheckCircle2 className="h-5 w-5 animate-in zoom-in-50" />
+                ) : (
+                  <Icon className="h-5 w-5" />
+                )}
               </div>
-              <p className={`text-xs font-medium text-center ${isCurrent ? 'text-primary' : 'text-muted-foreground'}`}>
+              <p className={cn(
+                "text-xs font-medium text-center transition-colors line-clamp-2",
+                isCurrent && "text-primary font-semibold",
+                !isCurrent && "text-muted-foreground"
+              )}>
                 {step.name}
               </p>
             </div>
@@ -713,17 +791,26 @@ export function MultiStepKYCWizard() {
             isFirst={currentStep === 1}
             isLast={currentStep === steps.length}
             onAutoPopulate={handleAutoPopulate}
+            autoPopulatedFields={autoPopulatedFields}
           />
         </CardContent>
       </Card>
 
       {/* Auto-save indicator */}
-      {saveProgressMutation.isPending && (
-        <p className="text-xs text-muted-foreground text-center flex items-center justify-center gap-2">
-          <Loader2 className="h-3 w-3 animate-spin" />
-          Saving progress...
-        </p>
-      )}
+      <div className="fixed bottom-6 right-6 z-50">
+        {saveProgressMutation.isPending && (
+          <div className="bg-background border shadow-lg rounded-lg px-4 py-2 flex items-center gap-2 animate-in fade-in-50 slide-in-from-bottom-5">
+            <Save className="h-4 w-4 text-muted-foreground animate-pulse" />
+            <p className="text-sm text-muted-foreground">Saving...</p>
+          </div>
+        )}
+        {saveProgressMutation.isSuccess && !saveProgressMutation.isPending && (
+          <div className="bg-background border shadow-lg rounded-lg px-4 py-2 flex items-center gap-2 animate-in fade-in-50 slide-in-from-bottom-5">
+            <Check className="h-4 w-4 text-green-600" />
+            <p className="text-sm text-green-600 font-medium">Saved</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
