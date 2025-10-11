@@ -66,6 +66,7 @@ import { bseBondApi } from './bseBondApi';
 import { bseDirectApi } from './bseDirectApi';
 import { governmentSecurities, corporateBonds, bondOrders, bondHoldings, insertBondOrderSchema } from '@shared/schema';
 import { businessIntelligence } from './business-intelligence-service';
+import { verifyBankAccountPennyDrop, validateIFSC, validateAccountNumber, isNameMatchAcceptable } from './penny-drop-service';
 
 // Tax Calculation Request Validation Schemas
 const calculateCapitalGainsSchema = z.object({
@@ -24261,6 +24262,159 @@ System Security Data:`;
     } catch (error) {
       console.error("Error setting default bank account:", error);
       res.status(500).json({ error: "Failed to set default bank account" });
+    }
+  });
+
+  // Penny Drop Verification Routes
+  // Verify bank account using penny drop
+  app.post("/api/bank-accounts/verify-penny-drop", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { accountId } = req.body;
+      if (!accountId) {
+        return res.status(400).json({ error: "Account ID is required" });
+      }
+
+      const account = await storage.getBankAccount(accountId);
+      if (!account) {
+        return res.status(404).json({ error: "Bank account not found" });
+      }
+
+      if (account.userId !== req.user.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      // Check verification attempts limit (max 3)
+      if (account.verificationAttempts && account.verificationAttempts >= 3) {
+        return res.status(429).json({ 
+          error: "Maximum verification attempts exceeded. Please contact support.",
+          maxAttemptsReached: true
+        });
+      }
+
+      // Validate bank details format
+      if (!validateAccountNumber(account.accountNumber)) {
+        return res.status(400).json({ 
+          error: "Invalid account number format. Must be 9-18 digits." 
+        });
+      }
+
+      if (!validateIFSC(account.ifscCode)) {
+        return res.status(400).json({ 
+          error: "Invalid IFSC code format. Must be 11 characters (e.g., SBIN0001234)" 
+        });
+      }
+
+      if (!account.accountHolderName) {
+        return res.status(400).json({ 
+          error: "Account holder name is required for verification" 
+        });
+      }
+
+      // Initiate penny drop verification
+      const verificationResult = await verifyBankAccountPennyDrop(
+        account.accountNumber,
+        account.ifscCode,
+        account.accountHolderName
+      );
+
+      // Update verification attempts
+      const newAttempts = (account.verificationAttempts || 0) + 1;
+      
+      if (verificationResult.success) {
+        // Check if name match is acceptable (80% threshold)
+        const nameMatch = verificationResult.nameMatchScore 
+          ? isNameMatchAcceptable(verificationResult.nameMatchScore) 
+          : false;
+
+        // Update account with verification results
+        await storage.updateBankAccount(accountId, {
+          isVerified: nameMatch,
+          verificationStatus: nameMatch ? 'verified' : 'failed',
+          verificationDate: new Date(),
+          pennyDropTransactionId: verificationResult.transactionId,
+          pennyDropAmount: verificationResult.amount?.toString(),
+          nameMatchScore: verificationResult.nameMatchScore,
+          bankAccountStatus: verificationResult.accountStatus,
+          verificationMethod: 'penny_drop',
+          verificationAttempts: newAttempts,
+          lastVerificationAttempt: new Date(),
+          providerResponse: verificationResult.providerResponse,
+          verifiedAccountHolderName: verificationResult.verifiedName
+        });
+
+        return res.json({
+          success: true,
+          verified: nameMatch,
+          transactionId: verificationResult.transactionId,
+          nameMatchScore: verificationResult.nameMatchScore,
+          verifiedName: verificationResult.verifiedName,
+          providedName: account.accountHolderName,
+          accountStatus: verificationResult.accountStatus,
+          message: nameMatch 
+            ? 'Bank account verified successfully' 
+            : `Name mismatch detected. Bank name: ${verificationResult.verifiedName}, Provided: ${account.accountHolderName}`,
+          nameMatchAcceptable: nameMatch
+        });
+      } else {
+        // Verification failed - update attempts
+        await storage.updateBankAccount(accountId, {
+          isVerified: false,
+          verificationStatus: 'failed',
+          verificationAttempts: newAttempts,
+          lastVerificationAttempt: new Date(),
+          providerResponse: verificationResult.providerResponse
+        });
+
+        return res.status(400).json({
+          success: false,
+          error: verificationResult.errorMessage || 'Verification failed',
+          attemptsRemaining: Math.max(0, 3 - newAttempts)
+        });
+      }
+    } catch (error) {
+      console.error("Error in penny drop verification:", error);
+      res.status(500).json({ error: "Failed to verify bank account" });
+    }
+  });
+
+  // Get bank account verification status
+  app.get("/api/bank-accounts/:id/verification-status", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const account = await storage.getBankAccount(req.params.id);
+      if (!account) {
+        return res.status(404).json({ error: "Bank account not found" });
+      }
+
+      if (account.userId !== req.user.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      res.json({
+        accountId: account.id,
+        isVerified: account.isVerified,
+        verificationStatus: account.verificationStatus,
+        verificationDate: account.verificationDate,
+        verificationMethod: account.verificationMethod,
+        verificationAttempts: account.verificationAttempts || 0,
+        lastVerificationAttempt: account.lastVerificationAttempt,
+        nameMatchScore: account.nameMatchScore,
+        verifiedAccountHolderName: account.verifiedAccountHolderName,
+        providedAccountHolderName: account.accountHolderName,
+        bankAccountStatus: account.bankAccountStatus,
+        transactionId: account.pennyDropTransactionId,
+        maxAttemptsReached: (account.verificationAttempts || 0) >= 3
+      });
+    } catch (error) {
+      console.error("Error fetching verification status:", error);
+      res.status(500).json({ error: "Failed to fetch verification status" });
     }
   });
 

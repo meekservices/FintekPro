@@ -281,6 +281,17 @@ export const userBankAccounts = pgTable("user_bank_accounts", {
   verificationStatus: varchar("verification_status").default("pending"), // pending/verified/failed
   verificationDate: timestamp("verification_date"),
   
+  // Penny Drop Verification
+  pennyDropTransactionId: varchar("penny_drop_transaction_id"), // Sandbox API transaction ID
+  pennyDropAmount: decimal("penny_drop_amount", { precision: 10, scale: 2 }), // Amount deposited (typically 1.00)
+  nameMatchScore: integer("name_match_score"), // Fuzzy match percentage (0-100)
+  bankAccountStatus: varchar("bank_account_status"), // active/inactive/dormant from bank
+  verificationMethod: varchar("verification_method").default("pending"), // penny_drop/manual/reverse_penny_drop/pending
+  verificationAttempts: integer("verification_attempts").default(0), // Number of verification attempts
+  lastVerificationAttempt: timestamp("last_verification_attempt"), // Last attempt timestamp
+  providerResponse: jsonb("provider_response"), // Full API response for audit trail
+  verifiedAccountHolderName: varchar("verified_account_holder_name"), // Name returned by bank
+  
   // Metadata
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

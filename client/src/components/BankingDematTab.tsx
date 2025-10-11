@@ -14,12 +14,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Plus, Edit, Trash2, CreditCard, Building2, CheckCircle, AlertCircle, Star } from "lucide-react";
+import { Plus, Edit, Trash2, CreditCard, Building2, CheckCircle, AlertCircle, Star, ShieldCheck, XCircle, AlertTriangle } from "lucide-react";
 
 // Bank account form schema
 const bankAccountSchema = z.object({
   bankName: z.string().min(1, "Bank name is required"),
-  accountNumber: z.string().min(8, "Account number must be at least 8 digits").max(20, "Account number is too long"),
+  accountNumber: z.string().min(9, "Account number must be 9-18 digits").max(18, "Account number must be 9-18 digits").regex(/^[0-9]+$/, "Account number must contain only digits"),
   ifscCode: z.string().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Invalid IFSC code format"),
   branchName: z.string().min(1, "Branch name is required"),
   accountType: z.enum(["savings", "current", "nro", "nre", "fcnr"], {
@@ -42,6 +42,12 @@ interface BankAccount {
   isActive: boolean;
   isVerified: boolean;
   verificationStatus: string;
+  verificationAttempts?: number;
+  nameMatchScore?: number;
+  verifiedAccountHolderName?: string;
+  pennyDropTransactionId?: string;
+  bankAccountStatus?: string;
+  verificationMethod?: string;
 }
 
 export function BankingTab() {
@@ -144,6 +150,34 @@ export function BankingTab() {
       toast({
         title: "Error",
         description: error.message || "Failed to set default account",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Penny drop verification mutation
+  const verifyAccountMutation = useMutation({
+    mutationFn: (accountId: string) => 
+      apiRequest("POST", "/api/bank-accounts/verify-penny-drop", { accountId }),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/bank-accounts"] });
+      if (data.verified) {
+        toast({
+          title: "✅ Account Verified",
+          description: `Name match: ${data.nameMatchScore}% - ${data.message}`,
+        });
+      } else {
+        toast({
+          title: "⚠️ Verification Issue",
+          description: data.message || "Name mismatch detected",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Verification Failed",
+        description: error.message || "Failed to verify bank account",
         variant: "destructive",
       });
     },
@@ -380,12 +414,24 @@ export function BankingTab() {
                     <div className="flex items-center gap-3">
                       <Building2 className="h-5 w-5 text-blue-600" />
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <h4 className="font-medium">{account.bankName}</h4>
                           {account.isVerified && (
-                            <Badge variant="default" className="text-xs">
+                            <Badge variant="default" className="text-xs bg-green-600">
                               <CheckCircle className="h-3 w-3 mr-1" />
-                              Verified
+                              Verified {account.nameMatchScore ? `(${account.nameMatchScore}%)` : ''}
+                            </Badge>
+                          )}
+                          {account.verificationStatus === 'failed' && (
+                            <Badge variant="destructive" className="text-xs">
+                              <XCircle className="h-3 w-3 mr-1" />
+                              Verification Failed
+                            </Badge>
+                          )}
+                          {account.verificationStatus === 'pending' && !account.verificationAttempts && (
+                            <Badge variant="secondary" className="text-xs">
+                              <AlertCircle className="h-3 w-3 mr-1" />
+                              Not Verified
                             </Badge>
                           )}
                           {account.isDefaultForMutualFunds && (
@@ -435,7 +481,90 @@ export function BankingTab() {
                         Branch: {account.branchName}
                       </p>
                     </div>
+                    
+                    {/* Penny Drop Verification Status */}
+                    {account.verificationMethod === 'penny_drop' && (
+                      <div>
+                        <p className="text-sm font-medium mb-2">Verification Info</p>
+                        {account.isVerified && (
+                          <>
+                            <p className="text-sm text-green-600">
+                              ✓ Verified via Penny Drop
+                            </p>
+                            {account.verifiedAccountHolderName && (
+                              <p className="text-sm text-gray-600">
+                                Bank Name: {account.verifiedAccountHolderName}
+                              </p>
+                            )}
+                            {account.nameMatchScore && (
+                              <p className="text-sm text-gray-600">
+                                Match Score: {account.nameMatchScore}%
+                              </p>
+                            )}
+                          </>
+                        )}
+                        {account.verificationAttempts && account.verificationAttempts > 0 && (
+                          <p className="text-sm text-gray-600">
+                            Attempts: {account.verificationAttempts}/3
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
+
+                  {/* Name Mismatch Warning */}
+                  {account.verifiedAccountHolderName && 
+                   !account.isVerified && 
+                   account.nameMatchScore && 
+                   account.nameMatchScore < 80 && (
+                    <Alert className="mb-4">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertDescription>
+                        <strong>Name Mismatch:</strong> Bank shows "{account.verifiedAccountHolderName}" 
+                        but you provided "{account.accountHolderName}" (Match: {account.nameMatchScore}%). 
+                        Please update the name or contact support.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  {/* Max Attempts Warning */}
+                  {account.verificationAttempts && account.verificationAttempts >= 3 && !account.isVerified && (
+                    <Alert className="mb-4">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        Maximum verification attempts reached. Please contact support for assistance.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  {/* Penny Drop Verification Button */}
+                  {!account.isVerified && (!account.verificationAttempts || account.verificationAttempts < 3) && (
+                    <div className="mb-4">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => verifyAccountMutation.mutate(account.id)}
+                        disabled={verifyAccountMutation.isPending}
+                        className="w-full md:w-auto"
+                        data-testid={`button-verify-${account.id}`}
+                      >
+                        {verifyAccountMutation.isPending ? (
+                          <>
+                            <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-2" />
+                            Verifying...
+                          </>
+                        ) : (
+                          <>
+                            <ShieldCheck className="h-4 w-4 mr-2" />
+                            Verify with Penny Drop (₹1)
+                          </>
+                        )}
+                      </Button>
+                      <p className="text-xs text-gray-500 mt-2">
+                        ₹1 will be deposited to verify account. {account.verificationAttempts ? `${3 - account.verificationAttempts} attempts remaining` : '3 attempts available'}
+                      </p>
+                    </div>
+                  )}
 
                   {/* Default Account Selection */}
                   <div className="flex flex-wrap gap-4 border-t pt-4">
