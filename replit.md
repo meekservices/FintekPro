@@ -60,6 +60,7 @@ Do not make changes to the file `Y`.
 - **Dynamic Wealth Management Financial Analysis**: Aggregates real-time client financial data for intelligent investment recommendations, providing metrics like monthly income, obligations, investment capacity, and portfolio returns. Progressive Planning Flow tab order: Dashboard → AI Insights → Risk Profile → Goal Planning → Retirement → Credit Obligations.
 - **Multi-Currency Support**: Comprehensive functionality for global investments including exchange rate service, database schema for currency rates, and UI components for currency selection and display.
 - **Alert System**: Customizable alerts for market monitoring and spending tracking with various alert types, notification channels, and a background monitoring service.
+- **Bank Account Penny Drop Verification**: Instant bank account validation system using Sandbox API with ₹1 test transactions, fuzzy name matching (80%+ threshold using Levenshtein distance), max 3 verification attempts per account, and comprehensive audit trail. Features include real-time status badges, name mismatch warnings with similarity scores, and automated attempt tracking.
 
 ## External Dependencies
 
@@ -71,6 +72,7 @@ Do not make changes to the file `Y`.
 - **Tata Capital Integration**: Personal, home, business loans, credit checks, CKYC, and GST verification.
 - **exchangerate-api.com**: For live currency exchange rates.
 - **Google Gemini API**: For AI Chat Assistant functionality.
+- **Sandbox API**: For bank account penny drop verification with instant validation and fuzzy name matching.
 
 ### Database Services
 - **Neon Database**: Serverless PostgreSQL hosting.
