@@ -55,8 +55,9 @@ import { taxOrchestrator } from './services/tax-orchestrator';
 import { PANConsentService } from './services/pan-consent-service';
 import { DemographicProtectionService } from './services/demographic-protection-service';
 import { providerRegistry, type UnifiedApplicationData } from './partner-application-adapters';
-import { insertPartnerApplicationSchema, insertCashfreeTransactionSchema } from '@shared/schema';
+import { insertPartnerApplicationSchema, insertCashfreeTransactionSchema, insertPhonePeTransactionSchema } from '@shared/schema';
 import { cashfreeService } from './cashfree-service';
+import { phonePeService } from './phonepe-service';
 import { mutualFundsRefreshJob } from './mutual-funds-refresh-job';
 import { initReKYCCron } from './rekyc-cron';
 import { seedProducts } from './seed-products';
@@ -27506,6 +27507,261 @@ System Security Data:`;
       complianceMonitor.logEvent({
         eventType: 'data_access',
         action: 'list_cashfree_transactions',
+        outcome: 'failure',
+        riskLevel: 'low',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      res.status(500).json({ message: 'Failed to fetch transactions' });
+    }
+  });
+
+  // ==================== PHONEPE PAYMENT GATEWAY ROUTES ====================
+  
+  // Create PhonePe order
+  app.post('/api/payments/phonepe/create-order', async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const { amount, cartId, itemType, itemId, phone, email, name } = req.body;
+
+      if (!amount || amount <= 0) {
+        return res.status(400).json({ message: 'Invalid amount' });
+      }
+
+      const user = await storage.getUser(req.user.id);
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      const orderResponse = await phonePeService.createOrder({
+        amount,
+        userId: user.id,
+        phone: phone || user.mobile || '9999999999',
+        email: email || user.email || `${user.id}@example.com`,
+        name: name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Customer'
+      });
+
+      if (!orderResponse.success) {
+        return res.status(400).json({
+          message: orderResponse.message || 'Order creation failed'
+        });
+      }
+
+      const transaction = await storage.createPhonePeTransaction({
+        userId: user.id,
+        orderId: orderResponse.orderId!,
+        merchantTransactionId: orderResponse.merchantTransactionId!,
+        amount: amount.toString(),
+        status: 'initiated',
+        state: 'PENDING',
+        paymentUrl: orderResponse.paymentUrl,
+        cartId,
+        itemType,
+        itemId,
+        customerName: name || `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+        customerEmail: email || user.email,
+        customerPhone: phone || user.mobile
+      });
+
+      complianceMonitor.logEvent({
+        eventType: 'payment',
+        action: 'create_phonepe_order',
+        resource: orderResponse.orderId!,
+        outcome: 'success',
+        riskLevel: 'medium',
+        userId: user.id
+      });
+
+      res.json({
+        success: true,
+        orderId: orderResponse.orderId,
+        merchantTransactionId: orderResponse.merchantTransactionId,
+        transactionId: transaction.id,
+        paymentUrl: orderResponse.paymentUrl,
+        message: orderResponse.message
+      });
+
+    } catch (error) {
+      console.error('Error creating PhonePe order:', error);
+      complianceMonitor.logEvent({
+        eventType: 'payment',
+        action: 'create_phonepe_order',
+        outcome: 'failure',
+        riskLevel: 'high',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      res.status(500).json({ message: 'Failed to create order' });
+    }
+  });
+
+  // Get PhonePe order status
+  app.get('/api/payments/phonepe/status/:orderId', async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const { orderId } = req.params;
+
+      const transaction = await storage.getPhonePeTransactionByOrderId(orderId);
+      if (!transaction) {
+        return res.status(404).json({ message: 'Transaction not found' });
+      }
+
+      if (transaction.userId !== req.user.id) {
+        return res.status(403).json({ message: 'Unauthorized access' });
+      }
+
+      const status = await phonePeService.checkOrderStatus(transaction.merchantTransactionId);
+
+      if (status) {
+        await storage.updatePhonePeTransaction(transaction.id, {
+          transactionId: status.transactionId,
+          state: status.state,
+          responseCode: status.responseCode,
+          status: status.state === 'COMPLETED' ? 'success' : status.state === 'FAILED' ? 'failed' : 'pending',
+          paymentMethod: status.paymentInstrument?.type,
+          completedAt: status.state === 'COMPLETED' ? new Date() : undefined
+        });
+      }
+
+      complianceMonitor.logEvent({
+        eventType: 'payment',
+        action: 'check_phonepe_status',
+        resource: orderId,
+        outcome: 'success',
+        riskLevel: 'low',
+        userId: req.user.id
+      });
+
+      res.json(status || { message: 'Status check failed' });
+
+    } catch (error) {
+      console.error('Error checking PhonePe status:', error);
+      res.status(500).json({ message: 'Failed to check order status' });
+    }
+  });
+
+  // PhonePe callback handler
+  app.post('/api/payments/phonepe/callback', async (req, res) => {
+    try {
+      const { response } = req.body;
+
+      if (!response) {
+        return res.status(400).json({ message: 'Invalid callback data' });
+      }
+
+      const xVerify = req.headers['x-verify'] as string;
+      if (!xVerify) {
+        return res.status(400).json({ message: 'Missing signature' });
+      }
+
+      const isValid = phonePeService.verifyCallback(response, xVerify);
+      if (!isValid) {
+        return res.status(400).json({ message: 'Invalid signature' });
+      }
+
+      const callbackData = phonePeService.decodeCallbackResponse(response);
+      if (!callbackData) {
+        return res.status(400).json({ message: 'Invalid response data' });
+      }
+
+      const transaction = await storage.getPhonePeTransactionByMerchantId(
+        callbackData.data.merchantTransactionId
+      );
+
+      if (!transaction) {
+        return res.status(404).json({ message: 'Transaction not found' });
+      }
+
+      // Map PhonePe state to internal status
+      let internalStatus = 'pending';
+      if (callbackData.data.state === 'COMPLETED') {
+        internalStatus = 'success';
+      } else if (callbackData.data.state === 'FAILED') {
+        internalStatus = 'failed';
+      } else if (callbackData.data.state === 'CANCELLED') {
+        internalStatus = 'cancelled';
+      }
+
+      await storage.updatePhonePeTransaction(transaction.id, {
+        transactionId: callbackData.data.transactionId,
+        state: callbackData.data.state,
+        responseCode: callbackData.data.responseCode,
+        status: internalStatus,
+        paymentMethod: callbackData.data.paymentInstrument?.type,
+        gatewayResponse: callbackData,
+        callbackReceivedAt: new Date(),
+        completedAt: callbackData.data.state === 'COMPLETED' ? new Date() : undefined
+      });
+
+      // Handle downstream effects for successful payments
+      if (callbackData.data.state === 'COMPLETED') {
+        // Invalidate cart cache if this was a cart payment
+        if (transaction.cartId) {
+          queryClient.invalidateQueries({ queryKey: ['/api/cart'] });
+        }
+        
+        // Invalidate subscription cache if this was a tax reminder subscription
+        if (transaction.itemType === 'tax_reminder') {
+          queryClient.invalidateQueries({ queryKey: ['/api/tax/reminder-subscription'] });
+        }
+      }
+
+      complianceMonitor.logEvent({
+        eventType: 'payment',
+        action: 'phonepe_callback_received',
+        resource: transaction.orderId,
+        outcome: callbackData.data.state === 'COMPLETED' ? 'success' : 'failure',
+        riskLevel: 'medium',
+        userId: transaction.userId
+      });
+
+      if (callbackData.data.state === 'COMPLETED') {
+        return res.redirect('/payment/status?success=true');
+      }
+
+      return res.redirect('/payment/status?success=false&error=payment_failed');
+
+    } catch (error) {
+      console.error('Error processing PhonePe callback:', error);
+      complianceMonitor.logEvent({
+        eventType: 'payment',
+        action: 'phonepe_callback_received',
+        outcome: 'failure',
+        riskLevel: 'medium',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      return res.redirect('/payment/status?success=false&error=processing_error');
+    }
+  });
+
+  // Get user's PhonePe transactions
+  app.get('/api/phonepe/transactions', async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const transactions = await storage.getPhonePeTransactionsByUserId(req.user.id);
+
+      complianceMonitor.logEvent({
+        eventType: 'data_access',
+        action: 'list_phonepe_transactions',
+        outcome: 'success',
+        riskLevel: 'low',
+        userId: req.user.id
+      });
+
+      res.json(transactions);
+
+    } catch (error) {
+      console.error('Error fetching PhonePe transactions:', error);
+      complianceMonitor.logEvent({
+        eventType: 'data_access',
+        action: 'list_phonepe_transactions',
         outcome: 'failure',
         riskLevel: 'low',
         error: error instanceof Error ? error.message : 'Unknown error'

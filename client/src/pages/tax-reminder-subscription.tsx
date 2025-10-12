@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -129,6 +131,7 @@ export default function TaxReminderSubscription() {
   const [location, setLocation] = useLocation();
   const [selectedTier, setSelectedTier] = useState<PricingTier | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"cashfree" | "stripe" | "phonepe">("cashfree");
 
   const { data: subscription, isLoading: subscriptionLoading } = useQuery<UserSubscription>({
     queryKey: ['/api/tax/reminder-subscription', user?.id],
@@ -214,27 +217,48 @@ export default function TaxReminderSubscription() {
     }
   };
 
-  const handleCashfreeCheckout = async () => {
+  const handleCheckout = async () => {
     if (!selectedTier || !user) return;
 
     setIsProcessingPayment(true);
 
     try {
-      const response: any = await apiRequest('POST', '/api/payments/cashfree/create-order', {
-        body: {
-          amount: selectedTier.price,
-          itemType: 'tax_reminder',
-          itemId: selectedTier.formType
-        }
-      });
+      let response: any;
+      
+      if (paymentMethod === "cashfree") {
+        response = await apiRequest('POST', '/api/payments/cashfree/create-order', {
+          body: {
+            amount: selectedTier.price,
+            itemType: 'tax_reminder',
+            itemId: selectedTier.formType
+          }
+        });
+      } else if (paymentMethod === "phonepe") {
+        response = await apiRequest('POST', '/api/payments/phonepe/create-order', {
+          body: {
+            amount: selectedTier.price,
+            itemType: 'tax_reminder',
+            itemId: selectedTier.formType
+          }
+        });
+      } else {
+        response = await apiRequest('POST', '/api/stripe/checkout', {
+          body: {
+            amount: selectedTier.price,
+            itemType: 'tax_reminder',
+            itemId: selectedTier.formType
+          }
+        });
+      }
 
-      if (response.success && response.paymentUrl) {
-        window.location.href = response.paymentUrl;
+      const paymentUrl = response.paymentUrl || response.url;
+      if (response.success && paymentUrl) {
+        window.location.href = paymentUrl;
       } else {
         throw new Error(response.message || 'Failed to initiate payment');
       }
     } catch (error) {
-      console.error('Cashfree payment initiation error:', error);
+      console.error('Payment initiation error:', error);
       toast({
         title: "Payment Error",
         description: error instanceof Error ? error.message : "Failed to initialize payment. Please try again.",
@@ -502,9 +526,44 @@ export default function TaxReminderSubscription() {
                   You will start receiving quarterly reminders for advance tax payments.
                 </AlertDescription>
               </Alert>
+              
+              {/* Payment Method Selection */}
+              <div className="space-y-3">
+                <Label className="text-sm font-semibold">Select Payment Method</Label>
+                <RadioGroup value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as "cashfree" | "stripe" | "phonepe")}>
+                  <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">
+                    <RadioGroupItem value="cashfree" id="cashfree-tax" data-testid="radio-cashfree-tax" />
+                    <Label htmlFor="cashfree-tax" className="flex-1 cursor-pointer">
+                      <div className="flex items-center gap-2">
+                        <div className="font-medium">Cashfree</div>
+                        <Badge variant="secondary">Primary</Badge>
+                      </div>
+                      <div className="text-xs text-gray-500">UPI, Cards & more payment options</div>
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">
+                    <RadioGroupItem value="stripe" id="stripe-tax" data-testid="radio-stripe-tax" />
+                    <Label htmlFor="stripe-tax" className="flex-1 cursor-pointer">
+                      <div className="font-medium">Credit/Debit Card</div>
+                      <div className="text-xs text-gray-500">Pay with Stripe (International)</div>
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">
+                    <RadioGroupItem value="phonepe" id="phonepe-tax" data-testid="radio-phonepe-tax" />
+                    <Label htmlFor="phonepe-tax" className="flex-1 cursor-pointer">
+                      <div className="flex items-center gap-2">
+                        <div className="font-medium">PhonePe</div>
+                        <Badge variant="outline">UPI</Badge>
+                      </div>
+                      <div className="text-xs text-gray-500">UPI, Wallets & Net Banking</div>
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
               <div className="flex gap-4">
                 <Button
-                  onClick={handleCashfreeCheckout}
+                  onClick={handleCheckout}
                   disabled={isProcessingPayment || subscriptionMutation.isPending}
                   className="flex-1"
                   data-testid="button-proceed-payment"
@@ -512,7 +571,7 @@ export default function TaxReminderSubscription() {
                   {isProcessingPayment ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Redirecting to Cashfree...
+                      Redirecting to payment...
                     </>
                   ) : (
                     "Proceed to Payment"

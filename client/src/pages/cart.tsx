@@ -58,7 +58,7 @@ export default function Cart() {
   const { toast } = useToast();
   const [location, setLocation] = useLocation();
   const [updatingItems, setUpdatingItems] = useState<Record<string, boolean>>({});
-  const [paymentMethod, setPaymentMethod] = useState<"cashfree" | "stripe">("cashfree");
+  const [paymentMethod, setPaymentMethod] = useState<"cashfree" | "stripe" | "phonepe">("cashfree");
   
   // Proposals tab state
   const [selectedProposalTab, setSelectedProposalTab] = useState<string>("all");
@@ -173,7 +173,7 @@ export default function Cart() {
   };
 
   const checkoutMutation = useMutation({
-    mutationFn: async (method: "cashfree" | "stripe") => {
+    mutationFn: async (method: "cashfree" | "stripe" | "phonepe") => {
       if (method === "cashfree") {
         const response: any = await apiRequest("POST", "/api/payments/cashfree/create-order", {
           body: {
@@ -181,6 +181,14 @@ export default function Cart() {
           }
         });
         return { ...response, method: "cashfree" };
+      } else if (method === "phonepe") {
+        const response: any = await apiRequest("POST", "/api/payments/phonepe/create-order", {
+          body: {
+            amount: cart?.totalValue || 0,
+            cartId: cart?.id,
+          }
+        });
+        return { ...response, method: "phonepe" };
       } else {
         const response: any = await apiRequest("POST", "/api/stripe/checkout", {
           body: {
@@ -192,6 +200,8 @@ export default function Cart() {
     },
     onSuccess: (data: any) => {
       if (data.method === "cashfree" && data.paymentUrl) {
+        window.location.href = data.paymentUrl;
+      } else if (data.method === "phonepe" && data.paymentUrl) {
         window.location.href = data.paymentUrl;
       } else if (data.method === "stripe" && data.url) {
         window.location.href = data.url;
@@ -758,22 +768,32 @@ export default function Cart() {
                     {/* Payment Method Selection */}
                     <div className="mt-6 space-y-3">
                       <Label className="text-base font-semibold">Select Payment Method</Label>
-                      <RadioGroup value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as "cashfree" | "stripe")}>
-                        <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                      <RadioGroup value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as "cashfree" | "stripe" | "phonepe")}>
+                        <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">
                           <RadioGroupItem value="cashfree" id="cashfree" data-testid="radio-cashfree" />
                           <Label htmlFor="cashfree" className="flex-1 cursor-pointer">
                             <div className="flex items-center gap-2">
                               <div className="font-medium">Cashfree</div>
-                              <Badge variant="secondary">Recommended</Badge>
+                              <Badge variant="secondary">Primary</Badge>
                             </div>
                             <div className="text-xs text-gray-500">UPI, Cards & more payment options</div>
                           </Label>
                         </div>
-                        <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                        <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">
                           <RadioGroupItem value="stripe" id="stripe" data-testid="radio-stripe" />
                           <Label htmlFor="stripe" className="flex-1 cursor-pointer">
                             <div className="font-medium">Credit/Debit Card</div>
-                            <div className="text-xs text-gray-500">Pay with Stripe</div>
+                            <div className="text-xs text-gray-500">Pay with Stripe (International)</div>
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">
+                          <RadioGroupItem value="phonepe" id="phonepe" data-testid="radio-phonepe" />
+                          <Label htmlFor="phonepe" className="flex-1 cursor-pointer">
+                            <div className="flex items-center gap-2">
+                              <div className="font-medium">PhonePe</div>
+                              <Badge variant="outline">UPI</Badge>
+                            </div>
+                            <div className="text-xs text-gray-500">UPI, Wallets & Net Banking</div>
                           </Label>
                         </div>
                       </RadioGroup>

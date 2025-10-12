@@ -61,6 +61,10 @@ Do not make changes to the file `Y`.
 - **Multi-Currency Support**: Comprehensive functionality for global investments including exchange rate service, database schema for currency rates, and UI components for currency selection and display.
 - **Alert System**: Customizable alerts for market monitoring and spending tracking with various alert types, notification channels, and a background monitoring service.
 - **Bank Account Penny Drop Verification**: Instant bank account validation system using Sandbox API with ₹1 test transactions, fuzzy name matching (80%+ threshold using Levenshtein distance), max 3 verification attempts per account, and comprehensive audit trail. Features include real-time status badges, name mismatch warnings with similarity scores, and automated attempt tracking.
+- **Three-Tier Payment Gateway System**: Robust payment processing infrastructure with Cashfree (primary) → Stripe (secondary) → PhonePe (tertiary) fallback support.
+  - **PhonePe Integration**: SHA256 signature-based authentication, PAY_PAGE instrument type for unified payment interface, comprehensive callback verification, and transaction lifecycle management
+  - **Features**: Multi-gateway support in cart checkout and tax reminder subscriptions, status tracking with state mapping (COMPLETED/FAILED/CANCELLED/PENDING), gateway response auditing via JSONB storage, and automatic cache invalidation for downstream effects
+  - **Security**: Server-side secret management, X-VERIFY header authentication, callback signature verification, and comprehensive compliance logging
 
 ## External Dependencies
 
@@ -73,6 +77,10 @@ Do not make changes to the file `Y`.
 - **exchangerate-api.com**: For live currency exchange rates.
 - **Google Gemini API**: For AI Chat Assistant functionality.
 - **Sandbox API**: For bank account penny drop verification with instant validation and fuzzy name matching.
+- **Payment Gateways**:
+  - **Cashfree**: Primary payment gateway for UPI, cards, and digital payments
+  - **Stripe**: Secondary gateway for international card payments
+  - **PhonePe**: Tertiary gateway for UPI, wallets, and net banking with SHA256 signature-based authentication
 
 ### Database Services
 - **Neon Database**: Serverless PostgreSQL hosting.
