@@ -15,11 +15,12 @@ import { orderManagementService } from "./order-management-service";
 import { ACCREDITED_INVESTOR_CRITERIA } from "./kyc-tier-service";
 
 // AIF Categories and minimum investments per SEBI regulations
+// Updated: ₹10L minimum with partial payment support
 export const AIF_CATEGORIES = {
   CAT_I: {
     name: "Category I AIF",
     description: "Venture capital, SME funds, social venture funds, infrastructure funds",
-    minInvestment: 10000000, // ₹1 Crore
+    minInvestment: 1000000, // ₹10 Lakh (initial payment, balance on demand)
     lockInPeriod: "3 years",
     riskLevel: "medium-high",
     sebiRegulated: true,
@@ -27,7 +28,7 @@ export const AIF_CATEGORIES = {
   CAT_II: {
     name: "Category II AIF",
     description: "Private equity funds, debt funds (other than Cat I & III)",
-    minInvestment: 10000000, // ₹1 Crore
+    minInvestment: 1000000, // ₹10 Lakh (initial payment, balance on demand)
     lockInPeriod: "3 years",
     riskLevel: "medium-high",
     sebiRegulated: true,
@@ -35,7 +36,7 @@ export const AIF_CATEGORIES = {
   CAT_III: {
     name: "Category III AIF",
     description: "Hedge funds, PIPE funds (complex trading strategies)",
-    minInvestment: 10000000, // ₹1 Crore (was ₹25L until 2024, now standardized)
+    minInvestment: 1000000, // ₹10 Lakh (initial payment, balance on demand)
     lockInPeriod: "1 year minimum",
     riskLevel: "high",
     sebiRegulated: true,
