@@ -85,9 +85,13 @@ Do not make changes to the file `Y`.
   - **Integration Points**: Ready for payment gateway callbacks, execution service triggers, notification system, webhook events
 - **Payment-to-Execution Bridge Service**: Automated orchestration layer connecting payment gateway callbacks to order execution systems.
   - **Core Function**: Processes payment callbacks from Cashfree/PhonePe/Stripe and triggers appropriate execution service based on product type
+  - **Partial Payment Support**: Intelligent detection and handling of initial vs balance payments
+    - Initial payments: Validates against initialPaymentAmount, sets paymentStage to 'balance_pending'
+    - Balance payments: Validates against balanceAmount, sets paymentStage to 'fully_paid', tracks totalPaidAmount
+    - Payment type detection: Checks orderMetadata.paymentStage and orderMetadata.isPartialPayment flags
   - **Security Features**:
     - Enhanced idempotency: Prevents duplicate execution even when multiple success callbacks arrive (checks paymentStatus='completed')
-    - Payment reconciliation: Validates callback amount/currency against order record before status advancement
+    - Payment reconciliation: Validates callback amount/currency against expected payment (full/initial/balance) before status advancement
     - Fraud prevention: Security alerts on payment mismatches, order marked as payment_error with audit trail
     - Missing order ID monitoring: Comprehensive logging and compliance events when payment lacks unified order ID
   - **Execution Routing**:
@@ -104,11 +108,15 @@ Do not make changes to the file `Y`.
     - Portfolio route: ₹5Cr+ securities portfolio with statements
     - Professional route: CFA/CA/CS/MBA Finance credentials
   - **Compliance Checks**: Annual accreditation expiry validation, AML screening, PEP status verification
-  - **Minimum Investment**: ₹1Cr threshold enforcement for all AIF categories per SEBI regulations
-  - **Subscription Agreement**: Automated generation with risk disclosures, T&Cs, investor declarations, fund details
+  - **Partial Payment Model**: ₹10L minimum initial payment (reduced from ₹1Cr) with balance payable on AMC demand
+    - Initial payment: ₹10L minimum → Subscription agreement generated → Units provisionally allotted
+    - Balance payment: Due on AMC demand (within 90 days) → Final execution → Full unit allotment
+    - Payment stages: initial_payment → balance_pending → fully_paid (tracked in order metadata)
+    - API endpoint: POST /api/orders/:orderId/balance-payment for processing balance payments
+  - **Subscription Agreement**: Automated generation with risk disclosures, T&Cs, investor declarations, fund details, and partial payment terms (when applicable)
   - **Document Management**: Mock PDF generation ready for Object Storage integration, proper URL surfacing for compliance review
   - **Execution Lifecycle**: payment_completed → processing (executionStatus: initiated) → executed (executionStatus: completed) with folio number allocation
-  - **Integration**: Seamless payment-to-execution bridge routing, AMC API ready (currently mock), complete audit trail
+  - **Integration**: Seamless payment-to-execution bridge routing with partial payment support, AMC API ready (currently mock), complete audit trail
 
 ## External Dependencies
 

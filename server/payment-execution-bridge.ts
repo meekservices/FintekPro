@@ -63,18 +63,39 @@ class PaymentExecutionBridge {
       
       // 3. Update payment status
       if (paymentStatus === 'success') {
-        // CRITICAL: Payment reconciliation - verify amount and currency match order
-        if (order.amount !== amount) {
-          console.error(`[PaymentBridge] SECURITY ALERT: Payment amount mismatch for order ${orderId}. Expected: ${order.amount}, Received: ${amount}, Gateway: ${paymentGateway}, TxnID: ${transactionId}`);
+        // Detect if this is a balance payment or initial payment
+        const orderMetadata = order.metadata as any || {};
+        const paymentStage = orderMetadata.paymentStage;
+        const isBalancePayment = paymentStage === 'balance_pending';
+        
+        // CRITICAL: Payment reconciliation - verify amount matches expected payment
+        let expectedAmount = order.amount;
+        let paymentType = 'full';
+        
+        if (isBalancePayment) {
+          // For balance payments, verify against balance amount
+          expectedAmount = orderMetadata.balanceAmount || 0;
+          paymentType = 'balance';
+          console.log(`[PaymentBridge] Processing BALANCE payment for order ${orderId}, expected: ₹${expectedAmount.toLocaleString()}, received: ₹${amount.toLocaleString()}`);
+        } else if (orderMetadata.isPartialPayment) {
+          // For initial partial payments, verify against initial payment amount
+          expectedAmount = orderMetadata.initialPaymentAmount || orderMetadata.paidAmount || order.amount;
+          paymentType = 'initial';
+          console.log(`[PaymentBridge] Processing INITIAL partial payment for order ${orderId}, expected: ₹${expectedAmount.toLocaleString()}, received: ₹${amount.toLocaleString()}`);
+        }
+        
+        if (Math.abs(expectedAmount - amount) > 0.01) {  // Use floating point tolerance
+          console.error(`[PaymentBridge] SECURITY ALERT: ${paymentType} payment amount mismatch for order ${orderId}. Expected: ${expectedAmount}, Received: ${amount}, Gateway: ${paymentGateway}, TxnID: ${transactionId}`);
           
           await orderManagementService.updateOrderStatus({
             orderId,
             status: 'payment_error',
-            notes: 'Payment amount mismatch - requires manual verification',
+            notes: `${paymentType} payment amount mismatch - requires manual verification`,
             metadata: { 
-              ...(order.metadata || {}),
+              ...orderMetadata,
               error: 'payment_amount_mismatch',
-              expectedAmount: order.amount,
+              paymentType,
+              expectedAmount,
               receivedAmount: amount,
               paymentGateway,
               transactionId
@@ -83,7 +104,7 @@ class PaymentExecutionBridge {
             actorType: 'system',
           });
           
-          throw new Error(`Payment amount mismatch: expected ${order.amount}, got ${amount}`);
+          throw new Error(`${paymentType} payment amount mismatch: expected ${expectedAmount}, got ${amount}`);
         }
 
         if (order.currency !== callbackData.currency) {
@@ -109,22 +130,51 @@ class PaymentExecutionBridge {
         }
         
         // Payment reconciliation passed, proceed with status update
+        // Build metadata based on payment type
+        const updatedMetadata: any = { 
+          ...(order.metadata || {}),
+          gatewayResponse 
+        };
+        
+        let totalPaidAmount = amount; // Default to current payment amount
+        
+        if (isBalancePayment) {
+          // For balance payments, update metadata with balance payment details
+          updatedMetadata.balancePaymentAmount = amount;
+          updatedMetadata.balancePaymentDate = new Date().toISOString();
+          updatedMetadata.balancePaymentGateway = paymentGateway;
+          updatedMetadata.balancePaymentTransactionId = transactionId;
+          updatedMetadata.paymentStage = 'fully_paid';
+          // Calculate total paid amount: initial payment + balance payment
+          const initialPaid = orderMetadata.initialPaymentAmount || orderMetadata.paidAmount || 0;
+          totalPaidAmount = initialPaid + amount;
+          updatedMetadata.totalPaidAmount = totalPaidAmount;
+          console.log(`[PaymentBridge] Balance payment completed for order ${orderId}, initial: ₹${initialPaid.toLocaleString()}, balance: ₹${amount.toLocaleString()}, total paid: ₹${totalPaidAmount.toLocaleString()}`);
+        } else if (orderMetadata.isPartialPayment) {
+          // For initial partial payments, mark as balance_pending
+          updatedMetadata.paymentStage = 'balance_pending';
+          updatedMetadata.initialPaymentAmount = amount;
+          updatedMetadata.initialPaymentDate = new Date().toISOString();
+          updatedMetadata.initialPaymentGateway = paymentGateway;
+          updatedMetadata.initialPaymentTransactionId = transactionId;
+          updatedMetadata.paidAmount = amount; // Track initial payment
+          totalPaidAmount = amount;
+          console.log(`[PaymentBridge] Initial partial payment completed for order ${orderId}, paid: ₹${amount.toLocaleString()}, balance pending: ₹${orderMetadata.balanceAmount?.toLocaleString()}`);
+        }
+        
         await orderManagementService.updateOrderStatus({
           orderId,
           status: 'payment_completed',
           paymentStatus: 'completed',
           paymentGateway,
           paymentTransactionId: transactionId,
-          paymentAmount: amount,
-          metadata: { 
-            ...(order.metadata || {}),
-            gatewayResponse 
-          },
+          paymentAmount: totalPaidAmount, // Total amount paid so far
+          metadata: updatedMetadata,
           actorId: 'system',
           actorType: 'system',
         });
         
-        console.log(`[PaymentBridge] Payment completed for order ${orderId}, amount: ${amount}`);
+        console.log(`[PaymentBridge] ${paymentType.toUpperCase()} payment completed for order ${orderId}, amount: ₹${amount.toLocaleString()}`);
         
         // 4. Trigger execution based on product type
         return await this.triggerExecution(order);
@@ -325,6 +375,9 @@ class PaymentExecutionBridge {
       const fundName = metadata?.fundName || metadata?.productName || 'AIF Fund';
       const fundCode = metadata?.fundCode || metadata?.schemeCode || 'AIF001';
       
+      // Determine paid amount based on payment stage
+      const paidAmount = metadata?.totalPaidAmount || metadata?.paidAmount || metadata?.initialPaymentAmount || amount;
+      
       // Execute AIF subscription
       const aifResponse = await aifExecutionService.executeOrder({
         orderId,
@@ -332,7 +385,8 @@ class PaymentExecutionBridge {
         aifCategory,
         fundName,
         fundCode,
-        investmentAmount: amount,
+        investmentAmount: metadata?.totalInvestmentAmount || amount,
+        paidAmount,
         units: metadata?.units,
         navPerUnit: metadata?.navPerUnit,
       });
