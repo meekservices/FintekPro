@@ -24,6 +24,7 @@ Do not make changes to the file `Y`.
 ### Technical Implementations
 - **Frontend**: Wouter for routing, TanStack Query for state management, React Hook Form with Zod for forms, Vite for building.
 - **Backend**: Express.js with TypeScript, PostgreSQL with Drizzle ORM, Drizzle Kit for migrations, Connect-pg-simple for session management, RESTful API pattern, centralized error handling.
+- **Authentication**: Dual authentication system with OAuth (Replit Auth) and local strategies (email/mobile). Two-stage initialization: setupReplitAuth() initializes Passport and sessions, then setupLocalAuth() configures email/mobile login routes. Both must be called in server/index.ts for proper session management.
 - **Data Storage**: PostgreSQL (Neon serverless driver) with Drizzle ORM for type-safe queries. Schemas for Users, Portfolios, Watchlists, Market data caching, and Asset allocation.
 
 ### Feature Specifications
