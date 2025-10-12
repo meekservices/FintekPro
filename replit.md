@@ -2,7 +2,7 @@
 
 ## Overview
 
-FintekPro is a comprehensive full-stack TypeScript financial services platform designed for personal finance and investment management. It provides tools for portfolio management, real-time market data tracking, and a wide array of financial services including stocks, mutual funds, IPOs, bonds, and loans. The platform aims to deliver a modern, robust, and secure solution for users to manage their investments and financial planning, including advanced features like family collaboration, a unified KYC compliance system, and an AI-powered financial assistant.
+FintekPro is a comprehensive full-stack TypeScript financial services platform for personal finance and investment management. It offers tools for portfolio management, real-time market data, and a wide array of financial services including stocks, mutual funds, IPOs, bonds, and loans. The platform aims to provide a modern, robust, and secure solution for users to manage their investments and financial planning, incorporating advanced features like family collaboration, a unified KYC compliance system, and an AI-powered financial assistant.
 
 ## User Preferences
 
@@ -16,123 +16,47 @@ Do not make changes to the file `Y`.
 
 ### UI/UX Decisions
 - **Framework**: React 18 with TypeScript
-- **UI Library**: shadcn/ui components built on Radix UI primitives
-- **Styling**: Tailwind CSS with CSS custom properties for theming
+- **UI Library**: shadcn/ui components built on Radix UI
+- **Styling**: Tailwind CSS with CSS custom properties
 - **Charts**: Recharts for data visualization
-- **Design Approach**: Mobile-first with responsive and adaptive layouts.
-- **Responsive Tab Pattern**: Custom ScrollableTabsList component for optimal mobile UX with intelligent horizontal scrolling, navigation buttons, overflow detection, and smooth animations, implemented across all major pages.
+- **Design Approach**: Mobile-first, responsive, and adaptive layouts with a custom ScrollableTabsList component for optimal mobile UX.
 
 ### Technical Implementations
-- **Frontend**:
-    - Routing: Wouter
-    - State Management: TanStack Query (React Query)
-    - Form Handling: React Hook Form with Zod validation
-    - Build Tool: Vite
-- **Backend**:
-    - Framework: Express.js with TypeScript
-    - Database: PostgreSQL with Drizzle ORM
-    - Schema Management: Drizzle Kit for migrations
-    - Session Management: Connect-pg-simple for PostgreSQL session storage
-    - API Pattern: RESTful API
-    - Error Handling: Centralized middleware
-- **Data Storage**:
-    - Primary Database: PostgreSQL via Neon serverless driver
-    - ORM: Drizzle ORM for type-safe queries
-    - Schema: Users, Portfolios, Watchlists, Market data caching, Asset allocation.
+- **Frontend**: Wouter for routing, TanStack Query for state management, React Hook Form with Zod for forms, Vite for building.
+- **Backend**: Express.js with TypeScript, PostgreSQL with Drizzle ORM, Drizzle Kit for migrations, Connect-pg-simple for session management, RESTful API pattern, centralized error handling.
+- **Data Storage**: PostgreSQL (Neon serverless driver) with Drizzle ORM for type-safe queries. Schemas for Users, Portfolios, Watchlists, Market data caching, and Asset allocation.
 
 ### Feature Specifications
-- **Portfolio Management**: Real-time tracking, asset allocation, rebalancing.
-- **Market Data Integration**: Live quotes, charts, and news.
+- **Portfolio & Market Data**: Real-time tracking, asset allocation, live quotes, charts, and news.
 - **Financial Calculators**: SIP, EMI, retirement, and tax calculators.
 - **Multi-Asset Support**: Equities, bonds, mutual funds, IPOs, alternative investments.
-- **Family Collaboration & Planning**: Shared financial groups, permission-based access, shared goals, combined net worth, and budget management.
-- **Intelligent Tiered KYC System**: Progressive 3-tier KYC framework with SEBI Accredited Investor compliance:
-  - **Tier 1 (Basic)**: PAN, Aadhaar, basic profile → Unlocks MF, equity cash (₹50K/day), IPOs, govt securities, FDs
-  - **Tier 2 (Enhanced)**: Video KYC, income proof, risk assessment → Unlocks F&O, commodities, global trading, margin trading, unlimited equity
-  - **Tier 3 (Accredited Investor)**: SEBI compliance (₹2Cr+ income OR ₹7.5Cr+ net worth OR ₹5Cr+ portfolio OR professional qualification) → Unlocks AIF, PMS, pre-IPO, private equity, offshore investments
-  - Route-specific verification: Income route needs income docs, net worth needs CA cert, portfolio needs statements, professional needs credentials
-  - Visual KYC Dashboard with product access matrix, tier progression, and smart upgrade prompts
-  - Product access control middleware with upgrade recommendations on restricted products
-- **Re-KYC Automation System**: Risk-based periodic KYC renewal with automated reminders and transaction permission linking.
+- **Family Collaboration**: Shared financial groups, permission-based access, shared goals, combined net worth, and budget management.
+- **Intelligent Tiered KYC System**: Progressive 3-tier KYC framework with SEBI Accredited Investor compliance, including visual dashboard, product access matrix, and re-KYC automation.
 - **Investment Proposal System**: Custom ID system, filtering, creation, and full CRUD support.
-- **Financial Products Marketplace (Store Page)**: Slidable category tabs, real-time filtering, wishlist, cart, and product detail modals.
-- **AI Chat Assistant System**: Integrated chatbot with Gemini AI, supporting various financial functions like portfolio summary, market data, order creation, and financial planning.
-- **Dynamic Wealth Management Financial Analysis**: Aggregates real-time client financial data for intelligent investment recommendations, providing metrics like monthly income, obligations, investment capacity, and portfolio returns. Progressive Planning Flow tab order: Dashboard → AI Insights → Risk Profile → Goal Planning → Retirement → Credit Obligations.
-- **Multi-Currency Support**: Comprehensive functionality for global investments including exchange rate service, database schema for currency rates, and UI components for currency selection and display.
-- **Alert System**: Customizable alerts for market monitoring and spending tracking with various alert types, notification channels, and a background monitoring service.
-- **Bank Account Penny Drop Verification**: Instant bank account validation system using Sandbox API with ₹1 test transactions, fuzzy name matching (80%+ threshold using Levenshtein distance), max 3 verification attempts per account, and comprehensive audit trail. Features include real-time status badges, name mismatch warnings with similarity scores, and automated attempt tracking.
-- **Three-Tier Payment Gateway System**: Robust payment processing infrastructure with Cashfree (primary) → Stripe (secondary) → PhonePe (tertiary) fallback support.
-  - **PhonePe Integration**: SHA256 signature-based authentication, PAY_PAGE instrument type for unified payment interface, comprehensive callback verification, and transaction lifecycle management
-  - **Features**: Multi-gateway support in cart checkout and tax reminder subscriptions, status tracking with state mapping (COMPLETED/FAILED/CANCELLED/PENDING), gateway response auditing via JSONB storage, and automatic cache invalidation for downstream effects
-  - **Security**: Server-side secret management, X-VERIFY header authentication, callback signature verification, and comprehensive compliance logging
-- **Unified Order Management System**: Centralized order tracking infrastructure across all product types (MF, AIF, PMS, Bonds, Equity, IPOs, FDs, Loans) with complete lifecycle management.
-  - **Database Schema**: 
-    - `unifiedOrders` table: Product-agnostic order tracking with unique order numbers (ORD-YYYYMMDD-XXXX format)
-    - `orderLifecycleEvents` table: Complete event sourcing for all state changes with actor tracking
-    - `orderDocuments` table: Generated documents (agreements, confirmations, receipts) with signature tracking
-  - **Order Lifecycle**: initiated → payment_pending → payment_completed → kyc_verified → processing → executed → settled → completed
-  - **API Endpoints**: 
-    - `GET /api/orders`: List orders with filtering (productType, status, pagination)
-    - `GET /api/orders/stats`: Dashboard statistics (total, pending, completed, cancelled)
-    - `GET /api/orders/:orderId`: Order details with ownership verification
-    - `GET /api/orders/:orderId/timeline`: Complete lifecycle events
-    - `GET /api/orders/:orderId/documents`: Order documents
-    - `POST /api/orders`: Create new orders
-    - `PUT /api/orders/:orderId/status`: Update order status (ADMIN-ONLY for fraud prevention)
-    - `POST /api/orders/:orderId/cancel`: Cancel orders
-    - `POST /api/orders/:orderId/documents`: Add documents (admin/owner only)
-  - **Security**: Admin-only status updates prevent fraud (users cannot self-mark as paid/executed), ownership verification, role-based access, comprehensive audit trails
-  - **Integration Points**: Ready for payment gateway callbacks, execution service triggers, notification system, webhook events
-- **Payment-to-Execution Bridge Service**: Automated orchestration layer connecting payment gateway callbacks to order execution systems.
-  - **Core Function**: Processes payment callbacks from Cashfree/PhonePe/Stripe and triggers appropriate execution service based on product type
-  - **Partial Payment Support**: Intelligent detection and handling of initial vs balance payments
-    - Initial payments: Validates against initialPaymentAmount, sets paymentStage to 'balance_pending'
-    - Balance payments: Validates against balanceAmount, sets paymentStage to 'fully_paid', tracks totalPaidAmount
-    - Payment type detection: Checks orderMetadata.paymentStage and orderMetadata.isPartialPayment flags
-  - **Security Features**:
-    - Enhanced idempotency: Prevents duplicate execution even when multiple success callbacks arrive (checks paymentStatus='completed')
-    - Payment reconciliation: Validates callback amount/currency against expected payment (full/initial/balance) before status advancement
-    - Fraud prevention: Security alerts on payment mismatches, order marked as payment_error with audit trail
-    - Missing order ID monitoring: Comprehensive logging and compliance events when payment lacks unified order ID
-  - **Execution Routing**:
-    - Mutual Funds → BSE Star API integration (automated execution)
-    - AIF → Fully automated via aif-execution-service.ts (Production-ready)
-    - PMS → Manual processing queue (pending automation via pms-execution-service.ts)
-    - Bonds/Equity/IPO/FD/Loans → Pending manual processing
-  - **Order Lifecycle Management**: Updates order status through payment_completed → processing → executed/settled/completed
-  - **Error Handling**: Comprehensive try-catch blocks, payment_error status updates, compliance logging for all failures
-- **AIF Order Execution Service**: Automated Alternative Investment Fund processing with SEBI accredited investor compliance.
-  - **Accredited Investor Validation**: Enforces Tier 3 KYC with all 4 SEBI qualification routes:
-    - Income route: ₹2Cr+ annual income verification
-    - Net worth route: ₹7.5Cr+ net worth with CA certification
-    - Portfolio route: ₹5Cr+ securities portfolio with statements
-    - Professional route: CFA/CA/CS/MBA Finance credentials
-  - **Compliance Checks**: Annual accreditation expiry validation, AML screening, PEP status verification
-  - **Partial Payment Model**: ₹10L minimum initial payment (reduced from ₹1Cr) with balance payable on AMC demand
-    - Initial payment: ₹10L minimum → Subscription agreement generated → Units provisionally allotted
-    - Balance payment: Due on AMC demand (within 90 days) → Final execution → Full unit allotment
-    - Payment stages: initial_payment → balance_pending → fully_paid (tracked in order metadata)
-    - API endpoint: POST /api/orders/:orderId/balance-payment for processing balance payments
-  - **Subscription Agreement**: Automated generation with risk disclosures, T&Cs, investor declarations, fund details, and partial payment terms (when applicable)
-  - **Document Management**: Mock PDF generation ready for Object Storage integration, proper URL surfacing for compliance review
-  - **Execution Lifecycle**: payment_completed → processing (executionStatus: initiated) → executed (executionStatus: completed) with folio number allocation
-  - **Integration**: Seamless payment-to-execution bridge routing with partial payment support, AMC API ready (currently mock), complete audit trail
+- **Financial Products Marketplace**: Slidable category tabs, real-time filtering, wishlist, cart, and product detail modals.
+- **AI Chat Assistant System**: Integrated chatbot with Gemini AI for financial functions (portfolio summary, market data, order creation, planning).
+- **Dynamic Wealth Management Analysis**: Aggregates real-time financial data for intelligent investment recommendations, including income, obligations, investment capacity, and portfolio returns.
+- **Multi-Currency Support**: Comprehensive functionality for global investments with exchange rate service and UI components.
+- **Alert System**: Customizable alerts for market monitoring and spending tracking.
+- **Bank Account Penny Drop Verification**: Instant bank account validation using Sandbox API with ₹1 test transactions, fuzzy name matching, and attempt tracking.
+- **Three-Tier Payment Gateway System**: Robust processing with Cashfree (primary), Stripe (secondary), and PhonePe (tertiary) fallback, including SHA256 signature-based authentication for PhonePe.
+- **Unified Order Management System**: Centralized tracking across all product types (MF, AIF, PMS, Bonds, Equity, IPOs, FDs, Loans) with lifecycle management, document generation, and secure API endpoints.
+- **Payment-to-Execution Bridge Service**: Automated orchestration connecting payment callbacks to order execution systems, supporting partial payments, enhanced idempotency, and fraud prevention.
+- **AIF Order Execution Service**: Automated Alternative Investment Fund processing with SEBI accredited investor validation (Tier 3 KYC), partial payment model, automated subscription agreement generation, and document management.
+- **AI-Powered Expense Tracking & Budgeting System**: Intelligent personal finance management with automated categorization (Gemini AI), real-time budget tracking, customizable alerts, and AI-generated spending insights.
 
 ## External Dependencies
 
 ### Third-Party APIs
-- **Market Data Sources**: Real-time and historical market information providers.
-- **BSE Star MFD API**: Mutual fund transaction processing (Buy/Sell, SIP, order tracking).
+- **Market Data Sources**: Real-time and historical market information.
+- **BSE Star MFD API**: Mutual fund transaction processing.
 - **NSE NCB & BSE Bond API**: Government securities, corporate bond trading.
-- **Bajaj Finance Integration**: EMI, loan, fixed deposit calculators, and eligibility checks.
-- **Tata Capital Integration**: Personal, home, business loans, credit checks, CKYC, and GST verification.
-- **exchangerate-api.com**: For live currency exchange rates.
-- **Google Gemini API**: For AI Chat Assistant functionality.
-- **Sandbox API**: For bank account penny drop verification with instant validation and fuzzy name matching.
-- **Payment Gateways**:
-  - **Cashfree**: Primary payment gateway for UPI, cards, and digital payments
-  - **Stripe**: Secondary gateway for international card payments
-  - **PhonePe**: Tertiary gateway for UPI, wallets, and net banking with SHA256 signature-based authentication
+- **Bajaj Finance Integration**: EMI, loan, fixed deposit calculators, eligibility checks.
+- **Tata Capital Integration**: Loans, credit checks, CKYC, GST verification.
+- **exchangerate-api.com**: Live currency exchange rates.
+- **Google Gemini API**: AI Chat Assistant.
+- **Sandbox API**: Bank account penny drop verification.
+- **Payment Gateways**: Cashfree, Stripe, PhonePe.
 
 ### Database Services
 - **Neon Database**: Serverless PostgreSQL hosting.
@@ -148,4 +72,4 @@ Do not make changes to the file `Y`.
 - **Class Variance Authority**: Variant-based component APIs.
 - **Zod**: TypeScript-first schema validation.
 - **Nanoid**: URL-safe unique ID generator.
-- **Nodemailer**: For email service integration.
+- **Nodemailer**: Email service integration.
