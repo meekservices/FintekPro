@@ -402,6 +402,104 @@ export function registerOrderRoutes(app: Express) {
   });
 
   /**
+   * POST /api/orders/:orderId/balance-payment
+   * Process balance payment for AIF orders with partial payment
+   */
+  app.post('/api/orders/:orderId/balance-payment', async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      const { orderId } = req.params;
+      const { paymentAmount, paymentMethod, paymentGateway, transactionId } = req.body;
+
+      // Validate required fields
+      if (!paymentAmount || !paymentMethod || !paymentGateway) {
+        return res.status(400).json({
+          success: false,
+          error: 'Payment amount, method, and gateway are required',
+        });
+      }
+
+      // Verify order exists and belongs to user
+      const order = await orderManagementService.getOrderById(orderId);
+      if (!order) {
+        return res.status(404).json({
+          success: false,
+          error: 'Order not found',
+        });
+      }
+
+      if (order.userId !== userId) {
+        return res.status(403).json({
+          success: false,
+          error: 'Not authorized to make payment for this order',
+        });
+      }
+
+      // Verify order is in balance_pending state
+      const orderMetadata = order.metadata as any;
+      if (orderMetadata?.paymentStage !== 'balance_pending') {
+        return res.status(400).json({
+          success: false,
+          error: 'Order does not require balance payment',
+          currentStage: orderMetadata?.paymentStage,
+        });
+      }
+
+      // Verify payment amount matches balance amount
+      const balanceAmount = orderMetadata?.balanceAmount || 0;
+      if (Math.abs(paymentAmount - balanceAmount) > 0.01) {
+        return res.status(400).json({
+          success: false,
+          error: `Payment amount ₹${paymentAmount.toLocaleString()} does not match balance due ₹${balanceAmount.toLocaleString()}`,
+        });
+      }
+
+      // Update order with balance payment info
+      await orderManagementService.updateOrderStatus({
+        orderId,
+        status: 'payment_completed',
+        paymentStatus: 'completed',
+        paymentAmount: (order.amount || 0) + paymentAmount, // Total amount including initial + balance
+        paymentGateway,
+        paymentTransactionId: transactionId || `BAL-${Date.now()}`,
+        notes: `Balance payment of ₹${paymentAmount.toLocaleString()} received via ${paymentGateway}`,
+        metadata: {
+          ...orderMetadata,
+          balancePaymentAmount: paymentAmount,
+          balancePaymentDate: new Date().toISOString(),
+          balancePaymentMethod: paymentMethod,
+          balancePaymentGateway: paymentGateway,
+          balancePaymentTransactionId: transactionId,
+          paymentStage: 'fully_paid',
+          totalPaidAmount: (orderMetadata?.paidAmount || 0) + paymentAmount,
+        },
+        actorId: userId,
+        actorType: 'user',
+      });
+
+      // Get updated order
+      const updatedOrder = await orderManagementService.getOrderById(orderId);
+
+      res.json({
+        success: true,
+        order: updatedOrder,
+        message: `Balance payment of ₹${paymentAmount.toLocaleString()} processed successfully`,
+      });
+    } catch (error) {
+      console.error('Error processing balance payment:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to process balance payment',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  });
+
+  /**
    * POST /api/orders/:orderId/documents
    * Add a document to an order (internal API - called by execution services)
    * Requires authentication and proper authorization
