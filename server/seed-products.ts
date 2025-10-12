@@ -1,7 +1,8 @@
 import type { IStorage } from './storage';
 
+// Seed product data for FintekPro marketplace - Updated schema sync
 export async function seedProducts(storage: IStorage) {
-  console.log('🌱 Seeding products...');
+  console.log('🌱 Seeding products with complete schema...');
 
   const products = [
     // Mutual Funds - Equity
