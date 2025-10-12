@@ -1,5 +1,5 @@
 import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Supplier, type InsertSupplier, type EpfHolding, type PpfHolding, type EpsHolding, type GovernmentSchemeConsent, type InsertGovernmentSchemeConsent, type InsuranceHolding, type InsertInsuranceHolding, type UserBankAccount, type InsertUserBankAccount, type UserDematAccount, type InsertUserDematAccount, type AchievementCategory, type InsertAchievementCategory, type Achievement, type InsertAchievement, type UserAchievement, type InsertUserAchievement, type LearningProgress, type InsertLearningProgress, type SocialShare, type InsertSocialShare, type FinancialGoal, type InsertFinancialGoal, type TaxDocument, type InsertTaxDocument, type StructuredTaxData, type InsertStructuredTaxData, type UserAlert, type InsertUserAlert, type AlertHistory, type InsertAlertHistory, type AlertTemplate, type InsertAlertTemplate, type FamilyGroup, type InsertFamilyGroup, type FamilyMember, type InsertFamilyMember, type FamilyGoal, type InsertFamilyGoal, type FamilyGoalContribution, type InsertFamilyGoalContribution, type FamilyActivityLog, type InsertFamilyActivityLog, type FamilyDiscussion, type InsertFamilyDiscussion, type FamilyBudget, type InsertFamilyBudget, type FamilyPortfolioPermission, type InsertFamilyPortfolioPermission, type TaxCalculation, type InsertTaxCalculation, type TaxDocumentAccessLog, type InsertTaxDocumentAccessLog, type TaxSession, type InsertTaxSession, type TaxDataSource, type InsertTaxDataSource, type ValidationIssue, type InsertValidationIssue, type FilingRecord, type InsertFilingRecord, type AiOptimizationSuggestion, type InsertAiOptimizationSuggestion, type FundExtended, type Provenance, type FundSearchParams, type FundListResponse, type SourceStatus, type MultiSourceStatus, type LoanProduct, type InsertLoanProduct, type LoanProvider, type InsertLoanProvider, type ProviderProduct, type InsertProviderProduct, type CreditProfile, type InsertCreditProfile, type LoanRequest, type InsertLoanRequest, type LoanOffer, type InsertLoanOffer, type LoanApplicationMarketplace, type InsertLoanApplicationMarketplace, type ProviderIntegration, type InsertProviderIntegration, type PartnerApplicationDocument, type InsertPartnerApplicationDocument, type InvestmentIdea, type InsertInvestmentIdea, type InvestmentIdeaTracking, type InsertInvestmentIdeaTracking, type InvestmentIdeaAlert, type InsertInvestmentIdeaAlert, type YieldTracker, type InsertYieldTracker, type PartnerApplication, type InsertPartnerApplication, type TaxRule, type InsertTaxRule, type TaxReminderSubscription, type InsertTaxReminderSubscription, type CapitalGainsTaxReminder, type InsertCapitalGainsTaxReminder } from "@shared/schema";
-import { type CashfreeTransaction, type InsertCashfreeTransaction } from "@shared/schema";
+import { type CashfreeTransaction, type InsertCashfreeTransaction, type PhonePeTransaction, type InsertPhonePeTransaction } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, and, desc, asc, gte, lte, like, sql } from "drizzle-orm";
@@ -649,6 +649,15 @@ export interface IStorage {
   updateCashfreeTransaction(id: string, updates: Partial<CashfreeTransaction>): Promise<CashfreeTransaction | undefined>;
   getCashfreeTransactionsByUserId(userId: string): Promise<CashfreeTransaction[]>;
   getCashfreeTransactionsByStatus(status: string): Promise<CashfreeTransaction[]>;
+
+  // PhonePe Transaction methods
+  createPhonePeTransaction(transaction: InsertPhonePeTransaction): Promise<PhonePeTransaction>;
+  getPhonePeTransaction(id: string): Promise<PhonePeTransaction | undefined>;
+  getPhonePeTransactionByOrderId(orderId: string): Promise<PhonePeTransaction | undefined>;
+  getPhonePeTransactionByMerchantId(merchantTransactionId: string): Promise<PhonePeTransaction | undefined>;
+  updatePhonePeTransaction(id: string, updates: Partial<PhonePeTransaction>): Promise<PhonePeTransaction | undefined>;
+  getPhonePeTransactionsByUserId(userId: string): Promise<PhonePeTransaction[]>;
+  getPhonePeTransactionsByStatus(status: string): Promise<PhonePeTransaction[]>;
 
   // Family Collaboration methods
   createFamilyGroup(data: InsertFamilyGroup): Promise<FamilyGroup>;
@@ -3820,6 +3829,64 @@ export class DatabaseStorage implements IStorage {
       .from(schema.cashfreeTransactions)
       .where(eq(schema.cashfreeTransactions.status, status))
       .orderBy(desc(schema.cashfreeTransactions.createdAt));
+  }
+
+  // PhonePe Transaction methods
+  async createPhonePeTransaction(transaction: InsertPhonePeTransaction): Promise<PhonePeTransaction> {
+    const [result] = await db.insert(schema.phonePeTransactions).values(transaction).returning();
+    return result;
+  }
+
+  async getPhonePeTransaction(id: string): Promise<PhonePeTransaction | undefined> {
+    const [result] = await db
+      .select()
+      .from(schema.phonePeTransactions)
+      .where(eq(schema.phonePeTransactions.id, id))
+      .limit(1);
+    return result;
+  }
+
+  async getPhonePeTransactionByOrderId(orderId: string): Promise<PhonePeTransaction | undefined> {
+    const [result] = await db
+      .select()
+      .from(schema.phonePeTransactions)
+      .where(eq(schema.phonePeTransactions.orderId, orderId))
+      .limit(1);
+    return result;
+  }
+
+  async getPhonePeTransactionByMerchantId(merchantTransactionId: string): Promise<PhonePeTransaction | undefined> {
+    const [result] = await db
+      .select()
+      .from(schema.phonePeTransactions)
+      .where(eq(schema.phonePeTransactions.merchantTransactionId, merchantTransactionId))
+      .limit(1);
+    return result;
+  }
+
+  async updatePhonePeTransaction(id: string, updates: Partial<PhonePeTransaction>): Promise<PhonePeTransaction | undefined> {
+    const [result] = await db
+      .update(schema.phonePeTransactions)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.phonePeTransactions.id, id))
+      .returning();
+    return result;
+  }
+
+  async getPhonePeTransactionsByUserId(userId: string): Promise<PhonePeTransaction[]> {
+    return await db
+      .select()
+      .from(schema.phonePeTransactions)
+      .where(eq(schema.phonePeTransactions.userId, userId))
+      .orderBy(desc(schema.phonePeTransactions.createdAt));
+  }
+
+  async getPhonePeTransactionsByStatus(status: string): Promise<PhonePeTransaction[]> {
+    return await db
+      .select()
+      .from(schema.phonePeTransactions)
+      .where(eq(schema.phonePeTransactions.status, status))
+      .orderBy(desc(schema.phonePeTransactions.createdAt));
   }
 
   // Dynamic Tax Rules Management methods

@@ -6007,6 +6007,73 @@ export const insertCashfreeTransactionSchema = createInsertSchema(cashfreeTransa
 export type CashfreeTransaction = typeof cashfreeTransactions.$inferSelect;
 export type InsertCashfreeTransaction = z.infer<typeof insertCashfreeTransactionSchema>;
 
+// PhonePe Payment Transactions table
+export const phonePeTransactions = pgTable("phonepe_transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Transaction Identification
+  orderId: varchar("order_id").notNull().unique(), // Our generated order ID
+  merchantTransactionId: varchar("merchant_transaction_id").notNull().unique(), // PhonePe merchant transaction ID
+  transactionId: varchar("transaction_id"), // PhonePe's internal transaction ID
+  
+  // Amount Details
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(), // Amount in rupees
+  currency: varchar("currency").default("INR"),
+  
+  // Payment Details
+  paymentMethod: varchar("payment_method"), // UPI, CARD, NET_BANKING, WALLET
+  paymentInstrumentType: varchar("payment_instrument_type"), // Specific instrument type
+  
+  // Status Tracking
+  status: varchar("status").default("initiated").notNull(), 
+  // possible values: 'initiated', 'pending', 'success', 'failed', 'cancelled'
+  state: varchar("state"), // PhonePe state: COMPLETED, FAILED, PENDING
+  responseCode: varchar("response_code"), // PhonePe response code
+  
+  // Customer Details
+  customerName: varchar("customer_name"),
+  customerEmail: varchar("customer_email"),
+  customerPhone: varchar("customer_phone"),
+  
+  // URLs
+  redirectUrl: text("redirect_url"),
+  callbackUrl: text("callback_url"),
+  paymentUrl: text("payment_url"), // PhonePe payment page URL
+  
+  // Related Entities
+  cartId: varchar("cart_id").references(() => userCart.id), // If payment for cart checkout
+  itemType: varchar("item_type"), // mutual_fund, product, proposal, loan
+  itemId: varchar("item_id"), // ID of the item being purchased
+  
+  // PhonePe Gateway Response
+  gatewayResponse: jsonb("gateway_response"), // Full response from PhonePe
+  
+  // Metadata
+  metadata: jsonb("metadata"), // Additional transaction data
+  failureReason: text("failure_reason"),
+  retryCount: integer("retry_count").default(0),
+  
+  // Timestamps
+  initiatedAt: timestamp("initiated_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  callbackReceivedAt: timestamp("callback_received_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// PhonePe Transaction Insert Schema
+export const insertPhonePeTransactionSchema = createInsertSchema(phonePeTransactions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  initiatedAt: true,
+});
+
+// PhonePe Transaction Types
+export type PhonePeTransaction = typeof phonePeTransactions.$inferSelect;
+export type InsertPhonePeTransaction = z.infer<typeof insertPhonePeTransactionSchema>;
+
 // Tax Rules table - Dynamic tax rates and rules management
 export const taxRules = pgTable(
   "tax_rules",
