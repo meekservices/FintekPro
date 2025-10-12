@@ -153,6 +153,7 @@ export function EnhancedNavigation() {
           icon: Calculator,
           description: "Financial planning and analysis tools",
           subItems: [
+            { name: "Expenses & Budgets", href: "/expenses-budgets", description: "AI-powered expense tracking and budgeting", badge: "AI POWERED" },
             { name: "SIP Calculator", href: "/calculators?tool=sip", description: "Systematic investment planning" },
             { name: "EMI Calculator", href: "/calculators?tool=emi", description: "Loan EMI and eligibility" },
             { name: "Tax Calculator", href: "/calculators?tool=tax", description: "Tax planning and optimization" },

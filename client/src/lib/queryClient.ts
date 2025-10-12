@@ -11,7 +11,7 @@ export async function apiRequest(
   method: string,
   url: string,
   options?: { body?: unknown; headers?: Record<string, string> }
-): Promise<Response> {
+): Promise<any> {
   const { body, headers = {} } = options || {};
   
   // Don't send body for GET requests
@@ -25,6 +25,13 @@ export async function apiRequest(
   });
 
   await throwIfResNotOk(res);
+  
+  // Parse JSON if response has content
+  const contentType = res.headers.get("content-type");
+  if (contentType?.includes("application/json")) {
+    return await res.json();
+  }
+  
   return res;
 }
 

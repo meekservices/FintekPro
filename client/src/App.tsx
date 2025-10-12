@@ -93,6 +93,7 @@ import DerivativesPage from "@/pages/derivatives";
 import CommoditiesPage from "@/pages/commodities";
 import CreditCardsPage from "@/pages/credit-cards";
 import ProfessionalServicesPage from "@/pages/professional-services";
+import ExpensesBudgets from "@/pages/expenses-budgets";
 
 function UserProtectedRoutes() {
   return (
@@ -186,6 +187,7 @@ function UserProtectedRoutes() {
         <Route path="/settings" component={SettingsPage} />
         <Route path="/credit-report" component={CreditReportPage} />
         <Route path="/derivatives" component={DerivativesPage} />
+        <Route path="/expenses-budgets" component={ExpensesBudgets} />
         <Route path="/commodities" component={CommoditiesPage} />
         <Route path="/credit-cards" component={CreditCardsPage} />
         <Route path="/professional-services" component={ProfessionalServicesPage} />
