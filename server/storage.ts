@@ -1,4 +1,4 @@
-import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Supplier, type InsertSupplier, type EpfHolding, type PpfHolding, type EpsHolding, type GovernmentSchemeConsent, type InsertGovernmentSchemeConsent, type InsuranceHolding, type InsertInsuranceHolding, type UserBankAccount, type InsertUserBankAccount, type UserDematAccount, type InsertUserDematAccount, type AchievementCategory, type InsertAchievementCategory, type Achievement, type InsertAchievement, type UserAchievement, type InsertUserAchievement, type LearningProgress, type InsertLearningProgress, type SocialShare, type InsertSocialShare, type FinancialGoal, type InsertFinancialGoal, type TaxDocument, type InsertTaxDocument, type StructuredTaxData, type InsertStructuredTaxData, type UserAlert, type InsertUserAlert, type AlertHistory, type InsertAlertHistory, type AlertTemplate, type InsertAlertTemplate, type FamilyGroup, type InsertFamilyGroup, type FamilyMember, type InsertFamilyMember, type FamilyGoal, type InsertFamilyGoal, type FamilyGoalContribution, type InsertFamilyGoalContribution, type FamilyActivityLog, type InsertFamilyActivityLog, type FamilyDiscussion, type InsertFamilyDiscussion, type FamilyBudget, type InsertFamilyBudget, type FamilyPortfolioPermission, type InsertFamilyPortfolioPermission, type TaxCalculation, type InsertTaxCalculation, type TaxDocumentAccessLog, type InsertTaxDocumentAccessLog, type TaxSession, type InsertTaxSession, type TaxDataSource, type InsertTaxDataSource, type ValidationIssue, type InsertValidationIssue, type FilingRecord, type InsertFilingRecord, type AiOptimizationSuggestion, type InsertAiOptimizationSuggestion, type FundExtended, type Provenance, type FundSearchParams, type FundListResponse, type SourceStatus, type MultiSourceStatus, type LoanProduct, type InsertLoanProduct, type LoanProvider, type InsertLoanProvider, type ProviderProduct, type InsertProviderProduct, type CreditProfile, type InsertCreditProfile, type LoanRequest, type InsertLoanRequest, type LoanOffer, type InsertLoanOffer, type LoanApplicationMarketplace, type InsertLoanApplicationMarketplace, type ProviderIntegration, type InsertProviderIntegration, type PartnerApplicationDocument, type InsertPartnerApplicationDocument, type InvestmentIdea, type InsertInvestmentIdea, type InvestmentIdeaTracking, type InsertInvestmentIdeaTracking, type InvestmentIdeaAlert, type InsertInvestmentIdeaAlert, type YieldTracker, type InsertYieldTracker, type PartnerApplication, type InsertPartnerApplication, type TaxRule, type InsertTaxRule, type TaxReminderSubscription, type InsertTaxReminderSubscription, type CapitalGainsTaxReminder, type InsertCapitalGainsTaxReminder } from "@shared/schema";
+import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Supplier, type InsertSupplier, type EpfHolding, type PpfHolding, type EpsHolding, type GovernmentSchemeConsent, type InsertGovernmentSchemeConsent, type InsuranceHolding, type InsertInsuranceHolding, type UserBankAccount, type InsertUserBankAccount, type UserDematAccount, type InsertUserDematAccount, type AchievementCategory, type InsertAchievementCategory, type Achievement, type InsertAchievement, type UserAchievement, type InsertUserAchievement, type LearningProgress, type InsertLearningProgress, type SocialShare, type InsertSocialShare, type FinancialGoal, type InsertFinancialGoal, type TaxDocument, type InsertTaxDocument, type StructuredTaxData, type InsertStructuredTaxData, type UserAlert, type InsertUserAlert, type AlertHistory, type InsertAlertHistory, type AlertTemplate, type InsertAlertTemplate, type FamilyGroup, type InsertFamilyGroup, type FamilyMember, type InsertFamilyMember, type FamilyGoal, type InsertFamilyGoal, type FamilyGoalContribution, type InsertFamilyGoalContribution, type FamilyActivityLog, type InsertFamilyActivityLog, type FamilyDiscussion, type InsertFamilyDiscussion, type FamilyBudget, type InsertFamilyBudget, type FamilyPortfolioPermission, type InsertFamilyPortfolioPermission, type TaxCalculation, type InsertTaxCalculation, type TaxDocumentAccessLog, type InsertTaxDocumentAccessLog, type TaxSession, type InsertTaxSession, type TaxDataSource, type InsertTaxDataSource, type ValidationIssue, type InsertValidationIssue, type FilingRecord, type InsertFilingRecord, type AiOptimizationSuggestion, type InsertAiOptimizationSuggestion, type FundExtended, type Provenance, type FundSearchParams, type FundListResponse, type SourceStatus, type MultiSourceStatus, type LoanProduct, type InsertLoanProduct, type LoanProvider, type InsertLoanProvider, type ProviderProduct, type InsertProviderProduct, type CreditProfile, type InsertCreditProfile, type LoanRequest, type InsertLoanRequest, type LoanOffer, type InsertLoanOffer, type LoanApplicationMarketplace, type InsertLoanApplicationMarketplace, type ProviderIntegration, type InsertProviderIntegration, type PartnerApplicationDocument, type InsertPartnerApplicationDocument, type InvestmentIdea, type InsertInvestmentIdea, type InvestmentIdeaTracking, type InsertInvestmentIdeaTracking, type InvestmentIdeaAlert, type InsertInvestmentIdeaAlert, type YieldTracker, type InsertYieldTracker, type PartnerApplication, type InsertPartnerApplication, type TaxRule, type InsertTaxRule, type TaxReminderSubscription, type InsertTaxReminderSubscription, type CapitalGainsTaxReminder, type InsertCapitalGainsTaxReminder, type UserExpense, type InsertUserExpense, type UserBudget, type InsertUserBudget, type ExpenseInsight, type InsertExpenseInsight } from "@shared/schema";
 import { type CashfreeTransaction, type InsertCashfreeTransaction, type PhonePeTransaction, type InsertPhonePeTransaction } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
@@ -751,6 +751,37 @@ export interface IStorage {
     hasCompletedKyc: boolean;
     hasFinancialProfile: boolean;
   } | null>;
+  
+  // Expense Management methods
+  createExpense(expense: InsertUserExpense): Promise<UserExpense>;
+  getExpense(id: string): Promise<UserExpense | undefined>;
+  getUserExpenses(userId: string, filters?: {
+    startDate?: Date;
+    endDate?: Date;
+    category?: string;
+    minAmount?: number;
+    maxAmount?: number;
+    limit?: number;
+    offset?: number;
+  }): Promise<UserExpense[]>;
+  updateExpense(id: string, updates: Partial<UserExpense>): Promise<UserExpense | undefined>;
+  deleteExpense(id: string): Promise<void>;
+  getExpensesByCategory(userId: string, startDate?: Date, endDate?: Date): Promise<Array<{ category: string; total: number; count: number }>>;
+  
+  // Budget Management methods
+  createBudget(budget: InsertUserBudget): Promise<UserBudget>;
+  getBudget(id: string): Promise<UserBudget | undefined>;
+  getUserBudgets(userId: string, isActive?: boolean): Promise<UserBudget[]>;
+  updateBudget(id: string, updates: Partial<UserBudget>): Promise<UserBudget | undefined>;
+  deleteBudget(id: string): Promise<void>;
+  updateBudgetSpend(userId: string, category: string, amount: number): Promise<void>;
+  resetBudgets(userId: string): Promise<void>;
+  
+  // Expense Insights methods
+  createInsight(insight: InsertExpenseInsight): Promise<ExpenseInsight>;
+  getUserInsights(userId: string, status?: string): Promise<ExpenseInsight[]>;
+  updateInsight(id: string, updates: Partial<ExpenseInsight>): Promise<ExpenseInsight | undefined>;
+  dismissInsight(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -4948,6 +4979,275 @@ export class DatabaseStorage implements IStorage {
       console.error('Error fetching user financial analysis:', error);
       return null;
     }
+  }
+  
+  // Expense Management implementation
+  async createExpense(expense: InsertUserExpense): Promise<UserExpense> {
+    const [created] = await db.insert(schema.userExpenses).values(expense).returning();
+    
+    // Update budget spend if expense has category
+    if (expense.category && expense.amount) {
+      await this.updateBudgetSpend(expense.userId, expense.category, parseFloat(expense.amount.toString()));
+    }
+    
+    return created;
+  }
+  
+  async getExpense(id: string): Promise<UserExpense | undefined> {
+    const [expense] = await db.select().from(schema.userExpenses).where(eq(schema.userExpenses.id, id));
+    return expense || undefined;
+  }
+  
+  async getUserExpenses(userId: string, filters: {
+    startDate?: Date;
+    endDate?: Date;
+    category?: string;
+    minAmount?: number;
+    maxAmount?: number;
+    limit?: number;
+    offset?: number;
+  } = {}): Promise<UserExpense[]> {
+    let query = db.select().from(schema.userExpenses).where(eq(schema.userExpenses.userId, userId));
+    
+    const conditions: any[] = [eq(schema.userExpenses.userId, userId)];
+    
+    if (filters.startDate) {
+      conditions.push(gte(schema.userExpenses.transactionDate, filters.startDate));
+    }
+    if (filters.endDate) {
+      conditions.push(lte(schema.userExpenses.transactionDate, filters.endDate));
+    }
+    if (filters.category) {
+      conditions.push(eq(schema.userExpenses.category, filters.category));
+    }
+    if (filters.minAmount !== undefined) {
+      conditions.push(gte(schema.userExpenses.amount, filters.minAmount.toString()));
+    }
+    if (filters.maxAmount !== undefined) {
+      conditions.push(lte(schema.userExpenses.amount, filters.maxAmount.toString()));
+    }
+    
+    const expenses = await db.select()
+      .from(schema.userExpenses)
+      .where(and(...conditions))
+      .orderBy(desc(schema.userExpenses.transactionDate))
+      .limit(filters.limit || 100)
+      .offset(filters.offset || 0);
+    
+    return expenses;
+  }
+  
+  async updateExpense(id: string, updates: Partial<UserExpense>): Promise<UserExpense | undefined> {
+    // Get original expense to calculate delta
+    const original = await this.getExpense(id);
+    if (!original) return undefined;
+    
+    const [updated] = await db.update(schema.userExpenses)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.userExpenses.id, id))
+      .returning();
+    
+    if (!updated) return undefined;
+    
+    // Adjust budget if amount or category changed
+    if (original.category && original.amount) {
+      const originalAmount = parseFloat(original.amount.toString());
+      const newCategory = updates.category || original.category;
+      const newAmount = updates.amount ? parseFloat(updates.amount.toString()) : originalAmount;
+      
+      // If category changed, subtract from old category and add to new
+      if (updates.category && updates.category !== original.category) {
+        await this.updateBudgetSpend(updated.userId, original.category, -originalAmount);
+        await this.updateBudgetSpend(updated.userId, newCategory, newAmount);
+      } 
+      // If only amount changed, adjust the delta
+      else if (updates.amount) {
+        const delta = newAmount - originalAmount;
+        await this.updateBudgetSpend(updated.userId, original.category, delta);
+      }
+    }
+    
+    return updated;
+  }
+  
+  async deleteExpense(id: string): Promise<void> {
+    // Get expense to adjust budget before deletion
+    const expense = await this.getExpense(id);
+    
+    await db.delete(schema.userExpenses).where(eq(schema.userExpenses.id, id));
+    
+    // Subtract deleted amount from budget
+    if (expense && expense.category && expense.amount) {
+      const amount = parseFloat(expense.amount.toString());
+      await this.updateBudgetSpend(expense.userId, expense.category, -amount);
+    }
+  }
+  
+  async getExpensesByCategory(userId: string, startDate?: Date, endDate?: Date): Promise<Array<{ category: string; total: number; count: number }>> {
+    const conditions: any[] = [eq(schema.userExpenses.userId, userId)];
+    
+    if (startDate) {
+      conditions.push(gte(schema.userExpenses.transactionDate, startDate));
+    }
+    if (endDate) {
+      conditions.push(lte(schema.userExpenses.transactionDate, endDate));
+    }
+    
+    const results = await db.select({
+      category: schema.userExpenses.category,
+      total: sql<number>`SUM(CAST(${schema.userExpenses.amount} AS DECIMAL))`,
+      count: sql<number>`COUNT(*)`
+    })
+      .from(schema.userExpenses)
+      .where(and(...conditions))
+      .groupBy(schema.userExpenses.category);
+    
+    return results.map(r => ({
+      category: r.category,
+      total: Number(r.total) || 0,
+      count: Number(r.count) || 0
+    }));
+  }
+  
+  // Budget Management implementation
+  async createBudget(budget: InsertUserBudget): Promise<UserBudget> {
+    const [created] = await db.insert(schema.userBudgets).values(budget).returning();
+    return created;
+  }
+  
+  async getBudget(id: string): Promise<UserBudget | undefined> {
+    const [budget] = await db.select().from(schema.userBudgets).where(eq(schema.userBudgets.id, id));
+    return budget || undefined;
+  }
+  
+  async getUserBudgets(userId: string, isActive?: boolean): Promise<UserBudget[]> {
+    const conditions: any[] = [eq(schema.userBudgets.userId, userId)];
+    
+    if (isActive !== undefined) {
+      conditions.push(eq(schema.userBudgets.isActive, isActive));
+    }
+    
+    const budgets = await db.select()
+      .from(schema.userBudgets)
+      .where(and(...conditions))
+      .orderBy(schema.userBudgets.category);
+    
+    return budgets;
+  }
+  
+  async updateBudget(id: string, updates: Partial<UserBudget>): Promise<UserBudget | undefined> {
+    const [updated] = await db.update(schema.userBudgets)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.userBudgets.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async deleteBudget(id: string): Promise<void> {
+    await db.delete(schema.userBudgets).where(eq(schema.userBudgets.id, id));
+  }
+  
+  async updateBudgetSpend(userId: string, category: string, amount: number): Promise<void> {
+    // Find active budgets for this category
+    const budgets = await db.select()
+      .from(schema.userBudgets)
+      .where(and(
+        eq(schema.userBudgets.userId, userId),
+        eq(schema.userBudgets.category, category),
+        eq(schema.userBudgets.isActive, true)
+      ));
+    
+    for (const budget of budgets) {
+      const currentSpend = parseFloat(budget.currentSpend?.toString() || '0');
+      await db.update(schema.userBudgets)
+        .set({ 
+          currentSpend: (currentSpend + amount).toString(),
+          updatedAt: new Date()
+        })
+        .where(eq(schema.userBudgets.id, budget.id));
+    }
+  }
+  
+  async resetBudgets(userId: string): Promise<void> {
+    const now = new Date();
+    
+    // Only reset budgets where the period has rolled over
+    // Get all active budgets for the user
+    const budgets = await this.getUserBudgets(userId, true);
+    
+    for (const budget of budgets) {
+      const lastReset = budget.lastResetDate ? new Date(budget.lastResetDate) : new Date(budget.startDate);
+      let shouldReset = false;
+      
+      // Check if period has rolled over based on budget period
+      switch (budget.period) {
+        case 'daily':
+          shouldReset = now.getDate() !== lastReset.getDate();
+          break;
+        case 'weekly':
+          const weekDiff = Math.floor((now.getTime() - lastReset.getTime()) / (7 * 24 * 60 * 60 * 1000));
+          shouldReset = weekDiff >= 1;
+          break;
+        case 'monthly':
+          shouldReset = now.getMonth() !== lastReset.getMonth() || now.getFullYear() !== lastReset.getFullYear();
+          break;
+        case 'quarterly':
+          const quarterDiff = Math.floor((now.getMonth() - lastReset.getMonth()) / 3);
+          shouldReset = quarterDiff >= 1;
+          break;
+        case 'yearly':
+          shouldReset = now.getFullYear() !== lastReset.getFullYear();
+          break;
+      }
+      
+      if (shouldReset) {
+        await db.update(schema.userBudgets)
+          .set({ 
+            currentSpend: '0',
+            lastResetDate: now,
+            updatedAt: now
+          })
+          .where(eq(schema.userBudgets.id, budget.id));
+      }
+    }
+  }
+  
+  // Expense Insights implementation
+  async createInsight(insight: InsertExpenseInsight): Promise<ExpenseInsight> {
+    const [created] = await db.insert(schema.expenseInsights).values(insight).returning();
+    return created;
+  }
+  
+  async getUserInsights(userId: string, status?: string): Promise<ExpenseInsight[]> {
+    const conditions: any[] = [eq(schema.expenseInsights.userId, userId)];
+    
+    if (status) {
+      conditions.push(eq(schema.expenseInsights.status, status));
+    }
+    
+    const insights = await db.select()
+      .from(schema.expenseInsights)
+      .where(and(...conditions))
+      .orderBy(desc(schema.expenseInsights.createdAt));
+    
+    return insights;
+  }
+  
+  async updateInsight(id: string, updates: Partial<ExpenseInsight>): Promise<ExpenseInsight | undefined> {
+    const [updated] = await db.update(schema.expenseInsights)
+      .set(updates)
+      .where(eq(schema.expenseInsights.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async dismissInsight(id: string): Promise<void> {
+    await db.update(schema.expenseInsights)
+      .set({ 
+        status: 'dismissed',
+        dismissedAt: new Date()
+      })
+      .where(eq(schema.expenseInsights.id, id));
   }
 }
 
