@@ -49,7 +49,9 @@ export interface AIFExecutionRequest {
   aifCategory: 'CAT_I' | 'CAT_II' | 'CAT_III';
   fundName: string;
   fundCode: string;
-  investmentAmount: number;
+  investmentAmount: number; // Total committed investment
+  paidAmount: number; // Amount paid so far (initial or balance payment)
+  isPartialPayment?: boolean; // Whether this is a partial payment scenario
   units?: number;
   navPerUnit?: number;
 }
@@ -114,10 +116,15 @@ class AIFExecutionService {
       
       console.log(`[AIF Execution] Accredited investor verified via ${investorValidation.qualificationRoute}`);
       
-      // Step 2: Validate minimum investment criteria
+      // Step 2: Validate minimum investment criteria with partial payment support
       const categoryConfig = AIF_CATEGORIES[request.aifCategory];
-      if (request.investmentAmount < categoryConfig.minInvestment) {
-        const error = `Investment amount ₹${request.investmentAmount.toLocaleString()} is below minimum ₹${categoryConfig.minInvestment.toLocaleString()} for ${categoryConfig.name}`;
+      const totalInvestment = request.investmentAmount;
+      const paidAmount = request.paidAmount;
+      const balanceAmount = totalInvestment - paidAmount;
+      
+      // Validate minimum initial payment (₹10L)
+      if (paidAmount < categoryConfig.minInvestment) {
+        const error = `Initial payment ₹${paidAmount.toLocaleString()} is below minimum ₹${categoryConfig.minInvestment.toLocaleString()} for ${categoryConfig.name}`;
         await this.handleExecutionFailure(request.orderId, [error]);
         return {
           success: false,
@@ -126,6 +133,12 @@ class AIFExecutionService {
           errors: [error],
         };
       }
+      
+      // Determine if this is a partial payment scenario
+      const isPartialPayment = balanceAmount > 0;
+      const paymentStage = isPartialPayment ? 'initial_payment' : 'fully_paid';
+      
+      console.log(`[AIF Execution] Payment validation: Total=₹${totalInvestment.toLocaleString()}, Paid=₹${paidAmount.toLocaleString()}, Balance=₹${balanceAmount.toLocaleString()}, Stage=${paymentStage}`);
       
       // Step 3: Generate subscription agreement
       const agreement = await this.generateSubscriptionAgreement(request);
@@ -136,12 +149,19 @@ class AIFExecutionService {
         orderId: request.orderId,
         status: 'processing',
         executionStatus: 'initiated',
-        notes: `AIF subscription agreement generated. Category: ${request.aifCategory}, Amount: ₹${request.investmentAmount.toLocaleString()}`,
+        notes: `AIF subscription agreement generated. Category: ${request.aifCategory}, Total: ₹${totalInvestment.toLocaleString()}, Paid: ₹${paidAmount.toLocaleString()}, Balance: ₹${balanceAmount.toLocaleString()}`,
         metadata: {
           aifCategory: request.aifCategory,
           fundName: request.fundName,
           subscriptionAgreementId: agreement.agreementId,
           investorQualification: investorValidation.qualificationRoute,
+          // Partial payment tracking
+          totalInvestmentAmount: totalInvestment,
+          initialPaymentAmount: paidAmount,
+          balanceAmount: balanceAmount,
+          paymentStage: paymentStage,
+          isPartialPayment: isPartialPayment,
+          balanceDueDate: isPartialPayment ? new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString() : null, // 90 days from now
         },
         actorId: 'system',
         actorType: 'system',
@@ -157,14 +177,22 @@ class AIFExecutionService {
         // Step 7: Update order to executed status
         await orderManagementService.updateOrderStatus({
           orderId: request.orderId,
-          status: 'executed',
+          status: isPartialPayment ? 'executed' : 'executed', // Same status, but payment stage differs
           executionStatus: 'completed',
-          notes: `AIF subscription executed successfully. Folio: ${executionResult.folioNumber}`,
+          notes: isPartialPayment 
+            ? `AIF subscription executed (partial payment). Folio: ${executionResult.folioNumber}. Balance ₹${balanceAmount.toLocaleString()} due on demand.`
+            : `AIF subscription executed (full payment). Folio: ${executionResult.folioNumber}`,
           metadata: {
             folioNumber: executionResult.folioNumber,
             allotmentDate: executionResult.allotmentDate,
             units: request.units,
             navPerUnit: request.navPerUnit,
+            // Partial payment details
+            totalInvestmentAmount: totalInvestment,
+            paidAmount: paidAmount,
+            balanceAmount: balanceAmount,
+            paymentStage: isPartialPayment ? 'balance_pending' : 'fully_paid',
+            balanceDueDate: isPartialPayment ? new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString() : null,
           },
           actorId: 'system',
           actorType: 'system',
