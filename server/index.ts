@@ -8,6 +8,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { complianceMiddleware } from "./compliance-monitor";
 import { storage } from "./storage";
+import { setupAuth } from "./auth";
 
 const app = express();
 
@@ -164,6 +165,9 @@ app.use((req, res, next) => {
 
   next();
 });
+
+// Initialize authentication routes
+setupAuth(app);
 
 (async () => {
   const server = await registerRoutes(app);
