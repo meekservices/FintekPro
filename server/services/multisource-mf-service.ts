@@ -410,13 +410,112 @@ export class MultiSourceMFService {
 
   /**
    * Fetch from AMFI
+   * AMFI provides NAV data in semicolon-delimited text format
+   * Format: Scheme Code;ISIN Div;ISIN Growth;Scheme Name;Net Asset Value;Date
    */
   private async fetchFromAMFI(type: string, param?: string): Promise<any> {
-    // AMFI provides NAV data in text format
-    // This is a simplified implementation - would need proper AMFI parsing
-    // Return null to gracefully fallback to other sources
-    console.warn('AMFI source not yet implemented, falling back to other sources');
-    return null;
+    const amfiUrl = 'https://www.amfiindia.com/spages/NAVAll.txt';
+    
+    try {
+      const response = await axios.get(amfiUrl, {
+        timeout: this.TIMEOUT,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      });
+
+      const lines = response.data.split('\n');
+      const funds: any[] = [];
+      let currentFundHouse = '';
+
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        
+        // Skip empty lines
+        if (!trimmedLine) continue;
+        
+        // Check if this is a fund house header (all caps, no semicolons)
+        if (!trimmedLine.includes(';')) {
+          currentFundHouse = trimmedLine;
+          continue;
+        }
+
+        // Parse fund data: Scheme Code;ISIN Div;ISIN Growth;Scheme Name;Net Asset Value;Date
+        const parts = trimmedLine.split(';');
+        if (parts.length < 6) continue;
+
+        const [schemeCode, isinDiv, isinGrowth, schemeName, nav, date] = parts;
+        
+        // Skip if no scheme code or NAV
+        if (!schemeCode || !nav || nav === 'N.A.' || !schemeName) continue;
+
+        const fundData = {
+          schemeCode: schemeCode.trim(),
+          schemeName: schemeName.trim(),
+          fundHouse: currentFundHouse,
+          isinDiv: isinDiv?.trim(),
+          isinGrowth: isinGrowth?.trim(),
+          currentNav: nav.trim(),
+          navDate: date?.trim() || new Date().toISOString(),
+        };
+
+        // Handle different query types
+        if (type === 'fund' && param) {
+          // Search by scheme code or name
+          if (fundData.schemeCode === param || 
+              fundData.schemeName.toLowerCase().includes(param.toLowerCase())) {
+            return this.normalizeAMFIFund(fundData);
+          }
+        } else if (type === 'search' && param) {
+          // Return all matching funds
+          if (fundData.schemeName.toLowerCase().includes(param.toLowerCase())) {
+            funds.push(this.normalizeAMFIFund(fundData));
+          }
+        } else if (type === 'popular') {
+          // Collect all funds for popular selection
+          funds.push(this.normalizeAMFIFund(fundData));
+        }
+      }
+
+      // For popular funds, return top 10 by fund house diversity
+      if (type === 'popular') {
+        const uniqueFundHouses = new Map<string, any>();
+        for (const fund of funds) {
+          if (!uniqueFundHouses.has(fund.fundHouse)) {
+            uniqueFundHouses.set(fund.fundHouse, fund);
+            if (uniqueFundHouses.size >= 10) break;
+          }
+        }
+        return Array.from(uniqueFundHouses.values());
+      }
+
+      return type === 'fund' ? null : funds;
+    } catch (error) {
+      throw new Error(`AMFI request failed: ${error}`);
+    }
+  }
+
+  /**
+   * Normalize AMFI fund data to our schema
+   */
+  private normalizeAMFIFund(data: any): FundExtended {
+    return {
+      schemeCode: data.schemeCode || '',
+      schemeName: data.schemeName || '',
+      fundHouse: data.fundHouse || '',
+      category: '', // AMFI doesn't provide category in NAV file
+      currentNav: data.currentNav || '0',
+      navDate: data.navDate || new Date().toISOString(),
+      returns: {},
+      returnStrings: {},
+      provenance: {
+        primarySource: 'AMFI',
+        sourceChain: ['AMFI'],
+        lastRefreshed: new Date().toISOString(),
+        timestamp: new Date(),
+        isAuthentic: true
+      }
+    };
   }
 
   /**
