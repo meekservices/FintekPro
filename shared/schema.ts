@@ -7336,3 +7336,161 @@ export const insertCurrencyRateSchema = createInsertSchema(currencyRates).omit({
 export type CurrencyRate = typeof currencyRates.$inferSelect;
 export type InsertCurrencyRate = z.infer<typeof insertCurrencyRateSchema>;
 
+// ============================================================================
+// EXPENSE TRACKING & AI-POWERED BUDGETING SYSTEM
+// ============================================================================
+
+// User Expenses - Individual expense transactions with AI categorization
+export const userExpenses = pgTable("user_expenses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Transaction details
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
+  currency: varchar("currency").default("INR").notNull(),
+  description: text("description").notNull(),
+  transactionDate: timestamp("transaction_date").notNull(),
+  
+  // Categorization (AI-powered or manual)
+  category: varchar("category").notNull(), // housing, food, transportation, utilities, entertainment, healthcare, education, shopping, travel, insurance, investment, other
+  subcategory: varchar("subcategory"), // Optional subcategory for detailed tracking
+  
+  // AI categorization metadata
+  aiCategorized: boolean("ai_categorized").default(false),
+  aiConfidence: decimal("ai_confidence", { precision: 5, scale: 2 }), // Confidence score 0-100
+  suggestedCategories: jsonb("suggested_categories"), // Alternative AI suggestions with confidence scores
+  
+  // Payment method and tags
+  paymentMethod: varchar("payment_method"), // cash, card, upi, bank_transfer, other
+  merchantName: varchar("merchant_name"),
+  tags: jsonb("tags"), // User-defined tags for filtering
+  
+  // Receipt and notes
+  receiptUrl: varchar("receipt_url"), // Object storage URL
+  notes: text("notes"),
+  
+  // Recurring expense tracking
+  isRecurring: boolean("is_recurring").default(false),
+  recurringFrequency: varchar("recurring_frequency"), // weekly, monthly, yearly
+  recurringGroupId: varchar("recurring_group_id"), // Link recurring transactions
+  
+  // Status
+  isVerified: boolean("is_verified").default(false),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_user_expenses_user").on(table.userId),
+  index("idx_user_expenses_category").on(table.category),
+  index("idx_user_expenses_date").on(table.transactionDate),
+  index("idx_user_expenses_recurring").on(table.recurringGroupId),
+]);
+
+// User Budgets - Category-wise budget limits
+export const userBudgets = pgTable("user_budgets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Budget details
+  budgetName: text("budget_name").notNull(),
+  category: varchar("category").notNull(), // Must match expense categories
+  subcategory: varchar("subcategory"), // Optional for granular budgets
+  
+  // Budget amount and period
+  budgetAmount: decimal("budget_amount", { precision: 15, scale: 2 }).notNull(),
+  period: varchar("period").notNull(), // daily, weekly, monthly, quarterly, yearly
+  currency: varchar("currency").default("INR").notNull(),
+  
+  // Tracking
+  currentSpend: decimal("current_spend", { precision: 15, scale: 2 }).default("0"),
+  lastResetDate: timestamp("last_reset_date").defaultNow(),
+  
+  // AI suggestions
+  aiSuggested: boolean("ai_suggested").default(false),
+  aiReasoning: text("ai_reasoning"), // Why AI suggested this budget
+  
+  // Alerts
+  alertThreshold: decimal("alert_threshold", { precision: 5, scale: 2 }).default("80"), // Percentage
+  alertEnabled: boolean("alert_enabled").default(true),
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  
+  // Timestamps
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_user_budgets_user").on(table.userId),
+  index("idx_user_budgets_category").on(table.category),
+  index("idx_user_budgets_period").on(table.period),
+  sql`UNIQUE(user_id, category, subcategory, period)`,
+]);
+
+// Expense Insights - AI-generated spending insights and recommendations
+export const expenseInsights = pgTable("expense_insights", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Insight details
+  insightType: varchar("insight_type").notNull(), // spending_pattern, anomaly, budget_suggestion, saving_opportunity, trend_analysis
+  category: varchar("category"), // Related expense category
+  
+  // AI-generated content
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  aiAnalysis: jsonb("ai_analysis").notNull(), // Detailed AI reasoning and data
+  
+  // Actionable recommendations
+  recommendations: jsonb("recommendations"), // Array of actionable suggestions
+  potentialSavings: decimal("potential_savings", { precision: 15, scale: 2 }), // Estimated savings if recommendation followed
+  
+  // Priority and status
+  priority: varchar("priority").default("medium"), // high, medium, low
+  status: varchar("status").default("new"), // new, viewed, acted_upon, dismissed
+  
+  // Insight validity period
+  validFrom: timestamp("valid_from").defaultNow(),
+  validUntil: timestamp("valid_until"),
+  
+  // User interaction
+  userFeedback: varchar("user_feedback"), // helpful, not_helpful, already_doing
+  feedbackNotes: text("feedback_notes"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  dismissedAt: timestamp("dismissed_at"),
+}, (table) => [
+  index("idx_expense_insights_user").on(table.userId),
+  index("idx_expense_insights_type").on(table.insightType),
+  index("idx_expense_insights_status").on(table.status),
+  index("idx_expense_insights_priority").on(table.priority),
+]);
+
+// Insert schemas and types
+export const insertUserExpenseSchema = createInsertSchema(userExpenses).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type UserExpense = typeof userExpenses.$inferSelect;
+export type InsertUserExpense = z.infer<typeof insertUserExpenseSchema>;
+
+export const insertUserBudgetSchema = createInsertSchema(userBudgets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type UserBudget = typeof userBudgets.$inferSelect;
+export type InsertUserBudget = z.infer<typeof insertUserBudgetSchema>;
+
+export const insertExpenseInsightSchema = createInsertSchema(expenseInsights).omit({
+  id: true,
+  createdAt: true,
+  dismissedAt: true,
+});
+export type ExpenseInsight = typeof expenseInsights.$inferSelect;
+export type InsertExpenseInsight = z.infer<typeof insertExpenseInsightSchema>;
+
