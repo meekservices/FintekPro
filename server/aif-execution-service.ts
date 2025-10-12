@@ -82,6 +82,10 @@ interface SubscriptionAgreement {
     minInvestment: number;
   };
   investmentAmount: number;
+  paidAmount: number;
+  balanceAmount: number;
+  isPartialPayment: boolean;
+  balanceDueDate?: string;
   riskDisclosures: string[];
   termsAndConditions: string[];
   generatedAt: Date;
@@ -368,6 +372,40 @@ class AIFExecutionService {
     const categoryConfig = AIF_CATEGORIES[request.aifCategory];
     const agreementId = `AIF-SUB-${Date.now()}-${request.orderId.slice(0, 8)}`;
     
+    // Calculate partial payment details
+    const totalInvestment = request.investmentAmount;
+    const paidAmount = request.paidAmount;
+    const balanceAmount = totalInvestment - paidAmount;
+    const isPartialPayment = balanceAmount > 0;
+    const balanceDueDate = isPartialPayment 
+      ? new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString() 
+      : undefined;
+    
+    // Build terms and conditions with partial payment clauses if applicable
+    const baseTerms = [
+      'Investor confirms accredited investor status as per SEBI AIF Regulations 2012',
+      'Investor has read and understood the Private Placement Memorandum (PPM)',
+      'Investment is subject to fund manager approval',
+    ];
+    
+    const paymentTerms = isPartialPayment ? [
+      `PARTIAL PAYMENT AGREEMENT: Total investment commitment: ₹${totalInvestment.toLocaleString()}`,
+      `Initial payment received: ₹${paidAmount.toLocaleString()} (minimum ₹${categoryConfig.minInvestment.toLocaleString()})`,
+      `Balance amount due: ₹${balanceAmount.toLocaleString()}`,
+      `Balance payment due on demand by AMC/Fund Manager (within 90 days or as specified)`,
+      'Failure to pay balance amount on demand may result in forfeiture of investment and allotment cancellation',
+      'Units will be provisionally allotted based on initial payment, final allotment subject to full payment',
+    ] : [
+      `Full payment received: ₹${totalInvestment.toLocaleString()}`,
+      'Subscription amount will be held in escrow until allotment',
+    ];
+    
+    const finalTerms = [
+      'Units will be allotted as per fund NAV on allotment date',
+      'Investor agrees to fund terms, fees, and exit load structure',
+      'This is a private placement and not a public offering',
+    ];
+    
     return {
       agreementId,
       investorName,
@@ -376,7 +414,11 @@ class AIFExecutionService {
         category: categoryConfig.name,
         minInvestment: categoryConfig.minInvestment,
       },
-      investmentAmount: request.investmentAmount,
+      investmentAmount: totalInvestment,
+      paidAmount,
+      balanceAmount,
+      isPartialPayment,
+      balanceDueDate,
       riskDisclosures: [
         'Alternative Investment Funds (AIFs) are high-risk investments',
         `Lock-in period: ${categoryConfig.lockInPeriod}`,
@@ -385,15 +427,12 @@ class AIFExecutionService {
         'Limited liquidity - redemption subject to fund terms',
         'Suitable only for accredited investors as per SEBI regulations',
         `Risk Level: ${categoryConfig.riskLevel}`,
+        ...(isPartialPayment ? ['Balance payment obligation must be met on AMC demand to avoid forfeiture'] : []),
       ],
       termsAndConditions: [
-        'Investor confirms accredited investor status as per SEBI AIF Regulations 2012',
-        'Investor has read and understood the Private Placement Memorandum (PPM)',
-        'Investment is subject to fund manager approval',
-        'Subscription amount will be held in escrow until allotment',
-        'Units will be allotted as per fund NAV on allotment date',
-        'Investor agrees to fund terms, fees, and exit load structure',
-        'This is a private placement and not a public offering',
+        ...baseTerms,
+        ...paymentTerms,
+        ...finalTerms,
       ],
       generatedAt: new Date(),
       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days validity
