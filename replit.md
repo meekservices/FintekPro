@@ -83,6 +83,20 @@ Do not make changes to the file `Y`.
     - `POST /api/orders/:orderId/documents`: Add documents (admin/owner only)
   - **Security**: Admin-only status updates prevent fraud (users cannot self-mark as paid/executed), ownership verification, role-based access, comprehensive audit trails
   - **Integration Points**: Ready for payment gateway callbacks, execution service triggers, notification system, webhook events
+- **Payment-to-Execution Bridge Service**: Automated orchestration layer connecting payment gateway callbacks to order execution systems.
+  - **Core Function**: Processes payment callbacks from Cashfree/PhonePe/Stripe and triggers appropriate execution service based on product type
+  - **Security Features**:
+    - Enhanced idempotency: Prevents duplicate execution even when multiple success callbacks arrive (checks paymentStatus='completed')
+    - Payment reconciliation: Validates callback amount/currency against order record before status advancement
+    - Fraud prevention: Security alerts on payment mismatches, order marked as payment_error with audit trail
+    - Missing order ID monitoring: Comprehensive logging and compliance events when payment lacks unified order ID
+  - **Execution Routing**:
+    - Mutual Funds → BSE Star API integration (automated execution)
+    - AIF → Manual processing queue (pending automation via aif-execution-service.ts)
+    - PMS → Manual processing queue (pending automation via pms-execution-service.ts)
+    - Bonds/Equity/IPO/FD/Loans → Pending manual processing
+  - **Order Lifecycle Management**: Updates order status through payment_completed → processing → executed/settled/completed
+  - **Error Handling**: Comprehensive try-catch blocks, payment_error status updates, compliance logging for all failures
 
 ## External Dependencies
 
