@@ -28908,6 +28908,392 @@ System Security Data:`;
   
   // ==================== END AI CHAT ASSISTANT ROUTES ====================
 
+  // ==================== EXPENSE TRACKING & BUDGETING ROUTES ====================
+  
+  const { categorizeExpense, generateBudgetSuggestions, analyzeSpendingPatterns } = await import('./ai-expense-service');
+  
+  // Get user expenses with filters
+  app.get("/api/expenses", requireAuth, async (req, res) => {
+    try {
+      const filters: any = {
+        startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
+        endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
+        category: req.query.category as string | undefined,
+        minAmount: req.query.minAmount ? parseFloat(req.query.minAmount as string) : undefined,
+        maxAmount: req.query.maxAmount ? parseFloat(req.query.maxAmount as string) : undefined,
+        limit: req.query.limit ? parseInt(req.query.limit as string) : 100,
+        offset: req.query.offset ? parseInt(req.query.offset as string) : 0,
+      };
+      
+      const expenses = await storage.getUserExpenses(req.user!.id, filters);
+      res.json(expenses);
+    } catch (error) {
+      console.error('Error fetching expenses:', error);
+      res.status(500).json({ message: "Failed to fetch expenses" });
+    }
+  });
+  
+  // Get expense by category aggregation
+  app.get("/api/expenses/by-category", requireAuth, async (req, res) => {
+    try {
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+      
+      const summary = await storage.getExpensesByCategory(req.user!.id, startDate, endDate);
+      res.json(summary);
+    } catch (error) {
+      console.error('Error fetching expense summary:', error);
+      res.status(500).json({ message: "Failed to fetch expense summary" });
+    }
+  });
+  
+  // Create expense with AI categorization
+  app.post("/api/expenses", requireAuth, async (req, res) => {
+    try {
+      const { amount, description, transactionDate, merchantName, category, paymentMethod, notes, tags } = req.body;
+      
+      if (!amount || !description || !transactionDate) {
+        return res.status(400).json({ message: "amount, description, and transactionDate are required" });
+      }
+      
+      let expenseCategory = category;
+      let aiCategorized = false;
+      let aiConfidence = 0;
+      let suggestedCategories = null;
+      
+      // Use AI categorization if no category provided
+      if (!category) {
+        const aiResult = await categorizeExpense(
+          description,
+          parseFloat(amount),
+          merchantName,
+          new Date(transactionDate)
+        );
+        
+        expenseCategory = aiResult.category;
+        aiCategorized = true;
+        aiConfidence = aiResult.confidence;
+        suggestedCategories = aiResult.alternativeCategories;
+      }
+      
+      const expense = await storage.createExpense({
+        userId: req.user!.id,
+        amount: amount.toString(),
+        description,
+        transactionDate: new Date(transactionDate),
+        category: expenseCategory,
+        merchantName,
+        paymentMethod,
+        notes,
+        tags,
+        aiCategorized,
+        aiConfidence: aiConfidence.toString(),
+        suggestedCategories
+      });
+      
+      res.status(201).json(expense);
+    } catch (error) {
+      console.error('Error creating expense:', error);
+      res.status(500).json({ message: "Failed to create expense" });
+    }
+  });
+  
+  // Update expense
+  app.put("/api/expenses/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const expense = await storage.getExpense(id);
+      
+      if (!expense || expense.userId !== req.user!.id) {
+        return res.status(404).json({ message: "Expense not found" });
+      }
+      
+      const updated = await storage.updateExpense(id, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error('Error updating expense:', error);
+      res.status(500).json({ message: "Failed to update expense" });
+    }
+  });
+  
+  // Delete expense
+  app.delete("/api/expenses/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const expense = await storage.getExpense(id);
+      
+      if (!expense || expense.userId !== req.user!.id) {
+        return res.status(404).json({ message: "Expense not found" });
+      }
+      
+      await storage.deleteExpense(id);
+      res.json({ message: "Expense deleted successfully" });
+    } catch (error) {
+      console.error('Error deleting expense:', error);
+      res.status(500).json({ message: "Failed to delete expense" });
+    }
+  });
+  
+  // AI categorize existing expense
+  app.post("/api/expenses/:id/categorize", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const expense = await storage.getExpense(id);
+      
+      if (!expense || expense.userId !== req.user!.id) {
+        return res.status(404).json({ message: "Expense not found" });
+      }
+      
+      const aiResult = await categorizeExpense(
+        expense.description,
+        parseFloat(expense.amount),
+        expense.merchantName || undefined,
+        new Date(expense.transactionDate)
+      );
+      
+      const updated = await storage.updateExpense(id, {
+        category: aiResult.category,
+        aiCategorized: true,
+        aiConfidence: aiResult.confidence.toString(),
+        suggestedCategories: aiResult.alternativeCategories
+      });
+      
+      res.json({ expense: updated, categorization: aiResult });
+    } catch (error) {
+      console.error('Error categorizing expense:', error);
+      res.status(500).json({ message: "Failed to categorize expense" });
+    }
+  });
+  
+  // ========== BUDGET MANAGEMENT ==========
+  
+  // Get user budgets
+  app.get("/api/budgets", requireAuth, async (req, res) => {
+    try {
+      const isActive = req.query.isActive === 'true' ? true : req.query.isActive === 'false' ? false : undefined;
+      const budgets = await storage.getUserBudgets(req.user!.id, isActive);
+      res.json(budgets);
+    } catch (error) {
+      console.error('Error fetching budgets:', error);
+      res.status(500).json({ message: "Failed to fetch budgets" });
+    }
+  });
+  
+  // Create budget
+  app.post("/api/budgets", requireAuth, async (req, res) => {
+    try {
+      const { budgetName, category, budgetAmount, period, startDate, endDate, alertThreshold } = req.body;
+      
+      if (!budgetName || !category || !budgetAmount || !period || !startDate) {
+        return res.status(400).json({ message: "budgetName, category, budgetAmount, period, and startDate are required" });
+      }
+      
+      const budget = await storage.createBudget({
+        userId: req.user!.id,
+        budgetName,
+        category,
+        budgetAmount: budgetAmount.toString(),
+        period,
+        startDate,
+        endDate,
+        alertThreshold: alertThreshold?.toString()
+      });
+      
+      res.status(201).json(budget);
+    } catch (error) {
+      console.error('Error creating budget:', error);
+      res.status(500).json({ message: "Failed to create budget" });
+    }
+  });
+  
+  // Update budget
+  app.put("/api/budgets/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const budget = await storage.getBudget(id);
+      
+      if (!budget || budget.userId !== req.user!.id) {
+        return res.status(404).json({ message: "Budget not found" });
+      }
+      
+      const updated = await storage.updateBudget(id, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error('Error updating budget:', error);
+      res.status(500).json({ message: "Failed to update budget" });
+    }
+  });
+  
+  // Delete budget
+  app.delete("/api/budgets/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const budget = await storage.getBudget(id);
+      
+      if (!budget || budget.userId !== req.user!.id) {
+        return res.status(404).json({ message: "Budget not found" });
+      }
+      
+      await storage.deleteBudget(id);
+      res.json({ message: "Budget deleted successfully" });
+    } catch (error) {
+      console.error('Error deleting budget:', error);
+      res.status(500).json({ message: "Failed to delete budget" });
+    }
+  });
+  
+  // AI budget suggestions
+  app.get("/api/budgets/ai-suggestions", requireAuth, async (req, res) => {
+    try {
+      const monthlyIncome = req.query.monthlyIncome ? parseFloat(req.query.monthlyIncome as string) : 50000; // Default
+      
+      // Get spending history (last 3 months)
+      const threeMonthsAgo = new Date();
+      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+      
+      const spendingByCategory = await storage.getExpensesByCategory(req.user!.id, threeMonthsAgo);
+      
+      // Get current budgets
+      const currentBudgets = await storage.getUserBudgets(req.user!.id, true);
+      
+      const suggestions = await generateBudgetSuggestions(
+        monthlyIncome,
+        spendingByCategory.map(s => ({
+          category: s.category,
+          totalAmount: s.total / 3, // Average per month
+          transactionCount: s.count
+        })),
+        currentBudgets.map(b => ({
+          category: b.category,
+          amount: parseFloat(b.budgetAmount)
+        }))
+      );
+      
+      res.json(suggestions);
+    } catch (error) {
+      console.error('Error generating budget suggestions:', error);
+      res.status(500).json({ message: "Failed to generate budget suggestions" });
+    }
+  });
+  
+  // Reset budgets (for new period)
+  app.post("/api/budgets/reset", requireAuth, async (req, res) => {
+    try {
+      await storage.resetBudgets(req.user!.id);
+      const budgets = await storage.getUserBudgets(req.user!.id, true);
+      res.json({ message: "Budgets reset successfully", budgets });
+    } catch (error) {
+      console.error('Error resetting budgets:', error);
+      res.status(500).json({ message: "Failed to reset budgets" });
+    }
+  });
+  
+  // ========== SPENDING INSIGHTS ==========
+  
+  // Get user insights
+  app.get("/api/insights", requireAuth, async (req, res) => {
+    try {
+      const status = req.query.status as string | undefined;
+      const insights = await storage.getUserInsights(req.user!.id, status);
+      res.json(insights);
+    } catch (error) {
+      console.error('Error fetching insights:', error);
+      res.status(500).json({ message: "Failed to fetch insights" });
+    }
+  });
+  
+  // Generate new insights
+  app.post("/api/insights/generate", requireAuth, async (req, res) => {
+    try {
+      // Get last 30 days of expenses
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const expenses = await storage.getUserExpenses(req.user!.id, {
+        startDate: thirtyDaysAgo,
+        limit: 1000
+      });
+      
+      const budgets = await storage.getUserBudgets(req.user!.id, true);
+      
+      const insights = await analyzeSpendingPatterns(
+        expenses.map(e => ({
+          category: e.category,
+          amount: parseFloat(e.amount),
+          date: new Date(e.transactionDate),
+          description: e.description
+        })),
+        budgets.map(b => ({
+          category: b.category,
+          budgetAmount: parseFloat(b.budgetAmount),
+          currentSpend: parseFloat(b.currentSpend || '0')
+        }))
+      );
+      
+      // Store insights in database
+      const createdInsights = [];
+      for (const insight of insights) {
+        const created = await storage.createInsight({
+          userId: req.user!.id,
+          insightType: insight.insightType,
+          category: insight.category,
+          title: insight.title,
+          description: insight.description,
+          aiAnalysis: insight.aiAnalysis,
+          recommendations: insight.recommendations,
+          potentialSavings: insight.potentialSavings?.toString(),
+          priority: insight.priority
+        });
+        createdInsights.push(created);
+      }
+      
+      res.json(createdInsights);
+    } catch (error) {
+      console.error('Error generating insights:', error);
+      res.status(500).json({ message: "Failed to generate insights" });
+    }
+  });
+  
+  // Update insight (mark as viewed, acted upon, etc.)
+  app.put("/api/insights/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const insight = await storage.getUserInsights(req.user!.id);
+      const found = insight.find(i => i.id === id);
+      
+      if (!found) {
+        return res.status(404).json({ message: "Insight not found" });
+      }
+      
+      const updated = await storage.updateInsight(id, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error('Error updating insight:', error);
+      res.status(500).json({ message: "Failed to update insight" });
+    }
+  });
+  
+  // Dismiss insight
+  app.post("/api/insights/:id/dismiss", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const insight = await storage.getUserInsights(req.user!.id);
+      const found = insight.find(i => i.id === id);
+      
+      if (!found) {
+        return res.status(404).json({ message: "Insight not found" });
+      }
+      
+      await storage.dismissInsight(id);
+      res.json({ message: "Insight dismissed successfully" });
+    } catch (error) {
+      console.error('Error dismissing insight:', error);
+      res.status(500).json({ message: "Failed to dismiss insight" });
+    }
+  });
+  
+  // ==================== END EXPENSE TRACKING & BUDGETING ROUTES ====================
+
   // Add AML routes
   app.use(amlRoutes);
 
