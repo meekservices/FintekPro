@@ -27397,14 +27397,59 @@ System Security Data:`;
         return res.status(404).json({ message: 'Transaction not found' });
       }
 
+      const paymentStatus = webhookData.data?.order?.order_status;
+      
       await storage.updateCashfreeTransaction(transaction.id, {
-        status: webhookData.data?.order?.order_status || 'FAILED',
+        status: paymentStatus || 'FAILED',
         cashfreeOrderId: webhookData.data?.order?.cf_order_id,
         paymentMethod: webhookData.data?.payment?.payment_method,
         gatewayResponse: webhookData as any,
         webhookReceivedAt: new Date(),
-        completedAt: webhookData.data?.order?.order_status === 'PAID' ? new Date() : undefined
+        completedAt: paymentStatus === 'PAID' ? new Date() : undefined
       });
+
+      // Trigger payment-to-execution bridge for unified orders
+      const { paymentExecutionBridge } = await import('./payment-execution-bridge');
+      
+      // TODO: Get unified orderId from transaction.orderId or transaction.metadata
+      const unifiedOrderId = (transaction as any).orderId || (transaction as any).metadata?.orderId;
+      
+      if (unifiedOrderId) {
+        try {
+          await paymentExecutionBridge.processPaymentCallback({
+            orderId: unifiedOrderId,
+            paymentStatus: paymentStatus === 'PAID' ? 'success' : paymentStatus === 'FAILED' ? 'failed' : 'pending',
+            paymentGateway: 'cashfree',
+            transactionId: webhookData.data?.order?.cf_order_id || transaction.id,
+            amount: webhookData.data?.order?.order_amount || 0,
+            currency: webhookData.data?.order?.order_currency || 'INR',
+            gatewayResponse: webhookData,
+            timestamp: new Date(),
+          });
+        } catch (bridgeError) {
+          console.error(`[Cashfree Webhook] Payment bridge execution failed for order ${unifiedOrderId}:`, bridgeError);
+          complianceMonitor.logEvent({
+            eventType: 'payment',
+            action: 'payment_bridge_error',
+            resource: unifiedOrderId,
+            outcome: 'failure',
+            riskLevel: 'high',
+            error: bridgeError instanceof Error ? bridgeError.message : 'Unknown error',
+            userId: transaction.userId
+          });
+        }
+      } else {
+        console.warn(`[Cashfree Webhook] No unified order ID found for transaction ${orderId}. Payment callback will not trigger order execution. Transaction userId: ${transaction.userId}`);
+        complianceMonitor.logEvent({
+          eventType: 'payment',
+          action: 'missing_order_id',
+          resource: orderId,
+          outcome: 'failure',
+          riskLevel: 'high',
+          details: 'Payment transaction lacks unified order ID - execution bridge skipped',
+          userId: transaction.userId
+        });
+      }
 
       complianceMonitor.logEvent({
         eventType: 'payment',
@@ -27708,6 +27753,49 @@ System Security Data:`;
         if (transaction.itemType === 'tax_reminder') {
           queryClient.invalidateQueries({ queryKey: ['/api/tax/reminder-subscription'] });
         }
+      }
+
+      // Trigger payment-to-execution bridge for unified orders
+      const { paymentExecutionBridge } = await import('./payment-execution-bridge');
+      
+      // TODO: Verify orderId is from unified order system
+      const unifiedOrderId = transaction.orderId;
+      
+      if (unifiedOrderId) {
+        try {
+          await paymentExecutionBridge.processPaymentCallback({
+            orderId: unifiedOrderId,
+            paymentStatus: internalStatus === 'success' ? 'success' : internalStatus === 'failed' ? 'failed' : 'pending',
+            paymentGateway: 'phonepe',
+            transactionId: callbackData.data.transactionId || transaction.merchantTransactionId,
+            amount: (transaction as any).amount || 0,
+            currency: 'INR',
+            gatewayResponse: callbackData,
+            timestamp: new Date(),
+          });
+        } catch (bridgeError) {
+          console.error(`[PhonePe Callback] Payment bridge execution failed for order ${unifiedOrderId}:`, bridgeError);
+          complianceMonitor.logEvent({
+            eventType: 'payment',
+            action: 'payment_bridge_error',
+            resource: unifiedOrderId,
+            outcome: 'failure',
+            riskLevel: 'high',
+            error: bridgeError instanceof Error ? bridgeError.message : 'Unknown error',
+            userId: transaction.userId
+          });
+        }
+      } else {
+        console.warn(`[PhonePe Callback] No unified order ID found for transaction ${transaction.merchantTransactionId}. Payment callback will not trigger order execution. Transaction userId: ${transaction.userId}`);
+        complianceMonitor.logEvent({
+          eventType: 'payment',
+          action: 'missing_order_id',
+          resource: transaction.merchantTransactionId,
+          outcome: 'failure',
+          riskLevel: 'high',
+          details: 'Payment transaction lacks unified order ID - execution bridge skipped',
+          userId: transaction.userId
+        });
       }
 
       complianceMonitor.logEvent({

@@ -65,6 +65,24 @@ Do not make changes to the file `Y`.
   - **PhonePe Integration**: SHA256 signature-based authentication, PAY_PAGE instrument type for unified payment interface, comprehensive callback verification, and transaction lifecycle management
   - **Features**: Multi-gateway support in cart checkout and tax reminder subscriptions, status tracking with state mapping (COMPLETED/FAILED/CANCELLED/PENDING), gateway response auditing via JSONB storage, and automatic cache invalidation for downstream effects
   - **Security**: Server-side secret management, X-VERIFY header authentication, callback signature verification, and comprehensive compliance logging
+- **Unified Order Management System**: Centralized order tracking infrastructure across all product types (MF, AIF, PMS, Bonds, Equity, IPOs, FDs, Loans) with complete lifecycle management.
+  - **Database Schema**: 
+    - `unifiedOrders` table: Product-agnostic order tracking with unique order numbers (ORD-YYYYMMDD-XXXX format)
+    - `orderLifecycleEvents` table: Complete event sourcing for all state changes with actor tracking
+    - `orderDocuments` table: Generated documents (agreements, confirmations, receipts) with signature tracking
+  - **Order Lifecycle**: initiated → payment_pending → payment_completed → kyc_verified → processing → executed → settled → completed
+  - **API Endpoints**: 
+    - `GET /api/orders`: List orders with filtering (productType, status, pagination)
+    - `GET /api/orders/stats`: Dashboard statistics (total, pending, completed, cancelled)
+    - `GET /api/orders/:orderId`: Order details with ownership verification
+    - `GET /api/orders/:orderId/timeline`: Complete lifecycle events
+    - `GET /api/orders/:orderId/documents`: Order documents
+    - `POST /api/orders`: Create new orders
+    - `PUT /api/orders/:orderId/status`: Update order status (ADMIN-ONLY for fraud prevention)
+    - `POST /api/orders/:orderId/cancel`: Cancel orders
+    - `POST /api/orders/:orderId/documents`: Add documents (admin/owner only)
+  - **Security**: Admin-only status updates prevent fraud (users cannot self-mark as paid/executed), ownership verification, role-based access, comprehensive audit trails
+  - **Integration Points**: Ready for payment gateway callbacks, execution service triggers, notification system, webhook events
 
 ## External Dependencies
 
