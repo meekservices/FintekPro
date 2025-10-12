@@ -112,12 +112,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const multiSourceMFService = new MultiSourceMFService(storage);
   
   // Initialize WhatsApp service with secure version
-  try {
-    await whatsappService.initialize();
-    console.log('✅ WhatsApp service initialized successfully');
-  } catch (error) {
-    console.log('⚠️ WhatsApp service initialization failed (non-critical):', error instanceof Error ? error.message : 'Unknown error');
-  }
+  // DISABLED: WhatsApp QR code generation causes excessive log output
+  // Uncomment when needed for WhatsApp authentication features
+  // try {
+  //   await whatsappService.initialize();
+  //   console.log('✅ WhatsApp service initialized successfully');
+  // } catch (error) {
+  //   console.log('⚠️ WhatsApp service initialization failed (non-critical):', error instanceof Error ? error.message : 'Unknown error');
+  // }
   
   // Start mutual funds background refresh job
   mutualFundsRefreshJob.start();
