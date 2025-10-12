@@ -39,6 +39,7 @@ import amlRoutes from './aml-routes';
 import { ZohoCommerceAPI, type ZohoCommerceConfig } from './zoho-commerce-api';
 import { zohoCommerceConfig, zohoProducts, zohoCategories, zohoOrders, zohoCustomers, zohoInventory, zohoWebhooks, zohoSyncLogs, insertZohoCommerceConfigSchema, insertZohoProductSchema, insertZohoCategorySchema, insertZohoOrderSchema, insertCreditProfileSchema, insertLoanRequestSchema, insertLoanApplicationMarketplaceSchema, insertApplicationDocumentSchema, insertPartnerApplicationDocumentSchema } from '@shared/schema';
 import BBPSService from './services/bbpsService';
+import { BbpsExpenseIntegration } from './bbps-expense-integration';
 import { digilockerService } from './services/digilockerService';
 import { amfiService } from './amfi-service';
 import { bseService } from './bse-service';
@@ -110,6 +111,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Initialize Multi-Source Mutual Fund Service with database persistence
   const multiSourceMFService = new MultiSourceMFService(storage);
+  
+  // Initialize BBPS-Expense Integration Service
+  const bbpsExpenseIntegration = new BbpsExpenseIntegration(storage);
   
   // Initialize WhatsApp service with secure version
   // DISABLED: WhatsApp QR code generation causes excessive log output
@@ -25721,6 +25725,27 @@ System Security Data:`;
         paymentMode,
         userId: req.user.id,
       });
+
+      // Auto-create expense if payment is successful
+      if (transaction.paymentStatus === 'SUCCESS') {
+        try {
+          // Create expense entry for the bill payment
+          // Using generic BBPS category code - will be mapped to correct expense category
+          await bbpsExpenseIntegration.createExpenseFromBbpsPayment({
+            transactionId: transaction.id,
+            userId: req.user.id,
+            billerCode: transaction.billerCode || 'BBPS',
+            billerName: 'Bill Payment', // Generic name, can be enhanced later
+            categoryCode: 'UTILITIES', // Default to utilities, will be mapped correctly
+            amount: parseFloat(paymentAmount), // Amount is already in rupees
+            transactionDate: transaction.completedAt || new Date(),
+            customerParam: transaction.customerParam,
+          });
+        } catch (expenseError) {
+          console.error('Failed to create expense from BBPS payment:', expenseError);
+          // Don't fail the payment response if expense creation fails
+        }
+      }
 
       res.json(transaction);
     } catch (error) {

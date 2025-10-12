@@ -29,7 +29,8 @@ import {
   Filter,
   Download,
   Trash2,
-  Edit
+  Edit,
+  Receipt
 } from 'lucide-react';
 
 const expenseCategories = [
@@ -515,6 +516,19 @@ export default function ExpensesBudgetsPage() {
         </TabsList>
 
         <TabsContent value="expenses" className="space-y-4">
+          {/* Quick Actions */}
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => window.location.href = '/bbps'}
+              className="gap-2"
+              data-testid="button-pay-bills"
+            >
+              <Receipt className="h-4 w-4" />
+              Pay Utility Bills (BBPS)
+            </Button>
+          </div>
+
           {/* Category Filter */}
           <Card>
             <CardHeader>
@@ -556,6 +570,12 @@ export default function ExpensesBudgetsPage() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <h4 className="font-medium" data-testid={`text-expense-description-${expense.id}`}>{expense.description}</h4>
+                          {expense.isBbpsPayment && (
+                            <Badge variant="secondary" className="text-xs bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                              <Receipt className="h-3 w-3 mr-1" />
+                              BBPS
+                            </Badge>
+                          )}
                           {expense.aiCategorized && (
                             <Badge variant="outline" className="text-xs">
                               <Sparkles className="h-3 w-3 mr-1" />
