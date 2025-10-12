@@ -269,6 +269,23 @@ export function EnhancedNavigation() {
       ]
     },
     {
+      title: "Utilities & Services",
+      items: [
+        {
+          name: "Bill Payments (BBPS)",
+          icon: Receipt,
+          description: "Pay utility bills with auto expense tracking",
+          badge: "INTEGRATED",
+          subItems: [
+            { name: "Pay Bills", href: "/bbps", description: "Electricity, water, gas, mobile, DTH, broadband" },
+            { name: "Bill History", href: "/bbps?tab=history", description: "Transaction history and receipts" },
+            { name: "Recurring Payments", href: "/bbps?tab=recurring", description: "Set up auto-pay for bills" },
+            { name: "My Expenses", href: "/expenses-budgets", description: "Track all expenses including bills", badge: "AI POWERED" }
+          ]
+        }
+      ]
+    },
+    {
       title: "Family & Collaboration",
       items: [
         {
