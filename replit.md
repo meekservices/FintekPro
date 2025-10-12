@@ -44,6 +44,7 @@ Do not make changes to the file `Y`.
 - **Payment-to-Execution Bridge Service**: Automated orchestration connecting payment callbacks to order execution systems, supporting partial payments, enhanced idempotency, and fraud prevention.
 - **AIF Order Execution Service**: Automated Alternative Investment Fund processing with SEBI accredited investor validation (Tier 3 KYC), partial payment model, automated subscription agreement generation, and document management.
 - **AI-Powered Expense Tracking & Budgeting System**: Intelligent personal finance management with automated categorization (Gemini AI), real-time budget tracking, customizable alerts, and AI-generated spending insights.
+- **BBPS-Expense Integration**: Seamless bill payment integration with automatic expense tracking. When users pay bills through BBPS (Bharat Bill Payment System), expenses are automatically created and categorized (utilities, entertainment, insurance, etc.). Features smart category mapping, budget tracking updates, and unified transaction history across manual expenses and bill payments.
 
 ## External Dependencies
 
