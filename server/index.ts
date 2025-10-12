@@ -8,7 +8,8 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { complianceMiddleware } from "./compliance-monitor";
 import { storage } from "./storage";
-import { setupAuth } from "./auth";
+import { setupAuth as setupReplitAuth } from "./replitAuth";
+import { setupAuth as setupLocalAuth } from "./auth";
 
 const app = express();
 
@@ -166,10 +167,13 @@ app.use((req, res, next) => {
   next();
 });
 
-// Initialize authentication routes
-setupAuth(app);
-
 (async () => {
+  // Initialize authentication (Passport & sessions must be set up first)
+  await setupReplitAuth(app);
+  
+  // Then add local email/mobile authentication routes
+  setupLocalAuth(app);
+  
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
