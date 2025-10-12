@@ -7147,6 +7147,175 @@ export const insertChatActionSchema = createInsertSchema(chatActions).omit({
 export type ChatAction = typeof chatActions.$inferSelect;
 export type InsertChatAction = z.infer<typeof insertChatActionSchema>;
 
+// Unified Order Management System - Tracks all orders across product types
+export const unifiedOrders = pgTable("unified_orders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderNumber: varchar("order_number").notNull().unique(), // User-friendly order number: ORD-20250112-XXXX
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Product and order type
+  productType: varchar("product_type").notNull(), // 'mutual_fund', 'aif', 'pms', 'bond', 'equity', 'ipo', 'fd', 'loan'
+  productId: varchar("product_id"), // Reference to specific product
+  productName: text("product_name").notNull(),
+  
+  // Order details
+  orderType: varchar("order_type").notNull(), // 'buy', 'sell', 'subscription', 'redemption', 'sip', 'application'
+  quantity: decimal("quantity", { precision: 18, scale: 4 }),
+  amount: decimal("amount", { precision: 18, scale: 2 }).notNull(),
+  currency: varchar("currency").default("INR"),
+  
+  // Linked entities
+  cartId: varchar("cart_id"),
+  proposalId: varchar("proposal_id").references(() => investmentProposals.id),
+  portfolioId: varchar("portfolio_id").references(() => portfolios.id),
+  
+  // Order lifecycle status
+  status: varchar("status").notNull().default("initiated"), 
+  // Status flow: initiated → payment_pending → payment_completed → kyc_verified → processing → executed → settled → completed
+  // Error states: payment_failed, kyc_rejected, execution_failed, cancelled
+  
+  // Payment tracking
+  paymentStatus: varchar("payment_status").default("pending"), // pending, completed, failed, refunded
+  paymentGateway: varchar("payment_gateway"), // cashfree, stripe, phonepe
+  paymentTransactionId: varchar("payment_transaction_id"),
+  paymentAmount: decimal("payment_amount", { precision: 18, scale: 2 }),
+  paymentCompletedAt: timestamp("payment_completed_at"),
+  
+  // KYC validation
+  kycStatus: varchar("kyc_status").default("pending"), // pending, verified, rejected
+  kycTier: varchar("kyc_tier"), // tier_1, tier_2, tier_3
+  kycVerifiedAt: timestamp("kyc_verified_at"),
+  kycRejectionReason: text("kyc_rejection_reason"),
+  
+  // Execution tracking
+  executionStatus: varchar("execution_status").default("pending"), // pending, in_progress, completed, failed
+  externalOrderId: varchar("external_order_id"), // BSE/Exchange order ID
+  externalReference: varchar("external_reference"), // Transaction number, folio number, etc.
+  executionPrice: decimal("execution_price", { precision: 18, scale: 6 }),
+  executedQuantity: decimal("executed_quantity", { precision: 18, scale: 4 }),
+  executedAt: timestamp("executed_at"),
+  executionError: text("execution_error"),
+  
+  // Settlement tracking
+  settlementStatus: varchar("settlement_status").default("pending"), // pending, in_progress, completed, failed
+  settlementDate: timestamp("settlement_date"),
+  settlementReference: varchar("settlement_reference"),
+  
+  // Additional metadata
+  metadata: jsonb("metadata"), // Product-specific details, fees, charges, etc.
+  notes: text("notes"),
+  cancellationReason: text("cancellation_reason"),
+  
+  // Audit trail
+  createdBy: varchar("created_by").references(() => users.id),
+  assignedTo: varchar("assigned_to").references(() => users.id), // RM/Agent assigned
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  cancelledAt: timestamp("cancelled_at"),
+}, (table) => [
+  index("idx_unified_orders_user").on(table.userId),
+  index("idx_unified_orders_status").on(table.status),
+  index("idx_unified_orders_product_type").on(table.productType),
+  index("idx_unified_orders_payment_status").on(table.paymentStatus),
+  index("idx_unified_orders_execution_status").on(table.executionStatus),
+  index("idx_unified_orders_created_at").on(table.createdAt),
+  index("idx_unified_orders_order_number").on(table.orderNumber),
+]);
+
+// Order Lifecycle Events - Track all state changes and events
+export const orderLifecycleEvents = pgTable("order_lifecycle_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").references(() => unifiedOrders.id).notNull(),
+  
+  // Event details
+  eventType: varchar("event_type").notNull(), // 'status_change', 'payment_update', 'kyc_update', 'execution_update', 'settlement_update', 'note_added'
+  eventName: varchar("event_name").notNull(), // e.g., 'Payment Completed', 'Order Executed', 'KYC Verified'
+  eventDescription: text("event_description"),
+  
+  // State tracking
+  previousState: jsonb("previous_state"), // Previous status/data
+  newState: jsonb("new_state"), // New status/data
+  
+  // Actor and context
+  actorId: varchar("actor_id").references(() => users.id), // Who triggered the event
+  actorType: varchar("actor_type"), // 'user', 'system', 'agent', 'payment_gateway', 'execution_service'
+  
+  // Event metadata
+  metadata: jsonb("metadata"), // Additional event-specific data
+  isSystemGenerated: boolean("is_system_generated").default(true),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_order_events_order").on(table.orderId),
+  index("idx_order_events_type").on(table.eventType),
+  index("idx_order_events_created").on(table.createdAt),
+]);
+
+// Order Documents - Store generated documents (agreements, confirmations, etc.)
+export const orderDocuments = pgTable("order_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").references(() => unifiedOrders.id).notNull(),
+  
+  // Document details
+  documentType: varchar("document_type").notNull(), // 'subscription_agreement', 'payment_receipt', 'execution_confirmation', 'settlement_note', 'tax_invoice'
+  documentName: text("document_name").notNull(),
+  documentUrl: text("document_url"), // Object storage URL
+  fileSize: integer("file_size"),
+  mimeType: varchar("mime_type"),
+  
+  // Document status
+  status: varchar("status").default("generated"), // generated, signed, sent, archived
+  sentToClient: boolean("sent_to_client").default(false),
+  sentAt: timestamp("sent_at"),
+  
+  // Digital signature tracking
+  requiresSignature: boolean("requires_signature").default(false),
+  signedBy: varchar("signed_by").references(() => users.id),
+  signedAt: timestamp("signed_at"),
+  signatureHash: varchar("signature_hash"),
+  
+  // Metadata
+  metadata: jsonb("metadata"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_order_documents_order").on(table.orderId),
+  index("idx_order_documents_type").on(table.documentType),
+  index("idx_order_documents_status").on(table.status),
+]);
+
+// Insert schemas and types for unified orders
+export const insertUnifiedOrderSchema = createInsertSchema(unifiedOrders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  completedAt: true,
+  cancelledAt: true,
+});
+export type UnifiedOrder = typeof unifiedOrders.$inferSelect;
+export type InsertUnifiedOrder = z.infer<typeof insertUnifiedOrderSchema>;
+
+export const insertOrderLifecycleEventSchema = createInsertSchema(orderLifecycleEvents).omit({
+  id: true,
+  createdAt: true,
+});
+export type OrderLifecycleEvent = typeof orderLifecycleEvents.$inferSelect;
+export type InsertOrderLifecycleEvent = z.infer<typeof insertOrderLifecycleEventSchema>;
+
+export const insertOrderDocumentSchema = createInsertSchema(orderDocuments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type OrderDocument = typeof orderDocuments.$inferSelect;
+export type InsertOrderDocument = z.infer<typeof insertOrderDocumentSchema>;
+
 // Currency Rates table for multi-currency support
 export const currencyRates = pgTable("currency_rates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

@@ -28821,6 +28821,10 @@ System Security Data:`;
   // Add AML routes
   app.use(amlRoutes);
 
+  // Register Unified Order Management Routes
+  const { registerOrderRoutes } = await import('./order-routes');
+  registerOrderRoutes(app);
+
   // Global error handler (must be last)
   app.use(globalErrorHandler);
 
