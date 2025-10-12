@@ -6987,6 +6987,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test AMFI integration
+  app.get("/api/test-amfi", async (req, res) => {
+    try {
+      console.log('🧪 Testing AMFI integration...');
+      const popularFunds = await amfiService.getPopularFunds();
+      res.json({
+        success: true,
+        source: popularFunds[0]?.provenance?.primarySource || 'unknown',
+        fundsCount: popularFunds.length,
+        sampleFund: popularFunds[0]
+      });
+    } catch (error) {
+      console.error('❌ AMFI test failed:', error);
+      res.status(500).json({ error: String(error) });
+    }
+  });
+
   // AMFI API endpoints for mutual fund data
   app.get("/api/amfi/mutual-funds", async (req, res) => {
     try {

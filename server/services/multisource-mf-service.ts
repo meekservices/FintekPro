@@ -192,6 +192,7 @@ export class MultiSourceMFService {
       try {
         const funds = await this.fetchFromSource(source, 'popular');
         if (funds && funds.length > 0) {
+          console.log(`✅ Successfully fetched ${funds.length} popular funds from ${source}`);
           const enrichedFunds = await Promise.all(
             funds.map(async (fund: any) => {
               try {
@@ -394,6 +395,8 @@ export class MultiSourceMFService {
       RapidAPI: 'https://latest-mutual-fund-nav.p.rapidapi.com'
     };
 
+    console.log(`🔍 Attempting to fetch ${type} from source: ${source}${param ? ` (param: ${param})` : ''}`);
+
     switch (source) {
       case 'AMFI':
         return this.fetchFromAMFI(type, param);
@@ -446,16 +449,23 @@ export class MultiSourceMFService {
 
         const [schemeCode, isinDiv, isinGrowth, schemeName, nav, date] = parts;
         
-        // Skip if no scheme code or NAV
-        if (!schemeCode || !nav || nav === 'N.A.' || !schemeName) continue;
+        // Skip header rows and invalid data
+        const trimmedNav = nav?.trim();
+        const trimmedSchemeCode = schemeCode?.trim();
+        
+        // Validate: scheme code should be numeric, NAV should be a valid number
+        if (!trimmedSchemeCode || !trimmedNav || !schemeName) continue;
+        if (!/^\d+$/.test(trimmedSchemeCode)) continue; // Skip if scheme code is not numeric
+        if (trimmedNav === 'N.A.' || trimmedNav === 'Net Asset Value') continue; // Skip N.A. and header
+        if (isNaN(parseFloat(trimmedNav))) continue; // Skip if NAV is not a valid number
 
         const fundData = {
-          schemeCode: schemeCode.trim(),
+          schemeCode: trimmedSchemeCode,
           schemeName: schemeName.trim(),
           fundHouse: currentFundHouse,
           isinDiv: isinDiv?.trim(),
           isinGrowth: isinGrowth?.trim(),
-          currentNav: nav.trim(),
+          currentNav: trimmedNav,
           navDate: date?.trim() || new Date().toISOString(),
         };
 
