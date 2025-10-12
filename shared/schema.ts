@@ -7374,6 +7374,10 @@ export const userExpenses = pgTable("user_expenses", {
   recurringFrequency: varchar("recurring_frequency"), // weekly, monthly, yearly
   recurringGroupId: varchar("recurring_group_id"), // Link recurring transactions
   
+  // BBPS Integration - Link to bill payment transactions
+  bbpsTransactionId: varchar("bbps_transaction_id").references(() => bbpsTransactions.id),
+  isBbpsPayment: boolean("is_bbps_payment").default(false), // Flag for quick filtering
+  
   // Status
   isVerified: boolean("is_verified").default(false),
   
