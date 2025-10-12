@@ -172,6 +172,8 @@ export function EnhancedNavigation() {
           description: "Financial products and services marketplace",
           subItems: [
             { name: "All Products", href: "/store", description: "View all financial products" },
+            { name: "AIF", href: "/aif", description: "Alternative Investment Funds - Vendor-supplied (₹10L min)", badge: "PREMIUM" },
+            { name: "PMS", href: "/wealth-management", description: "Portfolio Management Services - AMC-supplied (₹50L min)", badge: "ELITE" },
             { name: "Mutual Funds", href: "/mutual-funds", description: "Domestic and international funds" },
             { name: "IPO & Pre-IPO", href: "/ipo", description: "Public offerings and opportunities" },
             { name: "Unlisted Shares", href: "/unlisted", description: "Unlisted securities" },
@@ -447,7 +449,11 @@ export function EnhancedNavigation() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className={`${isCollapsed ? 'w-full justify-center px-0' : 'w-full justify-between'}`}
+                              className={`${isCollapsed ? 'w-full justify-center px-0' : 'w-full justify-between'} ${
+                                item.name === 'Store' 
+                                  ? 'bg-green-600 hover:bg-green-700 text-white hover:text-white dark:bg-green-600 dark:hover:bg-green-700' 
+                                  : ''
+                              }`}
                               data-testid={`sidebar-nav-group-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
                               title={isCollapsed ? item.name : undefined}
                             >
