@@ -315,37 +315,46 @@ class PaymentExecutionBridge {
    * Execute AIF order
    */
   private async executeAIFOrder(order: any): Promise<ExecutionResult> {
-    const { id: orderId } = order;
+    const { id: orderId, userId, amount, metadata } = order;
     
     try {
-      // Update to processing
-      await orderManagementService.updateOrderStatus({
+      const { aifExecutionService } = await import('./aif-execution-service');
+      
+      // Extract AIF-specific metadata from order
+      const aifCategory = metadata?.aifCategory || metadata?.category || 'CAT_II';
+      const fundName = metadata?.fundName || metadata?.productName || 'AIF Fund';
+      const fundCode = metadata?.fundCode || metadata?.schemeCode || 'AIF001';
+      
+      // Execute AIF subscription
+      const aifResponse = await aifExecutionService.executeOrder({
         orderId,
-        status: 'processing',
-        executionStatus: 'initiated',
-        actorId: 'system',
-        actorType: 'system',
+        userId,
+        aifCategory,
+        fundName,
+        fundCode,
+        investmentAmount: amount,
+        units: metadata?.units,
+        navPerUnit: metadata?.navPerUnit,
       });
       
-      // TODO: Implement AIF execution service
-      // const aifResponse = await aifExecutionService.execute(order);
-      
-      // For now, mark as pending manual processing
-      await orderManagementService.updateOrderStatus({
-        orderId,
-        status: 'pending_manual_processing',
-        executionStatus: 'pending',
-        notes: 'AIF order requires manual processing by operations team',
-        actorId: 'system',
-        actorType: 'system',
-      });
-      
-      return {
-        success: true,
-        orderId,
-        executionStatus: 'pending',
-        message: 'AIF order queued for manual processing',
-      };
+      if (aifResponse.success) {
+        return {
+          success: true,
+          orderId,
+          executionStatus: 'executed',
+          message: aifResponse.message,
+          externalOrderId: aifResponse.folioNumber,
+        };
+      } else {
+        // AIF execution failed - errors already logged in service
+        return {
+          success: false,
+          orderId,
+          executionStatus: 'failed',
+          message: aifResponse.message,
+          error: aifResponse.errors?.join('; '),
+        };
+      }
       
     } catch (error) {
       throw new Error(`AIF execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
