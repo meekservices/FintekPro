@@ -4,9 +4,12 @@ import type { IStorage } from './storage';
 export async function seedProducts(storage: IStorage) {
   console.log('🌱 Seeding products with complete schema...');
 
+  const partnerId = 'platform-partner-001'; // Default partner for all seed products
+
   const products = [
     // Mutual Funds - Equity
     {
+      partnerId,
       category: 'mutual_fund',
       subcategory: 'equity',
       name: 'HDFC Flexi Cap Fund',
@@ -39,13 +42,14 @@ export async function seedProducts(storage: IStorage) {
         { name: 'Reliance Industries', percentage: 6.8 }
       ],
       sectorAllocation: {
-        'Financial Services': 28.5,
+      'Financial Services': 28.5,
         'Technology': 18.2,
         'Energy': 12.3,
         'Consumer': 10.5
       }
     },
     {
+      partnerId: 'platform-partner-001',
       category: 'mutual_fund',
       subcategory: 'equity',
       name: 'SBI Small Cap Fund',
@@ -74,6 +78,7 @@ export async function seedProducts(storage: IStorage) {
       exitLoad: { years: 1, percentage: 1 }
     },
     {
+      partnerId: 'platform-partner-001',
       category: 'mutual_fund',
       subcategory: 'debt',
       name: 'ICICI Prudential Corporate Bond Fund',
@@ -98,6 +103,7 @@ export async function seedProducts(storage: IStorage) {
     
     // Bonds & NCDs
     {
+      partnerId: 'platform-partner-001',
       category: 'bond',
       subcategory: 'ncd',
       name: 'Bajaj Finance NCD Series 2024',
@@ -115,6 +121,7 @@ export async function seedProducts(storage: IStorage) {
       riskRating: 'low'
     },
     {
+      partnerId: 'platform-partner-001',
       category: 'bond',
       subcategory: 'ncd',
       name: 'Tata Capital NCD',
@@ -134,6 +141,7 @@ export async function seedProducts(storage: IStorage) {
     
     // Market Linked Debentures
     {
+      partnerId: 'platform-partner-001',
       category: 'mld',
       subcategory: 'capital_protected',
       name: 'HSBC NIFTY 50 Linked Debenture',
@@ -149,6 +157,7 @@ export async function seedProducts(storage: IStorage) {
       riskRating: 'low'
     },
     {
+      partnerId: 'platform-partner-001',
       category: 'mld',
       subcategory: 'exotic',
       name: 'Axis Bank Multi-Index Digital MLD',
@@ -166,6 +175,7 @@ export async function seedProducts(storage: IStorage) {
     
     // Insurance Products
     {
+      partnerId: 'platform-partner-001',
       category: 'insurance',
       subcategory: 'life',
       name: 'HDFC Life Click 2 Protect Plus',
@@ -180,6 +190,7 @@ export async function seedProducts(storage: IStorage) {
       features: ['Critical illness rider', 'Accidental death benefit', 'Premium waiver']
     },
     {
+      partnerId: 'platform-partner-001',
       category: 'insurance',
       subcategory: 'health',
       name: 'Star Health Comprehensive',
@@ -193,6 +204,7 @@ export async function seedProducts(storage: IStorage) {
       features: ['Cashless hospitalization', 'Pre and post hospitalization', 'No claim bonus', 'Daily hospital cash']
     },
     {
+      partnerId: 'platform-partner-001',
       category: 'insurance',
       subcategory: 'motor',
       name: 'ICICI Lombard Comprehensive Car Insurance',
@@ -206,6 +218,7 @@ export async function seedProducts(storage: IStorage) {
     
     // Banking Products
     {
+      partnerId: 'platform-partner-001',
       category: 'banking',
       subcategory: 'fixed-deposits',
       name: 'HDFC Bank Fixed Deposit',
@@ -218,6 +231,7 @@ export async function seedProducts(storage: IStorage) {
       features: ['Quarterly interest payout', 'Auto-renewal', 'Premature withdrawal', 'Loan against FD']
     },
     {
+      partnerId: 'platform-partner-001',
       category: 'banking',
       subcategory: 'savings',
       name: 'ICICI Bank Wealth Management Savings',
@@ -229,6 +243,7 @@ export async function seedProducts(storage: IStorage) {
       features: ['Free NEFT/RTGS', 'Priority banking', 'Unlimited ATM withdrawals', 'Concierge services']
     },
     {
+      partnerId: 'platform-partner-001',
       category: 'banking',
       subcategory: 'credit-cards',
       name: 'SBI Card ELITE',
@@ -240,6 +255,7 @@ export async function seedProducts(storage: IStorage) {
       features: ['Lounge access', 'Fuel surcharge waiver', 'Golf benefits', 'Milestone rewards']
     },
     {
+      partnerId: 'platform-partner-001',
       category: 'banking',
       subcategory: 'credit-cards',
       name: 'HDFC Regalia Gold Credit Card',

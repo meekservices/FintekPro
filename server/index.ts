@@ -1,3 +1,4 @@
+// FintekPro Server - Main entry point
 import express, { type Request, Response, NextFunction } from "express";
 import helmet from "helmet";
 import cors from "cors";
@@ -7,7 +8,6 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { complianceMiddleware } from "./compliance-monitor";
 import { storage } from "./storage";
-import { seedProducts } from "./seed-products";
 
 const app = express();
 
@@ -196,11 +196,6 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
-    
-    // Seed products if database is empty
-    seedProducts(storage as any).catch(error => {
-      console.error('❌ Failed to seed products:', error);
-    });
     
     // Initialize Capital Gains Tax Reminder Scheduler
     try {
