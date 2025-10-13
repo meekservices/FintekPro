@@ -336,9 +336,9 @@ class AMFIService {
     });
     
     // Convert to structured format
-    const result = [];
+    const result: Array<{name: string, description: string, riskLevel: string, funds: FundPerformance[]}> = [];
     
-    for (const [categoryName, funds] of categories) {
+    Array.from(categories.entries()).forEach(([categoryName, funds]) => {
       if (funds.length > 0) {
         result.push({
           name: categoryName,
@@ -347,7 +347,7 @@ class AMFIService {
           funds: funds.slice(0, 5) // Limit to 5 funds per category
         });
       }
-    }
+    });
     
     return result;
   }
