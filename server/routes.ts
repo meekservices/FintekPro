@@ -69,6 +69,7 @@ import { bseDirectApi } from './bseDirectApi';
 import { governmentSecurities, corporateBonds, bondOrders, bondHoldings, insertBondOrderSchema } from '@shared/schema';
 import { businessIntelligence } from './business-intelligence-service';
 import { verifyBankAccountPennyDrop, validateIFSC, validateAccountNumber, isNameMatchAcceptable } from './penny-drop-service';
+import { lookupIFSC, isValidIFSCFormat } from './ifsc-lookup-service';
 
 // Tax Calculation Request Validation Schemas
 const calculateCapitalGainsSchema = z.object({
@@ -23962,6 +23963,39 @@ System Security Data:`;
         success: false,
         error: "Failed to execute investment proposals through MF Central API",
         details: error.message
+      });
+    }
+  });
+
+  // IFSC Lookup Route
+  // Lookup bank and branch details from IFSC code
+  app.get("/api/ifsc/:code", async (req, res) => {
+    try {
+      const ifscCode = req.params.code;
+      
+      // Validate IFSC format
+      if (!isValidIFSCFormat(ifscCode)) {
+        return res.status(400).json({ 
+          error: "Invalid IFSC code format",
+          message: "IFSC code must be 11 characters (e.g., SBIN0001234)"
+        });
+      }
+
+      // Lookup IFSC details
+      const result = await lookupIFSC(ifscCode);
+      
+      if (!result.success) {
+        return res.status(404).json({ 
+          error: result.errorMessage || "IFSC code not found" 
+        });
+      }
+
+      res.json(result.data);
+    } catch (error) {
+      console.error("Error looking up IFSC:", error);
+      res.status(500).json({ 
+        error: "Failed to lookup IFSC code",
+        message: error.message
       });
     }
   });
