@@ -47,6 +47,29 @@ export function generateOtp(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
+export async function generateUniqueUserId(): Promise<string> {
+  // Generate userId in format: FTP001234
+  const prefix = "FTP";
+  let attempts = 0;
+  const maxAttempts = 10;
+  
+  while (attempts < maxAttempts) {
+    const randomNumber = Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
+    const userId = `${prefix}${randomNumber}`;
+    
+    // Check if userId already exists
+    const existingUser = await storage.getUserByUserId(userId);
+    if (!existingUser) {
+      return userId;
+    }
+    attempts++;
+  }
+  
+  // Fallback to timestamp-based ID if random fails
+  const timestamp = Date.now().toString().slice(-6);
+  return `${prefix}${timestamp}`;
+}
+
 export function setupAuth(app: Express) {
   // Note: Session and passport are already initialized by setupReplitAuth
   // We only configure the local strategies here
@@ -110,13 +133,14 @@ export function setupAuth(app: Express) {
   // Note: serializeUser and deserializeUser are already configured by setupReplitAuth
   // The Replit Auth serializes the entire user object, which works for both OAuth and local auth
 
-  // Register endpoint
+  // Register endpoint - Simplified to collect only email, mobile, password
   app.post("/api/register", async (req, res) => {
     try {
-      const { email, mobile, password, firstName, middleName, lastName } = req.body;
+      const { email, mobile, password } = req.body;
 
-      if (!email && !mobile) {
-        return res.status(400).json({ message: "Email or mobile number is required" });
+      // Require both email AND mobile for registration
+      if (!email || !mobile) {
+        return res.status(400).json({ message: "Email and mobile number are required" });
       }
 
       if (!password) {
@@ -124,28 +148,28 @@ export function setupAuth(app: Express) {
       }
 
       // Check if user already exists
-      if (email) {
-        const existingUser = await storage.getUserByEmail(email);
-        if (existingUser) {
-          return res.status(400).json({ message: "User with this email already exists" });
-        }
+      const existingUserByEmail = await storage.getUserByEmail(email);
+      if (existingUserByEmail) {
+        return res.status(400).json({ message: "User with this email already exists" });
       }
 
-      if (mobile) {
-        const existingUser = await storage.getUserByMobile(mobile);
-        if (existingUser) {
-          return res.status(400).json({ message: "User with this mobile number already exists" });
-        }
+      const existingUserByMobile = await storage.getUserByMobile(mobile);
+      if (existingUserByMobile) {
+        return res.status(400).json({ message: "User with this mobile number already exists" });
       }
 
+      // Generate unique userId
+      const userId = await generateUniqueUserId();
       const hashedPassword = await hashPassword(password);
+      
       const user = await storage.createUser({
-        email: email || null,
-        mobile: mobile || null,
+        userId,
+        email,
+        mobile,
         password: hashedPassword,
-        firstName: firstName || null,
-        middleName: middleName || null,
-        lastName: lastName || null,
+        firstName: null,
+        middleName: null,
+        lastName: null,
         profileImageUrl: null,
         isEmailVerified: false,
         isMobileVerified: false,
@@ -186,16 +210,33 @@ export function setupAuth(app: Express) {
         nomineeRelation: null,
         euinNumber: null,
         enableCamsApi: false,
+        enableKfintechApi: false,
+        enableNsdlApi: false,
+        enableCdslApi: false,
         nsdlDpId: null,
         nsdlClientId: null,
         cdslBoId: null,
         cdslDpId: null,
-        roles: ["user"],
-        isActive: true,
-        lastLoginAt: null,
-        loginCount: 0,
+        panVerificationConsent: false,
+        panConsentGivenAt: null,
+        panConsentIpAddress: null,
+        panConsentUserAgent: null,
+        panConsentVersion: "1.0",
+        preferredCamsRegistration: false,
+        preferredKfintechRegistration: false,
+        preferredNsdlRegistration: false,
+        preferredCdslRegistration: false,
         agentId: null,
+        arnCode: null,
+        distributorId: null,
         complianceOfficer: null,
+        clientType: null,
+        companyName: null,
+        entityType: null,
+        entityRegistrationNumber: null,
+        incorporationDate: null,
+        businessNature: null,
+        countryOfCitizenship: null,
         isUSPerson: false,
         isEUResident: false,
         gdprConsent: false,
@@ -210,6 +251,23 @@ export function setupAuth(app: Express) {
         isProfileCompleted: false,
         profileCompletedAt: null,
         lastUpdated: new Date(),
+        digilockerAddress: null,
+        digilockerDOB: null,
+        digilockerGender: null,
+        digilockerFullName: null,
+        aadhaarLastFour: null,
+        nameMatchScore: null,
+        nameReconciliationStatus: null,
+        nameReconciliationNote: null,
+        panVerifiedViaSmartKyc: false,
+        panVerificationDate: null,
+        aadhaarVerifiedViaSmartKyc: false,
+        aadhaarVerificationDate: null,
+        smartKycCompletedAt: null,
+        roles: ["user"],
+        isActive: true,
+        lastLoginAt: null,
+        loginCount: 0,
       });
 
       // Auto-assign to default agent if only one agent exists
@@ -222,6 +280,7 @@ export function setupAuth(app: Express) {
         }
         res.status(201).json({
           id: user.id,
+          userId: user.userId,
           email: user.email,
           mobile: user.mobile,
           firstName: user.firstName,
