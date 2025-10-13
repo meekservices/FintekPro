@@ -48,8 +48,6 @@ export class MultiSourceMFService {
     this.sourceHealth = new Map([
       ['AMFI', { isHealthy: true, errorRate: 0, consecutiveFailures: 0 }],
       ['MFAPI', { isHealthy: true, errorRate: 0, consecutiveFailures: 0 }],
-      ['CaptNemo', { isHealthy: true, errorRate: 0, consecutiveFailures: 0 }],
-      ['RapidAPI', { isHealthy: true, errorRate: 0, consecutiveFailures: 0 }],
       ['CRISIL', { isHealthy: true, errorRate: 0, consecutiveFailures: 0 }],
     ]);
   }
