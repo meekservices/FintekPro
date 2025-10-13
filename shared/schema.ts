@@ -510,6 +510,44 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// KYC Verification Sessions table for tracking step-by-step Smart KYC wizard flow
+export const kycVerificationSessions = pgTable("kyc_verification_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Session Type and Flow
+  sessionType: varchar("session_type").default("smart_kyc_wizard"), // smart_kyc_wizard
+  currentStep: varchar("current_step").notNull().default("pan_verification"), // pan_verification/aadhaar_otp/aadhaar_verification/data_collection/completed
+  stepStatus: jsonb("step_status").default({}), // Status for each step: {pan_verified: true, aadhaar_otp_sent: true, etc.}
+  
+  // PAN Verification Data
+  panNumber: varchar("pan_number"), // Encrypted PAN number
+  panDob: date("pan_dob"), // Date of birth from PAN
+  panVerified: boolean("pan_verified").default(false),
+  panVerificationData: jsonb("pan_verification_data"), // Store name, father name from API response
+  panVerifiedAt: timestamp("pan_verified_at"),
+  
+  // Aadhaar Verification Data
+  aadhaarNumber: varchar("aadhaar_number"), // Encrypted last 4 digits only
+  aadhaarOtpSent: boolean("aadhaar_otp_sent").default(false),
+  aadhaarOtpSentAt: timestamp("aadhaar_otp_sent_at"),
+  aadhaarOtpVerified: boolean("aadhaar_otp_verified").default(false),
+  aadhaarVerifiedAt: timestamp("aadhaar_verified_at"),
+  aadhaarVerificationData: jsonb("aadhaar_verification_data"), // Store address, photo URL from API
+  
+  // Session Metadata
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  startedAt: timestamp("started_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  isActive: boolean("is_active").default(true),
+  expiresAt: timestamp("expires_at"), // Session expires in 30 minutes
+  
+  // Audit fields
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Compliance Documents table for storing regulatory documents
 export const complianceDocuments = pgTable("compliance_documents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -2034,6 +2072,15 @@ export const insertNriKycProgressSchema = createInsertSchema(nriKycProgress).omi
   updatedAt: true,
 });
 
+// KYC Verification Sessions schemas and types
+export const insertKycVerificationSessionSchema = createInsertSchema(kycVerificationSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertKycVerificationSession = z.infer<typeof insertKycVerificationSessionSchema>;
+export type KycVerificationSession = typeof kycVerificationSessions.$inferSelect;
+
 // User Bank Accounts schemas and types  
 export const insertUserBankAccountSchema = createInsertSchema(userBankAccounts).omit({
   id: true,
@@ -2088,7 +2135,6 @@ export type InsertCkycRecord = z.infer<typeof insertCkycRecordSchema>;
 export type UpsertCkycRecord = typeof ckycRecords.$inferInsert;
 
 export type CkycDocument = typeof ckycDocuments.$inferSelect;
-export type InsertCkycDocument = typeof ckycDocuments.$inferInsert;
 
 export type CkycStatusHistory = typeof ckycStatusHistory.$inferSelect;
 export type InsertCkycStatusHistory = typeof ckycStatusHistory.$inferInsert;
