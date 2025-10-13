@@ -1943,6 +1943,12 @@ export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({
   updatedAt: true,
 });
 
+export const insertCkycDocumentSchema = createInsertSchema(ckycDocuments).omit({
+  id: true,
+  uploadedAt: true,
+  verifiedAt: true,
+});
+
 export const insertCkycRecordSchema = createInsertSchema(ckycRecords).omit({
   id: true,
   createdAt: true,
@@ -2077,6 +2083,7 @@ export type UpsertUserProfile = typeof userProfiles.$inferInsert;
 
 // CKYC types
 export type CkycRecord = typeof ckycRecords.$inferSelect;
+export type InsertCkycDocument = z.infer<typeof insertCkycDocumentSchema>;
 export type InsertCkycRecord = z.infer<typeof insertCkycRecordSchema>;
 export type UpsertCkycRecord = typeof ckycRecords.$inferInsert;
 
