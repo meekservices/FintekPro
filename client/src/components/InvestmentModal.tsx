@@ -16,6 +16,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { MutualFundData } from "@/hooks/use-mutual-funds";
+import { AccountSelectionWidget } from "@/components/AccountSelectionWidget";
 
 interface InvestmentModalProps {
   fund: MutualFundData | null;
@@ -29,6 +30,7 @@ export function InvestmentModal({ fund, isOpen, onClose }: InvestmentModalProps)
   const [amount, setAmount] = useState("");
   const [frequency, setFrequency] = useState("MONTHLY");
   const [duration, setDuration] = useState("");
+  const [selectedBankAccountId, setSelectedBankAccountId] = useState<string | undefined>();
 
   const addToCartMutation = useMutation({
     mutationFn: async (cartItem: any) => {
@@ -57,6 +59,7 @@ export function InvestmentModal({ fund, isOpen, onClose }: InvestmentModalProps)
     setAmount("");
     setFrequency("MONTHLY");
     setDuration("");
+    setSelectedBankAccountId(undefined);
   };
 
   const handleAddToCart = () => {
@@ -82,6 +85,16 @@ export function InvestmentModal({ fund, isOpen, onClose }: InvestmentModalProps)
       return;
     }
 
+    // Validate bank account is selected
+    if (!selectedBankAccountId) {
+      toast({
+        title: "Bank Account Required",
+        description: "Please select a bank account for this transaction",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const cartItem = {
       itemType: "investment",
       investmentId: fund.schemeCode,
@@ -97,6 +110,7 @@ export function InvestmentModal({ fund, isOpen, onClose }: InvestmentModalProps)
         schemeCode: fund.schemeCode,
         name: fund.schemeName,
         description: `${investmentType} - ${fund.fundHouse}`,
+        bankAccountId: selectedBankAccountId,
       },
     };
 
@@ -271,6 +285,18 @@ export function InvestmentModal({ fund, isOpen, onClose }: InvestmentModalProps)
               </div>
             </>
           )}
+
+          {/* Bank Account Selection */}
+          <div className="space-y-2">
+            <Label className="text-base font-semibold">Payment Account</Label>
+            <AccountSelectionWidget
+              productType="mutual_fund"
+              selectedBankAccountId={selectedBankAccountId}
+              onBankAccountChange={setSelectedBankAccountId}
+              compact={true}
+              showLabels={false}
+            />
+          </div>
 
           {/* Summary */}
           {amount && (investmentType === "LUMPSUM" || duration) && (
