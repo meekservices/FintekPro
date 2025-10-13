@@ -61,7 +61,7 @@ export default function NetWorthPage() {
   const [includeFamilyWealth, setIncludeFamilyWealth] = useState(false);
 
   const { data, isLoading, refetch } = useQuery<{ success: boolean; data: NetWorthData }>({
-    queryKey: ["/api/net-worth", { includeFamily: includeFamilyWealth }],
+    queryKey: ["/api/net-worth", includeFamilyWealth ? "?includeFamily=true" : ""],
   });
 
   const netWorthData = data?.data;
