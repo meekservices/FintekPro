@@ -619,6 +619,136 @@ export const smartKycProgress = pgTable("smart_kyc_progress", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Corporate KYC Progress Tracking - For Company/Non-Individual entities
+export const corporateKycProgress = pgTable("corporate_kyc_progress", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull().unique(), // Company representative
+  
+  // Step 1: Corporate PAN Verification
+  step1CorporatePanVerified: boolean("step1_corporate_pan_verified").default(false),
+  step1CorporatePan: varchar("step1_corporate_pan"),
+  step1CompanyName: varchar("step1_company_name"), // From Corporate PAN API
+  step1CompanyType: varchar("step1_company_type"), // Private Ltd/Public Ltd/LLP/Partnership
+  step1CompletedAt: timestamp("step1_completed_at"),
+  step1Data: jsonb("step1_data"), // Store full Corporate PAN API response
+  
+  // Step 2: Company Documents Upload
+  step2DocumentsUploaded: boolean("step2_documents_uploaded").default(false),
+  step2CertificateOfIncorporation: varchar("step2_coi_url"), // Object storage URL
+  step2MemorandumOfAssociation: varchar("step2_moa_url"),
+  step2ArticlesOfAssociation: varchar("step2_aoa_url"),
+  step2BoardResolution: varchar("step2_board_resolution_url"),
+  step2CompletedAt: timestamp("step2_completed_at"),
+  step2Data: jsonb("step2_data"), // Document metadata
+  
+  // Step 3: Authorized Signatory Verification (DigiLocker)
+  step3SignatoryVerified: boolean("step3_signatory_verified").default(false),
+  step3SignatoryName: varchar("step3_signatory_name"),
+  step3SignatoryAadhaar: varchar("step3_signatory_aadhaar_last_four"), // Last 4 digits
+  step3SignatoryDesignation: varchar("step3_signatory_designation"), // Director/Partner/Authorized Signatory
+  step3DigilockerSessionId: varchar("step3_digilocker_session_id"),
+  step3CompletedAt: timestamp("step3_completed_at"),
+  step3Data: jsonb("step3_data"), // Signatory details from DigiLocker
+  
+  // Step 4: Corporate Account Discovery
+  step4AccountsDiscovered: boolean("step4_accounts_discovered").default(false),
+  step4BankAccountsFound: integer("step4_bank_accounts_found").default(0),
+  step4DematAccountsFound: integer("step4_demat_accounts_found").default(0),
+  step4CompletedAt: timestamp("step4_completed_at"),
+  step4Data: jsonb("step4_data"), // Discovered corporate accounts
+  
+  // Step 5: Review & Confirmation
+  step5ReviewCompleted: boolean("step5_review_completed").default(false),
+  step5CompletedAt: timestamp("step5_completed_at"),
+  step5ConfirmedData: jsonb("step5_confirmed_data"), // Final confirmed data
+  
+  // Overall Progress
+  currentStep: integer("current_step").default(1), // 1-5
+  isCompleted: boolean("is_completed").default(false),
+  completedAt: timestamp("completed_at"),
+  
+  // Company Identifiers
+  cin: varchar("cin"), // Corporate Identification Number
+  gstin: varchar("gstin"), // GST Identification Number
+  
+  // Metadata
+  startedAt: timestamp("started_at").defaultNow(),
+  lastUpdatedStep: integer("last_updated_step"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// NRI KYC Progress Tracking - For Non-Resident Indians
+export const nriKycProgress = pgTable("nri_kyc_progress", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  
+  // Step 1: PAN/Passport Verification
+  step1Verified: boolean("step1_verified").default(false),
+  step1PanNumber: varchar("step1_pan_number"), // Optional for NRIs
+  step1PassportNumber: varchar("step1_passport_number").notNull(),
+  step1PassportName: varchar("step1_passport_name"),
+  step1PassportExpiry: date("step1_passport_expiry"),
+  step1CountryOfResidence: varchar("step1_country_of_residence"),
+  step1CompletedAt: timestamp("step1_completed_at"),
+  step1Data: jsonb("step1_data"), // Passport verification data
+  
+  // Step 2: Overseas Address Proof
+  step2AddressVerified: boolean("step2_address_verified").default(false),
+  step2OverseasAddressLine1: text("step2_overseas_address_line1"),
+  step2OverseasAddressLine2: text("step2_overseas_address_line2"),
+  step2OverseasCity: varchar("step2_overseas_city"),
+  step2OverseasState: varchar("step2_overseas_state"),
+  step2OverseasCountry: varchar("step2_overseas_country"),
+  step2OverseasPostalCode: varchar("step2_overseas_postal_code"),
+  step2AddressProofDocUrl: varchar("step2_address_proof_doc_url"), // Utility bill/Lease agreement
+  step2CompletedAt: timestamp("step2_completed_at"),
+  step2Data: jsonb("step2_data"),
+  
+  // Step 3: PIS Permission & Foreign Bank Account
+  step3PisVerified: boolean("step3_pis_verified").default(false),
+  step3PisPermissionLetterUrl: varchar("step3_pis_permission_letter_url"), // RBI PIS permission
+  step3PisBankName: varchar("step3_pis_bank_name"),
+  step3PisBranchName: varchar("step3_pis_branch_name"),
+  step3ForeignBankAccountNumber: varchar("step3_foreign_bank_account_number"),
+  step3ForeignBankName: varchar("step3_foreign_bank_name"),
+  step3ForeignBankCountry: varchar("step3_foreign_bank_country"),
+  step3SwiftCode: varchar("step3_swift_code"),
+  step3CompletedAt: timestamp("step3_completed_at"),
+  step3Data: jsonb("step3_data"),
+  
+  // Step 4: FATCA/CRS Declaration
+  step4FatcaCompleted: boolean("step4_fatca_completed").default(false),
+  step4TaxResidencyCountry: varchar("step4_tax_residency_country"),
+  step4TaxIdentificationNumber: varchar("step4_tax_identification_number"), // TIN
+  step4UsCitizen: boolean("step4_us_citizen").default(false),
+  step4GreenCardHolder: boolean("step4_green_card_holder").default(false),
+  step4FatcaDeclarationUrl: varchar("step4_fatca_declaration_url"), // W8-BEN form
+  step4CrsDeclarationUrl: varchar("step4_crs_declaration_url"),
+  step4CompletedAt: timestamp("step4_completed_at"),
+  step4Data: jsonb("step4_data"),
+  
+  // Step 5: Review & Confirmation
+  step5ReviewCompleted: boolean("step5_review_completed").default(false),
+  step5CompletedAt: timestamp("step5_completed_at"),
+  step5ConfirmedData: jsonb("step5_confirmed_data"),
+  
+  // Overall Progress
+  currentStep: integer("current_step").default(1), // 1-5
+  isCompleted: boolean("is_completed").default(false),
+  completedAt: timestamp("completed_at"),
+  
+  // NRI Status
+  nriStatus: varchar("nri_status"), // NRI/NRE/NRO/PIO/OCI
+  investmentType: varchar("investment_type"), // repatriable/non_repatriable
+  
+  // Metadata
+  startedAt: timestamp("started_at").defaultNow(),
+  lastUpdatedStep: integer("last_updated_step"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // CKYC (Central KYC Registry) records table
 export const ckycRecords = pgTable("ckyc_records", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1885,6 +2015,18 @@ export const insertSmartKycProgressSchema = createInsertSchema(smartKycProgress)
   updatedAt: true,
 });
 
+export const insertCorporateKycProgressSchema = createInsertSchema(corporateKycProgress).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertNriKycProgressSchema = createInsertSchema(nriKycProgress).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // User Bank Accounts schemas and types  
 export const insertUserBankAccountSchema = createInsertSchema(userBankAccounts).omit({
   id: true,
@@ -2186,6 +2328,10 @@ export type OtpVerification = typeof otpVerifications.$inferSelect;
 export type InsertOtpVerification = z.infer<typeof insertOtpVerificationSchema>;
 export type SmartKycProgress = typeof smartKycProgress.$inferSelect;
 export type InsertSmartKycProgress = z.infer<typeof insertSmartKycProgressSchema>;
+export type CorporateKycProgress = typeof corporateKycProgress.$inferSelect;
+export type InsertCorporateKycProgress = z.infer<typeof insertCorporateKycProgressSchema>;
+export type NriKycProgress = typeof nriKycProgress.$inferSelect;
+export type InsertNriKycProgress = z.infer<typeof insertNriKycProgressSchema>;
 export type InsertPortfolio = z.infer<typeof insertPortfolioSchema>;
 export type Portfolio = typeof portfolios.$inferSelect;
 export type InsertPortfolioHolding = z.infer<typeof insertPortfolioHoldingSchema>;
