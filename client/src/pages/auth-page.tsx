@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -11,10 +11,13 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
-import { Loader2, Eye, EyeOff, Shield, TrendingUp, BarChart3, MessageSquare } from "lucide-react";
+import { Loader2, Eye, EyeOff, Shield, TrendingUp, BarChart3, MessageSquare, CheckCircle2, Mail, Smartphone, User, Info, Clock, RefreshCw } from "lucide-react";
 
 const loginSchema = z.object({
   identifier: z.string().min(1, "Email, mobile, or User ID is required"),
@@ -66,9 +69,43 @@ export default function AuthPage() {
   const [resetPasswordStep, setResetPasswordStep] = useState<"request" | "reset">("request");
   const [resetIdentifier, setResetIdentifier] = useState("");
   
+  // OTP Dialog States
   const [otpDialogOpen, setOtpDialogOpen] = useState(false);
   const [loginIdentifier, setLoginIdentifier] = useState("");
   const [otpChannel, setOtpChannel] = useState<string>("");
+  const [otpTimer, setOtpTimer] = useState(300); // 5 minutes in seconds
+  const [canResendOtp, setCanResendOtp] = useState(false);
+  const [otpSending, setOtpSending] = useState(false);
+
+  // Registration Success State
+  const [registeredUserId, setRegisteredUserId] = useState<string>("");
+  const [showUserIdDialog, setShowUserIdDialog] = useState(false);
+
+  // Progress indicator
+  const [loginStep, setLoginStep] = useState<"credentials" | "otp" | "complete">("credentials");
+
+  // OTP Timer Countdown
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (otpDialogOpen && otpTimer > 0) {
+      interval = setInterval(() => {
+        setOtpTimer((prev) => {
+          if (prev <= 1) {
+            setCanResendOtp(true);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [otpDialogOpen, otpTimer]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -125,15 +162,19 @@ export default function AuthPage() {
     },
     onSuccess: (data) => {
       if (data.requiresOtp) {
+        setLoginStep("otp");
         setLoginIdentifier(data.identifier || loginForm.getValues("identifier"));
         setOtpChannel(data.otpSentTo || "your registered email/mobile");
         otpForm.setValue("identifier", data.identifier || loginForm.getValues("identifier"));
+        setOtpTimer(300); // Reset timer to 5 minutes
+        setCanResendOtp(false);
         setOtpDialogOpen(true);
         toast({
           title: "OTP Sent",
           description: `Verification code sent to ${data.otpSentTo || "your registered email/mobile"}`,
         });
       } else {
+        setLoginStep("complete");
         queryClient.setQueryData(["/api/user"], data);
         toast({
           title: "Login successful",
@@ -151,6 +192,36 @@ export default function AuthPage() {
     },
   });
 
+  const resendOtpMutation = useMutation({
+    mutationFn: async () => {
+      setOtpSending(true);
+      const response = await apiRequest("POST", "/api/login", {
+        body: {
+          identifier: loginIdentifier,
+          password: loginForm.getValues("password")
+        }
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setOtpSending(false);
+      setOtpTimer(300); // Reset timer to 5 minutes
+      setCanResendOtp(false);
+      toast({
+        title: "OTP Resent",
+        description: `New verification code sent to ${data.otpSentTo || otpChannel}`,
+      });
+    },
+    onError: (error: Error) => {
+      setOtpSending(false);
+      toast({
+        title: "Failed to resend OTP",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const otpVerificationMutation = useMutation({
     mutationFn: async (data: OtpVerificationFormData) => {
       const response = await apiRequest("POST", "/api/login/verify-otp", {
@@ -162,6 +233,7 @@ export default function AuthPage() {
       return response.json();
     },
     onSuccess: (data) => {
+      setLoginStep("complete");
       queryClient.setQueryData(["/api/user"], data);
       setOtpDialogOpen(false);
       otpForm.reset();
@@ -192,13 +264,10 @@ export default function AuthPage() {
       return response.json();
     },
     onSuccess: (data) => {
-      toast({
-        title: "Registration successful",
-        description: `Welcome to FintekPro! Your User ID is: ${data.userId || data.user?.userId || 'N/A'}`,
-        duration: 7000,
-      });
+      const userId = data.userId || data.user?.id || 'N/A';
+      setRegisteredUserId(userId);
+      setShowUserIdDialog(true);
       registerForm.reset();
-      setAuthMode("login");
     },
     onError: (error: Error) => {
       toast({
@@ -274,7 +343,7 @@ export default function AuthPage() {
   if (isAuthLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <Loader2 className="h-8 w-8 animate-spin" data-testid="loader-auth" />
       </div>
     );
   }
@@ -297,6 +366,10 @@ export default function AuthPage() {
 
   const onResetPasswordSubmit = (data: ResetPasswordFormData) => {
     resetPasswordMutation.mutate(data);
+  };
+
+  const handleResendOtp = () => {
+    resendOtpMutation.mutate();
   };
 
   return (
@@ -348,7 +421,7 @@ export default function AuthPage() {
 
           {/* Authentication Card */}
           <div className="flex justify-center lg:justify-end">
-            <Card className="w-full max-w-md">
+            <Card className="w-full max-w-md shadow-lg">
               <CardHeader className="space-y-1 text-center">
                 <div className="flex items-center justify-center mb-4">
                   <Shield className="h-12 w-12 text-blue-600" />
@@ -405,19 +478,58 @@ export default function AuthPage() {
                       </ScrollableTabsList>
 
                       {/* Login Form */}
-                      <TabsContent value="login">
+                      <TabsContent value="login" className="space-y-4">
+                        {/* Progress Indicator */}
+                        {loginStep !== "credentials" && (
+                          <div className="space-y-2 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className={`flex items-center gap-1 ${loginStep === "credentials" ? "text-blue-600 font-medium" : "text-gray-500"}`}>
+                                <CheckCircle2 className="h-4 w-4" />
+                                Credentials
+                              </span>
+                              <span className={`flex items-center gap-1 ${loginStep === "otp" ? "text-blue-600 font-medium" : loginStep === "complete" ? "text-green-600" : "text-gray-400"}`}>
+                                {loginStep === "complete" ? <CheckCircle2 className="h-4 w-4" /> : <Shield className="h-4 w-4" />}
+                                OTP Verification
+                              </span>
+                              <span className={`flex items-center gap-1 ${loginStep === "complete" ? "text-green-600 font-medium" : "text-gray-400"}`}>
+                                <CheckCircle2 className="h-4 w-4" />
+                                Success
+                              </span>
+                            </div>
+                            <Progress value={loginStep === "credentials" ? 33 : loginStep === "otp" ? 66 : 100} className="h-2" />
+                          </div>
+                        )}
+
                         <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
                           <div>
-                            <Label htmlFor="login-identifier">Email, Mobile, or User ID</Label>
+                            <Label htmlFor="login-identifier" className="flex items-center gap-2">
+                              Email, Mobile, or User ID
+                              <Info className="h-3 w-3 text-gray-400" />
+                            </Label>
                             <Input
                               id="login-identifier"
                               {...loginForm.register("identifier")}
-                              placeholder="Email, Mobile, or User ID"
+                              placeholder="example@email.com / 9876543210 / FTP001234"
+                              autoFocus
                               data-testid="input-login-identifier"
                             />
                             {loginForm.formState.errors.identifier && (
                               <p className="text-sm text-red-600 mt-1">{loginForm.formState.errors.identifier.message}</p>
                             )}
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <Badge variant="outline" className="text-xs flex items-center gap-1">
+                                <Mail className="h-3 w-3" />
+                                Email
+                              </Badge>
+                              <Badge variant="outline" className="text-xs flex items-center gap-1">
+                                <Smartphone className="h-3 w-3" />
+                                Mobile
+                              </Badge>
+                              <Badge variant="outline" className="text-xs flex items-center gap-1">
+                                <User className="h-3 w-3" />
+                                User ID
+                              </Badge>
+                            </div>
                           </div>
 
                           <div>
@@ -446,6 +558,13 @@ export default function AuthPage() {
                             )}
                           </div>
 
+                          <Alert className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+                            <Shield className="h-4 w-4 text-blue-600" />
+                            <AlertDescription className="text-sm text-blue-700 dark:text-blue-400">
+                              After entering credentials, you'll receive a 6-digit OTP via email/SMS for verification.
+                            </AlertDescription>
+                          </Alert>
+
                           <Button 
                             type="submit" 
                             className="w-full" 
@@ -453,7 +572,7 @@ export default function AuthPage() {
                             data-testid="button-login"
                           >
                             {loginMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Sign In
+                            Continue to OTP
                           </Button>
 
                           {/* Forgot Password Link */}
@@ -489,6 +608,7 @@ export default function AuthPage() {
                                         id="forgot-identifier"
                                         {...forgotPasswordForm.register("identifier")}
                                         placeholder="user@example.com or 9876543210"
+                                        autoFocus
                                         data-testid="input-forgot-identifier"
                                       />
                                       {forgotPasswordForm.formState.errors.identifier && (
@@ -517,6 +637,7 @@ export default function AuthPage() {
                                         {...resetPasswordForm.register("otp")}
                                         placeholder="123456"
                                         maxLength={6}
+                                        autoFocus
                                         data-testid="input-reset-otp"
                                       />
                                       {resetPasswordForm.formState.errors.otp && (
@@ -590,7 +711,14 @@ export default function AuthPage() {
                       </TabsContent>
 
                       {/* Register Form */}
-                      <TabsContent value="register">
+                      <TabsContent value="register" className="space-y-4">
+                        <Alert className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+                          <Info className="h-4 w-4 text-blue-600" />
+                          <AlertDescription className="text-sm text-blue-700 dark:text-blue-400">
+                            Upon registration, you'll receive a unique User ID in the format <strong>FTP001234</strong>. Save it for future logins!
+                          </AlertDescription>
+                        </Alert>
+
                         <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-4">
                           <div>
                             <Label htmlFor="register-email">Email Address</Label>
@@ -599,6 +727,7 @@ export default function AuthPage() {
                               {...registerForm.register("email")}
                               type="email"
                               placeholder="client@example.com"
+                              autoFocus
                               data-testid="input-register-email"
                             />
                             {registerForm.formState.errors.email && (
@@ -681,25 +810,61 @@ export default function AuthPage() {
         </div>
       </div>
 
-      {/* OTP Verification Dialog */}
+      {/* Enhanced OTP Verification Dialog */}
       <Dialog open={otpDialogOpen} onOpenChange={setOtpDialogOpen}>
         <DialogContent className="sm:max-w-md" data-testid="dialog-otp-verification">
           <DialogHeader>
-            <DialogTitle>Enter OTP</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-blue-600" />
+              Enter Verification Code
+            </DialogTitle>
             <DialogDescription>
-              Please enter the 6-digit verification code sent to {otpChannel}
+              We've sent a 6-digit code to <strong>{otpChannel}</strong>
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={otpForm.handleSubmit(onOtpSubmit)} className="space-y-4">
+            {/* Timer Display */}
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-blue-600" />
+                  <span className="text-sm font-medium text-blue-700 dark:text-blue-400">
+                    {otpTimer > 0 ? `Code expires in ${formatTime(otpTimer)}` : "Code expired"}
+                  </span>
+                </div>
+                {canResendOtp && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleResendOtp}
+                    disabled={otpSending}
+                    className="text-blue-600 hover:text-blue-700"
+                    data-testid="button-resend-otp"
+                  >
+                    {otpSending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <>
+                        <RefreshCw className="h-3 w-3 mr-1" />
+                        Resend
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+            </div>
+
             <div>
-              <Label htmlFor="otp-code">OTP (6 digits)</Label>
+              <Label htmlFor="otp-code">6-Digit Code</Label>
               <Input
                 id="otp-code"
                 {...otpForm.register("otp")}
-                placeholder="123456"
+                placeholder="000000"
                 maxLength={6}
                 autoFocus
+                className="text-center text-2xl tracking-widest font-mono"
                 data-testid="input-otp-code"
               />
               {otpForm.formState.errors.otp && (
@@ -709,6 +874,13 @@ export default function AuthPage() {
               )}
             </div>
 
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription className="text-xs">
+                Didn't receive the code? Check your spam folder or click Resend after the timer expires.
+              </AlertDescription>
+            </Alert>
+
             <div className="flex gap-2">
               <Button 
                 type="button" 
@@ -717,6 +889,7 @@ export default function AuthPage() {
                 onClick={() => {
                   setOtpDialogOpen(false);
                   otpForm.reset();
+                  setLoginStep("credentials");
                 }}
                 data-testid="button-cancel-otp"
               >
@@ -729,10 +902,59 @@ export default function AuthPage() {
                 data-testid="button-verify-otp"
               >
                 {otpVerificationMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Verify OTP
+                Verify Code
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* User ID Success Dialog */}
+      <Dialog open={showUserIdDialog} onOpenChange={setShowUserIdDialog}>
+        <DialogContent className="sm:max-w-md" data-testid="dialog-user-id-success">
+          <DialogHeader>
+            <div className="flex justify-center mb-4">
+              <div className="rounded-full bg-green-100 dark:bg-green-900/20 p-3">
+                <CheckCircle2 className="h-8 w-8 text-green-600" />
+              </div>
+            </div>
+            <DialogTitle className="text-center">Registration Successful!</DialogTitle>
+            <DialogDescription className="text-center">
+              Welcome to FintekPro! Your account has been created.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border-2 border-blue-300 dark:border-blue-700">
+              <p className="text-sm text-gray-600 dark:text-gray-300 mb-2 text-center">Your unique User ID:</p>
+              <div className="flex items-center justify-center gap-2">
+                <Badge className="text-lg px-4 py-2 bg-blue-600 hover:bg-blue-700">
+                  {registeredUserId}
+                </Badge>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
+                Save this ID - you can use it to login along with email or mobile
+              </p>
+            </div>
+
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription className="text-sm">
+                You can now sign in using your email, mobile number, or this User ID with your password.
+              </AlertDescription>
+            </Alert>
+
+            <Button 
+              className="w-full" 
+              onClick={() => {
+                setShowUserIdDialog(false);
+                setAuthMode("login");
+              }}
+              data-testid="button-proceed-to-login"
+            >
+              Proceed to Login
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
