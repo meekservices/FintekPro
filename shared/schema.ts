@@ -335,6 +335,27 @@ export const userDematAccounts = pgTable("user_demat_accounts", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Product-specific account preferences - which bank/demat account to use for each product type
+export const productAccountPreferences = pgTable("product_account_preferences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Product type this preference applies to
+  productType: varchar("product_type").notNull(), // 'mutual_fund', 'ipo', 'bond', 'equity', 'aif', 'pms', 'unlisted_share', 'fd', 'loan'
+  
+  // Linked accounts
+  bankAccountId: varchar("bank_account_id").references(() => userBankAccounts.id), // For payment
+  dematAccountId: varchar("demat_account_id").references(() => userDematAccounts.id), // For holdings
+  
+  // Preference details
+  isActive: boolean("is_active").default(true),
+  isDefault: boolean("is_default").default(false), // If true, this is the default for this product type
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // User storage table with mobile/email authentication
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1810,6 +1831,15 @@ export const insertUserDematAccountSchema = createInsertSchema(userDematAccounts
 });
 export type InsertUserDematAccount = z.infer<typeof insertUserDematAccountSchema>;
 export type UserDematAccount = typeof userDematAccounts.$inferSelect;
+
+// Product Account Preferences schemas and types
+export const insertProductAccountPreferenceSchema = createInsertSchema(productAccountPreferences).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertProductAccountPreference = z.infer<typeof insertProductAccountPreferenceSchema>;
+export type ProductAccountPreference = typeof productAccountPreferences.$inferSelect;
 
 export const insertRiskProfileSchema = createInsertSchema(riskProfiles).omit({
   id: true,
