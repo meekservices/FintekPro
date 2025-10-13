@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -14,7 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Plus, Edit, Trash2, CreditCard, Building2, CheckCircle, AlertCircle, Star, ShieldCheck, XCircle, AlertTriangle } from "lucide-react";
+import { Plus, Edit, Trash2, CreditCard, Building2, CheckCircle, AlertCircle, Star, ShieldCheck, XCircle, AlertTriangle, Loader2 } from "lucide-react";
 
 // Bank account form schema
 const bankAccountSchema = z.object({
@@ -29,6 +29,15 @@ const bankAccountSchema = z.object({
 });
 
 type BankAccountForm = z.infer<typeof bankAccountSchema>;
+
+interface IFSCDetails {
+  ifsc: string;
+  bank: string;
+  branch: string;
+  address: string;
+  city: string;
+  state: string;
+}
 
 interface BankAccount {
   id: string;
@@ -55,6 +64,9 @@ export function BankingTab() {
   const queryClient = useQueryClient();
   const [isAddingAccount, setIsAddingAccount] = useState(false);
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
+  const [ifscDetails, setIfscDetails] = useState<IFSCDetails | null>(null);
+  const [isLookingUpIFSC, setIsLookingUpIFSC] = useState(false);
+  const [ifscError, setIfscError] = useState<string | null>(null);
 
   // Fetch bank accounts
   const { data: bankAccounts, isLoading } = useQuery<BankAccount[]>({
@@ -72,6 +84,63 @@ export function BankingTab() {
       accountHolderName: "",
     },
   });
+
+  // Watch IFSC code and auto-fetch bank details
+  const ifscCode = form.watch("ifscCode");
+
+  useEffect(() => {
+    const lookupIFSC = async () => {
+      if (!ifscCode || ifscCode.length !== 11) {
+        setIfscDetails(null);
+        setIfscError(null);
+        return;
+      }
+
+      // Validate IFSC format
+      const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+      if (!ifscRegex.test(ifscCode.toUpperCase())) {
+        setIfscError("Invalid IFSC format");
+        setIfscDetails(null);
+        return;
+      }
+
+      setIsLookingUpIFSC(true);
+      setIfscError(null);
+
+      try {
+        const response = await fetch(`/api/ifsc/${ifscCode.toUpperCase()}`);
+        
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || "IFSC not found");
+        }
+
+        const data: IFSCDetails = await response.json();
+        setIfscDetails(data);
+
+        // Auto-fill bank name and branch name
+        form.setValue("bankName", data.bank);
+        form.setValue("branchName", data.branch);
+
+        toast({
+          title: "IFSC Verified",
+          description: `${data.bank} - ${data.branch}`,
+        });
+      } catch (error: any) {
+        setIfscError(error.message || "Failed to lookup IFSC");
+        setIfscDetails(null);
+        // Clear auto-filled fields on error
+        form.setValue("bankName", "");
+        form.setValue("branchName", "");
+      } finally {
+        setIsLookingUpIFSC(false);
+      }
+    };
+
+    // Debounce the lookup
+    const timeoutId = setTimeout(lookupIFSC, 500);
+    return () => clearTimeout(timeoutId);
+  }, [ifscCode, form, toast]);
 
   // Add new bank account mutation
   const addAccountMutation = useMutation({
@@ -207,6 +276,8 @@ export function BankingTab() {
   const handleCancel = () => {
     setIsAddingAccount(false);
     setEditingAccountId(null);
+    setIfscDetails(null);
+    setIfscError(null);
     form.reset();
   };
 
@@ -277,36 +348,90 @@ export function BankingTab() {
                 {/* Banking Details */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-medium">Bank Account Details</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="bankName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Bank Name *</FormLabel>
+                  
+                  {/* Step 1: Enter IFSC Code */}
+                  <FormField
+                    control={form.control}
+                    name="ifscCode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>IFSC Code *</FormLabel>
+                        <div className="relative">
                           <FormControl>
-                            <Input {...field} placeholder="e.g., HDFC Bank" data-testid="input-bank-name" />
+                            <Input 
+                              {...field} 
+                              placeholder="e.g., HDFC0000123" 
+                              data-testid="input-ifsc-code"
+                              className="uppercase"
+                              onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                            />
                           </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="accountHolderName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Account Holder Name *</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="As per bank records" data-testid="input-account-holder" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                          {isLookingUpIFSC && (
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                              <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                            </div>
+                          )}
+                        </div>
+                        {ifscError && (
+                          <p className="text-sm text-red-500 mt-1">{ifscError}</p>
+                        )}
+                        {ifscDetails && (
+                          <p className="text-sm text-green-600 mt-1 flex items-center gap-1">
+                            <CheckCircle className="h-3 w-3" />
+                            IFSC verified successfully
+                          </p>
+                        )}
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Step 2: Auto-filled Bank Details (Read-only) */}
+                  {ifscDetails && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
+                      <div>
+                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Bank Name</label>
+                        <p className="text-base font-semibold text-gray-900 dark:text-gray-100 mt-1">{ifscDetails.bank}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Branch Name</label>
+                        <p className="text-base font-semibold text-gray-900 dark:text-gray-100 mt-1">{ifscDetails.branch}</p>
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Branch Address</label>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                          {ifscDetails.address}, {ifscDetails.city}, {ifscDetails.state}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Hidden fields for form validation */}
+                  <FormField
+                    control={form.control}
+                    name="bankName"
+                    render={({ field }) => (
+                      <FormItem className="hidden">
+                        <FormControl>
+                          <Input {...field} type="hidden" />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="branchName"
+                    render={({ field }) => (
+                      <FormItem className="hidden">
+                        <FormControl>
+                          <Input {...field} type="hidden" />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Step 3: Account Number and Type */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
                       name="accountNumber"
@@ -315,19 +440,6 @@ export function BankingTab() {
                           <FormLabel>Account Number *</FormLabel>
                           <FormControl>
                             <Input {...field} placeholder="Enter account number" data-testid="input-account-number" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="ifscCode"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>IFSC Code *</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="e.g., HDFC0000123" data-testid="input-ifsc-code" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -359,15 +471,19 @@ export function BankingTab() {
                     />
                   </div>
 
+                  {/* Step 4: Account Holder Name (for penny drop) */}
                   <FormField
                     control={form.control}
-                    name="branchName"
+                    name="accountHolderName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Branch Name *</FormLabel>
+                        <FormLabel>Account Holder Name (for verification) *</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="e.g., Mumbai Main Branch" data-testid="input-branch-name" />
+                          <Input {...field} placeholder="Enter name as per bank records" data-testid="input-account-holder" />
                         </FormControl>
+                        <p className="text-sm text-gray-500 mt-1">
+                          This will be verified via penny drop (₹1 deposit)
+                        </p>
                         <FormMessage />
                       </FormItem>
                     )}
