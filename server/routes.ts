@@ -114,6 +114,7 @@ const taxReminderSubscriptionSchema = z.object({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  const server = createServer(app);
   
   // Auth middleware - setup both Replit Auth and local email/password auth
   setupReplitAuth(app);
@@ -29742,4 +29743,10 @@ System Security Data:`;
       await storage.deleteUserAlert(id);
       res.json({ message: "Alert deleted successfully" });
     } catch (error) {
-      console.err
+      console.error('Error deleting alert:', error);
+      res.status(500).json({ message: "Failed to delete alert" });
+    }
+  });
+
+  return server;
+}
