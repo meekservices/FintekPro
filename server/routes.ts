@@ -234,26 +234,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
   const requireClientOrHigher = async (req: any, res: any, next: any) => {
-    console.log('[AUTH DEBUG] requireClientOrHigher called');
-    console.log('[AUTH DEBUG] req.user exists:', !!req.user);
-    console.log('[AUTH DEBUG] req.user:', req.user ? { id: req.user.id, roles: req.user.roles, role: req.user.role } : 'null');
-    
     if (!req.user) {
-      console.log('[AUTH DEBUG] No user - returning 401');
       return res.status(401).json({ message: "Authentication required" });
     }
     
-    const allowedRoles = ['client', 'business_client', 'agent', 'partner', 'admin', 'superadmin'];
-    const hasAccess = hasRole(req.user, allowedRoles);
-    console.log('[AUTH DEBUG] Checking roles against:', allowedRoles);
-    console.log('[AUTH DEBUG] hasRole result:', hasAccess);
-    
-    if (!hasAccess) {
-      console.log('[AUTH DEBUG] Access denied - returning 403');
+    if (!hasRole(req.user, ['client', 'business_client', 'agent', 'partner', 'admin', 'superadmin'])) {
       return res.status(403).json({ message: "Client access required" });
     }
     
-    console.log('[AUTH DEBUG] Access granted - proceeding');
     next();
   };
 
