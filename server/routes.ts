@@ -24212,7 +24212,9 @@ System Security Data:`;
           : false;
 
         // Update account with verification results
+        // Use the verified name from the bank as the official account holder name
         await storage.updateBankAccount(accountId, {
+          accountHolderName: verificationResult.verifiedName, // Update to bank's verified name
           isVerified: nameMatch,
           verificationStatus: nameMatch ? 'verified' : 'failed',
           verificationDate: new Date(),
