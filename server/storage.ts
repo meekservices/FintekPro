@@ -333,12 +333,12 @@ export interface IStorage {
   updateSupplier(id: string, updates: Partial<Supplier>): Promise<Supplier | undefined>;
   deleteSupplier(id: string): Promise<boolean>;
   
-  // Supplier Product methods
-  getSupplierProducts(supplierId?: string): Promise<SupplierProduct[]>;
-  getSupplierProduct(id: string): Promise<SupplierProduct | undefined>;
-  createSupplierProduct(product: InsertSupplierProduct): Promise<SupplierProduct>;
-  updateSupplierProduct(id: string, updates: Partial<SupplierProduct>): Promise<SupplierProduct | undefined>;
-  deleteSupplierProduct(id: string): Promise<boolean>;
+  // Supplier Product methods - commented out until SupplierProduct type is added to schema
+  // getSupplierProducts(supplierId?: string): Promise<SupplierProduct[]>;
+  // getSupplierProduct(id: string): Promise<SupplierProduct | undefined>;
+  // createSupplierProduct(product: InsertSupplierProduct): Promise<SupplierProduct>;
+  // updateSupplierProduct(id: string, updates: Partial<SupplierProduct>): Promise<SupplierProduct | undefined>;
+  // deleteSupplierProduct(id: string): Promise<boolean>;
   
   // Product Marketplace methods (main products table for mutual funds, bonds, IPOs, etc.)
   getProducts(filters?: {
@@ -365,11 +365,11 @@ export interface IStorage {
   getNewProducts(limit?: number): Promise<Product[]>;
   searchProducts(query: string): Promise<Product[]>;
   
-  // Product Performance methods
-  getProductPerformanceMetrics(productId?: string): Promise<ProductPerformanceMetric[]>;
-  createProductPerformanceMetric(metric: InsertProductPerformanceMetric): Promise<ProductPerformanceMetric>;
-  updateProductPerformanceMetric(id: string, updates: Partial<ProductPerformanceMetric>): Promise<ProductPerformanceMetric | undefined>;
-  deleteProductPerformanceMetric(id: string): Promise<boolean>;
+  // Product Performance methods - commented out until ProductPerformanceMetric type is added to schema
+  // getProductPerformanceMetrics(productId?: string): Promise<ProductPerformanceMetric[]>;
+  // createProductPerformanceMetric(metric: InsertProductPerformanceMetric): Promise<ProductPerformanceMetric>;
+  // updateProductPerformanceMetric(id: string, updates: Partial<ProductPerformanceMetric>): Promise<ProductPerformanceMetric | undefined>;
+  // deleteProductPerformanceMetric(id: string): Promise<boolean>;
   
   // Profit Optimization methods
   getOptimalSupplier(productId: string): Promise<any>;
@@ -1096,7 +1096,7 @@ export class DatabaseStorage implements IStorage {
   async updateUserRole(userId: string, role: string): Promise<void> {
     await db
       .update(schema.users)
-      .set({ role, updatedAt: new Date() })
+      .set({ roles: [role], updatedAt: new Date() })
       .where(eq(schema.users.id, userId));
   }
 
@@ -1361,7 +1361,7 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .delete(schema.customerCareAgents)
       .where(eq(schema.customerCareAgents.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   async createAgentPartnerMapping(mapping: InsertAgentPartnerMapping): Promise<AgentPartnerMapping> {
@@ -1387,11 +1387,16 @@ export class DatabaseStorage implements IStorage {
       .from(schema.agentPartnerMappings)
       .leftJoin(schema.partners, eq(schema.agentPartnerMappings.partnerId, schema.partners.id));
 
+      const conditions = [];
       if (agentId) {
-        query = query.where(eq(schema.agentPartnerMappings.agentId, agentId));
+        conditions.push(eq(schema.agentPartnerMappings.agentId, agentId));
       }
       if (partnerId) {
-        query = query.where(eq(schema.agentPartnerMappings.partnerId, partnerId));
+        conditions.push(eq(schema.agentPartnerMappings.partnerId, partnerId));
+      }
+      
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions)) as any;
       }
 
       const mappings = await query;
@@ -1574,9 +1579,9 @@ export class DatabaseStorage implements IStorage {
       }
 
       // Get user data for clients and agents
-      const clientIds = [...new Set(basicResults.map(r => r.clientId))];
-      const agentIds = [...new Set(basicResults.map(r => r.agentId))];
-      const allUserIds = [...new Set([...clientIds, ...agentIds])];
+      const clientIds = Array.from(new Set(basicResults.map(r => r.clientId)));
+      const agentIds = Array.from(new Set(basicResults.map(r => r.agentId)));
+      const allUserIds = Array.from(new Set([...clientIds, ...agentIds]));
       
       const users = allUserIds.length > 0 ? await db.select({
         id: schema.users.id,
@@ -2181,25 +2186,26 @@ export class DatabaseStorage implements IStorage {
     return false;
   }
 
-  async getSupplierProducts(supplierId?: string): Promise<SupplierProduct[]> {
-    return [];
-  }
+  // Supplier Product methods - commented out until SupplierProduct type is added to schema
+  // async getSupplierProducts(supplierId?: string): Promise<SupplierProduct[]> {
+  //   return [];
+  // }
 
-  async getSupplierProduct(id: string): Promise<SupplierProduct | undefined> {
-    return undefined;
-  }
+  // async getSupplierProduct(id: string): Promise<SupplierProduct | undefined> {
+  //   return undefined;
+  // }
 
-  async createSupplierProduct(product: InsertSupplierProduct): Promise<SupplierProduct> {
-    throw new Error("Method not implemented");
-  }
+  // async createSupplierProduct(product: InsertSupplierProduct): Promise<SupplierProduct> {
+  //   throw new Error("Method not implemented");
+  // }
 
-  async updateSupplierProduct(id: string, updates: Partial<SupplierProduct>): Promise<SupplierProduct | undefined> {
-    return undefined;
-  }
+  // async updateSupplierProduct(id: string, updates: Partial<SupplierProduct>): Promise<SupplierProduct | undefined> {
+  //   return undefined;
+  // }
 
-  async deleteSupplierProduct(id: string): Promise<boolean> {
-    return false;
-  }
+  // async deleteSupplierProduct(id: string): Promise<boolean> {
+  //   return false;
+  // }
 
   // Product Marketplace implementations
   async getProducts(filters?: {
@@ -2220,7 +2226,7 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(schema.products.category, filters.category));
     }
     if (filters?.subcategory) {
-      conditions.push(eq(schema.products.subcategory, filters.subcategory));
+      conditions.push(eq(schema.products.subCategory, filters.subcategory));
     }
     if (filters?.theme) {
       conditions.push(eq(schema.products.investmentTheme, filters.theme));
@@ -2349,7 +2355,7 @@ export class DatabaseStorage implements IStorage {
     ];
     
     if (subcategory) {
-      conditions.push(eq(schema.products.subcategory, subcategory));
+      conditions.push(eq(schema.products.subCategory, subcategory));
     }
     
     const results = await db.select()
@@ -2394,7 +2400,6 @@ export class DatabaseStorage implements IStorage {
     
     return await this.updateProduct(productId, {
       performanceTag,
-      dataFreshnessDate: new Date(),
     });
   }
 
@@ -2438,21 +2443,22 @@ export class DatabaseStorage implements IStorage {
     return results;
   }
 
-  async getProductPerformanceMetrics(productId?: string): Promise<ProductPerformanceMetric[]> {
-    return [];
-  }
+  // Product Performance methods - commented out until ProductPerformanceMetric type is added to schema
+  // async getProductPerformanceMetrics(productId?: string): Promise<ProductPerformanceMetric[]> {
+  //   return [];
+  // }
 
-  async createProductPerformanceMetric(metric: InsertProductPerformanceMetric): Promise<ProductPerformanceMetric> {
-    throw new Error("Method not implemented");
-  }
+  // async createProductPerformanceMetric(metric: InsertProductPerformanceMetric): Promise<ProductPerformanceMetric> {
+  //   throw new Error("Method not implemented");
+  // }
 
-  async updateProductPerformanceMetric(id: string, updates: Partial<ProductPerformanceMetric>): Promise<ProductPerformanceMetric | undefined> {
-    return undefined;
-  }
+  // async updateProductPerformanceMetric(id: string, updates: Partial<ProductPerformanceMetric>): Promise<ProductPerformanceMetric | undefined> {
+  //   return undefined;
+  // }
 
-  async deleteProductPerformanceMetric(id: string): Promise<boolean> {
-    return false;
-  }
+  // async deleteProductPerformanceMetric(id: string): Promise<boolean> {
+  //   return false;
+  // }
 
   async getOptimalSupplier(productId: string): Promise<any> {
     return null;
@@ -2534,7 +2540,7 @@ export class DatabaseStorage implements IStorage {
 
   // Loan Product methods
   async getLoanProducts(): Promise<LoanProduct[]> {
-    return db.select().from(schema.loanProducts).orderBy(schema.loanProducts.name);
+    return db.select().from(schema.loanProducts).orderBy(schema.loanProducts.productName);
   }
 
   async getLoanProduct(id: string): Promise<LoanProduct | undefined> {
@@ -2575,7 +2581,7 @@ export class DatabaseStorage implements IStorage {
 
   // Loan Provider methods
   async getLoanProviders(): Promise<LoanProvider[]> {
-    return db.select().from(schema.loanProviders).orderBy(schema.loanProviders.name);
+    return db.select().from(schema.loanProviders).orderBy(schema.loanProviders.providerName);
   }
 
   async getLoanProvider(id: string): Promise<LoanProvider | undefined> {
@@ -2620,16 +2626,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getProviderProductsByProvider(providerId: string, productKey?: string): Promise<ProviderProduct[]> {
-    let query = db
-      .select()
-      .from(schema.providerProducts)
-      .where(eq(schema.providerProducts.providerId, providerId));
-
+    const conditions = [eq(schema.providerProducts.providerId, providerId)];
+    
     if (productKey) {
-      query = query.where(eq(schema.providerProducts.productKey, productKey));
+      conditions.push(eq(schema.providerProducts.productId, productKey));
     }
 
-    return query.orderBy(schema.providerProducts.createdAt);
+    return db
+      .select()
+      .from(schema.providerProducts)
+      .where(and(...conditions))
+      .orderBy(schema.providerProducts.createdAt);
   }
 
   async createProviderProduct(product: InsertProviderProduct): Promise<ProviderProduct> {
@@ -2652,13 +2659,14 @@ export class DatabaseStorage implements IStorage {
 
   // Loan Request methods
   async getLoanRequests(userId?: string): Promise<LoanRequest[]> {
-    let query = db.select().from(schema.loanRequests);
-    
     if (userId) {
-      query = query.where(eq(schema.loanRequests.userId, userId));
+      return db.select().from(schema.loanRequests)
+        .where(eq(schema.loanRequests.userId, userId))
+        .orderBy(desc(schema.loanRequests.createdAt));
     }
     
-    return query.orderBy(desc(schema.loanRequests.createdAt));
+    return db.select().from(schema.loanRequests)
+      .orderBy(desc(schema.loanRequests.createdAt));
   }
 
   async getLoanRequest(id: string): Promise<LoanRequest | undefined> {
@@ -2697,7 +2705,7 @@ export class DatabaseStorage implements IStorage {
     return db
       .select()
       .from(schema.loanOffers)
-      .where(eq(schema.loanOffers.loanRequestId, requestId))
+      .where(eq(schema.loanOffers.requestId, requestId))
       .orderBy(asc(schema.loanOffers.interestRate));
   }
 
@@ -2722,7 +2730,7 @@ export class DatabaseStorage implements IStorage {
   async updateLoanOffer(id: string, updates: Partial<LoanOffer>): Promise<LoanOffer | undefined> {
     const [updated] = await db
       .update(schema.loanOffers)
-      .set({ ...updates, updatedAt: new Date() })
+      .set(updates)
       .where(eq(schema.loanOffers.id, id))
       .returning();
     return updated;
@@ -2730,13 +2738,14 @@ export class DatabaseStorage implements IStorage {
 
   // Loan Application Marketplace methods
   async getLoanApplicationsMarketplace(userId?: string): Promise<LoanApplicationMarketplace[]> {
-    let query = db.select().from(schema.loanApplicationsMarketplace);
-    
     if (userId) {
-      query = query.where(eq(schema.loanApplicationsMarketplace.userId, userId));
+      return db.select().from(schema.loanApplicationsMarketplace)
+        .where(eq(schema.loanApplicationsMarketplace.userId, userId))
+        .orderBy(desc(schema.loanApplicationsMarketplace.createdAt));
     }
     
-    return query.orderBy(desc(schema.loanApplicationsMarketplace.createdAt));
+    return db.select().from(schema.loanApplicationsMarketplace)
+      .orderBy(desc(schema.loanApplicationsMarketplace.createdAt));
   }
 
   async getLoanApplicationMarketplace(id: string): Promise<LoanApplicationMarketplace | undefined> {
@@ -2793,33 +2802,6 @@ export class DatabaseStorage implements IStorage {
       .update(schema.providerIntegrations)
       .set({ ...updates, updatedAt: new Date() })
       .where(eq(schema.providerIntegrations.id, id))
-      .returning();
-    return updated;
-  }
-
-  // Application Document methods
-  async getApplicationDocuments(applicationId: string): Promise<ApplicationDocument[]> {
-    return db
-      .select()
-      .from(schema.applicationDocuments)
-      .where(eq(schema.applicationDocuments.applicationId, applicationId))
-      .orderBy(schema.applicationDocuments.createdAt);
-  }
-
-  async createApplicationDocument(document: InsertApplicationDocument): Promise<ApplicationDocument> {
-    const documentWithId = { ...document, id: randomUUID() };
-    const [created] = await db
-      .insert(schema.applicationDocuments)
-      .values(documentWithId)
-      .returning();
-    return created;
-  }
-
-  async updateApplicationDocument(id: string, updates: Partial<ApplicationDocument>): Promise<ApplicationDocument | undefined> {
-    const [updated] = await db
-      .update(schema.applicationDocuments)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(schema.applicationDocuments.id, id))
       .returning();
     return updated;
   }
@@ -3077,16 +3059,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTaxDocuments(userId: string, financialYear?: string): Promise<TaxDocument[]> {
-    let query = this.db
-      .select()
-      .from(schema.taxDocuments)
-      .where(eq(schema.taxDocuments.userId, userId));
-
+    const conditions = [eq(schema.taxDocuments.userId, userId)];
+    
     if (financialYear) {
-      query = query.where(eq(schema.taxDocuments.financialYear, financialYear));
+      conditions.push(eq(schema.taxDocuments.financialYear, financialYear));
     }
 
-    return await query.orderBy(desc(schema.taxDocuments.createdAt));
+    return await this.db
+      .select()
+      .from(schema.taxDocuments)
+      .where(and(...conditions))
+      .orderBy(desc(schema.taxDocuments.createdAt));
   }
 
   async getTaxDocument(id: string): Promise<TaxDocument | undefined> {
@@ -3131,20 +3114,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getStructuredTaxDataByUser(userId: string, financialYear?: string): Promise<StructuredTaxData[]> {
-    let query = this.db
-      .select({
-        ...schema.structuredTaxData,
-        document: schema.taxDocuments
-      })
-      .from(schema.structuredTaxData)
-      .innerJoin(schema.taxDocuments, eq(schema.structuredTaxData.documentId, schema.taxDocuments.id))
-      .where(eq(schema.structuredTaxData.userId, userId));
-
+    const conditions = [eq(schema.structuredTaxData.userId, userId)];
+    
     if (financialYear) {
-      query = query.where(eq(schema.taxDocuments.financialYear, financialYear));
+      conditions.push(eq(schema.taxDocuments.financialYear, financialYear));
     }
 
-    return await query.orderBy(desc(schema.structuredTaxData.createdAt));
+    const results = await this.db
+      .select()
+      .from(schema.structuredTaxData)
+      .innerJoin(schema.taxDocuments, eq(schema.structuredTaxData.documentId, schema.taxDocuments.id))
+      .where(and(...conditions))
+      .orderBy(desc(schema.structuredTaxData.createdAt));
+      
+    return results.map(r => r.structured_tax_data) as StructuredTaxData[];
   }
 
   async updateStructuredTaxData(id: string, updates: Partial<StructuredTaxData>): Promise<StructuredTaxData | undefined> {
@@ -3173,14 +3156,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTaxCalculations(userId: string, financialYear?: string): Promise<TaxCalculation[]> {
-    let query = this.db
+    const conditions = [eq(schema.taxCalculations.userId, userId)];
+    
+    if (financialYear) {
+      conditions.push(eq(schema.taxCalculations.financialYear, financialYear));
+    }
+
+    const query = this.db
       .select()
       .from(schema.taxCalculations)
-      .where(eq(schema.taxCalculations.userId, userId));
-
-    if (financialYear) {
-      query = query.where(eq(schema.taxCalculations.financialYear, financialYear));
-    }
+      .where(and(...conditions));
 
     return await query.orderBy(desc(schema.taxCalculations.createdAt));
   }
@@ -3250,6 +3235,7 @@ export class DatabaseStorage implements IStorage {
       for (const data of mockExtractedData) {
         await this.createStructuredTaxData({
           ...data,
+          dataType: data.dataType || 'unknown',
           documentId,
           userId: document.userId
         });
@@ -3292,11 +3278,11 @@ export class DatabaseStorage implements IStorage {
       }
 
       // Check for reasonable values
-      if (data.taxableAmount && data.taxableAmount < 0) {
+      if (data.taxableAmount && parseFloat(data.taxableAmount) < 0) {
         errors.push(`Negative taxable amount for entry ${data.id}`);
       }
 
-      if (data.taxDeducted && data.taxDeducted < 0) {
+      if (data.taxDeducted && parseFloat(data.taxDeducted) < 0) {
         errors.push(`Negative tax deducted for entry ${data.id}`);
       }
 
@@ -3346,8 +3332,8 @@ export class DatabaseStorage implements IStorage {
     };
 
     // Calculate totals
-    itrJson.income.totalIncome = Object.values(itrJson.income).reduce((sum: number, val: number) => sum + val, 0);
-    itrJson.taxComputation.totalIncome = itrJson.income.totalIncome - itrJson.deductions.totalDeductions;
+    const totalIncome = Object.values(itrJson.income).reduce((sum: number, val: number) => sum + val, 0);
+    itrJson.taxComputation.totalIncome = totalIncome - itrJson.deductions.totalDeductions;
 
     return {
       itrJson: JSON.stringify(itrJson, null, 2),
@@ -3392,19 +3378,19 @@ export class DatabaseStorage implements IStorage {
       userId,
       financialYear,
       taxRegime,
-      totalIncome,
-      taxableIncome,
-      standardDeduction,
-      section80cDeductions,
-      totalDeductions,
-      grossTaxLiability,
-      educationCess,
-      totalTaxPayable,
-      tdsDeducted,
-      advanceTaxPaid,
-      totalTaxPaid,
-      refundDue,
-      taxPayable,
+      totalIncome: totalIncome.toString(),
+      taxableIncome: taxableIncome.toString(),
+      standardDeduction: standardDeduction.toString(),
+      section80cDeductions: section80cDeductions.toString(),
+      totalDeductions: totalDeductions.toString(),
+      grossTaxLiability: grossTaxLiability.toString(),
+      educationCess: educationCess.toString(),
+      totalTaxPayable: totalTaxPayable.toString(),
+      tdsDeducted: tdsDeducted.toString(),
+      advanceTaxPaid: advanceTaxPaid.toString(),
+      totalTaxPaid: totalTaxPaid.toString(),
+      refundDue: refundDue.toString(),
+      taxPayable: taxPayable.toString(),
       incomeBreakdown: {
         salary: salaryIncome,
         capitalGains,
@@ -3431,9 +3417,9 @@ export class DatabaseStorage implements IStorage {
         dataType: 'TDS',
         dataCategory: 'deduction',
         sourceType: 'employer',
-        taxableAmount: 500000,
-        taxDeducted: 50000,
-        transactionDate: new Date('2024-03-31'),
+        taxableAmount: '500000',
+        taxDeducted: '50000',
+        transactionDate: '2024-03-31',
         deductorPan: 'ABCDE1234F',
         deductorName: 'Sample Employer',
         incomeNature: 'salary'
@@ -3446,9 +3432,9 @@ export class DatabaseStorage implements IStorage {
         dataType: 'interest',
         dataCategory: 'income',
         sourceType: 'bank',
-        taxableAmount: 25000,
-        taxDeducted: 2500,
-        transactionDate: new Date('2024-03-31'),
+        taxableAmount: '25000',
+        taxDeducted: '2500',
+        transactionDate: '2024-03-31',
         bankName: 'Sample Bank',
         incomeNature: 'interest'
       });
@@ -3486,16 +3472,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   private calculateSalaryIncome(salaryData: any[]): number {
-    return salaryData.reduce((total, item) => total + (item.taxableAmount || 0), 0);
+    return salaryData.reduce((total, item) => total + (parseFloat(item.taxableAmount) || 0), 0);
   }
 
   private calculateCapitalGains(capitalGainsData: any[]): number {
-    return capitalGainsData.reduce((total, item) => total + (item.taxableAmount || 0), 0);
+    return capitalGainsData.reduce((total, item) => total + (parseFloat(item.taxableAmount) || 0), 0);
   }
 
   private calculateOtherIncome(interestData: any[], dividendData: any[]): number {
-    const interest = interestData.reduce((total, item) => total + (item.taxableAmount || 0), 0);
-    const dividend = dividendData.reduce((total, item) => total + (item.taxableAmount || 0), 0);
+    const interest = interestData.reduce((total, item) => total + (parseFloat(item.taxableAmount) || 0), 0);
+    const dividend = dividendData.reduce((total, item) => total + (parseFloat(item.taxableAmount) || 0), 0);
     return interest + dividend;
   }
 
@@ -3579,7 +3565,7 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .delete(schema.investmentIdeas)
       .where(eq(schema.investmentIdeas.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   async getActiveInvestmentIdeas(userId: string): Promise<InvestmentIdea[]> {
@@ -3687,7 +3673,7 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .delete(schema.yieldTracker)
       .where(eq(schema.yieldTracker.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   // Partner Application methods
@@ -3749,19 +3735,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getApplicationsByLender(lender: string, status?: string): Promise<PartnerApplication[]> {
-    let query = db
+    if (status) {
+      return db
+        .select()
+        .from(schema.partnerApplications)
+        .where(and(
+          eq(schema.partnerApplications.lender, lender),
+          eq(schema.partnerApplications.status, status)
+        ))
+        .orderBy(desc(schema.partnerApplications.createdAt));
+    }
+    
+    return db
       .select()
       .from(schema.partnerApplications)
-      .where(eq(schema.partnerApplications.lender, lender));
-    
-    if (status) {
-      query = query.where(and(
-        eq(schema.partnerApplications.lender, lender),
-        eq(schema.partnerApplications.status, status)
-      ));
-    }
-
-    return await query.orderBy(desc(schema.partnerApplications.createdAt));
+      .where(eq(schema.partnerApplications.lender, lender))
+      .orderBy(desc(schema.partnerApplications.createdAt));
   }
 
   async getApplicationPrefillData(userId: string, lender: string, recommendationId?: string): Promise<any> {
@@ -3774,17 +3763,17 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Base prefill data from user profile
-    const prefillData = {
+    const prefillData: any = {
       // Personal Information
       panNumber: userProfile.panNumber,
       aadharNumber: userProfile.aadharNumber,
       currentAddress: userProfile.address || `${userProfile.city}, ${userProfile.state}, ${userProfile.country}`,
-      employmentType: userProfile.occupationType || 'salaried',
-      monthlyIncome: userProfile.annualIncome ? Math.round(userProfile.annualIncome / 12) : 0,
-      workExperience: userProfile.workExperience || 5,
+      employmentType: userProfile.occupation || 'salaried',
+      monthlyIncome: userProfile.annualIncome ? Math.round(parseFloat(userProfile.annualIncome) / 12) : 0,
+      workExperience: 5, // Default value since workExperience doesn't exist in schema
       
       // Banking Information
-      bankName: userProfile.primaryBankName || '',
+      bankName: '', // primaryBankName doesn't exist in schema
       
       // Contact Information
       email: user.email,
@@ -3804,7 +3793,6 @@ export class DatabaseStorage implements IStorage {
 
     // If there's a recommendation, use its parameters
     if (recommendationId) {
-      prefillData.recommendationId = recommendationId;
       // You could fetch the recommendation details here to prefill loan amount, tenure, etc.
     }
 
