@@ -99,10 +99,9 @@ import ExpensesBudgets from "@/pages/expenses-budgets";
 
 function UserProtectedRoutes() {
   return (
-    <AppLayout>
-      <ProfileCompletionGuard>
-        <Switch>
-          <Route path="/" component={Home} />
+    <ProfileCompletionGuard>
+      <Switch>
+        <Route path="/" component={Home} />
         <Route path="/dashboard" component={Home} />
         <Route path="/portfolio" component={Portfolio} />
         <Route path="/comprehensive-portfolio">{() => {
@@ -193,35 +192,36 @@ function UserProtectedRoutes() {
         <Route path="/commodities" component={CommoditiesPage} />
         <Route path="/credit-cards" component={CreditCardsPage} />
         <Route path="/professional-services" component={ProfessionalServicesPage} />
-        </Switch>
-      </ProfileCompletionGuard>
-    </AppLayout>
+      </Switch>
+    </ProfileCompletionGuard>
   );
 }
 
 function Router() {
   return (
-    <Switch>
-      {/* Public routes - no authentication or profile completion required */}
-      <Route path="/auth" component={AuthPage} />
-      <Route path="/whatsapp-login" component={WhatsAppAuthPage} />
-      <Route path="/profile" component={Profile} />
-      <Route path="/onboarding" component={OnboardingPage} />
-      <Route path="/manual-kyc" component={ManualKYCPage} />
-      <Route path="/net-worth" component={NetWorthPage} />
-      <Route path="/privacy" component={Privacy} />
-      <Route path="/terms" component={Terms} />
-      
-      {/* Agent/Admin routes - bypass profile completion but require authentication */}
-      <Route path="/admin" component={AdminPanel} />
-      <Route path="/admin/proposals" component={AdminProposalsPage} />
-      <Route path="/admin/whatsapp-setup" component={AdminWhatsAppSetup} />
-      <Route path="/agent" component={AgentDashboard} />
-      <Route path="/agent-portal" component={AgentPortal} />
-      
-      {/* User routes - require both authentication and profile completion */}
-      <Route component={UserProtectedRoutes} />
-    </Switch>
+    <AppLayout>
+      <Switch>
+        {/* Public routes - no authentication or profile completion required */}
+        <Route path="/auth" component={AuthPage} />
+        <Route path="/whatsapp-login" component={WhatsAppAuthPage} />
+        <Route path="/profile" component={Profile} />
+        <Route path="/onboarding" component={OnboardingPage} />
+        <Route path="/manual-kyc" component={ManualKYCPage} />
+        <Route path="/net-worth" component={NetWorthPage} />
+        <Route path="/privacy" component={Privacy} />
+        <Route path="/terms" component={Terms} />
+        
+        {/* Agent/Admin routes - bypass profile completion but require authentication */}
+        <Route path="/admin" component={AdminPanel} />
+        <Route path="/admin/proposals" component={AdminProposalsPage} />
+        <Route path="/admin/whatsapp-setup" component={AdminWhatsAppSetup} />
+        <Route path="/agent" component={AgentDashboard} />
+        <Route path="/agent-portal" component={AgentPortal} />
+        
+        {/* User routes - require both authentication and profile completion */}
+        <Route component={UserProtectedRoutes} />
+      </Switch>
+    </AppLayout>
   );
 }
 
