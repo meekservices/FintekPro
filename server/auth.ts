@@ -8,6 +8,7 @@ import { storage } from "./storage";
 import { type User } from "@shared/schema";
 import { emailService } from "./email-service";
 import { smsService } from "./services/sms-service";
+import { whatsappService } from "./whatsapp";
 
 declare global {
   namespace Express {
@@ -457,7 +458,7 @@ export function setupAuth(app: Express) {
           verified: false,
         });
 
-        // Send OTP via appropriate channel
+        // Send OTP via appropriate channels (email/SMS/WhatsApp)
         if (otpType === "email") {
           const emailSent = await emailService.sendLoginOTP(otpDestination, otp);
           if (emailSent) {
@@ -466,9 +467,16 @@ export function setupAuth(app: Express) {
             console.log(`⚠️ Email failed, Login OTP for ${otpDestination}: ${otp}`);
           }
         } else {
+          // For mobile, try SMS first, then WhatsApp as fallback
           const smsSent = await smsService.sendOTP(otpDestination, otp);
-          if (!smsSent) {
-            console.log(`📱 Login OTP for ${otpDestination}: ${otp}`);
+          if (smsSent) {
+            console.log(`✅ Login OTP sent via SMS to: ${otpDestination}`);
+          } else {
+            // Try WhatsApp as fallback
+            const whatsappSent = await whatsappService.sendLoginOTP(otpDestination, otp);
+            if (!whatsappSent) {
+              console.log(`📱 Login OTP for ${otpDestination}: ${otp} (SMS and WhatsApp unavailable)`);
+            }
           }
         }
 

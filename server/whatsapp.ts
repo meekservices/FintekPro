@@ -344,6 +344,57 @@ export class WhatsAppService {
   getQrCode(): string | null {
     return this.qrCode;
   }
+
+  // Send OTP for login verification
+  async sendLoginOTP(mobile: string, otp: string): Promise<boolean> {
+    if (!this.isReady) {
+      console.log(`📱 WhatsApp OTP for ${mobile}: ${otp} (WhatsApp not ready)`);
+      return false;
+    }
+
+    try {
+      // Format mobile number for WhatsApp (remove + and add country code if needed)
+      const formattedMobile = mobile.startsWith('+') ? mobile.substring(1) : `91${mobile}`;
+      const chatId = `${formattedMobile}@c.us`;
+
+      const message = `🔐 *FintekPro Login Verification*\n\n` +
+        `Your login OTP is: *${otp}*\n\n` +
+        `This code is valid for 5 minutes.\n\n` +
+        `⚠️ Do not share this code with anyone.`;
+
+      await this.sendMessage(chatId, message);
+      console.log(`✅ WhatsApp OTP sent to ${mobile}`);
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to send WhatsApp OTP:', error);
+      return false;
+    }
+  }
+
+  // Send OTP for password reset
+  async sendPasswordResetOTP(mobile: string, otp: string): Promise<boolean> {
+    if (!this.isReady) {
+      console.log(`📱 WhatsApp Password Reset OTP for ${mobile}: ${otp} (WhatsApp not ready)`);
+      return false;
+    }
+
+    try {
+      const formattedMobile = mobile.startsWith('+') ? mobile.substring(1) : `91${mobile}`;
+      const chatId = `${formattedMobile}@c.us`;
+
+      const message = `🔐 *FintekPro Password Reset*\n\n` +
+        `Your password reset OTP is: *${otp}*\n\n` +
+        `This code is valid for 5 minutes.\n\n` +
+        `⚠️ If you didn't request this, please contact support immediately.`;
+
+      await this.sendMessage(chatId, message);
+      console.log(`✅ WhatsApp password reset OTP sent to ${mobile}`);
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to send WhatsApp password reset OTP:', error);
+      return false;
+    }
+  }
 }
 
 export const whatsappService = new WhatsAppService();
