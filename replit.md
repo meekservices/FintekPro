@@ -6,6 +6,15 @@ FintekPro is a comprehensive full-stack TypeScript financial services platform f
 
 ## Recent Changes (Oct 13, 2025)
 
+### Fixed Layout Theme & UI Consistency
+- **Established consistent layout pattern** across all pages with left sidebar navigation and footer
+- All routes now use the unified `AppLayout` component (wrapping Router in App.tsx)
+- **Updated ScrollableTabsList** to prevent tabs from sliding under navigation arrow buttons
+  - Added dynamic padding (48px) when arrows are visible
+  - Ensures tab content stays within visible area, not obscured by navigation buttons
+- **Layout structure**: Left collapsible sidebar → Main content area → Footer
+- All new pages will automatically inherit this layout theme
+
 ### TypeScript Error Resolution
 - **Fixed all 583 TypeScript compilation errors** across server/storage.ts and server/routes.ts
 - Added comprehensive type imports for Product, SupplierProduct, ChatSession, ChatMessage, ChatAction, ChatFunction, CurrencyRate, CkycNotificationTrigger, ApplicationDocument, ProductAccountPreference, ICICILoanApplication, ICICICreditScore, PortfolioComparison, ProductPerformanceMetric and all their Insert variants
@@ -28,6 +37,56 @@ Do not make changes to the file `Y`.
 - **Styling**: Tailwind CSS with CSS custom properties
 - **Charts**: Recharts for data visualization
 - **Design Approach**: Mobile-first, responsive, and adaptive layouts with a custom ScrollableTabsList component for optimal mobile UX.
+
+### Layout Architecture (Fixed Theme)
+FintekPro follows a consistent three-part layout structure across all pages:
+
+1. **Left Sidebar Navigation** (`EnhancedNavigation` component)
+   - Collapsible sidebar (toggle button in header)
+   - Process flow-based navigation groups (Getting Started, Research & Planning, Products, Investing, Services, Tax, Family, etc.)
+   - User profile section at top when authenticated
+   - Quick action buttons (Cart with badge counter)
+   - Bottom actions (Profile, Logout, Support)
+   - State persisted in localStorage
+   - Auto-shows/hides based on content
+
+2. **Main Content Area**
+   - Wrapped by `AppLayout` component at Router level (client/src/App.tsx)
+   - Flexible container that takes remaining horizontal space
+   - Padding and background styling for content separation
+   - Contains all page-specific content
+
+3. **Footer** (`Footer` component)
+   - Process flow-organized links matching sidebar structure
+   - Social media icons
+   - Optional credit score widget for authenticated users
+   - Copyright and compliance information
+
+### ScrollableTabsList Pattern
+For pages with tabbed navigation:
+- Use `ScrollableTabsList` wrapper component around `TabsTrigger` elements
+- Auto-displays left/right arrow navigation buttons when content overflows
+- Dynamic padding (48px) prevents tab content from sliding under arrow buttons
+- Gradient fade effects for visual continuity
+- Mobile-optimized with touch-friendly controls
+- Example usage:
+  ```tsx
+  <Tabs value={activeTab} onValueChange={setActiveTab}>
+    <ScrollableTabsList>
+      <TabsTrigger value="tab1">Tab 1</TabsTrigger>
+      <TabsTrigger value="tab2">Tab 2</TabsTrigger>
+    </ScrollableTabsList>
+    <TabsContent value="tab1">...</TabsContent>
+  </Tabs>
+  ```
+
+### Creating New Pages
+All new pages automatically inherit the FintekPro layout theme:
+1. Create page component in `client/src/pages/`
+2. Add route in `client/src/App.tsx` within the appropriate route section
+3. Page will automatically be wrapped with AppLayout (sidebar + footer)
+4. Use ScrollableTabsList for any tabbed navigation within the page
+5. Add navigation link to EnhancedNavigation sidebar groups if needed
 
 ### Technical Implementations
 - **Frontend**: Wouter for routing, TanStack Query for state management, React Hook Form with Zod for forms, Vite for building.
