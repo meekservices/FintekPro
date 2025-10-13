@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/useAuth";
 import { User, Shield, AlertTriangle, CheckCircle, FileText, Building2, Globe, Star, Award, Lock, Heart, MapPin, Phone, Mail, CreditCard, Banknote, Users, Calendar, RefreshCw } from "lucide-react";
 import { BankingTab } from "@/components/BankingDematTab";
 import { DematTab } from "@/components/DematTab";
@@ -321,6 +322,7 @@ export default function ProfilePage() {
   const [profileCompleteness, setProfileCompleteness] = useState(0);
   const [isAmlScreening, setIsAmlScreening] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   // Fetch existing profile data
   const { data: profile, isLoading: profileLoading } = useQuery({
@@ -497,6 +499,11 @@ export default function ProfilePage() {
             <User className="h-8 w-8" />
             Client Profile & KYC Onboarding
           </h1>
+          {user?.userId && (
+            <p className="text-sm text-gray-500 mt-1" data-testid="profile-user-id">
+              User ID: {user.userId}
+            </p>
+          )}
           <p className="text-gray-600 mt-2">
             Complete your profile for regulatory compliance and enhanced services
           </p>
