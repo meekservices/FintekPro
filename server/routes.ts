@@ -5,7 +5,7 @@ import { sql, eq } from "drizzle-orm";
 import { db } from "./db";
 import { setupAuth as setupReplitAuth } from "./replitAuth";
 import { setupAuth as setupLocalAuth } from "./auth";
-import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema, insertCapitalGainsReportSchema, insertTransactionReportSchema, insertTransactionRecordSchema, insertCkycRecordSchema, userCart, userCartItems, storeProducts, storeCategories, fundComparisons, portfolioComparisons, comparisonHistory, insertFamilyGroupSchema, insertFamilyMemberSchema, insertFamilyGoalSchema, insertFamilyGoalContributionSchema, insertFamilyActivityLogSchema, insertFamilyDiscussionSchema, insertFamilyBudgetSchema, kycFormProgress } from "@shared/schema";
+import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema, insertCapitalGainsReportSchema, insertTransactionReportSchema, insertTransactionRecordSchema, insertCkycRecordSchema, userCart, userCartItems, storeProducts, storeCategories, fundComparisons, portfolioComparisons, comparisonHistory, insertFamilyGroupSchema, insertFamilyMemberSchema, insertFamilyGoalSchema, insertFamilyGoalContributionSchema, insertFamilyActivityLogSchema, insertFamilyDiscussionSchema, insertFamilyBudgetSchema, kycFormProgress, insertProductAccountPreferenceSchema } from "@shared/schema";
 import { marketStoryService, type MarketData as StoryMarketData } from "./market-story-service";
 import { generateMarketInsight, analyzePortfolio, generateInvestmentStory, explainFinancialConcept } from "./gemini";
 import { whatsappService } from "./whatsapp";
@@ -24443,6 +24443,142 @@ System Security Data:`;
     } catch (error) {
       console.error("Error setting default demat account:", error);
       res.status(500).json({ error: "Failed to set default demat account" });
+    }
+  });
+
+  // ==================== Product Account Preference Routes ====================
+  
+  // Get user's product account preferences
+  app.get("/api/product-account-preferences", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const preferences = await storage.getUserProductAccountPreferences(req.user.id);
+      res.json(preferences);
+    } catch (error) {
+      console.error("Error fetching product account preferences:", error);
+      res.status(500).json({ error: "Failed to fetch product account preferences" });
+    }
+  });
+
+  // Get preference for specific product type
+  app.get("/api/product-account-preferences/:productType", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const preference = await storage.getProductAccountPreference(
+        req.user.id, 
+        req.params.productType
+      );
+      
+      if (!preference) {
+        return res.status(404).json({ error: "Preference not found for this product type" });
+      }
+
+      res.json(preference);
+    } catch (error) {
+      console.error("Error fetching product account preference:", error);
+      res.status(500).json({ error: "Failed to fetch product account preference" });
+    }
+  });
+
+  // Create product account preference
+  app.post("/api/product-account-preferences", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      // Validate request body
+      const validatedData = insertProductAccountPreferenceSchema.parse(req.body);
+
+      // Override userId and server-managed fields to prevent tampering
+      const preferenceData = {
+        ...validatedData,
+        userId: req.user.id, // Force authenticated user's ID
+        isActive: true, // Server manages this
+        isDefault: true, // Server manages this
+      };
+
+      const preference = await storage.createProductAccountPreference(preferenceData);
+      res.status(201).json(preference);
+    } catch (error: any) {
+      console.error("Error creating product account preference:", error);
+      if (error.name === "ZodError") {
+        return res.status(400).json({ error: "Invalid request data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create product account preference" });
+    }
+  });
+
+  // Update product account preference
+  app.put("/api/product-account-preferences/:id", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      // First, verify the preference exists and belongs to the user
+      const preferences = await storage.getUserProductAccountPreferences(req.user.id);
+      const existingPref = preferences.find(p => p.id === req.params.id);
+      
+      if (!existingPref) {
+        return res.status(404).json({ error: "Preference not found or access denied" });
+      }
+
+      // Validate request body (partial schema - only allow specific fields)
+      const updateSchema = insertProductAccountPreferenceSchema.pick({
+        bankAccountId: true,
+        dematAccountId: true,
+      }).partial();
+      
+      const validatedData = updateSchema.parse(req.body);
+
+      const updated = await storage.updateProductAccountPreference(req.params.id, validatedData);
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Preference not found" });
+      }
+
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error updating product account preference:", error);
+      if (error.name === "ZodError") {
+        return res.status(400).json({ error: "Invalid request data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update product account preference" });
+    }
+  });
+
+  // Delete product account preference
+  app.delete("/api/product-account-preferences/:id", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      // First, verify the preference exists and belongs to the user
+      const preferences = await storage.getUserProductAccountPreferences(req.user.id);
+      const existingPref = preferences.find(p => p.id === req.params.id);
+      
+      if (!existingPref) {
+        return res.status(404).json({ error: "Preference not found or access denied" });
+      }
+
+      const deleted = await storage.deleteProductAccountPreference(req.params.id);
+      
+      if (deleted) {
+        res.json({ success: true, message: "Preference deleted successfully" });
+      } else {
+        res.status(404).json({ error: "Preference not found" });
+      }
+    } catch (error) {
+      console.error("Error deleting product account preference:", error);
+      res.status(500).json({ error: "Failed to delete product account preference" });
     }
   });
 

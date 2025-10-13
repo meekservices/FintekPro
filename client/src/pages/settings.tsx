@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ProductAccountPreferences } from "@/components/ProductAccountPreferences";
 
 const accountFormSchema = z.object({
   firstName: z.string().min(2, "First name must be at least 2 characters"),
@@ -124,6 +125,10 @@ export default function SettingsPage() {
           <TabsTrigger value="connections" data-testid="tab-connections">
             <LinkIcon className="h-4 w-4 mr-2" />
             Connected Accounts
+          </TabsTrigger>
+          <TabsTrigger value="product-preferences" data-testid="tab-product-preferences">
+            <SettingsIcon className="h-4 w-4 mr-2" />
+            Product Accounts
           </TabsTrigger>
         </ScrollableTabsList>
 
@@ -514,6 +519,11 @@ export default function SettingsPage() {
               </Button>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Product Account Preferences Tab */}
+        <TabsContent value="product-preferences" className="space-y-6">
+          <ProductAccountPreferences />
         </TabsContent>
       </Tabs>
     </div>

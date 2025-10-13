@@ -472,6 +472,13 @@ export interface IStorage {
   deleteDematAccount(id: string): Promise<boolean>;
   setDefaultDematAccount(accountId: string, defaultType: 'equity' | 'mutualFunds'): Promise<boolean>;
 
+  // Product Account Preference Methods
+  createProductAccountPreference(preference: InsertProductAccountPreference): Promise<ProductAccountPreference>;
+  getUserProductAccountPreferences(userId: string): Promise<ProductAccountPreference[]>;
+  getProductAccountPreference(userId: string, productType: string): Promise<ProductAccountPreference | undefined>;
+  updateProductAccountPreference(id: string, updates: Partial<ProductAccountPreference>): Promise<ProductAccountPreference | undefined>;
+  deleteProductAccountPreference(id: string): Promise<boolean>;
+
   // ===== MULTI-SOURCE MUTUAL FUND CACHE METHODS =====
   // Enhanced mutual fund storage with provenance tracking
   
@@ -2901,6 +2908,53 @@ export class DatabaseStorage implements IStorage {
 
   async setDefaultDematAccount(accountId: string, defaultType: 'equity' | 'mutualFunds'): Promise<boolean> {
     return false;
+  }
+
+  // Product Account Preference Methods
+  async createProductAccountPreference(preference: InsertProductAccountPreference): Promise<ProductAccountPreference> {
+    const [newPreference] = await db
+      .insert(schema.productAccountPreferences)
+      .values(preference)
+      .returning();
+    return newPreference;
+  }
+
+  async getUserProductAccountPreferences(userId: string): Promise<ProductAccountPreference[]> {
+    return await db
+      .select()
+      .from(schema.productAccountPreferences)
+      .where(eq(schema.productAccountPreferences.userId, userId))
+      .orderBy(desc(schema.productAccountPreferences.createdAt));
+  }
+
+  async getProductAccountPreference(userId: string, productType: string): Promise<ProductAccountPreference | undefined> {
+    const [preference] = await db
+      .select()
+      .from(schema.productAccountPreferences)
+      .where(
+        and(
+          eq(schema.productAccountPreferences.userId, userId),
+          eq(schema.productAccountPreferences.productType, productType),
+          eq(schema.productAccountPreferences.isActive, true)
+        )
+      );
+    return preference || undefined;
+  }
+
+  async updateProductAccountPreference(id: string, updates: Partial<ProductAccountPreference>): Promise<ProductAccountPreference | undefined> {
+    const [updated] = await db
+      .update(schema.productAccountPreferences)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.productAccountPreferences.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteProductAccountPreference(id: string): Promise<boolean> {
+    const result = await db
+      .delete(schema.productAccountPreferences)
+      .where(eq(schema.productAccountPreferences.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
   }
 
   // Additional missing methods from MemStorage that are called in routes.ts
