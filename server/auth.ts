@@ -130,6 +130,34 @@ export function setupAuth(app: Express) {
     )
   );
 
+  // Configure passport for userId login
+  passport.use(
+    "userId-local",
+    new LocalStrategy(
+      {
+        usernameField: "userId",
+        passwordField: "password",
+      },
+      async (userId, password, done) => {
+        try {
+          const user = await storage.getUserByUserId(userId);
+          if (!user || !(await comparePasswords(password, user.password))) {
+            return done(null, false, { message: "Invalid user ID or password" });
+          }
+          // Normalize user data for Express
+          const normalizedUser = {
+            ...user,
+            isEmailVerified: user.isEmailVerified ?? false,
+            isMobileVerified: user.isMobileVerified ?? false
+          };
+          return done(null, normalizedUser);
+        } catch (error) {
+          return done(error);
+        }
+      }
+    )
+  );
+
   // Note: serializeUser and deserializeUser are already configured by setupReplitAuth
   // The Replit Auth serializes the entire user object, which works for both OAuth and local auth
 
@@ -352,6 +380,77 @@ export function setupAuth(app: Express) {
         });
       });
     })(req, res, next);
+  });
+
+  // Unified login endpoint - accepts email, mobile, or userId as identifier
+  app.post("/api/login", async (req, res, next) => {
+    try {
+      const { identifier, password } = req.body;
+
+      if (!identifier || !password) {
+        return res.status(400).json({ message: "Identifier and password are required" });
+      }
+
+      // Detect identifier type and determine which strategy to use
+      let strategy: string;
+      let usernameField: string;
+
+      // Check if it's an email (contains @)
+      if (identifier.includes("@")) {
+        strategy = "email-local";
+        usernameField = "email";
+      } 
+      // Check if it's a userId (starts with FTP)
+      else if (identifier.startsWith("FTP")) {
+        strategy = "userId-local";
+        usernameField = "userId";
+      }
+      // Otherwise, assume it's a mobile number
+      else {
+        strategy = "mobile-local";
+        usernameField = "mobile";
+      }
+
+      // Create a modified request with the correct field name
+      const modifiedReq = {
+        ...req,
+        body: {
+          ...req.body,
+          [usernameField]: identifier,
+          password
+        }
+      };
+
+      passport.authenticate(strategy, (err: any, user: any, info: any) => {
+        if (err) {
+          console.error("Login error:", err);
+          return res.status(500).json({ message: "Login failed" });
+        }
+        if (!user) {
+          return res.status(401).json({ message: info?.message || "Invalid credentials" });
+        }
+        req.login(user, (loginErr) => {
+          if (loginErr) {
+            console.error("Login session error:", loginErr);
+            return res.status(500).json({ message: "Login failed" });
+          }
+          res.json({
+            id: user.id,
+            userId: user.userId,
+            email: user.email,
+            mobile: user.mobile,
+            firstName: user.firstName,
+            middleName: user.middleName,
+            lastName: user.lastName,
+            isEmailVerified: user.isEmailVerified,
+            isMobileVerified: user.isMobileVerified,
+          });
+        });
+      })(modifiedReq, res, next);
+    } catch (error) {
+      console.error("Unified login error:", error);
+      res.status(500).json({ message: "Login failed" });
+    }
   });
 
   // Send OTP for mobile verification
