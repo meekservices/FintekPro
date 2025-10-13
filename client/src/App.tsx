@@ -61,6 +61,7 @@ import BrokingPage from "@/pages/broking";
 import AgentPortal from "@/pages/agent-portal";
 import OnboardingPage from "@/pages/onboarding";
 import ManualKYCPage from "@/pages/manual-kyc";
+import NetWorthPage from "@/pages/net-worth";
 import AdminProposalsPage from "@/pages/admin-proposals";
 import AdminWhatsAppSetup from "@/pages/admin-whatsapp-setup";
 import ClientProposalsPage from "@/pages/client-proposals";
@@ -207,6 +208,7 @@ function Router() {
       <Route path="/profile" component={Profile} />
       <Route path="/onboarding" component={OnboardingPage} />
       <Route path="/manual-kyc" component={ManualKYCPage} />
+      <Route path="/net-worth" component={NetWorthPage} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/terms" component={Terms} />
       

@@ -642,6 +642,292 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Net Worth Aggregation API - Intelligent multi-source wealth tracking
+  app.get("/api/net-worth", requireClientOrHigher, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const { includeFamily } = req.query;
+      
+      // Import required schemas
+      const { 
+        portfolios, portfolioHoldings, marketData, unifiedOrders, 
+        loanApplications, loanRepayments, userBankAccounts, users,
+        familyMembers, familyGroups
+      } = await import("@shared/schema");
+      
+      // Get user and family info
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, userId),
+      });
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      let targetUserIds = [userId];
+      
+      // If family view is requested, get all family member IDs with permission checks
+      if (includeFamily === 'true') {
+        const familyMemberships = await db.query.familyMembers.findMany({
+          where: sql`${familyMembers.userId} = ${userId} AND ${familyMembers.invitationStatus} = 'accepted' AND ${familyMembers.leftAt} IS NULL`,
+        });
+        
+        if (familyMemberships.length > 0) {
+          // Verify user is part of an active family
+          const familyId = familyMemberships[0].familyId;
+          
+          // Get only accepted, active family members with proper permissions
+          const allMembers = await db.query.familyMembers.findMany({
+            where: sql`${familyMembers.familyId} = ${familyId} AND ${familyMembers.invitationStatus} = 'accepted' AND ${familyMembers.leftAt} IS NULL`,
+          });
+          
+          // Only include members who have view permissions (not view_only role can see all)
+          targetUserIds = allMembers
+            .filter(m => m.role !== 'view_only' || m.userId === userId)
+            .map(m => m.userId);
+        } else {
+          // User is not part of any accepted family membership, return only their data
+          // Don't show error, just proceed with individual view
+        }
+      }
+      
+      // 1. AGGREGATE ASSETS - Portfolio Holdings with real-time market values
+      const userPortfolios = await db.query.portfolios.findMany({
+        where: sql`${portfolios.userId} = ANY(${targetUserIds})`,
+        with: {
+          holdings: true
+        }
+      });
+      
+      // OPTIMIZATION: Batch fetch all unique symbols for market data (avoid N+1 queries)
+      const allSymbols = new Set<string>();
+      for (const portfolio of userPortfolios) {
+        for (const holding of portfolio.holdings || []) {
+          allSymbols.add(holding.symbol);
+        }
+      }
+      
+      // Fetch all market data in one query
+      const symbolArray = Array.from(allSymbols);
+      const marketDataMap = new Map<string, any>();
+      
+      if (symbolArray.length > 0) {
+        const marketDataRecords = await db.query.marketData.findMany({
+          where: sql`${marketData.symbol} = ANY(${symbolArray})`,
+        });
+        
+        for (const record of marketDataRecords) {
+          marketDataMap.set(record.symbol, record);
+        }
+      }
+      
+      let liquidAssets = [];
+      let semiLiquidAssets = [];
+      let illiquidAssets = [];
+      let totalPortfolioValue = 0;
+      
+      for (const portfolio of userPortfolios) {
+        for (const holding of portfolio.holdings || []) {
+          // Get current market price from pre-fetched data
+          const marketInfo = marketDataMap.get(holding.symbol);
+          
+          const currentPrice = marketInfo?.price ? parseFloat(marketInfo.price.toString()) : parseFloat(holding.avgPrice.toString());
+          const quantity = parseFloat(holding.quantity.toString());
+          const currentValue = currentPrice * quantity;
+          totalPortfolioValue += currentValue;
+          
+          const asset = {
+            name: holding.symbol,
+            type: holding.assetType,
+            value: currentValue,
+            quantity: quantity,
+            currentPrice: currentPrice,
+            avgPrice: parseFloat(holding.avgPrice.toString()),
+            gainLoss: currentValue - (parseFloat(holding.avgPrice.toString()) * quantity),
+            currency: holding.currency || 'INR',
+            portfolioId: portfolio.id,
+            portfolioName: portfolio.name
+          };
+          
+          // Smart categorization based on asset type and liquidity
+          if (holding.assetType === 'equity' || holding.assetType === 'commodity') {
+            liquidAssets.push(asset); // Can sell within 24h
+          } else if (holding.assetType === 'mf' || holding.assetType === 'bond' || holding.assetType === 'gold') {
+            semiLiquidAssets.push(asset); // 1-7 days
+          } else {
+            illiquidAssets.push(asset); // Alternative investments, etc.
+          }
+        }
+      }
+      
+      // 2. BANK ACCOUNTS - Verified cash balances
+      const bankAccounts = await db.query.userBankAccounts.findMany({
+        where: sql`${userBankAccounts.userId} = ANY(${targetUserIds}) AND ${userBankAccounts.isActive} = true`,
+      });
+      
+      // Note: We don't have real-time balance API, so we use cash from portfolios
+      const totalCash = userPortfolios.reduce((sum, p) => sum + parseFloat(p.cash?.toString() || '0'), 0);
+      
+      if (totalCash > 0) {
+        liquidAssets.push({
+          name: 'Cash & Bank Balance',
+          type: 'cash',
+          value: totalCash,
+          quantity: 1,
+          currentPrice: totalCash,
+          avgPrice: totalCash,
+          gainLoss: 0,
+          currency: 'INR',
+          bankAccounts: bankAccounts.length
+        });
+      }
+      
+      // 3. PENDING INVESTMENTS - Orders in process
+      const pendingOrders = await db.query.unifiedOrders.findMany({
+        where: sql`${unifiedOrders.userId} = ANY(${targetUserIds}) AND ${unifiedOrders.status} IN ('initiated', 'payment_pending', 'payment_completed', 'processing')`,
+      });
+      
+      const pendingInvestments = pendingOrders.map(order => ({
+        orderNumber: order.orderNumber,
+        productName: order.productName,
+        productType: order.productType,
+        amount: parseFloat(order.amount.toString()),
+        status: order.status,
+        createdAt: order.createdAt
+      }));
+      
+      const totalPendingValue = pendingInvestments.reduce((sum, inv) => sum + inv.amount, 0);
+      
+      // 4. DECLARED ASSETS from KYC (for accredited investors)
+      let declaredAssets = 0;
+      if (user.kycTier === 'tier_3' && user.netWorthAmount) {
+        declaredAssets = parseFloat(user.netWorthAmount.toString());
+      }
+      
+      // 5. AGGREGATE LIABILITIES - Loans and Credit
+      const loans = await db.query.loanApplications.findMany({
+        where: sql`${loanApplications.userId} = ANY(${targetUserIds}) AND ${loanApplications.status} IN ('approved', 'disbursed')`,
+      });
+      
+      let shortTermLiabilities = [];
+      let longTermLiabilities = [];
+      let totalLiabilities = 0;
+      
+      for (const loan of loans) {
+        const approvedAmount = parseFloat(loan.approvedAmount?.toString() || '0');
+        
+        // Get repayments to calculate outstanding amount
+        const repayments = await db.query.loanRepayments.findMany({
+          where: eq(loanRepayments.loanId, loan.id),
+        });
+        
+        const totalRepaid = repayments.reduce((sum, r) => sum + parseFloat(r.paymentAmount?.toString() || '0'), 0);
+        const outstandingAmount = approvedAmount - totalRepaid;
+        
+        if (outstandingAmount > 0) {
+          totalLiabilities += outstandingAmount;
+          
+          const liability = {
+            applicationNumber: loan.applicationNumber || loan.id,
+            type: loan.isOverdraftFacility ? 'Overdraft Facility' : 'Loan Against Securities',
+            originalAmount: approvedAmount,
+            outstandingAmount: outstandingAmount,
+            interestRate: parseFloat(loan.interestRate?.toString() || '0'),
+            tenure: loan.tenure || 0,
+            status: loan.status
+          };
+          
+          // Categorize by tenure
+          if (loan.tenure && loan.tenure <= 12) {
+            shortTermLiabilities.push(liability);
+          } else {
+            longTermLiabilities.push(liability);
+          }
+        }
+      }
+      
+      // 6. CALCULATE NET WORTH AND METRICS
+      const totalAssets = totalPortfolioValue + totalCash + totalPendingValue;
+      const netWorth = totalAssets - totalLiabilities;
+      const liquidAssetsValue = liquidAssets.reduce((sum, a) => sum + a.value, 0);
+      const semiLiquidAssetsValue = semiLiquidAssets.reduce((sum, a) => sum + a.value, 0);
+      const illiquidAssetsValue = illiquidAssets.reduce((sum, a) => sum + a.value, 0);
+      
+      const liquidityRatio = totalAssets > 0 ? (liquidAssetsValue / totalAssets) * 100 : 0;
+      const debtToAssetRatio = totalAssets > 0 ? (totalLiabilities / totalAssets) * 100 : 0;
+      
+      // Emergency fund recommendation: 6 months of average expenses
+      // TODO: Calculate from expense tracking system
+      const recommendedEmergencyFund = 300000; // Placeholder: ₹3L
+      
+      res.json({
+        success: true,
+        data: {
+          summary: {
+            netWorth: parseFloat(netWorth.toFixed(2)),
+            totalAssets: parseFloat(totalAssets.toFixed(2)),
+            totalLiabilities: parseFloat(totalLiabilities.toFixed(2)),
+            currency: 'INR',
+            isFamily: includeFamily === 'true',
+            memberCount: targetUserIds.length,
+            lastUpdated: new Date().toISOString()
+          },
+          assets: {
+            breakdown: {
+              liquid: {
+                value: parseFloat(liquidAssetsValue.toFixed(2)),
+                percentage: totalAssets > 0 ? parseFloat(((liquidAssetsValue / totalAssets) * 100).toFixed(2)) : 0,
+                items: liquidAssets
+              },
+              semiLiquid: {
+                value: parseFloat(semiLiquidAssetsValue.toFixed(2)),
+                percentage: totalAssets > 0 ? parseFloat(((semiLiquidAssetsValue / totalAssets) * 100).toFixed(2)) : 0,
+                items: semiLiquidAssets
+              },
+              illiquid: {
+                value: parseFloat(illiquidAssetsValue.toFixed(2)),
+                percentage: totalAssets > 0 ? parseFloat(((illiquidAssetsValue / totalAssets) * 100).toFixed(2)) : 0,
+                items: illiquidAssets
+              },
+              pending: {
+                value: parseFloat(totalPendingValue.toFixed(2)),
+                items: pendingInvestments
+              }
+            },
+            portfolioCount: userPortfolios.length,
+            bankAccountsCount: bankAccounts.length,
+            declaredAssets: declaredAssets
+          },
+          liabilities: {
+            breakdown: {
+              shortTerm: {
+                value: shortTermLiabilities.reduce((sum, l) => sum + l.outstandingAmount, 0),
+                items: shortTermLiabilities
+              },
+              longTerm: {
+                value: longTermLiabilities.reduce((sum, l) => sum + l.outstandingAmount, 0),
+                items: longTermLiabilities
+              }
+            },
+            count: loans.length
+          },
+          metrics: {
+            liquidityRatio: parseFloat(liquidityRatio.toFixed(2)),
+            debtToAssetRatio: parseFloat(debtToAssetRatio.toFixed(2)),
+            emergencyFundGap: Math.max(0, recommendedEmergencyFund - liquidAssetsValue),
+            recommendedEmergencyFund: recommendedEmergencyFund
+          }
+        }
+      });
+    } catch (error) {
+      console.error("Error aggregating net worth:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to calculate net worth"
+      });
+    }
+  });
+
   // Product-specific verification status endpoint
   app.get("/api/profile/product-verification-status", requireClientOrHigher, async (req, res) => {
     try {
@@ -29762,405 +30048,4 @@ System Security Data:`;
     }
   });
   
-  app.post("/api/kyc/corporate/discover-accounts", requireAuth, async (req, res) => {
-    try {
-      const { pan } = req.body;
-      const result = await corporateKYCService.discoverCorporateAccounts(req.user!.id, pan);
-      res.json(result);
-    } catch (error: any) {
-      res.status(400).json({ message: error.message || 'Account discovery failed' });
-    }
-  });
   
-  app.post("/api/kyc/corporate/confirm", requireAuth, async (req, res) => {
-    try {
-      await corporateKYCService.confirmCorporateKYC(req.user!.id, req.body);
-      res.json({ success: true, message: 'Corporate KYC completed successfully' });
-    } catch (error: any) {
-      res.status(400).json({ message: error.message || 'KYC confirmation failed' });
-    }
-  });
-  
-  app.get("/api/kyc/corporate/progress", requireAuth, async (req, res) => {
-    try {
-      const progress = await corporateKYCService.getCorporateKYCProgress(req.user!.id);
-      res.json(progress);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message || 'Failed to fetch KYC progress' });
-    }
-  });
-  
-  app.get("/api/kyc/corporate/resume", requireAuth, async (req, res) => {
-    try {
-      const result = await corporateKYCService.resumeCorporateKYC(req.user!.id);
-      res.json(result);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message || 'Failed to resume KYC' });
-    }
-  });
-
-  // ==================== NRI KYC ROUTES ====================
-  const { nriKYCService } = await import('./services/nri-kyc-service');
-  
-  app.post("/api/kyc/nri/verify-passport", requireAuth, async (req, res) => {
-    try {
-      const { passportNumber, passportName, passportExpiry, countryOfResidence, pan, dob } = req.body;
-      const result = await nriKYCService.verifyPassportAndPAN(
-        req.user!.id, passportNumber, passportName, passportExpiry, countryOfResidence, pan, dob
-      );
-      res.json(result);
-    } catch (error: any) {
-      res.status(400).json({ message: error.message || 'Passport verification failed' });
-    }
-  });
-  
-  app.post("/api/kyc/nri/verify-address", requireAuth, async (req, res) => {
-    try {
-      const result = await nriKYCService.verifyOverseasAddress(req.user!.id, req.body);
-      res.json(result);
-    } catch (error: any) {
-      res.status(400).json({ message: error.message || 'Address verification failed' });
-    }
-  });
-  
-  app.post("/api/kyc/nri/verify-pis", requireAuth, async (req, res) => {
-    try {
-      const result = await nriKYCService.verifyPISAndForeignBank(req.user!.id, req.body);
-      res.json(result);
-    } catch (error: any) {
-      res.status(400).json({ message: error.message || 'PIS verification failed' });
-    }
-  });
-  
-  app.post("/api/kyc/nri/fatca", requireAuth, async (req, res) => {
-    try {
-      const result = await nriKYCService.completeFatcaDeclaration(req.user!.id, req.body);
-      res.json(result);
-    } catch (error: any) {
-      res.status(400).json({ message: error.message || 'FATCA declaration failed' });
-    }
-  });
-  
-  app.post("/api/kyc/nri/confirm", requireAuth, async (req, res) => {
-    try {
-      await nriKYCService.confirmNRIKYC(req.user!.id, req.body);
-      res.json({ success: true, message: 'NRI KYC completed successfully' });
-    } catch (error: any) {
-      res.status(400).json({ message: error.message || 'KYC confirmation failed' });
-    }
-  });
-  
-  app.get("/api/kyc/nri/progress", requireAuth, async (req, res) => {
-    try {
-      const progress = await nriKYCService.getNRIKYCProgress(req.user!.id);
-      res.json(progress);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message || 'Failed to fetch KYC progress' });
-    }
-  });
-  
-  app.get("/api/kyc/nri/resume", requireAuth, async (req, res) => {
-    try {
-      const result = await nriKYCService.resumeNRIKYC(req.user!.id);
-      res.json(result);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message || 'Failed to resume KYC' });
-    }
-  });
-
-  // Manual KYC submission endpoint (BSE Star API)
-  app.post("/api/kyc/manual-submit", async (req, res) => {
-    try {
-      const { applicantType, pan, documents, ...otherData } = req.body;
-
-      // Validate required fields
-      if (!applicantType || !pan || !documents) {
-        return res.status(400).json({ 
-          message: 'Missing required fields: applicantType, pan, and documents are required' 
-        });
-      }
-
-      // Verify PAN using BSE Star API
-      const bseService = new BSEStarKYCService();
-      const panVerification = await bseService.verifyPAN(pan);
-      
-      if (!panVerification.isValid) {
-        return res.status(400).json({ 
-          message: 'Invalid PAN number. Please verify and try again.' 
-        });
-      }
-
-      // Validate applicant type specific fields
-      if (applicantType === 'individual') {
-        if (!otherData.firstName || !otherData.lastName || !otherData.dateOfBirth) {
-          return res.status(400).json({ 
-            message: 'Missing required individual fields: firstName, lastName, dateOfBirth' 
-          });
-        }
-      } else if (applicantType === 'corporate') {
-        if (!otherData.companyName || !otherData.registrationNumber) {
-          return res.status(400).json({ 
-            message: 'Missing required corporate fields: companyName, registrationNumber' 
-          });
-        }
-      } else if (applicantType === 'nri') {
-        if (!otherData.firstName || !otherData.lastName || !otherData.passportNumber || !otherData.countryOfResidence) {
-          return res.status(400).json({ 
-            message: 'Missing required NRI fields: firstName, lastName, passportNumber, countryOfResidence' 
-          });
-        }
-      }
-
-      // Check KYC status via BSE Star
-      const kycStatus = await bseService.checkKYCStatus({
-        panNumber: pan,
-        name: applicantType === 'individual' || applicantType === 'nri' 
-          ? `${otherData.firstName} ${otherData.lastName}` 
-          : otherData.companyName,
-        dob: otherData.dateOfBirth,
-        mobile: otherData.mobile,
-        email: otherData.email
-      });
-
-      // Create KYC submission record
-      const submissionId = `KYC_${applicantType.toUpperCase()}_${Date.now()}`;
-      
-      // Store KYC submission data
-      const kycSubmission = {
-        id: submissionId,
-        applicantType,
-        pan,
-        panVerification,
-        kycStatus,
-        documents,
-        applicantData: otherData,
-        submittedAt: new Date().toISOString(),
-        status: 'pending_verification',
-        bseResponse: kycStatus
-      };
-
-      // In production, you would save this to database
-      // For now, we'll return success response
-      console.log(`[KYC] Manual submission received:`, {
-        id: submissionId,
-        type: applicantType,
-        pan: pan.substring(0, 3) + 'XXXX' + pan.substring(7),
-        documentsCount: Object.keys(documents).length
-      });
-
-      // Check authentication
-      if (!req.user) {
-        return res.status(401).json({ error: "Authentication required" });
-      }
-      
-      const userId = req.user.id;
-      let kycTier: 'basic' | 'enhanced' | 'accredited_investor' = 'basic';
-
-      // Save to database based on applicant type
-      if (applicantType === 'individual') {
-        // For Individual - save to smartKycProgress
-        const [existingProgress] = await db
-          .select()
-          .from(schema.smartKycProgress)
-          .where(eq(schema.smartKycProgress.userId, userId))
-          .limit(1);
-
-        const progressData = {
-          userId,
-          step1PanVerified: panVerification.isValid,
-          step1PanNumber: pan,
-          step1PanName: `${otherData.firstName} ${otherData.lastName}`,
-          step1CompletedAt: new Date(),
-          step1Data: { pan, panVerification },
-          
-          step2AadhaarVerified: !!documents.aadhar_front,
-          step2CompletedAt: documents.aadhar_front ? new Date() : null,
-          step2Data: { documents: { aadhar_front: documents.aadhar_front, aadhar_back: documents.aadhar_back } },
-          
-          step3AccountsDiscovered: !!documents.bank_proof,
-          step3BankAccountsFound: documents.bank_proof ? 1 : 0,
-          step3CompletedAt: documents.bank_proof ? new Date() : null,
-          step3Data: { bankProof: documents.bank_proof },
-          
-          step4ReviewCompleted: true,
-          step4CompletedAt: new Date(),
-          step4ConfirmedData: { ...otherData, documents },
-          
-          currentStep: 4,
-          isCompleted: true,
-          completedAt: new Date(),
-          updatedAt: new Date()
-        };
-
-        if (existingProgress) {
-          await db
-            .update(schema.smartKycProgress)
-            .set(progressData)
-            .where(eq(schema.smartKycProgress.userId, userId));
-        } else {
-          await db.insert(schema.smartKycProgress).values(progressData);
-        }
-
-        // Determine tier for individual
-        kycTier = determineKYCTier({ 
-          pan, 
-          aadhar: documents.aadhar_front,
-          firstName: otherData.firstName, 
-          lastName: otherData.lastName,
-          dateOfBirth: otherData.dateOfBirth,
-          email: otherData.email,
-          phone: otherData.mobile,
-          ...otherData
-        });
-
-      } else if (applicantType === 'corporate') {
-        // For Corporate - save to corporateKycProgress
-        const [existingProgress] = await db
-          .select()
-          .from(schema.corporateKycProgress)
-          .where(eq(schema.corporateKycProgress.userId, userId))
-          .limit(1);
-
-        const progressData = {
-          userId,
-          step1CorporatePanVerified: panVerification.isValid,
-          step1CorporatePan: pan,
-          step1CompanyName: otherData.companyName,
-          step1CompanyType: otherData.companyType || 'Private Ltd',
-          step1CompletedAt: new Date(),
-          step1Data: { pan, panVerification, companyDetails: otherData },
-          
-          step2DocumentsUploaded: !!(documents.incorporation_cert && documents.moa && documents.aoa),
-          step2CertificateOfIncorporation: documents.incorporation_cert,
-          step2MemorandumOfAssociation: documents.moa,
-          step2ArticlesOfAssociation: documents.aoa,
-          step2BoardResolution: documents.board_resolution,
-          step2CompletedAt: new Date(),
-          step2Data: { documents },
-          
-          step3SignatoryVerified: !!documents.signatory_pan,
-          step3SignatoryName: otherData.authorizedSignatoryName,
-          step3CompletedAt: documents.signatory_pan ? new Date() : null,
-          step3Data: { signatory: otherData.authorizedSignatoryName },
-          
-          currentStep: 3,
-          isCompleted: true,
-          completedAt: new Date(),
-          updatedAt: new Date()
-        };
-
-        if (existingProgress) {
-          await db
-            .update(schema.corporateKycProgress)
-            .set(progressData)
-            .where(eq(schema.corporateKycProgress.userId, userId));
-        } else {
-          await db.insert(schema.corporateKycProgress).values(progressData);
-        }
-
-        kycTier = 'enhanced'; // Corporate entities default to enhanced
-
-      } else if (applicantType === 'nri') {
-        // For NRI - save to nriKycProgress
-        const [existingProgress] = await db
-          .select()
-          .from(schema.nriKycProgress)
-          .where(eq(schema.nriKycProgress.userId, userId))
-          .limit(1);
-
-        const progressData = {
-          userId,
-          step1PanVerified: panVerification.isValid,
-          step1PanNumber: pan,
-          step1PanName: `${otherData.firstName} ${otherData.lastName}`,
-          step1CompletedAt: new Date(),
-          step1Data: { pan, panVerification },
-          
-          step2PassportVerified: !!documents.passport,
-          step2PassportNumber: otherData.passportNumber,
-          step2CountryOfResidence: otherData.countryOfResidence,
-          step2CompletedAt: documents.passport ? new Date() : null,
-          step2Data: { passport: documents.passport, visa: documents.visa },
-          
-          step3OciVerified: !!documents.oci_card,
-          step3OciNumber: otherData.ociNumber,
-          step3CompletedAt: documents.oci_card ? new Date() : null,
-          step3Data: { oci: documents.oci_card },
-          
-          step4ForeignAddressVerified: !!documents.foreign_address_proof,
-          step4CompletedAt: documents.foreign_address_proof ? new Date() : null,
-          step4Data: { addressProof: documents.foreign_address_proof },
-          
-          currentStep: 4,
-          isCompleted: true,
-          completedAt: new Date(),
-          updatedAt: new Date()
-        };
-
-        if (existingProgress) {
-          await db
-            .update(schema.nriKycProgress)
-            .set(progressData)
-            .where(eq(schema.nriKycProgress.userId, userId));
-        } else {
-          await db.insert(schema.nriKycProgress).values(progressData);
-        }
-
-        kycTier = 'enhanced'; // NRI default to enhanced
-      }
-
-      // Update user's KYC tier
-      await db
-        .update(schema.users)
-        .set({
-          kycTier,
-          kycTierUpgradedAt: new Date(),
-          pan,
-          // Update profile fields if available
-          ...(applicantType === 'individual' || applicantType === 'nri' ? {
-            occupation: otherData.occupation,
-            annualIncome: otherData.annualIncome
-          } : {})
-        })
-        .where(eq(schema.users.id, userId));
-
-      console.log(`[KYC] Manual submission saved (persisted to DB):`, {
-        id: submissionId,
-        userId,
-        type: applicantType,
-        pan: pan.substring(0, 3) + 'XXXX' + pan.substring(7),
-        kycTier,
-        documentsCount: Object.keys(documents).length
-      });
-
-      res.json({
-        success: true,
-        message: `KYC application submitted successfully via BSE Star MFD API! You've been assigned ${kycTier === 'enhanced' ? 'Enhanced (Tier 2)' : 'Basic (Tier 1)'} KYC status.`,
-        submissionId,
-        kycTier,
-        status: 'pending_verification',
-        estimatedProcessingTime: '2-3 business days',
-        panVerification: {
-          name: panVerification.name,
-          isValid: panVerification.isValid,
-          category: panVerification.category
-        },
-        kycStatus: {
-          status: kycStatus.kycStatus,
-          kycType: kycStatus.kycType
-        }
-      });
-    } catch (error: any) {
-      console.error('[KYC] Manual submission error:', error);
-      res.status(500).json({ 
-        message: error.message || 'Failed to submit KYC application. Please try again.' 
-      });
-    }
-  });
-
-  // Global error handler (must be last)
-  app.use(globalErrorHandler);
-
-  const httpServer = createServer(app);
-  return httpServer;
-}
