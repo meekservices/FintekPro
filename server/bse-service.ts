@@ -1,12 +1,9 @@
 import axios from 'axios';
 import { format, subMonths, subYears, parseISO } from 'date-fns';
 
-// BSE-inspired Service using multiple free API sources
-// Primary: MFAPI.in, Secondary: mf.captnemo.in, Tertiary: RapidAPI fallbacks
+// BSE-inspired Service using MFAPI.in as primary data source
 
 const MF_API_BASE = 'https://www.mfapi.in';
-const CAPTNEMO_API_BASE = 'https://mf.captnemo.in';
-const RAPIDAPI_NAV_BASE = 'https://latest-mutual-fund-nav.p.rapidapi.com';
 
 export interface BSEFundData {
   schemeCode: string;
