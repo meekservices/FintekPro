@@ -238,7 +238,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(401).json({ message: "Authentication required" });
     }
     
-    if (!hasRole(req.user, ['client', 'agent', 'partner', 'admin', 'superadmin'])) {
+    if (!hasRole(req.user, ['client', 'business_client', 'agent', 'partner', 'admin', 'superadmin'])) {
       return res.status(403).json({ message: "Client access required" });
     }
     
