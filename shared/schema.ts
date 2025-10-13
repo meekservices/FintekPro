@@ -481,6 +481,25 @@ export const users = pgTable("users", {
   profileCompletedAt: timestamp("profile_completed_at"),
   lastUpdated: timestamp("last_updated").defaultNow(),
   
+  // Smart KYC System - DigiLocker Integration Fields
+  digilockerAddress: text("digilocker_address"), // Address from DigiLocker Aadhaar
+  digilockerDOB: varchar("digilocker_dob"), // DOB from DigiLocker
+  digilockerGender: varchar("digilocker_gender"), // Gender from DigiLocker  
+  digilockerFullName: varchar("digilocker_full_name"), // Full name from DigiLocker
+  aadhaarLastFour: varchar("aadhaar_last_four"), // Last 4 digits for display
+  
+  // Name Reconciliation (PAN vs Aadhaar)
+  nameMatchScore: integer("name_match_score"), // Levenshtein distance score 0-100
+  nameReconciliationStatus: varchar("name_reconciliation_status"), // matched/mismatch/pending
+  nameReconciliationNote: text("name_reconciliation_note"), // Details about name match
+  
+  // Smart KYC Verification Status
+  panVerifiedViaSmartKyc: boolean("pan_verified_via_smart_kyc").default(false),
+  panVerificationDate: timestamp("pan_verification_date"),
+  aadhaarVerifiedViaSmartKyc: boolean("aadhaar_verified_via_smart_kyc").default(false),
+  aadhaarVerificationDate: timestamp("aadhaar_verification_date"),
+  smartKycCompletedAt: timestamp("smart_kyc_completed_at"),
+  
   // Admin and system fields - supports multiple roles
   roles: varchar("roles").array().default(sql`ARRAY['user']`), // Array of roles: 'user', 'admin', 'superadmin', 'business_client', etc.
   isActive: boolean("is_active").default(true),
@@ -552,6 +571,52 @@ export const passwordResetTokens = pgTable("password_reset_tokens", {
   isUsed: boolean("is_used").default(false),
   usedAt: timestamp("used_at"),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Smart KYC Progress Tracking - Track step-by-step completion
+export const smartKycProgress = pgTable("smart_kyc_progress", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull().unique(), // One progress record per user
+  
+  // Step 1: PAN Verification
+  step1PanVerified: boolean("step1_pan_verified").default(false),
+  step1PanNumber: varchar("step1_pan_number"),
+  step1PanName: varchar("step1_pan_name"), // Name from Income Tax
+  step1CompletedAt: timestamp("step1_completed_at"),
+  step1Data: jsonb("step1_data"), // Store full PAN API response
+  
+  // Step 2: Aadhaar/DigiLocker Verification  
+  step2AadhaarVerified: boolean("step2_aadhaar_verified").default(false),
+  step2DigilockerSessionId: varchar("step2_digilocker_session_id"),
+  step2CompletedAt: timestamp("step2_completed_at"),
+  step2Data: jsonb("step2_data"), // Store DigiLocker response
+  
+  // Step 3: Account Discovery
+  step3AccountsDiscovered: boolean("step3_accounts_discovered").default(false),
+  step3BankAccountsFound: integer("step3_bank_accounts_found").default(0),
+  step3DematAccountsFound: integer("step3_demat_accounts_found").default(0),
+  step3CompletedAt: timestamp("step3_completed_at"),
+  step3Data: jsonb("step3_data"), // Store discovered accounts
+  
+  // Step 4: Review & Confirmation
+  step4ReviewCompleted: boolean("step4_review_completed").default(false),
+  step4CompletedAt: timestamp("step4_completed_at"),
+  step4ConfirmedData: jsonb("step4_confirmed_data"), // Final confirmed data
+  
+  // Overall Progress
+  currentStep: integer("current_step").default(1), // 1-4
+  isCompleted: boolean("is_completed").default(false),
+  completedAt: timestamp("completed_at"),
+  
+  // Name Reconciliation
+  nameMatchScore: integer("name_match_score"), // PAN name vs Aadhaar name match score
+  nameReconciliationStatus: varchar("name_reconciliation_status"), // matched/mismatch/manual_review
+  
+  // Metadata
+  startedAt: timestamp("started_at").defaultNow(),
+  lastUpdatedStep: integer("last_updated_step"), // Which step was last updated
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // CKYC (Central KYC Registry) records table
@@ -1814,6 +1879,12 @@ export const insertOtpVerificationSchema = createInsertSchema(otpVerifications).
   createdAt: true,
 });
 
+export const insertSmartKycProgressSchema = createInsertSchema(smartKycProgress).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // User Bank Accounts schemas and types  
 export const insertUserBankAccountSchema = createInsertSchema(userBankAccounts).omit({
   id: true,
@@ -2113,6 +2184,8 @@ export type InsertAgentPartnerMapping = z.infer<typeof insertAgentPartnerMapping
 export type AgentPartnerMapping = typeof agentPartnerMappings.$inferSelect;
 export type OtpVerification = typeof otpVerifications.$inferSelect;
 export type InsertOtpVerification = z.infer<typeof insertOtpVerificationSchema>;
+export type SmartKycProgress = typeof smartKycProgress.$inferSelect;
+export type InsertSmartKycProgress = z.infer<typeof insertSmartKycProgressSchema>;
 export type InsertPortfolio = z.infer<typeof insertPortfolioSchema>;
 export type Portfolio = typeof portfolios.$inferSelect;
 export type InsertPortfolioHolding = z.infer<typeof insertPortfolioHoldingSchema>;

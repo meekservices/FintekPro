@@ -78,6 +78,19 @@ interface TANDetails {
   state: string;
 }
 
+interface IndividualPANDetails {
+  pan: string;
+  fullName: string;
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+  dateOfBirth: string;
+  fatherName?: string;
+  status: string;
+  category: string; // Individual
+  lastUpdated: string;
+}
+
 export class SandboxKYCService {
   private accessToken: string | null = null;
   private tokenExpiry: number = 0;
@@ -251,6 +264,53 @@ export class SandboxKYCService {
     } catch (error: any) {
       console.error('Corporate PAN verification error:', error.response?.data || error.message);
       throw new Error(`PAN verification failed: ${error.response?.data?.message || error.message}`);
+    }
+  }
+
+  /**
+   * Verify Individual PAN details with DOB
+   * @param pan - PAN number
+   * @param dob - Date of Birth (YYYY-MM-DD or DD-MM-YYYY)
+   */
+  async verifyIndividualPAN(pan: string, dob: string): Promise<IndividualPANDetails> {
+    const token = await this.authenticate();
+
+    try {
+      const response = await axios.post(
+        `${SANDBOX_BASE_URL}/kyc/pan/verify`,
+        { 
+          pan,
+          dob: dob // API accepts both YYYY-MM-DD and DD-MM-YYYY formats
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.data.code !== 200) {
+        throw new Error(response.data.message || 'Individual PAN verification failed');
+      }
+
+      const data = response.data.data;
+
+      return {
+        pan: data.pan,
+        fullName: data.full_name || data.name,
+        firstName: data.first_name || data.name?.split(' ')[0] || '',
+        middleName: data.middle_name,
+        lastName: data.last_name || data.name?.split(' ').slice(-1)[0] || '',
+        dateOfBirth: data.date_of_birth || dob,
+        fatherName: data.father_name,
+        status: data.status,
+        category: data.category || 'Individual',
+        lastUpdated: data.last_updated || new Date().toISOString(),
+      };
+    } catch (error: any) {
+      console.error('Individual PAN verification error:', error.response?.data || error.message);
+      throw new Error(`Individual PAN verification failed: ${error.response?.data?.message || error.message}`);
     }
   }
 
