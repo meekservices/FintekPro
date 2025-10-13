@@ -60,6 +60,7 @@ import ProposalsPage from "@/pages/proposals";
 import BrokingPage from "@/pages/broking";
 import AgentPortal from "@/pages/agent-portal";
 import OnboardingPage from "@/pages/onboarding";
+import ManualKYCPage from "@/pages/manual-kyc";
 import AdminProposalsPage from "@/pages/admin-proposals";
 import AdminWhatsAppSetup from "@/pages/admin-whatsapp-setup";
 import ClientProposalsPage from "@/pages/client-proposals";
@@ -205,6 +206,7 @@ function Router() {
       <Route path="/whatsapp-login" component={WhatsAppAuthPage} />
       <Route path="/profile" component={Profile} />
       <Route path="/onboarding" component={OnboardingPage} />
+      <Route path="/manual-kyc" component={ManualKYCPage} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/terms" component={Terms} />
       

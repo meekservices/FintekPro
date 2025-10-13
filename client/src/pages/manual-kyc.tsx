@@ -1,0 +1,1057 @@
+import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
+import { ObjectUploader } from "@/components/ObjectUploader";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { 
+  FileText, 
+  Upload, 
+  CheckCircle2, 
+  AlertCircle, 
+  User,
+  Building2,
+  Globe,
+  Shield,
+  File,
+  Info
+} from "lucide-react";
+
+type KYCType = 'individual' | 'corporate' | 'nri';
+
+interface DocumentRequirement {
+  id: string;
+  name: string;
+  description: string;
+  required: boolean;
+  acceptedFormats: string[];
+  maxSize: number;
+}
+
+interface UploadedDocument {
+  id: string;
+  name: string;
+  url: string;
+  uploadedAt: string;
+}
+
+interface KYCFormData {
+  // Common fields
+  applicantType: KYCType;
+  pan: string;
+  
+  // Individual fields
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
+  dateOfBirth?: string;
+  fatherName?: string;
+  motherName?: string;
+  
+  // Corporate fields
+  companyName?: string;
+  registrationNumber?: string;
+  incorporationDate?: string;
+  authorizedSignatoryName?: string;
+  
+  // NRI specific fields
+  countryOfResidence?: string;
+  passportNumber?: string;
+  visaType?: string;
+  
+  // Common contact fields
+  email: string;
+  mobile: string;
+  address: string;
+  city: string;
+  state: string;
+  pincode: string;
+  
+  // Document URLs
+  documents: Record<string, string>;
+}
+
+const DOCUMENT_REQUIREMENTS: Record<KYCType, DocumentRequirement[]> = {
+  individual: [
+    {
+      id: 'pan_card',
+      name: 'PAN Card',
+      description: 'Permanent Account Number card (Front side)',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880 // 5MB
+    },
+    {
+      id: 'aadhar_front',
+      name: 'Aadhaar Card (Front)',
+      description: 'Aadhaar card front side with photo',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'aadhar_back',
+      name: 'Aadhaar Card (Back)',
+      description: 'Aadhaar card back side with address',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'photo',
+      name: 'Passport Size Photo',
+      description: 'Recent passport size photograph',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png'],
+      maxSize: 2097152 // 2MB
+    },
+    {
+      id: 'signature',
+      name: 'Signature',
+      description: 'Scanned signature on white paper',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png'],
+      maxSize: 1048576 // 1MB
+    },
+    {
+      id: 'bank_proof',
+      name: 'Bank Account Proof',
+      description: 'Cancelled cheque or bank statement',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'income_proof',
+      name: 'Income Proof',
+      description: 'ITR, salary slip, or Form 16 (Optional)',
+      required: false,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 10485760 // 10MB
+    }
+  ],
+  corporate: [
+    {
+      id: 'pan_card',
+      name: 'Company PAN Card',
+      description: 'Permanent Account Number of the company',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'incorporation_cert',
+      name: 'Certificate of Incorporation',
+      description: 'Company registration certificate from ROC',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 10485760
+    },
+    {
+      id: 'moa',
+      name: 'Memorandum of Association (MOA)',
+      description: 'MOA document of the company',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 10485760
+    },
+    {
+      id: 'aoa',
+      name: 'Articles of Association (AOA)',
+      description: 'AOA document of the company',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 10485760
+    },
+    {
+      id: 'board_resolution',
+      name: 'Board Resolution',
+      description: 'Resolution authorizing trading and signatory',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'signatory_pan',
+      name: 'Authorized Signatory PAN',
+      description: 'PAN card of authorized signatory',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'signatory_aadhar',
+      name: 'Authorized Signatory Aadhaar',
+      description: 'Aadhaar card of authorized signatory',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'bank_proof',
+      name: 'Company Bank Account Proof',
+      description: 'Cancelled cheque or bank statement',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'address_proof',
+      name: 'Registered Office Address Proof',
+      description: 'Utility bill or rent agreement',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 5242880
+    }
+  ],
+  nri: [
+    {
+      id: 'pan_card',
+      name: 'PAN Card',
+      description: 'Permanent Account Number card',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'passport',
+      name: 'Passport',
+      description: 'Valid passport (all pages)',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 10485760
+    },
+    {
+      id: 'visa',
+      name: 'Visa/OCI Card',
+      description: 'Current visa or OCI card',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'overseas_address',
+      name: 'Overseas Address Proof',
+      description: 'Bank statement or utility bill from country of residence',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'indian_address',
+      name: 'Indian Address Proof',
+      description: 'Address proof in India (Aadhaar or utility bill)',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'photo',
+      name: 'Recent Photograph',
+      description: 'Passport size photo taken within last 6 months',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png'],
+      maxSize: 2097152
+    },
+    {
+      id: 'signature',
+      name: 'Signature',
+      description: 'Scanned signature on white paper',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png'],
+      maxSize: 1048576
+    },
+    {
+      id: 'bank_proof_overseas',
+      name: 'Overseas Bank Account Proof',
+      description: 'Foreign bank statement or cancelled cheque',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'bank_proof_nre_nro',
+      name: 'NRE/NRO Account Proof',
+      description: 'Indian NRE or NRO bank account proof',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 5242880
+    }
+  ]
+};
+
+export default function ManualKYCPage() {
+  const [location, navigate] = useLocation();
+  const { toast } = useToast();
+  const urlParams = new URLSearchParams(window.location.search);
+  const typeParam = urlParams.get('type') as KYCType || 'individual';
+  
+  const [kycType, setKYCType] = useState<KYCType>(typeParam);
+  const [formData, setFormData] = useState<Partial<KYCFormData>>({
+    applicantType: kycType,
+    documents: {}
+  });
+  const [uploadedDocs, setUploadedDocs] = useState<Record<string, UploadedDocument>>({});
+  const [currentStep, setCurrentStep] = useState<'details' | 'documents' | 'review'>('details');
+
+  useEffect(() => {
+    setKYCType(typeParam);
+    setFormData(prev => ({ ...prev, applicantType: typeParam }));
+  }, [typeParam]);
+
+  const requirements = DOCUMENT_REQUIREMENTS[kycType];
+  const requiredDocs = requirements.filter(doc => doc.required);
+  const uploadedCount = Object.keys(uploadedDocs).length;
+  const requiredCount = requiredDocs.length;
+  const progress = (uploadedCount / requiredCount) * 100;
+
+  const handleDocumentUpload = (docId: string, url: string, file: File) => {
+    setUploadedDocs(prev => ({
+      ...prev,
+      [docId]: {
+        id: docId,
+        name: file.name,
+        url,
+        uploadedAt: new Date().toISOString()
+      }
+    }));
+    setFormData(prev => ({
+      ...prev,
+      documents: {
+        ...prev.documents,
+        [docId]: url
+      }
+    }));
+    toast({
+      title: "Document uploaded",
+      description: `${file.name} uploaded successfully`,
+    });
+  };
+
+  const submitKYCMutation = useMutation({
+    mutationFn: async (data: Partial<KYCFormData>) => {
+      const response = await apiRequest("POST", "/api/kyc/manual-submit", {
+        body: data
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "KYC Submitted Successfully",
+        description: "Your KYC application has been submitted for verification. You'll receive an update within 2-3 business days.",
+      });
+      navigate("/profile?tab=kyc-dashboard");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Submission Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSubmit = () => {
+    // Validate required documents
+    const missingDocs = requiredDocs.filter(doc => !uploadedDocs[doc.id]);
+    if (missingDocs.length > 0) {
+      toast({
+        title: "Missing Required Documents",
+        description: `Please upload: ${missingDocs.map(d => d.name).join(', ')}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate required fields based on type
+    const requiredFields = kycType === 'individual' 
+      ? ['firstName', 'lastName', 'dateOfBirth', 'pan', 'email', 'mobile', 'address', 'city', 'state', 'pincode']
+      : kycType === 'corporate'
+      ? ['companyName', 'registrationNumber', 'pan', 'email', 'mobile', 'address', 'city', 'state', 'pincode']
+      : ['firstName', 'lastName', 'passportNumber', 'countryOfResidence', 'pan', 'email', 'mobile', 'address', 'city', 'state', 'pincode'];
+
+    const missingFields = requiredFields.filter(field => !formData[field as keyof KYCFormData]);
+    if (missingFields.length > 0) {
+      toast({
+        title: "Missing Required Information",
+        description: `Please fill in all required fields`,
+        variant: "destructive",
+      });
+      setCurrentStep('details');
+      return;
+    }
+
+    submitKYCMutation.mutate(formData);
+  };
+
+  const getKYCTypeIcon = () => {
+    switch (kycType) {
+      case 'individual':
+        return <User className="h-6 w-6" />;
+      case 'corporate':
+        return <Building2 className="h-6 w-6" />;
+      case 'nri':
+        return <Globe className="h-6 w-6" />;
+    }
+  };
+
+  const getKYCTypeTitle = () => {
+    switch (kycType) {
+      case 'individual':
+        return 'Individual KYC';
+      case 'corporate':
+        return 'Corporate/Non-Individual KYC';
+      case 'nri':
+        return 'NRI KYC';
+    }
+  };
+
+  const getKYCTypeDescription = () => {
+    switch (kycType) {
+      case 'individual':
+        return 'Complete KYC verification for individual investors using direct document upload';
+      case 'corporate':
+        return 'Complete KYC verification for corporate entities, trusts, and non-individual investors';
+      case 'nri':
+        return 'Complete KYC verification for Non-Resident Indians with overseas address';
+    }
+  };
+
+  return (
+    <div className="container mx-auto px-4 py-8 max-w-6xl">
+      {/* Header */}
+      <div className="mb-8">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+            {getKYCTypeIcon()}
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+              {getKYCTypeTitle()} - Manual Upload
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400">
+              {getKYCTypeDescription()}
+            </p>
+          </div>
+        </div>
+
+        {/* Type Selector */}
+        <Card className="mb-6">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <Label className="text-base font-semibold">KYC Type:</Label>
+              <div className="flex gap-2">
+                <Button
+                  variant={kycType === 'individual' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => navigate('/manual-kyc?type=individual')}
+                  data-testid="button-kyc-type-individual"
+                >
+                  <User className="h-4 w-4 mr-2" />
+                  Individual
+                </Button>
+                <Button
+                  variant={kycType === 'corporate' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => navigate('/manual-kyc?type=corporate')}
+                  data-testid="button-kyc-type-corporate"
+                >
+                  <Building2 className="h-4 w-4 mr-2" />
+                  Corporate
+                </Button>
+                <Button
+                  variant={kycType === 'nri' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => navigate('/manual-kyc?type=nri')}
+                  data-testid="button-kyc-type-nri"
+                >
+                  <Globe className="h-4 w-4 mr-2" />
+                  NRI
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Progress Indicator */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium">Upload Progress</span>
+                <span className="text-gray-500">
+                  {uploadedCount} of {requiredCount} required documents uploaded
+                </span>
+              </div>
+              <Progress value={progress} className="h-2" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Step Navigation */}
+      <div className="flex justify-center mb-8">
+        <div className="inline-flex gap-2 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+          <Button
+            variant={currentStep === 'details' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setCurrentStep('details')}
+            data-testid="button-step-details"
+          >
+            1. Details
+          </Button>
+          <Button
+            variant={currentStep === 'documents' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setCurrentStep('documents')}
+            data-testid="button-step-documents"
+          >
+            2. Documents
+          </Button>
+          <Button
+            variant={currentStep === 'review' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setCurrentStep('review')}
+            data-testid="button-step-review"
+          >
+            3. Review
+          </Button>
+        </div>
+      </div>
+
+      {/* Step Content */}
+      {currentStep === 'details' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Applicant Details</CardTitle>
+            <CardDescription>
+              Enter the applicant information as per official documents
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                All information must match your identity documents exactly. Any mismatch may lead to rejection.
+              </AlertDescription>
+            </Alert>
+
+            {/* Individual Fields */}
+            {kycType === 'individual' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="firstName">First Name *</Label>
+                  <Input
+                    id="firstName"
+                    value={formData.firstName || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
+                    placeholder="As per PAN card"
+                    data-testid="input-first-name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="middleName">Middle Name</Label>
+                  <Input
+                    id="middleName"
+                    value={formData.middleName || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, middleName: e.target.value }))}
+                    placeholder="Optional"
+                    data-testid="input-middle-name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="lastName">Last Name *</Label>
+                  <Input
+                    id="lastName"
+                    value={formData.lastName || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
+                    placeholder="As per PAN card"
+                    data-testid="input-last-name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="dateOfBirth">Date of Birth *</Label>
+                  <Input
+                    id="dateOfBirth"
+                    type="date"
+                    value={formData.dateOfBirth || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, dateOfBirth: e.target.value }))}
+                    data-testid="input-dob"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="fatherName">Father's Name</Label>
+                  <Input
+                    id="fatherName"
+                    value={formData.fatherName || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, fatherName: e.target.value }))}
+                    placeholder="As per documents"
+                    data-testid="input-father-name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="motherName">Mother's Name</Label>
+                  <Input
+                    id="motherName"
+                    value={formData.motherName || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, motherName: e.target.value }))}
+                    placeholder="As per documents"
+                    data-testid="input-mother-name"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Corporate Fields */}
+            {kycType === 'corporate' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <Label htmlFor="companyName">Company Name *</Label>
+                  <Input
+                    id="companyName"
+                    value={formData.companyName || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, companyName: e.target.value }))}
+                    placeholder="As per certificate of incorporation"
+                    data-testid="input-company-name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="registrationNumber">Registration Number *</Label>
+                  <Input
+                    id="registrationNumber"
+                    value={formData.registrationNumber || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, registrationNumber: e.target.value }))}
+                    placeholder="CIN/LLPIN"
+                    data-testid="input-registration-number"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="incorporationDate">Incorporation Date *</Label>
+                  <Input
+                    id="incorporationDate"
+                    type="date"
+                    value={formData.incorporationDate || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, incorporationDate: e.target.value }))}
+                    data-testid="input-incorporation-date"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <Label htmlFor="authorizedSignatoryName">Authorized Signatory Name *</Label>
+                  <Input
+                    id="authorizedSignatoryName"
+                    value={formData.authorizedSignatoryName || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, authorizedSignatoryName: e.target.value }))}
+                    placeholder="Name of authorized person"
+                    data-testid="input-signatory-name"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* NRI Fields */}
+            {kycType === 'nri' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="firstName">First Name *</Label>
+                  <Input
+                    id="firstName"
+                    value={formData.firstName || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
+                    placeholder="As per passport"
+                    data-testid="input-first-name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="lastName">Last Name *</Label>
+                  <Input
+                    id="lastName"
+                    value={formData.lastName || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
+                    placeholder="As per passport"
+                    data-testid="input-last-name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="passportNumber">Passport Number *</Label>
+                  <Input
+                    id="passportNumber"
+                    value={formData.passportNumber || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, passportNumber: e.target.value }))}
+                    placeholder="Valid passport number"
+                    data-testid="input-passport-number"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="countryOfResidence">Country of Residence *</Label>
+                  <Input
+                    id="countryOfResidence"
+                    value={formData.countryOfResidence || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, countryOfResidence: e.target.value }))}
+                    placeholder="Current country"
+                    data-testid="input-country"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <Label htmlFor="visaType">Visa Type</Label>
+                  <Input
+                    id="visaType"
+                    value={formData.visaType || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, visaType: e.target.value }))}
+                    placeholder="Work visa, Student visa, OCI, etc."
+                    data-testid="input-visa-type"
+                  />
+                </div>
+              </div>
+            )}
+
+            <Separator />
+
+            {/* Common Fields */}
+            <div className="space-y-4">
+              <h3 className="font-semibold text-lg">Identity & Contact Information</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="pan">PAN *</Label>
+                  <Input
+                    id="pan"
+                    value={formData.pan || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, pan: e.target.value.toUpperCase() }))}
+                    placeholder="ABCDE1234F"
+                    maxLength={10}
+                    data-testid="input-pan"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="email">Email *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                    placeholder="email@example.com"
+                    data-testid="input-email"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="mobile">Mobile *</Label>
+                  <Input
+                    id="mobile"
+                    value={formData.mobile || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, mobile: e.target.value }))}
+                    placeholder="10-digit mobile number"
+                    maxLength={10}
+                    data-testid="input-mobile"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Address */}
+            <div className="space-y-4">
+              <h3 className="font-semibold text-lg">Address Details</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <Label htmlFor="address">Address *</Label>
+                  <Input
+                    id="address"
+                    value={formData.address || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
+                    placeholder="Complete address"
+                    data-testid="input-address"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="city">City *</Label>
+                  <Input
+                    id="city"
+                    value={formData.city || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
+                    placeholder="City name"
+                    data-testid="input-city"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="state">State *</Label>
+                  <Input
+                    id="state"
+                    value={formData.state || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, state: e.target.value }))}
+                    placeholder="State name"
+                    data-testid="input-state"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="pincode">Pincode *</Label>
+                  <Input
+                    id="pincode"
+                    value={formData.pincode || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, pincode: e.target.value }))}
+                    placeholder="6-digit pincode"
+                    maxLength={6}
+                    data-testid="input-pincode"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <Button
+                onClick={() => setCurrentStep('documents')}
+                data-testid="button-continue-to-documents"
+              >
+                Continue to Documents
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {currentStep === 'documents' && (
+        <div className="space-y-6">
+          <Alert>
+            <Shield className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Document Guidelines:</strong> Upload clear, legible scans or photos. Ensure all text is readable and there's no glare or shadow on documents.
+            </AlertDescription>
+          </Alert>
+
+          {requirements.map((doc) => (
+            <Card key={doc.id}>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <File className="h-5 w-5 text-gray-500" />
+                    <div>
+                      <CardTitle className="text-lg">{doc.name}</CardTitle>
+                      <CardDescription>{doc.description}</CardDescription>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {doc.required && (
+                      <Badge variant="destructive" className="text-xs">Required</Badge>
+                    )}
+                    {uploadedDocs[doc.id] && (
+                      <Badge variant="default" className="text-xs bg-green-600">
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                        Uploaded
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    <p><strong>Accepted Formats:</strong> {doc.acceptedFormats.join(', ')}</p>
+                    <p><strong>Max Size:</strong> {Math.round(doc.maxSize / 1024 / 1024)}MB</p>
+                  </div>
+                  
+                  {uploadedDocs[doc.id] ? (
+                    <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                      <CheckCircle2 className="h-5 w-5 text-green-600" />
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">{uploadedDocs[doc.id].name}</p>
+                        <p className="text-xs text-gray-500">
+                          Uploaded on {new Date(uploadedDocs[doc.id].uploadedAt).toLocaleString()}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const newDocs = { ...uploadedDocs };
+                          delete newDocs[doc.id];
+                          setUploadedDocs(newDocs);
+                          const newFormDocs = { ...formData.documents };
+                          delete newFormDocs[doc.id];
+                          setFormData(prev => ({ ...prev, documents: newFormDocs }));
+                        }}
+                        data-testid={`button-remove-${doc.id}`}
+                      >
+                        Re-upload
+                      </Button>
+                    </div>
+                  ) : (
+                    <ObjectUploader
+                      maxNumberOfFiles={1}
+                      maxFileSize={doc.maxSize}
+                      acceptedTypes={doc.acceptedFormats}
+                      onGetUploadParameters={async () => {
+                        const response = await apiRequest("POST", "/api/object-storage/upload-url", {
+                          body: {
+                            fileName: `kyc_${kycType}_${doc.id}_${Date.now()}`,
+                            contentType: doc.acceptedFormats[0]
+                          }
+                        });
+                        const data = await response.json();
+                        return {
+                          method: "PUT" as const,
+                          url: data.uploadURL
+                        };
+                      }}
+                      onComplete={(result) => {
+                        handleDocumentUpload(doc.id, result.uploadURL, result.file);
+                      }}
+                      buttonClassName="w-full"
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      Upload {doc.name}
+                    </ObjectUploader>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+
+          <div className="flex justify-between">
+            <Button
+              variant="outline"
+              onClick={() => setCurrentStep('details')}
+              data-testid="button-back-to-details"
+            >
+              Back to Details
+            </Button>
+            <Button
+              onClick={() => setCurrentStep('review')}
+              disabled={uploadedCount < requiredCount}
+              data-testid="button-continue-to-review"
+            >
+              Continue to Review
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {currentStep === 'review' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Review & Submit</CardTitle>
+            <CardDescription>
+              Please review all information before submitting your KYC application
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                Once submitted, your application will be processed through BSE Star MFD API. You'll receive verification updates via email and SMS.
+              </AlertDescription>
+            </Alert>
+
+            {/* Summary */}
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-semibold text-lg mb-3">Applicant Information</h3>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-gray-500">KYC Type</p>
+                    <p className="font-medium">{getKYCTypeTitle()}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">PAN</p>
+                    <p className="font-medium">{formData.pan || 'N/A'}</p>
+                  </div>
+                  {kycType === 'individual' && (
+                    <>
+                      <div>
+                        <p className="text-gray-500">Name</p>
+                        <p className="font-medium">{`${formData.firstName || ''} ${formData.middleName || ''} ${formData.lastName || ''}`}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500">Date of Birth</p>
+                        <p className="font-medium">{formData.dateOfBirth || 'N/A'}</p>
+                      </div>
+                    </>
+                  )}
+                  {kycType === 'corporate' && (
+                    <>
+                      <div className="col-span-2">
+                        <p className="text-gray-500">Company Name</p>
+                        <p className="font-medium">{formData.companyName || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500">Registration Number</p>
+                        <p className="font-medium">{formData.registrationNumber || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500">Authorized Signatory</p>
+                        <p className="font-medium">{formData.authorizedSignatoryName || 'N/A'}</p>
+                      </div>
+                    </>
+                  )}
+                  {kycType === 'nri' && (
+                    <>
+                      <div>
+                        <p className="text-gray-500">Name</p>
+                        <p className="font-medium">{`${formData.firstName || ''} ${formData.lastName || ''}`}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500">Passport Number</p>
+                        <p className="font-medium">{formData.passportNumber || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500">Country of Residence</p>
+                        <p className="font-medium">{formData.countryOfResidence || 'N/A'}</p>
+                      </div>
+                    </>
+                  )}
+                  <div>
+                    <p className="text-gray-500">Email</p>
+                    <p className="font-medium">{formData.email || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Mobile</p>
+                    <p className="font-medium">{formData.mobile || 'N/A'}</p>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div>
+                <h3 className="font-semibold text-lg mb-3">Uploaded Documents ({uploadedCount})</h3>
+                <div className="space-y-2">
+                  {Object.values(uploadedDocs).map((doc) => (
+                    <div key={doc.id} className="flex items-center gap-2 text-sm">
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                      <span>{requirements.find(r => r.id === doc.id)?.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-between pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setCurrentStep('documents')}
+                data-testid="button-back-to-documents"
+              >
+                Back to Documents
+              </Button>
+              <Button
+                onClick={handleSubmit}
+                disabled={submitKYCMutation.isPending}
+                data-testid="button-submit-kyc"
+              >
+                {submitKYCMutation.isPending && <Upload className="mr-2 h-4 w-4 animate-pulse" />}
+                Submit KYC Application
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}

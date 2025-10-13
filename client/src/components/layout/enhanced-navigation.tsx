@@ -123,6 +123,10 @@ export function EnhancedNavigation() {
           description: "Progressive KYC for complete product access",
           subItems: [
             { name: "KYC Dashboard", href: "/profile?tab=kyc-dashboard", description: "Current tier, product access & upgrade paths", badge: "OVERVIEW" },
+            { name: "Smart KYC Onboarding", href: "/onboarding", description: "Intelligent wizard with progressive save & auto-fill", badge: "SMART" },
+            { name: "Manual KYC - Individual", href: "/manual-kyc?type=individual", description: "Direct document upload for individual investors" },
+            { name: "Manual KYC - Corporate", href: "/manual-kyc?type=corporate", description: "Document upload for non-individual entities" },
+            { name: "Manual KYC - NRI", href: "/manual-kyc?type=nri", description: "Document upload for Non-Resident Indians" },
             { name: "Basic KYC (Tier 1)", href: "/profile?tab=basic", description: "PAN, Aadhaar, basic profile → Unlock MF, IPO, Equity" },
             { name: "Enhanced KYC (Tier 2)", href: "/profile?tab=enhanced", description: "Video KYC, income proof → Unlock F&O, Commodities, Global" },
             { name: "Accredited Investor (Tier 3)", href: "/profile?tab=accredited", description: "Net worth ₹7.5Cr+ → Unlock AIF, PMS, Pre-IPO", badge: "PREMIUM" },
