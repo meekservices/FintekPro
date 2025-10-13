@@ -29563,6 +29563,143 @@ System Security Data:`;
   const { registerOrderRoutes } = await import('./order-routes');
   registerOrderRoutes(app);
 
+  // ==================== CORPORATE KYC ROUTES ====================
+  const { corporateKYCService } = await import('./services/corporate-kyc-service');
+  
+  app.post("/api/kyc/corporate/verify-pan", requireAuth, async (req, res) => {
+    try {
+      const { pan } = req.body;
+      const result = await corporateKYCService.verifyCorporatePAN(req.user!.id, pan);
+      res.json(result);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || 'Corporate PAN verification failed' });
+    }
+  });
+  
+  app.post("/api/kyc/corporate/documents", requireAuth, async (req, res) => {
+    try {
+      await corporateKYCService.recordCompanyDocuments(req.user!.id, req.body);
+      res.json({ success: true, message: 'Documents recorded successfully' });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || 'Document recording failed' });
+    }
+  });
+  
+  app.post("/api/kyc/corporate/verify-signatory", requireAuth, async (req, res) => {
+    try {
+      const result = await corporateKYCService.verifyAuthorizedSignatory(req.user!.id, req.body);
+      res.json(result);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || 'Signatory verification failed' });
+    }
+  });
+  
+  app.post("/api/kyc/corporate/discover-accounts", requireAuth, async (req, res) => {
+    try {
+      const { pan } = req.body;
+      const result = await corporateKYCService.discoverCorporateAccounts(req.user!.id, pan);
+      res.json(result);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || 'Account discovery failed' });
+    }
+  });
+  
+  app.post("/api/kyc/corporate/confirm", requireAuth, async (req, res) => {
+    try {
+      await corporateKYCService.confirmCorporateKYC(req.user!.id, req.body);
+      res.json({ success: true, message: 'Corporate KYC completed successfully' });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || 'KYC confirmation failed' });
+    }
+  });
+  
+  app.get("/api/kyc/corporate/progress", requireAuth, async (req, res) => {
+    try {
+      const progress = await corporateKYCService.getCorporateKYCProgress(req.user!.id);
+      res.json(progress);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || 'Failed to fetch KYC progress' });
+    }
+  });
+  
+  app.get("/api/kyc/corporate/resume", requireAuth, async (req, res) => {
+    try {
+      const result = await corporateKYCService.resumeCorporateKYC(req.user!.id);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || 'Failed to resume KYC' });
+    }
+  });
+
+  // ==================== NRI KYC ROUTES ====================
+  const { nriKYCService } = await import('./services/nri-kyc-service');
+  
+  app.post("/api/kyc/nri/verify-passport", requireAuth, async (req, res) => {
+    try {
+      const { passportNumber, passportName, passportExpiry, countryOfResidence, pan, dob } = req.body;
+      const result = await nriKYCService.verifyPassportAndPAN(
+        req.user!.id, passportNumber, passportName, passportExpiry, countryOfResidence, pan, dob
+      );
+      res.json(result);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || 'Passport verification failed' });
+    }
+  });
+  
+  app.post("/api/kyc/nri/verify-address", requireAuth, async (req, res) => {
+    try {
+      const result = await nriKYCService.verifyOverseasAddress(req.user!.id, req.body);
+      res.json(result);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || 'Address verification failed' });
+    }
+  });
+  
+  app.post("/api/kyc/nri/verify-pis", requireAuth, async (req, res) => {
+    try {
+      const result = await nriKYCService.verifyPISAndForeignBank(req.user!.id, req.body);
+      res.json(result);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || 'PIS verification failed' });
+    }
+  });
+  
+  app.post("/api/kyc/nri/fatca", requireAuth, async (req, res) => {
+    try {
+      const result = await nriKYCService.completeFatcaDeclaration(req.user!.id, req.body);
+      res.json(result);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || 'FATCA declaration failed' });
+    }
+  });
+  
+  app.post("/api/kyc/nri/confirm", requireAuth, async (req, res) => {
+    try {
+      await nriKYCService.confirmNRIKYC(req.user!.id, req.body);
+      res.json({ success: true, message: 'NRI KYC completed successfully' });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || 'KYC confirmation failed' });
+    }
+  });
+  
+  app.get("/api/kyc/nri/progress", requireAuth, async (req, res) => {
+    try {
+      const progress = await nriKYCService.getNRIKYCProgress(req.user!.id);
+      res.json(progress);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || 'Failed to fetch KYC progress' });
+    }
+  });
+  
+  app.get("/api/kyc/nri/resume", requireAuth, async (req, res) => {
+    try {
+      const result = await nriKYCService.resumeNRIKYC(req.user!.id);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || 'Failed to resume KYC' });
+    }
+  });
+
   // Global error handler (must be last)
   app.use(globalErrorHandler);
 
