@@ -70,6 +70,7 @@ import { governmentSecurities, corporateBonds, bondOrders, bondHoldings, insertB
 import { businessIntelligence } from './business-intelligence-service';
 import { verifyBankAccountPennyDrop, validateIFSC, validateAccountNumber, isNameMatchAcceptable } from './penny-drop-service';
 import { lookupIFSC, isValidIFSCFormat } from './ifsc-lookup-service';
+import { ProductAccountService } from './product-account-service';
 
 // Tax Calculation Request Validation Schemas
 const calculateCapitalGainsSchema = z.object({
@@ -115,6 +116,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Initialize BBPS-Expense Integration Service
   const bbpsExpenseIntegration = new BbpsExpenseIntegration(storage as any);
+  
+  // Initialize Product Account Service
+  const productAccountService = new ProductAccountService(storage as any);
   
   // Initialize WhatsApp service with secure version
   // DISABLED: WhatsApp QR code generation causes excessive log output
@@ -24579,6 +24583,74 @@ System Security Data:`;
     } catch (error) {
       console.error("Error deleting product account preference:", error);
       res.status(500).json({ error: "Failed to delete product account preference" });
+    }
+  });
+
+  // Get recommended accounts for a product type
+  app.get("/api/product-accounts/:productType", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const accounts = await productAccountService.getAccountsForProduct(
+        req.user.id,
+        req.params.productType
+      );
+      
+      res.json(accounts);
+    } catch (error) {
+      console.error("Error getting product accounts:", error);
+      res.status(500).json({ error: "Failed to get product accounts" });
+    }
+  });
+
+  // Validate accounts for a product type
+  app.post("/api/product-accounts/:productType/validate", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      // Validate request body
+      const validationSchema = z.object({
+        bankAccountId: z.string().optional(),
+        dematAccountId: z.string().optional(),
+      });
+
+      const { bankAccountId, dematAccountId } = validationSchema.parse(req.body);
+
+      // Check if product type is valid
+      const requirements = productAccountService.getProductRequirements(req.params.productType);
+      if (!requirements) {
+        return res.status(400).json({ error: "Invalid product type" });
+      }
+
+      const validation = await productAccountService.validateAccountsForProduct(
+        req.user.id,
+        req.params.productType,
+        bankAccountId,
+        dematAccountId
+      );
+      
+      res.json(validation);
+    } catch (error: any) {
+      console.error("Error validating product accounts:", error);
+      if (error.name === "ZodError") {
+        return res.status(400).json({ error: "Invalid request data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to validate product accounts" });
+    }
+  });
+
+  // Get product requirements
+  app.get("/api/product-requirements/:productType", async (req, res) => {
+    try {
+      const requirements = productAccountService.getProductRequirements(req.params.productType);
+      res.json(requirements);
+    } catch (error) {
+      console.error("Error getting product requirements:", error);
+      res.status(500).json({ error: "Failed to get product requirements" });
     }
   });
 
