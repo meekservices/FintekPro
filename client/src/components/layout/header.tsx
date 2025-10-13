@@ -152,9 +152,9 @@ export function Header() {
                     <span className="text-sm font-medium text-gray-700 truncate max-w-[120px]" data-testid="client-name-header">
                       {getClientName()}
                     </span>
-                    {user?.userId && (
+                    {user?.id && (
                       <span className="text-xs text-gray-500 truncate max-w-[120px]" data-testid="client-userid-header">
-                        {user.userId}
+                        {user.id}
                       </span>
                     )}
                   </div>
@@ -262,9 +262,9 @@ export function Header() {
                           <p className="font-medium text-gray-900" data-testid="mobile-client-name">
                             {getClientName()}
                           </p>
-                          {user?.userId && (
+                          {user?.id && (
                             <p className="text-xs text-gray-500" data-testid="mobile-client-userid">
-                              {user.userId}
+                              {user.id}
                             </p>
                           )}
                           <p className="text-sm text-gray-500">{user?.email}</p>

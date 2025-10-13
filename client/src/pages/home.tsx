@@ -262,9 +262,9 @@ export default function Home() {
                     <p className="text-lg text-blue-100">
                       {getGreeting()}, <span className="font-semibold text-yellow-400">{getUserDisplayName()}</span>! 👋
                     </p>
-                    {(currentUser as any)?.userId && (
+                    {(currentUser as any)?.id && (
                       <p className="text-xs text-blue-300 mt-1" data-testid="user-id-greeting">
-                        {(currentUser as any).userId}
+                        {(currentUser as any).id}
                       </p>
                     )}
                     <p className="text-sm text-blue-200 mt-1">
