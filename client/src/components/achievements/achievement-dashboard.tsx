@@ -3,7 +3,8 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollableTabsList } from '@/components/ScrollableTabsList';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -210,14 +211,14 @@ export function AchievementDashboard({ userId }: { userId: string }) {
       </div>
 
       <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
-        <TabsList className="grid w-full grid-cols-5">
+        <ScrollableTabsList className="grid w-full grid-cols-5">
           {categories.map(category => (
             <TabsTrigger key={category.id} value={category.id} className="flex items-center gap-2">
               {category.icon}
               <span className="hidden sm:inline">{category.name}</span>
             </TabsTrigger>
           ))}
-        </TabsList>
+        </ScrollableTabsList>
 
         <TabsContent value={selectedCategory} className="space-y-6">
           {/* Achievement Statistics */}

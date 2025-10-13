@@ -4,7 +4,8 @@ import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollableTabsList } from '@/components/ScrollableTabsList';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -504,7 +505,7 @@ export default function ExpensesBudgetsPage() {
 
       {/* Main Content */}
       <Tabs defaultValue="expenses" className="space-y-4">
-        <TabsList>
+        <ScrollableTabsList>
           <TabsTrigger value="expenses" data-testid="tab-expenses">Expenses</TabsTrigger>
           <TabsTrigger value="budgets" data-testid="tab-budgets">Budgets</TabsTrigger>
           <TabsTrigger value="insights" data-testid="tab-insights">
@@ -513,7 +514,7 @@ export default function ExpensesBudgetsPage() {
               <Badge className="ml-2" variant="secondary">{(insights as any[]).length}</Badge>
             )}
           </TabsTrigger>
-        </TabsList>
+        </ScrollableTabsList>
 
         <TabsContent value="expenses" className="space-y-4">
           {/* Quick Actions */}
