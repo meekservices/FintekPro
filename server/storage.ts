@@ -115,7 +115,6 @@ export interface IStorage {
   // Admin methods
   getAllUsers(): Promise<User[]>;
   updateUserRole(userId: string, role: string): Promise<void>;
-  updateUserStatus(userId: string, isActive: boolean): Promise<void>;
   
   // Enhanced portfolio analytics
   getPortfolioPerformance(portfolioId: string): Promise<any>;
