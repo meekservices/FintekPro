@@ -88,6 +88,8 @@ export function ScrollableTabsList({ children, className }: ScrollableTabsListPr
         style={{
           scrollbarWidth: "none", // Firefox
           msOverflowStyle: "none", // IE/Edge
+          paddingLeft: showLeftArrow ? "48px" : "0",
+          paddingRight: showRightArrow ? "48px" : "0",
         }}
       >
         <TabsList className={cn("inline-flex w-auto min-w-full", className)}>
