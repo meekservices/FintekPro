@@ -6,6 +6,16 @@ FintekPro is a comprehensive full-stack TypeScript financial services platform f
 
 ## Recent Changes (Oct 13, 2025)
 
+### Cashfree Aadhaar OTP Verification Integration
+- **Integrated real Cashfree OKYC API** for Aadhaar verification in Smart KYC Onboarding
+- Created `CashfreeAadhaarService` with two-step OTP flow:
+  - `generateOTP()`: Sends OTP to Aadhaar-linked mobile (returns ref_id)
+  - `verifyOTP()`: Validates OTP and retrieves complete Aadhaar holder details
+- Updated KYC wizard routes to use Cashfree API instead of mock service
+- Sandbox credentials configured: CASHFREE_APP_ID, CASHFREE_SECRET_KEY, CASHFREE_ENVIRONMENT
+- Returns comprehensive data: name, DOB, gender, father name, full address, mobile, email, photo
+- Production-ready with proper error handling and response mapping
+
 ### Fixed Layout Theme & UI Consistency
 - **Established consistent layout pattern** across all pages with left sidebar navigation and footer
 - All routes now use the unified `AppLayout` component (wrapping Router in App.tsx)
