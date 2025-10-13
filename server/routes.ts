@@ -776,6 +776,173 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Helper function to determine KYC tier based on data completeness
+  function determineKYCTier(data: any): 'basic' | 'enhanced' | 'accredited_investor' {
+    // Basic Tier (Tier 1): PAN + Aadhaar + Basic profile
+    const hasBasic = data.pan && data.aadhar && data.firstName && data.lastName && 
+                     data.dateOfBirth && data.email && data.phone;
+    
+    // Enhanced Tier (Tier 2): All Basic + Financial profile + Address + Banking
+    const hasEnhanced = hasBasic && data.occupation && data.annualIncome && 
+                       data.addressLine1 && data.city && data.state && data.pincode &&
+                       data.bankName && data.accountNumber && data.ifscCode;
+    
+    // Accredited Investor (Tier 3): Requires manual admin verification for net worth ₹7.5Cr+
+    // Not automatically assigned via onboarding - must be requested separately
+    
+    if (hasEnhanced) {
+      return 'enhanced';
+    } else if (hasBasic) {
+      return 'basic';
+    }
+    
+    return 'basic'; // Default to basic even if incomplete
+  }
+
+  // Smart KYC Onboarding endpoint
+  app.post("/api/onboarding", async (req, res) => {
+    try {
+      // Check authentication
+      if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      const onboardingData = req.body;
+      const userId = req.user!.id;
+      
+      // Validate required basic fields
+      if (!onboardingData.pan || !onboardingData.firstName || !onboardingData.lastName) {
+        return res.status(400).json({ 
+          error: "Missing required fields: PAN, first name, and last name are required" 
+        });
+      }
+
+      // Determine KYC tier based on data completeness
+      const kycTier = determineKYCTier(onboardingData);
+      
+      // Check if Smart KYC progress record exists
+      const [existingProgress] = await db
+        .select()
+        .from(schema.smartKycProgress)
+        .where(eq(schema.smartKycProgress.userId, userId))
+        .limit(1);
+
+      // Prepare progress data structure
+      const progressData = {
+        userId,
+        // Step 1: PAN data
+        step1PanVerified: !!onboardingData.pan,
+        step1PanNumber: onboardingData.pan,
+        step1PanName: `${onboardingData.firstName} ${onboardingData.lastName}`,
+        step1CompletedAt: new Date(),
+        step1Data: { pan: onboardingData.pan },
+        
+        // Step 2: Aadhaar data
+        step2AadhaarVerified: !!onboardingData.aadhar,
+        step2CompletedAt: onboardingData.aadhar ? new Date() : null,
+        step2Data: onboardingData.aadhar ? { aadhar: onboardingData.aadhar } : null,
+        
+        // Step 3: Account discovery (banking)
+        step3AccountsDiscovered: !!(onboardingData.bankName && onboardingData.accountNumber),
+        step3BankAccountsFound: (onboardingData.bankName && onboardingData.accountNumber) ? 1 : 0,
+        step3DematAccountsFound: onboardingData.dematAccountNumber ? 1 : 0,
+        step3CompletedAt: (onboardingData.bankName && onboardingData.accountNumber) ? new Date() : null,
+        step3Data: {
+          bankName: onboardingData.bankName,
+          accountNumber: onboardingData.accountNumber,
+          ifscCode: onboardingData.ifscCode,
+          dematProvider: onboardingData.dematProvider,
+          dematAccountNumber: onboardingData.dematAccountNumber
+        },
+        
+        // Step 4: Review and confirmation
+        step4ReviewCompleted: true,
+        step4CompletedAt: new Date(),
+        step4ConfirmedData: onboardingData,
+        
+        // Overall progress
+        currentStep: 4,
+        isCompleted: true,
+        completedAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      // Insert or update Smart KYC progress
+      if (existingProgress) {
+        await db
+          .update(schema.smartKycProgress)
+          .set(progressData)
+          .where(eq(schema.smartKycProgress.userId, userId));
+      } else {
+        await db.insert(schema.smartKycProgress).values(progressData);
+      }
+
+      // Update user's KYC tier and profile data
+      await db
+        .update(schema.users)
+        .set({
+          kycTier,
+          kycTierUpgradedAt: new Date(),
+          // Update profile fields
+          pan: onboardingData.pan,
+          aadhar: onboardingData.aadhar,
+          occupation: onboardingData.occupation,
+          annualIncome: onboardingData.annualIncome,
+          sourceOfWealth: onboardingData.sourceOfWealth,
+          // Update compliance fields
+          pepDeclaration: onboardingData.pepDeclaration || false,
+          fatcaDeclaration: onboardingData.fatcaDeclaration || false,
+          fatcaCrsStatus: onboardingData.crsDeclaration ? 'completed' : 'pending'
+        })
+        .where(eq(schema.users.id, userId));
+
+      // Also update profile table for completeness
+      const profile = await storage.getUserProfile(userId);
+      await storage.upsertUserProfile({
+        ...(profile || {}),
+        userId,
+        firstName: onboardingData.firstName,
+        middleName: onboardingData.middleName,
+        lastName: onboardingData.lastName,
+        dateOfBirth: onboardingData.dateOfBirth,
+        gender: onboardingData.gender,
+        maritalStatus: onboardingData.maritalStatus,
+        fatherName: onboardingData.fatherName,
+        motherName: onboardingData.motherName,
+        nationality: onboardingData.nationality,
+        placeOfBirth: onboardingData.placeOfBirth,
+        residencyStatus: onboardingData.residencyStatus,
+        addressLine1: onboardingData.addressLine1,
+        addressLine2: onboardingData.addressLine2 || null,
+        city: onboardingData.city,
+        state: onboardingData.state,
+        pincode: onboardingData.pincode,
+        country: onboardingData.country || 'India',
+        netWorth: onboardingData.netWorth,
+        investmentExperience: onboardingData.investmentExperience,
+        riskTolerance: onboardingData.riskTolerance,
+        investmentObjective: onboardingData.investmentObjective,
+        isProfileCompleted: true,
+        profileCompletedAt: new Date(),
+        profileCompleteness: 100
+      });
+
+      console.log(`[Onboarding] Smart KYC completed for user ${userId}, assigned tier: ${kycTier}`);
+
+      res.json({
+        success: true,
+        message: `Smart KYC onboarding completed successfully! You've been assigned ${kycTier === 'enhanced' ? 'Enhanced (Tier 2)' : 'Basic (Tier 1)'} KYC status.`,
+        kycTier,
+        tierUpgrade: kycTier === 'enhanced' ? 'Congratulations! You now have access to F&O, Commodities, and Global investments.' : 'Complete your financial profile to unlock Enhanced KYC and more investment options.'
+      });
+    } catch (error: any) {
+      console.error("[Onboarding] Smart KYC submission error:", error);
+      res.status(500).json({ 
+        error: error.message || "Failed to complete onboarding. Please try again." 
+      });
+    }
+  });
+
   // KYC Tier Management Routes
   app.get("/api/profile/kyc-tier/requirements/:tier", requireClientOrHigher, async (req, res) => {
     try {
@@ -29781,10 +29948,196 @@ System Security Data:`;
         documentsCount: Object.keys(documents).length
       });
 
+      // Check authentication
+      if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      const userId = req.user.id;
+      let kycTier: 'basic' | 'enhanced' | 'accredited_investor' = 'basic';
+
+      // Save to database based on applicant type
+      if (applicantType === 'individual') {
+        // For Individual - save to smartKycProgress
+        const [existingProgress] = await db
+          .select()
+          .from(schema.smartKycProgress)
+          .where(eq(schema.smartKycProgress.userId, userId))
+          .limit(1);
+
+        const progressData = {
+          userId,
+          step1PanVerified: panVerification.isValid,
+          step1PanNumber: pan,
+          step1PanName: `${otherData.firstName} ${otherData.lastName}`,
+          step1CompletedAt: new Date(),
+          step1Data: { pan, panVerification },
+          
+          step2AadhaarVerified: !!documents.aadhar_front,
+          step2CompletedAt: documents.aadhar_front ? new Date() : null,
+          step2Data: { documents: { aadhar_front: documents.aadhar_front, aadhar_back: documents.aadhar_back } },
+          
+          step3AccountsDiscovered: !!documents.bank_proof,
+          step3BankAccountsFound: documents.bank_proof ? 1 : 0,
+          step3CompletedAt: documents.bank_proof ? new Date() : null,
+          step3Data: { bankProof: documents.bank_proof },
+          
+          step4ReviewCompleted: true,
+          step4CompletedAt: new Date(),
+          step4ConfirmedData: { ...otherData, documents },
+          
+          currentStep: 4,
+          isCompleted: true,
+          completedAt: new Date(),
+          updatedAt: new Date()
+        };
+
+        if (existingProgress) {
+          await db
+            .update(schema.smartKycProgress)
+            .set(progressData)
+            .where(eq(schema.smartKycProgress.userId, userId));
+        } else {
+          await db.insert(schema.smartKycProgress).values(progressData);
+        }
+
+        // Determine tier for individual
+        kycTier = determineKYCTier({ 
+          pan, 
+          aadhar: documents.aadhar_front,
+          firstName: otherData.firstName, 
+          lastName: otherData.lastName,
+          dateOfBirth: otherData.dateOfBirth,
+          email: otherData.email,
+          phone: otherData.mobile,
+          ...otherData
+        });
+
+      } else if (applicantType === 'corporate') {
+        // For Corporate - save to corporateKycProgress
+        const [existingProgress] = await db
+          .select()
+          .from(schema.corporateKycProgress)
+          .where(eq(schema.corporateKycProgress.userId, userId))
+          .limit(1);
+
+        const progressData = {
+          userId,
+          step1CorporatePanVerified: panVerification.isValid,
+          step1CorporatePan: pan,
+          step1CompanyName: otherData.companyName,
+          step1CompanyType: otherData.companyType || 'Private Ltd',
+          step1CompletedAt: new Date(),
+          step1Data: { pan, panVerification, companyDetails: otherData },
+          
+          step2DocumentsUploaded: !!(documents.incorporation_cert && documents.moa && documents.aoa),
+          step2CertificateOfIncorporation: documents.incorporation_cert,
+          step2MemorandumOfAssociation: documents.moa,
+          step2ArticlesOfAssociation: documents.aoa,
+          step2BoardResolution: documents.board_resolution,
+          step2CompletedAt: new Date(),
+          step2Data: { documents },
+          
+          step3SignatoryVerified: !!documents.signatory_pan,
+          step3SignatoryName: otherData.authorizedSignatoryName,
+          step3CompletedAt: documents.signatory_pan ? new Date() : null,
+          step3Data: { signatory: otherData.authorizedSignatoryName },
+          
+          currentStep: 3,
+          isCompleted: true,
+          completedAt: new Date(),
+          updatedAt: new Date()
+        };
+
+        if (existingProgress) {
+          await db
+            .update(schema.corporateKycProgress)
+            .set(progressData)
+            .where(eq(schema.corporateKycProgress.userId, userId));
+        } else {
+          await db.insert(schema.corporateKycProgress).values(progressData);
+        }
+
+        kycTier = 'enhanced'; // Corporate entities default to enhanced
+
+      } else if (applicantType === 'nri') {
+        // For NRI - save to nriKycProgress
+        const [existingProgress] = await db
+          .select()
+          .from(schema.nriKycProgress)
+          .where(eq(schema.nriKycProgress.userId, userId))
+          .limit(1);
+
+        const progressData = {
+          userId,
+          step1PanVerified: panVerification.isValid,
+          step1PanNumber: pan,
+          step1PanName: `${otherData.firstName} ${otherData.lastName}`,
+          step1CompletedAt: new Date(),
+          step1Data: { pan, panVerification },
+          
+          step2PassportVerified: !!documents.passport,
+          step2PassportNumber: otherData.passportNumber,
+          step2CountryOfResidence: otherData.countryOfResidence,
+          step2CompletedAt: documents.passport ? new Date() : null,
+          step2Data: { passport: documents.passport, visa: documents.visa },
+          
+          step3OciVerified: !!documents.oci_card,
+          step3OciNumber: otherData.ociNumber,
+          step3CompletedAt: documents.oci_card ? new Date() : null,
+          step3Data: { oci: documents.oci_card },
+          
+          step4ForeignAddressVerified: !!documents.foreign_address_proof,
+          step4CompletedAt: documents.foreign_address_proof ? new Date() : null,
+          step4Data: { addressProof: documents.foreign_address_proof },
+          
+          currentStep: 4,
+          isCompleted: true,
+          completedAt: new Date(),
+          updatedAt: new Date()
+        };
+
+        if (existingProgress) {
+          await db
+            .update(schema.nriKycProgress)
+            .set(progressData)
+            .where(eq(schema.nriKycProgress.userId, userId));
+        } else {
+          await db.insert(schema.nriKycProgress).values(progressData);
+        }
+
+        kycTier = 'enhanced'; // NRI default to enhanced
+      }
+
+      // Update user's KYC tier
+      await db
+        .update(schema.users)
+        .set({
+          kycTier,
+          kycTierUpgradedAt: new Date(),
+          pan,
+          // Update profile fields if available
+          ...(applicantType === 'individual' || applicantType === 'nri' ? {
+            occupation: otherData.occupation,
+            annualIncome: otherData.annualIncome
+          } : {})
+        })
+        .where(eq(schema.users.id, userId));
+
+      console.log(`[KYC] Manual submission saved (persisted to DB):`, {
+        id: submissionId,
+        userId,
+        type: applicantType,
+        pan: pan.substring(0, 3) + 'XXXX' + pan.substring(7),
+        kycTier,
+        documentsCount: Object.keys(documents).length
+      });
+
       res.json({
         success: true,
-        message: 'KYC application submitted successfully via BSE Star MFD API',
+        message: `KYC application submitted successfully via BSE Star MFD API! You've been assigned ${kycTier === 'enhanced' ? 'Enhanced (Tier 2)' : 'Basic (Tier 1)'} KYC status.`,
         submissionId,
+        kycTier,
         status: 'pending_verification',
         estimatedProcessingTime: '2-3 business days',
         panVerification: {
