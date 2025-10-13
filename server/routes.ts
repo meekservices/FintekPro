@@ -63,6 +63,8 @@ import { PortfolioComparisonService } from './services/portfolio-comparison-serv
 import { LoanOrchestrator } from './loan-marketplace/loan-orchestrator';
 import { taxOrchestrator } from './services/tax-orchestrator';
 import { PANConsentService } from './services/pan-consent-service';
+import { SandboxKYCService } from './services/sandbox-kyc-service';
+import { AadhaarMockService } from './services/aadhaar-mock-service';
 import { DemographicProtectionService } from './services/demographic-protection-service';
 import { providerRegistry, type UnifiedApplicationData } from './partner-application-adapters';
 import { insertPartnerApplicationSchema, insertCashfreeTransactionSchema, insertPhonePeTransactionSchema } from '@shared/schema';
@@ -1589,6 +1591,324 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         success: false,
         message: 'Failed to fetch KYC status'
+      });
+    }
+  });
+
+  // Smart KYC Wizard Routes
+  
+  // Start or get active KYC verification session
+  app.post("/api/kyc/wizard/start", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      
+      // Check for existing active session
+      const existingSession = await storage.getActiveKycSession(userId);
+      
+      if (existingSession) {
+        return res.json({
+          success: true,
+          session: existingSession,
+          message: "Resuming existing KYC session"
+        });
+      }
+      
+      // Create new session
+      const session = await storage.createKycVerificationSession({
+        userId,
+        sessionType: "smart_kyc_wizard",
+        currentStep: "pan_verification",
+        stepStatus: {
+          pan_verified: false,
+          aadhaar_otp_sent: false,
+          aadhaar_verified: false,
+          data_collected: false
+        },
+        panVerified: false,
+        aadhaarOtpSent: false,
+        aadhaarOtpVerified: false,
+        isActive: true,
+        expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'] || 'unknown'
+      });
+      
+      res.json({
+        success: true,
+        session,
+        message: "KYC session started successfully"
+      });
+    } catch (error) {
+      console.error('Error starting KYC session:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to start KYC session'
+      });
+    }
+  });
+  
+  // Get current session status
+  app.get("/api/kyc/wizard/session", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const session = await storage.getActiveKycSession(userId);
+      
+      if (!session) {
+        return res.json({
+          success: false,
+          message: "No active KYC session found"
+        });
+      }
+      
+      res.json({
+        success: true,
+        session
+      });
+    } catch (error) {
+      console.error('Error fetching KYC session:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch KYC session'
+      });
+    }
+  });
+  
+  // Step 1: Verify PAN with DOB
+  app.post("/api/kyc/wizard/verify-pan", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const { sessionId, panNumber, dob } = req.body;
+      const userId = req.user!.id;
+      
+      if (!sessionId || !panNumber || !dob) {
+        return res.status(400).json({
+          success: false,
+          message: "Session ID, PAN number, and date of birth are required"
+        });
+      }
+      
+      // Get session
+      const session = await storage.getKycVerificationSession(sessionId);
+      
+      if (!session || session.userId !== userId) {
+        return res.status(404).json({
+          success: false,
+          message: "Invalid session"
+        });
+      }
+      
+      // Verify PAN using Sandbox API
+      const verification = await SandboxKYCService.verifyIndividualPAN(panNumber, dob);
+      
+      if (!verification.success) {
+        return res.json({
+          success: false,
+          message: verification.message
+        });
+      }
+      
+      // Update session with PAN data
+      await storage.updateKycVerificationSession(sessionId, {
+        panNumber: await PANConsentService.encryptPAN(panNumber),
+        panDob: new Date(dob),
+        panVerified: true,
+        panVerificationData: {
+          name: verification.name,
+          fatherName: verification.fatherName
+        },
+        panVerifiedAt: new Date(),
+        currentStep: "aadhaar_otp",
+        stepStatus: {
+          pan_verified: true,
+          aadhaar_otp_sent: false,
+          aadhaar_verified: false,
+          data_collected: false
+        }
+      });
+      
+      res.json({
+        success: true,
+        data: {
+          name: verification.name,
+          fatherName: verification.fatherName
+        },
+        message: "PAN verified successfully"
+      });
+    } catch (error) {
+      console.error('Error verifying PAN:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to verify PAN'
+      });
+    }
+  });
+  
+  // Step 2: Send Aadhaar OTP
+  app.post("/api/kyc/wizard/send-aadhaar-otp", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const { sessionId, aadhaarNumber } = req.body;
+      const userId = req.user!.id;
+      
+      if (!sessionId || !aadhaarNumber) {
+        return res.status(400).json({
+          success: false,
+          message: "Session ID and Aadhaar number are required"
+        });
+      }
+      
+      // Get session
+      const session = await storage.getKycVerificationSession(sessionId);
+      
+      if (!session || session.userId !== userId || !session.panVerified) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid session or PAN not verified"
+        });
+      }
+      
+      // Send OTP using mock service
+      const otpResponse = await AadhaarMockService.sendOTP(aadhaarNumber);
+      
+      if (!otpResponse.success) {
+        return res.json(otpResponse);
+      }
+      
+      // Store only last 4 digits of Aadhaar (encrypted)
+      const last4Digits = aadhaarNumber.slice(-4);
+      
+      // Update session
+      await storage.updateKycVerificationSession(sessionId, {
+        aadhaarNumber: await PANConsentService.encryptPAN(last4Digits), // Reuse encryption
+        aadhaarOtpSent: true,
+        aadhaarOtpSentAt: new Date(),
+        stepStatus: {
+          ...session.stepStatus as any,
+          aadhaar_otp_sent: true
+        },
+        // Store transaction ID in session metadata
+        aadhaarVerificationData: {
+          transactionId: otpResponse.transactionId
+        }
+      });
+      
+      res.json({
+        success: true,
+        transactionId: otpResponse.transactionId,
+        maskedAadhaar: otpResponse.maskedAadhaar,
+        message: otpResponse.message
+      });
+    } catch (error) {
+      console.error('Error sending Aadhaar OTP:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to send Aadhaar OTP'
+      });
+    }
+  });
+  
+  // Step 3: Verify Aadhaar OTP
+  app.post("/api/kyc/wizard/verify-aadhaar-otp", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const { sessionId, transactionId, otp } = req.body;
+      const userId = req.user!.id;
+      
+      if (!sessionId || !transactionId || !otp) {
+        return res.status(400).json({
+          success: false,
+          message: "Session ID, transaction ID, and OTP are required"
+        });
+      }
+      
+      // Get session
+      const session = await storage.getKycVerificationSession(sessionId);
+      
+      if (!session || session.userId !== userId || !session.aadhaarOtpSent) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid session or OTP not sent"
+        });
+      }
+      
+      // Verify OTP
+      const verification = await AadhaarMockService.verifyOTP(transactionId, otp);
+      
+      if (!verification.success || !verification.verified) {
+        return res.json(verification);
+      }
+      
+      // Update session with Aadhaar data
+      await storage.updateKycVerificationSession(sessionId, {
+        aadhaarOtpVerified: true,
+        aadhaarVerifiedAt: new Date(),
+        aadhaarVerificationData: verification.data,
+        currentStep: "data_collection",
+        stepStatus: {
+          ...session.stepStatus as any,
+          aadhaar_verified: true
+        }
+      });
+      
+      // Also update user's verification status
+      await storage.updateUser(userId, {
+        panVerifiedViaSmartKyc: true,
+        panVerificationDate: session.panVerifiedAt,
+        aadhaarVerifiedViaSmartKyc: true,
+        aadhaarVerificationDate: new Date()
+      });
+      
+      res.json({
+        success: true,
+        data: verification.data,
+        message: "Aadhaar verified successfully"
+      });
+    } catch (error) {
+      console.error('Error verifying Aadhaar OTP:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to verify Aadhaar OTP'
+      });
+    }
+  });
+  
+  // Step 4: Complete KYC wizard
+  app.post("/api/kyc/wizard/complete", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const { sessionId } = req.body;
+      const userId = req.user!.id;
+      
+      if (!sessionId) {
+        return res.status(400).json({
+          success: false,
+          message: "Session ID is required"
+        });
+      }
+      
+      // Get session
+      const session = await storage.getKycVerificationSession(sessionId);
+      
+      if (!session || session.userId !== userId || !session.aadhaarOtpVerified) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid session or verification incomplete"
+        });
+      }
+      
+      // Mark session as completed
+      await storage.completeKycSession(sessionId);
+      
+      // Update user's smart KYC completion
+      await storage.updateUser(userId, {
+        smartKycCompletedAt: new Date()
+      });
+      
+      res.json({
+        success: true,
+        message: "Smart KYC completed successfully"
+      });
+    } catch (error) {
+      console.error('Error completing KYC:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to complete KYC'
       });
     }
   });
@@ -29425,314 +29745,6 @@ System Security Data:`;
     }
   });
 
-  // Toggle alert active status
-  app.post("/api/alerts/:id/toggle", requireAuth, async (req, res) => {
-    try {
-      const { id } = req.params;
-      const alert = await storage.getUserAlert(id);
-      
-      if (!alert || alert.userId !== req.user!.id) {
-        return res.status(404).json({ message: "Alert not found" });
-      }
-      
-      const updatedAlert = await storage.toggleAlertStatus(id, !alert.isActive);
-      res.json(updatedAlert);
-    } catch (error) {
-      console.error('Error toggling alert:', error);
-      res.status(500).json({ message: "Failed to toggle alert" });
-    }
-  });
-
-  // Get alert history
-  app.get("/api/alerts/history", requireAuth, async (req, res) => {
-    try {
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
-      const history = await storage.getUserAlertHistory(req.user!.id, limit);
-      res.json(history);
-    } catch (error) {
-      console.error('Error fetching alert history:', error);
-      res.status(500).json({ message: "Failed to fetch alert history" });
-    }
-  });
-
-  // Mark alert history as viewed
-  app.post("/api/alerts/history/:id/viewed", requireAuth, async (req, res) => {
-    try {
-      const { id } = req.params;
-      const updatedHistory = await storage.markAlertAsRead(id);
-      res.json(updatedHistory);
-    } catch (error) {
-      console.error('Error marking alert as viewed:', error);
-      res.status(500).json({ message: "Failed to mark alert as viewed" });
-    }
-  });
-
-  // Dismiss alert from history
-  app.post("/api/alerts/history/:id/dismiss", requireAuth, async (req, res) => {
-    try {
-      const { id } = req.params;
-      const updatedHistory = await storage.dismissAlert(id);
-      res.json(updatedHistory);
-    } catch (error) {
-      console.error('Error dismissing alert:', error);
-      res.status(500).json({ message: "Failed to dismiss alert" });
-    }
-  });
-
-  // Get alert templates
-  app.get("/api/alerts/templates", requireAuth, async (req, res) => {
-    try {
-      const { category } = req.query;
-      const templates = await storage.getAlertTemplates(category as string);
-      res.json(templates);
-    } catch (error) {
-      console.error('Error fetching alert templates:', error);
-      res.status(500).json({ message: "Failed to fetch alert templates" });
-    }
-  });
-
-  // Create alert from template
-  app.post("/api/alerts/from-template", requireAuth, async (req, res) => {
-    try {
-      const { templateId, customData } = req.body;
-      
-      if (!templateId) {
-        return res.status(400).json({ message: "Template ID is required" });
-      }
-      
-      const alert = await storage.createAlertFromTemplate(req.user!.id, templateId, customData);
-      res.status(201).json(alert);
-    } catch (error) {
-      console.error('Error creating alert from template:', error);
-      res.status(500).json({ message: "Failed to create alert from template" });
-    }
-  });
-
-  // ==================== END ALERT SYSTEM ROUTES ====================
-
-  // ==================== AI CHAT ASSISTANT ROUTES ====================
-  
-  const { chatOrchestrator } = await import("./chat-orchestrator");
-  
-  // Start a new chat session
-  app.post("/api/chat/sessions", requireAuth, async (req, res) => {
-    try {
-      const { sessionType, portfolioId } = req.body;
-      const session = await chatOrchestrator.startSession(
-        req.user!.id,
-        sessionType || 'general',
-        portfolioId
-      );
-      
-      // Get initial welcome message
-      const messages = await storage.getChatMessages(session.id);
-      
-      res.status(201).json({
-        session,
-        messages,
-      });
-    } catch (error) {
-      console.error('Error starting chat session:', error);
-      res.status(500).json({ message: "Failed to start chat session" });
-    }
-  });
-  
-  // Get user's chat sessions
-  app.get("/api/chat/sessions", requireAuth, async (req, res) => {
-    try {
-      const sessions = await chatOrchestrator.getUserSessions(req.user!.id);
-      res.json(sessions);
-    } catch (error) {
-      console.error('Error fetching chat sessions:', error);
-      res.status(500).json({ message: "Failed to fetch chat sessions" });
-    }
-  });
-  
-  // Get a specific session
-  app.get("/api/chat/sessions/:sessionId", requireAuth, async (req, res) => {
-    try {
-      const { sessionId } = req.params;
-      const session = await storage.getChatSession(sessionId);
-      
-      if (!session || session.userId !== req.user!.id) {
-        return res.status(404).json({ message: "Session not found" });
-      }
-      
-      res.json(session);
-    } catch (error) {
-      console.error('Error fetching chat session:', error);
-      res.status(500).json({ message: "Failed to fetch chat session" });
-    }
-  });
-  
-  // Get messages for a session
-  app.get("/api/chat/sessions/:sessionId/messages", requireAuth, async (req, res) => {
-    try {
-      const { sessionId } = req.params;
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
-      
-      const messages = await chatOrchestrator.getSessionHistory(
-        sessionId,
-        req.user!.id,
-        limit
-      );
-      
-      res.json(messages);
-    } catch (error) {
-      console.error('Error fetching messages:', error);
-      res.status(500).json({ message: "Failed to fetch messages" });
-    }
-  });
-  
-  // Send a message
-  app.post("/api/chat/sessions/:sessionId/messages", requireAuth, async (req, res) => {
-    try {
-      const { sessionId } = req.params;
-      const { message } = req.body;
-      
-      if (!message || typeof message !== 'string') {
-        return res.status(400).json({ message: "Message is required" });
-      }
-      
-      const response = await chatOrchestrator.sendMessage(
-        sessionId,
-        message,
-        req.user!.id
-      );
-      
-      res.json(response);
-    } catch (error) {
-      console.error('Error sending message:', error);
-      res.status(500).json({ message: "Failed to send message" });
-    }
-  });
-  
-  // Get pending actions for user
-  app.get("/api/chat/actions/pending", requireAuth, async (req, res) => {
-    try {
-      const actions = await storage.getPendingChatActions(req.user!.id);
-      res.json(actions);
-    } catch (error) {
-      console.error('Error fetching pending actions:', error);
-      res.status(500).json({ message: "Failed to fetch pending actions" });
-    }
-  });
-  
-  // Confirm or reject an action
-  app.post("/api/chat/actions/:actionId/confirm", requireAuth, async (req, res) => {
-    try {
-      const { actionId } = req.params;
-      const { confirmed } = req.body;
-      
-      if (typeof confirmed !== 'boolean') {
-        return res.status(400).json({ message: "confirmed must be a boolean" });
-      }
-      
-      const response = await chatOrchestrator.confirmAction(
-        actionId,
-        req.user!.id,
-        confirmed
-      );
-      
-      res.json(response);
-    } catch (error) {
-      console.error('Error confirming action:', error);
-      if (error instanceof Error && error.message.includes('not found')) {
-        return res.status(404).json({ message: error.message });
-      }
-      res.status(500).json({ message: "Failed to confirm action" });
-    }
-  });
-  
-  // ==================== END AI CHAT ASSISTANT ROUTES ====================
-
-  // ==================== EXPENSE TRACKING & BUDGETING ROUTES ====================
-  
-  const { categorizeExpense, generateBudgetSuggestions, analyzeSpendingPatterns } = await import('./ai-expense-service');
-  
-  // Get user expenses with filters
-  app.get("/api/expenses", requireAuth, async (req, res) => {
-    try {
-      const filters: any = {
-        startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
-        endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
-        category: req.query.category as string | undefined,
-        minAmount: req.query.minAmount ? parseFloat(req.query.minAmount as string) : undefined,
-        maxAmount: req.query.maxAmount ? parseFloat(req.query.maxAmount as string) : undefined,
-        limit: req.query.limit ? parseInt(req.query.limit as string) : 100,
-        offset: req.query.offset ? parseInt(req.query.offset as string) : 0,
-      };
-      
-      const expenses = await storage.getUserExpenses(req.user!.id, filters);
-      res.json(expenses);
-    } catch (error) {
-      console.error('Error fetching expenses:', error);
-      res.status(500).json({ message: "Failed to fetch expenses" });
-    }
-  });
-  
-  // Get expense by category aggregation
-  app.get("/api/expenses/by-category", requireAuth, async (req, res) => {
-    try {
-      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
-      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
-      
-      const summary = await storage.getExpensesByCategory(req.user!.id, startDate, endDate);
-      res.json(summary);
-    } catch (error) {
-      console.error('Error fetching expense summary:', error);
-      res.status(500).json({ message: "Failed to fetch expense summary" });
-    }
-  });
-  
-  // Create expense with AI categorization
-  app.post("/api/expenses", requireAuth, async (req, res) => {
-    try {
-      const { amount, description, transactionDate, merchantName, category, paymentMethod, notes, tags } = req.body;
-      
-      if (!amount || !description || !transactionDate) {
-        return res.status(400).json({ message: "amount, description, and transactionDate are required" });
-      }
-      
-      let expenseCategory = category;
-      let aiConfidence = 0;
-      
-      // Use AI categorization if category not provided
-      if (!category && geminiService) {
-        try {
-          const categoryResult = await geminiService.categorizeExpense(description, merchantName);
-          if (categoryResult) {
-            expenseCategory = categoryResult.category;
-            aiConfidence = categoryResult.confidence;
-          }
-        } catch (error) {
-          console.error('AI categorization failed:', error);
-          expenseCategory = 'other';
-        }
-      }
-      
-      const expense = await storage.createExpense({
-        userId: req.user!.id,
-        amount: amount.toString(),
-        description,
-        category: expenseCategory || 'other',
-        transactionDate: new Date(transactionDate),
-        merchantName: merchantName || null,
-        paymentMethod: paymentMethod || null,
-        notes: notes || null,
-        tags: tags || [],
-        isAiCategorized: !category,
-        aiConfidence: !category ? aiConfidence : null
-      });
-      
-      res.status(201).json(expense);
-    } catch (error) {
-      console.error('Error creating expense:', error);
-      res.status(500).json({ message: "Failed to create expense" });
-    }
-  });
-  
-  // Create and return HTTP server
-  const server = createServer(app);
-  return server;
+  const httpServer = createServer(app);
+  return httpServer;
 }
