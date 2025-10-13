@@ -122,11 +122,11 @@ export function NSEData() {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="indices" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <ScrollableTabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="indices" data-testid="indices-tab">Indices</TabsTrigger>
               <TabsTrigger value="gainers" data-testid="gainers-tab">Top Gainers</TabsTrigger>
               <TabsTrigger value="losers" data-testid="losers-tab">Top Losers</TabsTrigger>
-            </TabsList>
+            </ScrollableTabsList>
 
             <TabsContent value="indices" className="space-y-4">
               <div className="grid gap-4">

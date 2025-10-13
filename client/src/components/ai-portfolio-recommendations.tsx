@@ -192,7 +192,7 @@ export default function AIPortfolioRecommendations({ portfolioId }: AIPortfolioR
 
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <ScrollableTabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="rebalancing" data-testid="tab-rebalancing">
             <TrendingUp className="w-4 h-4 mr-2" />
             Rebalancing Recommendations
@@ -201,7 +201,7 @@ export default function AIPortfolioRecommendations({ portfolioId }: AIPortfolioR
             <Target className="w-4 h-4 mr-2" />
             Investment Proposal
           </TabsTrigger>
-        </TabsList>
+        </ScrollableTabsList>
 
         {/* Rebalancing Recommendations Tab */}
         <TabsContent value="rebalancing" className="space-y-4">

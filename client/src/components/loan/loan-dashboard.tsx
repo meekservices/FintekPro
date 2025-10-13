@@ -181,14 +181,14 @@ export function LoanDashboard() {
 
       {/* Loan Applications Tabs */}
       <Tabs defaultValue="pending" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <ScrollableTabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="pending" data-testid="tab-pending">
             Pending Applications ({pendingApplications.length})
           </TabsTrigger>
           <TabsTrigger value="history" data-testid="tab-history">
             Application History ({completedApplications.length})
           </TabsTrigger>
-        </TabsList>
+        </ScrollableTabsList>
 
         <TabsContent value="pending" className="space-y-4">
           {pendingApplications.length === 0 ? (

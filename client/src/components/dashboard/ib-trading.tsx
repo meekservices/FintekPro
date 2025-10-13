@@ -180,12 +180,12 @@ export function IBTrading() {
       </div>
 
       <Tabs defaultValue="accounts" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <ScrollableTabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="accounts">Accounts</TabsTrigger>
           <TabsTrigger value="orders">Orders</TabsTrigger>
           <TabsTrigger value="positions">Positions</TabsTrigger>
           <TabsTrigger value="trading">Place Order</TabsTrigger>
-        </TabsList>
+        </ScrollableTabsList>
 
         <TabsContent value="accounts" className="space-y-4">
           <Card>

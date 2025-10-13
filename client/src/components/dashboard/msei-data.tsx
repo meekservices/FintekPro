@@ -167,7 +167,7 @@ export function MSEIData() {
 
       {/* MSEI Data Tabs */}
       <Tabs defaultValue="equities" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <ScrollableTabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="equities" className="flex items-center">
             <Building2 className="h-4 w-4 mr-1" />
             Equities
@@ -188,7 +188,7 @@ export function MSEIData() {
             <TrendingDown className="h-4 w-4 mr-1" />
             Losers
           </TabsTrigger>
-        </TabsList>
+        </ScrollableTabsList>
 
         <TabsContent value="equities" data-testid="msei-equities">
           <Card>

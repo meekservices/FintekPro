@@ -122,7 +122,7 @@ export function NCDEXData() {
 
       {/* NCDEX Data Tabs */}
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <ScrollableTabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="overview" className="flex items-center">
             <BarChart3 className="h-4 w-4 mr-1" />
             Overview
@@ -135,7 +135,7 @@ export function NCDEXData() {
             <TrendingDown className="h-4 w-4 mr-1" />
             Top Losers
           </TabsTrigger>
-        </TabsList>
+        </ScrollableTabsList>
 
         <TabsContent value="overview" data-testid="ncdex-overview">
           <Card>

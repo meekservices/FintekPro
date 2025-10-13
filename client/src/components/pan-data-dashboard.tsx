@@ -111,11 +111,11 @@ export function PANDataDashboard({ className }: PANDataDashboardProps) {
         </Card>
       ) : (
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3">
+          <ScrollableTabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="overview" data-testid="tab-pan-overview">Overview</TabsTrigger>
             <TabsTrigger value="compliance" data-testid="tab-pan-compliance">Compliance</TabsTrigger>
             <TabsTrigger value="audit" data-testid="tab-pan-audit">Audit Log</TabsTrigger>
-          </TabsList>
+          </ScrollableTabsList>
 
           <TabsContent value="overview" className="space-y-4">
             {/* PAN Information Card */}

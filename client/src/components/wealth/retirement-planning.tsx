@@ -349,11 +349,11 @@ export function RetirementPlanning() {
       </Card>
 
       <Tabs defaultValue="allocation" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
+        <ScrollableTabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="allocation" data-testid="tab-asset-allocation">Asset Allocation</TabsTrigger>
           <TabsTrigger value="instruments" data-testid="tab-investment-instruments">Investment Instruments</TabsTrigger>
           <TabsTrigger value="schemes" data-testid="tab-retirement-schemes">Retirement Schemes</TabsTrigger>
-        </TabsList>
+        </ScrollableTabsList>
 
         {/* Asset Allocation */}
         <TabsContent value="allocation">

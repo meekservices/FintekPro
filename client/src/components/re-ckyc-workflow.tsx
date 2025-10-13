@@ -202,11 +202,11 @@ export function ReCKYCWorkflow({
                 </CardHeader>
                 <CardContent>
                   <Tabs value={verificationMethod} onValueChange={(value: any) => setVerificationMethod(value)}>
-                    <TabsList className="grid w-full grid-cols-3">
+                    <ScrollableTabsList className="grid w-full grid-cols-3">
                       <TabsTrigger value="digilocker" data-testid="tab-digilocker">DigiLocker</TabsTrigger>
                       <TabsTrigger value="video_kyc" data-testid="tab-video-kyc">Video KYC</TabsTrigger>
                       <TabsTrigger value="manual_upload" data-testid="tab-manual-upload">Manual Upload</TabsTrigger>
-                    </TabsList>
+                    </ScrollableTabsList>
 
                     <TabsContent value="digilocker" className="space-y-4">
                       <div className="flex items-start gap-3 p-4 bg-green-50 dark:bg-green-900/10 rounded-lg">

@@ -119,11 +119,11 @@ export function MCXData() {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="commodities" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <ScrollableTabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="commodities" data-testid="mcx-commodities-tab">All Commodities</TabsTrigger>
               <TabsTrigger value="gainers" data-testid="mcx-gainers-tab">Top Gainers</TabsTrigger>
               <TabsTrigger value="losers" data-testid="mcx-losers-tab">Top Losers</TabsTrigger>
-            </TabsList>
+            </ScrollableTabsList>
 
             <TabsContent value="commodities" className="space-y-4">
               <div className="grid gap-4">

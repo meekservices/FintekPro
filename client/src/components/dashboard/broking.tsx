@@ -196,7 +196,7 @@ export function BrokingDashboard() {
 
       <Tabs defaultValue="overview" className="w-full">
         <div className="overflow-x-auto pb-2">
-          <TabsList className="inline-flex w-auto min-w-full">
+          <ScrollableTabsList className="inline-flex w-auto min-w-full">
             <TabsTrigger value="overview" className="flex-shrink-0">Overview</TabsTrigger>
             <TabsTrigger value="indian-trading" className="flex-shrink-0">Indian Markets</TabsTrigger>
             <TabsTrigger value="derivatives" className="flex-shrink-0">Commodities & Derivatives</TabsTrigger>
@@ -204,7 +204,7 @@ export function BrokingDashboard() {
             <TabsTrigger value="ib-trading" className="flex-shrink-0">Global Markets</TabsTrigger>
             <TabsTrigger value="order-book" className="flex-shrink-0">Order Book</TabsTrigger>
             <TabsTrigger value="watchlist" className="flex-shrink-0">Watchlist</TabsTrigger>
-          </TabsList>
+          </ScrollableTabsList>
         </div>
 
         <TabsContent value="overview" className="space-y-6">

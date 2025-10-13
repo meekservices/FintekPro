@@ -318,7 +318,7 @@ export function AgriculturalInsights() {
 
       {/* Main Analytics Tabs */}
       <Tabs defaultValue="performance" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <ScrollableTabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="performance" className="flex items-center">
             <BarChart3 className="h-4 w-4 mr-1" />
             Performance
@@ -335,7 +335,7 @@ export function AgriculturalInsights() {
             <Calendar className="h-4 w-4 mr-1" />
             Seasonal
           </TabsTrigger>
-        </TabsList>
+        </ScrollableTabsList>
 
         <TabsContent value="performance" className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

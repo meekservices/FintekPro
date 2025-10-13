@@ -86,12 +86,12 @@ export function BSEData() {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="indices" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <ScrollableTabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="indices" data-testid="bse-indices-tab">Indices</TabsTrigger>
               <TabsTrigger value="gainers" data-testid="bse-gainers-tab">Top Gainers</TabsTrigger>
               <TabsTrigger value="losers" data-testid="bse-losers-tab">Top Losers</TabsTrigger>
               <TabsTrigger value="turnovers" data-testid="bse-turnovers-tab">Top Turnovers</TabsTrigger>
-            </TabsList>
+            </ScrollableTabsList>
 
             <TabsContent value="indices" className="space-y-4">
               <div className="grid gap-4">
