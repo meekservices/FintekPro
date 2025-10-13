@@ -535,6 +535,11 @@ export class MultiSourceMFService {
     const baseUrl = 'https://api.mfapi.in/mf';
     
     try {
+      // Validate param for fund type
+      if (type === 'fund' && (!param || param.trim() === '')) {
+        throw new Error('Invalid scheme code: empty or undefined');
+      }
+      
       let url: string;
       switch (type) {
         case 'fund':
@@ -561,6 +566,11 @@ export class MultiSourceMFService {
         }
       });
 
+      // Check if response has valid data
+      if (!response.data || (type === 'fund' && !response.data.meta)) {
+        throw new Error('Invalid response format from MFAPI');
+      }
+
       if (type === 'fund') {
         return this.normalizeMFAPIFund(response.data);
       } else if (type === 'search') {
@@ -568,8 +578,12 @@ export class MultiSourceMFService {
       } else {
         return response.data.map((fund: any) => this.normalizeMFAPIFund(fund));
       }
-    } catch (error) {
-      throw new Error(`MFAPI request failed: ${error}`);
+    } catch (error: any) {
+      // Provide more context for 404 errors
+      if (error.response?.status === 404) {
+        throw new Error(`Fund not found in MFAPI: ${param}`);
+      }
+      throw new Error(`MFAPI request failed: ${error.message || error}`);
     }
   }
 
@@ -593,13 +607,23 @@ export class MultiSourceMFService {
    * Normalize MFAPI fund data to our schema
    */
   private normalizeMFAPIFund(data: any): FundExtended {
+    // MFAPI returns data in format: { meta: { scheme_code, scheme_name, fund_house }, data: [{nav, date}] }
+    const schemeCode = data.meta?.scheme_code || data.schemeCode || data.id?.toString() || '';
+    const schemeName = data.meta?.scheme_name || data.schemeName || data.name || '';
+    const fundHouse = data.meta?.fund_house || data.fundHouse || '';
+    
+    // Get latest NAV from data array
+    const latestNavData = Array.isArray(data.data) && data.data.length > 0 
+      ? data.data[0] 
+      : { nav: data.nav || '0', date: data.date || new Date().toISOString() };
+    
     return {
-      schemeCode: data.schemeCode || data.id?.toString() || '',
-      schemeName: data.schemeName || data.name || '',
-      fundHouse: data.fundHouse || '',
-      category: data.category || '',
-      currentNav: data.nav || data.currentNav || '0',
-      navDate: data.date || new Date().toISOString(),
+      schemeCode: schemeCode.toString(),
+      schemeName,
+      fundHouse,
+      category: data.category || data.meta?.scheme_category || '',
+      currentNav: latestNavData.nav || data.currentNav || '0',
+      navDate: latestNavData.date || new Date().toISOString(),
       returns: {},
       returnStrings: {},
       provenance: {

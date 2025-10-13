@@ -63,17 +63,23 @@ export class MutualFundsRefreshJob {
         
         // Optionally refresh some stale funds (limit to avoid overwhelming APIs)
         if (staleFunds.length > 0) {
-          const fundsToRefresh = staleFunds.slice(0, 10); // Refresh top 10 stale funds
+          // Filter out funds with invalid scheme codes
+          const validStaleFunds = staleFunds.filter(fund => 
+            fund.schemeCode && fund.schemeCode.trim() !== ''
+          );
+          
+          const fundsToRefresh = validStaleFunds.slice(0, 10); // Refresh top 10 stale funds
           
           for (const staleFund of fundsToRefresh) {
             try {
               await this.mfService.getFund(staleFund.schemeCode);
+              console.log(`✅ Refreshed stale fund ${staleFund.schemeCode}: ${staleFund.schemeName}`);
             } catch (error) {
               console.warn(`Failed to refresh stale fund ${staleFund.schemeCode}:`, error);
             }
           }
           
-          console.log(`🔄 Refreshed ${fundsToRefresh.length} stale funds`);
+          console.log(`🔄 Refreshed ${fundsToRefresh.length} stale funds (${staleFunds.length - validStaleFunds.length} skipped due to invalid scheme codes)`);
         }
       }
 
