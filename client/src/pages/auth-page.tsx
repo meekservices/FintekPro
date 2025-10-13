@@ -158,7 +158,7 @@ export default function AuthPage() {
           password: data.password
         }
       });
-      return response.json();
+      return response;
     },
     onSuccess: (data) => {
       if (data.requiresOtp) {
@@ -201,7 +201,7 @@ export default function AuthPage() {
           password: loginForm.getValues("password")
         }
       });
-      return response.json();
+      return response;
     },
     onSuccess: (data) => {
       setOtpSending(false);
@@ -230,7 +230,7 @@ export default function AuthPage() {
           otp: data.otp
         }
       });
-      return response.json();
+      return response;
     },
     onSuccess: (data) => {
       setLoginStep("complete");
@@ -261,7 +261,7 @@ export default function AuthPage() {
           password: data.password
         }
       });
-      return response.json();
+      return response;
     },
     onSuccess: (data) => {
       const userId = data.userId || data.user?.id || 'N/A';
@@ -283,7 +283,7 @@ export default function AuthPage() {
       const response = await apiRequest("POST", "/api/auth/forgot-password", {
         body: { identifier: data.identifier }
       });
-      return response.json();
+      return response;
     },
     onSuccess: (data, variables) => {
       setResetIdentifier(variables.identifier);
@@ -312,7 +312,7 @@ export default function AuthPage() {
           newPassword: data.newPassword
         }
       });
-      return response.json();
+      return response;
     },
     onSuccess: (data) => {
       toast({
