@@ -4887,7 +4887,7 @@ export interface FundPerformance {
 
 // Data provenance and source tracking
 export interface Provenance {
-  primarySource: 'AMFI' | 'MFAPI' | 'CaptNemo' | 'RapidAPI';
+  primarySource: 'AMFI' | 'MFAPI';
   sourceChain?: string[]; // ordered list of attempted sources
   dataFlow?: Array<{
     source: string;
@@ -4988,7 +4988,7 @@ export const fundPerformanceSchema = z.object({
 });
 
 export const provenanceSchema = z.object({
-  primarySource: z.enum(['AMFI', 'MFAPI', 'CaptNemo', 'RapidAPI']),
+  primarySource: z.enum(['AMFI', 'MFAPI']),
   sourceChain: z.array(z.string()),
   lastRefreshed: z.string(),
   dataVersion: z.string().optional(),
