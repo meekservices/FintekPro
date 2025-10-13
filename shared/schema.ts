@@ -359,6 +359,7 @@ export const productAccountPreferences = pgTable("product_account_preferences", 
 // User storage table with mobile/email authentication
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").unique(), // System-generated unique user ID for login (e.g., FTP001234)
   email: varchar("email").unique(),
   mobile: varchar("mobile").unique(), // Phone number for WhatsApp and authentication
   password: text("password").notNull(),
