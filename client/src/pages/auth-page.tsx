@@ -483,7 +483,7 @@ export default function AuthPage() {
                         {loginStep !== "credentials" && (
                           <div className="space-y-2 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
                             <div className="flex items-center justify-between text-sm">
-                              <span className={`flex items-center gap-1 ${loginStep === "credentials" ? "text-blue-600 font-medium" : "text-gray-500"}`}>
+                              <span className="flex items-center gap-1 text-green-600">
                                 <CheckCircle2 className="h-4 w-4" />
                                 Credentials
                               </span>
@@ -496,7 +496,7 @@ export default function AuthPage() {
                                 Success
                               </span>
                             </div>
-                            <Progress value={loginStep === "credentials" ? 33 : loginStep === "otp" ? 66 : 100} className="h-2" />
+                            <Progress value={loginStep === "otp" ? 66 : 100} className="h-2" />
                           </div>
                         )}
 
