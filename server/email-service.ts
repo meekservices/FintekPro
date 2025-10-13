@@ -134,6 +134,73 @@ If you did not request a password reset, please ignore this email or contact our
     });
   }
 
+  async sendLoginOTP(email: string, otp: string): Promise<boolean> {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background-color: #1e40af; color: white; padding: 20px; text-align: center; }
+          .content { background-color: #f9fafb; padding: 30px; border-radius: 8px; margin: 20px 0; }
+          .otp-box { background-color: white; border: 2px dashed #1e40af; padding: 20px; text-align: center; margin: 20px 0; border-radius: 8px; }
+          .otp-code { font-size: 32px; font-weight: bold; color: #1e40af; letter-spacing: 8px; }
+          .footer { text-align: center; color: #6b7280; font-size: 12px; margin-top: 20px; }
+          .warning { color: #dc2626; margin-top: 15px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>FintekPro Login Verification</h1>
+          </div>
+          <div class="content">
+            <h2>Verify Your Login</h2>
+            <p>Someone is trying to log in to your FintekPro account. Use the OTP below to complete the login:</p>
+            
+            <div class="otp-box">
+              <p style="margin: 0; color: #6b7280;">Your Login OTP:</p>
+              <div class="otp-code">${otp}</div>
+            </div>
+            
+            <p>This OTP is valid for <strong>5 minutes</strong>.</p>
+            
+            <p class="warning">
+              <strong>Security Notice:</strong> Do not share this OTP with anyone. If you did not attempt to log in, please contact our support team immediately.
+            </p>
+          </div>
+          <div class="footer">
+            <p>© ${new Date().getFullYear()} FintekPro. All rights reserved.</p>
+            <p>This is an automated email. Please do not reply.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const text = `
+FintekPro Login Verification
+
+Someone is trying to log in to your FintekPro account.
+
+Your Login OTP: ${otp}
+
+This OTP is valid for 5 minutes.
+
+Security Notice: Do not share this OTP with anyone. If you did not attempt to log in, please contact our support team.
+
+© ${new Date().getFullYear()} FintekPro. All rights reserved.
+    `;
+
+    return this.sendEmail({
+      to: email,
+      subject: 'FintekPro - Login Verification OTP',
+      html,
+      text,
+    });
+  }
+
   async sendNotificationEmail(to: string, subject: string, message: string): Promise<boolean> {
     const html = `
       <!DOCTYPE html>

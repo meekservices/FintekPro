@@ -10,6 +10,7 @@ import { complianceMiddleware } from "./compliance-monitor";
 import { storage } from "./storage";
 import { setupAuth as setupReplitAuth } from "./replitAuth";
 import { setupAuth as setupLocalAuth } from "./auth";
+import "./services/sms-service"; // Initialize SMS service
 
 const app = express();
 

@@ -7,6 +7,7 @@ import { promisify } from "util";
 import { storage } from "./storage";
 import { type User } from "@shared/schema";
 import { emailService } from "./email-service";
+import { smsService } from "./services/sms-service";
 
 declare global {
   namespace Express {
@@ -456,8 +457,20 @@ export function setupAuth(app: Express) {
           verified: false,
         });
 
-        // Log OTP for development (will send via email/SMS/WhatsApp in production)
-        console.log(`🔐 Login OTP for ${otpDestination} (${otpType}): ${otp}`);
+        // Send OTP via appropriate channel
+        if (otpType === "email") {
+          const emailSent = await emailService.sendLoginOTP(otpDestination, otp);
+          if (emailSent) {
+            console.log(`✅ Login OTP sent to email: ${otpDestination}`);
+          } else {
+            console.log(`⚠️ Email failed, Login OTP for ${otpDestination}: ${otp}`);
+          }
+        } else {
+          const smsSent = await smsService.sendOTP(otpDestination, otp);
+          if (!smsSent) {
+            console.log(`📱 Login OTP for ${otpDestination}: ${otp}`);
+          }
+        }
 
         // Return success with OTP destination info (don't complete login yet)
         res.json({
