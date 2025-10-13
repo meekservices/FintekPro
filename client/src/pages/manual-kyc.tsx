@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
@@ -443,6 +443,30 @@ export default function ManualKYCPage() {
             </p>
           </div>
         </div>
+
+        {/* Guidance Alert */}
+        <Alert className="mb-6">
+          <Info className="h-4 w-4" />
+          <AlertTitle>Traditional Document Upload via BSE Star API</AlertTitle>
+          <AlertDescription>
+            {kycType === 'individual' ? (
+              <>
+                This path uses direct document upload with BSE Star MFD API verification. 
+                <strong className="block mt-1">
+                  Prefer the <a href="/onboarding" className="text-blue-600 underline">Smart KYC Onboarding</a> for a faster, AI-assisted experience with auto-fill.
+                </strong>
+              </>
+            ) : kycType === 'corporate' ? (
+              <>
+                This path is designed for companies, trusts, and non-individual entities. Document verification through BSE Star API with Corporate PAN validation.
+              </>
+            ) : (
+              <>
+                Specialized path for Non-Resident Indians requiring passport, visa, and overseas address verification through BSE Star API.
+              </>
+            )}
+          </AlertDescription>
+        </Alert>
 
         {/* Type Selector */}
         <Card className="mb-6">

@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -24,7 +25,8 @@ import {
   CheckCircle, 
   AlertCircle, 
   Upload,
-  Eye
+  Eye,
+  Info
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -282,10 +284,24 @@ export default function OnboardingPage() {
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl">
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold mb-2">Client Onboarding</h1>
+        <h1 className="text-3xl font-bold mb-2">Smart KYC Onboarding</h1>
         <p className="text-muted-foreground mb-4">
           Complete your profile to access our financial services
         </p>
+        
+        {/* Guidance Alert */}
+        <Alert className="mb-6 text-left max-w-2xl mx-auto">
+          <Info className="h-4 w-4" />
+          <AlertTitle>Best for Individual Investors</AlertTitle>
+          <AlertDescription>
+            This AI-assisted wizard provides auto-fill, progressive save, and smart validation for individual investors. 
+            <strong className="block mt-2">
+              <span className="block">• Corporate entities: Use <a href="/manual-kyc?type=corporate" className="text-blue-600 underline font-semibold">Manual KYC - Corporate</a></span>
+              <span className="block">• NRI investors: Use <a href="/manual-kyc?type=nri" className="text-blue-600 underline font-semibold">Manual KYC - NRI</a></span>
+            </strong>
+          </AlertDescription>
+        </Alert>
+
         <div className="w-full max-w-md mx-auto">
           <div className="flex justify-between text-sm text-muted-foreground mb-2">
             <span>Progress</span>
