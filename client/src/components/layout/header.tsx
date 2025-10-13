@@ -148,9 +148,16 @@ export function Header() {
                       className="w-6 h-6 rounded-full object-cover"
                     />
                   )}
-                  <span className="text-sm font-medium text-gray-700 truncate max-w-[120px]" data-testid="client-name-header">
-                    {getClientName()}
-                  </span>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-gray-700 truncate max-w-[120px]" data-testid="client-name-header">
+                      {getClientName()}
+                    </span>
+                    {user?.userId && (
+                      <span className="text-xs text-gray-500 truncate max-w-[120px]" data-testid="client-userid-header">
+                        {user.userId}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <Link href="/ckyc">
                   <Button 
@@ -255,6 +262,11 @@ export function Header() {
                           <p className="font-medium text-gray-900" data-testid="mobile-client-name">
                             {getClientName()}
                           </p>
+                          {user?.userId && (
+                            <p className="text-xs text-gray-500" data-testid="mobile-client-userid">
+                              {user.userId}
+                            </p>
+                          )}
                           <p className="text-sm text-gray-500">{user?.email}</p>
                         </div>
                       </div>
