@@ -17,20 +17,23 @@ import { useAuth } from "@/hooks/useAuth";
 import { Loader2, Eye, EyeOff, Shield, TrendingUp, BarChart3, MessageSquare } from "lucide-react";
 
 const loginSchema = z.object({
-  email: z.string().email("Invalid email address"),
+  identifier: z.string().min(1, "Email, mobile, or User ID is required"),
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
 const registerSchema = z.object({
-  firstName: z.string().min(2, "First name must be at least 2 characters"),
-  middleName: z.string().optional(),
-  lastName: z.string().optional(),
   email: z.string().email("Invalid email address"),
+  mobile: z.string().regex(/^[0-9]{10}$/, "Mobile number must be exactly 10 digits"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   confirmPassword: z.string()
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"]
+});
+
+const otpVerificationSchema = z.object({
+  identifier: z.string().min(1, "Identifier is required"),
+  otp: z.string().length(6, "OTP must be 6 digits"),
 });
 
 const forgotPasswordSchema = z.object({
@@ -49,6 +52,7 @@ const resetPasswordSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>;
 type RegisterFormData = z.infer<typeof registerSchema>;
+type OtpVerificationFormData = z.infer<typeof otpVerificationSchema>;
 type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
 type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>;
 
@@ -61,11 +65,15 @@ export default function AuthPage() {
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
   const [resetPasswordStep, setResetPasswordStep] = useState<"request" | "reset">("request");
   const [resetIdentifier, setResetIdentifier] = useState("");
+  
+  const [otpDialogOpen, setOtpDialogOpen] = useState(false);
+  const [loginIdentifier, setLoginIdentifier] = useState("");
+  const [otpChannel, setOtpChannel] = useState<string>("");
 
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "",
+      identifier: "",
       password: "",
     }
   });
@@ -73,12 +81,18 @@ export default function AuthPage() {
   const registerForm = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
-      firstName: "",
-      middleName: "",
-      lastName: "",
       email: "",
+      mobile: "",
       password: "",
       confirmPassword: ""
+    }
+  });
+
+  const otpForm = useForm<OtpVerificationFormData>({
+    resolver: zodResolver(otpVerificationSchema),
+    defaultValues: {
+      identifier: "",
+      otp: "",
     }
   });
 
@@ -101,21 +115,32 @@ export default function AuthPage() {
 
   const loginMutation = useMutation({
     mutationFn: async (data: LoginFormData) => {
-      const response = await apiRequest("POST", "/api/login/email", {
+      const response = await apiRequest("POST", "/api/login", {
         body: {
-          email: data.email,
+          identifier: data.identifier,
           password: data.password
         }
       });
       return response.json();
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(["/api/user"], data);
-      toast({
-        title: "Login successful",
-        description: "Welcome back!",
-      });
-      navigate("/");
+      if (data.requiresOtp) {
+        setLoginIdentifier(data.identifier || loginForm.getValues("identifier"));
+        setOtpChannel(data.otpSentTo || "your registered email/mobile");
+        otpForm.setValue("identifier", data.identifier || loginForm.getValues("identifier"));
+        setOtpDialogOpen(true);
+        toast({
+          title: "OTP Sent",
+          description: `Verification code sent to ${data.otpSentTo || "your registered email/mobile"}`,
+        });
+      } else {
+        queryClient.setQueryData(["/api/user"], data);
+        toast({
+          title: "Login successful",
+          description: "Welcome back!",
+        });
+        navigate("/");
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -126,26 +151,54 @@ export default function AuthPage() {
     },
   });
 
-  const registerMutation = useMutation({
-    mutationFn: async (data: RegisterFormData) => {
-      const response = await apiRequest("POST", "/api/register", {
+  const otpVerificationMutation = useMutation({
+    mutationFn: async (data: OtpVerificationFormData) => {
+      const response = await apiRequest("POST", "/api/login/verify-otp", {
         body: {
-          firstName: data.firstName,
-          middleName: data.middleName,
-          lastName: data.lastName,
-          email: data.email,
-          password: data.password
+          identifier: data.identifier,
+          otp: data.otp
         }
       });
       return response.json();
     },
     onSuccess: (data) => {
       queryClient.setQueryData(["/api/user"], data);
+      setOtpDialogOpen(false);
+      otpForm.reset();
       toast({
-        title: "Registration successful",
-        description: "Welcome to FintekPro!",
+        title: "Login successful",
+        description: "Welcome back!",
       });
       navigate("/");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "OTP verification failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const registerMutation = useMutation({
+    mutationFn: async (data: RegisterFormData) => {
+      const response = await apiRequest("POST", "/api/register", {
+        body: {
+          email: data.email,
+          mobile: data.mobile,
+          password: data.password
+        }
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Registration successful",
+        description: `Welcome to FintekPro! Your User ID is: ${data.userId || data.user?.userId || 'N/A'}`,
+        duration: 7000,
+      });
+      registerForm.reset();
+      setAuthMode("login");
     },
     onError: (error: Error) => {
       toast({
@@ -232,6 +285,10 @@ export default function AuthPage() {
 
   const onRegisterSubmit = (data: RegisterFormData) => {
     registerMutation.mutate(data);
+  };
+
+  const onOtpSubmit = (data: OtpVerificationFormData) => {
+    otpVerificationMutation.mutate(data);
   };
 
   const onForgotPasswordSubmit = (data: ForgotPasswordFormData) => {
@@ -351,16 +408,15 @@ export default function AuthPage() {
                       <TabsContent value="login">
                         <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
                           <div>
-                            <Label htmlFor="login-email">Email Address</Label>
+                            <Label htmlFor="login-identifier">Email, Mobile, or User ID</Label>
                             <Input
-                              id="login-email"
-                              {...loginForm.register("email")}
-                              type="email"
-                              placeholder="client@example.com"
-                              data-testid="input-login-email"
+                              id="login-identifier"
+                              {...loginForm.register("identifier")}
+                              placeholder="Email, Mobile, or User ID"
+                              data-testid="input-login-identifier"
                             />
-                            {loginForm.formState.errors.email && (
-                              <p className="text-sm text-red-600 mt-1">{loginForm.formState.errors.email.message}</p>
+                            {loginForm.formState.errors.identifier && (
+                              <p className="text-sm text-red-600 mt-1">{loginForm.formState.errors.identifier.message}</p>
                             )}
                           </div>
 
@@ -537,40 +593,6 @@ export default function AuthPage() {
                       <TabsContent value="register">
                         <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-4">
                           <div>
-                            <Label htmlFor="register-firstName">First Name</Label>
-                            <Input
-                              id="register-firstName"
-                              {...registerForm.register("firstName")}
-                              placeholder="John"
-                              data-testid="input-first-name"
-                            />
-                            {registerForm.formState.errors.firstName && (
-                              <p className="text-sm text-red-600 mt-1">{registerForm.formState.errors.firstName.message}</p>
-                            )}
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <Label htmlFor="register-middleName">Middle Name</Label>
-                              <Input
-                                id="register-middleName"
-                                {...registerForm.register("middleName")}
-                                placeholder="Optional"
-                                data-testid="input-middle-name"
-                              />
-                            </div>
-                            <div>
-                              <Label htmlFor="register-lastName">Last Name</Label>
-                              <Input
-                                id="register-lastName"
-                                {...registerForm.register("lastName")}
-                                placeholder="Optional"
-                                data-testid="input-last-name"
-                              />
-                            </div>
-                          </div>
-
-                          <div>
                             <Label htmlFor="register-email">Email Address</Label>
                             <Input
                               id="register-email"
@@ -581,6 +603,21 @@ export default function AuthPage() {
                             />
                             {registerForm.formState.errors.email && (
                               <p className="text-sm text-red-600 mt-1">{registerForm.formState.errors.email.message}</p>
+                            )}
+                          </div>
+
+                          <div>
+                            <Label htmlFor="register-mobile">Mobile Number</Label>
+                            <Input
+                              id="register-mobile"
+                              {...registerForm.register("mobile")}
+                              type="tel"
+                              placeholder="9876543210"
+                              maxLength={10}
+                              data-testid="input-register-mobile"
+                            />
+                            {registerForm.formState.errors.mobile && (
+                              <p className="text-sm text-red-600 mt-1">{registerForm.formState.errors.mobile.message}</p>
                             )}
                           </div>
 
@@ -615,9 +652,9 @@ export default function AuthPage() {
                             <Input
                               id="register-confirmPassword"
                               {...registerForm.register("confirmPassword")}
-                              type="password"
+                              type={showPassword ? "text" : "password"}
                               placeholder="Confirm your password"
-                              data-testid="input-confirm-password"
+                              data-testid="input-register-confirm-password"
                             />
                             {registerForm.formState.errors.confirmPassword && (
                               <p className="text-sm text-red-600 mt-1">{registerForm.formState.errors.confirmPassword.message}</p>
@@ -638,18 +675,66 @@ export default function AuthPage() {
                     </Tabs>
                   </TabsContent>
                 </Tabs>
-
-                {/* Security Note */}
-                <div className="mt-6 pt-6 border-t">
-                  <p className="text-xs text-center text-gray-500 dark:text-gray-400">
-                    🔒 Your data is protected with enterprise-grade encryption
-                  </p>
-                </div>
               </CardContent>
             </Card>
           </div>
         </div>
       </div>
+
+      {/* OTP Verification Dialog */}
+      <Dialog open={otpDialogOpen} onOpenChange={setOtpDialogOpen}>
+        <DialogContent className="sm:max-w-md" data-testid="dialog-otp-verification">
+          <DialogHeader>
+            <DialogTitle>Enter OTP</DialogTitle>
+            <DialogDescription>
+              Please enter the 6-digit verification code sent to {otpChannel}
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={otpForm.handleSubmit(onOtpSubmit)} className="space-y-4">
+            <div>
+              <Label htmlFor="otp-code">OTP (6 digits)</Label>
+              <Input
+                id="otp-code"
+                {...otpForm.register("otp")}
+                placeholder="123456"
+                maxLength={6}
+                autoFocus
+                data-testid="input-otp-code"
+              />
+              {otpForm.formState.errors.otp && (
+                <p className="text-sm text-red-600 mt-1">
+                  {otpForm.formState.errors.otp.message}
+                </p>
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              <Button 
+                type="button" 
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  setOtpDialogOpen(false);
+                  otpForm.reset();
+                }}
+                data-testid="button-cancel-otp"
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                className="flex-1" 
+                disabled={otpVerificationMutation.isPending}
+                data-testid="button-verify-otp"
+              >
+                {otpVerificationMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Verify OTP
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

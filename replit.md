@@ -24,7 +24,7 @@ Do not make changes to the file `Y`.
 ### Technical Implementations
 - **Frontend**: Wouter for routing, TanStack Query for state management, React Hook Form with Zod for forms, Vite for building.
 - **Backend**: Express.js with TypeScript, PostgreSQL with Drizzle ORM, Drizzle Kit for migrations, Connect-pg-simple for session management, RESTful API pattern, centralized error handling.
-- **Authentication**: Dual authentication system with OAuth (Replit Auth) and local strategies (email/mobile). Two-stage initialization: setupReplitAuth() initializes Passport and sessions, then setupLocalAuth() configures email/mobile login routes. Both must be called in server/index.ts for proper session management.
+- **Authentication**: Simplified authentication system with mandatory two-factor OTP verification. Users register with email, mobile, and password - system auto-generates unique userId (FTP001234 format). Unified login accepts email/mobile/userId + password, then sends OTP via email/SMS/WhatsApp for mandatory verification before session creation. Traditional local auth strategies with Passport.js for credential validation, multi-channel OTP delivery (Email via Nodemailer, SMS via Twilio, WhatsApp fallback).
 - **Data Storage**: PostgreSQL (Neon serverless driver) with Drizzle ORM for type-safe queries. Schemas for Users, Portfolios, Watchlists, Market data caching, and Asset allocation.
 
 ### Feature Specifications
@@ -59,6 +59,8 @@ Do not make changes to the file `Y`.
 - **Google Gemini API**: AI Chat Assistant.
 - **Sandbox API**: Bank account penny drop verification.
 - **Payment Gateways**: Cashfree, Stripe, PhonePe.
+- **Twilio**: SMS OTP delivery (manually configured via secrets, not using Replit connector).
+- **WhatsApp (whatsapp-web.js)**: WhatsApp OTP delivery as fallback.
 
 ### Database Services
 - **Neon Database**: Serverless PostgreSQL hosting.
