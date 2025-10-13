@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ObjectUploader } from "@/components/ObjectUploader";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { 
   User, 
@@ -26,7 +27,11 @@ import {
   AlertCircle, 
   Upload,
   Eye,
-  Info
+  Info,
+  Lock,
+  Loader2,
+  XCircle,
+  Sparkles
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -145,12 +150,223 @@ const initialData: OnboardingData = {
   marketing: false
 };
 
+const LOCALSTORAGE_KEY = 'kyc_onboarding_draft';
+
 export default function OnboardingPage() {
   const [formData, setFormData] = useState<OnboardingData>(initialData);
   const [currentStep, setCurrentStep] = useState("basic");
   const [completedSteps, setCompletedSteps] = useState<string[]>([]);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [autoFilledFields, setAutoFilledFields] = useState<Set<string>>(new Set());
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [isLoadingPAN, setIsLoadingPAN] = useState(false);
+  const [isLoadingAadhaar, setIsLoadingAadhaar] = useState(false);
+  const saveTimeoutRef = useRef<NodeJS.Timeout>();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const validatePAN = (pan: string): { isValid: boolean; message: string } => {
+    if (!pan) return { isValid: true, message: "" };
+    const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+    if (panRegex.test(pan)) {
+      return { isValid: true, message: "Valid PAN format" };
+    }
+    return { isValid: false, message: "PAN format: AAAAA0000A (5 letters + 4 digits + 1 letter)" };
+  };
+
+  const validateAadhaar = (aadhaar: string): { isValid: boolean; message: string } => {
+    if (!aadhaar) return { isValid: true, message: "" };
+    const aadhaarRegex = /^[0-9]{12}$/;
+    if (aadhaarRegex.test(aadhaar)) {
+      return { isValid: true, message: "Valid Aadhaar format" };
+    }
+    return { isValid: false, message: "Aadhaar must be exactly 12 digits" };
+  };
+
+  const validateEmail = (email: string): { isValid: boolean; message: string } => {
+    if (!email) return { isValid: true, message: "" };
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (emailRegex.test(email)) {
+      return { isValid: true, message: "Valid email format" };
+    }
+    return { isValid: false, message: "Please enter a valid email address" };
+  };
+
+  const validatePhone = (phone: string): { isValid: boolean; message: string } => {
+    if (!phone) return { isValid: true, message: "" };
+    const phoneRegex = /^[6-9][0-9]{9}$/;
+    if (phoneRegex.test(phone)) {
+      return { isValid: true, message: "Valid phone number" };
+    }
+    return { isValid: false, message: "Phone must be 10 digits starting with 6-9" };
+  };
+
+  const validatePincode = (pincode: string): { isValid: boolean; message: string } => {
+    if (!pincode) return { isValid: true, message: "" };
+    const pincodeRegex = /^[0-9]{6}$/;
+    if (pincodeRegex.test(pincode)) {
+      return { isValid: true, message: "Valid pincode" };
+    }
+    return { isValid: false, message: "Pincode must be exactly 6 digits" };
+  };
+
+  const mockFetchPANDetails = async (pan: string): Promise<{ firstName: string; lastName: string; dateOfBirth: string }> => {
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    return {
+      firstName: "Rajesh",
+      lastName: "Kumar",
+      dateOfBirth: "1990-05-15"
+    };
+  };
+
+  const mockFetchAadhaarDetails = async (aadhaar: string): Promise<{ addressLine1: string; city: string; state: string; pincode: string }> => {
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    return {
+      addressLine1: "123 MG Road, Sector 14",
+      city: "Mumbai",
+      state: "Maharashtra",
+      pincode: "400001"
+    };
+  };
+
+  const handlePANAutoFill = async (pan: string) => {
+    const validation = validatePAN(pan);
+    if (validation.isValid && pan.length === 10) {
+      setIsLoadingPAN(true);
+      try {
+        const details = await mockFetchPANDetails(pan);
+        setFormData(prev => ({
+          ...prev,
+          firstName: details.firstName,
+          lastName: details.lastName,
+          dateOfBirth: details.dateOfBirth
+        }));
+        setAutoFilledFields(prev => {
+          const newSet = new Set(prev);
+          newSet.add('firstName');
+          newSet.add('lastName');
+          newSet.add('dateOfBirth');
+          return newSet;
+        });
+        toast({
+          title: "Auto-filled from PAN",
+          description: "Name and DOB have been automatically populated from PAN records.",
+        });
+      } catch (error) {
+        toast({
+          variant: "destructive",
+          title: "Auto-fill failed",
+          description: "Could not fetch details from PAN. Please enter manually.",
+        });
+      } finally {
+        setIsLoadingPAN(false);
+      }
+    }
+  };
+
+  const handleAadhaarAutoFill = async (aadhaar: string) => {
+    const validation = validateAadhaar(aadhaar);
+    if (validation.isValid && aadhaar.length === 12) {
+      setIsLoadingAadhaar(true);
+      try {
+        const details = await mockFetchAadhaarDetails(aadhaar);
+        setFormData(prev => ({
+          ...prev,
+          addressLine1: details.addressLine1,
+          city: details.city,
+          state: details.state,
+          pincode: details.pincode
+        }));
+        setAutoFilledFields(prev => {
+          const newSet = new Set(prev);
+          newSet.add('addressLine1');
+          newSet.add('city');
+          newSet.add('state');
+          newSet.add('pincode');
+          return newSet;
+        });
+        toast({
+          title: "Auto-filled from Aadhaar",
+          description: "Address details have been automatically populated from Aadhaar records.",
+        });
+      } catch (error) {
+        toast({
+          variant: "destructive",
+          title: "Auto-fill failed",
+          description: "Could not fetch details from Aadhaar. Please enter manually.",
+        });
+      } finally {
+        setIsLoadingAadhaar(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    const savedData = localStorage.getItem(LOCALSTORAGE_KEY);
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData);
+        setFormData(parsed);
+        toast({
+          title: "Draft restored",
+          description: "Your previous progress has been loaded.",
+        });
+      } catch (error) {
+        console.error("Failed to load saved data:", error);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    saveTimeoutRef.current = setTimeout(() => {
+      setIsSaving(true);
+      localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify(formData));
+      setLastSaved(new Date());
+      setIsSaving(false);
+    }, 500);
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [formData]);
+
+  useEffect(() => {
+    const errors: Record<string, string> = {};
+    
+    const panValidation = validatePAN(formData.pan);
+    if (!panValidation.isValid) errors.pan = panValidation.message;
+    
+    const aadhaarValidation = validateAadhaar(formData.aadhar);
+    if (!aadhaarValidation.isValid) errors.aadhar = aadhaarValidation.message;
+    
+    const emailValidation = validateEmail(formData.email);
+    if (!emailValidation.isValid) errors.email = emailValidation.message;
+    
+    const phoneValidation = validatePhone(formData.phone);
+    if (!phoneValidation.isValid) errors.phone = phoneValidation.message;
+    
+    const pincodeValidation = validatePincode(formData.pincode);
+    if (!pincodeValidation.isValid) errors.pincode = pincodeValidation.message;
+    
+    setValidationErrors(errors);
+  }, [formData.pan, formData.aadhar, formData.email, formData.phone, formData.pincode]);
+
+  const getTimeSinceLastSave = (): string => {
+    if (!lastSaved) return "";
+    const seconds = Math.floor((new Date().getTime() - lastSaved.getTime()) / 1000);
+    if (seconds < 60) return `${seconds} second${seconds !== 1 ? 's' : ''} ago`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
+    const hours = Math.floor(minutes / 60);
+    return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+  };
 
   const steps = [
     { id: "basic", label: "Basic Info", icon: User, fields: ["firstName", "lastName", "dateOfBirth", "gender"] },
@@ -166,6 +382,14 @@ export default function OnboardingPage() {
       ...prev,
       [field]: value
     }));
+
+    if (field === 'pan' && value.length === 10) {
+      handlePANAutoFill(value);
+    }
+
+    if (field === 'aadhar' && value.length === 12) {
+      handleAadhaarAutoFill(value);
+    }
   };
 
   const updateDocument = (docType: string, documentPath: string) => {
@@ -244,6 +468,8 @@ export default function OnboardingPage() {
       return response.json();
     },
     onSuccess: () => {
+      localStorage.removeItem(LOCALSTORAGE_KEY);
+      setLastSaved(null);
       toast({
         title: "Onboarding completed successfully!",
         description: "Your profile has been submitted for review."
@@ -282,34 +508,70 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-4xl">
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold mb-2">Smart KYC Onboarding</h1>
-        <p className="text-muted-foreground mb-4">
-          Complete your profile to access our financial services
-        </p>
-        
-        {/* Guidance Alert */}
-        <Alert className="mb-6 text-left max-w-2xl mx-auto">
-          <Info className="h-4 w-4" />
-          <AlertTitle>Best for Individual Investors</AlertTitle>
-          <AlertDescription>
-            This AI-assisted wizard provides auto-fill, progressive save, and smart validation for individual investors. 
-            <strong className="block mt-2">
-              <span className="block">• Corporate entities: Use <a href="/manual-kyc?type=corporate" className="text-blue-600 underline font-semibold">Manual KYC - Corporate</a></span>
-              <span className="block">• NRI investors: Use <a href="/manual-kyc?type=nri" className="text-blue-600 underline font-semibold">Manual KYC - NRI</a></span>
-            </strong>
-          </AlertDescription>
-        </Alert>
-
-        <div className="w-full max-w-md mx-auto">
-          <div className="flex justify-between text-sm text-muted-foreground mb-2">
-            <span>Progress</span>
-            <span>{progress}% Complete</span>
+    <TooltipProvider>
+      <div className="container mx-auto py-8 px-4 max-w-4xl">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold mb-2">Smart KYC Onboarding</h1>
+          <p className="text-muted-foreground mb-4">
+            Complete your profile to access our financial services
+          </p>
+          
+          {/* Smart Mode Status Bar */}
+          <div className="mb-6 max-w-2xl mx-auto">
+            <Card className="border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-900">
+              <CardContent className="pt-4 pb-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="default" className="bg-blue-600 hover:bg-blue-700" data-testid="badge-smart-mode">
+                      <Sparkles className="h-3 w-3 mr-1" />
+                      SMART MODE ACTIVE
+                    </Badge>
+                    {(isLoadingPAN || isLoadingAadhaar) && (
+                      <Badge variant="secondary" className="animate-pulse" data-testid="badge-fetching">
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        Fetching data...
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    {isSaving ? (
+                      <span className="flex items-center gap-1 animate-pulse text-blue-600 dark:text-blue-400" data-testid="text-saving">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Saving...
+                      </span>
+                    ) : lastSaved ? (
+                      <span className="flex items-center gap-1" data-testid="text-last-saved">
+                        <CheckCircle className="h-3 w-3 text-green-500" />
+                        Last saved: {getTimeSinceLastSave()}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
-          <Progress value={progress} className="h-2" data-testid="progress-onboarding" />
+
+          {/* Guidance Alert */}
+          <Alert className="mb-6 text-left max-w-2xl mx-auto">
+            <Info className="h-4 w-4" />
+            <AlertTitle>Best for Individual Investors</AlertTitle>
+            <AlertDescription>
+              This AI-assisted wizard provides auto-fill, progressive save, and smart validation for individual investors. 
+              <strong className="block mt-2">
+                <span className="block">• Corporate entities: Use <a href="/manual-kyc?type=corporate" className="text-blue-600 underline font-semibold">Manual KYC - Corporate</a></span>
+                <span className="block">• NRI investors: Use <a href="/manual-kyc?type=nri" className="text-blue-600 underline font-semibold">Manual KYC - NRI</a></span>
+              </strong>
+            </AlertDescription>
+          </Alert>
+
+          <div className="w-full max-w-md mx-auto">
+            <div className="flex justify-between text-sm text-muted-foreground mb-2">
+              <span>Progress</span>
+              <span>{progress}% Complete</span>
+            </div>
+            <Progress value={progress} className="h-2" data-testid="progress-onboarding" />
+          </div>
         </div>
-      </div>
 
       <Tabs value={currentStep} onValueChange={setCurrentStep} className="space-y-6">
         <ScrollableTabsList>
@@ -346,14 +608,34 @@ export default function OnboardingPage() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="firstName">First Name *</Label>
-                  <Input
-                    id="firstName"
-                    value={formData.firstName}
-                    onChange={(e) => updateFormData("firstName", e.target.value)}
-                    placeholder="Enter first name"
-                    data-testid="input-firstName"
-                  />
+                  <Label htmlFor="firstName" className="flex items-center gap-2">
+                    First Name *
+                    {autoFilledFields.has('firstName') && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Lock className="h-3 w-3 text-blue-500" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Auto-filled from PAN</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="firstName"
+                      value={formData.firstName}
+                      onChange={(e) => updateFormData("firstName", e.target.value)}
+                      placeholder="Enter first name"
+                      data-testid="input-firstName"
+                      className={autoFilledFields.has('firstName') ? 'bg-blue-50 dark:bg-blue-950/20 border-blue-300 dark:border-blue-700' : ''}
+                    />
+                    {autoFilledFields.has('firstName') && formData.firstName && (
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                        <CheckCircle className="h-4 w-4 text-blue-500" />
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="middleName">Middle Name</Label>
@@ -366,27 +648,67 @@ export default function OnboardingPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="lastName">Last Name *</Label>
-                  <Input
-                    id="lastName"
-                    value={formData.lastName}
-                    onChange={(e) => updateFormData("lastName", e.target.value)}
-                    placeholder="Enter last name"
-                    data-testid="input-lastName"
-                  />
+                  <Label htmlFor="lastName" className="flex items-center gap-2">
+                    Last Name *
+                    {autoFilledFields.has('lastName') && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Lock className="h-3 w-3 text-blue-500" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Auto-filled from PAN</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="lastName"
+                      value={formData.lastName}
+                      onChange={(e) => updateFormData("lastName", e.target.value)}
+                      placeholder="Enter last name"
+                      data-testid="input-lastName"
+                      className={autoFilledFields.has('lastName') ? 'bg-blue-50 dark:bg-blue-950/20 border-blue-300 dark:border-blue-700' : ''}
+                    />
+                    {autoFilledFields.has('lastName') && formData.lastName && (
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                        <CheckCircle className="h-4 w-4 text-blue-500" />
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="dateOfBirth">Date of Birth *</Label>
-                  <Input
-                    id="dateOfBirth"
-                    type="date"
-                    value={formData.dateOfBirth}
-                    onChange={(e) => updateFormData("dateOfBirth", e.target.value)}
-                    data-testid="input-dateOfBirth"
-                  />
+                  <Label htmlFor="dateOfBirth" className="flex items-center gap-2">
+                    Date of Birth *
+                    {autoFilledFields.has('dateOfBirth') && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Lock className="h-3 w-3 text-blue-500" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Auto-filled from PAN</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="dateOfBirth"
+                      type="date"
+                      value={formData.dateOfBirth}
+                      onChange={(e) => updateFormData("dateOfBirth", e.target.value)}
+                      data-testid="input-dateOfBirth"
+                      className={autoFilledFields.has('dateOfBirth') ? 'bg-blue-50 dark:bg-blue-950/20 border-blue-300 dark:border-blue-700' : ''}
+                    />
+                    {autoFilledFields.has('dateOfBirth') && formData.dateOfBirth && (
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                        <CheckCircle className="h-4 w-4 text-blue-500" />
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="gender">Gender *</Label>
@@ -456,24 +778,54 @@ export default function OnboardingPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email Address *</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => updateFormData("email", e.target.value)}
-                    placeholder="Enter email address"
-                    data-testid="input-email"
-                  />
+                  <div className="relative">
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => updateFormData("email", e.target.value)}
+                      placeholder="Enter email address"
+                      data-testid="input-email"
+                      className={validationErrors.email ? 'border-red-500' : formData.email && validateEmail(formData.email).isValid ? 'border-green-500' : ''}
+                    />
+                    {formData.email && (
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                        {validateEmail(formData.email).isValid ? (
+                          <CheckCircle className="h-4 w-4 text-green-500" data-testid="icon-email-valid" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-red-500" data-testid="icon-email-invalid" />
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {validationErrors.email && (
+                    <p className="text-xs text-red-500" data-testid="text-email-error">{validationErrors.email}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone Number *</Label>
-                  <Input
-                    id="phone"
-                    value={formData.phone}
-                    onChange={(e) => updateFormData("phone", e.target.value)}
-                    placeholder="Enter phone number"
-                    data-testid="input-phone"
-                  />
+                  <div className="relative">
+                    <Input
+                      id="phone"
+                      value={formData.phone}
+                      onChange={(e) => updateFormData("phone", e.target.value)}
+                      placeholder="Enter phone number"
+                      data-testid="input-phone"
+                      className={validationErrors.phone ? 'border-red-500' : formData.phone && validatePhone(formData.phone).isValid ? 'border-green-500' : ''}
+                    />
+                    {formData.phone && (
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                        {validatePhone(formData.phone).isValid ? (
+                          <CheckCircle className="h-4 w-4 text-green-500" data-testid="icon-phone-valid" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-red-500" data-testid="icon-phone-invalid" />
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {validationErrors.phone && (
+                    <p className="text-xs text-red-500" data-testid="text-phone-error">{validationErrors.phone}</p>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -496,25 +848,73 @@ export default function OnboardingPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="pan">PAN Number *</Label>
-                  <Input
-                    id="pan"
-                    value={formData.pan}
-                    onChange={(e) => updateFormData("pan", e.target.value.toUpperCase())}
-                    placeholder="Enter PAN number"
-                    maxLength={10}
-                    data-testid="input-pan"
-                  />
+                  <div className="relative">
+                    <Input
+                      id="pan"
+                      value={formData.pan}
+                      onChange={(e) => updateFormData("pan", e.target.value.toUpperCase())}
+                      placeholder="AAAAA0000A"
+                      maxLength={10}
+                      data-testid="input-pan"
+                      className={validationErrors.pan ? 'border-red-500' : formData.pan && validatePAN(formData.pan).isValid ? 'border-green-500' : ''}
+                      disabled={isLoadingPAN}
+                    />
+                    {isLoadingPAN ? (
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                        <Loader2 className="h-4 w-4 animate-spin text-blue-500" data-testid="icon-pan-loading" />
+                      </div>
+                    ) : formData.pan && (
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                        {validatePAN(formData.pan).isValid ? (
+                          <CheckCircle className="h-4 w-4 text-green-500" data-testid="icon-pan-valid" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-red-500" data-testid="icon-pan-invalid" />
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {validationErrors.pan ? (
+                    <p className="text-xs text-red-500" data-testid="text-pan-error">{validationErrors.pan}</p>
+                  ) : formData.pan && validatePAN(formData.pan).isValid ? (
+                    <p className="text-xs text-green-600" data-testid="text-pan-success">Valid PAN format</p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Format: AAAAA0000A (5 letters + 4 digits + 1 letter)</p>
+                  )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="aadhar">Aadhar Number *</Label>
-                  <Input
-                    id="aadhar"
-                    value={formData.aadhar}
-                    onChange={(e) => updateFormData("aadhar", e.target.value)}
-                    placeholder="Enter Aadhar number"
-                    maxLength={12}
-                    data-testid="input-aadhar"
-                  />
+                  <Label htmlFor="aadhar">Aadhaar Number *</Label>
+                  <div className="relative">
+                    <Input
+                      id="aadhar"
+                      value={formData.aadhar}
+                      onChange={(e) => updateFormData("aadhar", e.target.value)}
+                      placeholder="Enter 12-digit Aadhaar"
+                      maxLength={12}
+                      data-testid="input-aadhar"
+                      className={validationErrors.aadhar ? 'border-red-500' : formData.aadhar && validateAadhaar(formData.aadhar).isValid ? 'border-green-500' : ''}
+                      disabled={isLoadingAadhaar}
+                    />
+                    {isLoadingAadhaar ? (
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                        <Loader2 className="h-4 w-4 animate-spin text-blue-500" data-testid="icon-aadhar-loading" />
+                      </div>
+                    ) : formData.aadhar && (
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                        {validateAadhaar(formData.aadhar).isValid ? (
+                          <CheckCircle className="h-4 w-4 text-green-500" data-testid="icon-aadhar-valid" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-red-500" data-testid="icon-aadhar-invalid" />
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {validationErrors.aadhar ? (
+                    <p className="text-xs text-red-500" data-testid="text-aadhar-error">{validationErrors.aadhar}</p>
+                  ) : formData.aadhar && validateAadhaar(formData.aadhar).isValid ? (
+                    <p className="text-xs text-green-600" data-testid="text-aadhar-success">Valid Aadhaar format</p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Enter 12-digit Aadhaar number</p>
+                  )}
                 </div>
               </div>
 
@@ -648,14 +1048,34 @@ export default function OnboardingPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="addressLine1">Address Line 1 *</Label>
-                <Input
-                  id="addressLine1"
-                  value={formData.addressLine1}
-                  onChange={(e) => updateFormData("addressLine1", e.target.value)}
-                  placeholder="Enter address line 1"
-                  data-testid="input-addressLine1"
-                />
+                <Label htmlFor="addressLine1" className="flex items-center gap-2">
+                  Address Line 1 *
+                  {autoFilledFields.has('addressLine1') && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Lock className="h-3 w-3 text-blue-500" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Auto-filled from Aadhaar</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="addressLine1"
+                    value={formData.addressLine1}
+                    onChange={(e) => updateFormData("addressLine1", e.target.value)}
+                    placeholder="Enter address line 1"
+                    data-testid="input-addressLine1"
+                    className={autoFilledFields.has('addressLine1') ? 'bg-blue-50 dark:bg-blue-950/20 border-blue-300 dark:border-blue-700' : ''}
+                  />
+                  {autoFilledFields.has('addressLine1') && formData.addressLine1 && (
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                      <CheckCircle className="h-4 w-4 text-blue-500" />
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -671,38 +1091,109 @@ export default function OnboardingPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="city">City *</Label>
-                  <Input
-                    id="city"
-                    value={formData.city}
-                    onChange={(e) => updateFormData("city", e.target.value)}
-                    placeholder="Enter city"
-                    data-testid="input-city"
-                  />
+                  <Label htmlFor="city" className="flex items-center gap-2">
+                    City *
+                    {autoFilledFields.has('city') && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Lock className="h-3 w-3 text-blue-500" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Auto-filled from Aadhaar</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="city"
+                      value={formData.city}
+                      onChange={(e) => updateFormData("city", e.target.value)}
+                      placeholder="Enter city"
+                      data-testid="input-city"
+                      className={autoFilledFields.has('city') ? 'bg-blue-50 dark:bg-blue-950/20 border-blue-300 dark:border-blue-700' : ''}
+                    />
+                    {autoFilledFields.has('city') && formData.city && (
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                        <CheckCircle className="h-4 w-4 text-blue-500" />
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="state">State *</Label>
-                  <Input
-                    id="state"
-                    value={formData.state}
-                    onChange={(e) => updateFormData("state", e.target.value)}
-                    placeholder="Enter state"
-                    data-testid="input-state"
-                  />
+                  <Label htmlFor="state" className="flex items-center gap-2">
+                    State *
+                    {autoFilledFields.has('state') && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Lock className="h-3 w-3 text-blue-500" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Auto-filled from Aadhaar</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="state"
+                      value={formData.state}
+                      onChange={(e) => updateFormData("state", e.target.value)}
+                      placeholder="Enter state"
+                      data-testid="input-state"
+                      className={autoFilledFields.has('state') ? 'bg-blue-50 dark:bg-blue-950/20 border-blue-300 dark:border-blue-700' : ''}
+                    />
+                    {autoFilledFields.has('state') && formData.state && (
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                        <CheckCircle className="h-4 w-4 text-blue-500" />
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="pincode">Pincode *</Label>
-                  <Input
-                    id="pincode"
-                    value={formData.pincode}
-                    onChange={(e) => updateFormData("pincode", e.target.value)}
-                    placeholder="Enter pincode"
-                    maxLength={6}
-                    data-testid="input-pincode"
-                  />
+                  <Label htmlFor="pincode" className="flex items-center gap-2">
+                    Pincode *
+                    {autoFilledFields.has('pincode') && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Lock className="h-3 w-3 text-blue-500" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Auto-filled from Aadhaar</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="pincode"
+                      value={formData.pincode}
+                      onChange={(e) => updateFormData("pincode", e.target.value)}
+                      placeholder="Enter 6-digit pincode"
+                      maxLength={6}
+                      data-testid="input-pincode"
+                      className={`${autoFilledFields.has('pincode') ? 'bg-blue-50 dark:bg-blue-950/20 border-blue-300 dark:border-blue-700' : ''} ${validationErrors.pincode ? 'border-red-500' : formData.pincode && validatePincode(formData.pincode).isValid ? 'border-green-500' : ''}`}
+                    />
+                    {autoFilledFields.has('pincode') && formData.pincode ? (
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                        <CheckCircle className="h-4 w-4 text-blue-500" />
+                      </div>
+                    ) : formData.pincode && (
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                        {validatePincode(formData.pincode).isValid ? (
+                          <CheckCircle className="h-4 w-4 text-green-500" data-testid="icon-pincode-valid" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-red-500" data-testid="icon-pincode-invalid" />
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {validationErrors.pincode && (
+                    <p className="text-xs text-red-500" data-testid="text-pincode-error">{validationErrors.pincode}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="country">Country</Label>
@@ -1209,6 +1700,7 @@ export default function OnboardingPage() {
           </div>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </TooltipProvider>
   );
 }
