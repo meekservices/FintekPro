@@ -312,7 +312,7 @@ export default function OnboardingPage() {
       </div>
 
       <Tabs value={currentStep} onValueChange={setCurrentStep} className="space-y-6">
-        <ScrollableTabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1">
+        <ScrollableTabsList>
           {steps.map((step) => {
             const Icon = step.icon;
             const isCompleted = validateStep(step.id);
@@ -320,11 +320,11 @@ export default function OnboardingPage() {
               <TabsTrigger 
                 key={step.id} 
                 value={step.id} 
-                className="flex flex-col items-center space-y-1 p-2"
+                className="flex flex-col items-center space-y-1 p-2 min-w-[120px]"
                 data-testid={`tab-${step.id}`}
               >
                 <Icon className={`h-4 w-4 ${isCompleted ? 'text-green-500' : ''}`} />
-                <span className="text-xs">{step.label}</span>
+                <span className="text-xs whitespace-nowrap">{step.label}</span>
                 {isCompleted && <CheckCircle className="h-3 w-3 text-green-500" />}
               </TabsTrigger>
             );
