@@ -383,6 +383,7 @@ export function setupAuth(app: Express) {
   });
 
   // Unified login endpoint - accepts email, mobile, or userId as identifier
+  // This endpoint validates credentials and sends OTP for second-layer authentication
   app.post("/api/login", async (req, res, next) => {
     try {
       const { identifier, password } = req.body;
@@ -421,7 +422,7 @@ export function setupAuth(app: Express) {
         }
       };
 
-      passport.authenticate(strategy, (err: any, user: any, info: any) => {
+      passport.authenticate(strategy, async (err: any, user: any, info: any) => {
         if (err) {
           console.error("Login error:", err);
           return res.status(500).json({ message: "Login failed" });
@@ -429,27 +430,113 @@ export function setupAuth(app: Express) {
         if (!user) {
           return res.status(401).json({ message: info?.message || "Invalid credentials" });
         }
-        req.login(user, (loginErr) => {
-          if (loginErr) {
-            console.error("Login session error:", loginErr);
-            return res.status(500).json({ message: "Login failed" });
-          }
-          res.json({
-            id: user.id,
-            userId: user.userId,
-            email: user.email,
-            mobile: user.mobile,
-            firstName: user.firstName,
-            middleName: user.middleName,
-            lastName: user.lastName,
-            isEmailVerified: user.isEmailVerified,
-            isMobileVerified: user.isMobileVerified,
-          });
+
+        // Credentials are valid - now send OTP for mandatory verification
+        const otp = generateOtp();
+        const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+        // Determine OTP destination based on identifier type
+        let otpDestination: string;
+        let otpType: string;
+
+        if (identifier.includes("@")) {
+          otpDestination = user.email;
+          otpType = "email";
+        } else {
+          otpDestination = user.mobile;
+          otpType = "mobile";
+        }
+
+        // Store OTP for verification
+        await storage.createOtpVerification({
+          identifier: otpDestination,
+          otp,
+          type: otpType,
+          expiresAt,
+          verified: false,
+        });
+
+        // Log OTP for development (will send via email/SMS/WhatsApp in production)
+        console.log(`🔐 Login OTP for ${otpDestination} (${otpType}): ${otp}`);
+
+        // Return success with OTP destination info (don't complete login yet)
+        res.json({
+          requiresOtp: true,
+          otpSentTo: otpType === "email" ? "email" : "mobile",
+          identifier: otpDestination,
+          userId: user.userId,
+          message: `OTP sent to your ${otpType}`
         });
       })(modifiedReq, res, next);
     } catch (error) {
       console.error("Unified login error:", error);
       res.status(500).json({ message: "Login failed" });
+    }
+  });
+
+  // Verify OTP and complete login - mandatory second-layer authentication
+  app.post("/api/login/verify-otp", async (req, res) => {
+    try {
+      const { identifier, otp } = req.body;
+
+      if (!identifier || !otp) {
+        return res.status(400).json({ message: "Identifier and OTP are required" });
+      }
+
+      // Determine OTP type based on identifier
+      const otpType = identifier.includes("@") ? "email" : "mobile";
+
+      // Verify OTP
+      const isValid = await storage.verifyOtp(identifier, otpType, otp);
+
+      if (!isValid) {
+        return res.status(400).json({ message: "Invalid or expired OTP" });
+      }
+
+      // OTP is valid - find user and complete login
+      let user;
+      if (otpType === "email") {
+        user = await storage.getUserByEmail(identifier);
+      } else {
+        user = await storage.getUserByMobile(identifier);
+      }
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Update verification status
+      const updates: Partial<User> = {};
+      if (otpType === "email") {
+        updates.isEmailVerified = true;
+      } else {
+        updates.isMobileVerified = true;
+      }
+      await storage.updateUser(user.id, updates);
+
+      // Complete login by creating session
+      req.login(user, (loginErr) => {
+        if (loginErr) {
+          console.error("Login session error:", loginErr);
+          return res.status(500).json({ message: "Login failed" });
+        }
+        
+        res.json({
+          id: user.id,
+          userId: user.userId,
+          email: user.email,
+          mobile: user.mobile,
+          firstName: user.firstName,
+          middleName: user.middleName,
+          lastName: user.lastName,
+          isEmailVerified: user.isEmailVerified,
+          isMobileVerified: user.isMobileVerified,
+          message: "Login successful"
+        });
+      });
+    } catch (error) {
+      console.error("OTP verification error:", error);
+      res.status(500).json({ message: "OTP verification failed" });
     }
   });
 
