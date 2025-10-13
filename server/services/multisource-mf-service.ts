@@ -374,7 +374,7 @@ export class MultiSourceMFService {
    * Get sources ordered by health and priority
    */
   private getOrderedSources(): string[] {
-    const allSources = ['AMFI', 'MFAPI', 'CaptNemo', 'RapidAPI'];
+    const allSources = ['AMFI', 'MFAPI'];
     
     return allSources.filter(source => {
       const health = this.sourceHealth.get(source);
@@ -388,9 +388,7 @@ export class MultiSourceMFService {
   private async fetchFromSource(source: string, type: 'fund' | 'search' | 'popular', param?: string): Promise<any> {
     const baseUrls = {
       AMFI: 'https://www.amfiindia.com/spages/NAVAll.txt',
-      MFAPI: 'https://api.mfapi.in/mf',
-      CaptNemo: 'https://api.kuvera.in/api/v4/fund_schemes.json',
-      RapidAPI: 'https://latest-mutual-fund-nav.p.rapidapi.com'
+      MFAPI: 'https://api.mfapi.in/mf'
     };
 
     console.log(`🔍 Attempting to fetch ${type} from source: ${source}${param ? ` (param: ${param})` : ''}`);
@@ -400,10 +398,6 @@ export class MultiSourceMFService {
         return this.fetchFromAMFI(type, param);
       case 'MFAPI':
         return this.fetchFromMFAPI(type, param);
-      case 'CaptNemo':
-        return this.fetchFromCaptNemo(type, param);
-      case 'RapidAPI':
-        return this.fetchFromRapidAPI(type, param);
       default:
         throw new Error(`Unknown source: ${source}`);
     }
@@ -585,21 +579,6 @@ export class MultiSourceMFService {
     }
   }
 
-  /**
-   * Fetch from CaptNemo/Kuvera
-   */
-  private async fetchFromCaptNemo(type: string, param?: string): Promise<any> {
-    // CaptNemo/Kuvera API implementation
-    throw new Error('CaptNemo source not implemented yet');
-  }
-
-  /**
-   * Fetch from RapidAPI
-   */
-  private async fetchFromRapidAPI(type: string, param?: string): Promise<any> {
-    // RapidAPI implementation
-    throw new Error('RapidAPI source not implemented yet');
-  }
 
   /**
    * Normalize MFAPI fund data to our schema
