@@ -15,6 +15,7 @@ FintekPro is a comprehensive full-stack TypeScript financial services platform f
 - Sandbox credentials configured: CASHFREE_APP_ID, CASHFREE_SECRET_KEY, CASHFREE_ENVIRONMENT
 - Returns comprehensive data: name, DOB, gender, father name, full address, mobile, email, photo
 - Production-ready with proper error handling and response mapping
+- **Fixed middleware role mismatch**: Added 'business_client' role to `requireClientOrHigher` middleware to support both individual and business client access to KYC wizard
 
 ### Fixed Layout Theme & UI Consistency
 - **Established consistent layout pattern** across all pages with left sidebar navigation and footer
