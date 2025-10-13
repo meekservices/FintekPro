@@ -157,6 +157,8 @@ function FundSkeleton() {
 export default function MutualFunds() {
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedFilterCategory, setSelectedFilterCategory] = useState("All");
+  const [selectedRisk, setSelectedRisk] = useState("all");
   const queryClient = useQueryClient();
 
   const { data: allFunds, isLoading: isLoadingAll, error: allError, refetch: refetchAll } = useMutualFunds();
@@ -964,7 +966,7 @@ export default function MutualFunds() {
               <Search className="absolute left-4 top-4 h-4 w-4 text-finance-blue" />
             </div>
             
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+            <Select value={selectedFilterCategory} onValueChange={setSelectedFilterCategory}>
               <SelectTrigger className="h-12 border-2 border-gray-200 dark:border-gray-600 focus:border-finance-blue bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm" data-testid="category-select">
                 <div className="flex items-center gap-2">
                   <TrendingUp className="w-4 h-4 text-finance-blue" />
@@ -972,6 +974,7 @@ export default function MutualFunds() {
                 </div>
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="All">All Categories</SelectItem>
                 {fundCategories.map((category) => (
                   <SelectItem key={category.name} value={category.name}>
                     {category.name}
@@ -980,7 +983,7 @@ export default function MutualFunds() {
               </SelectContent>
             </Select>
 
-            <Select>
+            <Select value={selectedRisk} onValueChange={setSelectedRisk}>
               <SelectTrigger className="h-12 border-2 border-gray-200 dark:border-gray-600 focus:border-finance-blue bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm" data-testid="risk-select">
                 <div className="flex items-center gap-2">
                   <Shield className="w-4 h-4 text-finance-blue" />
@@ -988,6 +991,7 @@ export default function MutualFunds() {
                 </div>
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="all">All Risk Levels</SelectItem>
                 <SelectItem value="low">Low Risk</SelectItem>
                 <SelectItem value="moderate">Moderate Risk</SelectItem>
                 <SelectItem value="high">High Risk</SelectItem>

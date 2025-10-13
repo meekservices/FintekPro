@@ -20,7 +20,7 @@ export async function seedProducts(storage: IStorage) {
       returns1Y: 28.5,
       returns3Y: 22.3,
       returns5Y: 18.7,
-      riskRating: 'high',
+      riskLevel: 'high',
       minInvestment: 500,
       expenseRatio: 1.85,
       totalExpenseRatio: 1.92,
@@ -46,7 +46,9 @@ export async function seedProducts(storage: IStorage) {
         'Technology': 18.2,
         'Energy': 12.3,
         'Consumer': 10.5
-      }
+      },
+      isPublic: true,
+      status: 'active'
     },
     {
       partnerId: 'platform-partner-001',
@@ -60,7 +62,7 @@ export async function seedProducts(storage: IStorage) {
       returns1Y: 42.8,
       returns3Y: 31.5,
       returns5Y: 24.2,
-      riskRating: 'very_high',
+      riskLevel: 'very_high',
       minInvestment: 500,
       expenseRatio: 2.15,
       totalExpenseRatio: 2.25,
@@ -75,7 +77,9 @@ export async function seedProducts(storage: IStorage) {
       betaRatio: 1.15,
       fundManagerName: 'R. Srinivasan',
       fundManagerTenure: 5,
-      exitLoad: { years: 1, percentage: 1 }
+      exitLoad: { years: 1, percentage: 1 },
+      isPublic: true,
+      status: 'active'
     },
     {
       partnerId: 'platform-partner-001',
@@ -89,7 +93,7 @@ export async function seedProducts(storage: IStorage) {
       returns1Y: 7.2,
       returns3Y: 7.8,
       returns5Y: 8.1,
-      riskRating: 'low',
+      riskLevel: 'low',
       minInvestment: 5000,
       expenseRatio: 0.95,
       totalExpenseRatio: 1.02,
@@ -98,7 +102,9 @@ export async function seedProducts(storage: IStorage) {
       benchmarkIndex: 'CRISIL Corporate Bond Index',
       sharpeRatio: 2.85,
       fundManagerName: 'Manish Banthia',
-      fundManagerTenure: 6
+      fundManagerTenure: 6,
+      isPublic: true,
+      status: 'active'
     },
     
     // Bonds & NCDs
@@ -118,7 +124,9 @@ export async function seedProducts(storage: IStorage) {
       tenure: '36 months',
       yieldToMaturity: 9.2,
       issueSize: 5000000000,
-      riskRating: 'low'
+      riskLevel: 'low',
+      isPublic: true,
+      status: 'active'
     },
     {
       partnerId: 'platform-partner-001',
@@ -136,7 +144,9 @@ export async function seedProducts(storage: IStorage) {
       tenure: '48 months',
       yieldToMaturity: 8.8,
       issueSize: 3000000000,
-      riskRating: 'moderate'
+      riskLevel: 'moderate',
+      isPublic: true,
+      status: 'active'
     },
     
     // Market Linked Debentures
@@ -154,7 +164,9 @@ export async function seedProducts(storage: IStorage) {
       tenure: '36 months',
       minInvestment: 100000,
       maturityDate: '2027-11-30',
-      riskRating: 'low'
+      riskLevel: 'low',
+      isPublic: true,
+      status: 'active'
     },
     {
       partnerId: 'platform-partner-001',
@@ -170,7 +182,9 @@ export async function seedProducts(storage: IStorage) {
       tenure: '42 months',
       minInvestment: 250000,
       maturityDate: '2028-06-15',
-      riskRating: 'moderate'
+      riskLevel: 'moderate',
+      isPublic: true,
+      status: 'active'
     },
     
     // Insurance Products
@@ -186,8 +200,10 @@ export async function seedProducts(storage: IStorage) {
       tenure: '30 years',
       claimSettlementRatio: '98.66%',
       taxBenefit: true,
-      riskRating: 'low',
-      features: ['Critical illness rider', 'Accidental death benefit', 'Premium waiver']
+      riskLevel: 'low',
+      features: ['Critical illness rider', 'Accidental death benefit', 'Premium waiver'],
+      isPublic: true,
+      status: 'active'
     },
     {
       partnerId: 'platform-partner-001',
@@ -200,8 +216,10 @@ export async function seedProducts(storage: IStorage) {
       annualPremium: 24500,
       claimSettlementRatio: '92.3%',
       taxBenefit: true,
-      riskRating: 'low',
-      features: ['Cashless hospitalization', 'Pre and post hospitalization', 'No claim bonus', 'Daily hospital cash']
+      riskLevel: 'low',
+      features: ['Cashless hospitalization', 'Pre and post hospitalization', 'No claim bonus', 'Daily hospital cash'],
+      isPublic: true,
+      status: 'active'
     },
     {
       partnerId: 'platform-partner-001',
@@ -212,8 +230,10 @@ export async function seedProducts(storage: IStorage) {
       description: 'Complete car protection with add-on covers',
       annualPremium: 15000,
       claimSettlementRatio: '95.8%',
-      riskRating: 'low',
-      features: ['Zero depreciation', 'Engine protection', 'NCB protection', 'Return to invoice']
+      riskLevel: 'low',
+      features: ['Zero depreciation', 'Engine protection', 'NCB protection', 'Return to invoice'],
+      isPublic: true,
+      status: 'active'
     },
     
     // Banking Products
@@ -227,8 +247,10 @@ export async function seedProducts(storage: IStorage) {
       interestRate: 7.75,
       minDeposit: 10000,
       tenure: '18 months',
-      riskRating: 'very_low',
-      features: ['Quarterly interest payout', 'Auto-renewal', 'Premature withdrawal', 'Loan against FD']
+      riskLevel: 'very_low',
+      features: ['Quarterly interest payout', 'Auto-renewal', 'Premature withdrawal', 'Loan against FD'],
+      isPublic: true,
+      status: 'active'
     },
     {
       partnerId: 'platform-partner-001',
@@ -239,8 +261,10 @@ export async function seedProducts(storage: IStorage) {
       description: 'Premium savings account with high interest',
       interestRate: 6.5,
       minDeposit: 100000,
-      riskRating: 'very_low',
-      features: ['Free NEFT/RTGS', 'Priority banking', 'Unlimited ATM withdrawals', 'Concierge services']
+      riskLevel: 'very_low',
+      features: ['Free NEFT/RTGS', 'Priority banking', 'Unlimited ATM withdrawals', 'Concierge services'],
+      isPublic: true,
+      status: 'active'
     },
     {
       partnerId: 'platform-partner-001',
@@ -251,8 +275,10 @@ export async function seedProducts(storage: IStorage) {
       description: 'Premium credit card with rewards and travel benefits',
       annualFee: 4999,
       rewards: '5X rewards on dining, 10X on travel',
-      riskRating: 'low',
-      features: ['Lounge access', 'Fuel surcharge waiver', 'Golf benefits', 'Milestone rewards']
+      riskLevel: 'low',
+      features: ['Lounge access', 'Fuel surcharge waiver', 'Golf benefits', 'Milestone rewards'],
+      isPublic: true,
+      status: 'active'
     },
     {
       partnerId: 'platform-partner-001',
@@ -263,8 +289,10 @@ export async function seedProducts(storage: IStorage) {
       description: 'Lifestyle credit card with cashback and rewards',
       annualFee: 2500,
       rewards: '4 reward points per ₹150 spent',
-      riskRating: 'low',
-      features: ['Welcome benefits', 'Airport lounge', 'Dining privileges', 'SmartBuy offers']
+      riskLevel: 'low',
+      features: ['Welcome benefits', 'Airport lounge', 'Dining privileges', 'SmartBuy offers'],
+      isPublic: true,
+      status: 'active'
     }
   ];
 

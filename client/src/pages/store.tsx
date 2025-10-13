@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,10 +13,11 @@ import { ProductDetailsModal } from "@/components/product-details-modal";
 import { useCart } from "@/hooks/use-cart";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { Skeleton } from "@/components/ui/skeleton";
 import { 
   Heart, ShoppingCart, Search, Star, TrendingUp, Shield, Globe, CreditCard, FileText, 
   Briefcase, Banknote, Target, Crown, Landmark, Store as StoreIcon, ArrowRight, Sparkles, 
-  Zap, ChevronRight, Plus, Building2, Award, Package, Flame
+  Zap, ChevronRight, Plus, Building2, Award, Package, Flame, RefreshCw
 } from "lucide-react";
 
 interface Product {
@@ -290,8 +292,47 @@ export default function StorePage() {
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
   
+  // Fetch products from API
+  const { data: productsData, isLoading: isLoadingProducts } = useQuery<any[]>({
+    queryKey: ["/api/products"],
+  });
+  
+  // Normalize API data to match Product interface
+  const normalizeProduct = (apiProduct: any): Product => {
+    // Map database category to display category
+    const categoryMap: Record<string, string> = {
+      'mutual_fund': 'Investment Products',
+      'bond': 'Investment Products',
+      'mld': 'Investment Products',
+      'insurance': 'Insurance & Protection',
+      'banking': 'Banking Products'
+    };
+    
+    return {
+      id: apiProduct.id,
+      name: apiProduct.name,
+      shortDescription: apiProduct.description || '',
+      category: categoryMap[apiProduct.category] || apiProduct.category,
+      subcategory: apiProduct.subcategory || apiProduct.subCategory,
+      productType: apiProduct.category,
+      price: apiProduct.basePrice,
+      minimumInvestment: apiProduct.minimumInvestment || apiProduct.minInvestment || 0,
+      riskLevel: apiProduct.riskLevel || 'medium',
+      expectedReturns: apiProduct.returns1y || apiProduct.returns1Y || 0,
+      provider: apiProduct.provider || '',
+      features: apiProduct.features || [],
+      isFeatured: apiProduct.isFeatured || false,
+      isPremium: apiProduct.isPremium || false,
+      isNew: apiProduct.isNew || false,
+      badge: apiProduct.badge
+    };
+  };
+  
+  // Use API data if available, fallback to mock data
+  const products = productsData ? productsData.map(normalizeProduct) : mockProducts;
+  
   // Get unique categories from products
-  const categories = ["all", ...Array.from(new Set(mockProducts.map(p => p.category)))];
+  const categories = ["all", ...Array.from(new Set(products.map(p => p.category)))];
 
   const handleAddToCart = (product: Product) => {
     if (!isAuthenticated) {
@@ -334,15 +375,15 @@ export default function StorePage() {
   };
 
   // Get featured products
-  const featuredProducts = mockProducts.filter(p => p.isFeatured);
+  const featuredProducts = products.filter(p => p.isFeatured);
 
   // Get top performing products (sorted by returns)
-  const topPerformingProducts = [...mockProducts]
-    .sort((a, b) => b.expectedReturns - a.expectedReturns)
+  const topPerformingProducts = [...products]
+    .sort((a, b) => (b.expectedReturns || 0) - (a.expectedReturns || 0))
     .slice(0, 6);
 
   // Get hot deals (products with HOT badge or new products)
-  const hotDealsProducts = mockProducts.filter(p => p.badge === "HOT" || p.isNew || p.badge === "PREMIUM");
+  const hotDealsProducts = products.filter(p => p.badge === "HOT" || p.isNew || p.badge === "PREMIUM");
 
   // Search filtering
   const getFilteredProducts = (products: Product[]) => {
@@ -351,15 +392,15 @@ export default function StorePage() {
     // Filter by search
     if (searchTerm) {
       filtered = filtered.filter(product =>
-        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.shortDescription.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.provider.toLowerCase().includes(searchTerm.toLowerCase())
+        (product.name || product.productName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (product.shortDescription || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (product.provider || '').toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
     // Filter by risk level
     if (selectedRisk !== "All") {
-      filtered = filtered.filter(p => p.riskLevel === selectedRisk.toLowerCase());
+      filtered = filtered.filter(p => (p.riskLevel || '').toLowerCase() === selectedRisk.toLowerCase());
     }
 
     // Sort products
@@ -367,17 +408,17 @@ export default function StorePage() {
       let comparison = 0;
       switch(sortField) {
         case "name":
-          comparison = a.name.localeCompare(b.name);
+          comparison = (a.name || a.productName || '').localeCompare(b.name || b.productName || '');
           break;
         case "returns":
-          comparison = a.expectedReturns - b.expectedReturns;
+          comparison = (a.expectedReturns || 0) - (b.expectedReturns || 0);
           break;
         case "investment":
-          comparison = a.minimumInvestment - b.minimumInvestment;
+          comparison = (a.minimumInvestment || 0) - (b.minimumInvestment || 0);
           break;
         case "risk":
           const riskOrder = { low: 1, medium: 2, high: 3 };
-          comparison = riskOrder[a.riskLevel as keyof typeof riskOrder] - riskOrder[b.riskLevel as keyof typeof riskOrder];
+          comparison = riskOrder[(a.riskLevel || 'medium') as keyof typeof riskOrder] - riskOrder[(b.riskLevel || 'medium') as keyof typeof riskOrder];
           break;
       }
       return sortDirection === "asc" ? comparison : -comparison;
@@ -453,30 +494,30 @@ export default function StorePage() {
           </Button>
         </div>
         <CardTitle className="text-lg group-hover:text-finance-blue transition-colors">
-          {product.name}
+          {product.name || product.productName}
         </CardTitle>
         <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
           {product.shortDescription}
         </p>
         <div className="flex items-center gap-2 mt-2">
           <Building2 className="h-3 w-3 text-gray-400" />
-          <span className="text-xs text-gray-500">{product.provider}</span>
+          <span className="text-xs text-gray-500">{product.provider || 'FintekPro'}</span>
         </div>
       </CardHeader>
       <CardContent className="relative space-y-4">
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
             <span className="text-gray-500 block">Expected Returns</span>
-            <span className="font-semibold text-green-600">{product.expectedReturns}%</span>
+            <span className="font-semibold text-green-600">{product.expectedReturns || 0}%</span>
           </div>
           <div>
             <span className="text-gray-500 block">Min Investment</span>
-            <span className="font-semibold">₹{product.minimumInvestment.toLocaleString()}</span>
+            <span className="font-semibold">₹{(product.minimumInvestment || 0).toLocaleString()}</span>
           </div>
         </div>
         <div className="flex items-center justify-between">
-          <Badge className={getRiskColor(product.riskLevel)}>
-            {product.riskLevel.charAt(0).toUpperCase() + product.riskLevel.slice(1)} Risk
+          <Badge className={getRiskColor(product.riskLevel || 'medium')}>
+            {(product.riskLevel || 'medium').charAt(0).toUpperCase() + (product.riskLevel || 'medium').slice(1)} Risk
           </Badge>
         </div>
         <div className="flex gap-2">
@@ -520,10 +561,14 @@ export default function StorePage() {
             </p>
           </div>
           <div className="ml-auto">
-            <Badge className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-4 py-2 text-sm">
-              <Sparkles className="h-4 w-4 mr-2" />
-              {mockProducts.length} Products Available
-            </Badge>
+            {isLoadingProducts ? (
+              <Skeleton className="h-10 w-48" />
+            ) : (
+              <Badge className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-4 py-2 text-sm">
+                <Sparkles className="h-4 w-4 mr-2" />
+                {products.length} Products Available
+              </Badge>
+            )}
           </div>
         </div>
       </div>
