@@ -65,6 +65,7 @@ import { taxOrchestrator } from './services/tax-orchestrator';
 import { PANConsentService } from './services/pan-consent-service';
 import { SandboxKYCService } from './services/sandbox-kyc-service';
 import { AadhaarMockService } from './services/aadhaar-mock-service';
+import { CashfreeAadhaarService } from './services/cashfree-aadhaar-service';
 import { DemographicProtectionService } from './services/demographic-protection-service';
 import { providerRegistry, type UnifiedApplicationData } from './partner-application-adapters';
 import { insertPartnerApplicationSchema, insertCashfreeTransactionSchema, insertPhonePeTransactionSchema } from '@shared/schema';
@@ -1765,8 +1766,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Send OTP using mock service
-      const otpResponse = await AadhaarMockService.sendOTP(aadhaarNumber);
+      // Send OTP using Cashfree API
+      const otpResponse = await CashfreeAadhaarService.generateOTP(aadhaarNumber);
       
       if (!otpResponse.success) {
         return res.json(otpResponse);
@@ -1784,15 +1785,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ...session.stepStatus as any,
           aadhaar_otp_sent: true
         },
-        // Store transaction ID in session metadata
+        // Store ref_id from Cashfree in session metadata
         aadhaarVerificationData: {
-          transactionId: otpResponse.transactionId
+          transactionId: otpResponse.ref_id // Cashfree uses ref_id
         }
       });
       
       res.json({
         success: true,
-        transactionId: otpResponse.transactionId,
+        transactionId: otpResponse.ref_id, // Return as transactionId for frontend compatibility
         maskedAadhaar: otpResponse.maskedAadhaar,
         message: otpResponse.message
       });
@@ -1828,8 +1829,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Verify OTP
-      const verification = await AadhaarMockService.verifyOTP(transactionId, otp);
+      // Verify OTP using Cashfree API
+      const verification = await CashfreeAadhaarService.verifyOTP(otp, transactionId);
       
       if (!verification.success || !verification.verified) {
         return res.json(verification);
@@ -1857,6 +1858,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({
         success: true,
+        verified: true,
         data: verification.data,
         message: "Aadhaar verified successfully"
       });
@@ -29740,11 +29742,4 @@ System Security Data:`;
       await storage.deleteUserAlert(id);
       res.json({ message: "Alert deleted successfully" });
     } catch (error) {
-      console.error('Error deleting alert:', error);
-      res.status(500).json({ message: "Failed to delete alert" });
-    }
-  });
-
-  const httpServer = createServer(app);
-  return httpServer;
-}
+      console.err
