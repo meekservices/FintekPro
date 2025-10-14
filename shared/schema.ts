@@ -371,7 +371,7 @@ export const users = pgTable("users", {
   isMobileVerified: boolean("is_mobile_verified").default(false),
   
   // Enhanced KYC Fields
-  panNumber: varchar("pan_number"),
+  panNumber: varchar("pan_number").unique(),
   aadharNumber: varchar("aadhar_number"),
   passportNumber: varchar("passport_number"),
   drivingLicense: varchar("driving_license"),
