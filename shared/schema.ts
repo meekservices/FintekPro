@@ -360,8 +360,8 @@ export const productAccountPreferences = pgTable("product_account_preferences", 
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").unique().notNull(), // System-generated unique user ID for login (e.g., FTP001234)
-  email: varchar("email").unique(),
-  mobile: varchar("mobile").unique(), // Phone number for WhatsApp and authentication
+  email: varchar("email"), // Family members can share email per regulatory requirements
+  mobile: varchar("mobile"), // Family members can share mobile per regulatory requirements
   password: text("password").notNull(),
   firstName: varchar("first_name"),
   middleName: varchar("middle_name"),
@@ -372,7 +372,7 @@ export const users = pgTable("users", {
   
   // Enhanced KYC Fields
   panNumber: varchar("pan_number").unique(),
-  aadharNumber: varchar("aadhar_number"),
+  aadharNumber: varchar("aadhar_number").unique(),
   passportNumber: varchar("passport_number"),
   drivingLicense: varchar("driving_license"),
   voterIdNumber: varchar("voter_id_number"),
