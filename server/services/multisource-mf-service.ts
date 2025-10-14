@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { FundExtended, FundCore, FundPerformance, Provenance, NAVRecord, FundSearchParams, FundListResponse, SourceStatus, MultiSourceStatus } from '@shared/schema';
-import CrisilService, { CrisilAnalysis } from './crisil-service';
+import FintekProRatingService, { FintekProAnalysis } from './fintekpro-rating-service';
 import type { IStorage } from '../storage';
 
 // Cache configuration
@@ -48,7 +48,7 @@ export class MultiSourceMFService {
     this.sourceHealth = new Map([
       ['AMFI', { isHealthy: true, errorRate: 0, consecutiveFailures: 0 }],
       ['MFAPI', { isHealthy: true, errorRate: 0, consecutiveFailures: 0 }],
-      ['CRISIL', { isHealthy: true, errorRate: 0, consecutiveFailures: 0 }],
+      ['FINTEKPRO_RATING', { isHealthy: true, errorRate: 0, consecutiveFailures: 0 }],
     ]);
   }
 
@@ -113,11 +113,11 @@ export class MultiSourceMFService {
             }
           };
 
-          // Enrich with CRISIL rating
+          // Enrich with FintekPro Smart Rating
           try {
-            fundWithProvenance = await this.enrichWithCrisilRating(fundWithProvenance);
+            fundWithProvenance = await this.enrichWithFintekProRating(fundWithProvenance);
           } catch (error) {
-            console.warn(`Failed to enrich fund ${fundWithProvenance.schemeCode} with CRISIL rating:`, error);
+            console.warn(`Failed to enrich fund ${fundWithProvenance.schemeCode} with FintekPro rating:`, error);
           }
 
           // Save to database
@@ -224,17 +224,17 @@ export class MultiSourceMFService {
             })
           );
 
-          // Enrich with CRISIL ratings
-          let crisilEnrichedFunds: FundExtended[];
+          // Enrich with FintekPro Smart Ratings
+          let ratedFunds: FundExtended[];
           try {
-            crisilEnrichedFunds = await this.enrichFundsWithCrisil(enrichedFunds);
+            ratedFunds = await this.enrichFundsWithFintekProRating(enrichedFunds);
           } catch (error) {
-            console.warn('Failed to enrich funds with CRISIL ratings:', error);
-            crisilEnrichedFunds = enrichedFunds; // Fallback to original enriched funds
+            console.warn('Failed to enrich funds with FintekPro ratings:', error);
+            ratedFunds = enrichedFunds; // Fallback to original enriched funds
           }
 
           // Sort by best performance (1Y returns descending, then 3Y returns)
-          const sortedFunds = crisilEnrichedFunds.sort((a, b) => {
+          const sortedFunds = ratedFunds.sort((a, b) => {
             const aReturns1Y = a.returns?.['1Y'] || 0;
             const bReturns1Y = b.returns?.['1Y'] || 0;
             
@@ -804,33 +804,33 @@ export class MultiSourceMFService {
 
 
   /**
-   * Enrich fund data with CRISIL ratings
+   * Enrich fund data with FintekPro Smart Ratings
    */
-  private async enrichWithCrisilRating(fund: FundExtended): Promise<FundExtended> {
+  private async enrichWithFintekProRating(fund: FundExtended): Promise<FundExtended> {
     try {
-      const crisilAnalysis = await CrisilService.getRating(fund.schemeCode);
+      const fintekProAnalysis = await FintekProRatingService.getRating(fund.schemeCode);
       
-      if (crisilAnalysis) {
-        // Add CRISIL data to fund
-        fund.crisilRating = crisilAnalysis.rating.rating;
-        fund.crisilCategory = crisilAnalysis.rating.category;
-        fund.crisilPercentile = crisilAnalysis.rating.percentile;
-        fund.crisilEvaluationDate = crisilAnalysis.rating.evaluationDate;
-        fund.crisilRiskAdjustedScore = crisilAnalysis.rating.riskAdjustedScore;
-        fund.crisilAssetQualityScore = crisilAnalysis.rating.assetQualityScore;
-        fund.crisilLiquidityScore = crisilAnalysis.rating.liquidityScore;
-        fund.crisilConcentrationScore = crisilAnalysis.rating.concentrationScore;
-        fund.crisilOverallScore = crisilAnalysis.rating.overallScore;
-        fund.crisilDataSource = crisilAnalysis.rating.dataSource;
+      if (fintekProAnalysis) {
+        // Add FintekPro Smart Rating data to fund
+        fund.crisilRating = fintekProAnalysis.rating.rating;
+        fund.crisilCategory = fintekProAnalysis.rating.category;
+        fund.crisilPercentile = fintekProAnalysis.rating.percentile;
+        fund.crisilEvaluationDate = fintekProAnalysis.rating.evaluationDate;
+        fund.crisilRiskAdjustedScore = fintekProAnalysis.rating.riskAdjustedScore;
+        fund.crisilAssetQualityScore = fintekProAnalysis.rating.assetQualityScore;
+        fund.crisilLiquidityScore = fintekProAnalysis.rating.liquidityScore;
+        fund.crisilConcentrationScore = fintekProAnalysis.rating.concentrationScore;
+        fund.crisilOverallScore = fintekProAnalysis.rating.overallScore;
+        fund.crisilDataSource = fintekProAnalysis.rating.dataSource;
         fund.crisilLastUpdated = new Date();
         
         // Add additional analysis data
-        fund.crisilRationale = crisilAnalysis.rationale;
-        fund.crisilStrengths = crisilAnalysis.strengths;
-        fund.crisilConcerns = crisilAnalysis.concerns;
-        fund.crisilRecommendation = crisilAnalysis.recommendation;
+        fund.crisilRationale = fintekProAnalysis.rationale;
+        fund.crisilStrengths = fintekProAnalysis.strengths;
+        fund.crisilConcerns = fintekProAnalysis.concerns;
+        fund.crisilRecommendation = fintekProAnalysis.recommendation;
 
-        // Update provenance to include CRISIL
+        // Update provenance to include FintekPro rating
         if (!fund.provenance) {
           fund.provenance = {
             primarySource: 'AMFI',
@@ -846,46 +846,46 @@ export class MultiSourceMFService {
         }
         
         fund.provenance.dataFlow.push({
-          source: 'CRISIL',
+          source: 'FINTEKPRO_RATING',
           timestamp: new Date(),
           action: 'rating_enrichment',
           metadata: { 
-            rating: crisilAnalysis.rating.rating,
-            category: crisilAnalysis.rating.category,
-            dataSource: crisilAnalysis.rating.dataSource
+            rating: fintekProAnalysis.rating.rating,
+            category: fintekProAnalysis.rating.category,
+            dataSource: fintekProAnalysis.rating.dataSource
           }
         });
 
-        console.log(`✅ Enhanced ${fund.schemeName} with CRISIL ${crisilAnalysis.rating.rating}-star rating`);
+        console.log(`✅ Enhanced ${fund.schemeName} with FintekPro ${fintekProAnalysis.rating.rating}-star rating`);
       }
     } catch (error) {
-      console.warn(`⚠️ Failed to enrich ${fund.schemeCode} with CRISIL rating:`, error);
+      console.warn(`⚠️ Failed to enrich ${fund.schemeCode} with FintekPro rating:`, error);
       
       // Mark source as unhealthy if this fails consistently  
-      this.updateSourceHealth('CRISIL', false);
+      this.updateSourceHealth('FINTEKPRO_RATING', false);
     }
     
     return fund;
   }
 
   /**
-   * Enrich multiple funds with CRISIL ratings
+   * Enrich multiple funds with FintekPro Smart Ratings
    */
-  private async enrichFundsWithCrisil(funds: FundExtended[]): Promise<FundExtended[]> {
+  private async enrichFundsWithFintekProRating(funds: FundExtended[]): Promise<FundExtended[]> {
     const enrichedFunds: FundExtended[] = [];
     
-    // Process in batches to avoid overwhelming the CRISIL service
+    // Process in batches to avoid overwhelming the rating service
     const batchSize = 5;
     for (let i = 0; i < funds.length; i += batchSize) {
       const batch = funds.slice(i, i + batchSize);
-      const batchPromises = batch.map(fund => this.enrichWithCrisilRating(fund));
+      const batchPromises = batch.map(fund => this.enrichWithFintekProRating(fund));
       
       try {
         const enrichedBatch = await Promise.all(batchPromises);
         enrichedFunds.push(...enrichedBatch);
       } catch (error) {
-        console.warn('⚠️ Batch CRISIL enrichment failed:', error);
-        // Add original funds without CRISIL data if enrichment fails
+        console.warn('⚠️ Batch FintekPro rating enrichment failed:', error);
+        // Add original funds without rating data if enrichment fails
         enrichedFunds.push(...batch);
       }
     }
@@ -1017,7 +1017,7 @@ export class MultiSourceMFService {
     this.cache.nav.data.clear();
     this.cache.historical.data.clear();
     this.cache.popular.data = null;
-    // Note: CrisilService cache clearing would be handled internally
+    // Note: FintekProRatingService cache clearing would be handled internally
   }
 
   /**

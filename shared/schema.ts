@@ -1823,8 +1823,8 @@ export const mutualFunds = pgTable("mutual_funds", {
   returns3y: decimal("returns_3y", { precision: 8, scale: 4 }),
   returns5y: decimal("returns_5y", { precision: 8, scale: 4 }),
   
-  // CRISIL Ratings Integration
-  crisilRating: integer("crisil_rating"), // 1-5 scale (1 = very good performance)
+  // FintekPro Smart Rating (stored in legacy crisil_* columns for backwards compatibility)
+  crisilRating: integer("crisil_rating"), // 1-5 scale (1 = very good performance) - Now stores FintekPro Smart Rating
   crisilCategory: varchar("crisil_category"), // equity/debt/hybrid
   crisilPercentile: decimal("crisil_percentile", { precision: 5, scale: 2 }), // 0-100 percentile ranking
   crisilEvaluationDate: timestamp("crisil_evaluation_date"), // Last evaluation date
@@ -4975,8 +4975,8 @@ export interface FundExtended extends FundCore, FundPerformance {
   minInvestment?: string;
   exitLoad?: string;
   
-  // CRISIL Ratings Integration
-  crisilRating?: number; // 1-5 scale (1 = very good performance)
+  // FintekPro Smart Rating (stored with legacy 'crisil' prefix for backwards compatibility)
+  crisilRating?: number; // 1-5 scale (1 = very good performance) - FintekPro Smart Rating
   crisilCategory?: 'equity' | 'debt' | 'hybrid';
   crisilPercentile?: number; // 0-100 percentile ranking
   crisilEvaluationDate?: Date; // Last evaluation date
@@ -4988,7 +4988,7 @@ export interface FundExtended extends FundCore, FundPerformance {
   crisilDataSource?: 'calculated' | 'api' | 'manual';
   crisilLastUpdated?: Date;
   
-  // CRISIL Analysis Data
+  // FintekPro Smart Rating Analysis Data
   crisilRationale?: string; // Analysis rationale
   crisilStrengths?: string[]; // Fund strengths
   crisilConcerns?: string[]; // Fund concerns

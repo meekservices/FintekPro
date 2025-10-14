@@ -291,12 +291,14 @@ function ComparisonResults({ comparison }: { comparison: FundComparisonResult })
                   ))}
                 </tr>
                 <tr>
-                  <td className="p-2 font-medium">CRISIL Rating</td>
+                  <td className="p-2 font-medium" title="FintekPro Smart Rating - Calculated using risk-adjusted returns, asset quality, liquidity, and concentration metrics">
+                    FintekPro Rating
+                  </td>
                   {comparison.funds.map((fund) => (
                     <td key={fund.schemeCode} className="p-2 text-center">
                       <div className="flex justify-center">
                         {fund.crisilRating ? (
-                          <div className="flex">
+                          <div className="flex" title={`${fund.crisilRating}-star FintekPro Smart Rating`}>
                             {[...Array(5)].map((_, i) => (
                               <Star
                                 key={i}

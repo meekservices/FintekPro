@@ -360,17 +360,17 @@ export default function MutualFunds() {
   const [selectedCategory, setSelectedCategory] = useState("Large Cap Funds");
   const [selectedSubCategory, setSelectedSubCategory] = useState("");
   
-  // CRISIL Star Rating Component
-  const CrisilStars = ({ rating }: { rating: number }) => {
+  // FintekPro Smart Rating Component
+  const FintekProSmartRating = ({ rating }: { rating: number }) => {
     return (
-      <div className="flex items-center gap-1" data-testid={`crisil-${rating}-star`}>
+      <div className="flex items-center gap-1" data-testid={`fintekpro-rating-${rating}-star`} title="FintekPro Smart Rating - Based on risk-adjusted returns, asset quality, liquidity, and concentration metrics">
         {[1, 2, 3, 4, 5].map((star) => (
           <Star
             key={star}
             className={`w-4 h-4 ${star <= rating ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
           />
         ))}
-        <span className="text-xs text-gray-600 ml-1">CRISIL</span>
+        <span className="text-xs text-gray-600 dark:text-gray-400 ml-1">FintekPro</span>
       </div>
     );
   };
@@ -398,7 +398,7 @@ export default function MutualFunds() {
             <thead className="bg-gray-50 dark:bg-gray-700">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" data-testid="table-header-fund">Fund Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" data-testid="table-header-crisil">CRISIL Rank</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" data-testid="table-header-fintekpro-rating">FintekPro Rating</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" data-testid="table-header-aum">AUM</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" data-testid="table-header-1m">1M</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" data-testid="table-header-6m">6M</th>
@@ -418,8 +418,8 @@ export default function MutualFunds() {
                       <div className="text-xs text-gray-400">NAV: ₹{fund.nav}</div>
                     </div>
                   </td>
-                  <td className="px-6 py-4" data-testid={`fund-crisil-${index}`}>
-                    <CrisilStars rating={fund.crisil} />
+                  <td className="px-6 py-4" data-testid={`fund-fintekpro-rating-${index}`}>
+                    <FintekProSmartRating rating={fund.crisil} />
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900 dark:text-white font-medium" data-testid={`fund-aum-${index}`}>
                     {fund.aum}
@@ -1009,6 +1009,62 @@ export default function MutualFunds() {
         {/* KYC Warning */}
         <div className="mb-8">
           <KYCWarningBanner />
+        </div>
+
+        {/* FintekPro Smart Rating Info */}
+        <div className="mb-8">
+          <Card className="border-2 border-blue-100 dark:border-blue-900 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950">
+            <CardContent className="p-6">
+              <div className="flex items-start gap-4">
+                <div className="mt-1">
+                  <Award className="w-6 h-6 text-finance-blue" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-lg text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+                    About FintekPro Smart Rating
+                    <Badge variant="secondary" className="bg-finance-blue/10 text-finance-blue">Transparent Methodology</Badge>
+                  </h3>
+                  <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
+                    FintekPro Smart Rating is our proprietary fund rating system (1-5 stars, where 1 = exceptional performance). 
+                    It's calculated using industry-standard quantitative metrics with complete transparency.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+                    <div className="bg-white/60 dark:bg-gray-800/60 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center gap-2 mb-1">
+                        <TrendingUp className="w-4 h-4 text-green-600" />
+                        <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Risk-Adjusted Returns</span>
+                      </div>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">40% weight • 1Y, 3Y, 5Y performance</p>
+                    </div>
+                    <div className="bg-white/60 dark:bg-gray-800/60 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Shield className="w-4 h-4 text-blue-600" />
+                        <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Asset Quality</span>
+                      </div>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">30% weight • AUM & fund house reputation</p>
+                    </div>
+                    <div className="bg-white/60 dark:bg-gray-800/60 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center gap-2 mb-1">
+                        <RefreshCw className="w-4 h-4 text-purple-600" />
+                        <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Liquidity Score</span>
+                      </div>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">20% weight • Fund size & redemption ease</p>
+                    </div>
+                    <div className="bg-white/60 dark:bg-gray-800/60 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center gap-2 mb-1">
+                        <AlertCircle className="w-4 h-4 text-orange-600" />
+                        <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Concentration Risk</span>
+                      </div>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">10% weight • Portfolio diversification</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-3 italic">
+                    Note: FintekPro Smart Ratings are calculated ratings, not official third-party ratings. They're based on transparent, quantitative analysis of fund metrics.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         <Tabs defaultValue="explore" className="space-y-8">
