@@ -29740,6 +29740,7 @@ System Security Data:`;
         return res.status(404).json({ message: "Alert not found" });
       }
       
+      
       await storage.deleteUserAlert(id);
       res.json({ message: "Alert deleted successfully" });
     } catch (error) {
@@ -29747,4 +29748,6 @@ System Security Data:`;
       res.status(500).json({ message: "Failed to delete alert" });
     }
   });
+  
+  return server;
 }
