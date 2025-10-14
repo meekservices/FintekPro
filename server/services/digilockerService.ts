@@ -62,8 +62,8 @@ export interface DigiLockerPullDocRequest {
 }
 
 export class DigiLockerService {
-  // Initialize default DigiLocker app configuration
-  async initializeDigiLockerApp() {
+  // Initialize default DigiLocker app configuration (non-blocking with retry)
+  async initializeDigiLockerApp(retries = 3) {
     try {
       // Check if default app already exists
       const existingApp = await db.select().from(digilockerApps).limit(1);
@@ -84,9 +84,17 @@ export class DigiLockerService {
         await db.insert(digilockerApps).values(defaultApp);
         console.log("✅ DigiLocker app configuration initialized successfully");
       }
-    } catch (error) {
-      console.error("❌ Error initializing DigiLocker app:", error);
-      throw error;
+    } catch (error: any) {
+      // Check if it's a database connection error
+      if (error?.code === 'XX000' && retries > 0) {
+        console.warn(`⚠️ DigiLocker init failed (${retries} retries left), retrying in 2s...`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        return this.initializeDigiLockerApp(retries - 1);
+      }
+      
+      // Non-critical service - log warning and continue
+      console.warn("⚠️ DigiLocker initialization skipped (service will use Cashfree OKYC fallback):", error.message);
+      // Don't throw - allow app to continue without DigiLocker
     }
   }
 

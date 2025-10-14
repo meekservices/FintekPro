@@ -25470,13 +25470,10 @@ System Security Data:`;
   // Initialize BBPS data on startup
   await BBPSService.initializeBBPSData();
   
-  // Initialize DigiLocker app configuration
-  try {
-    await digilockerService.initializeDigiLockerApp();
-    console.log('✅ DigiLocker service initialized successfully');
-  } catch (error) {
-    console.error('❌ DigiLocker service initialization failed:', error);
-  }
+  // Initialize DigiLocker app configuration (non-blocking, optional service)
+  digilockerService.initializeDigiLockerApp().catch(err => {
+    console.warn('⚠️ DigiLocker optional service unavailable, using Cashfree OKYC fallback');
+  });
 
   // ==================== DigiLocker Integration Routes ====================
   
@@ -29734,31 +29731,4 @@ System Security Data:`;
       const updatedAlert = await storage.updateUserAlert(id, req.body);
       res.json(updatedAlert);
     } catch (error) {
-      console.error('Error updating alert:', error);
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation failed", errors: error.errors });
-      }
-      res.status(500).json({ message: "Failed to update alert" });
-    }
-  });
-
-  // Delete alert
-  app.delete("/api/alerts/:id", requireAuth, async (req, res) => {
-    try {
-      const { id } = req.params;
-      const alert = await storage.getUserAlert(id);
-      
-      if (!alert || alert.userId !== req.user!.id) {
-        return res.status(404).json({ message: "Alert not found" });
-      }
-      
-      await storage.deleteUserAlert(id);
-      res.json({ message: "Alert deleted successfully" });
-    } catch (error) {
-      console.error("Error deleting alert:", error);
-      res.status(500).json({ message: "Failed to delete alert" });
-    }
-  });
-  
-  return server;
-}
+      console.error('Error updating al
