@@ -12603,8 +12603,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (popularFunds && popularFunds.length > 0) {
         console.log(`✅ MultiSource service found ${popularFunds.length} popular funds`);
         
-        // Take top 6 funds for response
-        const topFunds = popularFunds.slice(0, 6);
+        // Return top 30 funds for better variety (was 6, increased for comprehensive coverage)
+        const topFunds = popularFunds.slice(0, 30);
         
         // Transform to legacy API format for backward compatibility
         const formattedFunds = topFunds.map(fund => ({
@@ -12656,7 +12656,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (cachedFunds.length > 0) {
           console.log(`✅ Using cached data with ${cachedFunds.length} funds`);
           
-          const topCachedFunds = cachedFunds.slice(0, 6);
+          const topCachedFunds = cachedFunds.slice(0, 30);
           const formattedCached = topCachedFunds.map((fund, index) => ({
             id: `cache-${fund.schemeCode}`,
             scheme_code: fund.schemeCode,
@@ -29740,11 +29740,10 @@ System Security Data:`;
         return res.status(404).json({ message: "Alert not found" });
       }
       
-      
       await storage.deleteUserAlert(id);
       res.json({ message: "Alert deleted successfully" });
     } catch (error) {
-      console.error('Error deleting alert:', error);
+      console.error("Error deleting alert:", error);
       res.status(500).json({ message: "Failed to delete alert" });
     }
   });

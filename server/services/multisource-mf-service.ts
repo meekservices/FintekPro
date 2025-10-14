@@ -479,16 +479,75 @@ export class MultiSourceMFService {
         }
       }
 
-      // For popular funds, return top 10 by fund house diversity
+      // For popular funds, return diverse selection (80-100 funds) across categories
       if (type === 'popular') {
-        const uniqueFundHouses = new Map<string, any>();
+        // Categorize funds by keywords in their names
+        const categorizedFunds = {
+          equity: [] as any[],
+          debt: [] as any[],
+          hybrid: [] as any[],
+          liquid: [] as any[],
+          elss: [] as any[],
+          other: [] as any[]
+        };
+
         for (const fund of funds) {
-          if (!uniqueFundHouses.has(fund.fundHouse)) {
-            uniqueFundHouses.set(fund.fundHouse, fund);
-            if (uniqueFundHouses.size >= 10) break;
+          const nameLower = fund.schemeName.toLowerCase();
+          
+          // Categorize based on fund name keywords
+          if (nameLower.includes('equity') || nameLower.includes('stock') || 
+              nameLower.includes('bluechip') || nameLower.includes('midcap') || 
+              nameLower.includes('smallcap') || nameLower.includes('multicap') || 
+              nameLower.includes('largecap') || nameLower.includes('focused')) {
+            categorizedFunds.equity.push(fund);
+          } else if (nameLower.includes('debt') || nameLower.includes('bond') || 
+                     nameLower.includes('income') || nameLower.includes('gilt') || 
+                     nameLower.includes('credit') || nameLower.includes('corporate') || 
+                     nameLower.includes('banking') || nameLower.includes('psu')) {
+            categorizedFunds.debt.push(fund);
+          } else if (nameLower.includes('hybrid') || nameLower.includes('balanced') || 
+                     nameLower.includes('aggressive') || nameLower.includes('conservative')) {
+            categorizedFunds.hybrid.push(fund);
+          } else if (nameLower.includes('liquid') || nameLower.includes('overnight') || 
+                     nameLower.includes('ultra short')) {
+            categorizedFunds.liquid.push(fund);
+          } else if (nameLower.includes('elss') || nameLower.includes('tax saver') || 
+                     nameLower.includes('tax saving')) {
+            categorizedFunds.elss.push(fund);
+          } else {
+            categorizedFunds.other.push(fund);
           }
         }
-        return Array.from(uniqueFundHouses.values());
+
+        // Select diverse funds: aim for 80-100 total
+        // Distribution: 30 equity, 25 debt, 15 hybrid, 10 liquid, 10 elss, 10 other
+        const selectedFunds: any[] = [];
+        const fundHouseCount = new Map<string, number>();
+        
+        const selectFromCategory = (category: any[], targetCount: number) => {
+          const selected: any[] = [];
+          for (const fund of category) {
+            // Limit funds per house to ensure diversity (max 3 per house per category)
+            const count = fundHouseCount.get(fund.fundHouse) || 0;
+            if (count < 3) {
+              selected.push(fund);
+              fundHouseCount.set(fund.fundHouse, count + 1);
+              if (selected.length >= targetCount) break;
+            }
+          }
+          return selected;
+        };
+
+        selectedFunds.push(...selectFromCategory(categorizedFunds.equity, 30));
+        selectedFunds.push(...selectFromCategory(categorizedFunds.debt, 25));
+        selectedFunds.push(...selectFromCategory(categorizedFunds.hybrid, 15));
+        selectedFunds.push(...selectFromCategory(categorizedFunds.liquid, 10));
+        selectedFunds.push(...selectFromCategory(categorizedFunds.elss, 10));
+        selectedFunds.push(...selectFromCategory(categorizedFunds.other, 10));
+
+        console.log(`✅ Selected ${selectedFunds.length} diverse funds from AMFI (Equity: ${categorizedFunds.equity.length > 30 ? 30 : categorizedFunds.equity.length}, Debt: ${categorizedFunds.debt.length > 25 ? 25 : categorizedFunds.debt.length}, Hybrid: ${categorizedFunds.hybrid.length > 15 ? 15 : categorizedFunds.hybrid.length})`);
+        
+        return selectedFunds;
       }
 
       return type === 'fund' ? null : funds;
@@ -542,11 +601,10 @@ export class MultiSourceMFService {
           url = `${baseUrl}/search?q=${encodeURIComponent(param || '')}`;
           break;
         case 'popular':
-          // Use top 10 popular fund codes as fallback since /popular doesn't exist
-          const popularCodes = ['118825', '119533', '120503', '118777', '120505', '119551', '120487', '119554', '100314', '119548'];
-          const fundPromises = popularCodes.map(code => this.fetchFromMFAPI('fund', code).catch(() => null));
-          const funds = await Promise.all(fundPromises);
-          return funds.filter(fund => fund !== null);
+          // MFAPI doesn't have a popular endpoint, so we can't fetch a diverse set here
+          // Return empty array to force fallback to AMFI which has comprehensive data
+          console.warn('MFAPI does not support popular funds endpoint - falling back to AMFI');
+          return [];
         default:
           throw new Error(`Unsupported type: ${type}`);
       }
@@ -954,6 +1012,19 @@ export class MultiSourceMFService {
    */
   private async saveFundToDatabase(fund: FundExtended): Promise<void> {
     try {
+      // Strict validation: reject funds with missing critical data
+      if (!fund.schemeCode || !fund.schemeName || 
+          fund.schemeCode.trim() === '' || fund.schemeName.trim() === '') {
+        console.warn(`⚠️  Rejecting fund with missing data: schemeCode="${fund.schemeCode}", schemeName="${fund.schemeName}"`);
+        throw new Error('Invalid fund data: schemeCode and schemeName are required');
+      }
+
+      // Validate scheme code is numeric
+      if (!/^\d+$/.test(fund.schemeCode)) {
+        console.warn(`⚠️  Rejecting fund with invalid scheme code: ${fund.schemeCode}`);
+        throw new Error('Invalid fund data: schemeCode must be numeric');
+      }
+
       // Extract commonly used fields
       const basicData = {
         schemeCode: fund.schemeCode,
