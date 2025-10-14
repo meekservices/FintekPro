@@ -7,6 +7,9 @@ import { promisify } from "util";
 import { storage } from "./storage";
 import { type User } from "@shared/schema";
 import { emailService } from "./email-service";
+import { db } from "./db";
+import * as schema from "@shared/schema";
+import { eq } from "drizzle-orm";
 import { smsService } from "./services/sms-service";
 import { whatsappService } from "./whatsapp";
 
@@ -86,10 +89,22 @@ export function setupAuth(app: Express) {
       },
       async (email, password, done) => {
         try {
-          const user = await storage.getUserByEmail(email);
-          if (!user || !(await comparePasswords(password, user.password))) {
+          // Check for multiple users with same email (family members can share)
+          const users = await db.select().from(schema.users).where(eq(schema.users.email, email));
+          
+          if (users.length === 0) {
             return done(null, false, { message: "Invalid email or password" });
           }
+          
+          if (users.length > 1) {
+            return done(null, false, { message: "Multiple accounts found with this email. Please log in using your User ID instead." });
+          }
+          
+          const user = users[0];
+          if (!(await comparePasswords(password, user.password))) {
+            return done(null, false, { message: "Invalid email or password" });
+          }
+          
           // Normalize user data for Express
           const normalizedUser = {
             ...user,
@@ -114,10 +129,22 @@ export function setupAuth(app: Express) {
       },
       async (mobile, password, done) => {
         try {
-          const user = await storage.getUserByMobile(mobile);
-          if (!user || !(await comparePasswords(password, user.password))) {
+          // Check for multiple users with same mobile (family members can share)
+          const users = await db.select().from(schema.users).where(eq(schema.users.mobile, mobile));
+          
+          if (users.length === 0) {
             return done(null, false, { message: "Invalid mobile number or password" });
           }
+          
+          if (users.length > 1) {
+            return done(null, false, { message: "Multiple accounts found with this mobile number. Please log in using your User ID instead." });
+          }
+          
+          const user = users[0];
+          if (!(await comparePasswords(password, user.password))) {
+            return done(null, false, { message: "Invalid mobile number or password" });
+          }
+          
           // Normalize user data for Express
           const normalizedUser = {
             ...user,
@@ -177,17 +204,8 @@ export function setupAuth(app: Express) {
         return res.status(400).json({ message: "Password is required" });
       }
 
-      // Check if user already exists
-      const existingUserByEmail = await storage.getUserByEmail(email);
-      if (existingUserByEmail) {
-        return res.status(400).json({ message: "User with this email already exists" });
-      }
-
-      const existingUserByMobile = await storage.getUserByMobile(mobile);
-      if (existingUserByMobile) {
-        return res.status(400).json({ message: "User with this mobile number already exists" });
-      }
-
+      // Family members can share email/mobile per regulatory requirements
+      // Only User ID, PAN, and Aadhaar must be unique
       // Generate unique userId
       const userId = await generateUniqueUserId();
       const hashedPassword = await hashPassword(password);
