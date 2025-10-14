@@ -440,10 +440,7 @@ export interface IStorage {
   createProviderIntegration(integration: InsertProviderIntegration): Promise<ProviderIntegration>;
   updateProviderIntegration(id: string, updates: Partial<ProviderIntegration>): Promise<ProviderIntegration | undefined>;
   
-  // Application Document methods
-  getApplicationDocuments(applicationId: string): Promise<ApplicationDocument[]>;
-  createApplicationDocument(document: InsertApplicationDocument): Promise<ApplicationDocument>;
-  updateApplicationDocument(id: string, updates: Partial<ApplicationDocument>): Promise<ApplicationDocument | undefined>;
+  // Collateral Valuation methods
   createCollateralValuation(valuation: any): Promise<any>;
 
   // Financial Goals methods
@@ -624,7 +621,7 @@ export interface IStorage {
   createInvestmentIdeaAlert(alert: InsertInvestmentIdeaAlert): Promise<InvestmentIdeaAlert>;
   getInvestmentIdeaAlerts(userId: string): Promise<InvestmentIdeaAlert[]>;
   getUnreadAlerts(userId: string): Promise<InvestmentIdeaAlert[]>;
-  markAlertAsRead(id: string): Promise<InvestmentIdeaAlert | undefined>;
+  markInvestmentIdeaAlertAsRead(id: string): Promise<InvestmentIdeaAlert | undefined>;
   
   // Yield Tracker methods
   createYieldTracker(tracker: InsertYieldTracker): Promise<YieldTracker>;
