@@ -1765,13 +1765,16 @@ export class DatabaseStorage implements IStorage {
         .limit(1);
       
       if (!agentUser) {
+        // Generate unique userId for agent
+        const agentUserId = await this.generateUniqueUserId();
+        
         // Create a user account for the agent
         [agentUser] = await db
           .insert(schema.users)
           .values({
+            userId: agentUserId,
             email: defaultAgent.email,
-            firstName: defaultAgent.fullName.split(' ')[0] || defaultAgent.fullName,
-            lastName: defaultAgent.fullName.split(' ').slice(1).join(' ') || '',
+            mobile: defaultAgent.mobile || '',
             password: '', // Agents use separate authentication
             isEmailVerified: true,
             roles: ['agent'],
@@ -3855,7 +3858,7 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .delete(schema.partnerApplicationDocuments)
       .where(eq(schema.partnerApplicationDocuments.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   // Cashfree Transaction methods
@@ -4217,7 +4220,7 @@ export class DatabaseStorage implements IStorage {
       joinedAt: r.joinedAt,
       leftAt: r.leftAt,
       user: {
-        email: r.userEmail,
+        email: r.userEmail || '',
         firstName: r.userFirstName || undefined,
         lastName: r.userLastName || undefined,
       },
@@ -4675,7 +4678,7 @@ export class DatabaseStorage implements IStorage {
     }
     
     // Merge template default config with custom data
-    const config = { ...template.defaultConfig, ...customData };
+    const config = { ...(template.defaultConfig || {}), ...(customData || {}) };
     
     const [result] = await db
       .insert(schema.userAlerts)
@@ -4937,8 +4940,8 @@ export class DatabaseStorage implements IStorage {
       // Get client financial profile
       const [financialProfile] = await db
         .select()
-        .from(schema.clientFinancialProfiles)
-        .where(eq(schema.clientFinancialProfiles.userId, userId))
+        .from(schema.creditProfiles)
+        .where(eq(schema.creditProfiles.userId, userId))
         .limit(1);
       
       const hasFinancialProfile = !!financialProfile;
