@@ -12526,22 +12526,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const result = await multiSourceMFService.listFunds(searchParams);
       
-      // Transform MultiSource data to match legacy API format for compatibility
+      // Transform MultiSource data to camelCase format for frontend compatibility
       const formattedFunds = result.funds.map((fund) => ({
         id: `mf-${fund.schemeCode}`,
-        scheme_code: fund.schemeCode,
-        scheme_name: fund.schemeName,
-        amc: fund.fundHouse,
+        schemeCode: fund.schemeCode,
+        schemeName: fund.schemeName,
+        fundHouse: fund.fundHouse,
         category: fund.category,
-        sub_category: fund.subCategory || fund.category,
-        nav: parseFloat(fund.currentNav || '0'),
-        nav_date: fund.navDate,
-        fund_size: fund.aum || "N/A",
-        expense_ratio: fund.expenseRatio || "N/A",
-        min_investment: 5000,
-        fund_manager: fund.manager || "N/A",
+        subCategory: fund.subCategory || fund.category,
+        nav: String(parseFloat(fund.currentNav || '0')),
+        change: fund.change || '0',
+        changePercent: fund.changePercent || '0',
+        navDate: fund.navDate,
+        aum: fund.aum || "N/A",
+        expenseRatio: fund.expenseRatio || "N/A",
+        minInvestment: 5000,
+        fundManager: fund.manager || "N/A",
         benchmark: fund.benchmark || "N/A",
-        launch_date: "N/A",
+        launchDate: "N/A",
         returns: {
           "1D": null,
           "1W": null,
@@ -12555,9 +12557,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           "since_inception": null
         },
         returnStrings: fund.returnStrings,
-        risk_level: fund.riskLevel,
+        riskLevel: fund.riskLevel,
         rating: 4,
-        exit_load: "1% if redeemed within 365 days",
+        exitLoad: "1% if redeemed within 365 days",
+        returns1y: fund.returns?.['1Y'],
+        returns3y: fund.returns?.['3Y'],
+        returns5y: fund.returns?.['5Y'],
         provenance: fund.provenance
       }));
       
@@ -12565,11 +12570,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let filteredFunds = formattedFunds;
       
       if (nav_min) {
-        filteredFunds = filteredFunds.filter(fund => fund.nav >= parseFloat(nav_min as string));
+        filteredFunds = filteredFunds.filter(fund => parseFloat(fund.nav) >= parseFloat(nav_min as string));
       }
       
       if (nav_max) {
-        filteredFunds = filteredFunds.filter(fund => fund.nav <= parseFloat(nav_max as string));
+        filteredFunds = filteredFunds.filter(fund => parseFloat(fund.nav) <= parseFloat(nav_max as string));
       }
       
       return res.json({
@@ -12606,21 +12611,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Return top 30 funds for better variety (was 6, increased for comprehensive coverage)
         const topFunds = popularFunds.slice(0, 30);
         
-        // Transform to legacy API format for backward compatibility
+        // Transform to camelCase format for frontend compatibility
         const formattedFunds = topFunds.map(fund => ({
           id: `multisource-${fund.schemeCode}`,
-          scheme_code: fund.schemeCode,
-          scheme_name: fund.schemeName,
-          amc: fund.fundHouse,
+          schemeCode: fund.schemeCode,
+          schemeName: fund.schemeName,
+          fundHouse: fund.fundHouse,
           category: fund.category,
-          nav: parseFloat(fund.currentNav || fund.nav || '0'),
-          nav_date: fund.navDate || new Date().toISOString().split('T')[0],
+          nav: String(parseFloat(fund.currentNav || fund.nav || '0')),
+          change: fund.change || '0',
+          changePercent: fund.changePercent || '0',
+          navDate: fund.navDate || new Date().toISOString().split('T')[0],
           returns: fund.returns || {},
           returnStrings: fund.returnStrings || {},
-          risk_level: fund.riskLevel || 'Moderate',
+          riskLevel: fund.riskLevel || 'Moderate',
           rating: fund.rating || 4,
-          min_investment: fund.minInvestment || 5000,
-          exit_load: fund.exitLoad || '1% if redeemed within 365 days',
+          minInvestment: fund.minInvestment || 5000,
+          exitLoad: fund.exitLoad || '1% if redeemed within 365 days',
+          expenseRatio: fund.expenseRatio,
+          aum: fund.aum,
+          returns1y: fund.returns?.['1Y'],
+          returns3y: fund.returns?.['3Y'],
+          returns5y: fund.returns?.['5Y'],
           provenance: fund.provenance
         }));
         

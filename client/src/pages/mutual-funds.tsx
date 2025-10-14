@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -95,24 +95,24 @@ function FundCard({ fund, sebiData, onInvestClick }: { fund: MutualFundData; seb
           </div>
         </div>
         
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
           <Button 
             size="sm" 
-            className="flex-1 bg-gradient-to-r from-finance-blue to-blue-600 hover:from-blue-600 hover:to-finance-blue text-white font-medium shadow-lg hover:shadow-xl transition-all duration-300 group-hover:scale-105" 
+            className="w-full sm:flex-1 bg-gradient-to-r from-finance-blue to-blue-600 hover:from-blue-600 hover:to-finance-blue text-white font-medium shadow-lg hover:shadow-xl transition-all duration-300 group-hover:scale-105" 
             data-testid={`invest-${fund.schemeCode}`} 
             onClick={() => onInvestClick(fund)}
           >
-            <TrendingUp className="w-4 h-4 mr-2" />
-            Invest Now
+            <TrendingUp className="w-4 h-4 mr-1.5" />
+            <span className="text-xs sm:text-sm">Invest Now</span>
           </Button>
           <Button 
             size="sm" 
             variant="outline" 
-            className="flex-1 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-finance-blue hover:text-finance-blue transition-all duration-300 group-hover:scale-105" 
+            className="w-full sm:flex-1 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-finance-blue hover:text-finance-blue transition-all duration-300 group-hover:scale-105" 
             data-testid={`details-${fund.schemeCode}`}
           >
-            <Award className="w-4 h-4 mr-2" />
-            View Details
+            <Award className="w-4 h-4 mr-1.5" />
+            <span className="text-xs sm:text-sm">View Details</span>
           </Button>
         </div>
       </CardContent>
@@ -159,6 +159,8 @@ export default function MutualFunds() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFilterCategory, setSelectedFilterCategory] = useState("All");
   const [selectedRisk, setSelectedRisk] = useState("all");
+  const [activeTab, setActiveTab] = useState("explore");
+  const allFundsRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
   const { data: allFunds, isLoading: isLoadingAll, error: allError, refetch: refetchAll } = useMutualFunds();
@@ -525,6 +527,15 @@ export default function MutualFunds() {
   const handleInvestClick = (fund: MutualFundData) => {
     setSelectedFund(fund);
     setIsInvestmentModalOpen(true);
+  };
+
+  const handleViewAllClick = () => {
+    // Ensure we're on the explore tab
+    setActiveTab('explore');
+    // Scroll to All Funds section smoothly after a brief delay to ensure tab content is rendered
+    setTimeout(() => {
+      allFundsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
   };
 
   // Comprehensive refresh function
@@ -1067,7 +1078,7 @@ export default function MutualFunds() {
           </Card>
         </div>
 
-        <Tabs defaultValue="explore" className="space-y-8">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
           <ScrollableTabsList className="grid w-full grid-cols-5 h-14 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl">
             <TabsTrigger 
               value="explore" 
@@ -1118,7 +1129,13 @@ export default function MutualFunds() {
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">Popular Funds</h2>
                 {popularFunds && popularFunds.length > 0 && (
-                  <Button variant="outline" size="sm" className="flex items-center gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex items-center gap-2" 
+                    onClick={handleViewAllClick}
+                    data-testid="view-all-funds"
+                  >
                     View All <ArrowRight className="h-4 w-4" />
                   </Button>
                 )}
@@ -1159,7 +1176,7 @@ export default function MutualFunds() {
 
             {/* All Funds */}
             {filteredFunds.length > 0 && (
-              <section>
+              <section ref={allFundsRef}>
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-2xl font-bold text-gray-900">
                     {searchTerm ? `Search Results (${filteredFunds.length})` : `All Mutual Funds (${filteredFunds.length})`}
