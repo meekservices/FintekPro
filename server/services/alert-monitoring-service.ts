@@ -55,7 +55,7 @@ export class AlertMonitoringService {
   }
 
   // Check all active alerts
-  private async checkAllAlerts() {
+  private async checkAllAlerts(retries = 2) {
     console.log(`[${new Date().toISOString()}] Checking alerts...`);
 
     try {
@@ -98,8 +98,14 @@ export class AlertMonitoringService {
       }
 
       console.log(`Alert check complete at ${new Date().toISOString()}`);
-    } catch (error) {
-      console.error("Error in checkAllAlerts:", error);
+    } catch (error: any) {
+      if (error?.code === 'XX000' && retries > 0) {
+        // Retry with exponential backoff
+        console.warn(`⚠️ Alert check failed (${retries} retries left), retrying...`);
+        await new Promise(resolve => setTimeout(resolve, (3 - retries) * 1000));
+        return this.checkAllAlerts(retries - 1);
+      }
+      console.warn("⚠️ Alert monitoring cycle skipped due to database issue");
     }
   }
 

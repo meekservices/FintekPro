@@ -25478,6 +25478,63 @@ System Security Data:`;
   // ==================== DigiLocker Integration Routes ====================
   
   // Get DigiLocker widget configuration
+  // Fetch Aadhaar details with multi-tier fallback (DigiLocker -> Cashfree OKYC)
+  app.post("/api/digilocker/fetch-aadhaar", async (req, res) => {
+    try {
+      const { aadhaarNumber } = req.body;
+      
+      if (!aadhaarNumber || aadhaarNumber.length !== 12) {
+        return res.status(400).json({ error: "Invalid Aadhaar number" });
+      }
+
+      // Try DigiLocker first (if available)
+      try {
+        const digilockerResult = await digilockerService.fetchAadhaarDetails(aadhaarNumber);
+        if (digilockerResult?.success) {
+          return res.json({
+            success: true,
+            source: 'digilocker',
+            data: digilockerResult.data
+          });
+        }
+      } catch (digilockerError: any) {
+        console.warn('DigiLocker unavailable, trying Cashfree OKYC fallback:',  digilockerError.message);
+      }
+
+      // Fallback to Cashfree OKYC
+      try {
+        const otpResponse = await cashfreeAadhaarService.generateOTP(aadhaarNumber);
+        
+        if (otpResponse.status === 'success' && otpResponse.data?.ref_id) {
+          // Store ref_id in session or return to frontend for OTP verification
+          return res.json({
+            success: true,
+            source: 'cashfree_okyc',
+            requiresOtp: true,
+            ref_id: otpResponse.data.ref_id,
+            message: 'OTP sent to Aadhaar-linked mobile. Please verify to fetch details.'
+          });
+        } else {
+          throw new Error(otpResponse.message || 'Failed to generate OTP');
+        }
+      } catch (cashfreeError: any) {
+        console.error('Cashfree OKYC also failed:',  cashfreeError);
+        return res.status(503).json({
+          success: false,
+          error: 'All verification services temporarily unavailable. Please enter details manually.',
+          fallback: 'manual'
+        });
+      }
+    } catch (error: any) {
+      console.error("Error in fetch-aadhaar endpoint:", error);
+      res.status(500).json({ 
+        success: false,
+        error: "Failed to fetch Aadhaar details",
+        fallback: 'manual'
+      });
+    }
+  });
+
   app.get("/api/digilocker/widget-config", async (req, res) => {
     try {
       if (!req.user?.id) {
@@ -29731,4 +29788,31 @@ System Security Data:`;
       const updatedAlert = await storage.updateUserAlert(id, req.body);
       res.json(updatedAlert);
     } catch (error) {
-      console.error('Error updating al
+      console.error('Error updating alert:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation failed", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update alert" });
+    }
+  });
+
+  // Delete alert
+  app.delete("/api/alerts/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const alert = await storage.getUserAlert(id);
+      
+      if (!alert || alert.userId !== req.user!.id) {
+        return res.status(404).json({ message: "Alert not found" });
+      }
+      
+      await storage.deleteUserAlert(id);
+      res.json({ message: "Alert deleted successfully" });
+    } catch (error) {
+      console.error('Error deleting alert:', error);
+      res.status(500).json({ message: "Failed to delete alert" });
+    }
+  });
+
+  return server;
+}

@@ -900,10 +900,20 @@ export class DatabaseStorage implements IStorage {
     return verification.otp === otp;
   }
 
-  async cleanupExpiredOtps(): Promise<void> {
-    await db
-      .delete(schema.otpVerifications)
-      .where(lte(schema.otpVerifications.expiresAt, new Date()));
+  async cleanupExpiredOtps(retries = 2): Promise<void> {
+    try {
+      await db
+        .delete(schema.otpVerifications)
+        .where(lte(schema.otpVerifications.expiresAt, new Date()));
+    } catch (error: any) {
+      if (error?.code === 'XX000' && retries > 0) {
+        // Retry with exponential backoff
+        await new Promise(resolve => setTimeout(resolve, (3 - retries) * 1000));
+        return this.cleanupExpiredOtps(retries - 1);
+      }
+      // Silent fail - non-critical cleanup task
+      console.warn('⚠️ OTP cleanup skipped due to database issue');
+    }
   }
 
   // Password reset token methods
