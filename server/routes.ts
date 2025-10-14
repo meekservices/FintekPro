@@ -27915,7 +27915,7 @@ System Security Data:`;
         return res.status(401).json({ message: 'Unauthorized' });
       }
 
-      const alert = await storage.markAlertAsRead(req.params.id);
+      const alert = await storage.markInvestmentIdeaAlertAsRead(req.params.id);
       
       complianceMonitor.logEvent({ 
         eventType: 'data_access', action: 'mark_alert_read', 
@@ -29740,13 +29740,4 @@ System Security Data:`;
         return res.status(404).json({ message: "Alert not found" });
       }
       
-      await storage.deleteUserAlert(id);
-      res.json({ message: "Alert deleted successfully" });
-    } catch (error) {
-      console.error('Error deleting alert:', error);
-      res.status(500).json({ message: "Failed to delete alert" });
-    }
-  });
-
-  return server;
-}
+      await storage.deleteUserAlert(i

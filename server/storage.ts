@@ -3640,7 +3640,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(schema.investmentIdeaAlerts.triggeredAt));
   }
 
-  async markAlertAsRead(id: string): Promise<InvestmentIdeaAlert | undefined> {
+  async markInvestmentIdeaAlertAsRead(id: string): Promise<InvestmentIdeaAlert | undefined> {
     const [result] = await db
       .update(schema.investmentIdeaAlerts)
       .set({ isRead: true, readAt: new Date() })
@@ -4425,7 +4425,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(schema.familyBudgets.createdAt));
   }
 
-  async updateBudgetSpend(budgetId: string, amount: number): Promise<FamilyBudget> {
+  async updateFamilyBudgetSpend(budgetId: string, amount: number): Promise<FamilyBudget> {
     const [result] = await db
       .update(schema.familyBudgets)
       .set({
@@ -4621,10 +4621,10 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
   }
 
-  async markAlertAsRead(historyId: string): Promise<AlertHistory | undefined> {
+  async markAlertHistoryAsRead(historyId: string): Promise<AlertHistory | undefined> {
     const [result] = await db
       .update(schema.alertHistory)
-      .set({ isRead: true, isViewed: true })
+      .set({ isRead: true })
       .where(eq(schema.alertHistory.id, historyId))
       .returning();
     return result;
@@ -5035,7 +5035,7 @@ export class DatabaseStorage implements IStorage {
     
     // Update budget spend if expense has category
     if (expense.category && expense.amount) {
-      await this.updateBudgetSpend(expense.userId, expense.category, parseFloat(expense.amount.toString()));
+      await this.updateUserBudgetSpend(expense.userId, expense.category, parseFloat(expense.amount.toString()));
     }
     
     return created;
@@ -5105,13 +5105,13 @@ export class DatabaseStorage implements IStorage {
       
       // If category changed, subtract from old category and add to new
       if (updates.category && updates.category !== original.category) {
-        await this.updateBudgetSpend(updated.userId, original.category, -originalAmount);
-        await this.updateBudgetSpend(updated.userId, newCategory, newAmount);
+        await this.updateUserBudgetSpend(updated.userId, original.category, -originalAmount);
+        await this.updateUserBudgetSpend(updated.userId, newCategory, newAmount);
       } 
       // If only amount changed, adjust the delta
       else if (updates.amount) {
         const delta = newAmount - originalAmount;
-        await this.updateBudgetSpend(updated.userId, original.category, delta);
+        await this.updateUserBudgetSpend(updated.userId, original.category, delta);
       }
     }
     
@@ -5127,7 +5127,7 @@ export class DatabaseStorage implements IStorage {
     // Subtract deleted amount from budget
     if (expense && expense.category && expense.amount) {
       const amount = parseFloat(expense.amount.toString());
-      await this.updateBudgetSpend(expense.userId, expense.category, -amount);
+      await this.updateUserBudgetSpend(expense.userId, expense.category, -amount);
     }
   }
   
@@ -5195,7 +5195,7 @@ export class DatabaseStorage implements IStorage {
     await db.delete(schema.userBudgets).where(eq(schema.userBudgets.id, id));
   }
   
-  async updateBudgetSpend(userId: string, category: string, amount: number): Promise<void> {
+  async updateUserBudgetSpend(userId: string, category: string, amount: number): Promise<void> {
     // Find active budgets for this category
     const budgets = await db.select()
       .from(schema.userBudgets)
