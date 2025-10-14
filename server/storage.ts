@@ -822,6 +822,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(user: Omit<User, 'id' | 'createdAt' | 'updatedAt'>): Promise<User> {
+    // Guard: Ensure userId is always provided to prevent NULL values
+    if (!user.userId) {
+      throw new Error("userId is required and must be provided when creating a user");
+    }
+    
     const [newUser] = await db
       .insert(schema.users)
       .values({
