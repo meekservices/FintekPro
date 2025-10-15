@@ -62,8 +62,8 @@ export default function Home() {
   const { user, isAuthenticated } = useAuth();
   const { data: fallbackUser } = useQuery({ queryKey: ["/api/user"], retry: false });
   const currentUser = user || (fallbackUser as any);
-  const userId = (currentUser as any)?.id || "demo-user-1";
-  const portfolioId = `portfolio-${userId}`;
+  const userId = (currentUser as any)?.id;
+  const portfolioId = userId ? `portfolio-${userId}` : null;
   
   // Get greeting based on time of day
   const getGreeting = (): string => {
@@ -90,15 +90,15 @@ export default function Home() {
     return "Client";
   };
   
-  // Fetch real-time portfolio value
+  // Fetch real-time portfolio value - only when user is authenticated
   const { data: portfolios } = useQuery({
     queryKey: ["/api/portfolios", userId],
-    enabled: !!userId,
+    enabled: !!userId && isAuthenticated,
   });
   
   const { data: holdings } = useQuery({
     queryKey: ["/api/portfolios", portfolioId, "holdings"],
-    enabled: !!portfolioId,
+    enabled: !!portfolioId && isAuthenticated,
   });
   
   // Calculate total value from actual holdings

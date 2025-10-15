@@ -25,8 +25,8 @@ export default function Portfolio() {
 
   // Get portfolios linked to user's PAN card for enhanced security
   const { data: portfolios, isLoading: portfoliosLoading, error: portfoliosError } = usePortfoliosByPan();
-  const portfolioId = portfolios?.[0]?.id || "demo-portfolio-1";
-  const { user } = useAuth();
+  const portfolioId = portfolios?.[0]?.id;
+  const { user, isAuthenticated } = useAuth();
 
   // Consent management state
   const [consentDialogOpen, setConsentDialogOpen] = useState(false);
@@ -34,11 +34,11 @@ export default function Portfolio() {
   const { checkConsent, grantConsent } = useConsent();
 
   // Currency state
-  const defaultCurrency = portfolios?.[0]?.baseCurrency || user?.baseCurrency || "INR";
+  const defaultCurrency = portfolios?.[0]?.baseCurrency || "INR";
   const [selectedCurrency, setSelectedCurrency] = useState(defaultCurrency);
 
-  const { data: enhancedHoldings, isLoading: holdingsLoading, refetch: refetchHoldings } = useEnhancedPortfolioHoldings(portfolioId);
-  const { data: performance, isLoading: performanceLoading } = usePortfolioPerformance(portfolioId);
+  const { data: enhancedHoldings, isLoading: holdingsLoading, refetch: refetchHoldings } = useEnhancedPortfolioHoldings(portfolioId || "");
+  const { data: performance, isLoading: performanceLoading } = usePortfolioPerformance(portfolioId || "");
 
   // Portfolio conversion query
   const { data: convertedPortfolio, isLoading: conversionLoading } = useQuery({
@@ -694,14 +694,14 @@ export default function Portfolio() {
             </Card>
           </div>
           
-          <PortfolioSummary userId={portfolios?.[0]?.userId || "demo-user-1"} />
+          {portfolios?.[0]?.userId && <PortfolioSummary userId={portfolios[0].userId} />}
         </div>
 
           </TabsContent>
 
           <TabsContent value="pi-chat" className="space-y-8">
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-              <PiChatSummaries portfolioId={portfolioId} />
+              <PiChatSummaries portfolioId={portfolioId || ""} />
               <div className="space-y-6">
                 <Card>
                   <CardHeader>
@@ -736,7 +736,7 @@ export default function Portfolio() {
                     </div>
                   </CardContent>
                 </Card>
-                <RebalancingSuggestions portfolioId={portfolioId} />
+                <RebalancingSuggestions portfolioId={portfolioId || ""} />
               </div>
             </div>
           </TabsContent>
