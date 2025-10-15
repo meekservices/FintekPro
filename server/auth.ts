@@ -249,7 +249,7 @@ export function setupAuth(app: Express) {
       if (emailSent) {
         console.log(`✅ Registration OTP sent to email: ${email}`);
       } else {
-        console.log(`⚠️ Email failed, Registration OTP for ${email}: ${otp}`);
+        console.log(`⚠️ Email delivery failed for ${email}`);
       }
 
       // Also try sending via SMS to mobile as backup
@@ -257,13 +257,13 @@ export function setupAuth(app: Express) {
       if (smsSent) {
         console.log(`✅ Registration OTP sent via SMS to: ${mobile}`);
       } else {
-        console.log(`⚠️ SMS failed for ${mobile}, trying WhatsApp...`);
+        console.log(`⚠️ SMS delivery failed for ${mobile}, trying WhatsApp...`);
         // Try WhatsApp as fallback
         const whatsappSent = await whatsappService.sendLoginOTP(mobile, otp);
         if (whatsappSent) {
           console.log(`✅ Registration OTP sent via WhatsApp to: ${mobile}`);
         } else {
-          console.log(`⚠️ All channels failed. Registration OTP for ${mobile}: ${otp}`);
+          console.log(`⚠️ All delivery channels failed for registration. Please check service configuration.`);
         }
       }
 

@@ -1022,6 +1022,107 @@ export default function AuthPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Registration OTP Verification Dialog */}
+      <Dialog open={registrationOtpDialogOpen} onOpenChange={setRegistrationOtpDialogOpen}>
+        <DialogContent className="sm:max-w-md" data-testid="dialog-registration-otp">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-blue-600" />
+              Verify Your Email & Mobile
+            </DialogTitle>
+            <DialogDescription>
+              We've sent a 6-digit code to <strong>{registrationOtpChannel}</strong>
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            const formData = new FormData(e.currentTarget);
+            const otp = formData.get('registration-otp') as string;
+            if (otp && otp.length === 6) {
+              registrationOtpVerificationMutation.mutate(otp);
+            }
+          }} className="space-y-4">
+            {/* Timer Display */}
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-blue-600" />
+                  <span className="text-sm font-medium text-blue-700 dark:text-blue-400">
+                    {registrationOtpTimer > 0 ? `Code expires in ${formatTime(registrationOtpTimer)}` : "Code expired"}
+                  </span>
+                </div>
+                {canResendRegistrationOtp && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => resendRegistrationOtpMutation.mutate()}
+                    disabled={registrationOtpSending}
+                    className="text-blue-600 hover:text-blue-700"
+                    data-testid="button-resend-registration-otp"
+                  >
+                    {registrationOtpSending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <>
+                        <RefreshCw className="h-3 w-3 mr-1" />
+                        Resend
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="registration-otp">6-Digit Code</Label>
+              <Input
+                id="registration-otp"
+                name="registration-otp"
+                placeholder="000000"
+                maxLength={6}
+                autoFocus
+                className="text-center text-2xl tracking-widest font-mono"
+                data-testid="input-registration-otp"
+                required
+              />
+            </div>
+
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription className="text-xs">
+                Didn't receive the code? Check your spam folder or click Resend after the timer expires.
+              </AlertDescription>
+            </Alert>
+
+            <div className="flex gap-2">
+              <Button 
+                type="button" 
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  setRegistrationOtpDialogOpen(false);
+                  setRegistrationStep("details");
+                }}
+                data-testid="button-cancel-registration-otp"
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                className="flex-1" 
+                disabled={registrationOtpVerificationMutation.isPending}
+                data-testid="button-verify-registration-otp"
+              >
+                {registrationOtpVerificationMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Verify & Create Account
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {/* User ID Success Dialog */}
       <Dialog open={showUserIdDialog} onOpenChange={setShowUserIdDialog}>
         <DialogContent className="sm:max-w-md" data-testid="dialog-user-id-success">
