@@ -10,6 +10,7 @@ import { complianceMiddleware } from "./compliance-monitor";
 import { storage } from "./storage";
 import { setupAuth as setupReplitAuth } from "./replitAuth";
 import { setupAuth as setupLocalAuth } from "./auth";
+import { subdomainDetection } from "./subdomain-middleware";
 import "./services/sms-service"; // Initialize SMS service
 
 const app = express();
@@ -39,8 +40,8 @@ app.use(helmet({
 // CORS configuration
 app.use(cors({
   origin: process.env.NODE_ENV === "production" 
-    ? ["https://*.replit.app", "https://*.repl.co", "https://fintekpro.com", "https://www.fintekpro.com"]
-    : ["http://localhost:5000", "http://127.0.0.1:5000"],
+    ? ["https://*.replit.app", "https://*.repl.co", "https://fintekpro.com", "https://www.fintekpro.com", "https://admin.fintekpro.com"]
+    : ["http://localhost:5000", "http://127.0.0.1:5000", "http://admin.localhost:5000"],
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"]
@@ -134,6 +135,9 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
   next();
 });
+
+// Subdomain detection middleware - must come early to be available in all routes
+app.use(subdomainDetection);
 
 // Compliance monitoring middleware
 app.use(complianceMiddleware);
