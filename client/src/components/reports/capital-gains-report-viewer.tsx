@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/hooks/useAuth';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,7 +30,8 @@ interface CapitalGainsReport {
 }
 
 export function CapitalGainsReportViewer() {
-  const [selectedClientId, setSelectedClientId] = useState('demo-user-1');
+  const { user } = useAuth();
+  const [selectedClientId, setSelectedClientId] = useState(user?.id || '');
   const [selectedFY, setSelectedFY] = useState('2023-24');
   const [selectedSource, setSelectedSource] = useState('all');
   const { toast } = useToast();

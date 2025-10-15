@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { 
   CreditCard, 
@@ -41,12 +43,14 @@ interface LoanApplication {
 }
 
 export function LoanDashboard() {
+  const { user } = useAuth();
   const [showApplicationForm, setShowApplicationForm] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
 
   // Fetch user loans
   const { data: loans, isLoading } = useQuery({
-    queryKey: ["/api/loans/user", "demo-user-1"], // This would come from auth context
+    queryKey: ["/api/loans/user", user?.id || ""],
+    enabled: !!user?.id,
   });
 
   const getStatusColor = (status: string) => {
@@ -87,15 +91,15 @@ export function LoanDashboard() {
     });
   };
 
-  const activeLoan = Array.isArray(loans?.data) ? loans.data.find((loan: LoanApplication) => 
+  const activeLoan = Array.isArray(loans) ? loans.find((loan: LoanApplication) => 
     loan.status === 'disbursed' || loan.status === 'approved'
   ) : null;
 
-  const pendingApplications = Array.isArray(loans?.data) ? loans.data.filter((loan: LoanApplication) => 
+  const pendingApplications = Array.isArray(loans) ? loans.filter((loan: LoanApplication) => 
     loan.status === 'pending'
   ) : [];
 
-  const completedApplications = Array.isArray(loans?.data) ? loans.data.filter((loan: LoanApplication) => 
+  const completedApplications = Array.isArray(loans) ? loans.filter((loan: LoanApplication) => 
     loan.status === 'approved' || loan.status === 'rejected' || loan.status === 'disbursed'
   ) : [];
 
@@ -330,14 +334,14 @@ export function LoanDashboard() {
       </Tabs>
 
       {/* Quick Stats */}
-      {Array.isArray(loans?.data) && loans.data.length > 0 && (
+      {Array.isArray(loans) && loans.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600">Total Applications</p>
-                  <p className="text-2xl font-bold">{loans.data.length}</p>
+                  <p className="text-2xl font-bold">{loans.length}</p>
                 </div>
                 <FileText className="h-8 w-8 text-blue-600" />
               </div>
@@ -350,7 +354,7 @@ export function LoanDashboard() {
                 <div>
                   <p className="text-sm text-gray-600">Active Loans</p>
                   <p className="text-2xl font-bold">
-                    {loans.data.filter((loan: LoanApplication) => loan.status === 'disbursed').length}
+                    {loans.filter((loan: LoanApplication) => loan.status === 'disbursed').length}
                   </p>
                 </div>
                 <TrendingUp className="h-8 w-8 text-green-600" />
@@ -364,7 +368,7 @@ export function LoanDashboard() {
                 <div>
                   <p className="text-sm text-gray-600">Total Borrowed</p>
                   <p className="text-2xl font-bold">
-                    ₹{loans.data
+                    ₹{loans
                       .filter((loan: LoanApplication) => loan.status === 'disbursed')
                       .reduce((sum: number, loan: LoanApplication) => sum + (loan.approvedAmount || loan.requestedAmount), 0)
                       .toLocaleString()}

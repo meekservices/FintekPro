@@ -14,6 +14,7 @@ import { useNSEIndices, useMarketMovers, useMarketStatus } from "@/hooks/use-mar
 import { usePortfolios, usePortfolioPerformance, useEnhancedPortfolioHoldings } from "@/hooks/use-portfolio";
 import { InvestmentModal } from "@/components/InvestmentModal";
 import { KYCWarningBanner } from "@/components/KYCWarningBanner";
+import { useAuth } from "@/hooks/useAuth";
 
 function FundCard({ fund, sebiData, onInvestClick }: { fund: MutualFundData; sebiData?: any[]; onInvestClick: (fund: MutualFundData) => void }) {
   const navValue = parseFloat(fund.nav || "0");
@@ -178,12 +179,13 @@ export default function MutualFunds() {
   const { data: marketMovers, isLoading: isLoadingMovers, refetch: refetchMovers, dataUpdatedAt: moversDataUpdatedAt, isStale: isMoversStale } = useMarketMovers();
   const { data: marketStatus, isLoading: isLoadingMarketStatus, refetch: refetchMarketStatus, dataUpdatedAt: statusDataUpdatedAt, isStale: isStatusStale } = useMarketStatus();
 
-  // Portfolio data hooks for demo user with dataUpdatedAt
-  const demoUserId = 'demo-user-1';
-  const { data: portfolios, isLoading: isLoadingPortfolios, refetch: refetchPortfolios, dataUpdatedAt: portfoliosDataUpdatedAt, isStale: isPortfoliosStale } = usePortfolios(demoUserId);
-  const demoPortfolioId = portfolios?.[0]?.id || 'demo-portfolio-1';
-  const { data: portfolioPerformance, isLoading: isLoadingPerformance, refetch: refetchPerformance, dataUpdatedAt: performanceDataUpdatedAt, isStale: isPerformanceStale } = usePortfolioPerformance(demoPortfolioId);
-  const { data: portfolioHoldings, isLoading: isLoadingHoldings, refetch: refetchHoldings, dataUpdatedAt: holdingsDataUpdatedAt, isStale: isHoldingsStale } = useEnhancedPortfolioHoldings(demoPortfolioId);
+  // Portfolio data hooks - only fetch when user is authenticated
+  const { user, isAuthenticated } = useAuth();
+  const userId = user?.id;
+  const { data: portfolios, isLoading: isLoadingPortfolios, refetch: refetchPortfolios, dataUpdatedAt: portfoliosDataUpdatedAt, isStale: isPortfoliosStale } = usePortfolios(userId || "");
+  const portfolioId = portfolios?.[0]?.id;
+  const { data: portfolioPerformance, isLoading: isLoadingPerformance, refetch: refetchPerformance, dataUpdatedAt: performanceDataUpdatedAt, isStale: isPerformanceStale } = usePortfolioPerformance(portfolioId || "");
+  const { data: portfolioHoldings, isLoading: isLoadingHoldings, refetch: refetchHoldings, dataUpdatedAt: holdingsDataUpdatedAt, isStale: isHoldingsStale } = useEnhancedPortfolioHoldings(portfolioId || "");
 
   // SIP calculator state
   const [sipAmount, setSipAmount] = useState("");

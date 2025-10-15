@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
 import { RefreshCw, TrendingUp, TrendingDown, Calendar, PieChart, BarChart3, Database, Wallet, Building, Shield, Landmark } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -79,7 +80,13 @@ export default function ComprehensivePortfolioPage() {
     includeInsurance: true
   });
 
-  const userId = "demo-user-1"; // Replace with actual user authentication
+  const { user } = useAuth();
+  const userId = user?.id || '';
+  const { data: portfolios } = useQuery({
+    queryKey: ['/api/portfolios', userId],
+    enabled: !!userId,
+  });
+  const portfolioId = (portfolios && Array.isArray(portfolios) && portfolios.length > 0) ? portfolios[0]?.id : '';
 
   // Populate comprehensive portfolio
   const populatePortfolioMutation = useMutation({
@@ -91,7 +98,6 @@ export default function ComprehensivePortfolioPage() {
         },
         body: JSON.stringify({
           userId,
-          date: settings.date,
           ...settings
         })
       });
@@ -108,7 +114,8 @@ export default function ComprehensivePortfolioPage() {
     queryFn: async () => {
       // First try to get existing data, if not found, populate it
       try {
-        const response = await fetch(`/api/portfolios/demo-portfolio-1/comprehensive/${selectedDate}`);
+        if (!portfolioId) return null;
+        const response = await fetch(`/api/portfolios/${portfolioId}/comprehensive/${selectedDate}`);
         if (!response.ok) {
           if (response.status === 404) {
             // Portfolio not found, trigger population
@@ -117,7 +124,7 @@ export default function ComprehensivePortfolioPage() {
               date: selectedDate
             });
             // Retry fetching
-            const retryResponse = await fetch(`/api/portfolios/demo-portfolio-1/comprehensive/${selectedDate}`);
+            const retryResponse = await fetch(`/api/portfolios/${portfolioId}/comprehensive/${selectedDate}`);
             const retryData = await retryResponse.json();
             return retryData.data;
           }

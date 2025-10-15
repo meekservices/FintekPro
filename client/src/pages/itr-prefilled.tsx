@@ -12,6 +12,7 @@ import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
+import { useAuth } from '@/hooks/useAuth';
 import {
   FileText,
   Download,
@@ -55,6 +56,7 @@ interface ITRPrefilledData {
   taxRegime: string;
   completionPercentage: number;
   validationStatus: string;
+  validationErrors?: string[];
   personalInfo: any;
   incomeFromSalary: any;
   incomeFromCapitalGains: any;
@@ -75,7 +77,8 @@ export default function ITRPrefilledPage() {
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const userId = 'demo-user-1';
+  const { user } = useAuth();
+  const userId = user?.id || '';
 
   // Fetch data sources status
   const { data: dataSources = [], isLoading: sourcesLoading } = useQuery<ITRDataSource[]>({

@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { Loader2, Calculator, FileText, User, CreditCard } from "lucide-react";
 
 const loanApplicationSchema = z.object({
@@ -104,6 +105,8 @@ export function LoanApplicationForm({ onClose, defaultPortfolioId }: LoanApplica
     },
   });
 
+  const { user } = useAuth();
+  
   const submitLoanMutation = useMutation({
     mutationFn: async (data: LoanApplicationForm) => {
       const response = await fetch("/api/loans/apply", {
@@ -113,7 +116,7 @@ export function LoanApplicationForm({ onClose, defaultPortfolioId }: LoanApplica
         },
         body: JSON.stringify({
           ...data,
-          userId: "demo-user-1", // This would come from auth context
+          userId: user?.id || "",
           requestedAmount: parseFloat(data.requestedAmount),
           monthlyIncome: parseFloat(data.monthlyIncome),
           applicationDate: new Date().toISOString(),

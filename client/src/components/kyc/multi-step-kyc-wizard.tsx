@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle2, Circle, Loader2, ArrowRight, ArrowLeft, Shield, User, MapPin, CreditCard, FileText, Eye, Sparkles, Save, Check } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/useAuth";
 import { Progress } from "@/components/ui/progress";
 import type { KycFormProgress } from "@shared/schema";
 import { cn } from "@/lib/utils";
@@ -685,7 +686,8 @@ function ReviewStep({ data, onBack, isLast, autoPopulatedFields }: StepProps) {
 
 // Main Wizard Component
 export function MultiStepKYCWizard() {
-  const userId = "demo-user-1"; // Replace with actual user ID from auth
+  const { user } = useAuth();
+  const userId = user?.id || "";
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<any>({});
   const [autoPopulatedFields, setAutoPopulatedFields] = useState<any>({});

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -54,6 +55,7 @@ interface FinancialAnalysis {
 
 export default function PremiumInvestments() {
   const [location] = useLocation();
+  const { user } = useAuth();
   
   // Get tab from URL query parameter
   const searchParams = new URLSearchParams(location.split('?')[1] || '');
@@ -67,6 +69,13 @@ export default function PremiumInvestments() {
     const tab = params.get('tab') || 'dashboard';
     setActiveTab(tab);
   }, [location]);
+
+  // Fetch user portfolios
+  const { data: portfolios } = useQuery({
+    queryKey: ['/api/portfolios', user?.id],
+    enabled: !!user?.id,
+  });
+  const portfolioId = (portfolios && Array.isArray(portfolios) && portfolios.length > 0) ? portfolios[0]?.id : '';
 
   // Fetch real-time financial analysis data
   const { data: financialAnalysis, isLoading, error } = useQuery<FinancialAnalysis>({
@@ -816,12 +825,12 @@ export default function PremiumInvestments() {
             </Card>
 
             {/* Investment Recommendations Preview */}
-            <InvestmentRecommendations portfolioId="demo-portfolio-1" />
+            <InvestmentRecommendations portfolioId={portfolioId} />
           </TabsContent>
 
           {/* Investment Recommendations Tab */}
           <TabsContent value="recommendations">
-            <InvestmentRecommendations portfolioId="demo-portfolio-1" />
+            <InvestmentRecommendations portfolioId={portfolioId} />
           </TabsContent>
 
           {/* Goal Planning Tab */}

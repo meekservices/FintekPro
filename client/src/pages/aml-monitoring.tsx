@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Shield, AlertTriangle, CheckCircle, User, Activity } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/useAuth";
 
 interface AMLScreeningData {
   firstName: string;
@@ -39,23 +40,25 @@ export default function AMLMonitoring() {
   });
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const userId = user?.id || '';
 
   // Fetch AML alerts
   const { data: alerts, isLoading: alertsLoading } = useQuery({
-    queryKey: ["/api/aml/alerts/demo-user-1"],
-    enabled: true,
+    queryKey: ["/api/aml/alerts", userId],
+    enabled: !!userId,
   });
 
   // AML screening mutation
   const screeningMutation = useMutation({
     mutationFn: (data: AMLScreeningData) => 
-      apiRequest("/api/aml/screen", "POST", data),
+      apiRequest("/api/aml/screen", "POST", { body: data }),
     onSuccess: () => {
       toast({
         title: "AML Screening Completed",
         description: "Customer screening has been completed successfully.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/aml/alerts/demo-user-1"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/aml/alerts", userId] });
       setScreeningData({
         firstName: "",
         lastName: "",

@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
+import { useAuth } from '@/hooks/useAuth';
 import {
   FileText,
   Download,
@@ -96,7 +97,8 @@ export default function CapitalGainsReports() {
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const userId = 'demo-user-1'; // In real app, get from auth context
+  const { user } = useAuth();
+  const userId = user?.id || '';
 
   // Fetch NSDL capital gains report
   const fetchNSDLReportMutation = useMutation({
