@@ -84,7 +84,7 @@ export default function AuthPage() {
   const [registrationOtpTimer, setRegistrationOtpTimer] = useState(300);
   const [canResendRegistrationOtp, setCanResendRegistrationOtp] = useState(false);
   const [registrationOtpSending, setRegistrationOtpSending] = useState(false);
-  const [tempRegistrationData, setTempRegistrationData] = useState<RegisterFormData | null>(null);
+  const [registrationToken, setRegistrationToken] = useState<string>("");
 
   // Registration Success State
   const [registeredUserId, setRegisteredUserId] = useState<string>("");
@@ -296,7 +296,7 @@ export default function AuthPage() {
         setRegistrationStep("otp");
         setRegistrationIdentifier(data.identifier || variables.email);
         setRegistrationOtpChannel(data.otpSentTo || "your email and mobile");
-        setTempRegistrationData(variables);
+        setRegistrationToken(data.registrationToken || ""); // Store secure token (NOT password)
         setRegistrationOtpTimer(300); // Reset timer to 5 minutes
         setCanResendRegistrationOtp(false);
         setRegistrationOtpDialogOpen(true);
@@ -323,15 +323,14 @@ export default function AuthPage() {
 
   const resendRegistrationOtpMutation = useMutation({
     mutationFn: async () => {
-      if (!tempRegistrationData) {
-        throw new Error("No registration data found");
+      if (!registrationIdentifier || !registrationToken) {
+        throw new Error("No registration session found");
       }
       setRegistrationOtpSending(true);
-      const response = await apiRequest("POST", "/api/register", {
+      const response = await apiRequest("POST", "/api/register/resend-otp", {
         body: {
-          email: tempRegistrationData.email,
-          mobile: tempRegistrationData.mobile,
-          password: tempRegistrationData.password
+          identifier: registrationIdentifier,
+          registrationToken: registrationToken
         }
       });
       return response;
@@ -365,22 +364,33 @@ export default function AuthPage() {
       });
       return response;
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       setRegistrationStep("complete");
       setRegistrationOtpDialogOpen(false);
       const userId = data.userId || 'N/A';
       setRegisteredUserId(userId);
       setShowUserIdDialog(true);
       registerForm.reset();
-      setTempRegistrationData(null);
+      setRegistrationToken(""); // Clear secure token
       
-      // Auto-login the user
+      // Auto-login the user and verify session
       queryClient.setQueryData(["/api/user"], data);
       
-      toast({
-        title: "Registration successful!",
-        description: "Your account has been created and verified",
-      });
+      // Force refetch to verify session persists
+      try {
+        await queryClient.refetchQueries({ queryKey: ["/api/user"] });
+        toast({
+          title: "Registration successful!",
+          description: "Your account has been created and verified",
+        });
+      } catch (error) {
+        console.error("Session verification failed:", error);
+        toast({
+          title: "Registration successful but session error",
+          description: "Please log in manually to continue",
+          variant: "destructive",
+        });
+      }
     },
     onError: (error: Error) => {
       toast({

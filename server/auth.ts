@@ -219,6 +219,9 @@ export function setupAuth(app: Express) {
       // Hash password for storage in metadata
       const hashedPassword = await hashPassword(password);
 
+      // Generate secure registration token (prevents password exposure in client state)
+      const registrationToken = randomBytes(32).toString('hex');
+
       // Generate OTP
       const otp = generateOtp();
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
@@ -240,6 +243,7 @@ export function setupAuth(app: Express) {
           email,
           mobile,
           hashedPassword,
+          registrationToken, // Store token for resend verification
           registrationFlow: true
         }
       });
@@ -271,6 +275,7 @@ export function setupAuth(app: Express) {
       res.status(200).json({
         requiresOtp: true,
         identifier: email,
+        registrationToken, // Send token to frontend (NOT password)
         otpSentTo: `${email} and ${mobile}`,
         message: "Verification code sent to your email and mobile"
       });
@@ -470,6 +475,77 @@ export function setupAuth(app: Express) {
     } catch (error) {
       console.error("OTP verification error:", error);
       res.status(500).json({ message: "OTP verification failed" });
+    }
+  });
+
+  // Resend OTP during registration (secure endpoint)
+  app.post("/api/register/resend-otp", async (req, res) => {
+    try {
+      const { identifier, registrationToken } = req.body;
+
+      if (!identifier || !registrationToken) {
+        return res.status(400).json({ message: "Identifier and registration token are required" });
+      }
+
+      // Find existing OTP verification record
+      const otpRecord = await db.query.otpVerifications.findFirst({
+        where: (otpVerifications, { eq, and }) =>
+          and(
+            eq(otpVerifications.identifier, identifier),
+            eq(otpVerifications.type, "registration")
+          ),
+      });
+
+      if (!otpRecord) {
+        return res.status(400).json({ message: "No pending registration found" });
+      }
+
+      // Verify registration token matches
+      const metadata = otpRecord.metadata as any;
+      if (!metadata || metadata.registrationToken !== registrationToken) {
+        return res.status(401).json({ message: "Invalid registration token" });
+      }
+
+      // Generate new OTP
+      const newOtp = generateOtp();
+      const newExpiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+      // Update OTP record with new OTP and expiry
+      await db.update(schema.otpVerifications)
+        .set({
+          otp: newOtp,
+          expiresAt: newExpiresAt,
+          verified: false
+        })
+        .where(eq(schema.otpVerifications.id, otpRecord.id));
+
+      // Send new OTP via email (primary channel)
+      const emailSent = await emailService.sendRegistrationOTP(metadata.email, newOtp);
+      if (emailSent) {
+        console.log(`✅ Resend OTP sent to email: ${metadata.email}`);
+      }
+
+      // Also try sending via SMS
+      const smsSent = await smsService.sendOTP(metadata.mobile, newOtp);
+      if (smsSent) {
+        console.log(`✅ Resend OTP sent via SMS to: ${metadata.mobile}`);
+      } else {
+        console.log(`⚠️ SMS delivery failed for ${metadata.mobile}, trying WhatsApp...`);
+        const whatsappSent = await whatsappService.sendLoginOTP(metadata.mobile, newOtp);
+        if (whatsappSent) {
+          console.log(`✅ Resend OTP sent via WhatsApp to: ${metadata.mobile}`);
+        }
+      }
+
+      res.status(200).json({
+        success: true,
+        otpSentTo: `${metadata.email} and ${metadata.mobile}`,
+        message: "New verification code sent"
+      });
+
+    } catch (error) {
+      console.error("Resend OTP error:", error);
+      res.status(500).json({ message: "Failed to resend OTP" });
     }
   });
 
