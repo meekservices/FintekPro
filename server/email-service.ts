@@ -201,6 +201,76 @@ Security Notice: Do not share this OTP with anyone. If you did not attempt to lo
     });
   }
 
+  async sendRegistrationOTP(email: string, otp: string): Promise<boolean> {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background-color: #1e40af; color: white; padding: 20px; text-align: center; }
+          .content { background-color: #f9fafb; padding: 30px; border-radius: 8px; margin: 20px 0; }
+          .otp-box { background-color: white; border: 2px dashed #1e40af; padding: 20px; text-align: center; margin: 20px 0; border-radius: 8px; }
+          .otp-code { font-size: 32px; font-weight: bold; color: #1e40af; letter-spacing: 8px; }
+          .footer { text-align: center; color: #6b7280; font-size: 12px; margin-top: 20px; }
+          .welcome { color: #059669; margin-bottom: 20px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Welcome to FintekPro!</h1>
+          </div>
+          <div class="content">
+            <p class="welcome">Thank you for choosing FintekPro for your investment journey.</p>
+            <h2>Verify Your Email</h2>
+            <p>To complete your registration, please enter the verification code below:</p>
+            
+            <div class="otp-box">
+              <p style="margin: 0; color: #6b7280;">Your Verification Code:</p>
+              <div class="otp-code">${otp}</div>
+            </div>
+            
+            <p>This code is valid for <strong>5 minutes</strong>.</p>
+            
+            <p>
+              <strong>Note:</strong> If you did not create an account with FintekPro, please ignore this email.
+            </p>
+          </div>
+          <div class="footer">
+            <p>© ${new Date().getFullYear()} FintekPro. All rights reserved.</p>
+            <p>This is an automated email. Please do not reply.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const text = `
+Welcome to FintekPro!
+
+Thank you for choosing FintekPro for your investment journey.
+
+To complete your registration, please enter the verification code below:
+
+Your Verification Code: ${otp}
+
+This code is valid for 5 minutes.
+
+Note: If you did not create an account with FintekPro, please ignore this email.
+
+© ${new Date().getFullYear()} FintekPro. All rights reserved.
+    `;
+
+    return this.sendEmail({
+      to: email,
+      subject: 'FintekPro - Email Verification',
+      html,
+      text,
+    });
+  }
+
   async sendNotificationEmail(to: string, subject: string, message: string): Promise<boolean> {
     const html = `
       <!DOCTYPE html>

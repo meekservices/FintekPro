@@ -597,6 +597,7 @@ export const otpVerifications = pgTable("otp_verifications", {
   type: varchar("type").notNull(), // 'email' or 'mobile'
   expiresAt: timestamp("expires_at").notNull(),
   verified: boolean("verified").default(false),
+  metadata: jsonb("metadata"), // Store additional data like pending registration info
   createdAt: timestamp("created_at").defaultNow(),
 });
 

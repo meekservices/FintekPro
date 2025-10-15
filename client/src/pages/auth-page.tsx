@@ -77,14 +77,24 @@ export default function AuthPage() {
   const [canResendOtp, setCanResendOtp] = useState(false);
   const [otpSending, setOtpSending] = useState(false);
 
+  // Registration OTP States
+  const [registrationOtpDialogOpen, setRegistrationOtpDialogOpen] = useState(false);
+  const [registrationIdentifier, setRegistrationIdentifier] = useState("");
+  const [registrationOtpChannel, setRegistrationOtpChannel] = useState<string>("");
+  const [registrationOtpTimer, setRegistrationOtpTimer] = useState(300);
+  const [canResendRegistrationOtp, setCanResendRegistrationOtp] = useState(false);
+  const [registrationOtpSending, setRegistrationOtpSending] = useState(false);
+  const [tempRegistrationData, setTempRegistrationData] = useState<RegisterFormData | null>(null);
+
   // Registration Success State
   const [registeredUserId, setRegisteredUserId] = useState<string>("");
   const [showUserIdDialog, setShowUserIdDialog] = useState(false);
 
   // Progress indicator
   const [loginStep, setLoginStep] = useState<"credentials" | "otp" | "complete">("credentials");
+  const [registrationStep, setRegistrationStep] = useState<"details" | "otp" | "complete">("details");
 
-  // OTP Timer Countdown
+  // OTP Timer Countdown (Login)
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (otpDialogOpen && otpTimer > 0) {
@@ -100,6 +110,23 @@ export default function AuthPage() {
     }
     return () => clearInterval(interval);
   }, [otpDialogOpen, otpTimer]);
+
+  // OTP Timer Countdown (Registration)
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (registrationOtpDialogOpen && registrationOtpTimer > 0) {
+      interval = setInterval(() => {
+        setRegistrationOtpTimer((prev) => {
+          if (prev <= 1) {
+            setCanResendRegistrationOtp(true);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [registrationOtpDialogOpen, registrationOtpTimer]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -263,15 +290,101 @@ export default function AuthPage() {
       });
       return response;
     },
-    onSuccess: (data) => {
-      const userId = data.userId || data.user?.id || 'N/A';
-      setRegisteredUserId(userId);
-      setShowUserIdDialog(true);
-      registerForm.reset();
+    onSuccess: (data, variables) => {
+      if (data.requiresOtp) {
+        // Registration requires OTP verification
+        setRegistrationStep("otp");
+        setRegistrationIdentifier(data.identifier || variables.email);
+        setRegistrationOtpChannel(data.otpSentTo || "your email and mobile");
+        setTempRegistrationData(variables);
+        setRegistrationOtpTimer(300); // Reset timer to 5 minutes
+        setCanResendRegistrationOtp(false);
+        setRegistrationOtpDialogOpen(true);
+        toast({
+          title: "Verification Code Sent",
+          description: `Please check ${data.otpSentTo || "your email and mobile"} for the verification code`,
+        });
+      } else {
+        // Old flow (shouldn't happen with new backend)
+        const userId = data.userId || data.user?.id || 'N/A';
+        setRegisteredUserId(userId);
+        setShowUserIdDialog(true);
+        registerForm.reset();
+      }
     },
     onError: (error: Error) => {
       toast({
         title: "Registration failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const resendRegistrationOtpMutation = useMutation({
+    mutationFn: async () => {
+      if (!tempRegistrationData) {
+        throw new Error("No registration data found");
+      }
+      setRegistrationOtpSending(true);
+      const response = await apiRequest("POST", "/api/register", {
+        body: {
+          email: tempRegistrationData.email,
+          mobile: tempRegistrationData.mobile,
+          password: tempRegistrationData.password
+        }
+      });
+      return response;
+    },
+    onSuccess: (data) => {
+      setRegistrationOtpSending(false);
+      setRegistrationOtpTimer(300); // Reset timer to 5 minutes
+      setCanResendRegistrationOtp(false);
+      toast({
+        title: "OTP Resent",
+        description: `New verification code sent to ${data.otpSentTo || registrationOtpChannel}`,
+      });
+    },
+    onError: (error: Error) => {
+      setRegistrationOtpSending(false);
+      toast({
+        title: "Failed to resend OTP",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const registrationOtpVerificationMutation = useMutation({
+    mutationFn: async (otp: string) => {
+      const response = await apiRequest("POST", "/api/register/verify-otp", {
+        body: {
+          identifier: registrationIdentifier,
+          otp: otp
+        }
+      });
+      return response;
+    },
+    onSuccess: (data) => {
+      setRegistrationStep("complete");
+      setRegistrationOtpDialogOpen(false);
+      const userId = data.userId || 'N/A';
+      setRegisteredUserId(userId);
+      setShowUserIdDialog(true);
+      registerForm.reset();
+      setTempRegistrationData(null);
+      
+      // Auto-login the user
+      queryClient.setQueryData(["/api/user"], data);
+      
+      toast({
+        title: "Registration successful!",
+        description: "Your account has been created and verified",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "OTP verification failed",
         description: error.message,
         variant: "destructive",
       });

@@ -190,7 +190,7 @@ export function setupAuth(app: Express) {
   // Note: serializeUser and deserializeUser are already configured by setupReplitAuth
   // The Replit Auth serializes the entire user object, which works for both OAuth and local auth
 
-  // Register endpoint - Simplified to collect only email, mobile, password
+  // Register endpoint - Step 1: Send OTP for verification
   app.post("/api/register", async (req, res) => {
     try {
       const { email, mobile, password } = req.body;
@@ -204,12 +204,131 @@ export function setupAuth(app: Express) {
         return res.status(400).json({ message: "Password is required" });
       }
 
-      // Family members can share email/mobile per regulatory requirements
-      // Only User ID, PAN, and Aadhaar must be unique
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ message: "Invalid email format" });
+      }
+
+      // Validate mobile format (10 digits)
+      const mobileRegex = /^[0-9]{10}$/;
+      if (!mobileRegex.test(mobile)) {
+        return res.status(400).json({ message: "Mobile number must be exactly 10 digits" });
+      }
+
+      // Hash password for storage in metadata
+      const hashedPassword = await hashPassword(password);
+
+      // Generate OTP
+      const otp = generateOtp();
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+      // Delete any existing OTP for this email/mobile to prevent duplicates
+      await db.delete(schema.otpVerifications)
+        .where(eq(schema.otpVerifications.identifier, email));
+      await db.delete(schema.otpVerifications)
+        .where(eq(schema.otpVerifications.identifier, mobile));
+
+      // Store OTP with registration data in metadata
+      await storage.createOtpVerification({
+        identifier: email, // Use email as primary identifier for registration
+        otp,
+        type: "registration",
+        expiresAt,
+        verified: false,
+        metadata: {
+          email,
+          mobile,
+          hashedPassword,
+          registrationFlow: true
+        }
+      });
+
+      // Send OTP via email (primary channel)
+      const emailSent = await emailService.sendRegistrationOTP(email, otp);
+      if (emailSent) {
+        console.log(`✅ Registration OTP sent to email: ${email}`);
+      } else {
+        console.log(`⚠️ Email failed, Registration OTP for ${email}: ${otp}`);
+      }
+
+      // Also try sending via SMS to mobile as backup
+      const smsSent = await smsService.sendOTP(mobile, otp);
+      if (smsSent) {
+        console.log(`✅ Registration OTP sent via SMS to: ${mobile}`);
+      } else {
+        console.log(`⚠️ SMS failed for ${mobile}, trying WhatsApp...`);
+        // Try WhatsApp as fallback
+        const whatsappSent = await whatsappService.sendLoginOTP(mobile, otp);
+        if (whatsappSent) {
+          console.log(`✅ Registration OTP sent via WhatsApp to: ${mobile}`);
+        } else {
+          console.log(`⚠️ All channels failed. Registration OTP for ${mobile}: ${otp}`);
+        }
+      }
+
+      // Return success response indicating OTP is required
+      res.status(200).json({
+        requiresOtp: true,
+        identifier: email,
+        otpSentTo: `${email} and ${mobile}`,
+        message: "Verification code sent to your email and mobile"
+      });
+
+    } catch (error) {
+      console.error("Registration error:", error);
+      res.status(500).json({ message: "Registration failed" });
+    }
+  });
+
+  // Register endpoint - Step 2: Verify OTP and create account
+  app.post("/api/register/verify-otp", async (req, res) => {
+    try {
+      const { identifier, otp } = req.body;
+
+      if (!identifier || !otp) {
+        return res.status(400).json({ message: "Identifier and OTP are required" });
+      }
+
+      // Find OTP verification record
+      const otpRecord = await db.query.otpVerifications.findFirst({
+        where: (otpVerifications, { eq, and }) =>
+          and(
+            eq(otpVerifications.identifier, identifier),
+            eq(otpVerifications.otp, otp),
+            eq(otpVerifications.type, "registration")
+          ),
+      });
+
+      if (!otpRecord) {
+        return res.status(400).json({ message: "Invalid or expired OTP" });
+      }
+
+      // Check if OTP is expired
+      if (new Date() > otpRecord.expiresAt) {
+        // Clean up expired OTP
+        await db.delete(schema.otpVerifications)
+          .where(eq(schema.otpVerifications.id, otpRecord.id));
+        return res.status(400).json({ message: "OTP has expired" });
+      }
+
+      // Check if already verified
+      if (otpRecord.verified) {
+        return res.status(400).json({ message: "OTP already used" });
+      }
+
+      // Get registration data from metadata
+      const metadata = otpRecord.metadata as any;
+      if (!metadata || !metadata.email || !metadata.mobile || !metadata.hashedPassword) {
+        return res.status(400).json({ message: "Invalid registration data" });
+      }
+
+      const { email, mobile, hashedPassword } = metadata;
+
       // Generate unique userId
       const userId = await generateUniqueUserId();
-      const hashedPassword = await hashPassword(password);
-      
+
+      // Create user with verified status
       const user = await storage.createUser({
         userId,
         email,
@@ -219,8 +338,8 @@ export function setupAuth(app: Express) {
         middleName: null,
         lastName: null,
         profileImageUrl: null,
-        isEmailVerified: false,
-        isMobileVerified: false,
+        isEmailVerified: true, // Set to true since we verified via OTP
+        isMobileVerified: true, // Set to true since we verified via OTP
         panNumber: null,
         aadharNumber: null,
         dateOfBirth: null,
@@ -321,10 +440,18 @@ export function setupAuth(app: Express) {
       // Auto-assign to default agent if only one agent exists
       await storage.autoAssignDefaultAgent(user.id);
 
+      // Delete the OTP record
+      await db.delete(schema.otpVerifications)
+        .where(eq(schema.otpVerifications.id, otpRecord.id));
+
+      // Auto-login the user
       req.login(user, (err) => {
         if (err) {
           console.error("Login error:", err);
-          return res.status(500).json({ message: "Registration successful but login failed" });
+          return res.status(500).json({ 
+            message: "Registration successful but login failed",
+            userId: user.userId
+          });
         }
         res.status(201).json({
           id: user.id,
@@ -336,11 +463,13 @@ export function setupAuth(app: Express) {
           lastName: user.lastName,
           isEmailVerified: user.isEmailVerified,
           isMobileVerified: user.isMobileVerified,
+          message: "Registration successful"
         });
       });
+
     } catch (error) {
-      console.error("Registration error:", error);
-      res.status(500).json({ message: "Registration failed" });
+      console.error("OTP verification error:", error);
+      res.status(500).json({ message: "OTP verification failed" });
     }
   });
 
