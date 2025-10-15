@@ -208,7 +208,7 @@ export class WhatsAppService {
     try {
       // Check if user exists by phone number
       const users = await storage.getAllUsers();
-      const user = users.find(u => u.phoneNumber === phoneNumber);
+      const user = users.find(u => u.mobile === phoneNumber);
       
       if (!user) {
         await message.reply(
