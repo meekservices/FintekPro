@@ -40,7 +40,12 @@ class AdminService {
   async logActivity(activity: Omit<InsertUserActivity, 'id' | 'createdAt'>) {
     const activityRecord: UserActivity = {
       id: `activity-${Date.now()}-${Math.random()}`,
-      ...activity,
+      userId: activity.userId || null,
+      action: activity.action,
+      resource: activity.resource || null,
+      details: activity.details || null,
+      ipAddress: activity.ipAddress || null,
+      userAgent: activity.userAgent || null,
       createdAt: new Date()
     };
     
@@ -49,7 +54,9 @@ class AdminService {
     // Keep only last 10000 activities in memory for performance
     if (this.activities.size > 10000) {
       const oldestKey = this.activities.keys().next().value;
-      this.activities.delete(oldestKey);
+      if (oldestKey) {
+        this.activities.delete(oldestKey);
+      }
     }
     
     console.log(`📊 User Activity: ${activity.userId} - ${activity.action} ${activity.resource || ''}`);
@@ -63,7 +70,7 @@ class AdminService {
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
     const newUsersToday = allUsers.filter(user => 
-      user.createdAt >= todayStart
+      user.createdAt && new Date(user.createdAt) >= todayStart
     ).length;
 
     const activeUsers = allUsers.filter(user => 
@@ -87,7 +94,7 @@ class AdminService {
     const activities = Array.from(this.activities.values());
     const last24h = Date.now() - (24 * 60 * 60 * 1000);
     const recentActivities = activities.filter(a => 
-      new Date(a.createdAt).getTime() > last24h
+      a.createdAt && new Date(a.createdAt).getTime() > last24h
     );
 
     const actionCounts = recentActivities.reduce((acc, activity) => {
@@ -123,7 +130,7 @@ class AdminService {
       const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
       
       const count = allUsers.filter(user => 
-        user.createdAt >= dayStart && user.createdAt < dayEnd
+        user.createdAt && new Date(user.createdAt) >= dayStart && new Date(user.createdAt) < dayEnd
       ).length;
       
       userGrowth.push({
@@ -152,21 +159,21 @@ class AdminService {
 
     const dailyActiveUsers = new Set(
       activities
-        .filter(a => new Date(a.createdAt).getTime() > dayAgo)
+        .filter(a => a.createdAt && new Date(a.createdAt).getTime() > dayAgo)
         .map(a => a.userId)
         .filter(Boolean)
     ).size;
 
     const weeklyActiveUsers = new Set(
       activities
-        .filter(a => new Date(a.createdAt).getTime() > weekAgo)
+        .filter(a => a.createdAt && new Date(a.createdAt).getTime() > weekAgo)
         .map(a => a.userId)
         .filter(Boolean)
     ).size;
 
     const monthlyActiveUsers = new Set(
       activities
-        .filter(a => new Date(a.createdAt).getTime() > monthAgo)
+        .filter(a => a.createdAt && new Date(a.createdAt).getTime() > monthAgo)
         .map(a => a.userId)
         .filter(Boolean)
     ).size;
@@ -248,7 +255,11 @@ class AdminService {
   async getUserActivityHistory(userId: string, limit: number = 50): Promise<UserActivity[]> {
     const userActivities = Array.from(this.activities.values())
       .filter(activity => activity.userId === userId)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .sort((a, b) => {
+        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return bTime - aTime;
+      })
       .slice(0, limit);
 
     return userActivities;
@@ -271,7 +282,7 @@ class AdminService {
     // Apply filters
     if (filter) {
       if (filter.role) {
-        users = users.filter(user => user.role === filter.role);
+        users = users.filter(user => user.roles?.includes(filter.role || ''));
       }
       if (filter.isActive !== undefined) {
         users = users.filter(user => user.isActive === filter.isActive);
@@ -295,9 +306,14 @@ class AdminService {
       if (!aVal) return 1;
       if (!bVal) return -1;
       
-      const comparison = sortBy === 'createdAt' || sortBy === 'lastLoginAt' 
-        ? new Date(aVal as string).getTime() - new Date(bVal as string).getTime()
-        : (aVal as number) - (bVal as number);
+      let comparison = 0;
+      if (sortBy === 'createdAt' || sortBy === 'lastLoginAt') {
+        const aTime = aVal ? new Date(aVal as Date).getTime() : 0;
+        const bTime = bVal ? new Date(bVal as Date).getTime() : 0;
+        comparison = aTime - bTime;
+      } else {
+        comparison = (aVal as number) - (bVal as number);
+      }
       
       return sortOrder === 'asc' ? comparison : -comparison;
     });
@@ -318,13 +334,13 @@ class AdminService {
   // Check if user is admin
   async isAdmin(userId: string): Promise<boolean> {
     const user = await storage.getUser(userId);
-    return user?.role === 'admin' || user?.role === 'super_admin';
+    return user?.roles?.includes('admin') || user?.roles?.includes('super_admin') || false;
   }
 
   // Check if user is super admin
   async isSuperAdmin(userId: string): Promise<boolean> {
     const user = await storage.getUser(userId);
-    return user?.role === 'super_admin';
+    return user?.roles?.includes('super_admin') || false;
   }
 }
 
