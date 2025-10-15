@@ -69,6 +69,7 @@ import TaxDocuments from "@/pages/tax-documents";
 import ITRPrefilled from "@/pages/itr-prefilled";
 import TaxDataCenter from "@/pages/tax-data-center";
 import TaxSmartFiling from "@/pages/tax-smart-filing";
+import OneClickTaxFiling from "@/pages/one-click-tax-filing";
 import PropertyServices from "@/pages/property-services";
 import LoanComparison from "@/pages/loan-comparison";
 import LoanRecommendations from "@/pages/loan-recommendations";
@@ -139,6 +140,7 @@ function UserProtectedRoutes() {
         {/* Unified Tax Services - Primary Route */}
         <Route path="/tax-hub" component={IntelligentTaxHub} />
         <Route path="/tax" component={TaxSmartFiling} />
+        <Route path="/one-click-tax-filing" component={OneClickTaxFiling} />
         <Route path="/tax-reminder-subscription" component={TaxReminderSubscription} />
         {/* Legacy Tax Routes - Maintained for existing users */}
         <Route path="/tax-data-center" component={TaxDataCenter} />
