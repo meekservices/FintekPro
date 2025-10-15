@@ -1162,11 +1162,11 @@ export default function AuthPage() {
               className="w-full" 
               onClick={() => {
                 setShowUserIdDialog(false);
-                setAuthMode("login");
+                navigate("/");
               }}
-              data-testid="button-proceed-to-login"
+              data-testid="button-proceed-to-dashboard"
             >
-              Proceed to Login
+              Go to Dashboard
             </Button>
           </div>
         </DialogContent>
