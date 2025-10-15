@@ -6,6 +6,23 @@ FintekPro is a comprehensive full-stack TypeScript financial services platform f
 
 ## Recent Changes (Oct 15, 2025)
 
+### Admin Portal with Subdomain Routing (Oct 15, 2025)
+- **Implemented secure subdomain-based admin portal** accessible via admin.fintekpro.com
+- **Triple-layer security enforcement**:
+  1. Subdomain validation (must be on admin subdomain)
+  2. Authentication verification (must be logged in)
+  3. Role authorization (must have admin/super_admin role)
+- **Created AdminLayout** with dedicated admin navigation (dark theme, minimalist design)
+- **Built API Configuration page** for managing production API keys and service environments
+- **Admin Dashboard** with system metrics, health monitoring, and service status
+- **Subdomain detection middleware** (server/subdomain-middleware.ts) parses hostname and sets req.isAdminPortal
+- **Frontend subdomain routing** (client/src/App.tsx) automatically renders AdminLayout vs AppLayout based on subdomain
+- **Development testing**: Use `?admin=true` query parameter (dev-only, blocked in production)
+- **Production deployment**: Access via admin.fintekpro.com subdomain
+- **Security hardening**: Query parameter override restricted to NODE_ENV=development only
+
+## Recent Changes (Oct 15, 2025)
+
 ### Demo Data Cleanup & Authentication Integration (Oct 15, 2025)
 - **Removed ALL hardcoded demo-user-1 and demo-portfolio-1 references** across 13+ client files
 - **Integrated useAuth hook** across all pages and components for proper authentication flow
@@ -59,6 +76,33 @@ Do not make changes to the file `Y`.
 - **Styling**: Tailwind CSS with CSS custom properties
 - **Charts**: Recharts for data visualization
 - **Design Approach**: Mobile-first, responsive, and adaptive layouts with a custom ScrollableTabsList component for optimal mobile UX.
+
+### Admin Portal Architecture
+FintekPro features a separate admin portal accessible via subdomain routing:
+
+**Access Methods**:
+- **Development**: `http://localhost:5000?admin=true` (dev-only override)
+- **Production**: `https://admin.fintekpro.com` (subdomain routing)
+
+**Security Model** (Triple-Layer):
+1. **Subdomain Check**: Request must come from admin subdomain
+2. **Authentication**: User must be logged in (session-based)
+3. **Role Authorization**: User must have `admin` or `super_admin` role
+
+**Admin Portal Features**:
+- Dark-themed AdminLayout with minimalist navigation
+- API Configuration dashboard for managing production keys
+- System health monitoring and metrics
+- Production readiness checklist
+- User management (coming soon)
+- Compliance dashboard (coming soon)
+
+**Implementation Files**:
+- `server/subdomain-middleware.ts` - Subdomain detection and validation
+- `server/admin-service.ts` - Admin role verification
+- `client/src/components/layout/admin-layout.tsx` - Admin UI layout
+- `client/src/hooks/useSubdomain.ts` - Frontend subdomain detection
+- `client/src/pages/admin/*` - Admin portal pages
 
 ### Layout Architecture (Fixed Theme)
 FintekPro follows a consistent three-part layout structure across all pages:
