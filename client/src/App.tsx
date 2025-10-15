@@ -52,6 +52,10 @@ import { SupplierManagement } from "@/pages/supplier-management";
 import Profile from "@/pages/profile";
 import ProfileCompletionGuard from "@/components/ProfileCompletionGuard";
 import { AppLayout } from "@/components/layout/app-layout";
+import { AdminLayout } from "@/components/layout/admin-layout";
+import { useSubdomain } from "@/hooks/useSubdomain";
+import AdminDashboard from "@/pages/admin/dashboard";
+import APIConfiguration from "@/pages/admin/api-configuration";
 import BBPSPage from "@/pages/BBPSPage";
 import DigiLockerPage from "@/pages/DigiLockerPage";
 import LoanApplication from "@/pages/loan-application";
@@ -199,7 +203,65 @@ function UserProtectedRoutes() {
   );
 }
 
+function AdminRoutes() {
+  return (
+    <AdminLayout>
+      <Switch>
+        <Route path="/" component={AdminDashboard} />
+        <Route path="/admin/dashboard" component={AdminDashboard} />
+        <Route path="/admin/api-config" component={APIConfiguration} />
+        <Route path="/admin/api-configuration" component={APIConfiguration} />
+        <Route path="/admin/production-readiness">{() => (
+          <div className="text-center py-20">
+            <h2 className="text-2xl font-bold text-white mb-4">Production Readiness Dashboard</h2>
+            <p className="text-gray-400">Coming soon...</p>
+          </div>
+        )}</Route>
+        <Route path="/admin/system-health">{() => (
+          <div className="text-center py-20">
+            <h2 className="text-2xl font-bold text-white mb-4">System Health</h2>
+            <p className="text-gray-400">Coming soon...</p>
+          </div>
+        )}</Route>
+        <Route path="/admin/users">{() => (
+          <div className="text-center py-20">
+            <h2 className="text-2xl font-bold text-white mb-4">User Management</h2>
+            <p className="text-gray-400">Coming soon...</p>
+          </div>
+        )}</Route>
+        <Route path="/admin/reports">{() => (
+          <div className="text-center py-20">
+            <h2 className="text-2xl font-bold text-white mb-4">Reports & Analytics</h2>
+            <p className="text-gray-400">Coming soon...</p>
+          </div>
+        )}</Route>
+        <Route path="/admin/compliance">{() => (
+          <div className="text-center py-20">
+            <h2 className="text-2xl font-bold text-white mb-4">Compliance Dashboard</h2>
+            <p className="text-gray-400">Coming soon...</p>
+          </div>
+        )}</Route>
+        <Route path="/admin/database">{() => (
+          <div className="text-center py-20">
+            <h2 className="text-2xl font-bold text-white mb-4">Database Management</h2>
+            <p className="text-gray-400">Coming soon...</p>
+          </div>
+        )}</Route>
+        <Route component={NotFound} />
+      </Switch>
+    </AdminLayout>
+  );
+}
+
 function Router() {
+  const { isAdminPortal } = useSubdomain();
+
+  // Render admin portal on admin subdomain
+  if (isAdminPortal) {
+    return <AdminRoutes />;
+  }
+
+  // Render client portal on main domain
   return (
     <AppLayout>
       <Switch>
