@@ -5,9 +5,10 @@ export function useSubdomain() {
     const hostname = window.location.hostname;
     const parts = hostname.split('.');
     
-    // Check for query parameter override (for easy development testing)
+    // Development-only override - NEVER allow in production
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('admin') === 'true') {
+    const isDev = import.meta.env.DEV;
+    if (isDev && urlParams.get('admin') === 'true') {
       return 'admin';
     }
     

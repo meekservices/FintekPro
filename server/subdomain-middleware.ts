@@ -37,8 +37,8 @@ export function subdomainDetection(req: Request, res: Response, next: NextFuncti
     }
   }
   
-  // Check for query parameter override for easier development testing
-  if (req.query.admin === 'true') {
+  // Development-only override - NEVER allow in production
+  if (process.env.NODE_ENV === 'development' && req.query.admin === 'true') {
     subdomain = 'admin';
   }
   
@@ -56,8 +56,10 @@ export function subdomainDetection(req: Request, res: Response, next: NextFuncti
 
 /**
  * Middleware to restrict routes to admin portal only
+ * SECURITY: Requires BOTH admin subdomain AND admin user role
  */
-export function requireAdminPortal(req: Request, res: Response, next: NextFunction) {
+export async function requireAdminPortal(req: Request, res: Response, next: NextFunction) {
+  // First check: Must be on admin subdomain
   if (!req.isAdminPortal) {
     return res.status(403).json({ 
       error: 'Access denied',
@@ -65,6 +67,26 @@ export function requireAdminPortal(req: Request, res: Response, next: NextFuncti
       redirectTo: `https://admin.${req.hostname}`
     });
   }
+  
+  // Second check: User must be authenticated
+  if (!req.user) {
+    return res.status(401).json({ 
+      error: 'Authentication required',
+      message: 'Please log in to access the admin portal'
+    });
+  }
+  
+  // Third check: User must have admin role
+  const userRoles = req.user.roles || [];
+  const isAdmin = userRoles.includes('admin') || userRoles.includes('super_admin');
+  
+  if (!isAdmin) {
+    return res.status(403).json({ 
+      error: 'Access denied',
+      message: 'Admin privileges required'
+    });
+  }
+  
   next();
 }
 
