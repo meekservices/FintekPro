@@ -1,67 +1,9 @@
 # FintekPro - Financial Services Platform
 
 ## Overview
-
-FintekPro is a comprehensive full-stack TypeScript financial services platform for personal finance and investment management. It offers tools for portfolio management, real-time market data, and a wide array of financial services including stocks, mutual funds, IPOs, bonds, and loans. The platform aims to provide a modern, robust, and secure solution for users to manage their investments and financial planning, incorporating advanced features like family collaboration, a unified KYC compliance system, and an AI-powered financial assistant.
-
-## Recent Changes (Oct 15, 2025)
-
-### Admin Portal with Subdomain Routing (Oct 15, 2025)
-- **Implemented secure subdomain-based admin portal** accessible via admin.fintekpro.com
-- **Triple-layer security enforcement**:
-  1. Subdomain validation (must be on admin subdomain)
-  2. Authentication verification (must be logged in)
-  3. Role authorization (must have admin/super_admin role)
-- **Created AdminLayout** with dedicated admin navigation (dark theme, minimalist design)
-- **Built API Configuration page** for managing production API keys and service environments
-- **Admin Dashboard** with system metrics, health monitoring, and service status
-- **Subdomain detection middleware** (server/subdomain-middleware.ts) parses hostname and sets req.isAdminPortal
-- **Frontend subdomain routing** (client/src/App.tsx) automatically renders AdminLayout vs AppLayout based on subdomain
-- **Development testing**: Use `?admin=true` query parameter (dev-only, blocked in production)
-- **Production deployment**: Access via admin.fintekpro.com subdomain
-- **Security hardening**: Query parameter override restricted to NODE_ENV=development only
-
-## Recent Changes (Oct 15, 2025)
-
-### Demo Data Cleanup & Authentication Integration (Oct 15, 2025)
-- **Removed ALL hardcoded demo-user-1 and demo-portfolio-1 references** across 13+ client files
-- **Integrated useAuth hook** across all pages and components for proper authentication flow
-- Fixed TypeScript/LSP errors in all modified files - zero diagnostics remaining
-- **Files Updated**:
-  - Pages: home.tsx, portfolio.tsx, mutual-funds.tsx, capital-gains-reports.tsx, comprehensive-portfolio.tsx, wealth-management.tsx, aml-monitoring.tsx, itr-prefilled.tsx
-  - Components: multi-step-kyc-wizard.tsx, loan-dashboard.tsx, loan-application-form.tsx, capital-gains-report-viewer.tsx, transaction-report-viewer.tsx
-- **Authentication Pattern**: All components now use `const { user, isAuthenticated } = useAuth()` with proper `enabled: !!userId` flags on queries
-- **Graceful Degradation**: Application properly handles both authenticated and unauthenticated states
-- **Production Ready**: Zero blocking errors, proper error handling, type-safe data fetching
-
-### Cashfree Aadhaar OTP Verification Integration (Oct 13, 2025)
-- **Integrated real Cashfree OKYC API** for Aadhaar verification in Smart KYC Onboarding
-- Created `CashfreeAadhaarService` with two-step OTP flow:
-  - `generateOTP()`: Sends OTP to Aadhaar-linked mobile (returns ref_id)
-  - `verifyOTP()`: Validates OTP and retrieves complete Aadhaar holder details
-- Updated KYC wizard routes to use Cashfree API instead of mock service
-- Sandbox credentials configured: CASHFREE_APP_ID, CASHFREE_SECRET_KEY, CASHFREE_ENVIRONMENT
-- Returns comprehensive data: name, DOB, gender, father name, full address, mobile, email, photo
-- Production-ready with proper error handling and response mapping
-- **Fixed middleware role mismatch**: Added 'business_client' role to `requireClientOrHigher` middleware to support both individual and business client access to KYC wizard
-
-### Fixed Layout Theme & UI Consistency
-- **Established consistent layout pattern** across all pages with left sidebar navigation and footer
-- All routes now use the unified `AppLayout` component (wrapping Router in App.tsx)
-- **Updated ScrollableTabsList** to prevent tabs from sliding under navigation arrow buttons
-  - Added dynamic padding (48px) when arrows are visible
-  - Ensures tab content stays within visible area, not obscured by navigation buttons
-- **Layout structure**: Left collapsible sidebar → Main content area → Footer
-- All new pages will automatically inherit this layout theme
-
-### TypeScript Error Resolution
-- **Fixed all 583 TypeScript compilation errors** across server/storage.ts and server/routes.ts
-- Added comprehensive type imports for Product, SupplierProduct, ChatSession, ChatMessage, ChatAction, ChatFunction, CurrencyRate, CkycNotificationTrigger, ApplicationDocument, ProductAccountPreference, ICICILoanApplication, ICICICreditScore, PortfolioComparison, ProductPerformanceMetric and all their Insert variants
-- Application now compiles cleanly with zero TypeScript errors
-- All runtime functionality verified and working correctly
+FintekPro is a comprehensive full-stack TypeScript financial services platform for personal finance and investment management. It provides tools for portfolio management, real-time market data, and a wide array of financial services including stocks, mutual funds, IPOs, bonds, and loans. The platform aims to offer a modern, robust, and secure solution for managing investments and financial planning, incorporating features like family collaboration, a unified KYC compliance system, and an AI-powered financial assistant.
 
 ## User Preferences
-
 I want iterative development.
 I prefer detailed explanations.
 Ask before making major changes.
@@ -71,129 +13,59 @@ Do not make changes to the file `Y`.
 ## System Architecture
 
 ### UI/UX Decisions
-- **Framework**: React 18 with TypeScript
-- **UI Library**: shadcn/ui components built on Radix UI
-- **Styling**: Tailwind CSS with CSS custom properties
-- **Charts**: Recharts for data visualization
-- **Design Approach**: Mobile-first, responsive, and adaptive layouts with a custom ScrollableTabsList component for optimal mobile UX.
-
-### Admin Portal Architecture
-FintekPro features a separate admin portal accessible via subdomain routing:
-
-**Access Methods**:
-- **Development**: `http://localhost:5000?admin=true` (dev-only override)
-- **Production**: `https://admin.fintekpro.com` (subdomain routing)
-
-**Security Model** (Triple-Layer):
-1. **Subdomain Check**: Request must come from admin subdomain
-2. **Authentication**: User must be logged in (session-based)
-3. **Role Authorization**: User must have `admin` or `super_admin` role
-
-**Admin Portal Features**:
-- Dark-themed AdminLayout with minimalist navigation
-- API Configuration dashboard for managing production keys
-- System health monitoring and metrics
-- Production readiness checklist
-- User management (coming soon)
-- Compliance dashboard (coming soon)
-
-**Implementation Files**:
-- `server/subdomain-middleware.ts` - Subdomain detection and validation
-- `server/admin-service.ts` - Admin role verification
-- `client/src/components/layout/admin-layout.tsx` - Admin UI layout
-- `client/src/hooks/useSubdomain.ts` - Frontend subdomain detection
-- `client/src/pages/admin/*` - Admin portal pages
-
-### Layout Architecture (Fixed Theme)
-FintekPro follows a consistent three-part layout structure across all pages:
-
-1. **Left Sidebar Navigation** (`EnhancedNavigation` component)
-   - Collapsible sidebar (toggle button in header)
-   - Process flow-based navigation groups (Getting Started, Research & Planning, Products, Investing, Services, Tax, Family, etc.)
-   - User profile section at top when authenticated
-   - Quick action buttons (Cart with badge counter)
-   - Bottom actions (Profile, Logout, Support)
-   - State persisted in localStorage
-   - Auto-shows/hides based on content
-
-2. **Main Content Area**
-   - Wrapped by `AppLayout` component at Router level (client/src/App.tsx)
-   - Flexible container that takes remaining horizontal space
-   - Padding and background styling for content separation
-   - Contains all page-specific content
-
-3. **Footer** (`Footer` component)
-   - Process flow-organized links matching sidebar structure
-   - Social media icons
-   - Optional credit score widget for authenticated users
-   - Copyright and compliance information
-
-### ScrollableTabsList Pattern
-For pages with tabbed navigation:
-- Use `ScrollableTabsList` wrapper component around `TabsTrigger` elements
-- Auto-displays left/right arrow navigation buttons when content overflows
-- Dynamic padding (48px) prevents tab content from sliding under arrow buttons
-- Gradient fade effects for visual continuity
-- Mobile-optimized with touch-friendly controls
-- Example usage:
-  ```tsx
-  <Tabs value={activeTab} onValueChange={setActiveTab}>
-    <ScrollableTabsList>
-      <TabsTrigger value="tab1">Tab 1</TabsTrigger>
-      <TabsTrigger value="tab2">Tab 2</TabsTrigger>
-    </ScrollableTabsList>
-    <TabsContent value="tab1">...</TabsContent>
-  </Tabs>
-  ```
-
-### Creating New Pages
-All new pages automatically inherit the FintekPro layout theme:
-1. Create page component in `client/src/pages/`
-2. Add route in `client/src/App.tsx` within the appropriate route section
-3. Page will automatically be wrapped with AppLayout (sidebar + footer)
-4. Use ScrollableTabsList for any tabbed navigation within the page
-5. Add navigation link to EnhancedNavigation sidebar groups if needed
+- **Frameworks**: React 18 with TypeScript.
+- **UI Library**: shadcn/ui components built on Radix UI.
+- **Styling**: Tailwind CSS with CSS custom properties.
+- **Charts**: Recharts for data visualization.
+- **Design Approach**: Mobile-first, responsive, and adaptive layouts, utilizing a custom `ScrollableTabsList` component for optimized mobile user experience.
 
 ### Technical Implementations
 - **Frontend**: Wouter for routing, TanStack Query for state management, React Hook Form with Zod for forms, Vite for building.
-- **Backend**: Express.js with TypeScript, PostgreSQL with Drizzle ORM, Drizzle Kit for migrations, Connect-pg-simple for session management, RESTful API pattern, centralized error handling.
-- **Authentication**: Simplified authentication system with mandatory two-factor OTP verification. Users register with email, mobile, and password - system auto-generates unique userId (FTP001234 format). Unified login accepts email/mobile/userId + password, then sends OTP via email/SMS/WhatsApp for mandatory verification before session creation. Traditional local auth strategies with Passport.js for credential validation, multi-channel OTP delivery (Email via Nodemailer, SMS via Twilio, WhatsApp fallback).
-- **Data Storage**: PostgreSQL (Neon serverless driver) with Drizzle ORM for type-safe queries. Schemas for Users, Portfolios, Watchlists, Market data caching, and Asset allocation.
+- **Backend**: Express.js with TypeScript, PostgreSQL with Drizzle ORM and Drizzle Kit for migrations, Connect-pg-simple for session management, RESTful API pattern, centralized error handling.
+- **Authentication**: Simplified system with mandatory two-factor OTP verification (email/SMS/WhatsApp). Unified login accepts email/mobile/userId. Uses Passport.js for credential validation.
+- **Data Storage**: PostgreSQL (Neon serverless driver) with Drizzle ORM for type-safe queries and schemas for various financial entities.
 
 ### Feature Specifications
 - **Portfolio & Market Data**: Real-time tracking, asset allocation, live quotes, charts, and news.
 - **Financial Calculators**: SIP, EMI, retirement, and tax calculators.
 - **Multi-Asset Support**: Equities, bonds, mutual funds, IPOs, alternative investments.
-- **Family Collaboration**: Shared financial groups, permission-based access, shared goals, combined net worth, and budget management.
-- **Intelligent Tiered KYC System**: Progressive 3-tier KYC framework with SEBI Accredited Investor compliance, including visual dashboard, product access matrix, and re-KYC automation.
-- **Investment Proposal System**: Custom ID system, filtering, creation, and full CRUD support.
+- **Family Collaboration**: Shared financial groups, permission-based access, and combined net worth management.
+- **Intelligent Tiered KYC System**: Progressive 3-tier KYC with SEBI Accredited Investor compliance and re-KYC automation.
+- **Investment Proposal System**: Custom ID generation, filtering, creation, and CRUD operations.
 - **Financial Products Marketplace**: Slidable category tabs, real-time filtering, wishlist, cart, and product detail modals.
-- **AI Chat Assistant System**: Integrated chatbot with Gemini AI for financial functions (portfolio summary, market data, order creation, planning).
-- **Dynamic Wealth Management Analysis**: Aggregates real-time financial data for intelligent investment recommendations, including income, obligations, investment capacity, and portfolio returns.
-- **Multi-Currency Support**: Comprehensive functionality for global investments with exchange rate service and UI components.
-- **Alert System**: Customizable alerts for market monitoring and spending tracking.
-- **Bank Account Penny Drop Verification**: Instant bank account validation using Sandbox API with ₹1 test transactions, fuzzy name matching, and attempt tracking.
-- **Three-Tier Payment Gateway System**: Robust processing with Cashfree (primary), Stripe (secondary), and PhonePe (tertiary) fallback, including SHA256 signature-based authentication for PhonePe.
-- **Unified Order Management System**: Centralized tracking across all product types (MF, AIF, PMS, Bonds, Equity, IPOs, FDs, Loans) with lifecycle management, document generation, and secure API endpoints.
-- **Payment-to-Execution Bridge Service**: Automated orchestration connecting payment callbacks to order execution systems, supporting partial payments, enhanced idempotency, and fraud prevention.
-- **AIF Order Execution Service**: Automated Alternative Investment Fund processing with SEBI accredited investor validation (Tier 3 KYC), partial payment model, automated subscription agreement generation, and document management.
-- **AI-Powered Expense Tracking & Budgeting System**: Intelligent personal finance management with automated categorization (Gemini AI), real-time budget tracking, customizable alerts, and AI-generated spending insights.
-- **BBPS-Expense Integration**: Seamless bill payment integration with automatic expense tracking. When users pay bills through BBPS (Bharat Bill Payment System), expenses are automatically created and categorized (utilities, entertainment, insurance, etc.). Features smart category mapping, budget tracking updates, and unified transaction history across manual expenses and bill payments.
+- **AI Chat Assistant System**: Integrated chatbot powered by Gemini AI for financial queries and tasks.
+- **Dynamic Wealth Management Analysis**: Aggregates real-time financial data for investment recommendations.
+- **Multi-Currency Support**: Comprehensive functionality for global investments with exchange rate services.
+- **Alert System**: Customizable alerts for market monitoring and spending.
+- **Bank Account Penny Drop Verification**: Instant bank account validation using sandbox API.
+- **Three-Tier Payment Gateway System**: Robust processing with Cashfree (primary), Stripe (secondary), and PhonePe (tertiary).
+- **Unified Order Management System**: Centralized tracking across all product types with lifecycle management and document generation.
+- **Payment-to-Execution Bridge Service**: Automated orchestration connecting payment callbacks to order execution.
+- **AIF Order Execution Service**: Automated Alternative Investment Fund processing with SEBI accredited investor validation.
+- **AI-Powered Expense Tracking & Budgeting System**: Intelligent personal finance management with automated categorization (Gemini AI), real-time budget tracking, and spending insights.
+- **BBPS-Expense Integration**: Seamless bill payment integration with automatic expense tracking and categorization.
+
+### System Design Choices
+- **Admin Portal**: Separate subdomain-based admin portal (admin.fintekpro.com) with triple-layer security (subdomain, authentication, role authorization). Includes AdminLayout, API configuration, and system monitoring.
+- **Consistent Layout**: All pages follow a three-part layout: Left Sidebar Navigation (`EnhancedNavigation`), Main Content Area (`AppLayout`), and Footer (`Footer`). The sidebar is collapsible, process flow-based, and state-persisted.
+- **ScrollableTabsList Pattern**: Ensures tabbed navigation is responsive and user-friendly, with dynamic padding to prevent content overlap with navigation arrows.
 
 ## External Dependencies
 
 ### Third-Party APIs
-- **Market Data Sources**: Real-time and historical market information.
+- **Market Data Sources**: For real-time and historical market information.
 - **BSE Star MFD API**: Mutual fund transaction processing.
-- **NSE NCB & BSE Bond API**: Government securities, corporate bond trading.
+- **NSE NCB & BSE Bond API**: Government securities and corporate bond trading.
 - **Bajaj Finance Integration**: EMI, loan, fixed deposit calculators, eligibility checks.
 - **Tata Capital Integration**: Loans, credit checks, CKYC, GST verification.
 - **exchangerate-api.com**: Live currency exchange rates.
 - **Google Gemini API**: AI Chat Assistant.
+- **Cashfree OKYC API**: Aadhaar verification.
 - **Sandbox API**: Bank account penny drop verification.
 - **Payment Gateways**: Cashfree, Stripe, PhonePe.
-- **Twilio**: SMS OTP delivery (manually configured via secrets, not using Replit connector).
-- **WhatsApp (whatsapp-web.js)**: WhatsApp OTP delivery as fallback.
+- **Twilio**: SMS OTP delivery.
+- **WhatsApp (whatsapp-web.js)**: WhatsApp OTP delivery.
+- **Nodemailer**: Email service integration.
 
 ### Database Services
 - **Neon Database**: Serverless PostgreSQL hosting.
@@ -209,4 +81,3 @@ All new pages automatically inherit the FintekPro layout theme:
 - **Class Variance Authority**: Variant-based component APIs.
 - **Zod**: TypeScript-first schema validation.
 - **Nanoid**: URL-safe unique ID generator.
-- **Nodemailer**: Email service integration.
