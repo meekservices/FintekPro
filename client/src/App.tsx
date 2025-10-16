@@ -56,6 +56,7 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { useSubdomain } from "@/hooks/useSubdomain";
 import AdminDashboard from "@/pages/admin/dashboard";
 import APIConfiguration from "@/pages/admin/api-configuration";
+import ProductionReadiness from "@/pages/admin/production-readiness";
 import BBPSPage from "@/pages/BBPSPage";
 import DigiLockerPage from "@/pages/DigiLockerPage";
 import LoanApplication from "@/pages/loan-application";
@@ -211,12 +212,7 @@ function AdminRoutes() {
         <Route path="/admin/dashboard" component={AdminDashboard} />
         <Route path="/admin/api-config" component={APIConfiguration} />
         <Route path="/admin/api-configuration" component={APIConfiguration} />
-        <Route path="/admin/production-readiness">{() => (
-          <div className="text-center py-20">
-            <h2 className="text-2xl font-bold text-white mb-4">Production Readiness Dashboard</h2>
-            <p className="text-gray-400">Coming soon...</p>
-          </div>
-        )}</Route>
+        <Route path="/admin/production-readiness" component={ProductionReadiness} />
         <Route path="/admin/system-health">{() => (
           <div className="text-center py-20">
             <h2 className="text-2xl font-bold text-white mb-4">System Health</h2>
