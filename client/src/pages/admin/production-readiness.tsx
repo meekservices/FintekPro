@@ -24,27 +24,20 @@ const readinessChecks: ReadinessCheck[] = [
         action: 'Switch to production and configure TAXCLOUD_API_KEY'
       },
       {
-        name: 'Cashfree Payment Gateway',
+        name: 'Cashfree Payment Gateway (Primary)',
         status: 'ready',
         description: 'Production keys configured',
       },
       {
-        name: 'PhonePe Payment Gateway',
+        name: 'PhonePe Payment Gateway (Secondary)',
         status: 'warning',
         description: 'Currently in sandbox mode',
         action: 'Switch to production environment'
       },
       {
-        name: 'Stripe Payment Gateway',
-        status: 'critical',
-        description: 'API keys missing',
-        action: 'Configure STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET'
-      },
-      {
         name: 'Gemini AI',
-        status: 'critical',
-        description: 'API key missing',
-        action: 'Configure GEMINI_API_KEY for expense categorization'
+        status: 'ready',
+        description: 'API key configured for expense categorization',
       },
       {
         name: 'Twilio SMS',
@@ -124,9 +117,8 @@ const readinessChecks: ReadinessCheck[] = [
     items: [
       {
         name: 'Environment Variables',
-        status: 'warning',
-        description: '3 critical environment variables missing',
-        action: 'Configure GEMINI_API_KEY, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET'
+        status: 'ready',
+        description: 'All required environment variables configured',
       },
       {
         name: 'Error Monitoring',
@@ -156,9 +148,8 @@ const readinessChecks: ReadinessCheck[] = [
       },
       {
         name: 'Payment Processing',
-        status: 'warning',
-        description: 'Stripe gateway needs configuration',
-        action: 'Complete Stripe setup for full redundancy'
+        status: 'ready',
+        description: 'Dual-gateway system: Cashfree (primary) + PhonePe (secondary)',
       },
       {
         name: 'KYC System',
@@ -173,9 +164,8 @@ const readinessChecks: ReadinessCheck[] = [
       },
       {
         name: 'AI Features',
-        status: 'critical',
-        description: 'Gemini AI not configured',
-        action: 'Configure GEMINI_API_KEY for expense tracking AI'
+        status: 'ready',
+        description: 'Gemini AI configured for expense categorization',
       },
       {
         name: 'Bank Verification',

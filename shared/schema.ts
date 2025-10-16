@@ -7480,7 +7480,7 @@ export const unifiedOrders = pgTable("unified_orders", {
   
   // Payment tracking
   paymentStatus: varchar("payment_status").default("pending"), // pending, completed, failed, refunded
-  paymentGateway: varchar("payment_gateway"), // cashfree, stripe, phonepe
+  paymentGateway: varchar("payment_gateway"), // cashfree (primary), phonepe (secondary)
   paymentTransactionId: varchar("payment_transaction_id"),
   paymentAmount: decimal("payment_amount", { precision: 18, scale: 2 }),
   paymentCompletedAt: timestamp("payment_completed_at"),

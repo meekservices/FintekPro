@@ -38,7 +38,7 @@ Do not make changes to the file `Y`.
 - **Multi-Currency Support**: Comprehensive functionality for global investments with exchange rate services.
 - **Alert System**: Customizable alerts for market monitoring and spending.
 - **Bank Account Penny Drop Verification**: Instant bank account validation using sandbox API.
-- **Three-Tier Payment Gateway System**: Robust processing with Cashfree (primary), Stripe (secondary), and PhonePe (tertiary).
+- **Dual Payment Gateway System**: India-focused payment processing with Cashfree (primary) and PhonePe (secondary) for robust payment redundancy.
 - **Unified Order Management System**: Centralized tracking across all product types with lifecycle management and document generation.
 - **Payment-to-Execution Bridge Service**: Automated orchestration connecting payment callbacks to order execution.
 - **AIF Order Execution Service**: Automated Alternative Investment Fund processing with SEBI accredited investor validation.
@@ -62,7 +62,7 @@ Do not make changes to the file `Y`.
 - **Google Gemini API**: AI Chat Assistant.
 - **Cashfree OKYC API**: Aadhaar verification.
 - **Sandbox API**: Bank account penny drop verification.
-- **Payment Gateways**: Cashfree, Stripe, PhonePe.
+- **Payment Gateways**: Cashfree (primary), PhonePe (secondary) - India-compliant payment processing.
 - **Twilio**: SMS OTP delivery.
 - **WhatsApp (whatsapp-web.js)**: WhatsApp OTP delivery.
 - **Nodemailer**: Email service integration.

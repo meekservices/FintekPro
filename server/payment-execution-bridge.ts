@@ -16,7 +16,7 @@ import { eq } from "drizzle-orm";
 export interface PaymentCallbackData {
   orderId: string;
   paymentStatus: 'success' | 'failed' | 'pending';
-  paymentGateway: 'cashfree' | 'stripe' | 'phonepe';
+  paymentGateway: 'cashfree' | 'phonepe';
   transactionId: string;
   amount: number;
   currency: string;
@@ -69,22 +69,22 @@ class PaymentExecutionBridge {
         const isBalancePayment = paymentStage === 'balance_pending';
         
         // CRITICAL: Payment reconciliation - verify amount matches expected payment
-        let expectedAmount = order.amount;
+        let expectedAmount = Number(order.amount);
         let paymentType = 'full';
         
         if (isBalancePayment) {
           // For balance payments, verify against balance amount
-          expectedAmount = orderMetadata.balanceAmount || 0;
+          expectedAmount = Number(orderMetadata.balanceAmount || 0);
           paymentType = 'balance';
           console.log(`[PaymentBridge] Processing BALANCE payment for order ${orderId}, expected: ₹${expectedAmount.toLocaleString()}, received: ₹${amount.toLocaleString()}`);
         } else if (orderMetadata.isPartialPayment) {
           // For initial partial payments, verify against initial payment amount
-          expectedAmount = orderMetadata.initialPaymentAmount || orderMetadata.paidAmount || order.amount;
+          expectedAmount = Number(orderMetadata.initialPaymentAmount || orderMetadata.paidAmount || order.amount);
           paymentType = 'initial';
           console.log(`[PaymentBridge] Processing INITIAL partial payment for order ${orderId}, expected: ₹${expectedAmount.toLocaleString()}, received: ₹${amount.toLocaleString()}`);
         }
         
-        if (Math.abs(expectedAmount - amount) > 0.01) {  // Use floating point tolerance
+        if (Math.abs(expectedAmount - Number(amount)) > 0.01) {  // Use floating point tolerance
           console.error(`[PaymentBridge] SECURITY ALERT: ${paymentType} payment amount mismatch for order ${orderId}. Expected: ${expectedAmount}, Received: ${amount}, Gateway: ${paymentGateway}, TxnID: ${transactionId}`);
           
           await orderManagementService.updateOrderStatus({

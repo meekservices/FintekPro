@@ -29,23 +29,16 @@ const services: ServiceConfig[] = [
   },
   {
     name: 'PhonePe',
-    description: 'Payment gateway (tertiary)',
+    description: 'Payment gateway (secondary)',
     environment: 'sandbox',
     status: 'configured',
     envVars: ['PHONEPE_MERCHANT_ID', 'PHONEPE_SALT_KEY']
   },
   {
-    name: 'Stripe',
-    description: 'Payment gateway (secondary)',
-    environment: 'production',
-    status: 'missing',
-    envVars: ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET']
-  },
-  {
     name: 'Gemini AI',
     description: 'AI expense categorization',
     environment: 'production',
-    status: 'missing',
+    status: 'configured',
     envVars: ['GEMINI_API_KEY']
   },
   {
