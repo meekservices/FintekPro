@@ -393,6 +393,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Cashfree Webhook Testing endpoint
+  app.post("/api/admin/test-cashfree-webhook", requireAdmin, async (req, res) => {
+    try {
+      const { webhookTester } = await import('./webhook-test-utility');
+      const { orderId, amount, status } = req.body;
+
+      if (!orderId) {
+        return res.status(400).json({ error: "Order ID is required" });
+      }
+
+      const result = await webhookTester.sendTestWebhook({
+        orderId,
+        amount: amount || 1000,
+        status: status || 'PAID',
+        userId: req.user?.id
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error testing webhook:", error);
+      res.status(500).json({ error: "Failed to test webhook" });
+    }
+  });
+
+  // Run full webhook test suite
+  app.post("/api/admin/test-cashfree-suite", requireAdmin, async (req, res) => {
+    try {
+      const { webhookTester } = await import('./webhook-test-utility');
+      const { orderId } = req.body;
+
+      if (!orderId) {
+        return res.status(400).json({ error: "Order ID is required for test suite" });
+      }
+
+      // Run test suite asynchronously
+      webhookTester.runTestSuite(orderId).catch(err => 
+        console.error('Test suite error:', err)
+      );
+
+      res.json({ 
+        success: true, 
+        message: 'Test suite started. Check server logs for results.' 
+      });
+    } catch (error) {
+      console.error("Error running test suite:", error);
+      res.status(500).json({ error: "Failed to run test suite" });
+    }
+  });
+
   // WhatsApp Authentication API endpoints
   app.post("/api/whatsapp/auth/initiate", async (req, res) => {
     try {
