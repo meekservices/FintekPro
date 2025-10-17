@@ -44,6 +44,9 @@ Do not make changes to the file `Y`.
 - **AIF Order Execution Service**: Automated Alternative Investment Fund processing with SEBI accredited investor validation.
 - **AI-Powered Expense Tracking & Budgeting System**: Intelligent personal finance management with automated categorization (Gemini AI), real-time budget tracking, and spending insights.
 - **BBPS-Expense Integration**: Seamless bill payment integration with automatic expense tracking and categorization.
+- **Client KYC Dashboard**: Regulation-compliant user dashboard displaying UID, KYC tier badge, verification status, product eligibility matrix with lock/unlock indicators, and tier upgrade CTAs.
+- **Product Eligibility Matrix**: SEBI/RBI/PMLA-compliant matrix defining KYC tier requirements for 16 product categories including mutual funds, equities, derivatives, bonds, insurance, and alternative investments.
+- **Product Access Control Middleware**: Tier-based access enforcement with SEBI-compliant transaction limits (₹50,000 annual limit for basic-tier mutual funds), automated upgrade prompts, and regulatory compliance logging.
 
 ### System Design Choices
 - **Admin Portal**: Separate subdomain-based admin portal (admin.fintekpro.com) with triple-layer security (subdomain, authentication, role authorization). Includes AdminLayout, API configuration, and system monitoring.
