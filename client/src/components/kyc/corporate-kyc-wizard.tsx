@@ -35,9 +35,9 @@ function CorporatePANStep({ data, onChange, onNext, isFirst }: StepProps) {
   const [isVerifying, setIsVerifying] = useState(false);
 
   const verifyPAN = useMutation({
-    mutationFn: async (pan: string) => {
+    mutationFn: async (params: { pan: string; companyName: string }) => {
       const response = await apiRequest("POST", "/api/kyc/corporate/verify-pan", {
-        body: { pan }
+        body: { pan: params.pan, companyName: params.companyName }
       });
       return response.json();
     },
@@ -60,14 +60,28 @@ function CorporatePANStep({ data, onChange, onNext, isFirst }: StepProps) {
   });
 
   const handleVerifyPAN = () => {
-    if (data.corporatePan?.length === 10) {
-      verifyPAN.mutate(data.corporatePan);
+    if (data.corporatePan?.length === 10 && data.companyName) {
+      verifyPAN.mutate({ pan: data.corporatePan, companyName: data.companyName });
     }
   };
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-500">
       <div className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="companyName">Company Name (as per PAN) *</Label>
+          <Input
+            id="companyName"
+            data-testid="input-company-name"
+            placeholder="Enter company name"
+            value={data.companyName || ""}
+            onChange={(e) => onChange("companyName", e.target.value)}
+          />
+          <p className="text-sm text-muted-foreground">
+            Enter the company name exactly as it appears on the PAN card
+          </p>
+        </div>
+        
         <div className="space-y-2">
           <Label htmlFor="corporatePan">Corporate PAN Number *</Label>
           <div className="flex gap-2">
@@ -83,7 +97,7 @@ function CorporatePANStep({ data, onChange, onNext, isFirst }: StepProps) {
             <Button
               type="button"
               onClick={handleVerifyPAN}
-              disabled={!data.corporatePan || data.corporatePan.length !== 10 || verifyPAN.isPending}
+              disabled={!data.corporatePan || data.corporatePan.length !== 10 || !data.companyName || verifyPAN.isPending}
               data-testid="button-verify-pan"
             >
               {verifyPAN.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify"}

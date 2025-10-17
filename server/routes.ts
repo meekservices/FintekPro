@@ -27772,6 +27772,62 @@ System Security Data:`;
 
   // Corporate KYC Routes - Sandbox.co.in Integration
   const { sandboxKYCService } = await import('./services/sandbox-kyc-service');
+  const { corporateKYCService } = await import('./services/corporate-kyc-service');
+
+  // Verify corporate PAN for Smart KYC
+  app.post('/api/kyc/corporate/verify-pan', async (req, res) => {
+    try {
+      if (!req.session?.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const { pan, companyName } = req.body;
+
+      if (!pan || !companyName) {
+        return res.status(400).json({ 
+          success: false,
+          message: 'PAN and company name are required' 
+        });
+      }
+
+      const result = await corporateKYCService.verifyCorporatePAN(req.session.user.id, pan, companyName);
+
+      complianceMonitor.logEvent({
+        eventType: 'kyc_verification',
+        action: 'corporate_pan_verification',
+        resource: pan,
+        userId: req.session.user.id,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        outcome: result.success ? 'success' : 'failure',
+        riskLevel: 'medium',
+        details: {
+          pan,
+          companyName: result.companyName,
+          companyType: result.companyType
+        }
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error('Corporate PAN verification error:', error);
+      complianceMonitor.logEvent({
+        eventType: 'kyc_verification',
+        action: 'corporate_pan_verification',
+        userId: req.session?.user?.id,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        outcome: 'failure',
+        riskLevel: 'high',
+        details: { error: error instanceof Error ? error.message : 'Unknown error' }
+      });
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Corporate PAN verification failed'
+      });
+    }
+  });
+
 
   // Verify corporate entity using Sandbox APIs
   app.post('/api/corporate-kyc/verify-entity', async (req, res) => {
