@@ -327,12 +327,21 @@ export interface IStorage {
   getActiveIBTradingSession(ibAccountId: string): Promise<IBTradingSession | undefined>;
   endIBTradingSession(id: string, disconnectReason?: string): Promise<IBTradingSession | undefined>;
 
+  // Partner methods
+  getAllPartners(): Promise<any[]>;
+  getPartner(id: string): Promise<any | undefined>;
+  createPartner(partner: any): Promise<any>;
+  updatePartner(id: string, updates: Partial<any>): Promise<any | undefined>;
+  deletePartner(id: string): Promise<boolean>;
+  getPartnerStats(partnerId: string): Promise<any>;
+  
   // Supplier methods
   getAllSuppliers(): Promise<Supplier[]>;
   getSupplier(id: string): Promise<Supplier | undefined>;
   createSupplier(supplier: InsertSupplier): Promise<Supplier>;
   updateSupplier(id: string, updates: Partial<Supplier>): Promise<Supplier | undefined>;
   deleteSupplier(id: string): Promise<boolean>;
+  getSupplierPerformance(supplierId: string): Promise<any>;
   
   // Supplier Product methods - commented out until SupplierProduct type is added to schema
   // getSupplierProducts(supplierId?: string): Promise<SupplierProduct[]>;
@@ -2202,24 +2211,108 @@ export class DatabaseStorage implements IStorage {
     return undefined;
   }
 
+  // Partner methods implementation
+  async getAllPartners(): Promise<any[]> {
+    return await db.select().from(schema.partners).orderBy(desc(schema.partners.createdAt));
+  }
+
+  async getPartner(id: string): Promise<any | undefined> {
+    const [result] = await db.select().from(schema.partners).where(eq(schema.partners.id, id));
+    return result;
+  }
+
+  async createPartner(partner: any): Promise<any> {
+    const [result] = await db.insert(schema.partners).values(partner).returning();
+    return result;
+  }
+
+  async updatePartner(id: string, updates: Partial<any>): Promise<any | undefined> {
+    const [result] = await db
+      .update(schema.partners)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.partners.id, id))
+      .returning();
+    return result;
+  }
+
+  async deletePartner(id: string): Promise<boolean> {
+    const result = await db.delete(schema.partners).where(eq(schema.partners.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  async getPartnerStats(partnerId: string): Promise<any> {
+    // Get total products by partner
+    const products = await db
+      .select()
+      .from(schema.products)
+      .where(eq(schema.products.partnerId, partnerId));
+    
+    // Get total clients (from cart or orders)
+    const clientsWithOrders = await db
+      .select({ userId: schema.userCart.userId })
+      .from(schema.userCart)
+      .innerJoin(schema.userCartItems, eq(schema.userCart.id, schema.userCartItems.cartId))
+      .innerJoin(schema.products, eq(schema.userCartItems.productId, schema.products.id))
+      .where(eq(schema.products.partnerId, partnerId))
+      .groupBy(schema.userCart.userId);
+    
+    return {
+      totalProducts: products.length,
+      totalClients: clientsWithOrders.length,
+      activeProducts: products.filter(p => p.isActive).length,
+      totalRevenue: products.reduce((sum, p) => sum + (parseFloat(p.returns1y || "0") * 1000), 0), // Placeholder calculation
+    };
+  }
+
+  // Supplier methods implementation
   async getAllSuppliers(): Promise<Supplier[]> {
-    return [];
+    return await db.select().from(schema.suppliers).orderBy(desc(schema.suppliers.createdAt));
   }
 
   async getSupplier(id: string): Promise<Supplier | undefined> {
-    return undefined;
+    const [result] = await db.select().from(schema.suppliers).where(eq(schema.suppliers.id, id));
+    return result;
   }
 
   async createSupplier(supplier: InsertSupplier): Promise<Supplier> {
-    throw new Error("Method not implemented");
+    const [result] = await db.insert(schema.suppliers).values(supplier).returning();
+    return result;
   }
 
   async updateSupplier(id: string, updates: Partial<Supplier>): Promise<Supplier | undefined> {
-    return undefined;
+    const [result] = await db
+      .update(schema.suppliers)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.suppliers.id, id))
+      .returning();
+    return result;
   }
 
   async deleteSupplier(id: string): Promise<boolean> {
-    return false;
+    const result = await db.delete(schema.suppliers).where(eq(schema.suppliers.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  async getSupplierPerformance(supplierId: string): Promise<any> {
+    // Get product performance for this supplier
+    const performance = await db
+      .select()
+      .from(schema.productPerformance)
+      .where(eq(schema.productPerformance.supplierId, supplierId));
+    
+    const totalRevenue = performance.reduce((sum, p) => sum + parseFloat(p.revenue || "0"), 0);
+    const totalSales = performance.reduce((sum, p) => sum + (p.salesVolume || 0), 0);
+    const avgProfitMargin = performance.length > 0
+      ? performance.reduce((sum, p) => sum + parseFloat(p.profitMargin || "0"), 0) / performance.length
+      : 0;
+    
+    return {
+      totalProducts: performance.length,
+      totalRevenue,
+      totalSales,
+      avgProfitMargin,
+      performanceData: performance,
+    };
   }
 
   // Supplier Product methods - commented out until SupplierProduct type is added to schema
