@@ -52,6 +52,7 @@ export default function SmartKYCOnboarding() {
   
   // Pan Verification State
   const [panNumber, setPanNumber] = useState('');
+  const [panFullName, setPanFullName] = useState('');
   const [panDob, setPanDob] = useState('');
   const [panData, setPanData] = useState<any>(null);
   
@@ -101,6 +102,7 @@ export default function SmartKYCOnboarding() {
         body: {
           sessionId,
           panNumber: panNumber.toUpperCase(),
+          fullName: panFullName,
           dob: panDob
         }
       });
@@ -249,6 +251,20 @@ export default function SmartKYCOnboarding() {
         </div>
         
         <div className="space-y-2">
+          <Label htmlFor="fullName">Full Name (as per PAN)</Label>
+          <Input
+            id="fullName"
+            data-testid="input-fullname"
+            placeholder="John Doe"
+            value={panFullName}
+            onChange={(e) => setPanFullName(e.target.value)}
+          />
+          <p className="text-sm text-muted-foreground">
+            Enter your name exactly as it appears on your PAN card
+          </p>
+        </div>
+        
+        <div className="space-y-2">
           <Label htmlFor="dob">Date of Birth</Label>
           <Input
             id="dob"
@@ -262,7 +278,7 @@ export default function SmartKYCOnboarding() {
         <Button
           data-testid="button-verify-pan"
           onClick={() => verifyPanMutation.mutate()}
-          disabled={!panNumber || !panDob || verifyPanMutation.isPending}
+          disabled={!panNumber || !panFullName || !panDob || verifyPanMutation.isPending}
           className="w-full"
         >
           {verifyPanMutation.isPending ? (
