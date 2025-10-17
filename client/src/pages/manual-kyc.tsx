@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 
 type KYCType = 'individual' | 'corporate' | 'nri';
+type CorporateEntityType = 'private_limited' | 'public_limited' | 'partnership' | 'llp' | 'trust' | 'huf' | 'society' | 'aop' | 'boi';
 
 interface DocumentRequirement {
   id: string;
@@ -58,6 +59,7 @@ interface KYCFormData {
   motherName?: string;
   
   // Corporate fields
+  entityType?: CorporateEntityType;
   companyName?: string;
   registrationNumber?: string;
   incorporationDate?: string;
@@ -296,8 +298,10 @@ export default function ManualKYCPage() {
   const typeParam = urlParams.get('type') as KYCType || 'individual';
   
   const [kycType, setKYCType] = useState<KYCType>(typeParam);
+  const [entityType, setEntityType] = useState<CorporateEntityType>('private_limited');
   const [formData, setFormData] = useState<Partial<KYCFormData>>({
     applicantType: kycType,
+    entityType: kycType === 'corporate' ? 'private_limited' : undefined,
     documents: {}
   });
   const [uploadedDocs, setUploadedDocs] = useState<Record<string, UploadedDocument>>({});
@@ -468,43 +472,43 @@ export default function ManualKYCPage() {
           </AlertDescription>
         </Alert>
 
-        {/* Type Selector */}
-        <Card className="mb-6">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <Label className="text-base font-semibold">KYC Type:</Label>
-              <div className="flex gap-2">
-                <Button
-                  variant={kycType === 'individual' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => navigate('/manual-kyc?type=individual')}
-                  data-testid="button-kyc-type-individual"
+        {/* Entity Type Selector for Corporate */}
+        {kycType === 'corporate' && (
+          <Card className="mb-6">
+            <CardContent className="pt-6">
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="entityType" className="text-base font-semibold">Entity Type *</Label>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    Select the type of non-individual entity
+                  </p>
+                </div>
+                <Select 
+                  value={entityType} 
+                  onValueChange={(value: CorporateEntityType) => {
+                    setEntityType(value);
+                    setFormData(prev => ({ ...prev, entityType: value }));
+                  }}
                 >
-                  <User className="h-4 w-4 mr-2" />
-                  Individual
-                </Button>
-                <Button
-                  variant={kycType === 'corporate' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => navigate('/manual-kyc?type=corporate')}
-                  data-testid="button-kyc-type-corporate"
-                >
-                  <Building2 className="h-4 w-4 mr-2" />
-                  Corporate
-                </Button>
-                <Button
-                  variant={kycType === 'nri' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => navigate('/manual-kyc?type=nri')}
-                  data-testid="button-kyc-type-nri"
-                >
-                  <Globe className="h-4 w-4 mr-2" />
-                  NRI
-                </Button>
+                  <SelectTrigger className="w-full" data-testid="select-entity-type">
+                    <SelectValue placeholder="Select entity type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="private_limited">Private Limited Company</SelectItem>
+                    <SelectItem value="public_limited">Public Limited Company</SelectItem>
+                    <SelectItem value="partnership">Partnership Firm</SelectItem>
+                    <SelectItem value="llp">Limited Liability Partnership (LLP)</SelectItem>
+                    <SelectItem value="trust">Trust</SelectItem>
+                    <SelectItem value="huf">Hindu Undivided Family (HUF)</SelectItem>
+                    <SelectItem value="society">Society</SelectItem>
+                    <SelectItem value="aop">Association of Persons (AOP)</SelectItem>
+                    <SelectItem value="boi">Body of Individuals (BOI)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Progress Indicator */}
         <Card>
