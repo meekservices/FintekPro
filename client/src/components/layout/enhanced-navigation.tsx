@@ -44,10 +44,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/use-cart";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
-interface NavigationItem {
+interface NavigationSubItem {
   name: string;
   href?: string;
-  icon: any;
   description?: string;
   badge?: string;
   subItems?: {
@@ -56,6 +55,15 @@ interface NavigationItem {
     description?: string;
     badge?: string;
   }[];
+}
+
+interface NavigationItem {
+  name: string;
+  href?: string;
+  icon: any;
+  description?: string;
+  badge?: string;
+  subItems?: NavigationSubItem[];
 }
 
 interface NavigationGroup {
@@ -75,6 +83,7 @@ export function EnhancedNavigation() {
     }
   });
   const [openGroups, setOpenGroups] = useState<string[]>([]);
+  const [openSubItems, setOpenSubItems] = useState<string[]>([]);
   const { user, isAuthenticated, isLoading } = useAuth();
   const { cart } = useCart();
 
@@ -106,6 +115,14 @@ export function EnhancedNavigation() {
     );
   };
 
+  const toggleSubItem = (subItemName: string) => {
+    setOpenSubItems(prev => 
+      prev.includes(subItemName) 
+        ? prev.filter(s => s !== subItemName)
+        : [...prev, subItemName]
+    );
+  };
+
   // FintekPro process flow-based navigation structure
   const navigationGroups: NavigationGroup[] = [
     {
@@ -124,24 +141,49 @@ export function EnhancedNavigation() {
           subItems: [
             { name: "KYC Dashboard", href: "/profile?tab=kyc-dashboard", description: "Current tier, product access & upgrade paths", badge: "OVERVIEW" },
             { name: "My Net Worth", href: "/net-worth", description: "Complete wealth tracking with assets, liabilities & AI insights", badge: "NEW" },
-            { name: "━━━ Individual KYC ━━━", href: "#", description: "Choose your onboarding mode" },
-            { name: "  ⚡ Smart Mode", href: "/onboarding", description: "AI-assisted wizard with auto-fill & progressive save" },
-            { name: "  📄 Manual Mode", href: "/manual-kyc?type=individual", description: "Traditional document upload via BSE Star API" },
-            { name: "━━━ Corporate/Non-Individual KYC ━━━", href: "#", description: "For companies and organizations" },
-            { name: "  ⚡ Smart Mode", href: "/corporate-kyc", description: "Step-by-step corporate wizard with entity verification" },
-            { name: "  📄 Manual Mode", href: "/manual-kyc?type=corporate", description: "Document submission via BSE Star API" },
-            { name: "━━━ NRI KYC ━━━", href: "#", description: "For Non-Resident Indians" },
-            { name: "  ⚡ Smart Mode", href: "#", description: "NRI-specific intelligent wizard", badge: "COMING SOON" },
-            { name: "  📄 Manual Mode", href: "/manual-kyc?type=nri", description: "Passport & OCI verification via BSE Star API" },
-            { name: "━━━ KYC Tier Upgrades ━━━", href: "#", description: "Unlock premium products" },
-            { name: "  Basic KYC (Tier 1)", href: "/profile?tab=basic", description: "PAN, Aadhaar, basic profile → Unlock MF, IPO, Equity" },
-            { name: "  Enhanced KYC (Tier 2)", href: "/profile?tab=enhanced", description: "Video KYC, income proof → Unlock F&O, Commodities, Global" },
-            { name: "  Accredited Investor (Tier 3)", href: "/profile?tab=accredited", description: "Net worth ₹7.5Cr+ → Unlock AIF, PMS, Pre-IPO", badge: "PREMIUM" },
-            { name: "━━━ Profile Management ━━━", href: "#", description: "Manage your profile data" },
-            { name: "  Identity & Documents", href: "/profile?tab=identity", description: "All identity proofs and verification" },
-            { name: "  Address & Financial", href: "/profile?tab=financial", description: "Address, income, occupation details" },
-            { name: "  Compliance & AML", href: "/profile?tab=compliance", description: "FATCA, PEP, sanctions screening" },
-            { name: "  Banking & Demat", href: "/profile?tab=banking", description: "Bank accounts and demat details" }
+            { 
+              name: "Individual KYC", 
+              description: "For individual investors",
+              subItems: [
+                { name: "Smart Mode", href: "/onboarding", description: "AI-assisted wizard with auto-fill & progressive save" },
+                { name: "Manual Mode", href: "/manual-kyc?type=individual", description: "Traditional document upload via BSE Star API" }
+              ]
+            },
+            { 
+              name: "Corporate/Non-Individual KYC", 
+              description: "For companies and organizations",
+              subItems: [
+                { name: "Smart Mode", href: "/corporate-kyc", description: "Step-by-step corporate wizard with entity verification" },
+                { name: "Manual Mode", href: "/manual-kyc?type=corporate", description: "Document submission via BSE Star API" }
+              ]
+            },
+            { 
+              name: "NRI KYC", 
+              description: "For Non-Resident Indians",
+              subItems: [
+                { name: "Smart Mode", href: "#", description: "NRI-specific intelligent wizard", badge: "COMING SOON" },
+                { name: "Manual Mode", href: "/manual-kyc?type=nri", description: "Passport & OCI verification via BSE Star API" }
+              ]
+            },
+            { 
+              name: "KYC Tier Upgrades", 
+              description: "Unlock premium products",
+              subItems: [
+                { name: "Basic KYC (Tier 1)", href: "/profile?tab=basic", description: "PAN, Aadhaar, basic profile → Unlock MF, IPO, Equity" },
+                { name: "Enhanced KYC (Tier 2)", href: "/profile?tab=enhanced", description: "Video KYC, income proof → Unlock F&O, Commodities, Global" },
+                { name: "Accredited Investor (Tier 3)", href: "/profile?tab=accredited", description: "Net worth ₹7.5Cr+ → Unlock AIF, PMS, Pre-IPO", badge: "PREMIUM" }
+              ]
+            },
+            { 
+              name: "Profile Management", 
+              description: "Manage your profile data",
+              subItems: [
+                { name: "Identity & Documents", href: "/profile?tab=identity", description: "All identity proofs and verification" },
+                { name: "Address & Financial", href: "/profile?tab=financial", description: "Address, income, occupation details" },
+                { name: "Compliance & AML", href: "/profile?tab=compliance", description: "FATCA, PEP, sanctions screening" },
+                { name: "Banking & Demat", href: "/profile?tab=banking", description: "Bank accounts and demat details" }
+              ]
+            }
           ]
         }
       ]
@@ -502,21 +544,64 @@ export function EnhancedNavigation() {
                           {!isCollapsed && (
                             <CollapsibleContent className="space-y-1 ml-4">
                               {item.subItems?.map((subItem) => (
-                                <Link key={subItem.name} href={subItem.href}>
-                                  <Button
-                                    variant={isItemActive(subItem.href) ? "default" : "ghost"}
-                                    size="sm"
-                                    className="w-full justify-start text-xs"
-                                    data-testid={`sidebar-nav-${subItem.name.toLowerCase().replace(/\s+/g, '-')}`}
-                                  >
-                                    {subItem.name}
-                                    {subItem.badge && (
-                                      <Badge variant="secondary" className="ml-auto text-xs">
-                                        {subItem.badge}
-                                      </Badge>
-                                    )}
-                                  </Button>
-                                </Link>
+                                <div key={subItem.name}>
+                                  {subItem.href ? (
+                                    <Link href={subItem.href}>
+                                      <Button
+                                        variant={isItemActive(subItem.href) ? "default" : "ghost"}
+                                        size="sm"
+                                        className="w-full justify-start text-xs"
+                                        data-testid={`sidebar-nav-${subItem.name.toLowerCase().replace(/\s+/g, '-')}`}
+                                      >
+                                        {subItem.name}
+                                        {subItem.badge && (
+                                          <Badge variant="secondary" className="ml-auto text-xs">
+                                            {subItem.badge}
+                                          </Badge>
+                                        )}
+                                      </Button>
+                                    </Link>
+                                  ) : (
+                                    <Collapsible 
+                                      open={openSubItems.includes(subItem.name)} 
+                                      onOpenChange={() => toggleSubItem(subItem.name)}
+                                    >
+                                      <CollapsibleTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="w-full justify-between text-xs"
+                                          data-testid={`sidebar-nav-subgroup-${subItem.name.toLowerCase().replace(/\s+/g, '-')}`}
+                                        >
+                                          <span>{subItem.name}</span>
+                                          {openSubItems.includes(subItem.name) ? 
+                                            <ChevronDown className="h-3 w-3" /> : 
+                                            <ChevronRight className="h-3 w-3" />
+                                          }
+                                        </Button>
+                                      </CollapsibleTrigger>
+                                      <CollapsibleContent className="space-y-1 ml-4">
+                                        {subItem.subItems?.map((nestedItem) => (
+                                          <Link key={nestedItem.name} href={nestedItem.href}>
+                                            <Button
+                                              variant={isItemActive(nestedItem.href) ? "default" : "ghost"}
+                                              size="sm"
+                                              className="w-full justify-start text-xs"
+                                              data-testid={`sidebar-nav-${nestedItem.name.toLowerCase().replace(/\s+/g, '-')}`}
+                                            >
+                                              {nestedItem.name}
+                                              {nestedItem.badge && (
+                                                <Badge variant="secondary" className="ml-auto text-xs">
+                                                  {nestedItem.badge}
+                                                </Badge>
+                                              )}
+                                            </Button>
+                                          </Link>
+                                        ))}
+                                      </CollapsibleContent>
+                                    </Collapsible>
+                                  )}
+                                </div>
                               ))}
                             </CollapsibleContent>
                           )}
