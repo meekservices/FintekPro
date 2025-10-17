@@ -25,8 +25,9 @@ The new API requires **three parameters** instead of two:
 
 #### ✅ `server/routes.ts`
 - **POST /api/kyc/wizard/verify-pan**: Now requires `fullName` in request body
-- Updated validation to check for `fullName` parameter
-- Passes `fullName` to `verifyIndividualPAN()`
+- **POST /api/kyc/corporate/verify-pan**: Created new endpoint for Corporate KYC wizard
+- Updated validation to check for `fullName` and `companyName` parameters
+- Passes `fullName` to `verifyIndividualPAN()` and `companyName` to `verifyCorporatePAN()`
 
 #### ✅ `server/services/corporate-kyc-service.ts`
 - **verifyCorporatePAN()**: Updated to accept `companyName` parameter
@@ -36,50 +37,36 @@ The new API requires **three parameters** instead of two:
 - **verifyPassportAndPAN()**: Uses `passportName` when verifying PAN
 - Passes name to `verifyIndividualPAN()`
 
-## Frontend Changes Required
+## Frontend Changes Completed ✅
 
-### 🔴 **ACTION REQUIRED**: Update KYC Form Components
+### ✅ Updated KYC Form Components
 
-The following frontend components need to collect the user's **full name** in addition to PAN and DOB:
+All frontend components have been updated to collect the user's **full name** in addition to PAN and DOB:
 
-#### 1. Multi-Step KYC Wizard (`client/src/components/kyc/multi-step-kyc-wizard.tsx`)
-```typescript
-// Add fullName field to PAN verification step
-const form = useForm({
-  defaultValues: {
-    panNumber: '',
-    fullName: '',  // ← ADD THIS
-    dob: ''
-  }
-});
+#### ✅ 1. Smart KYC Onboarding (`client/src/pages/onboarding.tsx`)
+- Added `fullName` input field to PAN verification step
+- Added form validation for `fullName` (minimum 3 characters)
+- Updated API request to include `fullName` parameter
+- Endpoint: `POST /api/kyc/wizard/verify-pan`
 
-// Update API request
-const response = await apiRequest('/api/kyc/wizard/verify-pan', {
-  method: 'POST',
-  body: JSON.stringify({
-    sessionId,
-    panNumber: form.getValues('panNumber'),
-    fullName: form.getValues('fullName'),  // ← ADD THIS
-    dob: form.getValues('dob')
-  })
-});
-```
+#### ✅ 2. Manual KYC Page (`client/src/pages/manual-kyc.tsx`)
+- **NO CHANGES NEEDED** - This is a fully manual submission form
+- Does not call Sandbox PAN verification API
+- Endpoint: `POST /api/kyc/manual-submit` (separate from Sandbox API)
 
-#### 2. Manual KYC Page (`client/src/pages/manual-kyc.tsx`)
-- Add `fullName` input field before PAN verification
-- Include `fullName` in API request
+#### ✅ 3. Corporate KYC Wizard (`client/src/components/kyc/corporate-kyc-wizard.tsx`)
+- Added `companyName` input field in Step 1
+- Added form validation for `companyName` (minimum 3 characters)
+- Updated API request to include `companyName` parameter
+- Endpoint: `POST /api/kyc/corporate/verify-pan` (newly created)
 
-#### 3. Corporate KYC Wizard (`client/src/components/kyc/corporate-kyc-wizard.tsx`)
-- Add `companyName` field in Step 1 (Corporate PAN verification)
-- Pass to backend API
-
-#### 4. NRI KYC Wizard (`client/src/components/kyc/nri-kyc-wizard.tsx`)
+#### ✅ 4. NRI KYC Wizard (`client/src/components/kyc/nri-kyc-wizard.tsx`)
 - Already has `passportName` field ✅
-- Ensure it's passed when PAN is optional
+- Passes name to PAN verification when applicable
 
 ## API Documentation
 
-### Endpoint: POST /api/kyc/wizard/verify-pan
+### Endpoint: POST /api/kyc/wizard/verify-pan (Individual)
 
 **Request Body:**
 ```json
@@ -88,6 +75,26 @@ const response = await apiRequest('/api/kyc/wizard/verify-pan', {
   "panNumber": "ABCDE1234F",
   "fullName": "John Doe",        // ← NEW REQUIRED FIELD
   "dob": "1990-01-15"
+}
+```
+
+### Endpoint: POST /api/kyc/corporate/verify-pan (Corporate)
+
+**Request Body:**
+```json
+{
+  "pan": "ABCDE1234C",
+  "companyName": "ABC Private Limited"    // ← NEW REQUIRED FIELD
+}
+```
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "companyName": "ABC Private Limited",
+  "companyType": "Private Limited Company",
+  "pan": "ABCDE1234C"
 }
 ```
 
@@ -188,10 +195,15 @@ curl -X POST https://api.sandbox.co.in/pans/verify \
 - [x] Add `name` parameter to Individual PAN verification
 - [x] Add `name` parameter to Corporate PAN verification
 - [x] Update routes to accept `fullName` from frontend
+- [x] Create `/api/kyc/corporate/verify-pan` endpoint for Corporate KYC
 - [x] Update NRI KYC service
 - [x] Update Corporate KYC service
 - [x] Add better error handling (400, 401 status codes)
-- [ ] **Update frontend KYC forms to collect full name**
+- [x] **Update frontend KYC forms to collect full name**
+  - [x] Smart KYC Onboarding (onboarding.tsx) - Added fullName field
+  - [x] Manual KYC (manual-kyc.tsx) - No changes needed (manual form)
+  - [x] Corporate KYC Wizard (corporate-kyc-wizard.tsx) - Added companyName field
+  - [x] NRI KYC Wizard - Already has passportName field
 - [ ] Test with real Sandbox API credentials
 - [ ] Verify wallet balance in Sandbox dashboard
 - [ ] Update user documentation

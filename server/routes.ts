@@ -1727,13 +1727,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Step 1: Verify PAN with DOB
   app.post("/api/kyc/wizard/verify-pan", requireClientOrHigher, async (req: any, res) => {
     try {
-      const { sessionId, panNumber, dob } = req.body;
+      const { sessionId, panNumber, fullName, dob } = req.body;
       const userId = req.user!.id;
       
-      if (!sessionId || !panNumber || !dob) {
+      if (!sessionId || !panNumber || !fullName || !dob) {
         return res.status(400).json({
           success: false,
-          message: "Session ID, PAN number, and date of birth are required"
+          message: "Session ID, PAN number, full name, and date of birth are required"
         });
       }
       
@@ -1747,8 +1747,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Verify PAN using Sandbox API
-      const verification = await sandboxKYCService.verifyIndividualPAN(panNumber, dob);
+      // Verify PAN using Sandbox API with name parameter
+      const verification = await sandboxKYCService.verifyIndividualPAN(panNumber, fullName, dob);
       
       
       // verification returns IndividualPANDetails directly (no success wrapper)
@@ -1776,8 +1776,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           aadhaar_verified: false,
           data_collected: false
         }
-      });
       
+      });
       res.json({
         success: true,
         data: {

@@ -42,15 +42,25 @@ function CorporatePANStep({ data, onChange, onNext, isFirst }: StepProps) {
       return response.json();
     },
     onSuccess: (result) => {
-      onChange("companyName", result.companyName);
-      onChange("companyType", result.companyType);
-      onChange("panVerified", true);
-      toast({
-        title: "✅ Corporate PAN Verified",
-        description: `Company: ${result.companyName}`,
-      });
+      if (result.success) {
+        onChange("companyName", result.companyName);
+        onChange("companyType", result.companyType);
+        onChange("panVerified", true);
+        toast({
+          title: "✅ Corporate PAN Verified",
+          description: `Company: ${result.companyName}`,
+        });
+      } else {
+        onChange("panVerified", false);
+        toast({
+          title: "Verification Failed",
+          description: result.message || "Corporate PAN verification failed",
+          variant: "destructive"
+        });
+      }
     },
     onError: (error: any) => {
+      onChange("panVerified", false);
       toast({
         title: "Verification Failed",
         description: error.message || "Invalid Corporate PAN",
