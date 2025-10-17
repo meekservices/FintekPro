@@ -139,7 +139,7 @@ export function EnhancedNavigation() {
           icon: UserCheck,
           description: "Progressive KYC for complete product access",
           subItems: [
-            { name: "KYC Dashboard", href: "/profile?tab=kyc-dashboard", description: "Current tier, product access & upgrade paths", badge: "OVERVIEW" },
+            { name: "KYC Dashboard", href: "/kyc-dashboard", description: "Current tier, product access & upgrade paths", badge: "OVERVIEW" },
             { name: "My Net Worth", href: "/net-worth", description: "Complete wealth tracking with assets, liabilities & AI insights", badge: "NEW" },
             { 
               name: "Individual KYC", 
