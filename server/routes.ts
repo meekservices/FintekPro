@@ -30728,6 +30728,335 @@ System Security Data:`;
     }
   });
 
+  // ============================================================================
+  // CLIENT KYC DASHBOARD APIs
+  // ============================================================================
+
+  // Get user's complete KYC profile
+  app.get('/api/kyc/my-profile', async (req: any, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ success: false, message: 'Authentication required' });
+      }
+
+      const { 
+        getMinKycTierForProduct, 
+        isKycTierSufficient, 
+        getAccessibleProducts, 
+        getLockedProducts,
+        KYC_TIER_METADATA 
+      } = await import('../shared/kyc-product-eligibility');
+
+      // Get user's full KYC details
+      const user = req.user;
+      
+      // Prepare KYC profile response
+      const kycProfile = {
+        // User Identification
+        userId: user.userId,
+        email: user.email,
+        mobile: user.mobile,
+        fullName: user.fullName,
+        
+        // KYC Status
+        kycTier: user.kycTier || 'basic',
+        kycStatus: user.kycStatus || 'pending',
+        kycTierMetadata: KYC_TIER_METADATA[user.kycTier || 'basic'],
+        
+        // Verification Status
+        panVerified: user.panVerified || false,
+        aadhaarVerified: user.aadhaarVerified || false,
+        bankVerified: user.bankVerified || false,
+        videoKycCompleted: user.videoKycCompleted || false,
+        ckycVerified: user.ckycVerified || false,
+        
+        // Personal Details
+        panNumber: user.panNumber,
+        aadhaarNumber: user.aadharNumber ? `XXXX-XXXX-${user.aadharNumber.slice(-4)}` : null, // Masked
+        dateOfBirth: user.dateOfBirth,
+        nationality: user.nationality,
+        
+        // Address
+        address: user.address,
+        city: user.city,
+        state: user.state,
+        pincode: user.pincode,
+        country: user.country,
+        
+        // Financial Information
+        occupation: user.occupation,
+        annualIncome: user.annualIncome,
+        annualIncomeAmount: user.annualIncomeAmount,
+        
+        // Compliance Status
+        riskCategory: user.riskCategory || 'low',
+        pepStatus: user.pepStatus || 'N',
+        fatcaStatus: user.fatcaStatus || 'N',
+        amlStatus: user.amlStatus || 'clear',
+        
+        // Accredited Investor Status (if applicable)
+        accreditedInvestorStatus: user.accreditedInvestorStatus,
+        accreditedInvestorType: user.accreditedInvestorType,
+        accreditedInvestorVerifiedAt: user.accreditedInvestorVerifiedAt,
+        accreditedInvestorExpiryDate: user.accreditedInvestorExpiryDate,
+        
+        // Re-KYC Information
+        kycApprovedAt: user.kycApprovedAt,
+        riskNextReview: user.riskNextReview,
+        kycExpiryDate: user.kycExpiryDate,
+        
+        // Product Access
+        productsUnlocked: user.productsUnlocked || [],
+        
+        // Timestamps
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt
+      };
+
+      res.json({ 
+        success: true, 
+        data: kycProfile 
+      });
+
+    } catch (error) {
+      console.error('Error fetching KYC profile:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to fetch KYC profile' 
+      });
+    }
+  });
+
+  // Get product eligibility based on user's KYC tier
+  app.get('/api/kyc/product-eligibility', async (req: any, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ success: false, message: 'Authentication required' });
+      }
+
+      const { 
+        PRODUCT_ELIGIBILITY_MATRIX,
+        getAccessibleProducts, 
+        getLockedProducts,
+        getNextKycTier,
+        isKycTierSufficient 
+      } = await import('../shared/kyc-product-eligibility');
+
+      const user = req.user;
+      const userKycTier = user.kycTier || 'basic';
+      
+      // Get accessible and locked products
+      const accessibleProducts = getAccessibleProducts(userKycTier);
+      const lockedProducts = getLockedProducts(userKycTier);
+      const nextTier = getNextKycTier(userKycTier);
+      
+      // Check verification status for additional requirements
+      const verificationStatus = {
+        panVerified: user.panVerified || false,
+        aadhaarVerified: user.aadhaarVerified || false,
+        bankVerified: user.bankVerified || false,
+        videoKycCompleted: user.videoKycCompleted || false,
+        incomeProofUploaded: !!user.annualIncomeAmount
+      };
+      
+      // Map products to add user-specific eligibility checks
+      const accessibleWithStatus = accessibleProducts.map(product => ({
+        ...product,
+        isAccessible: true,
+        missingRequirements: getMissingRequirements(product, verificationStatus, user)
+      }));
+      
+      const lockedWithUpgradePath = lockedProducts.map(product => ({
+        ...product,
+        isAccessible: false,
+        requiredUpgrade: product.minKycTier,
+        canUpgrade: !!nextTier
+      }));
+      
+      res.json({ 
+        success: true, 
+        data: {
+          currentTier: userKycTier,
+          nextTier: nextTier,
+          accessibleProducts: accessibleWithStatus,
+          lockedProducts: lockedWithUpgradePath,
+          verificationStatus,
+          totalProductsAccessible: accessibleProducts.length,
+          totalProductsLocked: lockedProducts.length
+        }
+      });
+
+    } catch (error) {
+      console.error('Error fetching product eligibility:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to fetch product eligibility' 
+      });
+    }
+  });
+  
+  // Helper function to check missing requirements
+  function getMissingRequirements(product: any, verificationStatus: any, user: any): string[] {
+    const missing: string[] = [];
+    
+    if (product.requiresPanVerified && !verificationStatus.panVerified) {
+      missing.push('PAN Verification');
+    }
+    if (product.requiresAadhaarVerified && !verificationStatus.aadhaarVerified) {
+      missing.push('Aadhaar Verification');
+    }
+    if (product.requiresBankVerified && !verificationStatus.bankVerified) {
+      missing.push('Bank Account Verification');
+    }
+    if (product.requiresVideoKyc && !verificationStatus.videoKycCompleted) {
+      missing.push('Video KYC (IPV)');
+    }
+    if (product.requiresIncomeProof && !verificationStatus.incomeProofUploaded) {
+      missing.push('Income Proof');
+    }
+    
+    // Check income requirements
+    if (product.minAnnualIncome && (!user.annualIncomeAmount || user.annualIncomeAmount < product.minAnnualIncome)) {
+      missing.push(`Minimum Annual Income ₹${(product.minAnnualIncome / 100000).toFixed(0)} Lakh`);
+    }
+    
+    // Check net worth requirements (for accredited investor products)
+    if (product.minNetWorth && (!user.netWorthAmount || user.netWorthAmount < product.minNetWorth)) {
+      missing.push(`Minimum Net Worth ₹${(product.minNetWorth / 10000000).toFixed(1)} Crore`);
+    }
+    
+    return missing;
+  }
+
+  // Update user KYC details
+  app.patch('/api/kyc/update-details', async (req: any, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ success: false, message: 'Authentication required' });
+      }
+
+      const userId = req.user.id;
+      const allowedFields = [
+        'fullName', 'dateOfBirth', 'address', 'city', 'state', 'pincode', 'country',
+        'occupation', 'annualIncome', 'nomineeDetails', 'nomineeRelation',
+        'maritalStatus', 'fatherName', 'motherName', 'spouseName'
+      ];
+      
+      // Filter only allowed fields from request
+      const updates: any = {};
+      for (const field of allowedFields) {
+        if (req.body[field] !== undefined) {
+          updates[field] = req.body[field];
+        }
+      }
+      
+      // Validate that there are updates
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'No valid fields to update' 
+        });
+      }
+      
+      // Update user details
+      await storage.updateUser(userId, updates);
+      
+      // Log the update for audit trail
+      await storage.logEvent({
+        eventType: 'KYC_DETAILS_UPDATED',
+        userId: userId,
+        description: `User updated KYC details: ${Object.keys(updates).join(', ')}`,
+        metadata: { updatedFields: Object.keys(updates) }
+      });
+      
+      res.json({ 
+        success: true, 
+        message: 'KYC details updated successfully',
+        data: { updatedFields: Object.keys(updates) }
+      });
+
+    } catch (error) {
+      console.error('Error updating KYC details:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to update KYC details' 
+      });
+    }
+  });
+
+  // Request KYC tier upgrade
+  app.post('/api/kyc/request-upgrade', async (req: any, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ success: false, message: 'Authentication required' });
+      }
+
+      const { targetTier, reason } = req.body;
+      const userId = req.user.id;
+      const currentTier = req.user.kycTier || 'basic';
+      
+      // Validate target tier
+      const validTiers = ['basic', 'enhanced', 'accredited_investor'];
+      if (!validTiers.includes(targetTier)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Invalid target tier' 
+        });
+      }
+      
+      // Check if already at or above target tier
+      const tierHierarchy: Record<string, number> = {
+        'basic': 1,
+        'enhanced': 2,
+        'accredited_investor': 3
+      };
+      
+      if (tierHierarchy[currentTier] >= tierHierarchy[targetTier]) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Already at or above the target tier' 
+        });
+      }
+      
+      // Update user record with upgrade request
+      await storage.updateUser(userId, {
+        kycTierUpgradeRequestedAt: new Date(),
+        kycUpgradeRequestStatus: 'pending',
+        kycUpgradeTargetTier: targetTier
+      });
+      
+      // Log the upgrade request
+      await storage.logEvent({
+        eventType: 'KYC_TIER_UPGRADE_REQUESTED',
+        userId: userId,
+        description: `User requested KYC tier upgrade from ${currentTier} to ${targetTier}`,
+        metadata: { 
+          currentTier, 
+          targetTier, 
+          reason: reason || 'Not provided' 
+        }
+      });
+      
+      res.json({ 
+        success: true, 
+        message: `KYC tier upgrade to ${targetTier} requested successfully. Our compliance team will review your request.`,
+        data: {
+          currentTier,
+          targetTier,
+          status: 'pending',
+          requestedAt: new Date()
+        }
+      });
+
+    } catch (error) {
+      console.error('Error requesting KYC upgrade:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to request KYC upgrade' 
+      });
+    }
+  });
+
   // Admin: Get all manual KYC submissions
   app.get('/api/admin/kyc/manual-submissions', requireAdmin, async (req, res) => {
     try {

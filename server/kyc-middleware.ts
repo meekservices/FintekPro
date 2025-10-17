@@ -175,6 +175,192 @@ export function requireKYCLevel(minimumLevel: "basic" | "full" | "enhanced") {
 }
 
 /**
+ * Product Access Control Middleware using Product Eligibility Matrix
+ * Validates KYC tier requirements for specific product categories
+ * Usage: app.post('/api/products/buy', validateProductAccess('aif', 'amount'), handler)
+ */
+export function validateProductAccess(
+  productCategory: string,
+  options: {
+    amountField?: string; // Request body field containing transaction amount
+  } = {}
+) {
+  return async (req: KYCRequest, res: Response, next: NextFunction) => {
+    try {
+      // Check if user is authenticated
+      if (!req.user?.id) {
+        return res.status(401).json({
+          success: false,
+          error: "Authentication required",
+          message: "Please log in to continue",
+        });
+      }
+
+      // Import product eligibility matrix
+      const { 
+        PRODUCT_ELIGIBILITY_MATRIX, 
+        getMinKycTierForProduct,
+        isKycTierSufficient,
+        getNextKycTier
+      } = await import('../shared/kyc-product-eligibility');
+
+      const userId = req.user.id;
+      const userKycTier = req.user.kycTier || 'basic';
+
+      // Get transaction amount from request body
+      const amountField = options.amountField || "amount";
+      const transactionAmount = req.body[amountField] || 0;
+
+      // Find product in eligibility matrix
+      const product = PRODUCT_ELIGIBILITY_MATRIX.find(p => p.productCode === productCategory);
+      
+      if (!product) {
+        console.warn(`[Product Access] Unknown product category: ${productCategory}`);
+        return next(); // Allow if product not in matrix (backward compatibility)
+      }
+
+      // SEBI Compliance: Check amount-based escalation for basic KYC
+      // Example: Mutual funds require enhanced KYC for investments > ₹50,000/year
+      if (userKycTier === 'basic' && product.maxInvestmentWithoutEnhanced && transactionAmount > product.maxInvestmentWithoutEnhanced) {
+        const requiredTier = 'enhanced';
+        const nextTier = getNextKycTier(userKycTier);
+
+        await logKYCAttempt(
+          userId,
+          `product_access_${productCategory}`,
+          transactionAmount,
+          "failed",
+          `Basic KYC limit exceeded: ₹${transactionAmount} > ₹${product.maxInvestmentWithoutEnhanced}`
+        );
+
+        return res.status(403).json({
+          success: false,
+          error: "KYC_TIER_UPGRADE_REQUIRED",
+          message: `Investment amount exceeds Basic KYC limit. Please upgrade to ${requiredTier.replace(/_/g, ' ')} KYC.`,
+          data: {
+            productName: product.productName,
+            currentTier: userKycTier,
+            requiredTier: requiredTier,
+            transactionAmount: transactionAmount,
+            maxAllowedAmount: product.maxInvestmentWithoutEnhanced,
+            nextAvailableTier: nextTier,
+            upgradeInstructions: `Transactions above ₹${product.maxInvestmentWithoutEnhanced.toLocaleString('en-IN')} require ${requiredTier.replace(/_/g, ' ')} KYC. Upgrade to continue.`,
+            sebiGuideline: product.sebiGuideline,
+            regulatoryNotes: product.regulatoryNotes
+          },
+          action: "UPGRADE_KYC_TIER",
+          redirectTo: "/kyc-dashboard",
+        });
+      }
+
+      // Check if user's KYC tier is sufficient for product
+      if (!isKycTierSufficient(userKycTier, product.minKycTier)) {
+        const nextTier = getNextKycTier(userKycTier);
+        const requiredTier = product.minKycTier;
+
+        await logKYCAttempt(
+          userId,
+          `product_access_${productCategory}`,
+          0,
+          "failed",
+          `Insufficient KYC tier: ${userKycTier} < ${requiredTier}`
+        );
+
+        return res.status(403).json({
+          success: false,
+          error: "INSUFFICIENT_KYC_TIER",
+          message: `${product.productName} requires ${requiredTier.replace(/_/g, ' ')} KYC tier`,
+          data: {
+            productName: product.productName,
+            currentTier: userKycTier,
+            requiredTier: requiredTier,
+            nextAvailableTier: nextTier,
+            upgradeInstructions: `Upgrade to ${requiredTier.replace(/_/g, ' ')} to access ${product.productName}`,
+            sebiGuideline: product.sebiGuideline,
+            regulatoryNotes: product.regulatoryNotes
+          },
+          action: "UPGRADE_KYC_TIER",
+          redirectTo: "/kyc-dashboard",
+        });
+      }
+
+      // Check additional verification requirements
+      const missingVerifications: string[] = [];
+      
+      if (product.requiresPanVerified && !req.user.panVerified) {
+        missingVerifications.push('PAN Verification');
+      }
+      if (product.requiresAadhaarVerified && !req.user.aadhaarVerified) {
+        missingVerifications.push('Aadhaar Verification');
+      }
+      if (product.requiresBankVerified && !req.user.bankVerified) {
+        missingVerifications.push('Bank Account Verification');
+      }
+      if (product.requiresVideoKyc && !req.user.videoKycCompleted) {
+        missingVerifications.push('Video KYC (IPV)');
+      }
+      if (product.requiresIncomeProof && !req.user.annualIncomeAmount) {
+        missingVerifications.push('Income Proof');
+      }
+
+      // Check financial requirements
+      if (product.minAnnualIncome && (!req.user.annualIncomeAmount || req.user.annualIncomeAmount < product.minAnnualIncome)) {
+        missingVerifications.push(`Minimum Annual Income ₹${(product.minAnnualIncome / 100000).toFixed(0)} Lakh`);
+      }
+
+      if (product.minNetWorth && (!req.user.netWorthAmount || req.user.netWorthAmount < product.minNetWorth)) {
+        missingVerifications.push(`Minimum Net Worth ₹${(product.minNetWorth / 10000000).toFixed(1)} Crore`);
+      }
+
+      // If there are missing verifications, block access
+      if (missingVerifications.length > 0) {
+        await logKYCAttempt(
+          userId,
+          `product_access_${productCategory}`,
+          0,
+          "failed",
+          `Missing verifications: ${missingVerifications.join(', ')}`
+        );
+
+        return res.status(403).json({
+          success: false,
+          error: "INCOMPLETE_VERIFICATION",
+          message: `Complete the following requirements to access ${product.productName}`,
+          data: {
+            productName: product.productName,
+            currentTier: userKycTier,
+            missingRequirements: missingVerifications,
+            sebiGuideline: product.sebiGuideline
+          },
+          action: "COMPLETE_VERIFICATION",
+          redirectTo: "/kyc-dashboard",
+        });
+      }
+
+      // All checks passed - log success
+      await logKYCAttempt(
+        userId,
+        `product_access_${productCategory}`,
+        0,
+        "passed",
+        `${userKycTier.toUpperCase()} tier verified for ${product.productName}`
+      );
+
+      console.log(`[Product Access] ✓ User ${userId} authorized for ${product.productName} (${userKycTier} tier)`);
+      next();
+
+    } catch (error) {
+      console.error("[Product Access Check Error]:", error);
+      return res.status(500).json({
+        success: false,
+        error: "ACCESS_CHECK_FAILED",
+        message: "Unable to verify product access. Please try again.",
+      });
+    }
+  };
+}
+
+/**
  * Log KYC validation attempts for audit trail
  */
 export async function logKYCAttempt(
