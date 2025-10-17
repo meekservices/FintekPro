@@ -124,17 +124,24 @@ export function EnhancedNavigation() {
           subItems: [
             { name: "KYC Dashboard", href: "/profile?tab=kyc-dashboard", description: "Current tier, product access & upgrade paths", badge: "OVERVIEW" },
             { name: "My Net Worth", href: "/net-worth", description: "Complete wealth tracking with assets, liabilities & AI insights", badge: "NEW" },
-            { name: "Smart KYC Onboarding", href: "/onboarding", description: "Best for Individual investors - AI-assisted wizard with auto-fill & progressive save", badge: "RECOMMENDED" },
-            { name: "Manual KYC - Individual", href: "/manual-kyc?type=individual", description: "Traditional document upload path for individual investors via BSE Star API" },
-            { name: "Manual KYC - Corporate", href: "/manual-kyc?type=corporate", description: "Document submission for companies & non-individual entities via BSE Star API" },
-            { name: "Manual KYC - NRI", href: "/manual-kyc?type=nri", description: "Specialized KYC for Non-Resident Indians with passport & OCI verification" },
-            { name: "Basic KYC (Tier 1)", href: "/profile?tab=basic", description: "PAN, Aadhaar, basic profile → Unlock MF, IPO, Equity" },
-            { name: "Enhanced KYC (Tier 2)", href: "/profile?tab=enhanced", description: "Video KYC, income proof → Unlock F&O, Commodities, Global" },
-            { name: "Accredited Investor (Tier 3)", href: "/profile?tab=accredited", description: "Net worth ₹7.5Cr+ → Unlock AIF, PMS, Pre-IPO", badge: "PREMIUM" },
-            { name: "Identity & Documents", href: "/profile?tab=identity", description: "All identity proofs and verification" },
-            { name: "Address & Financial", href: "/profile?tab=financial", description: "Address, income, occupation details" },
-            { name: "Compliance & AML", href: "/profile?tab=compliance", description: "FATCA, PEP, sanctions screening" },
-            { name: "Banking & Demat", href: "/profile?tab=banking", description: "Bank accounts and demat details" }
+            { name: "━━━ Individual KYC ━━━", href: "#", description: "Choose your onboarding mode" },
+            { name: "  ⚡ Smart Mode", href: "/onboarding", description: "AI-assisted wizard with auto-fill & progressive save" },
+            { name: "  📄 Manual Mode", href: "/manual-kyc?type=individual", description: "Traditional document upload via BSE Star API" },
+            { name: "━━━ Corporate/Non-Individual KYC ━━━", href: "#", description: "For companies and organizations" },
+            { name: "  ⚡ Smart Mode", href: "/corporate-kyc", description: "Step-by-step corporate wizard with entity verification" },
+            { name: "  📄 Manual Mode", href: "/manual-kyc?type=corporate", description: "Document submission via BSE Star API" },
+            { name: "━━━ NRI KYC ━━━", href: "#", description: "For Non-Resident Indians" },
+            { name: "  ⚡ Smart Mode", href: "#", description: "NRI-specific intelligent wizard", badge: "COMING SOON" },
+            { name: "  📄 Manual Mode", href: "/manual-kyc?type=nri", description: "Passport & OCI verification via BSE Star API" },
+            { name: "━━━ KYC Tier Upgrades ━━━", href: "#", description: "Unlock premium products" },
+            { name: "  Basic KYC (Tier 1)", href: "/profile?tab=basic", description: "PAN, Aadhaar, basic profile → Unlock MF, IPO, Equity" },
+            { name: "  Enhanced KYC (Tier 2)", href: "/profile?tab=enhanced", description: "Video KYC, income proof → Unlock F&O, Commodities, Global" },
+            { name: "  Accredited Investor (Tier 3)", href: "/profile?tab=accredited", description: "Net worth ₹7.5Cr+ → Unlock AIF, PMS, Pre-IPO", badge: "PREMIUM" },
+            { name: "━━━ Profile Management ━━━", href: "#", description: "Manage your profile data" },
+            { name: "  Identity & Documents", href: "/profile?tab=identity", description: "All identity proofs and verification" },
+            { name: "  Address & Financial", href: "/profile?tab=financial", description: "Address, income, occupation details" },
+            { name: "  Compliance & AML", href: "/profile?tab=compliance", description: "FATCA, PEP, sanctions screening" },
+            { name: "  Banking & Demat", href: "/profile?tab=banking", description: "Bank accounts and demat details" }
           ]
         }
       ]
