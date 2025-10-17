@@ -47,6 +47,10 @@ Do not make changes to the file `Y`.
 
 ### System Design Choices
 - **Admin Portal**: Separate subdomain-based admin portal (admin.fintekpro.com) with triple-layer security (subdomain, authentication, role authorization). Includes AdminLayout, API configuration, and system monitoring.
+  - **Stakeholder Management**: Comprehensive dashboard for managing clients, partners, agents, and vendors with advanced filtering, search, and real-time data
+  - **KYC & Compliance Hub**: Review and approve KYC submissions, bulk actions, document verification, and compliance alerts
+  - **Financial Operations Dashboard**: Complete financial oversight with order management, payment tracking (Cashfree/PhonePe), revenue analytics, refund processing, and payment reconciliation
+  - **API & Integration Control Center** (In Progress): Webhook logging, API usage tracking, integration health monitoring, and key management for all 3rd party services
 - **Consistent Layout**: All pages follow a three-part layout: Left Sidebar Navigation (`EnhancedNavigation`), Main Content Area (`AppLayout`), and Footer (`Footer`). The sidebar is collapsible, process flow-based, and state-persisted.
 - **ScrollableTabsList Pattern**: Ensures tabbed navigation is responsive and user-friendly, with dynamic padding to prevent content overlap with navigation arrows.
 

@@ -7896,3 +7896,158 @@ export const insertExpenseInsightSchema = createInsertSchema(expenseInsights).om
 export type ExpenseInsight = typeof expenseInsights.$inferSelect;
 export type InsertExpenseInsight = z.infer<typeof insertExpenseInsightSchema>;
 
+// ============================================================================
+// API & INTEGRATION CONTROL CENTER
+// ============================================================================
+
+// Webhook Logs - Track all incoming webhooks from payment gateways and services
+export const webhookLogs = pgTable("webhook_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Webhook source
+  provider: varchar("provider").notNull(), // cashfree, phonepe, zoho, stripe, etc.
+  eventType: varchar("event_type").notNull(), // payment_success, order_created, etc.
+  
+  // Request details
+  method: varchar("method").default("POST"),
+  endpoint: varchar("endpoint").notNull(),
+  headers: jsonb("headers"),
+  payload: jsonb("payload").notNull(),
+  
+  // Response details
+  statusCode: integer("status_code"),
+  responseBody: jsonb("response_body"),
+  responseTime: integer("response_time"), // milliseconds
+  
+  // Processing details
+  processingStatus: varchar("processing_status").default("pending"), // pending, success, failed, retry
+  processingError: text("processing_error"),
+  retryCount: integer("retry_count").default(0),
+  
+  // Verification
+  signatureVerified: boolean("signature_verified").default(false),
+  ipAddress: varchar("ip_address"),
+  
+  // Related data
+  orderId: varchar("order_id"),
+  transactionId: varchar("transaction_id"),
+  userId: varchar("user_id"),
+  
+  // Timestamps
+  receivedAt: timestamp("received_at").defaultNow(),
+  processedAt: timestamp("processed_at"),
+}, (table) => [
+  index("idx_webhook_logs_provider").on(table.provider),
+  index("idx_webhook_logs_event").on(table.eventType),
+  index("idx_webhook_logs_status").on(table.processingStatus),
+  index("idx_webhook_logs_received").on(table.receivedAt),
+]);
+
+// API Usage Logs - Track outbound API calls to 3rd party services
+export const apiUsageLogs = pgTable("api_usage_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // API details
+  provider: varchar("provider").notNull(), // cashfree, phonepe, gemini, twilio, etc.
+  apiEndpoint: varchar("api_endpoint").notNull(),
+  apiMethod: varchar("api_method").default("GET"),
+  
+  // Request details
+  requestHeaders: jsonb("request_headers"),
+  requestBody: jsonb("request_body"),
+  
+  // Response details
+  statusCode: integer("status_code"),
+  responseBody: jsonb("response_body"),
+  responseTime: integer("response_time"), // milliseconds
+  
+  // Status and error tracking
+  status: varchar("status").default("pending"), // success, error, timeout
+  errorMessage: text("error_message"),
+  errorCode: varchar("error_code"),
+  
+  // Usage tracking
+  userId: varchar("user_id"),
+  feature: varchar("feature"), // payment, kyc, sms, ai_chat, etc.
+  
+  // Cost tracking (for paid APIs)
+  estimatedCost: decimal("estimated_cost", { precision: 10, scale: 4 }),
+  currency: varchar("currency").default("USD"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_api_usage_provider").on(table.provider),
+  index("idx_api_usage_status").on(table.status),
+  index("idx_api_usage_feature").on(table.feature),
+  index("idx_api_usage_created").on(table.createdAt),
+]);
+
+// Integration Health - Track health and status of all integrations
+export const integrationHealth = pgTable("integration_health", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Integration details
+  provider: varchar("provider").notNull().unique(), // cashfree, phonepe, gemini, twilio, etc.
+  displayName: varchar("display_name").notNull(),
+  category: varchar("category").notNull(), // payment, kyc, communication, ai, etc.
+  
+  // Status
+  status: varchar("status").default("active"), // active, degraded, down, maintenance
+  lastCheckedAt: timestamp("last_checked_at"),
+  
+  // Health metrics
+  uptime: decimal("uptime", { precision: 5, scale: 2 }).default("100"), // percentage
+  avgResponseTime: integer("avg_response_time"), // milliseconds
+  errorRate: decimal("error_rate", { precision: 5, scale: 2 }).default("0"), // percentage
+  
+  // API usage stats (24h rolling window)
+  totalRequests24h: integer("total_requests_24h").default(0),
+  successfulRequests24h: integer("successful_requests_24h").default(0),
+  failedRequests24h: integer("failed_requests_24h").default(0),
+  
+  // Configuration
+  isEnabled: boolean("is_enabled").default(true),
+  hasApiKey: boolean("has_api_key").default(false),
+  hasWebhook: boolean("has_webhook").default(false),
+  webhookUrl: varchar("webhook_url"),
+  
+  // Alerts
+  alertsEnabled: boolean("alerts_enabled").default(true),
+  alertThreshold: integer("alert_threshold").default(90), // error rate threshold
+  lastAlertSent: timestamp("last_alert_sent"),
+  
+  // Metadata
+  metadata: jsonb("metadata"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_integration_health_status").on(table.status),
+  index("idx_integration_health_category").on(table.category),
+]);
+
+// Insert schemas and types
+export const insertWebhookLogSchema = createInsertSchema(webhookLogs).omit({
+  id: true,
+  receivedAt: true,
+});
+export type WebhookLog = typeof webhookLogs.$inferSelect;
+export type InsertWebhookLog = z.infer<typeof insertWebhookLogSchema>;
+
+export const insertApiUsageLogSchema = createInsertSchema(apiUsageLogs).omit({
+  id: true,
+  createdAt: true,
+});
+export type ApiUsageLog = typeof apiUsageLogs.$inferSelect;
+export type InsertApiUsageLog = z.infer<typeof insertApiUsageLogSchema>;
+
+export const insertIntegrationHealthSchema = createInsertSchema(integrationHealth).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type IntegrationHealth = typeof integrationHealth.$inferSelect;
+export type InsertIntegrationHealth = z.infer<typeof insertIntegrationHealthSchema>;
+
