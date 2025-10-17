@@ -962,17 +962,37 @@ export default function ManualKYCPage() {
     }
 
     // Validate required fields based on type
-    const requiredFields = kycType === 'individual' 
-      ? ['firstName', 'lastName', 'dateOfBirth', 'pan', 'email', 'mobile', 'address', 'city', 'state', 'pincode']
-      : kycType === 'corporate'
-      ? ['companyName', 'registrationNumber', 'pan', 'email', 'mobile', 'address', 'city', 'state', 'pincode']
-      : ['firstName', 'lastName', 'passportNumber', 'countryOfResidence', 'pan', 'email', 'mobile', 'address', 'city', 'state', 'pincode'];
+    let requiredFields: string[] = [];
+    
+    if (kycType === 'individual') {
+      requiredFields = ['firstName', 'lastName', 'dateOfBirth', 'pan', 'email', 'mobile', 'address', 'city', 'state', 'pincode'];
+    } else if (kycType === 'corporate') {
+      // Base corporate fields
+      const baseCorporateFields = ['pan', 'email', 'mobile', 'address', 'city', 'state', 'pincode', 'entityType'];
+      
+      // Entity-specific required fields
+      const entitySpecificFields: Record<CorporateEntityType, string[]> = {
+        private_limited: ['companyName', 'registrationNumber', 'incorporationDate', 'authorizedSignatoryName'],
+        public_limited: ['companyName', 'registrationNumber', 'incorporationDate', 'authorizedSignatoryName'],
+        llp: ['companyName', 'registrationNumber', 'incorporationDate', 'authorizedSignatoryName'],
+        partnership: ['companyName', 'incorporationDate', 'authorizedSignatoryName'],
+        trust: ['companyName', 'incorporationDate', 'authorizedSignatoryName'],
+        huf: ['companyName', 'authorizedSignatoryName'],
+        society: ['companyName', 'registrationNumber', 'incorporationDate', 'authorizedSignatoryName'],
+        aop: ['companyName', 'incorporationDate', 'authorizedSignatoryName'],
+        boi: ['companyName', 'incorporationDate', 'authorizedSignatoryName']
+      };
+      
+      requiredFields = [...baseCorporateFields, ...entitySpecificFields[entityType]];
+    } else if (kycType === 'nri') {
+      requiredFields = ['firstName', 'lastName', 'passportNumber', 'countryOfResidence', 'pan', 'email', 'mobile', 'address', 'city', 'state', 'pincode'];
+    }
 
     const missingFields = requiredFields.filter(field => !formData[field as keyof KYCFormData]);
     if (missingFields.length > 0) {
       toast({
         title: "Missing Required Information",
-        description: `Please fill in all required fields`,
+        description: `Please fill in all required fields for ${kycType === 'corporate' ? entityType.replace('_', ' ') : kycType} KYC`,
         variant: "destructive",
       });
       setCurrentStep('details');
