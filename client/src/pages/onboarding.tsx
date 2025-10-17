@@ -98,9 +98,11 @@ export default function SmartKYCOnboarding() {
   const verifyPanMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest('POST', '/api/kyc/wizard/verify-pan', {
-        sessionId,
-        panNumber: panNumber.toUpperCase(),
-        dob: panDob
+        body: {
+          sessionId,
+          panNumber: panNumber.toUpperCase(),
+          dob: panDob
+        }
       });
       return res.json();
     },
@@ -126,8 +128,10 @@ export default function SmartKYCOnboarding() {
   const sendAadhaarOtpMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest('POST', '/api/kyc/wizard/send-aadhaar-otp', {
-        sessionId,
-        aadhaarNumber
+        body: {
+          sessionId,
+          aadhaarNumber
+        }
       });
       return res.json();
     },
@@ -154,9 +158,11 @@ export default function SmartKYCOnboarding() {
   const verifyAadhaarOtpMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest('POST', '/api/kyc/wizard/verify-aadhaar-otp', {
-        sessionId,
-        transactionId: aadhaarTransactionId,
-        otp: aadhaarOtp
+        body: {
+          sessionId,
+          transactionId: aadhaarTransactionId,
+          otp: aadhaarOtp
+        }
       });
       return res.json();
     },
@@ -182,7 +188,9 @@ export default function SmartKYCOnboarding() {
   const completeKycMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest('POST', '/api/kyc/wizard/complete', {
-        sessionId
+        body: {
+          sessionId
+        }
       });
       return res.json();
     },

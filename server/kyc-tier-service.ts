@@ -357,32 +357,36 @@ export async function requestAccreditedInvestorVerification(
 
   switch (verificationType) {
     case "income_based":
-      qualified =
+      qualified = !!(
         profile.annualIncomeAmount &&
-        Number(profile.annualIncomeAmount) >= ACCREDITED_INVESTOR_CRITERIA.ANNUAL_INCOME_THRESHOLD;
+        Number(profile.annualIncomeAmount) >= ACCREDITED_INVESTOR_CRITERIA.ANNUAL_INCOME_THRESHOLD
+      );
       rejectionReason = qualified ? "" : `Annual income must be ₹${ACCREDITED_INVESTOR_CRITERIA.ANNUAL_INCOME_THRESHOLD / 10000000} Crore or more`;
       break;
 
     case "networth_based":
-      qualified =
+      qualified = !!(
         profile.netWorthExcludingResidence &&
-        Number(profile.netWorthExcludingResidence) >= ACCREDITED_INVESTOR_CRITERIA.NET_WORTH_THRESHOLD;
+        Number(profile.netWorthExcludingResidence) >= ACCREDITED_INVESTOR_CRITERIA.NET_WORTH_THRESHOLD
+      );
       rejectionReason = qualified ? "" : `Net worth (excluding primary residence) must be ₹${ACCREDITED_INVESTOR_CRITERIA.NET_WORTH_THRESHOLD / 10000000} Crore or more`;
       break;
 
     case "portfolio_based":
-      qualified =
+      qualified = !!(
         profile.portfolioValueAmount &&
-        Number(profile.portfolioValueAmount) >= ACCREDITED_INVESTOR_CRITERIA.PORTFOLIO_VALUE_THRESHOLD;
+        Number(profile.portfolioValueAmount) >= ACCREDITED_INVESTOR_CRITERIA.PORTFOLIO_VALUE_THRESHOLD
+      );
       rejectionReason = qualified ? "" : `Securities portfolio value must be ₹${ACCREDITED_INVESTOR_CRITERIA.PORTFOLIO_VALUE_THRESHOLD / 10000000} Crore or more`;
       break;
 
     case "professional":
-      qualified =
+      qualified = !!(
         profile.professionalQualification &&
         ACCREDITED_INVESTOR_CRITERIA.PROFESSIONAL_QUALIFICATIONS.includes(profile.professionalQualification) &&
         profile.professionalQualificationVerified &&
-        (profile.professionalExperienceYears || 0) >= ACCREDITED_INVESTOR_CRITERIA.MIN_EXPERIENCE_YEARS;
+        (profile.professionalExperienceYears || 0) >= ACCREDITED_INVESTOR_CRITERIA.MIN_EXPERIENCE_YEARS
+      );
       rejectionReason = qualified ? "" : "Must have recognized professional qualification (CA/CFA/MBA Finance) with 3+ years experience";
       break;
   }
