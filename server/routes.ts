@@ -63,7 +63,7 @@ import { PortfolioComparisonService } from './services/portfolio-comparison-serv
 import { LoanOrchestrator } from './loan-marketplace/loan-orchestrator';
 import { taxOrchestrator } from './services/tax-orchestrator';
 import { PANConsentService } from './services/pan-consent-service';
-import { SandboxKYCService } from './services/sandbox-kyc-service';
+import { sandboxKYCService } from './services/sandbox-kyc-service';
 import { AadhaarMockService } from './services/aadhaar-mock-service';
 import { CashfreeAadhaarService } from './services/cashfree-aadhaar-service';
 import { DemographicProtectionService } from './services/demographic-protection-service';
@@ -1748,12 +1748,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Verify PAN using Sandbox API
-      const verification = await SandboxKYCService.verifyIndividualPAN(panNumber, dob);
+      const verification = await sandboxKYCService.verifyIndividualPAN(panNumber, dob);
       
-      if (!verification.success) {
+      
+      // verification returns IndividualPANDetails directly (no success wrapper)
+      if (!verification || !verification.pan) {
         return res.json({
           success: false,
-          message: verification.message
+          message: "PAN verification failed"
         });
       }
       
@@ -1763,7 +1765,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         panDob: new Date(dob),
         panVerified: true,
         panVerificationData: {
-          name: verification.name,
+          name: verification.fullName,
           fatherName: verification.fatherName
         },
         panVerifiedAt: new Date(),
@@ -1779,7 +1781,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         success: true,
         data: {
-          name: verification.name,
+          name: verification.fullName,
           fatherName: verification.fatherName
         },
         message: "PAN verified successfully"
@@ -30016,6 +30018,169 @@ System Security Data:`;
     } catch (error) {
       console.error('Error deleting alert:', error);
       res.status(500).json({ message: "Failed to delete alert" });
+    }
+  });
+
+  app.post('/api/kyc/manual-submit', async (req: any, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: 'Authentication required' });
+      }
+
+      const submissionData = req.body;
+      
+      // Validate required fields based on applicant type
+      const validationSchema = insertManualKycSubmissionSchema.extend({
+        documents: z.record(z.string().url()).refine(
+          (docs) => Object.keys(docs).length > 0,
+          { message: 'At least one document is required' }
+        )
+      });
+      
+      const validated = validationSchema.parse({
+        ...submissionData,
+        userId: req.user.id,
+        submittedFrom: req.ip || req.connection.remoteAddress,
+        userAgent: req.get('User-Agent'),
+      });
+
+      // Create the submission
+      const submission = await storage.createManualKycSubmission(validated);
+
+      // Log documents separately for tracking
+      if (submission.documents && typeof submission.documents === 'object') {
+        const docEntries = Object.entries(submission.documents);
+        for (const [docType, docUrl] of docEntries) {
+          await storage.createManualKycDocument({
+            submissionId: submission.id,
+            documentType: docType,
+            documentUrl: docUrl as string,
+            fileName: `${docType}_${submission.id}`,
+            verificationStatus: 'pending'
+          });
+        }
+      }
+
+      // Log compliance event
+      complianceMonitor.logEvent({
+        userId: req.user.id,
+        eventType: 'manual_kyc_submission',
+        category: 'kyc_compliance',
+        action: `Manual KYC submitted - ${validated.applicantType}`,
+        resource: `/api/kyc/manual-submit`,
+        status: 'success',
+        metadata: {
+          submissionId: submission.id,
+          applicantType: validated.applicantType,
+          documentCount: docEntries.length
+        }
+      });
+
+      res.json({
+        success: true,
+        message: 'KYC submission received successfully',
+        submissionId: submission.id,
+        status: submission.status
+      });
+    } catch (error) {
+      console.error('Manual KYC submission error:', error);
+      
+      complianceMonitor.logEvent({
+        userId: req.user?.id,
+        eventType: 'manual_kyc_submission_failed',
+        category: 'kyc_compliance',
+        action: 'Manual KYC submission failed',
+        resource: `/api/kyc/manual-submit`,
+        status: 'failure',
+        metadata: { error: error instanceof Error ? error.message : 'Unknown error' }
+      });
+
+      res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Submission failed'
+      });
+    }
+  });
+
+  // Get user's manual KYC submissions
+  app.get('/api/kyc/manual-submissions', async (req: any, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: 'Authentication required' });
+      }
+
+      const submissions = await storage.getUserManualKycSubmissions(req.user.id);
+      res.json({ submissions });
+    } catch (error) {
+      console.error('Error fetching manual KYC submissions:', error);
+      res.status(500).json({ message: 'Failed to fetch submissions' });
+    }
+  });
+
+  // Admin: Get all manual KYC submissions
+  app.get('/api/admin/kyc/manual-submissions', requireAdmin, async (req, res) => {
+    try {
+      const { status, applicantType, limit = 50, offset = 0 } = req.query;
+      
+      const submissions = await storage.getAllManualKycSubmissions({
+        status: status as string,
+        applicantType: applicantType as string,
+        limit: parseInt(limit as string),
+        offset: parseInt(offset as string)
+      });
+
+      res.json({ submissions });
+    } catch (error) {
+      console.error('Error fetching admin manual KYC submissions:', error);
+      res.status(500).json({ message: 'Failed to fetch submissions' });
+    }
+  });
+
+  // Admin: Review manual KYC submission (approve/reject)
+  app.post('/api/admin/kyc/manual-submissions/:id/review', requireAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { status, notes, rejectionReason } = req.body;
+
+      if (!['approved', 'rejected', 'requires_clarification'].includes(status)) {
+        return res.status(400).json({ message: 'Invalid status' });
+      }
+
+      const updated = await storage.reviewManualKycSubmission(
+        id,
+        req.user.id,
+        status,
+        notes,
+        rejectionReason
+      );
+
+      if (!updated) {
+        return res.status(404).json({ message: 'Submission not found' });
+      }
+
+      // Log compliance event
+      complianceMonitor.logEvent({
+        userId: req.user.id,
+        eventType: 'manual_kyc_review',
+        category: 'kyc_compliance',
+        action: `Manual KYC ${status}`,
+        resource: `/api/admin/kyc/manual-submissions/${id}/review`,
+        status: 'success',
+        metadata: {
+          submissionId: id,
+          reviewStatus: status,
+          reviewedBy: req.user.id
+        }
+      });
+
+      res.json({
+        success: true,
+        message: `Submission ${status} successfully`,
+        submission: updated
+      });
+    } catch (error) {
+      console.error('Error reviewing manual KYC submission:', error);
+      res.status(500).json({ message: 'Failed to review submission' });
     }
   });
 

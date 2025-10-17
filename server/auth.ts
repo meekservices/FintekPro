@@ -667,9 +667,24 @@ export function setupAuth(app: Express) {
         if (identifier.includes("@")) {
           otpDestination = user.email;
           otpType = "email";
+        } else if (identifier.startsWith("FTP")) {
+          // For userId login, prefer email, fallback to mobile
+          if (user.email) {
+            otpDestination = user.email;
+            otpType = "email";
+          } else if (user.mobile) {
+            otpDestination = user.mobile;
+            otpType = "mobile";
+          } else {
+            return res.status(400).json({ message: "User account has no email or mobile for OTP verification" });
+          }
         } else {
           otpDestination = user.mobile;
           otpType = "mobile";
+        }
+
+        if (!otpDestination) {
+          return res.status(400).json({ message: "No valid OTP destination found for this account" });
         }
 
         // Store OTP for verification

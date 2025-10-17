@@ -1,10 +1,11 @@
 import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Supplier, type InsertSupplier, type EpfHolding, type PpfHolding, type EpsHolding, type GovernmentSchemeConsent, type InsertGovernmentSchemeConsent, type InsuranceHolding, type InsertInsuranceHolding, type UserBankAccount, type InsertUserBankAccount, type UserDematAccount, type InsertUserDematAccount, type AchievementCategory, type InsertAchievementCategory, type Achievement, type InsertAchievement, type UserAchievement, type InsertUserAchievement, type LearningProgress, type InsertLearningProgress, type SocialShare, type InsertSocialShare, type FinancialGoal, type InsertFinancialGoal, type TaxDocument, type InsertTaxDocument, type StructuredTaxData, type InsertStructuredTaxData, type UserAlert, type InsertUserAlert, type AlertHistory, type InsertAlertHistory, type AlertTemplate, type InsertAlertTemplate, type FamilyGroup, type InsertFamilyGroup, type FamilyMember, type InsertFamilyMember, type FamilyGoal, type InsertFamilyGoal, type FamilyGoalContribution, type InsertFamilyGoalContribution, type FamilyActivityLog, type InsertFamilyActivityLog, type FamilyDiscussion, type InsertFamilyDiscussion, type FamilyBudget, type InsertFamilyBudget, type FamilyPortfolioPermission, type InsertFamilyPortfolioPermission, type TaxCalculation, type InsertTaxCalculation, type TaxDocumentAccessLog, type InsertTaxDocumentAccessLog, type TaxSession, type InsertTaxSession, type TaxDataSource, type InsertTaxDataSource, type ValidationIssue, type InsertValidationIssue, type FilingRecord, type InsertFilingRecord, type AiOptimizationSuggestion, type InsertAiOptimizationSuggestion, type FundExtended, type Provenance, type FundSearchParams, type FundListResponse, type SourceStatus, type MultiSourceStatus, type LoanProduct, type InsertLoanProduct, type LoanProvider, type InsertLoanProvider, type ProviderProduct, type InsertProviderProduct, type CreditProfile, type InsertCreditProfile, type LoanRequest, type InsertLoanRequest, type LoanOffer, type InsertLoanOffer, type LoanApplicationMarketplace, type InsertLoanApplicationMarketplace, type ProviderIntegration, type InsertProviderIntegration, type PartnerApplicationDocument, type InsertPartnerApplicationDocument, type InvestmentIdea, type InsertInvestmentIdea, type InvestmentIdeaTracking, type InsertInvestmentIdeaTracking, type InvestmentIdeaAlert, type InsertInvestmentIdeaAlert, type YieldTracker, type InsertYieldTracker, type PartnerApplication, type InsertPartnerApplication, type TaxRule, type InsertTaxRule, type TaxReminderSubscription, type InsertTaxReminderSubscription, type CapitalGainsTaxReminder, type InsertCapitalGainsTaxReminder, type UserExpense, type InsertUserExpense, type UserBudget, type InsertUserBudget, type ExpenseInsight, type InsertExpenseInsight } from "@shared/schema";
 import { type CashfreeTransaction, type InsertCashfreeTransaction, type PhonePeTransaction, type InsertPhonePeTransaction } from "@shared/schema";
-import { type Product, type InsertProduct, type ApplicationDocument, type InsertApplicationDocument, type ProductAccountPreference, type InsertProductAccountPreference, type ICICILoanApplication, type InsertICICILoanApplication, type ICICICreditScore, type InsertICICICreditScore, type PortfolioComparison, type InsertPortfolioComparison, type ChatSession, type InsertChatSession, type ChatMessage, type InsertChatMessage, type ChatAction, type InsertChatAction, type ChatFunction, type InsertChatFunction, type CurrencyRate, type InsertCurrencyRate, type CkycNotificationTrigger, type InsertCkycNotificationTrigger, type KycVerificationSession, type InsertKycVerificationSession } from "@shared/schema";
+import { type Product, type InsertProduct, type ApplicationDocument, type InsertApplicationDocument, type ProductAccountPreference, type InsertProductAccountPreference, type ICICILoanApplication, type InsertICICILoanApplication, type ICICICreditScore, type InsertICICICreditScore, type PortfolioComparison, type InsertPortfolioComparison, type ChatSession, type InsertChatSession, type ChatMessage, type InsertChatMessage, type ChatAction, type InsertChatAction, type ChatFunction, type InsertChatFunction, type CurrencyRate, type InsertCurrencyRate, type CkycNotificationTrigger, type InsertCkycNotificationTrigger, type KycVerificationSession, type InsertKycVerificationSession, type ManualKycSubmission, type InsertManualKycSubmission, type ManualKycDocument, type InsertManualKycDocument } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, and, desc, asc, gte, lte, like, sql } from "drizzle-orm";
 import * as schema from "@shared/schema";
+import { generateUniqueUserId } from "./auth";
 
 // We'll import hashPassword later to avoid circular dependency
 
@@ -794,6 +795,19 @@ export interface IStorage {
   getActiveKycSession(userId: string): Promise<KycVerificationSession | undefined>;
   updateKycVerificationSession(id: string, updates: Partial<KycVerificationSession>): Promise<KycVerificationSession | undefined>;
   completeKycSession(id: string): Promise<void>;
+  
+  // Manual KYC Submission methods
+  createManualKycSubmission(submission: InsertManualKycSubmission): Promise<ManualKycSubmission>;
+  getManualKycSubmission(id: string): Promise<ManualKycSubmission | undefined>;
+  getUserManualKycSubmissions(userId: string): Promise<ManualKycSubmission[]>;
+  getAllManualKycSubmissions(filters?: { status?: string; applicantType?: string; limit?: number; offset?: number }): Promise<ManualKycSubmission[]>;
+  updateManualKycSubmission(id: string, updates: Partial<ManualKycSubmission>): Promise<ManualKycSubmission | undefined>;
+  reviewManualKycSubmission(id: string, reviewerId: string, status: string, notes?: string, rejectionReason?: string): Promise<ManualKycSubmission | undefined>;
+  
+  // Manual KYC Document methods
+  createManualKycDocument(document: InsertManualKycDocument): Promise<ManualKycDocument>;
+  getManualKycDocuments(submissionId: string): Promise<ManualKycDocument[]>;
+  updateManualKycDocument(id: string, updates: Partial<ManualKycDocument>): Promise<ManualKycDocument | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1776,7 +1790,7 @@ export class DatabaseStorage implements IStorage {
       
       if (!agentUser) {
         // Generate unique userId for agent
-        const agentUserId = await this.generateUniqueUserId();
+        const agentUserId = await generateUniqueUserId();
         
         // Create a user account for the agent
         [agentUser] = await db
@@ -1784,7 +1798,7 @@ export class DatabaseStorage implements IStorage {
           .values({
             userId: agentUserId,
             email: defaultAgent.email,
-            mobile: defaultAgent.mobile || '',
+            phone: defaultAgent.mobile || '',
             password: '', // Agents use separate authentication
             isEmailVerified: true,
             roles: ['agent'],
@@ -5351,6 +5365,98 @@ export class DatabaseStorage implements IStorage {
         isActive: false
       })
       .where(eq(schema.kycVerificationSessions.id, id));
+  }
+  
+  // Manual KYC Submission implementation
+  async createManualKycSubmission(submission: InsertManualKycSubmission): Promise<ManualKycSubmission> {
+    const [created] = await db.insert(schema.manualKycSubmissions).values(submission).returning();
+    return created;
+  }
+  
+  async getManualKycSubmission(id: string): Promise<ManualKycSubmission | undefined> {
+    const [submission] = await db.select()
+      .from(schema.manualKycSubmissions)
+      .where(eq(schema.manualKycSubmissions.id, id));
+    return submission || undefined;
+  }
+  
+  async getUserManualKycSubmissions(userId: string): Promise<ManualKycSubmission[]> {
+    return await db.select()
+      .from(schema.manualKycSubmissions)
+      .where(eq(schema.manualKycSubmissions.userId, userId))
+      .orderBy(desc(schema.manualKycSubmissions.createdAt));
+  }
+  
+  async getAllManualKycSubmissions(filters?: { status?: string; applicantType?: string; limit?: number; offset?: number }): Promise<ManualKycSubmission[]> {
+    const conditions = [];
+    
+    if (filters?.status) {
+      conditions.push(eq(schema.manualKycSubmissions.status, filters.status));
+    }
+    if (filters?.applicantType) {
+      conditions.push(eq(schema.manualKycSubmissions.applicantType, filters.applicantType));
+    }
+    
+    let query = db.select().from(schema.manualKycSubmissions);
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+    
+    query = query.orderBy(desc(schema.manualKycSubmissions.createdAt)) as any;
+    
+    if (filters?.limit) {
+      query = query.limit(filters.limit) as any;
+    }
+    if (filters?.offset) {
+      query = query.offset(filters.offset) as any;
+    }
+    
+    return await query;
+  }
+  
+  async updateManualKycSubmission(id: string, updates: Partial<ManualKycSubmission>): Promise<ManualKycSubmission | undefined> {
+    const [updated] = await db.update(schema.manualKycSubmissions)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.manualKycSubmissions.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  async reviewManualKycSubmission(id: string, reviewerId: string, status: string, notes?: string, rejectionReason?: string): Promise<ManualKycSubmission | undefined> {
+    const [updated] = await db.update(schema.manualKycSubmissions)
+      .set({
+        status,
+        reviewedBy: reviewerId,
+        reviewedAt: new Date(),
+        reviewNotes: notes,
+        rejectionReason,
+        updatedAt: new Date()
+      })
+      .where(eq(schema.manualKycSubmissions.id, id))
+      .returning();
+    return updated || undefined;
+  }
+  
+  // Manual KYC Document implementation
+  async createManualKycDocument(document: InsertManualKycDocument): Promise<ManualKycDocument> {
+    const [created] = await db.insert(schema.manualKycDocuments).values(document).returning();
+    return created;
+  }
+  
+  async getManualKycDocuments(submissionId: string): Promise<ManualKycDocument[]> {
+    return await db.select()
+      .from(schema.manualKycDocuments)
+      .where(eq(schema.manualKycDocuments.submissionId, submissionId))
+      .orderBy(desc(schema.manualKycDocuments.uploadedAt));
+  }
+  
+  async updateManualKycDocument(id: string, updates: Partial<ManualKycDocument>): Promise<ManualKycDocument | undefined> {
+    const [updated] = await db.update(schema.manualKycDocuments)
+      .set(updates)
+      .where(eq(schema.manualKycDocuments.id, id))
+      .returning();
+    return updated || undefined;
   }
 }
 

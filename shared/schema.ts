@@ -3438,6 +3438,100 @@ export const insertKycFormProgressSchema = createInsertSchema(kycFormProgress).o
   updatedAt: true,
 });
 
+// Manual KYC Submissions - Comprehensive offline/manual KYC submission system
+export const manualKycSubmissions = pgTable("manual_kyc_submissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Application Type
+  applicantType: varchar("applicant_type").notNull(), // 'individual', 'corporate', 'nri'
+  
+  // Common Fields
+  pan: varchar("pan").notNull(),
+  email: varchar("email").notNull(),
+  mobile: varchar("mobile").notNull(),
+  address: text("address").notNull(),
+  city: varchar("city").notNull(),
+  state: varchar("state").notNull(),
+  pincode: varchar("pincode").notNull(),
+  
+  // Individual Fields
+  firstName: varchar("first_name"),
+  middleName: varchar("middle_name"),
+  lastName: varchar("last_name"),
+  dateOfBirth: varchar("date_of_birth"),
+  fatherName: varchar("father_name"),
+  motherName: varchar("mother_name"),
+  
+  // Corporate Fields
+  companyName: varchar("company_name"),
+  registrationNumber: varchar("registration_number"),
+  incorporationDate: varchar("incorporation_date"),
+  authorizedSignatoryName: varchar("authorized_signatory_name"),
+  
+  // NRI Fields
+  countryOfResidence: varchar("country_of_residence"),
+  passportNumber: varchar("passport_number"),
+  visaType: varchar("visa_type"),
+  
+  // Document Storage (JSON object with document URLs)
+  documents: jsonb("documents").notNull(), // { pan_card: "url", aadhar_front: "url", ... }
+  
+  // Status and Review
+  status: varchar("status").default("pending_review"), // pending_review, under_review, approved, rejected, requires_clarification
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewNotes: text("review_notes"),
+  rejectionReason: text("rejection_reason"),
+  
+  // Compliance and Verification
+  amlStatus: varchar("aml_status").default("pending"), // pending, clear, flagged
+  amlCheckedAt: timestamp("aml_checked_at"),
+  verificationScore: integer("verification_score"), // 0-100 automated verification score
+  
+  // Metadata
+  submittedFrom: varchar("submitted_from"), // ip_address or device info
+  userAgent: text("user_agent"),
+  submissionChannel: varchar("submission_channel").default("web"), // web, mobile, agent_assisted
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Manual KYC Document Upload History
+export const manualKycDocuments = pgTable("manual_kyc_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  submissionId: varchar("submission_id").references(() => manualKycSubmissions.id).notNull(),
+  documentType: varchar("document_type").notNull(), // pan_card, aadhar_front, passport, etc.
+  documentUrl: text("document_url").notNull(),
+  fileName: varchar("file_name").notNull(),
+  fileSize: integer("file_size"), // in bytes
+  mimeType: varchar("mime_type"),
+  uploadedAt: timestamp("uploaded_at").defaultNow(),
+  verificationStatus: varchar("verification_status").default("pending"), // pending, verified, rejected
+  verifiedBy: varchar("verified_by").references(() => users.id),
+  verifiedAt: timestamp("verified_at"),
+  verificationNotes: text("verification_notes"),
+});
+
+// Zod schemas for Manual KYC
+export const insertManualKycSubmissionSchema = createInsertSchema(manualKycSubmissions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertManualKycDocumentSchema = createInsertSchema(manualKycDocuments).omit({
+  id: true,
+  uploadedAt: true,
+});
+
+// Export types for Manual KYC
+export type ManualKycSubmission = typeof manualKycSubmissions.$inferSelect;
+export type InsertManualKycSubmission = z.infer<typeof insertManualKycSubmissionSchema>;
+export type ManualKycDocument = typeof manualKycDocuments.$inferSelect;
+export type InsertManualKycDocument = z.infer<typeof insertManualKycDocumentSchema>;
+
 // Export types for CKYC Progress Monitoring
 export type CkycNotificationTrigger = typeof ckycNotificationTriggers.$inferSelect;
 
