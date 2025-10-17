@@ -260,13 +260,8 @@ export default function Home() {
                 {isAuthenticated && currentUser && (
                   <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20" data-testid="user-greeting">
                     <p className="text-lg text-blue-100">
-                      {getGreeting()}, <span className="font-semibold text-yellow-400">{getUserDisplayName()}</span>! 👋
+                      {getGreeting()}, <span className="font-semibold text-yellow-400">UID: {(currentUser as any)?.userId || (currentUser as any)?.id || 'N/A'}</span>! 👋
                     </p>
-                    {(currentUser as any)?.id && (
-                      <p className="text-xs text-blue-300 mt-1" data-testid="user-id-greeting">
-                        {(currentUser as any).id}
-                      </p>
-                    )}
                     <p className="text-sm text-blue-200 mt-1">
                       Welcome back to your financial dashboard
                     </p>

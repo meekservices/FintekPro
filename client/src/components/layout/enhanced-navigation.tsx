@@ -458,9 +458,9 @@ export function EnhancedNavigation() {
               )}
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-gray-900 truncate text-sm">
-                  {user?.firstName || 'Client'}
+                  {user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : user?.firstName || user?.email?.split('@')[0] || 'User'}
                 </p>
-                <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+                <p className="text-xs text-gray-500 truncate">UID: {user?.userId || user?.id || 'N/A'}</p>
               </div>
             </div>
           )}
