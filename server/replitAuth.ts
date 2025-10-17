@@ -258,6 +258,7 @@ export async function setupAuth(app: Express) {
       isEmailVerified: user.isEmailVerified,
       isMobileVerified: user.isMobileVerified,
       roles: user.roles,
+      lastLoginAt: user.lastLoginAt,
     });
   });
 }
