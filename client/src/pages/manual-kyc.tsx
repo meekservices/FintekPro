@@ -639,49 +639,262 @@ export default function ManualKYCPage() {
               </div>
             )}
 
-            {/* Corporate Fields */}
+            {/* Corporate/Non-Individual Fields */}
             {kycType === 'corporate' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2">
-                  <Label htmlFor="companyName">Company Name *</Label>
-                  <Input
-                    id="companyName"
-                    value={formData.companyName || ''}
-                    onChange={(e) => setFormData(prev => ({ ...prev, companyName: e.target.value }))}
-                    placeholder="As per certificate of incorporation"
-                    data-testid="input-company-name"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="registrationNumber">Registration Number *</Label>
-                  <Input
-                    id="registrationNumber"
-                    value={formData.registrationNumber || ''}
-                    onChange={(e) => setFormData(prev => ({ ...prev, registrationNumber: e.target.value }))}
-                    placeholder="CIN/LLPIN"
-                    data-testid="input-registration-number"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="incorporationDate">Incorporation Date *</Label>
-                  <Input
-                    id="incorporationDate"
-                    type="date"
-                    value={formData.incorporationDate || ''}
-                    onChange={(e) => setFormData(prev => ({ ...prev, incorporationDate: e.target.value }))}
-                    data-testid="input-incorporation-date"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <Label htmlFor="authorizedSignatoryName">Authorized Signatory Name *</Label>
-                  <Input
-                    id="authorizedSignatoryName"
-                    value={formData.authorizedSignatoryName || ''}
-                    onChange={(e) => setFormData(prev => ({ ...prev, authorizedSignatoryName: e.target.value }))}
-                    placeholder="Name of authorized person"
-                    data-testid="input-signatory-name"
-                  />
-                </div>
+                {/* Company/LLP Fields */}
+                {(entityType === 'private_limited' || entityType === 'public_limited' || entityType === 'llp') && (
+                  <>
+                    <div className="md:col-span-2">
+                      <Label htmlFor="companyName">
+                        {entityType === 'llp' ? 'LLP Name *' : 'Company Name *'}
+                      </Label>
+                      <Input
+                        id="companyName"
+                        value={formData.companyName || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, companyName: e.target.value }))}
+                        placeholder={entityType === 'llp' ? 'As per LLP Agreement' : 'As per Certificate of Incorporation'}
+                        data-testid="input-company-name"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="registrationNumber">
+                        {entityType === 'llp' ? 'LLPIN *' : 'CIN *'}
+                      </Label>
+                      <Input
+                        id="registrationNumber"
+                        value={formData.registrationNumber || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, registrationNumber: e.target.value }))}
+                        placeholder={entityType === 'llp' ? 'LLPIN Number' : 'CIN Number'}
+                        data-testid="input-registration-number"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="incorporationDate">
+                        {entityType === 'llp' ? 'Registration Date *' : 'Incorporation Date *'}
+                      </Label>
+                      <Input
+                        id="incorporationDate"
+                        type="date"
+                        value={formData.incorporationDate || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, incorporationDate: e.target.value }))}
+                        data-testid="input-incorporation-date"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <Label htmlFor="authorizedSignatoryName">Authorized Signatory Name *</Label>
+                      <Input
+                        id="authorizedSignatoryName"
+                        value={formData.authorizedSignatoryName || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, authorizedSignatoryName: e.target.value }))}
+                        placeholder="Name of designated partner/director"
+                        data-testid="input-signatory-name"
+                      />
+                    </div>
+                  </>
+                )}
+
+                {/* Trust Fields */}
+                {entityType === 'trust' && (
+                  <>
+                    <div className="md:col-span-2">
+                      <Label htmlFor="companyName">Trust Name *</Label>
+                      <Input
+                        id="companyName"
+                        value={formData.companyName || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, companyName: e.target.value }))}
+                        placeholder="As per Trust Deed"
+                        data-testid="input-trust-name"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="registrationNumber">Trust Registration Number</Label>
+                      <Input
+                        id="registrationNumber"
+                        value={formData.registrationNumber || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, registrationNumber: e.target.value }))}
+                        placeholder="Registration number (if registered)"
+                        data-testid="input-registration-number"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="incorporationDate">Trust Deed Date *</Label>
+                      <Input
+                        id="incorporationDate"
+                        type="date"
+                        value={formData.incorporationDate || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, incorporationDate: e.target.value }))}
+                        data-testid="input-deed-date"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <Label htmlFor="authorizedSignatoryName">Trustee Name *</Label>
+                      <Input
+                        id="authorizedSignatoryName"
+                        value={formData.authorizedSignatoryName || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, authorizedSignatoryName: e.target.value }))}
+                        placeholder="Name of managing trustee"
+                        data-testid="input-trustee-name"
+                      />
+                    </div>
+                  </>
+                )}
+
+                {/* Partnership Fields */}
+                {entityType === 'partnership' && (
+                  <>
+                    <div className="md:col-span-2">
+                      <Label htmlFor="companyName">Partnership Firm Name *</Label>
+                      <Input
+                        id="companyName"
+                        value={formData.companyName || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, companyName: e.target.value }))}
+                        placeholder="As per Partnership Deed"
+                        data-testid="input-firm-name"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="registrationNumber">Registration Number</Label>
+                      <Input
+                        id="registrationNumber"
+                        value={formData.registrationNumber || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, registrationNumber: e.target.value }))}
+                        placeholder="Registration number (if registered)"
+                        data-testid="input-registration-number"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="incorporationDate">Partnership Deed Date *</Label>
+                      <Input
+                        id="incorporationDate"
+                        type="date"
+                        value={formData.incorporationDate || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, incorporationDate: e.target.value }))}
+                        data-testid="input-deed-date"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <Label htmlFor="authorizedSignatoryName">Authorized Partner Name *</Label>
+                      <Input
+                        id="authorizedSignatoryName"
+                        value={formData.authorizedSignatoryName || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, authorizedSignatoryName: e.target.value }))}
+                        placeholder="Name of managing/authorized partner"
+                        data-testid="input-partner-name"
+                      />
+                    </div>
+                  </>
+                )}
+
+                {/* HUF Fields */}
+                {entityType === 'huf' && (
+                  <>
+                    <div className="md:col-span-2">
+                      <Label htmlFor="companyName">HUF Name *</Label>
+                      <Input
+                        id="companyName"
+                        value={formData.companyName || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, companyName: e.target.value }))}
+                        placeholder="Name of Hindu Undivided Family"
+                        data-testid="input-huf-name"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <Label htmlFor="authorizedSignatoryName">Karta Name *</Label>
+                      <Input
+                        id="authorizedSignatoryName"
+                        value={formData.authorizedSignatoryName || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, authorizedSignatoryName: e.target.value }))}
+                        placeholder="Name of Karta (head of HUF)"
+                        data-testid="input-karta-name"
+                      />
+                    </div>
+                  </>
+                )}
+
+                {/* Society Fields */}
+                {entityType === 'society' && (
+                  <>
+                    <div className="md:col-span-2">
+                      <Label htmlFor="companyName">Society Name *</Label>
+                      <Input
+                        id="companyName"
+                        value={formData.companyName || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, companyName: e.target.value }))}
+                        placeholder="As per Society Registration Certificate"
+                        data-testid="input-society-name"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="registrationNumber">Registration Number *</Label>
+                      <Input
+                        id="registrationNumber"
+                        value={formData.registrationNumber || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, registrationNumber: e.target.value }))}
+                        placeholder="Society registration number"
+                        data-testid="input-registration-number"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="incorporationDate">Registration Date *</Label>
+                      <Input
+                        id="incorporationDate"
+                        type="date"
+                        value={formData.incorporationDate || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, incorporationDate: e.target.value }))}
+                        data-testid="input-registration-date"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <Label htmlFor="authorizedSignatoryName">President/Secretary Name *</Label>
+                      <Input
+                        id="authorizedSignatoryName"
+                        value={formData.authorizedSignatoryName || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, authorizedSignatoryName: e.target.value }))}
+                        placeholder="Name of President or Secretary"
+                        data-testid="input-signatory-name"
+                      />
+                    </div>
+                  </>
+                )}
+
+                {/* AOP/BOI Fields */}
+                {(entityType === 'aop' || entityType === 'boi') && (
+                  <>
+                    <div className="md:col-span-2">
+                      <Label htmlFor="companyName">
+                        {entityType === 'aop' ? 'AOP Name *' : 'BOI Name *'}
+                      </Label>
+                      <Input
+                        id="companyName"
+                        value={formData.companyName || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, companyName: e.target.value }))}
+                        placeholder={entityType === 'aop' ? 'Association of Persons name' : 'Body of Individuals name'}
+                        data-testid="input-entity-name"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="incorporationDate">Formation Date *</Label>
+                      <Input
+                        id="incorporationDate"
+                        type="date"
+                        value={formData.incorporationDate || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, incorporationDate: e.target.value }))}
+                        data-testid="input-formation-date"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <Label htmlFor="authorizedSignatoryName">Authorized Representative *</Label>
+                      <Input
+                        id="authorizedSignatoryName"
+                        value={formData.authorizedSignatoryName || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, authorizedSignatoryName: e.target.value }))}
+                        placeholder="Name of authorized representative"
+                        data-testid="input-representative-name"
+                      />
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
