@@ -245,6 +245,7 @@ export async function setupAuth(app: Express) {
     
     res.json({
       id: user.id,
+      userId: user.userId,
       email: user.email,
       mobile: user.mobile,
       firstName: user.firstName,
