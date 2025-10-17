@@ -34,6 +34,12 @@ const adminNavItems = [
     description: "Overview and metrics"
   },
   {
+    title: "Stakeholders",
+    href: "/admin/stakeholders",
+    icon: Users,
+    description: "Manage clients, partners, agents & suppliers"
+  },
+  {
     title: "Users & Access",
     href: "/admin/users",
     icon: Users,
