@@ -12,6 +12,7 @@ import { Activity, BarChart3, TrendingUp, Globe, Building2, Coins, Wheat, Refres
 import { apiRequest } from "@/lib/queryClient";
 import { IBTrading } from "@/components/dashboard/ib-trading";
 import { KYCWarningBanner } from "@/components/KYCWarningBanner";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 
 interface StockQuote {
   symbol: string;
