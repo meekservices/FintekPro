@@ -7,6 +7,7 @@ import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
+import { generateUniqueUserId } from "./auth";
 
 if (!process.env.REPLIT_DOMAINS) {
   throw new Error("Environment variable REPLIT_DOMAINS not provided");
@@ -75,7 +76,9 @@ async function upsertUser(claims: any): Promise<string> {
     return existingUserByEmail.id;
   } else {
     // Create new user from OAuth data
+    const userId = await generateUniqueUserId();
     const newUser = await storage.createUser({
+      userId,
       email: claims["email"] || null,
       mobile: null,
       password: '', // OAuth users don't have password
