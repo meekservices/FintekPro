@@ -1653,35 +1653,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user!.id;
       
-      // SECURITY FIX: Check for existing active session
+      // Check for existing active session
       const existingSession = await storage.getActiveKycSession(userId);
       
       if (existingSession) {
-        // Check if session is still valid (not expired)
-        const now = new Date();
-        if (existingSession.expiresAt && new Date(existingSession.expiresAt) > now) {
-          return res.json({
-            success: true,
-            session: existingSession,
-            message: "Resuming existing KYC session"
-          });
-        }
-        
-        // SECURITY FIX: Deactivate expired session before creating new one
-        await db
-          .update(schema.kycVerificationSessions)
-          .set({ isActive: false })
-          .where(eq(schema.kycVerificationSessions.id, existingSession.id));
+        return res.json({
+          success: true,
+          session: existingSession,
+          message: "Resuming existing KYC session"
+        });
       }
-      
-      // SECURITY FIX: Deactivate ALL other active sessions for this user (prevents concurrent session bypass)
-      await db
-        .update(schema.kycVerificationSessions)
-        .set({ isActive: false })
-        .where(and(
-          eq(schema.kycVerificationSessions.userId, userId),
-          eq(schema.kycVerificationSessions.isActive, true)
-        ));
       
       // Create new session
       const session = await storage.createKycVerificationSession({
@@ -1702,6 +1683,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ipAddress: req.ip,
         userAgent: req.headers['user-agent'] || 'unknown'
       });
+      
       res.json({
         success: true,
         session,
