@@ -15,7 +15,8 @@ import {
   X,
   Home,
   Bell,
-  AlertCircle
+  AlertCircle,
+  DollarSign
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -44,6 +45,12 @@ const adminNavItems = [
     href: "/admin/kyc-compliance",
     icon: FileCheck,
     description: "Review KYC submissions & compliance"
+  },
+  {
+    title: "Financial Operations",
+    href: "/admin/financial-operations",
+    icon: DollarSign,
+    description: "Orders, payments, revenue & refunds"
   },
   {
     title: "Users & Access",

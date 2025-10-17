@@ -57,6 +57,7 @@ import { useSubdomain } from "@/hooks/useSubdomain";
 import AdminDashboard from "@/pages/admin/dashboard";
 import StakeholdersPage from "@/pages/admin/stakeholders";
 import KycCompliancePage from "@/pages/admin/kyc-compliance";
+import FinancialOperationsPage from "@/pages/admin/financial-operations";
 import APIConfiguration from "@/pages/admin/api-configuration";
 import ProductionReadiness from "@/pages/admin/production-readiness";
 import BBPSPage from "@/pages/BBPSPage";
@@ -214,6 +215,7 @@ function AdminRoutes() {
         <Route path="/admin/dashboard" component={AdminDashboard} />
         <Route path="/admin/stakeholders" component={StakeholdersPage} />
         <Route path="/admin/kyc-compliance" component={KycCompliancePage} />
+        <Route path="/admin/financial-operations" component={FinancialOperationsPage} />
         <Route path="/admin/api-config" component={APIConfiguration} />
         <Route path="/admin/api-configuration" component={APIConfiguration} />
         <Route path="/admin/production-readiness" component={ProductionReadiness} />
