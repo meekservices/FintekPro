@@ -86,6 +86,30 @@ import { ProductAccountService } from './product-account-service';
 import { BSEStarKYCService } from './services/bse-star-kyc-service';
 import * as schema from "@shared/schema";
 
+// SECURITY: Ownership validation middleware - ensures users can only access their own data
+const validateOwnership = (paramName: string = 'userId') => {
+  return (req: any, res: any, next: any) => {
+    const requestedUserId = req.params[paramName];
+    const authenticatedUserId = req.user?.id;
+    const userRoles = req.user?.roles || [];
+    
+    // Admins and superadmins can access any user's data
+    if (userRoles.includes('admin') || userRoles.includes('superadmin')) {
+      return next();
+    }
+    
+    // Regular users can only access their own data
+    if (requestedUserId !== authenticatedUserId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: You can only access your own data'
+      });
+    }
+    
+    next();
+  };
+};
+
 // Tax Calculation Request Validation Schemas
 const calculateCapitalGainsSchema = z.object({
   stcgAmount: z.number().min(0, "STCG amount must be positive"),
@@ -19058,7 +19082,7 @@ System Security Data:`;
   // ============ CKYC (Central KYC Registry) API ROUTES ============
 
   // Get CKYC record for a user
-  app.get("/api/ckyc/:userId", async (req, res) => {
+  app.get("/api/ckyc/:userId", validateOwnership(), async (req, res) => {
     try {
       const { userId } = req.params;
       const ckycRecord = await storage.getCkycRecord(userId);
@@ -19172,7 +19196,7 @@ System Security Data:`;
   });
 
   // Upload CKYC document
-  app.post("/api/ckyc/:userId/documents", async (req, res) => {
+  app.post("/api/ckyc/:userId/documents", validateOwnership(), async (req, res) => {
     try {
       const { userId } = req.params;
       const documentData = insertCkycDocumentSchema.parse(req.body);
@@ -19187,7 +19211,7 @@ System Security Data:`;
   });
 
   // Get CKYC documents for a user
-  app.get("/api/ckyc/:userId/documents", async (req, res) => {
+  app.get("/api/ckyc/:userId/documents", validateOwnership(), async (req, res) => {
     try {
       const { userId } = req.params;
       const documents = await storage.getCkycDocuments(userId);
@@ -19199,7 +19223,7 @@ System Security Data:`;
   });
 
   // Get CKYC status history
-  app.get("/api/ckyc/:userId/history", async (req, res) => {
+  app.get("/api/ckyc/:userId/history", validateOwnership(), async (req, res) => {
     try {
       const { userId } = req.params;
       const history = await storage.getCkycStatusHistory(userId);
@@ -19312,7 +19336,7 @@ System Security Data:`;
   });
 
   // CKYC compliance check for trading/investment activities
-  app.get("/api/ckyc/:userId/compliance", async (req, res) => {
+  app.get("/api/ckyc/:userId/compliance", validateOwnership(), async (req, res) => {
     try {
       const { userId } = req.params;
       const ckycRecord = await storage.getCkycRecord(userId);
