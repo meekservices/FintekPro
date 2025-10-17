@@ -173,6 +173,12 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Health check endpoints (must be before auth - no authentication required)
+  const { healthCheck, readinessCheck, livenessCheck } = await import('./health-check');
+  app.get('/health', healthCheck);
+  app.get('/ready', readinessCheck);
+  app.get('/live', livenessCheck);
+  
   // Initialize authentication (Passport & sessions must be set up first)
   await setupReplitAuth(app);
   
