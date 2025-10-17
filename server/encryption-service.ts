@@ -14,8 +14,8 @@ class EncryptionService {
     this.masterKey = process.env.ENCRYPTION_MASTER_KEY || '';
     
     if (!this.masterKey) {
-      console.warn('⚠️ ENCRYPTION_MASTER_KEY not set. Using fallback key (NOT SECURE FOR PRODUCTION)');
-      this.masterKey = 'FALLBACK_KEY_NOT_FOR_PRODUCTION_USE_PLEASE_SET_ENCRYPTION_MASTER_KEY';
+      console.error('❌ CRITICAL: ENCRYPTION_MASTER_KEY is not set. PII encryption is MANDATORY for production.');
+      throw new Error('ENCRYPTION_MASTER_KEY environment variable is required for PII encryption');
     }
   }
 

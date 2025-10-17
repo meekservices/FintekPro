@@ -258,5 +258,16 @@ app.use((req, res, next) => {
     } catch (error) {
       console.error('❌ Error importing currency exchange service:', error);
     }
+    
+    // Initialize Session Cleanup Cron Job
+    try {
+      import('./session-cleanup-cron').then(({ initSessionCleanupCron }) => {
+        initSessionCleanupCron();
+      }).catch(error => {
+        console.error('❌ Failed to initialize session cleanup cron:', error);
+      });
+    } catch (error) {
+      console.error('❌ Error importing session cleanup cron:', error);
+    }
   });
 })();
