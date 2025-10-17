@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import DOMPurify from "isomorphic-dompurify";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +46,15 @@ interface StoryViewerProps {
 export function StoryViewer({ story, onRefresh, isRefreshing = false }: StoryViewerProps) {
   const { toast } = useToast();
   const [isSharing, setIsSharing] = useState(false);
+  
+  // Sanitize HTML content to prevent XSS attacks
+  const sanitizedContent = useMemo(
+    () => DOMPurify.sanitize(story.content, {
+      ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'ul', 'ol', 'li', 'blockquote'],
+      ALLOWED_ATTR: []
+    }),
+    [story.content]
+  );
 
   const getSentimentIcon = () => {
     switch (story.sentiment) {
@@ -172,7 +182,8 @@ export function StoryViewer({ story, onRefresh, isRefreshing = false }: StoryVie
           {/* Main Content */}
           <div 
             className="prose dark:prose-invert max-w-none mb-6"
-            dangerouslySetInnerHTML={{ __html: story.content }}
+            dangerouslySetInnerHTML={{ __html: sanitizedContent }}
+            data-testid="story-content"
           />
           
           {/* Key Points */}

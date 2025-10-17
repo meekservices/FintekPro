@@ -5,7 +5,8 @@ import cors from "cors";
 import rateLimit from "express-rate-limit";
 import { validationResult } from "express-validator";
 import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
+import { setupVite, serveStatic, log as viteLog } from "./vite";
+import { logger } from "./logger";
 import { complianceMiddleware } from "./compliance-monitor";
 import { storage } from "./storage";
 import { setupAuth as setupReplitAuth } from "./replitAuth";
@@ -165,7 +166,7 @@ app.use((req, res, next) => {
         logLine = logLine.slice(0, 79) + "…";
       }
 
-      log(logLine);
+      logger.http(req.method, path, res.statusCode, duration, capturedJsonResponse ? { response: capturedJsonResponse } : undefined);
     }
   });
 
@@ -214,25 +215,25 @@ app.use((req, res, next) => {
     host: "0.0.0.0",
     reusePort: true,
   }, () => {
-    log(`serving on port ${port}`);
+    logger.info(`Server listening on port ${port}`, { port, environment: process.env.NODE_ENV || 'development' });
     
     // Initialize Capital Gains Tax Reminder Scheduler
     try {
       import('./services/reminder-scheduler').then(({ reminderScheduler }) => {
         reminderScheduler.start();
-        log('✅ Capital Gains Tax Reminder Scheduler initialized');
+        logger.service('Capital Gains Tax Reminder Scheduler', 'Service initialized successfully');
       }).catch(error => {
-        console.error('❌ Failed to initialize reminder scheduler:', error);
+        logger.serviceError('Capital Gains Tax Reminder Scheduler', 'Failed to initialize service', error instanceof Error ? error : undefined);
       });
     } catch (error) {
-      console.error('❌ Error importing reminder scheduler:', error);
+      logger.serviceError('Capital Gains Tax Reminder Scheduler', 'Error importing service module', error instanceof Error ? error : undefined);
     }
     
     // Initialize Bond Catalog Service
     try {
       import('./bond-catalog-service').then(({ bondCatalogService }) => {
         bondCatalogService.startAutoRefresh();
-        log('✅ Bond Catalog Service initialized');
+        logger.service('Bond Catalog Service', 'Service initialized successfully');
       }).catch(error => {
         console.error('❌ Failed to initialize bond catalog service:', error);
       });
