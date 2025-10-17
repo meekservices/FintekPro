@@ -31462,4 +31462,353 @@ System Security Data:`;
     }
   });
 
+
+  // ==================== FINANCIAL OPERATIONS - ADMIN ENDPOINTS ====================
+  
+  // Financial Dashboard - Overview stats
+  app.get('/api/admin/financial/dashboard', requireAdmin, async (req: any, res) => {
+    try {
+      const dashboard = await storage.getFinancialOrdersDashboard();
+      
+      await adminService.logActivity({
+        userId: req.user.id,
+        action: 'financial_dashboard_view',
+        resource: '/api/admin/financial/dashboard',
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      });
+      
+      res.json({
+        success: true,
+        data: dashboard
+      });
+    } catch (error) {
+      console.error('Error fetching financial dashboard:', error);
+      res.status(500).json({ message: 'Failed to fetch financial dashboard' });
+    }
+  });
+  
+  // Orders Management - Get all orders with filtering
+  app.get('/api/admin/financial/orders', requireAdmin, async (req: any, res) => {
+    try {
+      const { status, productType, paymentStatus, executionStatus, dateFrom, dateTo, search, limit = 50, offset = 0 } = req.query;
+      
+      const result = await storage.getUnifiedOrders({
+        status: status as string,
+        productType: productType as string,
+        paymentStatus: paymentStatus as string,
+        executionStatus: executionStatus as string,
+        dateFrom: dateFrom as string,
+        dateTo: dateTo as string,
+        search: search as string,
+        limit: parseInt(limit as string),
+        offset: parseInt(offset as string)
+      });
+      
+      await adminService.logActivity({
+        userId: req.user.id,
+        action: 'orders_view',
+        resource: '/api/admin/financial/orders',
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        details: { filters: { status, productType, paymentStatus, executionStatus } }
+      });
+      
+      res.json({
+        success: true,
+        data: result.orders,
+        pagination: {
+          total: result.total,
+          limit: parseInt(limit as string),
+          offset: parseInt(offset as string),
+          hasMore: (parseInt(offset as string) + parseInt(limit as string)) < result.total
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+      res.status(500).json({ message: 'Failed to fetch orders' });
+    }
+  });
+  
+  // Order Details - Get specific order with user info
+  app.get('/api/admin/financial/orders/:id', requireAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      
+      const order = await storage.getUnifiedOrderDetails(id);
+      
+      if (!order) {
+        return res.status(404).json({ message: 'Order not found' });
+      }
+      
+      await adminService.logActivity({
+        userId: req.user.id,
+        action: 'order_details_view',
+        resource: `/api/admin/financial/orders/${id}`,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      });
+      
+      res.json({
+        success: true,
+        data: order
+      });
+    } catch (error) {
+      console.error('Error fetching order details:', error);
+      res.status(500).json({ message: 'Failed to fetch order details' });
+    }
+  });
+  
+  // Cashfree Transactions
+  app.get('/api/admin/financial/cashfree-transactions', requireAdmin, async (req: any, res) => {
+    try {
+      const { status, dateFrom, dateTo, limit = 50, offset = 0 } = req.query;
+      
+      const result = await storage.getCashfreeTransactions({
+        status: status as string,
+        dateFrom: dateFrom as string,
+        dateTo: dateTo as string,
+        limit: parseInt(limit as string),
+        offset: parseInt(offset as string)
+      });
+      
+      await adminService.logActivity({
+        userId: req.user.id,
+        action: 'cashfree_transactions_view',
+        resource: '/api/admin/financial/cashfree-transactions',
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      });
+      
+      res.json({
+        success: true,
+        data: result.transactions,
+        pagination: {
+          total: result.total,
+          limit: parseInt(limit as string),
+          offset: parseInt(offset as string),
+          hasMore: (parseInt(offset as string) + parseInt(limit as string)) < result.total
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching Cashfree transactions:', error);
+      res.status(500).json({ message: 'Failed to fetch transactions' });
+    }
+  });
+  
+  // PhonePe Transactions
+  app.get('/api/admin/financial/phonepe-transactions', requireAdmin, async (req: any, res) => {
+    try {
+      const { state, dateFrom, dateTo, limit = 50, offset = 0 } = req.query;
+      
+      const result = await storage.getPhonePeTransactions({
+        state: state as string,
+        dateFrom: dateFrom as string,
+        dateTo: dateTo as string,
+        limit: parseInt(limit as string),
+        offset: parseInt(offset as string)
+      });
+      
+      await adminService.logActivity({
+        userId: req.user.id,
+        action: 'phonepe_transactions_view',
+        resource: '/api/admin/financial/phonepe-transactions',
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      });
+      
+      res.json({
+        success: true,
+        data: result.transactions,
+        pagination: {
+          total: result.total,
+          limit: parseInt(limit as string),
+          offset: parseInt(offset as string),
+          hasMore: (parseInt(offset as string) + parseInt(limit as string)) < result.total
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching PhonePe transactions:', error);
+      res.status(500).json({ message: 'Failed to fetch transactions' });
+    }
+  });
+  
+  // Payment Reconciliation
+  app.get('/api/admin/financial/payment-reconciliation', requireAdmin, async (req: any, res) => {
+    try {
+      const { dateFrom, dateTo } = req.query;
+      
+      const reconciliation = await storage.getPaymentReconciliation(
+        dateFrom as string,
+        dateTo as string
+      );
+      
+      await adminService.logActivity({
+        userId: req.user.id,
+        action: 'payment_reconciliation_view',
+        resource: '/api/admin/financial/payment-reconciliation',
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      });
+      
+      res.json({
+        success: true,
+        data: reconciliation
+      });
+    } catch (error) {
+      console.error('Error fetching payment reconciliation:', error);
+      res.status(500).json({ message: 'Failed to fetch reconciliation data' });
+    }
+  });
+  
+  // Revenue Analytics
+  app.get('/api/admin/financial/revenue-analytics', requireAdmin, async (req: any, res) => {
+    try {
+      const { dateFrom, dateTo } = req.query;
+      
+      const analytics = await storage.getRevenueAnalytics(
+        dateFrom as string,
+        dateTo as string
+      );
+      
+      await adminService.logActivity({
+        userId: req.user.id,
+        action: 'revenue_analytics_view',
+        resource: '/api/admin/financial/revenue-analytics',
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      });
+      
+      res.json({
+        success: true,
+        data: analytics
+      });
+    } catch (error) {
+      console.error('Error fetching revenue analytics:', error);
+      res.status(500).json({ message: 'Failed to fetch analytics' });
+    }
+  });
+  
+  // Refunds - Get all refunds
+  app.get('/api/admin/financial/refunds', requireAdmin, async (req: any, res) => {
+    try {
+      const { status, dateFrom, dateTo, limit = 50, offset = 0 } = req.query;
+      
+      const result = await storage.getRefunds({
+        status: status as string,
+        dateFrom: dateFrom as string,
+        dateTo: dateTo as string,
+        limit: parseInt(limit as string),
+        offset: parseInt(offset as string)
+      });
+      
+      await adminService.logActivity({
+        userId: req.user.id,
+        action: 'refunds_view',
+        resource: '/api/admin/financial/refunds',
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      });
+      
+      res.json({
+        success: true,
+        data: result.refunds,
+        pagination: {
+          total: result.total,
+          limit: parseInt(limit as string),
+          offset: parseInt(offset as string),
+          hasMore: (parseInt(offset as string) + parseInt(limit as string)) < result.total
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching refunds:', error);
+      res.status(500).json({ message: 'Failed to fetch refunds' });
+    }
+  });
+  
+  // Initiate Refund
+  app.post('/api/admin/financial/refunds/initiate', requireAdmin, async (req: any, res) => {
+    try {
+      const { orderId, amount, reason } = req.body;
+      
+      if (!orderId || !amount || !reason) {
+        return res.status(400).json({ message: 'Order ID, amount, and reason are required' });
+      }
+      
+      const refund = await storage.initiateRefund(orderId, amount, reason, req.user.id);
+      
+      complianceMonitor.logEvent({
+        userId: req.user.id,
+        eventType: 'refund_initiated',
+        action: 'initiate_refund',
+        resource: `/api/admin/financial/refunds/initiate`,
+        outcome: 'success',
+        riskLevel: 'medium'
+      });
+      
+      await adminService.logActivity({
+        userId: req.user.id,
+        action: 'refund_initiate',
+        resource: '/api/admin/financial/refunds/initiate',
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        details: { orderId, amount, reason }
+      });
+      
+      res.json({
+        success: true,
+        message: 'Refund initiated successfully',
+        data: refund
+      });
+    } catch (error) {
+      console.error('Error initiating refund:', error);
+      res.status(500).json({ message: 'Failed to initiate refund' });
+    }
+  });
+  
+  // Update Refund Status
+  app.patch('/api/admin/financial/refunds/:id/status', requireAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { status, gatewayRefundId } = req.body;
+      
+      if (!status || !['pending', 'processing', 'completed', 'failed'].includes(status)) {
+        return res.status(400).json({ message: 'Valid status is required' });
+      }
+      
+      const refund = await storage.updateRefundStatus(id, status, gatewayRefundId);
+      
+      if (!refund) {
+        return res.status(404).json({ message: 'Refund not found' });
+      }
+      
+      complianceMonitor.logEvent({
+        userId: req.user.id,
+        eventType: 'refund_status_updated',
+        action: 'update_refund_status',
+        resource: `/api/admin/financial/refunds/${id}/status`,
+        outcome: 'success',
+        riskLevel: 'medium'
+      });
+      
+      await adminService.logActivity({
+        userId: req.user.id,
+        action: 'refund_status_update',
+        resource: `/api/admin/financial/refunds/${id}/status`,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        details: { refundId: id, newStatus: status }
+      });
+      
+      res.json({
+        success: true,
+        message: 'Refund status updated successfully',
+        data: refund
+      });
+    } catch (error) {
+      console.error('Error updating refund status:', error);
+      res.status(500).json({ message: 'Failed to update refund status' });
+    }
+  });
+
 }

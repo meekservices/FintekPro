@@ -895,6 +895,80 @@ export interface IStorage {
   updateUserKycTier(userId: string, tier: string, updatedBy: string, reason?: string): Promise<any | undefined>;
   
   requestUserReKyc(userId: string, requestedBy: string, reason: string): Promise<any>;
+  
+  // Financial Operations - Admin methods
+  // Order Management
+  getFinancialOrdersDashboard(): Promise<{
+    totalOrders: number;
+    pendingOrders: number;
+    completedOrders: number;
+    totalRevenue: string;
+    todayRevenue: string;
+    ordersByStatus: { status: string; count: number }[];
+    ordersByProductType: { productType: string; count: number; revenue: string }[];
+    recentOrders: any[];
+  }>;
+  
+  getUnifiedOrders(filters?: {
+    status?: string;
+    productType?: string;
+    paymentStatus?: string;
+    executionStatus?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ orders: any[]; total: number }>;
+  
+  getUnifiedOrderDetails(orderId: string): Promise<any | undefined>;
+  
+  // Payment Tracking
+  getCashfreeTransactions(filters?: {
+    status?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ transactions: CashfreeTransaction[]; total: number }>;
+  
+  getPhonePeTransactions(filters?: {
+    state?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ transactions: PhonePeTransaction[]; total: number }>;
+  
+  getPaymentReconciliation(dateFrom?: string, dateTo?: string): Promise<{
+    cashfreeTotal: string;
+    phonePeTotal: string;
+    totalCollected: string;
+    successfulPayments: number;
+    failedPayments: number;
+    pendingPayments: number;
+  }>;
+  
+  // Revenue Analytics
+  getRevenueAnalytics(dateFrom?: string, dateTo?: string): Promise<{
+    totalRevenue: string;
+    revenueByProductType: { productType: string; revenue: string; orders: number }[];
+    revenueByGateway: { gateway: string; revenue: string; transactions: number }[];
+    dailyRevenue: { date: string; revenue: string }[];
+  }>;
+  
+  // Refund Processing
+  initiateRefund(orderId: string, amount: string, reason: string, initiatedBy: string): Promise<any>;
+  
+  getRefunds(filters?: {
+    status?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ refunds: any[]; total: number }>;
+  
+  updateRefundStatus(refundId: string, status: string, gatewayRefundId?: string): Promise<any | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -6210,6 +6284,358 @@ export class DatabaseStorage implements IStorage {
       user: updatedUser,
       message: 'Re-KYC requested successfully'
     };
+  }
+  
+  // Financial Operations - Admin implementations
+  async getFinancialOrdersDashboard() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const [totalOrders] = await db.select({ count: sql<number>`count(*)` }).from(schema.unifiedOrders);
+    const [pendingOrders] = await db.select({ count: sql<number>`count(*)` }).from(schema.unifiedOrders).where(eq(schema.unifiedOrders.status, 'pending'));
+    const [completedOrders] = await db.select({ count: sql<number>`count(*)` }).from(schema.unifiedOrders).where(eq(schema.unifiedOrders.status, 'completed'));
+    
+    const [totalRevenueResult] = await db.select({ 
+      total: sql<string>`COALESCE(SUM(CAST(${schema.unifiedOrders.totalAmount} AS DECIMAL)), 0)::text` 
+    }).from(schema.unifiedOrders).where(eq(schema.unifiedOrders.paymentStatus, 'completed'));
+    
+    const [todayRevenueResult] = await db.select({ 
+      total: sql<string>`COALESCE(SUM(CAST(${schema.unifiedOrders.totalAmount} AS DECIMAL)), 0)::text` 
+    }).from(schema.unifiedOrders)
+      .where(and(
+        eq(schema.unifiedOrders.paymentStatus, 'completed'),
+        gte(schema.unifiedOrders.createdAt, today)
+      ));
+    
+    const ordersByStatus = await db.select({
+      status: schema.unifiedOrders.status,
+      count: sql<number>`count(*)::int`
+    }).from(schema.unifiedOrders).groupBy(schema.unifiedOrders.status);
+    
+    const ordersByProductType = await db.select({
+      productType: schema.unifiedOrders.productType,
+      count: sql<number>`count(*)::int`,
+      revenue: sql<string>`COALESCE(SUM(CAST(${schema.unifiedOrders.totalAmount} AS DECIMAL)), 0)::text`
+    }).from(schema.unifiedOrders)
+      .where(eq(schema.unifiedOrders.paymentStatus, 'completed'))
+      .groupBy(schema.unifiedOrders.productType);
+    
+    const recentOrders = await db.select()
+      .from(schema.unifiedOrders)
+      .orderBy(desc(schema.unifiedOrders.createdAt))
+      .limit(10);
+    
+    return {
+      totalOrders: totalOrders?.count || 0,
+      pendingOrders: pendingOrders?.count || 0,
+      completedOrders: completedOrders?.count || 0,
+      totalRevenue: totalRevenueResult?.total || '0',
+      todayRevenue: todayRevenueResult?.total || '0',
+      ordersByStatus,
+      ordersByProductType,
+      recentOrders
+    };
+  }
+  
+  async getUnifiedOrders(filters?: {
+    status?: string;
+    productType?: string;
+    paymentStatus?: string;
+    executionStatus?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }) {
+    const conditions = [];
+    
+    if (filters?.status) {
+      conditions.push(eq(schema.unifiedOrders.status, filters.status));
+    }
+    if (filters?.productType) {
+      conditions.push(eq(schema.unifiedOrders.productType, filters.productType));
+    }
+    if (filters?.paymentStatus) {
+      conditions.push(eq(schema.unifiedOrders.paymentStatus, filters.paymentStatus));
+    }
+    if (filters?.executionStatus) {
+      conditions.push(eq(schema.unifiedOrders.executionStatus, filters.executionStatus));
+    }
+    if (filters?.dateFrom) {
+      conditions.push(gte(schema.unifiedOrders.createdAt, new Date(filters.dateFrom)));
+    }
+    if (filters?.dateTo) {
+      conditions.push(lte(schema.unifiedOrders.createdAt, new Date(filters.dateTo)));
+    }
+    if (filters?.search) {
+      conditions.push(sql`(
+        ${schema.unifiedOrders.orderNumber} ILIKE ${`%${filters.search}%`} OR
+        ${schema.unifiedOrders.userId} ILIKE ${`%${filters.search}%`}
+      )`);
+    }
+    
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    
+    const [{ count }] = await db.select({ count: sql<number>`count(*)` })
+      .from(schema.unifiedOrders)
+      .where(whereClause);
+    
+    const orders = await db.select()
+      .from(schema.unifiedOrders)
+      .where(whereClause)
+      .orderBy(desc(schema.unifiedOrders.createdAt))
+      .limit(filters?.limit || 50)
+      .offset(filters?.offset || 0);
+    
+    return { orders, total: count || 0 };
+  }
+  
+  async getUnifiedOrderDetails(orderId: string) {
+    const [order] = await db.select().from(schema.unifiedOrders).where(eq(schema.unifiedOrders.id, orderId));
+    if (!order) return undefined;
+    
+    const [user] = await db.select().from(schema.users).where(eq(schema.users.id, order.userId));
+    
+    return {
+      ...order,
+      user: user ? {
+        id: user.id,
+        userId: user.userId,
+        name: user.name,
+        email: user.email,
+        mobile: user.mobile
+      } : null
+    };
+  }
+  
+  async getCashfreeTransactions(filters?: {
+    status?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    limit?: number;
+    offset?: number;
+  }) {
+    const conditions = [];
+    
+    if (filters?.status) {
+      conditions.push(eq(schema.cashfreeTransactions.status, filters.status));
+    }
+    if (filters?.dateFrom) {
+      conditions.push(gte(schema.cashfreeTransactions.createdAt, new Date(filters.dateFrom)));
+    }
+    if (filters?.dateTo) {
+      conditions.push(lte(schema.cashfreeTransactions.createdAt, new Date(filters.dateTo)));
+    }
+    
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    
+    const [{ count }] = await db.select({ count: sql<number>`count(*)` })
+      .from(schema.cashfreeTransactions)
+      .where(whereClause);
+    
+    const transactions = await db.select()
+      .from(schema.cashfreeTransactions)
+      .where(whereClause)
+      .orderBy(desc(schema.cashfreeTransactions.createdAt))
+      .limit(filters?.limit || 50)
+      .offset(filters?.offset || 0);
+    
+    return { transactions, total: count || 0 };
+  }
+  
+  async getPhonePeTransactions(filters?: {
+    state?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    limit?: number;
+    offset?: number;
+  }) {
+    const conditions = [];
+    
+    if (filters?.state) {
+      conditions.push(eq(schema.phonePeTransactions.state, filters.state));
+    }
+    if (filters?.dateFrom) {
+      conditions.push(gte(schema.phonePeTransactions.createdAt, new Date(filters.dateFrom)));
+    }
+    if (filters?.dateTo) {
+      conditions.push(lte(schema.phonePeTransactions.createdAt, new Date(filters.dateTo)));
+    }
+    
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    
+    const [{ count }] = await db.select({ count: sql<number>`count(*)` })
+      .from(schema.phonePeTransactions)
+      .where(whereClause);
+    
+    const transactions = await db.select()
+      .from(schema.phonePeTransactions)
+      .where(whereClause)
+      .orderBy(desc(schema.phonePeTransactions.createdAt))
+      .limit(filters?.limit || 50)
+      .offset(filters?.offset || 0);
+    
+    return { transactions, total: count || 0 };
+  }
+  
+  async getPaymentReconciliation(dateFrom?: string, dateTo?: string) {
+    const cashfreeConditions = [];
+    const phonePeConditions = [];
+    
+    if (dateFrom) {
+      cashfreeConditions.push(gte(schema.cashfreeTransactions.createdAt, new Date(dateFrom)));
+      phonePeConditions.push(gte(schema.phonePeTransactions.createdAt, new Date(dateFrom)));
+    }
+    if (dateTo) {
+      cashfreeConditions.push(lte(schema.cashfreeTransactions.createdAt, new Date(dateTo)));
+      phonePeConditions.push(lte(schema.phonePeTransactions.createdAt, new Date(dateTo)));
+    }
+    
+    const [cashfreeStats] = await db.select({
+      total: sql<string>`COALESCE(SUM(CAST(${schema.cashfreeTransactions.amount} AS DECIMAL)), 0)::text`,
+      successCount: sql<number>`COUNT(CASE WHEN ${schema.cashfreeTransactions.status} = 'SUCCESS' THEN 1 END)::int`,
+      failedCount: sql<number>`COUNT(CASE WHEN ${schema.cashfreeTransactions.status} = 'FAILED' THEN 1 END)::int`,
+      pendingCount: sql<number>`COUNT(CASE WHEN ${schema.cashfreeTransactions.status} = 'PENDING' THEN 1 END)::int`
+    }).from(schema.cashfreeTransactions)
+      .where(cashfreeConditions.length > 0 ? and(...cashfreeConditions) : undefined);
+    
+    const [phonePeStats] = await db.select({
+      total: sql<string>`COALESCE(SUM(CAST(${schema.phonePeTransactions.amount} AS DECIMAL)), 0)::text`,
+      successCount: sql<number>`COUNT(CASE WHEN ${schema.phonePeTransactions.state} = 'COMPLETED' THEN 1 END)::int`,
+      failedCount: sql<number>`COUNT(CASE WHEN ${schema.phonePeTransactions.state} = 'FAILED' THEN 1 END)::int`,
+      pendingCount: sql<number>`COUNT(CASE WHEN ${schema.phonePeTransactions.state} = 'PENDING' THEN 1 END)::int`
+    }).from(schema.phonePeTransactions)
+      .where(phonePeConditions.length > 0 ? and(...phonePeConditions) : undefined);
+    
+    const cashfreeTotal = parseFloat(cashfreeStats?.total || '0');
+    const phonePeTotal = parseFloat(phonePeStats?.total || '0');
+    
+    return {
+      cashfreeTotal: cashfreeStats?.total || '0',
+      phonePeTotal: phonePeStats?.total || '0',
+      totalCollected: (cashfreeTotal + phonePeTotal).toString(),
+      successfulPayments: (cashfreeStats?.successCount || 0) + (phonePeStats?.successCount || 0),
+      failedPayments: (cashfreeStats?.failedCount || 0) + (phonePeStats?.failedCount || 0),
+      pendingPayments: (cashfreeStats?.pendingCount || 0) + (phonePeStats?.pendingCount || 0)
+    };
+  }
+  
+  async getRevenueAnalytics(dateFrom?: string, dateTo?: string) {
+    const conditions = [eq(schema.unifiedOrders.paymentStatus, 'completed')];
+    
+    if (dateFrom) {
+      conditions.push(gte(schema.unifiedOrders.createdAt, new Date(dateFrom)));
+    }
+    if (dateTo) {
+      conditions.push(lte(schema.unifiedOrders.createdAt, new Date(dateTo)));
+    }
+    
+    const whereClause = and(...conditions);
+    
+    const [totalRevenueResult] = await db.select({
+      total: sql<string>`COALESCE(SUM(CAST(${schema.unifiedOrders.totalAmount} AS DECIMAL)), 0)::text`
+    }).from(schema.unifiedOrders).where(whereClause);
+    
+    const revenueByProductType = await db.select({
+      productType: schema.unifiedOrders.productType,
+      revenue: sql<string>`COALESCE(SUM(CAST(${schema.unifiedOrders.totalAmount} AS DECIMAL)), 0)::text`,
+      orders: sql<number>`count(*)::int`
+    }).from(schema.unifiedOrders)
+      .where(whereClause)
+      .groupBy(schema.unifiedOrders.productType);
+    
+    const revenueByGateway = await db.select({
+      gateway: schema.unifiedOrders.paymentGateway,
+      revenue: sql<string>`COALESCE(SUM(CAST(${schema.unifiedOrders.totalAmount} AS DECIMAL)), 0)::text`,
+      transactions: sql<number>`count(*)::int`
+    }).from(schema.unifiedOrders)
+      .where(whereClause)
+      .groupBy(schema.unifiedOrders.paymentGateway);
+    
+    const dailyRevenue = await db.select({
+      date: sql<string>`DATE(${schema.unifiedOrders.createdAt})::text`,
+      revenue: sql<string>`COALESCE(SUM(CAST(${schema.unifiedOrders.totalAmount} AS DECIMAL)), 0)::text`
+    }).from(schema.unifiedOrders)
+      .where(whereClause)
+      .groupBy(sql`DATE(${schema.unifiedOrders.createdAt})`)
+      .orderBy(sql`DATE(${schema.unifiedOrders.createdAt})`);
+    
+    return {
+      totalRevenue: totalRevenueResult?.total || '0',
+      revenueByProductType,
+      revenueByGateway,
+      dailyRevenue
+    };
+  }
+  
+  async initiateRefund(orderId: string, amount: string, reason: string, initiatedBy: string) {
+    const [order] = await db.select().from(schema.unifiedOrders).where(eq(schema.unifiedOrders.id, orderId));
+    if (!order) throw new Error('Order not found');
+    
+    const [refund] = await db.insert(schema.orderRefunds).values({
+      id: randomUUID(),
+      orderId,
+      amount,
+      reason,
+      status: 'pending',
+      initiatedBy,
+      createdAt: new Date()
+    }).returning();
+    
+    return refund;
+  }
+  
+  async getRefunds(filters?: {
+    status?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    limit?: number;
+    offset?: number;
+  }) {
+    const conditions = [];
+    
+    if (filters?.status) {
+      conditions.push(eq(schema.orderRefunds.status, filters.status));
+    }
+    if (filters?.dateFrom) {
+      conditions.push(gte(schema.orderRefunds.createdAt, new Date(filters.dateFrom)));
+    }
+    if (filters?.dateTo) {
+      conditions.push(lte(schema.orderRefunds.createdAt, new Date(filters.dateTo)));
+    }
+    
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    
+    const [{ count }] = await db.select({ count: sql<number>`count(*)` })
+      .from(schema.orderRefunds)
+      .where(whereClause);
+    
+    const refunds = await db.select()
+      .from(schema.orderRefunds)
+      .where(whereClause)
+      .orderBy(desc(schema.orderRefunds.createdAt))
+      .limit(filters?.limit || 50)
+      .offset(filters?.offset || 0);
+    
+    return { refunds, total: count || 0 };
+  }
+  
+  async updateRefundStatus(refundId: string, status: string, gatewayRefundId?: string) {
+    const updateData: any = { status };
+    if (gatewayRefundId) {
+      updateData.gatewayRefundId = gatewayRefundId;
+    }
+    if (status === 'completed') {
+      updateData.processedAt = new Date();
+    }
+    
+    const [updated] = await db.update(schema.orderRefunds)
+      .set(updateData)
+      .where(eq(schema.orderRefunds.id, refundId))
+      .returning();
+    
+    return updated;
   }
 }
 
