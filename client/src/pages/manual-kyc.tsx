@@ -291,6 +291,588 @@ const DOCUMENT_REQUIREMENTS: Record<KYCType, DocumentRequirement[]> = {
   ]
 };
 
+// Entity-specific document requirements for corporate entities
+const ENTITY_DOCUMENT_REQUIREMENTS: Record<CorporateEntityType, DocumentRequirement[]> = {
+  private_limited: [
+    {
+      id: 'pan_card',
+      name: 'Company PAN Card',
+      description: 'Permanent Account Number of the company',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'incorporation_cert',
+      name: 'Certificate of Incorporation',
+      description: 'Company registration certificate from ROC',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 10485760
+    },
+    {
+      id: 'moa',
+      name: 'Memorandum of Association (MOA)',
+      description: 'MOA document of the company',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 10485760
+    },
+    {
+      id: 'aoa',
+      name: 'Articles of Association (AOA)',
+      description: 'AOA document of the company',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 10485760
+    },
+    {
+      id: 'board_resolution',
+      name: 'Board Resolution',
+      description: 'Resolution authorizing trading and signatory',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'signatory_pan',
+      name: 'Director PAN',
+      description: 'PAN card of authorized director',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'signatory_aadhar',
+      name: 'Director Aadhaar',
+      description: 'Aadhaar card of authorized director',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'bank_proof',
+      name: 'Company Bank Account Proof',
+      description: 'Cancelled cheque or bank statement',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'address_proof',
+      name: 'Registered Office Address Proof',
+      description: 'Utility bill or rent agreement',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 5242880
+    }
+  ],
+  public_limited: [
+    {
+      id: 'pan_card',
+      name: 'Company PAN Card',
+      description: 'Permanent Account Number of the company',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'incorporation_cert',
+      name: 'Certificate of Incorporation',
+      description: 'Company registration certificate from ROC',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 10485760
+    },
+    {
+      id: 'moa',
+      name: 'Memorandum of Association (MOA)',
+      description: 'MOA document',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 10485760
+    },
+    {
+      id: 'aoa',
+      name: 'Articles of Association (AOA)',
+      description: 'AOA document',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 10485760
+    },
+    {
+      id: 'board_resolution',
+      name: 'Board Resolution',
+      description: 'Resolution authorizing trading and signatory',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'signatory_pan',
+      name: 'Authorized Director PAN',
+      description: 'PAN card of authorized director',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'signatory_aadhar',
+      name: 'Authorized Director Aadhaar',
+      description: 'Aadhaar card of authorized director',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'bank_proof',
+      name: 'Company Bank Account Proof',
+      description: 'Cancelled cheque or bank statement',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'address_proof',
+      name: 'Registered Office Address Proof',
+      description: 'Utility bill or rent agreement',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 5242880
+    }
+  ],
+  llp: [
+    {
+      id: 'pan_card',
+      name: 'LLP PAN Card',
+      description: 'Permanent Account Number of the LLP',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'incorporation_cert',
+      name: 'LLP Registration Certificate',
+      description: 'Registration certificate from ROC',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 10485760
+    },
+    {
+      id: 'llp_agreement',
+      name: 'LLP Agreement',
+      description: 'LLP agreement document',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 10485760
+    },
+    {
+      id: 'board_resolution',
+      name: 'Partners Resolution',
+      description: 'Resolution authorizing trading and signatory',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'signatory_pan',
+      name: 'Designated Partner PAN',
+      description: 'PAN card of designated partner',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'signatory_aadhar',
+      name: 'Designated Partner Aadhaar',
+      description: 'Aadhaar card of designated partner',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'bank_proof',
+      name: 'LLP Bank Account Proof',
+      description: 'Cancelled cheque or bank statement',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'address_proof',
+      name: 'Registered Office Address Proof',
+      description: 'Utility bill or rent agreement',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 5242880
+    }
+  ],
+  partnership: [
+    {
+      id: 'pan_card',
+      name: 'Partnership Firm PAN Card',
+      description: 'Permanent Account Number of the firm',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'partnership_deed',
+      name: 'Partnership Deed',
+      description: 'Partnership deed document',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 10485760
+    },
+    {
+      id: 'registration_cert',
+      name: 'Registration Certificate',
+      description: 'Registration certificate (if registered)',
+      required: false,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'partners_resolution',
+      name: 'Partners Resolution',
+      description: 'Resolution authorizing trading',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'signatory_pan',
+      name: 'Managing Partner PAN',
+      description: 'PAN card of managing partner',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'signatory_aadhar',
+      name: 'Managing Partner Aadhaar',
+      description: 'Aadhaar card of managing partner',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'bank_proof',
+      name: 'Firm Bank Account Proof',
+      description: 'Cancelled cheque or bank statement',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'address_proof',
+      name: 'Firm Address Proof',
+      description: 'Utility bill or rent agreement',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 5242880
+    }
+  ],
+  trust: [
+    {
+      id: 'pan_card',
+      name: 'Trust PAN Card',
+      description: 'Permanent Account Number of the trust',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'trust_deed',
+      name: 'Trust Deed',
+      description: 'Original trust deed document',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 10485760
+    },
+    {
+      id: 'registration_cert',
+      name: 'Registration Certificate',
+      description: 'Trust registration certificate (if registered)',
+      required: false,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'trustee_resolution',
+      name: 'Trustee Resolution',
+      description: 'Resolution authorizing trading',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'signatory_pan',
+      name: 'Trustee PAN',
+      description: 'PAN card of managing trustee',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'signatory_aadhar',
+      name: 'Trustee Aadhaar',
+      description: 'Aadhaar card of managing trustee',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'bank_proof',
+      name: 'Trust Bank Account Proof',
+      description: 'Cancelled cheque or bank statement',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'address_proof',
+      name: 'Trust Address Proof',
+      description: 'Utility bill or rent agreement',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 5242880
+    }
+  ],
+  huf: [
+    {
+      id: 'pan_card',
+      name: 'HUF PAN Card',
+      description: 'Permanent Account Number of the HUF',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'huf_declaration',
+      name: 'HUF Declaration',
+      description: 'Declaration of HUF formation',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'karta_pan',
+      name: 'Karta PAN Card',
+      description: 'PAN card of Karta',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'karta_aadhar',
+      name: 'Karta Aadhaar',
+      description: 'Aadhaar card of Karta',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'bank_proof',
+      name: 'HUF Bank Account Proof',
+      description: 'Cancelled cheque or bank statement in HUF name',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'address_proof',
+      name: 'HUF Address Proof',
+      description: 'Utility bill or address proof',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 5242880
+    }
+  ],
+  society: [
+    {
+      id: 'pan_card',
+      name: 'Society PAN Card',
+      description: 'Permanent Account Number of the society',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'registration_cert',
+      name: 'Society Registration Certificate',
+      description: 'Registration certificate under Societies Act',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 10485760
+    },
+    {
+      id: 'bylaws',
+      name: 'Society Bylaws/Rules',
+      description: 'Society bylaws or rules document',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 10485760
+    },
+    {
+      id: 'resolution',
+      name: 'Society Resolution',
+      description: 'Resolution authorizing trading',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'signatory_pan',
+      name: 'President/Secretary PAN',
+      description: 'PAN card of authorized signatory',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'signatory_aadhar',
+      name: 'President/Secretary Aadhaar',
+      description: 'Aadhaar card of authorized signatory',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'bank_proof',
+      name: 'Society Bank Account Proof',
+      description: 'Cancelled cheque or bank statement',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'address_proof',
+      name: 'Registered Office Address Proof',
+      description: 'Utility bill or rent agreement',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 5242880
+    }
+  ],
+  aop: [
+    {
+      id: 'pan_card',
+      name: 'AOP PAN Card',
+      description: 'Permanent Account Number of the AOP',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'formation_document',
+      name: 'Formation Document',
+      description: 'Document showing formation of AOP',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 10485760
+    },
+    {
+      id: 'resolution',
+      name: 'AOP Resolution',
+      description: 'Resolution authorizing trading',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'signatory_pan',
+      name: 'Representative PAN',
+      description: 'PAN card of authorized representative',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'signatory_aadhar',
+      name: 'Representative Aadhaar',
+      description: 'Aadhaar card of authorized representative',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'bank_proof',
+      name: 'AOP Bank Account Proof',
+      description: 'Cancelled cheque or bank statement',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'address_proof',
+      name: 'Address Proof',
+      description: 'Utility bill or address proof',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 5242880
+    }
+  ],
+  boi: [
+    {
+      id: 'pan_card',
+      name: 'BOI PAN Card',
+      description: 'Permanent Account Number of the BOI',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'formation_document',
+      name: 'Formation Document',
+      description: 'Document showing formation of BOI',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 10485760
+    },
+    {
+      id: 'resolution',
+      name: 'BOI Resolution',
+      description: 'Resolution authorizing trading',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'signatory_pan',
+      name: 'Representative PAN',
+      description: 'PAN card of authorized representative',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'signatory_aadhar',
+      name: 'Representative Aadhaar',
+      description: 'Aadhaar card of authorized representative',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'bank_proof',
+      name: 'BOI Bank Account Proof',
+      description: 'Cancelled cheque or bank statement',
+      required: true,
+      acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
+      maxSize: 5242880
+    },
+    {
+      id: 'address_proof',
+      name: 'Address Proof',
+      description: 'Utility bill or address proof',
+      required: true,
+      acceptedFormats: ['application/pdf'],
+      maxSize: 5242880
+    }
+  ]
+};
+
 export default function ManualKYCPage() {
   const [location, navigate] = useLocation();
   const { toast } = useToast();
@@ -312,7 +894,10 @@ export default function ManualKYCPage() {
     setFormData(prev => ({ ...prev, applicantType: typeParam }));
   }, [typeParam]);
 
-  const requirements = DOCUMENT_REQUIREMENTS[kycType];
+  // Get requirements based on KYC type and entity type
+  const requirements = kycType === 'corporate' 
+    ? ENTITY_DOCUMENT_REQUIREMENTS[entityType]
+    : DOCUMENT_REQUIREMENTS[kycType];
   const requiredDocs = requirements.filter(doc => doc.required);
   const uploadedCount = Object.keys(uploadedDocs).length;
   const requiredCount = requiredDocs.length;
