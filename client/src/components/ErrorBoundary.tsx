@@ -25,8 +25,21 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('Error Boundary caught an error:', error, errorInfo);
+    if (import.meta.env.DEV) {
+      console.error('Error Boundary caught an error:', error, errorInfo);
+    }
+    
     this.setState({ error, errorInfo });
+    
+    // In production, send to error tracking service
+    if (!import.meta.env.DEV) {
+      // Example: analytics.trackError(error, { componentStack: errorInfo.componentStack });
+      console.error('Production Error:', {
+        message: error.message,
+        stack: error.stack,
+        timestamp: new Date().toISOString(),
+      });
+    }
   }
 
   handleReload = () => {
@@ -44,7 +57,7 @@ export class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="min-h-screen flex items-center justify-center p-4" data-testid="error-boundary-container">
           <Card className="w-full max-w-md">
             <CardHeader className="text-center">
               <div className="mx-auto mb-4 p-3 bg-red-100 dark:bg-red-900/20 rounded-full w-fit">
@@ -56,18 +69,26 @@ export class ErrorBoundary extends Component<Props, State> {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {process.env.NODE_ENV === 'development' && this.state.error && (
-                <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-md">
+              {import.meta.env.DEV && this.state.error && (
+                <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-md" data-testid="error-message">
                   <p className="text-sm font-mono text-red-600 dark:text-red-400">
                     {this.state.error.message}
                   </p>
+                  {this.state.errorInfo && (
+                    <details className="mt-2 cursor-pointer">
+                      <summary className="text-xs text-muted-foreground">Stack trace</summary>
+                      <pre className="mt-1 text-xs overflow-auto max-h-32">
+                        {this.state.errorInfo.componentStack}
+                      </pre>
+                    </details>
+                  )}
                 </div>
               )}
               <div className="flex gap-2">
-                <Button onClick={this.handleReset} variant="outline" className="flex-1">
+                <Button onClick={this.handleReset} variant="outline" className="flex-1" data-testid="button-try-again">
                   Try Again
                 </Button>
-                <Button onClick={this.handleReload} className="flex-1">
+                <Button onClick={this.handleReload} className="flex-1" data-testid="button-refresh">
                   <RefreshCw className="h-4 w-4 mr-2" />
                   Refresh Page
                 </Button>
