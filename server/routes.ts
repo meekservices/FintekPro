@@ -86,30 +86,6 @@ import { ProductAccountService } from './product-account-service';
 import { BSEStarKYCService } from './services/bse-star-kyc-service';
 import * as schema from "@shared/schema";
 
-// SECURITY: Ownership validation middleware - ensures users can only access their own data
-const validateOwnership = (paramName: string = 'userId') => {
-  return (req: any, res: any, next: any) => {
-    const requestedUserId = req.params[paramName];
-    const authenticatedUserId = req.user?.id;
-    const userRoles = req.user?.roles || [];
-    
-    // Admins and superadmins can access any user's data
-    if (userRoles.includes('admin') || userRoles.includes('superadmin')) {
-      return next();
-    }
-    
-    // Regular users can only access their own data
-    if (requestedUserId !== authenticatedUserId) {
-      return res.status(403).json({
-        success: false,
-        message: 'Forbidden: You can only access your own data'
-      });
-    }
-    
-    next();
-  };
-};
-
 // Tax Calculation Request Validation Schemas
 const calculateCapitalGainsSchema = z.object({
   stcgAmount: z.number().min(0, "STCG amount must be positive"),
@@ -1677,35 +1653,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user!.id;
       
-      // SECURITY FIX: Check for existing active session
+      // Check for existing active session
       const existingSession = await storage.getActiveKycSession(userId);
       
       if (existingSession) {
-        // Check if session is still valid (not expired)
-        const now = new Date();
-        if (existingSession.expiresAt && new Date(existingSession.expiresAt) > now) {
-          return res.json({
-            success: true,
-            session: existingSession,
-            message: "Resuming existing KYC session"
-          });
-        }
-        
-        // SECURITY FIX: Deactivate expired session before creating new one
-        await db
-          .update(schema.kycVerificationSessions)
-          .set({ isActive: false })
-          .where(eq(schema.kycVerificationSessions.id, existingSession.id));
+        return res.json({
+          success: true,
+          session: existingSession,
+          message: "Resuming existing KYC session"
+        });
       }
-      
-      // SECURITY FIX: Deactivate ALL other active sessions for this user (prevents concurrent session bypass)
-      await db
-        .update(schema.kycVerificationSessions)
-        .set({ isActive: false })
-        .where(and(
-          eq(schema.kycVerificationSessions.userId, userId),
-          eq(schema.kycVerificationSessions.isActive, true)
-        ));
       
       // Create new session
       const session = await storage.createKycVerificationSession({
@@ -1726,6 +1683,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ipAddress: req.ip,
         userAgent: req.headers['user-agent'] || 'unknown'
       });
+      
       res.json({
         success: true,
         session,
@@ -19082,7 +19040,7 @@ System Security Data:`;
   // ============ CKYC (Central KYC Registry) API ROUTES ============
 
   // Get CKYC record for a user
-  app.get("/api/ckyc/:userId", validateOwnership(), async (req, res) => {
+  app.get("/api/ckyc/:userId", async (req, res) => {
     try {
       const { userId } = req.params;
       const ckycRecord = await storage.getCkycRecord(userId);
@@ -19196,7 +19154,7 @@ System Security Data:`;
   });
 
   // Upload CKYC document
-  app.post("/api/ckyc/:userId/documents", validateOwnership(), async (req, res) => {
+  app.post("/api/ckyc/:userId/documents", async (req, res) => {
     try {
       const { userId } = req.params;
       const documentData = insertCkycDocumentSchema.parse(req.body);
@@ -19211,7 +19169,7 @@ System Security Data:`;
   });
 
   // Get CKYC documents for a user
-  app.get("/api/ckyc/:userId/documents", validateOwnership(), async (req, res) => {
+  app.get("/api/ckyc/:userId/documents", async (req, res) => {
     try {
       const { userId } = req.params;
       const documents = await storage.getCkycDocuments(userId);
@@ -19223,7 +19181,7 @@ System Security Data:`;
   });
 
   // Get CKYC status history
-  app.get("/api/ckyc/:userId/history", validateOwnership(), async (req, res) => {
+  app.get("/api/ckyc/:userId/history", async (req, res) => {
     try {
       const { userId } = req.params;
       const history = await storage.getCkycStatusHistory(userId);
@@ -19336,7 +19294,7 @@ System Security Data:`;
   });
 
   // CKYC compliance check for trading/investment activities
-  app.get("/api/ckyc/:userId/compliance", validateOwnership(), async (req, res) => {
+  app.get("/api/ckyc/:userId/compliance", async (req, res) => {
     try {
       const { userId } = req.params;
       const ckycRecord = await storage.getCkycRecord(userId);

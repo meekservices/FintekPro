@@ -60,7 +60,7 @@ export class NRIKYCService {
       // If PAN provided, verify it
       if (pan && dob) {
         try {
-          panDetails = await this.sandboxService.verifyIndividualPAN(pan, dob);
+          panDetails = await this.sandboxService.verifyIndividualPAN(pan, passportName, dob);
         } catch (error) {
           console.warn('PAN verification failed for NRI, continuing with passport only:', error);
         }

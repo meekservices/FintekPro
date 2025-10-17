@@ -231,14 +231,15 @@ export class SandboxKYCService {
   /**
    * Verify Corporate PAN details
    * @param pan - PAN number
+   * @param name - Company/Entity name as per PAN
    */
-  async verifyCorporatePAN(pan: string): Promise<CorporatePANDetails> {
+  async verifyCorporatePAN(pan: string, name: string): Promise<CorporatePANDetails> {
     const token = await this.authenticate();
 
     try {
       const response = await axios.post(
-        `${SANDBOX_BASE_URL}/kyc/pan/verify`,
-        { pan },
+        `${SANDBOX_BASE_URL}/pans/verify`,
+        { pan, name },
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -262,25 +263,37 @@ export class SandboxKYCService {
         category: data.category,
       };
     } catch (error: any) {
-      console.error('Corporate PAN verification error:', error.response?.data || error.message);
-      throw new Error(`PAN verification failed: ${error.response?.data?.message || error.message}`);
+      const errorMsg = error.response?.data?.message || error.message;
+      const statusCode = error.response?.status;
+      
+      console.error(`Sandbox Corporate PAN API Error (${statusCode}):`, errorMsg);
+      
+      if (statusCode === 400) {
+        throw new Error(`Invalid request: ${errorMsg}. Check API credentials or input format.`);
+      } else if (statusCode === 401) {
+        throw new Error('Authentication failed. Verify SANDBOX_API_KEY and SANDBOX_API_SECRET.');
+      }
+      
+      throw new Error(`PAN verification failed: ${errorMsg}`);
     }
   }
 
   /**
-   * Verify Individual PAN details with DOB
+   * Verify Individual PAN details with DOB and Name
    * @param pan - PAN number
+   * @param name - Full name as per PAN
    * @param dob - Date of Birth (YYYY-MM-DD or DD-MM-YYYY)
    */
-  async verifyIndividualPAN(pan: string, dob: string): Promise<IndividualPANDetails> {
+  async verifyIndividualPAN(pan: string, name: string, dob: string): Promise<IndividualPANDetails> {
     // Try real API first
     try {
       const token = await this.authenticate();
       const response = await axios.post(
-        `${SANDBOX_BASE_URL}/kyc/pan/verify`,
+        `${SANDBOX_BASE_URL}/pans/verify`,
         { 
           pan,
-          dob: dob
+          name,
+          dob
         },
         {
           headers: {
@@ -309,15 +322,25 @@ export class SandboxKYCService {
         lastUpdated: data.last_updated || new Date().toISOString(),
       };
     } catch (error: any) {
-      console.error('Sandbox API unavailable, using mock data for testing:', error.message);
+      const errorMsg = error.response?.data?.message || error.message;
+      const statusCode = error.response?.status;
+      
+      console.error(`Sandbox PAN API Error (${statusCode}):`, errorMsg);
+      
+      if (statusCode === 400) {
+        throw new Error(`Invalid request: ${errorMsg}. Check API credentials or input format.`);
+      } else if (statusCode === 401) {
+        throw new Error('Authentication failed. Verify SANDBOX_API_KEY and SANDBOX_API_SECRET.');
+      }
       
       // Return mock data for testing when Sandbox API is unavailable
+      console.warn('Using mock data for testing');
       return {
         pan: pan,
-        fullName: 'Test User Name',
-        firstName: 'Test',
-        middleName: 'User',
-        lastName: 'Name',
+        fullName: name || 'Test User Name',
+        firstName: name?.split(' ')[0] || 'Test',
+        middleName: name?.split(' ')[1],
+        lastName: name?.split(' ').slice(-1)[0] || 'Name',
         dateOfBirth: dob,
         fatherName: 'Test Father Name',
         status: 'Active',
@@ -372,6 +395,7 @@ export class SandboxKYCService {
    */
   async verifyCorporateEntity(params: {
     entityType: 'company' | 'partnership' | 'trust' | 'llp' | 'huf' | 'society';
+    companyName?: string;
     cin?: string;
     gstin?: string;
     pan: string;
@@ -386,7 +410,7 @@ export class SandboxKYCService {
 
     // Verify PAN (mandatory)
     try {
-      results.details.pan = await this.verifyCorporatePAN(params.pan);
+      results.details.pan = await this.verifyCorporatePAN(params.pan, params.companyName || "Company Name");
       results.verified = true;
     } catch (error: any) {
       results.errors.push(`PAN verification failed: ${error.message}`);

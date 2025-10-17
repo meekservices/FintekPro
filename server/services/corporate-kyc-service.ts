@@ -44,10 +44,10 @@ export class CorporateKYCService {
   /**
    * Step 1: Verify Corporate PAN
    */
-  async verifyCorporatePAN(userId: string, pan: string): Promise<CorporatePanVerificationResult> {
+  async verifyCorporatePAN(userId: string, pan: string, companyName: string): Promise<CorporatePanVerificationResult> {
     try {
       // Verify PAN using Sandbox API
-      const panDetails = await this.sandboxService.verifyCorporatePAN(pan);
+      const panDetails = await this.sandboxService.verifyCorporatePAN(pan, companyName);
 
       // Validate it's a corporate PAN
       if (panDetails.category === 'Individual') {
