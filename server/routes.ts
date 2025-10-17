@@ -30796,4 +30796,670 @@ System Security Data:`;
   });
 
   return server;
+
+  // ============= KYC Overview & Dashboard APIs =============
+  
+  // Admin: Get KYC dashboard statistics
+  app.get('/api/admin/kyc/dashboard', requireAdmin, async (req: any, res) => {
+    try {
+      const stats = await storage.getKycDashboardStats();
+      
+      await adminService.logActivity({
+        userId: req.user.id,
+        action: 'kyc_dashboard_view',
+        resource: '/api/admin/kyc/dashboard',
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      });
+      
+      res.json({
+        success: true,
+        data: stats
+      });
+    } catch (error) {
+      console.error('Error fetching KYC dashboard stats:', error);
+      res.status(500).json({ message: 'Failed to fetch dashboard statistics' });
+    }
+  });
+
+  // Admin: Get unified list of all KYC submissions (CKYC + Manual) with filtering
+  app.get('/api/admin/kyc/submissions', requireAdmin, async (req: any, res) => {
+    try {
+      const { status, tier, assignedTo, dateFrom, dateTo, limit = 50, offset = 0 } = req.query;
+      
+      const result = await storage.getUnifiedKycSubmissions({
+        status: status as string,
+        tier: tier as string,
+        assignedTo: assignedTo as string,
+        dateFrom: dateFrom as string,
+        dateTo: dateTo as string,
+        limit: parseInt(limit as string),
+        offset: parseInt(offset as string)
+      });
+
+      await adminService.logActivity({
+        userId: req.user.id,
+        action: 'kyc_submissions_view',
+        resource: '/api/admin/kyc/submissions',
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        details: { filters: { status, tier, assignedTo, dateFrom, dateTo } }
+      });
+
+      res.json({
+        success: true,
+        data: result.submissions,
+        pagination: {
+          total: result.total,
+          limit: parseInt(limit as string),
+          offset: parseInt(offset as string),
+          hasMore: (parseInt(offset as string) + parseInt(limit as string)) < result.total
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching KYC submissions:', error);
+      res.status(500).json({ message: 'Failed to fetch submissions' });
+    }
+  });
+
+  // Admin: Get detailed KYC submission with documents and history
+  app.get('/api/admin/kyc/submissions/:id', requireAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      
+      const details = await storage.getKycSubmissionDetails(id);
+      
+      if (!details) {
+        return res.status(404).json({ message: 'Submission not found' });
+      }
+
+      await adminService.logActivity({
+        userId: req.user.id,
+        action: 'kyc_submission_detail_view',
+        resource: `/api/admin/kyc/submissions/${id}`,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      });
+
+      res.json({
+        success: true,
+        data: details
+      });
+    } catch (error) {
+      console.error('Error fetching KYC submission details:', error);
+      res.status(500).json({ message: 'Failed to fetch submission details' });
+    }
+  });
+
+  // ============= Document Verification APIs =============
+  
+  // Admin: List all KYC documents needing verification
+  app.get('/api/admin/kyc/documents', requireAdmin, async (req: any, res) => {
+    try {
+      const { status, documentType, limit = 50, offset = 0 } = req.query;
+      
+      const result = await storage.getAllKycDocuments({
+        status: status as string,
+        documentType: documentType as string,
+        limit: parseInt(limit as string),
+        offset: parseInt(offset as string)
+      });
+
+      await adminService.logActivity({
+        userId: req.user.id,
+        action: 'kyc_documents_view',
+        resource: '/api/admin/kyc/documents',
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      });
+
+      res.json({
+        success: true,
+        data: result.documents,
+        pagination: {
+          total: result.total,
+          limit: parseInt(limit as string),
+          offset: parseInt(offset as string),
+          hasMore: (parseInt(offset as string) + parseInt(limit as string)) < result.total
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching KYC documents:', error);
+      res.status(500).json({ message: 'Failed to fetch documents' });
+    }
+  });
+
+  // Admin: Verify/reject a specific document
+  app.patch('/api/admin/kyc/documents/:id/verify', requireAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { status, notes } = req.body;
+
+      if (!['verified', 'rejected', 'pending'].includes(status)) {
+        return res.status(400).json({ message: 'Invalid verification status' });
+      }
+
+      const verified = await storage.verifyKycDocument(id, req.user.id, status, notes);
+
+      if (!verified) {
+        return res.status(404).json({ message: 'Document not found' });
+      }
+
+      complianceMonitor.logEvent({
+        userId: req.user.id,
+        eventType: 'kyc_document_verification',
+        category: 'kyc_compliance',
+        action: `Document ${status}`,
+        resource: `/api/admin/kyc/documents/${id}/verify`,
+        status: 'success',
+        metadata: {
+          documentId: id,
+          verificationStatus: status,
+          verifiedBy: req.user.id
+        }
+      });
+
+      await adminService.logActivity({
+        userId: req.user.id,
+        action: 'kyc_document_verify',
+        resource: `/api/admin/kyc/documents/${id}/verify`,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        details: { documentId: id, status, notes }
+      });
+
+      res.json({
+        success: true,
+        message: `Document ${status} successfully`,
+        document: verified
+      });
+    } catch (error) {
+      console.error('Error verifying KYC document:', error);
+      res.status(500).json({ message: 'Failed to verify document' });
+    }
+  });
+
+  // Admin: Bulk verify multiple documents
+  app.post('/api/admin/kyc/documents/bulk-verify', requireAdmin, async (req: any, res) => {
+    try {
+      const { documentIds, status, notes } = req.body;
+
+      if (!documentIds || !Array.isArray(documentIds) || documentIds.length === 0) {
+        return res.status(400).json({ message: 'Document IDs are required' });
+      }
+
+      if (!['verified', 'rejected'].includes(status)) {
+        return res.status(400).json({ message: 'Invalid verification status' });
+      }
+
+      const result = await storage.bulkVerifyKycDocuments(documentIds, req.user.id, status, notes);
+
+      complianceMonitor.logEvent({
+        userId: req.user.id,
+        eventType: 'kyc_bulk_document_verification',
+        category: 'kyc_compliance',
+        action: `Bulk ${status} documents`,
+        resource: '/api/admin/kyc/documents/bulk-verify',
+        status: 'success',
+        metadata: {
+          documentCount: documentIds.length,
+          successCount: result.success,
+          failedCount: result.failed,
+          verifiedBy: req.user.id
+        }
+      });
+
+      await adminService.logActivity({
+        userId: req.user.id,
+        action: 'kyc_bulk_document_verify',
+        resource: '/api/admin/kyc/documents/bulk-verify',
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        details: { documentIds, status, result }
+      });
+
+      res.json({
+        success: true,
+        message: `Bulk verification completed: ${result.success} successful, ${result.failed} failed`,
+        result
+      });
+    } catch (error) {
+      console.error('Error bulk verifying documents:', error);
+      res.status(500).json({ message: 'Failed to bulk verify documents' });
+    }
+  });
+
+  // ============= Bulk Action APIs =============
+  
+  // Admin: Bulk approve KYC submissions
+  app.post('/api/admin/kyc/bulk-approve', requireAdmin, async (req: any, res) => {
+    try {
+      const { submissionIds, notes } = req.body;
+
+      if (!submissionIds || !Array.isArray(submissionIds) || submissionIds.length === 0) {
+        return res.status(400).json({ message: 'Submission IDs are required' });
+      }
+
+      const result = await storage.bulkApproveKycSubmissions(submissionIds, req.user.id, notes);
+
+      complianceMonitor.logEvent({
+        userId: req.user.id,
+        eventType: 'kyc_bulk_approval',
+        category: 'kyc_compliance',
+        action: 'Bulk approve submissions',
+        resource: '/api/admin/kyc/bulk-approve',
+        status: 'success',
+        metadata: {
+          submissionCount: submissionIds.length,
+          successCount: result.success,
+          failedCount: result.failed,
+          approvedBy: req.user.id
+        }
+      });
+
+      await adminService.logActivity({
+        userId: req.user.id,
+        action: 'kyc_bulk_approve',
+        resource: '/api/admin/kyc/bulk-approve',
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        details: { submissionIds, result }
+      });
+
+      res.json({
+        success: true,
+        message: `Bulk approval completed: ${result.success} successful, ${result.failed} failed`,
+        result
+      });
+    } catch (error) {
+      console.error('Error bulk approving submissions:', error);
+      res.status(500).json({ message: 'Failed to bulk approve submissions' });
+    }
+  });
+
+  // Admin: Bulk reject KYC submissions
+  app.post('/api/admin/kyc/bulk-reject', requireAdmin, async (req: any, res) => {
+    try {
+      const { submissionIds, reason } = req.body;
+
+      if (!submissionIds || !Array.isArray(submissionIds) || submissionIds.length === 0) {
+        return res.status(400).json({ message: 'Submission IDs are required' });
+      }
+
+      if (!reason) {
+        return res.status(400).json({ message: 'Rejection reason is required' });
+      }
+
+      const result = await storage.bulkRejectKycSubmissions(submissionIds, req.user.id, reason);
+
+      complianceMonitor.logEvent({
+        userId: req.user.id,
+        eventType: 'kyc_bulk_rejection',
+        category: 'kyc_compliance',
+        action: 'Bulk reject submissions',
+        resource: '/api/admin/kyc/bulk-reject',
+        status: 'success',
+        metadata: {
+          submissionCount: submissionIds.length,
+          successCount: result.success,
+          failedCount: result.failed,
+          rejectedBy: req.user.id,
+          reason
+        }
+      });
+
+      await adminService.logActivity({
+        userId: req.user.id,
+        action: 'kyc_bulk_reject',
+        resource: '/api/admin/kyc/bulk-reject',
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        details: { submissionIds, reason, result }
+      });
+
+      res.json({
+        success: true,
+        message: `Bulk rejection completed: ${result.success} successful, ${result.failed} failed`,
+        result
+      });
+    } catch (error) {
+      console.error('Error bulk rejecting submissions:', error);
+      res.status(500).json({ message: 'Failed to bulk reject submissions' });
+    }
+  });
+
+  // Admin: Bulk assign KYC submissions to reviewers
+  app.post('/api/admin/kyc/bulk-assign', requireAdmin, async (req: any, res) => {
+    try {
+      const { submissionIds, reviewerId } = req.body;
+
+      if (!submissionIds || !Array.isArray(submissionIds) || submissionIds.length === 0) {
+        return res.status(400).json({ message: 'Submission IDs are required' });
+      }
+
+      if (!reviewerId) {
+        return res.status(400).json({ message: 'Reviewer ID is required' });
+      }
+
+      const result = await storage.bulkAssignKycSubmissions(submissionIds, reviewerId, req.user.id);
+
+      complianceMonitor.logEvent({
+        userId: req.user.id,
+        eventType: 'kyc_bulk_assignment',
+        category: 'kyc_compliance',
+        action: 'Bulk assign submissions',
+        resource: '/api/admin/kyc/bulk-assign',
+        status: 'success',
+        metadata: {
+          submissionCount: submissionIds.length,
+          successCount: result.success,
+          failedCount: result.failed,
+          assignedTo: reviewerId,
+          assignedBy: req.user.id
+        }
+      });
+
+      await adminService.logActivity({
+        userId: req.user.id,
+        action: 'kyc_bulk_assign',
+        resource: '/api/admin/kyc/bulk-assign',
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        details: { submissionIds, reviewerId, result }
+      });
+
+      res.json({
+        success: true,
+        message: `Bulk assignment completed: ${result.success} successful, ${result.failed} failed`,
+        result
+      });
+    } catch (error) {
+      console.error('Error bulk assigning submissions:', error);
+      res.status(500).json({ message: 'Failed to bulk assign submissions' });
+    }
+  });
+
+  // ============= Compliance & Audit APIs =============
+  
+  // Admin: List compliance alerts and warnings
+  app.get('/api/admin/compliance/alerts', requireAdmin, async (req: any, res) => {
+    try {
+      const { severity, status, dateFrom, dateTo, limit = 50, offset = 0 } = req.query;
+      
+      const result = await storage.getComplianceAlerts({
+        severity: severity as string,
+        status: status as string,
+        dateFrom: dateFrom as string,
+        dateTo: dateTo as string,
+        limit: parseInt(limit as string),
+        offset: parseInt(offset as string)
+      });
+
+      await adminService.logActivity({
+        userId: req.user.id,
+        action: 'compliance_alerts_view',
+        resource: '/api/admin/compliance/alerts',
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      });
+
+      res.json({
+        success: true,
+        data: result.alerts,
+        pagination: {
+          total: result.total,
+          limit: parseInt(limit as string),
+          offset: parseInt(offset as string),
+          hasMore: (parseInt(offset as string) + parseInt(limit as string)) < result.total
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching compliance alerts:', error);
+      res.status(500).json({ message: 'Failed to fetch compliance alerts' });
+    }
+  });
+
+  // Admin: Get compliance audit trail with filtering
+  app.get('/api/admin/compliance/audit-trail', requireAdmin, async (req: any, res) => {
+    try {
+      const { userId, action, performedBy, dateFrom, dateTo, limit = 100, offset = 0 } = req.query;
+      
+      const result = await storage.getComplianceAuditTrail({
+        userId: userId as string,
+        action: action as string,
+        performedBy: performedBy as string,
+        dateFrom: dateFrom as string,
+        dateTo: dateTo as string,
+        limit: parseInt(limit as string),
+        offset: parseInt(offset as string)
+      });
+
+      await adminService.logActivity({
+        userId: req.user.id,
+        action: 'compliance_audit_trail_view',
+        resource: '/api/admin/compliance/audit-trail',
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        details: { filters: { userId, action, performedBy, dateFrom, dateTo } }
+      });
+
+      res.json({
+        success: true,
+        data: result.records,
+        pagination: {
+          total: result.total,
+          limit: parseInt(limit as string),
+          offset: parseInt(offset as string),
+          hasMore: (parseInt(offset as string) + parseInt(limit as string)) < result.total
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching compliance audit trail:', error);
+      res.status(500).json({ message: 'Failed to fetch audit trail' });
+    }
+  });
+
+  // Admin: Mark compliance alert as resolved
+  app.post('/api/admin/compliance/alerts/:id/resolve', requireAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { resolution } = req.body;
+
+      if (!resolution) {
+        return res.status(400).json({ message: 'Resolution notes are required' });
+      }
+
+      const resolved = await storage.resolveComplianceAlert(id, req.user.id, resolution);
+
+      if (!resolved) {
+        return res.status(404).json({ message: 'Alert not found' });
+      }
+
+      complianceMonitor.logEvent({
+        userId: req.user.id,
+        eventType: 'compliance_alert_resolved',
+        category: 'compliance',
+        action: 'Resolve compliance alert',
+        resource: `/api/admin/compliance/alerts/${id}/resolve`,
+        status: 'success',
+        metadata: {
+          alertId: id,
+          resolvedBy: req.user.id,
+          resolution
+        }
+      });
+
+      await adminService.logActivity({
+        userId: req.user.id,
+        action: 'compliance_alert_resolve',
+        resource: `/api/admin/compliance/alerts/${id}/resolve`,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        details: { alertId: id, resolution }
+      });
+
+      res.json({
+        success: true,
+        message: 'Alert resolved successfully',
+        alert: resolved
+      });
+    } catch (error) {
+      console.error('Error resolving compliance alert:', error);
+      res.status(500).json({ message: 'Failed to resolve alert' });
+    }
+  });
+
+  // Admin: Get compliance statistics
+  app.get('/api/admin/compliance/stats', requireAdmin, async (req: any, res) => {
+    try {
+      const stats = await storage.getComplianceStats();
+
+      await adminService.logActivity({
+        userId: req.user.id,
+        action: 'compliance_stats_view',
+        resource: '/api/admin/compliance/stats',
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      });
+
+      res.json({
+        success: true,
+        data: stats
+      });
+    } catch (error) {
+      console.error('Error fetching compliance statistics:', error);
+      res.status(500).json({ message: 'Failed to fetch compliance statistics' });
+    }
+  });
+
+  // ============= User KYC Management APIs =============
+  
+  // Admin: Get user's complete KYC status across all tiers
+  app.get('/api/admin/kyc/user/:userId/status', requireAdmin, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      
+      const kycStatus = await storage.getUserKycStatus(userId);
+
+      await adminService.logActivity({
+        userId: req.user.id,
+        action: 'user_kyc_status_view',
+        resource: `/api/admin/kyc/user/${userId}/status`,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        details: { targetUserId: userId }
+      });
+
+      res.json({
+        success: true,
+        data: kycStatus
+      });
+    } catch (error) {
+      console.error('Error fetching user KYC status:', error);
+      res.status(500).json({ message: 'Failed to fetch user KYC status' });
+    }
+  });
+
+  // Admin: Update user's KYC tier manually
+  app.patch('/api/admin/kyc/user/:userId/tier', requireAdmin, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const { tier, reason } = req.body;
+
+      if (!tier) {
+        return res.status(400).json({ message: 'Tier is required' });
+      }
+
+      const validTiers = ['none', 'tier_1', 'tier_2', 'tier_3'];
+      if (!validTiers.includes(tier)) {
+        return res.status(400).json({ message: 'Invalid tier value' });
+      }
+
+      const updated = await storage.updateUserKycTier(userId, tier, req.user.id, reason);
+
+      if (!updated) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      complianceMonitor.logEvent({
+        userId: req.user.id,
+        eventType: 'kyc_tier_update',
+        category: 'kyc_compliance',
+        action: `Update KYC tier to ${tier}`,
+        resource: `/api/admin/kyc/user/${userId}/tier`,
+        status: 'success',
+        metadata: {
+          targetUserId: userId,
+          newTier: tier,
+          updatedBy: req.user.id,
+          reason
+        }
+      });
+
+      await adminService.logActivity({
+        userId: req.user.id,
+        action: 'kyc_tier_update',
+        resource: `/api/admin/kyc/user/${userId}/tier`,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        details: { targetUserId: userId, tier, reason }
+      });
+
+      res.json({
+        success: true,
+        message: 'KYC tier updated successfully',
+        user: updated
+      });
+    } catch (error) {
+      console.error('Error updating user KYC tier:', error);
+      res.status(500).json({ message: 'Failed to update KYC tier' });
+    }
+  });
+
+  // Admin: Request re-KYC from user
+  app.post('/api/admin/kyc/user/:userId/request-rekyc', requireAdmin, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const { reason } = req.body;
+
+      if (!reason) {
+        return res.status(400).json({ message: 'Reason for re-KYC is required' });
+      }
+
+      const result = await storage.requestUserReKyc(userId, req.user.id, reason);
+
+      complianceMonitor.logEvent({
+        userId: req.user.id,
+        eventType: 'rekyc_requested',
+        category: 'kyc_compliance',
+        action: 'Request re-KYC',
+        resource: `/api/admin/kyc/user/${userId}/request-rekyc`,
+        status: 'success',
+        metadata: {
+          targetUserId: userId,
+          requestedBy: req.user.id,
+          reason
+        }
+      });
+
+      await adminService.logActivity({
+        userId: req.user.id,
+        action: 'rekyc_request',
+        resource: `/api/admin/kyc/user/${userId}/request-rekyc`,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        details: { targetUserId: userId, reason }
+      });
+
+      res.json({
+        success: true,
+        message: 'Re-KYC requested successfully',
+        data: result
+      });
+    } catch (error) {
+      console.error('Error requesting re-KYC:', error);
+      res.status(500).json({ message: 'Failed to request re-KYC' });
+    }
+  });
+
 }

@@ -817,6 +817,84 @@ export interface IStorage {
   createManualKycDocument(document: InsertManualKycDocument): Promise<ManualKycDocument>;
   getManualKycDocuments(submissionId: string): Promise<ManualKycDocument[]>;
   updateManualKycDocument(id: string, updates: Partial<ManualKycDocument>): Promise<ManualKycDocument | undefined>;
+  
+  // KYC Admin Dashboard methods
+  getKycDashboardStats(): Promise<{
+    totalSubmissions: number;
+    pendingReviews: number;
+    approvedCount: number;
+    rejectedCount: number;
+    tierDistribution: Record<string, number>;
+    recentActivity: any[];
+  }>;
+  
+  // Unified KYC Submissions methods
+  getUnifiedKycSubmissions(filters?: {
+    status?: string;
+    tier?: string;
+    assignedTo?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ submissions: any[]; total: number }>;
+  
+  getKycSubmissionDetails(submissionId: string): Promise<any | undefined>;
+  
+  // KYC Document Verification methods
+  getAllKycDocuments(filters?: {
+    status?: string;
+    documentType?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ documents: any[]; total: number }>;
+  
+  verifyKycDocument(documentId: string, verifierId: string, status: string, notes?: string): Promise<any | undefined>;
+  
+  bulkVerifyKycDocuments(documentIds: string[], verifierId: string, status: string, notes?: string): Promise<{ success: number; failed: number }>;
+  
+  // Bulk KYC Action methods
+  bulkApproveKycSubmissions(submissionIds: string[], approverId: string, notes?: string): Promise<{ success: number; failed: number }>;
+  
+  bulkRejectKycSubmissions(submissionIds: string[], rejectorId: string, reason: string): Promise<{ success: number; failed: number }>;
+  
+  bulkAssignKycSubmissions(submissionIds: string[], reviewerId: string, assignedBy: string): Promise<{ success: number; failed: number }>;
+  
+  // Compliance methods
+  getComplianceAlerts(filters?: {
+    severity?: string;
+    status?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ alerts: any[]; total: number }>;
+  
+  getComplianceAuditTrail(filters?: {
+    userId?: string;
+    action?: string;
+    performedBy?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ records: any[]; total: number }>;
+  
+  resolveComplianceAlert(alertId: string, resolvedBy: string, resolution: string): Promise<any | undefined>;
+  
+  getComplianceStats(): Promise<{
+    totalAlerts: number;
+    criticalAlerts: number;
+    pendingReviews: number;
+    resolvedToday: number;
+  }>;
+  
+  // User KYC Management methods
+  getUserKycStatus(userId: string): Promise<any>;
+  
+  updateUserKycTier(userId: string, tier: string, updatedBy: string, reason?: string): Promise<any | undefined>;
+  
+  requestUserReKyc(userId: string, requestedBy: string, reason: string): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -5550,6 +5628,588 @@ export class DatabaseStorage implements IStorage {
       .where(eq(schema.manualKycDocuments.id, id))
       .returning();
     return updated || undefined;
+  }
+  
+  async getKycDashboardStats(): Promise<{
+    totalSubmissions: number;
+    pendingReviews: number;
+    approvedCount: number;
+    rejectedCount: number;
+    tierDistribution: Record<string, number>;
+    recentActivity: any[];
+  }> {
+    const manualSubmissions = await db.select().from(schema.manualKycSubmissions);
+    const ckycRecords = await db.select().from(schema.ckycRecords);
+    
+    const allSubmissions = [...manualSubmissions, ...ckycRecords];
+    
+    const pendingReviews = manualSubmissions.filter(s => s.status === 'pending' || s.status === 'under_review').length;
+    const approvedCount = allSubmissions.filter((s: any) => s.status === 'approved' || s.status === 'verified').length;
+    const rejectedCount = allSubmissions.filter((s: any) => s.status === 'rejected').length;
+    
+    const tierDistribution: Record<string, number> = {};
+    ckycRecords.forEach(record => {
+      const tier = record.kycTier || 'tier_1';
+      tierDistribution[tier] = (tierDistribution[tier] || 0) + 1;
+    });
+    
+    const recentActivity = await db.select()
+      .from(schema.ckycStatusHistory)
+      .orderBy(desc(schema.ckycStatusHistory.changedAt))
+      .limit(10);
+    
+    return {
+      totalSubmissions: allSubmissions.length,
+      pendingReviews,
+      approvedCount,
+      rejectedCount,
+      tierDistribution,
+      recentActivity
+    };
+  }
+  
+  async getUnifiedKycSubmissions(filters?: {
+    status?: string;
+    tier?: string;
+    assignedTo?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ submissions: any[]; total: number }> {
+    const conditions = [];
+    
+    let manualQuery = db.select({
+      id: schema.manualKycSubmissions.id,
+      userId: schema.manualKycSubmissions.userId,
+      type: sql<string>`'manual'`.as('type'),
+      status: schema.manualKycSubmissions.status,
+      tier: sql<string>`NULL`.as('tier'),
+      createdAt: schema.manualKycSubmissions.createdAt,
+      fullName: sql<string>`CONCAT(${schema.manualKycSubmissions.firstName}, ' ', ${schema.manualKycSubmissions.lastName})`.as('fullName'),
+      email: schema.manualKycSubmissions.email,
+      assignedTo: sql<string>`NULL`.as('assignedTo')
+    }).from(schema.manualKycSubmissions);
+    
+    let ckycQuery = db.select({
+      id: schema.ckycRecords.id,
+      userId: schema.ckycRecords.userId,
+      type: sql<string>`'ckyc'`.as('type'),
+      status: schema.ckycRecords.kycStatus,
+      tier: schema.ckycRecords.kycTier,
+      createdAt: schema.ckycRecords.createdAt,
+      fullName: sql<string>`CONCAT(${schema.ckycRecords.firstName}, ' ', ${schema.ckycRecords.lastName})`.as('fullName'),
+      email: schema.ckycRecords.email,
+      assignedTo: sql<string>`NULL`.as('assignedTo')
+    }).from(schema.ckycRecords);
+    
+    if (filters?.status) {
+      manualQuery = manualQuery.where(eq(schema.manualKycSubmissions.status, filters.status)) as any;
+      ckycQuery = ckycQuery.where(eq(schema.ckycRecords.kycStatus, filters.status)) as any;
+    }
+    
+    if (filters?.tier) {
+      ckycQuery = ckycQuery.where(eq(schema.ckycRecords.kycTier, filters.tier)) as any;
+    }
+    
+    if (filters?.dateFrom) {
+      const fromDate = new Date(filters.dateFrom);
+      manualQuery = manualQuery.where(gte(schema.manualKycSubmissions.createdAt, fromDate)) as any;
+      ckycQuery = ckycQuery.where(gte(schema.ckycRecords.createdAt, fromDate)) as any;
+    }
+    
+    if (filters?.dateTo) {
+      const toDate = new Date(filters.dateTo);
+      manualQuery = manualQuery.where(lte(schema.manualKycSubmissions.createdAt, toDate)) as any;
+      ckycQuery = ckycQuery.where(lte(schema.ckycRecords.createdAt, toDate)) as any;
+    }
+    
+    const manualSubmissions = await manualQuery;
+    const ckycSubmissions = await ckycQuery;
+    
+    let allSubmissions = [...manualSubmissions, ...ckycSubmissions];
+    allSubmissions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    
+    const total = allSubmissions.length;
+    const limit = filters?.limit || 50;
+    const offset = filters?.offset || 0;
+    
+    allSubmissions = allSubmissions.slice(offset, offset + limit);
+    
+    return { submissions: allSubmissions, total };
+  }
+  
+  async getKycSubmissionDetails(submissionId: string): Promise<any | undefined> {
+    const manualSubmission = await db.select()
+      .from(schema.manualKycSubmissions)
+      .where(eq(schema.manualKycSubmissions.id, submissionId))
+      .limit(1);
+    
+    if (manualSubmission.length > 0) {
+      const documents = await this.getManualKycDocuments(submissionId);
+      return {
+        type: 'manual',
+        submission: manualSubmission[0],
+        documents,
+        history: []
+      };
+    }
+    
+    const ckycRecord = await db.select()
+      .from(schema.ckycRecords)
+      .where(eq(schema.ckycRecords.id, submissionId))
+      .limit(1);
+    
+    if (ckycRecord.length > 0) {
+      const documents = await db.select()
+        .from(schema.ckycDocuments)
+        .where(eq(schema.ckycDocuments.ckycRecordId, submissionId));
+      
+      const history = await db.select()
+        .from(schema.ckycStatusHistory)
+        .where(eq(schema.ckycStatusHistory.ckycRecordId, submissionId))
+        .orderBy(desc(schema.ckycStatusHistory.changedAt));
+      
+      return {
+        type: 'ckyc',
+        submission: ckycRecord[0],
+        documents,
+        history
+      };
+    }
+    
+    return undefined;
+  }
+  
+  async getAllKycDocuments(filters?: {
+    status?: string;
+    documentType?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ documents: any[]; total: number }> {
+    let manualDocsQuery = db.select({
+      id: schema.manualKycDocuments.id,
+      submissionId: schema.manualKycDocuments.submissionId,
+      type: sql<string>`'manual'`.as('type'),
+      documentType: schema.manualKycDocuments.documentType,
+      documentUrl: schema.manualKycDocuments.documentUrl,
+      fileName: schema.manualKycDocuments.fileName,
+      verificationStatus: schema.manualKycDocuments.verificationStatus,
+      uploadedAt: schema.manualKycDocuments.uploadedAt,
+      verifiedAt: schema.manualKycDocuments.verifiedAt,
+      verifiedBy: schema.manualKycDocuments.verifiedBy
+    }).from(schema.manualKycDocuments);
+    
+    let ckycDocsQuery = db.select({
+      id: schema.ckycDocuments.id,
+      submissionId: schema.ckycDocuments.ckycRecordId,
+      type: sql<string>`'ckyc'`.as('type'),
+      documentType: schema.ckycDocuments.documentType,
+      documentUrl: schema.ckycDocuments.documentUrl,
+      fileName: sql<string>`NULL`.as('fileName'),
+      verificationStatus: schema.ckycDocuments.verificationStatus,
+      uploadedAt: schema.ckycDocuments.uploadedAt,
+      verifiedAt: schema.ckycDocuments.verifiedAt,
+      verifiedBy: sql<string>`NULL`.as('verifiedBy')
+    }).from(schema.ckycDocuments);
+    
+    if (filters?.status) {
+      manualDocsQuery = manualDocsQuery.where(eq(schema.manualKycDocuments.verificationStatus, filters.status)) as any;
+      ckycDocsQuery = ckycDocsQuery.where(eq(schema.ckycDocuments.verificationStatus, filters.status)) as any;
+    }
+    
+    if (filters?.documentType) {
+      manualDocsQuery = manualDocsQuery.where(eq(schema.manualKycDocuments.documentType, filters.documentType)) as any;
+      ckycDocsQuery = ckycDocsQuery.where(eq(schema.ckycDocuments.documentType, filters.documentType)) as any;
+    }
+    
+    const manualDocs = await manualDocsQuery;
+    const ckycDocs = await ckycDocsQuery;
+    
+    let allDocuments = [...manualDocs, ...ckycDocs];
+    allDocuments.sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime());
+    
+    const total = allDocuments.length;
+    const limit = filters?.limit || 50;
+    const offset = filters?.offset || 0;
+    
+    allDocuments = allDocuments.slice(offset, offset + limit);
+    
+    return { documents: allDocuments, total };
+  }
+  
+  async verifyKycDocument(documentId: string, verifierId: string, status: string, notes?: string): Promise<any | undefined> {
+    const manualDoc = await db.update(schema.manualKycDocuments)
+      .set({
+        verificationStatus: status,
+        verifiedBy: verifierId,
+        verifiedAt: new Date(),
+        verificationNotes: notes
+      })
+      .where(eq(schema.manualKycDocuments.id, documentId))
+      .returning();
+    
+    if (manualDoc.length > 0) {
+      return manualDoc[0];
+    }
+    
+    const ckycDoc = await db.update(schema.ckycDocuments)
+      .set({
+        verificationStatus: status,
+        verifiedAt: new Date()
+      })
+      .where(eq(schema.ckycDocuments.id, documentId))
+      .returning();
+    
+    return ckycDoc[0] || undefined;
+  }
+  
+  async bulkVerifyKycDocuments(documentIds: string[], verifierId: string, status: string, notes?: string): Promise<{ success: number; failed: number }> {
+    let success = 0;
+    let failed = 0;
+    
+    for (const docId of documentIds) {
+      try {
+        await this.verifyKycDocument(docId, verifierId, status, notes);
+        success++;
+      } catch (error) {
+        failed++;
+      }
+    }
+    
+    return { success, failed };
+  }
+  
+  async bulkApproveKycSubmissions(submissionIds: string[], approverId: string, notes?: string): Promise<{ success: number; failed: number }> {
+    let success = 0;
+    let failed = 0;
+    
+    for (const subId of submissionIds) {
+      try {
+        const manualResult = await this.reviewManualKycSubmission(subId, approverId, 'approved', notes);
+        if (manualResult) {
+          success++;
+          continue;
+        }
+        
+        const ckycResult = await db.update(schema.ckycRecords)
+          .set({
+            kycStatus: 'verified',
+            updatedAt: new Date()
+          })
+          .where(eq(schema.ckycRecords.id, subId))
+          .returning();
+        
+        if (ckycResult.length > 0) {
+          await db.insert(schema.ckycStatusHistory).values({
+            ckycRecordId: subId,
+            previousStatus: ckycResult[0].kycStatus,
+            newStatus: 'verified',
+            changedBy: approverId,
+            reason: notes || 'Bulk approval',
+            changedAt: new Date()
+          });
+          success++;
+        } else {
+          failed++;
+        }
+      } catch (error) {
+        failed++;
+      }
+    }
+    
+    return { success, failed };
+  }
+  
+  async bulkRejectKycSubmissions(submissionIds: string[], rejectorId: string, reason: string): Promise<{ success: number; failed: number }> {
+    let success = 0;
+    let failed = 0;
+    
+    for (const subId of submissionIds) {
+      try {
+        const manualResult = await this.reviewManualKycSubmission(subId, rejectorId, 'rejected', undefined, reason);
+        if (manualResult) {
+          success++;
+          continue;
+        }
+        
+        const ckycResult = await db.update(schema.ckycRecords)
+          .set({
+            kycStatus: 'rejected',
+            updatedAt: new Date()
+          })
+          .where(eq(schema.ckycRecords.id, subId))
+          .returning();
+        
+        if (ckycResult.length > 0) {
+          await db.insert(schema.ckycStatusHistory).values({
+            ckycRecordId: subId,
+            previousStatus: ckycResult[0].kycStatus,
+            newStatus: 'rejected',
+            changedBy: rejectorId,
+            reason,
+            changedAt: new Date()
+          });
+          success++;
+        } else {
+          failed++;
+        }
+      } catch (error) {
+        failed++;
+      }
+    }
+    
+    return { success, failed };
+  }
+  
+  async bulkAssignKycSubmissions(submissionIds: string[], reviewerId: string, assignedBy: string): Promise<{ success: number; failed: number }> {
+    let success = 0;
+    let failed = 0;
+    
+    for (const subId of submissionIds) {
+      try {
+        const result = await db.update(schema.manualKycSubmissions)
+          .set({
+            reviewedBy: reviewerId,
+            updatedAt: new Date()
+          })
+          .where(eq(schema.manualKycSubmissions.id, subId))
+          .returning();
+        
+        if (result.length > 0) {
+          success++;
+        } else {
+          failed++;
+        }
+      } catch (error) {
+        failed++;
+      }
+    }
+    
+    return { success, failed };
+  }
+  
+  async getComplianceAlerts(filters?: {
+    severity?: string;
+    status?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ alerts: any[]; total: number }> {
+    let query = db.select().from(schema.complianceAuditTrail);
+    const conditions = [];
+    
+    if (filters?.dateFrom) {
+      conditions.push(gte(schema.complianceAuditTrail.createdAt, new Date(filters.dateFrom)));
+    }
+    
+    if (filters?.dateTo) {
+      conditions.push(lte(schema.complianceAuditTrail.createdAt, new Date(filters.dateTo)));
+    }
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+    
+    query = query.orderBy(desc(schema.complianceAuditTrail.createdAt)) as any;
+    
+    const allRecords = await query;
+    
+    const alerts = allRecords.filter(r => 
+      r.riskImpact === 'high' || r.complianceImpact === 'major' || r.complianceImpact === 'critical'
+    ).map(record => ({
+      ...record,
+      severity: record.complianceImpact === 'critical' ? 'critical' : 
+                record.riskImpact === 'high' ? 'high' : 'medium',
+      status: 'pending'
+    }));
+    
+    const total = alerts.length;
+    const limit = filters?.limit || 50;
+    const offset = filters?.offset || 0;
+    
+    return { 
+      alerts: alerts.slice(offset, offset + limit), 
+      total 
+    };
+  }
+  
+  async getComplianceAuditTrail(filters?: {
+    userId?: string;
+    action?: string;
+    performedBy?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ records: any[]; total: number }> {
+    let query = db.select().from(schema.complianceAuditTrail);
+    const conditions = [];
+    
+    if (filters?.userId) {
+      conditions.push(eq(schema.complianceAuditTrail.userId, filters.userId));
+    }
+    
+    if (filters?.action) {
+      conditions.push(eq(schema.complianceAuditTrail.action, filters.action));
+    }
+    
+    if (filters?.performedBy) {
+      conditions.push(eq(schema.complianceAuditTrail.performedBy, filters.performedBy));
+    }
+    
+    if (filters?.dateFrom) {
+      conditions.push(gte(schema.complianceAuditTrail.createdAt, new Date(filters.dateFrom)));
+    }
+    
+    if (filters?.dateTo) {
+      conditions.push(lte(schema.complianceAuditTrail.createdAt, new Date(filters.dateTo)));
+    }
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+    
+    query = query.orderBy(desc(schema.complianceAuditTrail.createdAt)) as any;
+    
+    const allRecords = await query;
+    const total = allRecords.length;
+    const limit = filters?.limit || 100;
+    const offset = filters?.offset || 0;
+    
+    return { 
+      records: allRecords.slice(offset, offset + limit), 
+      total 
+    };
+  }
+  
+  async resolveComplianceAlert(alertId: string, resolvedBy: string, resolution: string): Promise<any | undefined> {
+    const [updated] = await db.update(schema.complianceAuditTrail)
+      .set({
+        metadata: sql`jsonb_set(COALESCE(metadata, '{}'::jsonb), '{resolved}', 'true'::jsonb)`,
+      })
+      .where(eq(schema.complianceAuditTrail.id, alertId))
+      .returning();
+    
+    return updated || undefined;
+  }
+  
+  async getComplianceStats(): Promise<{
+    totalAlerts: number;
+    criticalAlerts: number;
+    pendingReviews: number;
+    resolvedToday: number;
+  }> {
+    const allRecords = await db.select().from(schema.complianceAuditTrail);
+    
+    const alerts = allRecords.filter(r => 
+      r.riskImpact === 'high' || r.complianceImpact === 'major' || r.complianceImpact === 'critical'
+    );
+    
+    const criticalAlerts = alerts.filter(a => a.complianceImpact === 'critical').length;
+    
+    const manualSubmissions = await db.select()
+      .from(schema.manualKycSubmissions)
+      .where(or(
+        eq(schema.manualKycSubmissions.status, 'pending'),
+        eq(schema.manualKycSubmissions.status, 'under_review')
+      ));
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const resolvedToday = allRecords.filter(r => {
+      const metadata = r.metadata as any;
+      return metadata?.resolved && new Date(r.createdAt) >= today;
+    }).length;
+    
+    return {
+      totalAlerts: alerts.length,
+      criticalAlerts,
+      pendingReviews: manualSubmissions.length,
+      resolvedToday
+    };
+  }
+  
+  async getUserKycStatus(userId: string): Promise<any> {
+    const user = await this.getUser(userId);
+    const userProfile = await this.getUserProfile(userId);
+    const ckycRecords = await db.select()
+      .from(schema.ckycRecords)
+      .where(eq(schema.ckycRecords.userId, userId));
+    
+    const manualSubmissions = await db.select()
+      .from(schema.manualKycSubmissions)
+      .where(eq(schema.manualKycSubmissions.userId, userId));
+    
+    return {
+      userId,
+      user,
+      userProfile,
+      kycTier: user?.kycTier || 'none',
+      kycStatus: user?.kycStatus || 'not_started',
+      ckycRecords,
+      manualSubmissions,
+      totalDocuments: ckycRecords.length + manualSubmissions.length
+    };
+  }
+  
+  async updateUserKycTier(userId: string, tier: string, updatedBy: string, reason?: string): Promise<any | undefined> {
+    const [updatedUser] = await db.update(schema.users)
+      .set({
+        kycTier: tier,
+        updatedAt: new Date()
+      })
+      .where(eq(schema.users.id, userId))
+      .returning();
+    
+    if (updatedUser) {
+      await db.insert(schema.complianceAuditTrail).values({
+        userId,
+        action: 'kyc_tier_update',
+        fieldChanged: 'kycTier',
+        oldValue: updatedUser.kycTier,
+        newValue: tier,
+        reason: reason || 'Manual tier update',
+        performedBy: updatedBy,
+        performedByRole: 'admin',
+        riskImpact: 'medium',
+        complianceImpact: 'major',
+        createdAt: new Date()
+      });
+    }
+    
+    return updatedUser || undefined;
+  }
+  
+  async requestUserReKyc(userId: string, requestedBy: string, reason: string): Promise<any> {
+    const [updatedUser] = await db.update(schema.users)
+      .set({
+        kycStatus: 'rekyc_required',
+        updatedAt: new Date()
+      })
+      .where(eq(schema.users.id, userId))
+      .returning();
+    
+    await db.insert(schema.complianceAuditTrail).values({
+      userId,
+      action: 'rekyc_requested',
+      fieldChanged: 'kycStatus',
+      newValue: 'rekyc_required',
+      reason,
+      performedBy: requestedBy,
+      performedByRole: 'admin',
+      riskImpact: 'high',
+      complianceImpact: 'major',
+      createdAt: new Date()
+    });
+    
+    return {
+      success: true,
+      user: updatedUser,
+      message: 'Re-KYC requested successfully'
+    };
   }
 }
 

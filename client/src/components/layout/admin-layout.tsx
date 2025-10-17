@@ -40,6 +40,12 @@ const adminNavItems = [
     description: "Manage clients, partners, agents & suppliers"
   },
   {
+    title: "KYC & Compliance",
+    href: "/admin/kyc-compliance",
+    icon: FileCheck,
+    description: "Review KYC submissions & compliance"
+  },
+  {
     title: "Users & Access",
     href: "/admin/users",
     icon: Users,
