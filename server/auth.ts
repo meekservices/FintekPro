@@ -783,26 +783,32 @@ export function setupAuth(app: Express) {
       
       await storage.updateUser(user.id, updates);
 
-      // Complete login by creating session
-      req.login(user, (loginErr) => {
+      // Fetch updated user data after saving timestamps
+      const updatedUser = await storage.getUser(user.id);
+      if (!updatedUser) {
+        return res.status(500).json({ message: "Failed to retrieve updated user data" });
+      }
+
+      // Complete login by creating session with updated user data
+      req.login(updatedUser, (loginErr) => {
         if (loginErr) {
           console.error("Login session error:", loginErr);
           return res.status(500).json({ message: "Login failed" });
         }
         
         res.json({
-          id: user.id,
-          userId: user.userId,
-          email: user.email,
-          mobile: user.mobile,
-          firstName: user.firstName,
-          middleName: user.middleName,
-          lastName: user.lastName,
-          isEmailVerified: user.isEmailVerified,
-          isMobileVerified: user.isMobileVerified,
-          lastLoginAt: updates.lastLoginAt,
-          previousLoginAt: updates.previousLoginAt,
-          loginCount: updates.loginCount,
+          id: updatedUser.id,
+          userId: updatedUser.userId,
+          email: updatedUser.email,
+          mobile: updatedUser.mobile,
+          firstName: updatedUser.firstName,
+          middleName: updatedUser.middleName,
+          lastName: updatedUser.lastName,
+          isEmailVerified: updatedUser.isEmailVerified,
+          isMobileVerified: updatedUser.isMobileVerified,
+          lastLoginAt: updatedUser.lastLoginAt,
+          previousLoginAt: updatedUser.previousLoginAt,
+          loginCount: updatedUser.loginCount,
           message: "Login successful"
         });
       });
