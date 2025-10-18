@@ -12,6 +12,29 @@ import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { Trash2, Plus, RefreshCw, CheckCircle, XCircle, Link as LinkIcon } from 'lucide-react';
 
+interface ZohoConnection {
+  id: string;
+  connectionName: string;
+  isActive: boolean;
+  enabledServices?: string[];
+  zohoDataCenter: string;
+  createdAt: string;
+  lastSyncAt?: string;
+  tokenExpiresAt?: string;
+}
+
+interface RateLimit {
+  connectionId: string;
+  percentUsed: number;
+  availableTokens: number;
+  usedTokens: number;
+  maxTokens: number;
+}
+
+interface RateLimitsResponse {
+  rateLimits?: RateLimit[];
+}
+
 const ZOHO_SERVICES = [
   { id: 'CRM', name: 'CRM', description: 'Customer Relationship Management' },
   { id: 'Books', name: 'Books', description: 'Accounting & Invoicing' },
@@ -35,11 +58,11 @@ export default function ZohoConnectionsPage() {
   const [selectedServices, setSelectedServices] = useState<string[]>(['CRM']);
   const [isRefreshing, setIsRefreshing] = useState<string | null>(null);
 
-  const { data: connections, isLoading } = useQuery({
+  const { data: connections, isLoading } = useQuery<ZohoConnection[]>({
     queryKey: ['/api/zoho/connections']
   });
 
-  const { data: rateLimits } = useQuery({
+  const { data: rateLimits } = useQuery<RateLimitsResponse>({
     queryKey: ['/api/zoho/admin/rate-limits']
   });
 
@@ -120,7 +143,7 @@ export default function ZohoConnectionsPage() {
   };
 
   const getRateLimitForConnection = (connectionId: string) => {
-    return rateLimits?.rateLimits?.find((r: any) => r.connectionId === connectionId);
+    return rateLimits?.rateLimits?.find(r => r.connectionId === connectionId);
   };
 
   if (isLoading) {
@@ -237,7 +260,7 @@ export default function ZohoConnectionsPage() {
         </Card>
       ) : (
         <div className="grid gap-4">
-          {connections?.map((connection: any) => {
+          {connections?.map((connection) => {
             const rateLimit = getRateLimitForConnection(connection.id);
             return (
               <Card key={connection.id} data-testid={`connection-card-${connection.id}`}>
@@ -291,7 +314,7 @@ export default function ZohoConnectionsPage() {
                     <div>
                       <h4 className="text-sm font-medium mb-2">Enabled Services</h4>
                       <div className="flex flex-wrap gap-2">
-                        {connection.enabledServices?.map((service: string) => (
+                        {connection.enabledServices?.map((service) => (
                           <Badge key={service} variant="outline">
                             {service}
                           </Badge>
@@ -341,7 +364,9 @@ export default function ZohoConnectionsPage() {
                       <div>
                         <span className="text-muted-foreground">Token Expires:</span>
                         <span className="ml-2 font-medium">
-                          {new Date(connection.tokenExpiresAt).toLocaleString()}
+                          {connection.tokenExpiresAt 
+                            ? new Date(connection.tokenExpiresAt).toLocaleString()
+                            : 'N/A'}
                         </span>
                       </div>
                     </div>

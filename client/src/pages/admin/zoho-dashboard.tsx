@@ -5,38 +5,78 @@ import { Button } from '@/components/ui/button';
 import { Link } from 'wouter';
 import { Activity, Database, Webhook, TrendingUp, AlertCircle, CheckCircle } from 'lucide-react';
 
+interface ZohoConnection {
+  id: string;
+  connectionName: string;
+  isActive: boolean;
+  enabledServices?: string[];
+  zohoDataCenter: string;
+}
+
+interface SyncStat {
+  count: string | number;
+  status: string;
+}
+
+interface RateLimit {
+  percentUsed: number;
+  availableTokens: number;
+}
+
+interface SyncLog {
+  id: string;
+  zohoService: string;
+  operation: string;
+  entityType: string;
+  status: string;
+  recordsProcessed?: number;
+  durationMs?: number;
+  createdAt: string;
+}
+
+interface StatsResponse {
+  syncStats?: SyncStat[];
+  webhookStats?: SyncStat[];
+}
+
+interface RateLimitsResponse {
+  rateLimits?: RateLimit[];
+}
+
+interface SyncLogsResponse {
+  logs?: SyncLog[];
+}
+
 export default function ZohoDashboardPage() {
-  const { data: connections, isLoading: loadingConnections } = useQuery({
+  const { data: connections, isLoading: loadingConnections } = useQuery<ZohoConnection[]>({
     queryKey: ['/api/zoho/connections']
   });
 
-  const { data: rateLimits } = useQuery({
+  const { data: rateLimits } = useQuery<RateLimitsResponse>({
     queryKey: ['/api/zoho/admin/rate-limits']
   });
 
-  const { data: stats } = useQuery({
+  const { data: stats } = useQuery<StatsResponse>({
     queryKey: ['/api/zoho/admin/stats', { days: 7 }]
   });
 
-  const { data: recentLogs } = useQuery({
+  const { data: recentLogs } = useQuery<SyncLogsResponse>({
     queryKey: ['/api/zoho/admin/sync-logs', { limit: 5 }]
   });
 
-  const connectionsData = connections as any;
-  const rateLimitsData = rateLimits as any;
-  const statsData = stats as any;
-  const recentLogsData = recentLogs as any;
-
-  const activeConnections = connectionsData?.filter((c: any) => c.isActive) || [];
-  const totalSyncs = statsData?.syncStats?.reduce((sum: number, s: any) => sum + Number(s.count), 0) || 0;
-  const successfulSyncs = statsData?.syncStats
-    ?.filter((s: any) => s.status === 'success')
-    .reduce((sum: number, s: any) => sum + Number(s.count), 0) || 0;
+  const activeConnections = connections?.filter(c => c.isActive) || [];
+  const totalSyncs = stats?.syncStats?.reduce((sum, s) => sum + Number(s.count), 0) || 0;
+  const successfulSyncs = stats?.syncStats
+    ?.filter(s => s.status === 'success')
+    .reduce((sum, s) => sum + Number(s.count), 0) || 0;
   const successRate = totalSyncs > 0 ? ((successfulSyncs / totalSyncs) * 100).toFixed(1) : '0';
 
   const getConnectionHealth = () => {
     if (activeConnections.length === 0) return { status: 'No Connections', color: 'gray' };
-    const avgTokens = rateLimitsData?.rateLimits?.reduce((sum: number, r: any) => sum + r.percentUsed, 0) / rateLimitsData?.rateLimits?.length || 0;
+    const limits = rateLimits?.rateLimits || [];
+    if (limits.length === 0) return { status: 'Unknown', color: 'gray' };
+    
+    const avgTokens = limits.reduce((sum, r) => sum + (r.percentUsed || 0), 0) / limits.length;
     
     if (avgTokens > 90) return { status: 'Critical', color: 'red' };
     if (avgTokens > 70) return { status: 'Warning', color: 'yellow' };
@@ -112,7 +152,7 @@ export default function ZohoDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {statsData?.webhookStats?.reduce((sum: number, s: any) => sum + Number(s.count), 0) || 0}
+              {stats?.webhookStats?.reduce((sum, s) => sum + Number(s.count), 0) || 0}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Real-time updates received
@@ -127,13 +167,13 @@ export default function ZohoDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {rateLimitsData?.rateLimits?.[0] 
-                ? `${rateLimitsData.rateLimits[0].percentUsed.toFixed(1)}%`
+              {rateLimits?.rateLimits && rateLimits.rateLimits.length > 0 && rateLimits.rateLimits[0].percentUsed != null
+                ? `${rateLimits.rateLimits[0].percentUsed.toFixed(1)}%`
                 : '0%'}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {rateLimitsData?.rateLimits?.[0]
-                ? `${Math.floor(rateLimitsData.rateLimits[0].availableTokens).toLocaleString()} / 50,000 credits`
+              {rateLimits?.rateLimits && rateLimits.rateLimits.length > 0 && rateLimits.rateLimits[0].availableTokens != null
+                ? `${Math.floor(rateLimits.rateLimits[0].availableTokens).toLocaleString()} / 50,000 credits`
                 : '50,000 / 50,000 credits'}
             </p>
           </CardContent>
@@ -158,12 +198,12 @@ export default function ZohoDashboardPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {activeConnections.map((conn: any) => (
+              {activeConnections.map((conn) => (
                 <div key={conn.id} className="flex items-center justify-between p-4 border rounded-lg" data-testid={`connection-${conn.id}`}>
                   <div className="flex-1">
                     <h3 className="font-medium">{conn.connectionName}</h3>
                     <div className="flex gap-2 mt-2">
-                      {conn.enabledServices?.map((service: string) => (
+                      {conn.enabledServices?.map((service) => (
                         <Badge key={service} variant="outline">{service}</Badge>
                       ))}
                     </div>
@@ -199,19 +239,19 @@ export default function ZohoDashboardPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {recentLogsData?.logs?.length === 0 || !recentLogsData?.logs ? (
+          {!recentLogs?.logs || recentLogs.logs.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               No sync activity yet
             </div>
           ) : (
             <div className="space-y-3">
-              {recentLogsData.logs.map((log: any) => (
+              {recentLogs.logs.map((log) => (
                 <div key={log.id} className="flex items-center justify-between py-2 border-b last:border-0" data-testid={`log-${log.id}`}>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline">{log.zohoService}</Badge>
-                      <span className="text-sm font-medium">{log.operation}</span>
-                      <span className="text-sm text-muted-foreground">{log.entityType}</span>
+                      <Badge variant="outline">{log.zohoService || 'Unknown'}</Badge>
+                      <span className="text-sm font-medium">{log.operation || 'N/A'}</span>
+                      <span className="text-sm text-muted-foreground">{log.entityType || 'N/A'}</span>
                     </div>
                     <div className="text-xs text-muted-foreground mt-1">
                       {log.recordsProcessed || 0} records • {log.durationMs || 0}ms

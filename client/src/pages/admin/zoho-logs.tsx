@@ -9,12 +9,37 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ChevronLeft, ChevronRight, FileJson, Download } from 'lucide-react';
 
+interface SyncLog {
+  id: string;
+  zohoService?: string;
+  operation?: string;
+  entityType?: string;
+  status: string;
+  recordsProcessed?: number;
+  durationMs?: number;
+  createdAt: string;
+  requestPayload?: any;
+  responseData?: any;
+  errorMessage?: string;
+}
+
+interface SyncLogsResponse {
+  logs?: SyncLog[];
+  total?: number;
+  pagination?: {
+    total: number;
+    offset: number;
+    limit: number;
+    hasMore: boolean;
+  };
+}
+
 export default function ZohoLogsPage() {
   const [page, setPage] = useState(0);
   const [selectedService, setSelectedService] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedLog, setSelectedLog] = useState<any>(null);
+  const [selectedLog, setSelectedLog] = useState<SyncLog | null>(null);
   const limit = 50;
 
   const params = new URLSearchParams({
@@ -25,7 +50,7 @@ export default function ZohoLogsPage() {
   if (selectedService !== 'all') params.append('service', selectedService);
   if (selectedStatus !== 'all') params.append('status', selectedStatus);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading } = useQuery<SyncLogsResponse>({
     queryKey: ['/api/zoho/admin/sync-logs', { ...Object.fromEntries(params) }],
   });
 
@@ -34,11 +59,11 @@ export default function ZohoLogsPage() {
 
     const csv = [
       ['Timestamp', 'Service', 'Operation', 'Entity', 'Status', 'Records', 'Duration (ms)'].join(','),
-      ...data.logs.map((log: any) => [
+      ...data.logs.map((log) => [
         new Date(log.createdAt).toISOString(),
-        log.zohoService,
-        log.operation,
-        log.entityType,
+        log.zohoService || '',
+        log.operation || '',
+        log.entityType || '',
         log.status,
         log.recordsProcessed || 0,
         log.durationMs || 0,
@@ -53,12 +78,13 @@ export default function ZohoLogsPage() {
     a.click();
   };
 
-  const filteredLogs = data?.logs?.filter((log: any) => {
+  const filteredLogs = data?.logs?.filter((log) => {
     if (!searchTerm) return true;
+    const term = searchTerm.toLowerCase();
     return (
-      log.zohoService?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.operation?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.entityType?.toLowerCase().includes(searchTerm.toLowerCase())
+      log.zohoService?.toLowerCase().includes(term) ||
+      log.operation?.toLowerCase().includes(term) ||
+      log.entityType?.toLowerCase().includes(term)
     );
   });
 
@@ -234,7 +260,7 @@ export default function ZohoLogsPage() {
               variant="outline"
               size="sm"
               onClick={() => setPage(page + 1)}
-              disabled={!data.pagination.hasMore}
+              disabled={!data?.pagination?.hasMore}
               data-testid="button-next-page"
             >
               Next
@@ -255,7 +281,7 @@ export default function ZohoLogsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <div className="text-sm font-medium text-muted-foreground">Service</div>
-                  <Badge variant="outline" className="mt-1">{selectedLog.zohoService}</Badge>
+                  <Badge variant="outline" className="mt-1">{selectedLog.zohoService || 'Unknown'}</Badge>
                 </div>
                 <div>
                   <div className="text-sm font-medium text-muted-foreground">Status</div>
@@ -268,11 +294,11 @@ export default function ZohoLogsPage() {
                 </div>
                 <div>
                   <div className="text-sm font-medium text-muted-foreground">Operation</div>
-                  <div className="mt-1">{selectedLog.operation}</div>
+                  <div className="mt-1">{selectedLog.operation || 'N/A'}</div>
                 </div>
                 <div>
                   <div className="text-sm font-medium text-muted-foreground">Entity Type</div>
-                  <div className="mt-1">{selectedLog.entityType}</div>
+                  <div className="mt-1">{selectedLog.entityType || 'N/A'}</div>
                 </div>
                 <div>
                   <div className="text-sm font-medium text-muted-foreground">Records Processed</div>
@@ -293,20 +319,20 @@ export default function ZohoLogsPage() {
                 </div>
               )}
 
-              {selectedLog.zohoRequestPayload && (
+              {selectedLog.requestPayload && (
                 <div>
                   <div className="text-sm font-medium text-muted-foreground mb-2">Request Payload</div>
                   <pre className="bg-muted p-3 rounded-md text-xs overflow-x-auto">
-                    {JSON.stringify(selectedLog.zohoRequestPayload, null, 2)}
+                    {JSON.stringify(selectedLog.requestPayload, null, 2)}
                   </pre>
                 </div>
               )}
 
-              {selectedLog.zohoResponseData && (
+              {selectedLog.responseData && (
                 <div>
                   <div className="text-sm font-medium text-muted-foreground mb-2">Response Data</div>
                   <pre className="bg-muted p-3 rounded-md text-xs overflow-x-auto">
-                    {JSON.stringify(selectedLog.zohoResponseData, null, 2)}
+                    {JSON.stringify(selectedLog.responseData, null, 2)}
                   </pre>
                 </div>
               )}
