@@ -186,6 +186,10 @@ app.use((req, res, next) => {
   // Then add local email/mobile authentication routes
   setupLocalAuth(app);
   
+  // Register Zoho integration routes
+  const zohoRoutes = await import('./zoho/routes');
+  app.use('/api/zoho', zohoRoutes.default);
+  
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
