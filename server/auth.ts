@@ -764,13 +764,22 @@ export function setupAuth(app: Express) {
         return res.status(404).json({ message: "User not found" });
       }
 
-      // Update verification status
+      // Update verification status and login timestamps
       const updates: Partial<User> = {};
       if (otpType === "email") {
         updates.isEmailVerified = true;
       } else {
         updates.isMobileVerified = true;
       }
+      
+      // Track login timestamps
+      const currentTime = new Date();
+      if (user.lastLoginAt) {
+        updates.previousLoginAt = user.lastLoginAt;
+      }
+      updates.lastLoginAt = currentTime;
+      updates.loginCount = (user.loginCount || 0) + 1;
+      
       await storage.updateUser(user.id, updates);
 
       // Complete login by creating session
@@ -790,6 +799,9 @@ export function setupAuth(app: Express) {
           lastName: user.lastName,
           isEmailVerified: user.isEmailVerified,
           isMobileVerified: user.isMobileVerified,
+          lastLoginAt: updates.lastLoginAt,
+          previousLoginAt: updates.previousLoginAt,
+          loginCount: updates.loginCount,
           message: "Login successful"
         });
       });
