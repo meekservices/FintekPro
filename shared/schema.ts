@@ -1634,6 +1634,135 @@ export const partnerSettlements = pgTable("partner_settlements", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Zoho OAuth Connections - Store OAuth tokens for Zoho integrations
+export const zohoConnections = pgTable("zoho_connections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Connection Info
+  connectionName: varchar("connection_name").notNull(), // 'Production CRM', 'Development Books'
+  zohoDataCenter: varchar("zoho_data_center").default("com"), // com, eu, in, com.au, jp
+  zohoOrgId: varchar("zoho_org_id"), // Zoho organization ID
+  
+  // OAuth Tokens
+  accessToken: text("access_token").notNull(),
+  refreshToken: text("refresh_token").notNull(),
+  tokenType: varchar("token_type").default("Bearer"),
+  expiresAt: timestamp("expires_at").notNull(), // Access token expiry (1 hour)
+  scope: text("scope"), // API scopes granted
+  
+  // App Services Enabled
+  services: text("services").array().default(sql`ARRAY[]::text[]`), // ['CRM', 'Books', 'Desk', 'WorkDrive', 'People', 'Campaigns']
+  
+  // Connection Status
+  status: varchar("status").default("active"), // active, expired, revoked, error
+  lastSyncAt: timestamp("last_sync_at"),
+  lastErrorAt: timestamp("last_error_at"),
+  lastError: text("last_error"),
+  
+  // Metadata
+  createdBy: varchar("created_by").references(() => users.id),
+  isProduction: boolean("is_production").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Zoho Entity Mappings - Map FintekPro entities to Zoho entities
+export const zohoEntityMappings = pgTable("zoho_entity_mappings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  connectionId: varchar("connection_id").references(() => zohoConnections.id).notNull(),
+  
+  // FintekPro Side
+  fintekproEntityType: varchar("fintekpro_entity_type").notNull(), // 'partner', 'user', 'order', 'commission'
+  fintekproEntityId: varchar("fintekpro_entity_id").notNull(),
+  
+  // Zoho Side
+  zohoService: varchar("zoho_service").notNull(), // 'CRM', 'Books', 'Desk'
+  zohoModule: varchar("zoho_module").notNull(), // 'Contacts', 'Vendors', 'Tickets'
+  zohoRecordId: varchar("zoho_record_id").notNull(),
+  zohoRecordData: jsonb("zoho_record_data"), // Cached Zoho record snapshot
+  
+  // Sync Status
+  syncDirection: varchar("sync_direction").default("bidirectional"), // bidirectional, zoho_to_fintekpro, fintekpro_to_zoho
+  lastSyncedAt: timestamp("last_synced_at"),
+  syncStatus: varchar("sync_status").default("synced"), // synced, pending, conflict, error
+  conflictData: jsonb("conflict_data"), // Store conflict details for resolution
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Zoho Sync Logs - Track all sync operations
+export const zohoSyncLogs = pgTable("zoho_sync_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  connectionId: varchar("connection_id").references(() => zohoConnections.id),
+  
+  // Operation Details
+  operation: varchar("operation").notNull(), // 'create', 'update', 'delete', 'bulk_sync'
+  entityType: varchar("entity_type").notNull(),
+  direction: varchar("direction").notNull(), // 'to_zoho', 'from_zoho'
+  
+  // Zoho API Details
+  zohoService: varchar("zoho_service").notNull(),
+  zohoModule: varchar("zoho_module"),
+  zohoApiEndpoint: text("zoho_api_endpoint"),
+  zohoRequestPayload: jsonb("zoho_request_payload"),
+  zohoResponseData: jsonb("zoho_response_data"),
+  
+  // Result
+  status: varchar("status").notNull(), // success, failure, partial
+  recordsProcessed: integer("records_processed").default(0),
+  recordsSucceeded: integer("records_succeeded").default(0),
+  recordsFailed: integer("records_failed").default(0),
+  errorMessage: text("error_message"),
+  errorDetails: jsonb("error_details"),
+  
+  // Performance
+  durationMs: integer("duration_ms"),
+  apiCreditsUsed: integer("api_credits_used"),
+  
+  // Context
+  triggeredBy: varchar("triggered_by"), // 'webhook', 'cron', 'manual', 'user_action'
+  userId: varchar("user_id").references(() => users.id),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Zoho Webhook Events - Store incoming webhook events
+export const zohoWebhookEvents = pgTable("zoho_webhook_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  connectionId: varchar("connection_id").references(() => zohoConnections.id),
+  
+  // Webhook Details
+  zohoService: varchar("zoho_service").notNull(),
+  zohoModule: varchar("zoho_module").notNull(),
+  eventType: varchar("event_type").notNull(), // 'create', 'update', 'delete', 'custom'
+  zohoRecordId: varchar("zoho_record_id"),
+  
+  // Payload
+  webhookPayload: jsonb("webhook_payload").notNull(),
+  headers: jsonb("headers"),
+  
+  // Processing Status
+  status: varchar("status").default("pending"), // pending, processing, completed, failed
+  processedAt: timestamp("processed_at"),
+  processingError: text("processing_error"),
+  retryCount: integer("retry_count").default(0),
+  nextRetryAt: timestamp("next_retry_at"),
+  
+  // Mapping Result
+  mappingId: varchar("mapping_id").references(() => zohoEntityMappings.id),
+  
+  // Deduplication
+  zohoEventId: varchar("zoho_event_id").unique(), // Zoho's unique event ID if available
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Products table for partner-managed financial products
 export const products = pgTable("products", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -2370,6 +2499,41 @@ export const insertPartnerSettlementSchema = createInsertSchema(partnerSettlemen
 });
 export type InsertPartnerSettlement = z.infer<typeof insertPartnerSettlementSchema>;
 export type PartnerSettlement = typeof partnerSettlements.$inferSelect;
+
+// Zoho Connections schemas
+export const insertZohoConnectionSchema = createInsertSchema(zohoConnections).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertZohoConnection = z.infer<typeof insertZohoConnectionSchema>;
+export type ZohoConnection = typeof zohoConnections.$inferSelect;
+
+// Zoho Entity Mappings schemas
+export const insertZohoEntityMappingSchema = createInsertSchema(zohoEntityMappings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertZohoEntityMapping = z.infer<typeof insertZohoEntityMappingSchema>;
+export type ZohoEntityMapping = typeof zohoEntityMappings.$inferSelect;
+
+// Zoho Sync Logs schemas
+export const insertZohoSyncLogSchema = createInsertSchema(zohoSyncLogs).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertZohoSyncLog = z.infer<typeof insertZohoSyncLogSchema>;
+export type ZohoSyncLog = typeof zohoSyncLogs.$inferSelect;
+
+// Zoho Webhook Events schemas
+export const insertZohoWebhookEventSchema = createInsertSchema(zohoWebhookEvents).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertZohoWebhookEvent = z.infer<typeof insertZohoWebhookEventSchema>;
+export type ZohoWebhookEvent = typeof zohoWebhookEvents.$inferSelect;
 
 // Agent Portal API response types
 export const agentProfileApiSchema = z.object({
@@ -4877,7 +5041,7 @@ export const zohoInventory = pgTable("zoho_inventory", {
   updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
-export const zohoWebhooks = pgTable("zoho_webhooks", {
+export const zohoCommerceWebhooks = pgTable("zoho_commerce_webhooks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id).notNull(),
   zohoWebhookId: varchar("zoho_webhook_id"), // ID from Zoho Commerce
@@ -4892,7 +5056,7 @@ export const zohoWebhooks = pgTable("zoho_webhooks", {
   updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
-export const zohoSyncLogs = pgTable("zoho_sync_logs", {
+export const zohoCommerceSyncLogs = pgTable("zoho_commerce_sync_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id).notNull(),
   syncType: varchar("sync_type").notNull(), // products, orders, customers, inventory
@@ -4943,13 +5107,13 @@ export const insertZohoInventorySchema = createInsertSchema(zohoInventory).omit(
   updatedAt: true,
 });
 
-export const insertZohoWebhookSchema = createInsertSchema(zohoWebhooks).omit({
+export const insertZohoCommerceWebhookSchema = createInsertSchema(zohoCommerceWebhooks).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertZohoSyncLogSchema = createInsertSchema(zohoSyncLogs).omit({
+export const insertZohoCommerceSyncLogSchema = createInsertSchema(zohoCommerceSyncLogs).omit({
   id: true,
   startedAt: true,
 });
@@ -4967,10 +5131,10 @@ export type ZohoCustomer = typeof zohoCustomers.$inferSelect;
 export type InsertZohoCustomer = z.infer<typeof insertZohoCustomerSchema>;
 export type ZohoInventory = typeof zohoInventory.$inferSelect;
 export type InsertZohoInventory = z.infer<typeof insertZohoInventorySchema>;
-export type ZohoWebhook = typeof zohoWebhooks.$inferSelect;
-export type InsertZohoWebhook = z.infer<typeof insertZohoWebhookSchema>;
-export type ZohoSyncLog = typeof zohoSyncLogs.$inferSelect;
-export type InsertZohoSyncLog = z.infer<typeof insertZohoSyncLogSchema>;
+export type ZohoCommerceWebhook = typeof zohoCommerceWebhooks.$inferSelect;
+export type InsertZohoCommerceWebhook = z.infer<typeof insertZohoCommerceWebhookSchema>;
+export type ZohoCommerceSyncLog = typeof zohoCommerceSyncLogs.$inferSelect;
+export type InsertZohoCommerceSyncLog = z.infer<typeof insertZohoCommerceSyncLogSchema>;
 
 // BBPS (Bharat Bill Pay System) tables
 export const bbpsCategories = pgTable("bbps_categories", {
