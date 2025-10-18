@@ -439,6 +439,7 @@ export function setupAuth(app: Express) {
         roles: ["user"],
         isActive: true,
         lastLoginAt: null,
+        previousLoginAt: null,
         loginCount: 0,
       });
 
