@@ -505,6 +505,7 @@ export const users = pgTable("users", {
   roles: varchar("roles").array().default(sql`ARRAY['user']`), // Array of roles: 'user', 'admin', 'superadmin', 'business_client', etc.
   isActive: boolean("is_active").default(true),
   lastLoginAt: timestamp("last_login_at"),
+  previousLoginAt: timestamp("previous_login_at"),
   loginCount: integer("login_count").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
