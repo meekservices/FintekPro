@@ -1449,7 +1449,7 @@ export const clientAgentRelationships = pgTable("client_agent_relationships", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Partners table for managing partner accounts
+// Partners table for managing partner accounts with revenue sharing
 export const partners = pgTable("partners", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   companyName: varchar("company_name").notNull(),
@@ -1462,13 +1462,174 @@ export const partners = pgTable("partners", {
   isActive: boolean("is_active").default(true),
   isVerified: boolean("is_verified").default(false),
   // Partner type and permissions
-  partnerType: varchar("partner_type").notNull(), // 'product_provider', 'service_provider', 'both'
+  partnerType: varchar("partner_type").notNull(), // 'product_provider', 'service_provider', 'both', 'distributor', 'agent'
   permissions: jsonb("permissions").default({}), // Custom permissions object
   // Business details
   businessLicense: varchar("business_license"),
   taxId: varchar("tax_id"),
+  gstin: varchar("gstin"), // GST number for corporates
+  cin: varchar("cin"), // Corporate Identity Number
   commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }).default("0.00"),
+  
+  // Product-Specific Certifications
+  productTypes: text("product_types").array().default(sql`ARRAY[]::text[]`), // ['mutual_funds', 'insurance', 'loans', 'equity', 'bonds']
+  arnCode: varchar("arn_code"), // AMFI Registration Number for MF distributors
+  euinNumber: varchar("euin_number"), // Employee Unique Identification Number
+  pospNumber: varchar("posp_number"), // Point of Sales Person for insurance
+  riaNumber: varchar("ria_number"), // Registered Investment Advisor
+  dsaCode: varchar("dsa_code"), // Direct Selling Agent code for loans
+  
+  // KYC & Bank Details for Payouts
+  panNumber: varchar("pan_number"),
+  aadharNumber: varchar("aadhar_number"),
+  bankAccountNumber: varchar("bank_account_number"),
+  ifscCode: varchar("ifsc_code"),
+  bankAccountHolderName: varchar("bank_account_holder_name"),
+  upiId: varchar("upi_id"),
+  
+  // Cashfree Vendor Integration
+  cashfreeVendorId: varchar("cashfree_vendor_id"), // Cashfree vendor ID for payouts
+  cashfreeVendorStatus: varchar("cashfree_vendor_status").default("not_registered"), // not_registered, pending, active, suspended
+  cashfreeBankVerified: boolean("cashfree_bank_verified").default(false),
+  cashfreeRegisteredAt: timestamp("cashfree_registered_at"),
+  
+  // Commission Structure
+  commissionTier: varchar("commission_tier").default("standard"), // standard, silver, gold, platinum
+  volumeBonusEnabled: boolean("volume_bonus_enabled").default(false),
+  volumeBonusRate: decimal("volume_bonus_rate", { precision: 5, scale: 2 }), // Additional % for high volume
+  volumeThreshold: decimal("volume_threshold", { precision: 15, scale: 2 }), // Monthly volume needed for bonus
+  
+  // Settlement Configuration
+  settlementFrequency: varchar("settlement_frequency").default("monthly"), // instant, daily, weekly, monthly
+  settlementDay: integer("settlement_day").default(1), // Day of month for monthly settlements (1-31)
+  minSettlementAmount: decimal("min_settlement_amount", { precision: 10, scale: 2 }).default("1000.00"),
+  
+  // Performance Tracking
+  totalClientsReferred: integer("total_clients_referred").default(0),
+  activeClientsCount: integer("active_clients_count").default(0),
+  totalCommissionsEarned: decimal("total_commissions_earned", { precision: 15, scale: 2 }).default("0.00"),
+  totalCommissionsPaid: decimal("total_commissions_paid", { precision: 15, scale: 2 }).default("0.00"),
+  pendingCommissions: decimal("pending_commissions", { precision: 15, scale: 2 }).default("0.00"),
+  lastSettlementDate: timestamp("last_settlement_date"),
+  
   // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Partner Referrals - Track which partner referred which client
+export const partnerReferrals = pgTable("partner_referrals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  partnerId: varchar("partner_id").references(() => partners.id).notNull(),
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  
+  // Referral Details
+  referralCode: varchar("referral_code"), // Partner's unique referral code
+  referralSource: varchar("referral_source"), // website, app, email, whatsapp
+  referralDate: timestamp("referral_date").defaultNow(),
+  
+  // Client Status
+  clientStatus: varchar("client_status").default("registered"), // registered, kyc_completed, first_transaction, active, inactive
+  firstTransactionDate: timestamp("first_transaction_date"),
+  lastTransactionDate: timestamp("last_transaction_date"),
+  
+  // Tracking
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Partner Commissions - Track every commission transaction
+export const partnerCommissions = pgTable("partner_commissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  partnerId: varchar("partner_id").references(() => partners.id).notNull(),
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  
+  // Transaction Reference
+  orderId: varchar("order_id"), // Reference to unified_orders or specific product order
+  productType: varchar("product_type").notNull(), // mutual_funds, insurance, loans, equity, bonds
+  transactionType: varchar("transaction_type").notNull(), // purchase, sip, renewal, interest, payout
+  
+  // Amount Details
+  transactionAmount: decimal("transaction_amount", { precision: 15, scale: 2 }).notNull(),
+  commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }).notNull(), // % rate applied
+  commissionAmount: decimal("commission_amount", { precision: 15, scale: 2 }).notNull(),
+  volumeBonus: decimal("volume_bonus", { precision: 15, scale: 2 }).default("0.00"), // Additional bonus if applicable
+  totalCommission: decimal("total_commission", { precision: 15, scale: 2 }).notNull(), // commission + bonus
+  
+  // Tax Deduction (TDS)
+  tdsRate: decimal("tds_rate", { precision: 5, scale: 2 }).default("0.00"),
+  tdsAmount: decimal("tds_amount", { precision: 15, scale: 2 }).default("0.00"),
+  netCommission: decimal("net_commission", { precision: 15, scale: 2 }).notNull(), // After TDS
+  
+  // Settlement Status
+  status: varchar("status").default("pending"), // pending, settled, cancelled, reversed
+  settlementId: varchar("settlement_id"), // Foreign key will be added after partnerSettlements table is defined
+  settledAt: timestamp("settled_at"),
+  
+  // Cashfree Split Details
+  cashfreeOrderId: varchar("cashfree_order_id"), // Cashfree payment order ID
+  cashfreeSplitId: varchar("cashfree_split_id"), // Cashfree split transaction ID
+  cashfreeSplitStatus: varchar("cashfree_split_status"), // pending, success, failed
+  
+  // Metadata
+  transactionDate: timestamp("transaction_date").defaultNow(),
+  month: varchar("month").notNull(), // YYYY-MM for grouping
+  financialYear: varchar("financial_year"), // FY2024-25
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Partner Settlements - Monthly payout records
+export const partnerSettlements = pgTable("partner_settlements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  partnerId: varchar("partner_id").references(() => partners.id).notNull(),
+  
+  // Settlement Period
+  settlementPeriod: varchar("settlement_period").notNull(), // YYYY-MM
+  settlementMonth: varchar("settlement_month").notNull(), // January 2025
+  settlementDate: timestamp("settlement_date").notNull(),
+  
+  // Commission Summary
+  totalTransactions: integer("total_transactions").default(0),
+  totalCommissionEarned: decimal("total_commission_earned", { precision: 15, scale: 2 }).notNull(),
+  totalVolumeBonus: decimal("total_volume_bonus", { precision: 15, scale: 2 }).default("0.00"),
+  totalTds: decimal("total_tds", { precision: 15, scale: 2 }).default("0.00"),
+  netPayable: decimal("net_payable", { precision: 15, scale: 2 }).notNull(),
+  
+  // Adjustment & Deductions
+  adjustments: decimal("adjustments", { precision: 15, scale: 2 }).default("0.00"), // Manual adjustments
+  adjustmentReason: text("adjustment_reason"),
+  previousBalance: decimal("previous_balance", { precision: 15, scale: 2 }).default("0.00"), // Carried forward
+  finalPayoutAmount: decimal("final_payout_amount", { precision: 15, scale: 2 }).notNull(),
+  
+  // Payment Status
+  status: varchar("status").default("pending"), // pending, processing, completed, failed, cancelled
+  paymentMethod: varchar("payment_method").default("bank_transfer"), // bank_transfer, upi
+  
+  // Cashfree Payout Details
+  cashfreePayoutId: varchar("cashfree_payout_id"), // Cashfree payout/transfer ID
+  cashfreePayoutStatus: varchar("cashfree_payout_status"), // pending, success, failed, reversed
+  cashfreeUtr: varchar("cashfree_utr"), // Unique Transaction Reference from bank
+  cashfreePayoutInitiatedAt: timestamp("cashfree_payout_initiated_at"),
+  cashfreePayoutCompletedAt: timestamp("cashfree_payout_completed_at"),
+  cashfreeFailureReason: text("cashfree_failure_reason"),
+  
+  // Bank Details (snapshot at time of settlement)
+  bankAccountNumber: varchar("bank_account_number"),
+  ifscCode: varchar("ifsc_code"),
+  accountHolderName: varchar("account_holder_name"),
+  
+  // Reconciliation
+  reconciledAt: timestamp("reconciled_at"),
+  reconciledBy: varchar("reconciled_by").references(() => users.id),
+  reconciliationNotes: text("reconciliation_notes"),
+  
+  // Documents
+  invoiceNumber: varchar("invoice_number"),
+  invoiceUrl: text("invoice_url"), // PDF invoice stored in object storage
+  statementUrl: text("statement_url"), // Detailed statement
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -2183,6 +2344,32 @@ export const insertPartnerSchema = createInsertSchema(partners).omit({
 });
 export type InsertPartner = z.infer<typeof insertPartnerSchema>;
 export type Partner = typeof partners.$inferSelect;
+
+// Partner Referral schemas
+export const insertPartnerReferralSchema = createInsertSchema(partnerReferrals).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertPartnerReferral = z.infer<typeof insertPartnerReferralSchema>;
+export type PartnerReferral = typeof partnerReferrals.$inferSelect;
+
+// Partner Commission schemas
+export const insertPartnerCommissionSchema = createInsertSchema(partnerCommissions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertPartnerCommission = z.infer<typeof insertPartnerCommissionSchema>;
+export type PartnerCommission = typeof partnerCommissions.$inferSelect;
+
+// Partner Settlement schemas
+export const insertPartnerSettlementSchema = createInsertSchema(partnerSettlements).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertPartnerSettlement = z.infer<typeof insertPartnerSettlementSchema>;
+export type PartnerSettlement = typeof partnerSettlements.$inferSelect;
 
 // Agent Portal API response types
 export const agentProfileApiSchema = z.object({

@@ -47,6 +47,7 @@ Do not make changes to the file `Y`.
 - **Client KYC Dashboard**: Regulation-compliant user dashboard displaying UID, KYC tier badge, verification status, product eligibility matrix with lock/unlock indicators, and tier upgrade CTAs.
 - **Product Eligibility Matrix**: SEBI/RBI/PMLA-compliant matrix defining KYC tier requirements for 16 product categories including mutual funds, equities, derivatives, bonds, insurance, and alternative investments.
 - **Product Access Control Middleware**: Tier-based access enforcement with SEBI-compliant transaction limits (₹50,000 annual limit for basic-tier mutual funds), automated upgrade prompts, and regulatory compliance logging.
+- **Partner Revenue Sharing System**: Comprehensive commission tracking and automated settlement system for multi-product partners (MF distributors, insurance agents, RIAs, loan advisors) with Cashfree API integration for monthly payouts, tiered commission structure, volume bonuses, TDS calculation, and reconciliation.
 
 ### System Design Choices
 - **Admin Portal**: Separate subdomain-based admin portal (admin.fintekpro.com) with triple-layer security (subdomain, authentication, role authorization). Includes AdminLayout, API configuration, and system monitoring.
@@ -70,6 +71,7 @@ Do not make changes to the file `Y`.
 - **Cashfree OKYC API**: Aadhaar verification.
 - **Sandbox API**: Bank account penny drop verification.
 - **Payment Gateways**: Cashfree (primary), PhonePe (secondary) - India-compliant payment processing.
+- **Cashfree Payout API**: Vendor management, automated commission settlements, Easy Split API for real-time payment splitting (0.1% fee), vendor reconciliation, and UTR tracking.
 - **Twilio**: SMS OTP delivery.
 - **WhatsApp (whatsapp-web.js)**: WhatsApp OTP delivery.
 - **Nodemailer**: Email service integration.
