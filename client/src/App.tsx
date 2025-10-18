@@ -60,6 +60,9 @@ import KycCompliancePage from "@/pages/admin/kyc-compliance";
 import FinancialOperationsPage from "@/pages/admin/financial-operations";
 import APIConfiguration from "@/pages/admin/api-configuration";
 import ProductionReadiness from "@/pages/admin/production-readiness";
+import ZohoDashboardPage from "@/pages/admin/zoho-dashboard";
+import ZohoConnectionsPage from "@/pages/admin/zoho-connections";
+import ZohoLogsPage from "@/pages/admin/zoho-logs";
 import BBPSPage from "@/pages/BBPSPage";
 import DigiLockerPage from "@/pages/DigiLockerPage";
 import LoanApplication from "@/pages/loan-application";
@@ -220,6 +223,9 @@ function AdminRoutes() {
         <Route path="/admin/api-config" component={APIConfiguration} />
         <Route path="/admin/api-configuration" component={APIConfiguration} />
         <Route path="/admin/production-readiness" component={ProductionReadiness} />
+        <Route path="/admin/zoho-dashboard" component={ZohoDashboardPage} />
+        <Route path="/admin/zoho-connections" component={ZohoConnectionsPage} />
+        <Route path="/admin/zoho-logs" component={ZohoLogsPage} />
         <Route path="/admin/system-health">{() => (
           <div className="text-center py-20">
             <h2 className="text-2xl font-bold text-white mb-4">System Health</h2>

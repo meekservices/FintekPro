@@ -16,7 +16,8 @@ import {
   Home,
   Bell,
   AlertCircle,
-  DollarSign
+  DollarSign,
+  Workflow
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -63,6 +64,12 @@ const adminNavItems = [
     href: "/admin/api-config",
     icon: Key,
     description: "Manage API keys & services"
+  },
+  {
+    title: "Zoho Integration",
+    href: "/admin/zoho-dashboard",
+    icon: Workflow,
+    description: "CRM, Books, Desk & WorkDrive"
   },
   {
     title: "Production Readiness",

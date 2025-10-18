@@ -2,8 +2,9 @@ import { Router } from 'express';
 import { ZohoOAuthService } from './oauth';
 import { ZohoCRMService } from './services/crm';
 import { db } from '../db';
-import { zohoConnections, zohoEntityMappings, zohoSyncLogs } from '@shared/schema';
-import { eq, desc } from 'drizzle-orm';
+import { zohoConnections, zohoEntityMappings, zohoSyncLogs, zohoWebhookEvents } from '@shared/schema';
+import { eq, desc, and, gte, lte, sql } from 'drizzle-orm';
+import { zohoRateLimiter } from './rate-limiter';
 
 const router = Router();
 
@@ -325,11 +326,11 @@ router.post('/webhooks/crm', async (req, res) => {
     // TODO: Implement webhook signature validation
     
     // Log webhook event
-    const { zohoWebhookEvents } = await import('@shared/schema');
     await db.insert(zohoWebhookEvents).values({
-      service: 'CRM',
-      eventType: payload.module || 'unknown',
-      payload,
+      zohoService: 'CRM',
+      zohoModule: payload.module || 'unknown',
+      eventType: payload.event_type || 'update',
+      webhookPayload: payload,
       status: 'received'
     });
 
@@ -348,11 +349,11 @@ router.post('/webhooks/books', async (req, res) => {
   try {
     const payload = req.body;
     
-    const { zohoWebhookEvents } = await import('@shared/schema');
     await db.insert(zohoWebhookEvents).values({
-      service: 'Books',
-      eventType: payload.event_type || 'unknown',
-      payload,
+      zohoService: 'Books',
+      zohoModule: payload.module || 'unknown',
+      eventType: payload.event_type || 'update',
+      webhookPayload: payload,
       status: 'received'
     });
 
@@ -371,11 +372,11 @@ router.post('/webhooks/desk', async (req, res) => {
   try {
     const payload = req.body;
     
-    const { zohoWebhookEvents } = await import('@shared/schema');
     await db.insert(zohoWebhookEvents).values({
-      service: 'Desk',
-      eventType: payload.event_type || 'unknown',
-      payload,
+      zohoService: 'Desk',
+      zohoModule: payload.module || 'unknown',
+      eventType: payload.event_type || 'update',
+      webhookPayload: payload,
       status: 'received'
     });
 
@@ -453,6 +454,214 @@ router.get('/crm/partner/:partnerId/deals', async (req, res) => {
     res.json(deals);
   } catch (error: any) {
     console.error('Get partner deals error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ============================================================================
+// ADMIN ROUTES - For Admin Portal UI
+// ============================================================================
+
+/**
+ * GET /api/zoho/admin/sync-logs
+ * Get sync logs with filtering and pagination
+ */
+router.get('/admin/sync-logs', async (req, res) => {
+  try {
+    const { 
+      connectionId, 
+      service, 
+      status, 
+      startDate, 
+      endDate,
+      limit = '50',
+      offset = '0'
+    } = req.query;
+
+    const conditions = [];
+    
+    if (connectionId) {
+      conditions.push(eq(zohoSyncLogs.connectionId, connectionId as string));
+    }
+    if (service) {
+      conditions.push(eq(zohoSyncLogs.zohoService, service as string));
+    }
+    if (status) {
+      conditions.push(eq(zohoSyncLogs.status, status as 'success' | 'failure'));
+    }
+    if (startDate) {
+      conditions.push(gte(zohoSyncLogs.createdAt, new Date(startDate as string)));
+    }
+    if (endDate) {
+      conditions.push(lte(zohoSyncLogs.createdAt, new Date(endDate as string)));
+    }
+
+    const logs = await db
+      .select()
+      .from(zohoSyncLogs)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(zohoSyncLogs.createdAt))
+      .limit(parseInt(limit as string))
+      .offset(parseInt(offset as string));
+
+    // Get total count
+    const countResult = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(zohoSyncLogs)
+      .where(conditions.length > 0 ? and(...conditions) : undefined);
+    
+    const total = Number(countResult[0]?.count || 0);
+
+    res.json({
+      logs,
+      pagination: {
+        total,
+        limit: parseInt(limit as string),
+        offset: parseInt(offset as string),
+        hasMore: total > parseInt(offset as string) + logs.length
+      }
+    });
+  } catch (error: any) {
+    console.error('Get sync logs error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/**
+ * GET /api/zoho/admin/webhook-events
+ * Get webhook events with filtering
+ */
+router.get('/admin/webhook-events', async (req, res) => {
+  try {
+    const { 
+      connectionId, 
+      service,
+      status,
+      limit = '50',
+      offset = '0'
+    } = req.query;
+
+    const conditions = [];
+    
+    if (connectionId) {
+      conditions.push(eq(zohoWebhookEvents.connectionId, connectionId as string));
+    }
+    if (service) {
+      conditions.push(eq(zohoWebhookEvents.zohoService, service as string));
+    }
+    if (status) {
+      conditions.push(eq(zohoWebhookEvents.status, status as 'success' | 'failure'));
+    }
+
+    const events = await db
+      .select()
+      .from(zohoWebhookEvents)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(zohoWebhookEvents.createdAt))
+      .limit(parseInt(limit as string))
+      .offset(parseInt(offset as string));
+
+    const countResult = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(zohoWebhookEvents)
+      .where(conditions.length > 0 ? and(...conditions) : undefined);
+    
+    const total = Number(countResult[0]?.count || 0);
+
+    res.json({
+      events,
+      pagination: {
+        total,
+        limit: parseInt(limit as string),
+        offset: parseInt(offset as string),
+        hasMore: total > parseInt(offset as string) + events.length
+      }
+    });
+  } catch (error: any) {
+    console.error('Get webhook events error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/**
+ * GET /api/zoho/admin/stats
+ * Get aggregated statistics
+ */
+router.get('/admin/stats', async (req, res) => {
+  try {
+    const { connectionId, days = '7' } = req.query;
+    
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - parseInt(days as string));
+
+    const conditions = [gte(zohoSyncLogs.createdAt, startDate)];
+    if (connectionId) {
+      conditions.push(eq(zohoSyncLogs.connectionId, connectionId as string));
+    }
+
+    // Get sync stats
+    const syncStats = await db
+      .select({
+        service: zohoSyncLogs.zohoService,
+        status: zohoSyncLogs.status,
+        count: sql<number>`count(*)`,
+        totalRecords: sql<number>`sum(${zohoSyncLogs.recordsProcessed})`,
+        avgDuration: sql<number>`avg(${zohoSyncLogs.durationMs})`
+      })
+      .from(zohoSyncLogs)
+      .where(and(...conditions))
+      .groupBy(zohoSyncLogs.zohoService, zohoSyncLogs.status);
+
+    // Get webhook stats
+    const webhookConditions = [gte(zohoWebhookEvents.createdAt, startDate)];
+    if (connectionId) {
+      webhookConditions.push(eq(zohoWebhookEvents.connectionId, connectionId as string));
+    }
+
+    const webhookStats = await db
+      .select({
+        service: zohoWebhookEvents.zohoService,
+        status: zohoWebhookEvents.status,
+        count: sql<number>`count(*)`
+      })
+      .from(zohoWebhookEvents)
+      .where(and(...webhookConditions))
+      .groupBy(zohoWebhookEvents.zohoService, zohoWebhookEvents.status);
+
+    res.json({
+      syncStats,
+      webhookStats,
+      period: {
+        days: parseInt(days as string),
+        startDate,
+        endDate: new Date()
+      }
+    });
+  } catch (error: any) {
+    console.error('Get stats error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/**
+ * GET /api/zoho/admin/rate-limits
+ * Get current rate limit status for all connections
+ */
+router.get('/admin/rate-limits', async (req, res) => {
+  try {
+    const connections = await db.select().from(zohoConnections);
+
+    const rateLimits = connections.map(conn => ({
+      connectionId: conn.id,
+      connectionName: conn.connectionName,
+      availableTokens: zohoRateLimiter.getAvailableTokens(conn.id),
+      maxTokens: 50000, // Base limit
+      percentUsed: ((50000 - zohoRateLimiter.getAvailableTokens(conn.id)) / 50000) * 100
+    }));
+
+    res.json({ rateLimits });
+  } catch (error: any) {
+    console.error('Get rate limits error:', error);
     res.status(500).json({ message: error.message });
   }
 });
