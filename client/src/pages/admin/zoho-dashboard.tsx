@@ -22,16 +22,21 @@ export default function ZohoDashboardPage() {
     queryKey: ['/api/zoho/admin/sync-logs', { limit: 5 }]
   });
 
-  const activeConnections = connections?.filter((c: any) => c.isActive) || [];
-  const totalSyncs = stats?.syncStats?.reduce((sum: number, s: any) => sum + Number(s.count), 0) || 0;
-  const successfulSyncs = stats?.syncStats
+  const connectionsData = connections as any;
+  const rateLimitsData = rateLimits as any;
+  const statsData = stats as any;
+  const recentLogsData = recentLogs as any;
+
+  const activeConnections = connectionsData?.filter((c: any) => c.isActive) || [];
+  const totalSyncs = statsData?.syncStats?.reduce((sum: number, s: any) => sum + Number(s.count), 0) || 0;
+  const successfulSyncs = statsData?.syncStats
     ?.filter((s: any) => s.status === 'success')
     .reduce((sum: number, s: any) => sum + Number(s.count), 0) || 0;
   const successRate = totalSyncs > 0 ? ((successfulSyncs / totalSyncs) * 100).toFixed(1) : '0';
 
   const getConnectionHealth = () => {
     if (activeConnections.length === 0) return { status: 'No Connections', color: 'gray' };
-    const avgTokens = rateLimits?.rateLimits?.reduce((sum: number, r: any) => sum + r.percentUsed, 0) / rateLimits?.rateLimits?.length || 0;
+    const avgTokens = rateLimitsData?.rateLimits?.reduce((sum: number, r: any) => sum + r.percentUsed, 0) / rateLimitsData?.rateLimits?.length || 0;
     
     if (avgTokens > 90) return { status: 'Critical', color: 'red' };
     if (avgTokens > 70) return { status: 'Warning', color: 'yellow' };
@@ -107,7 +112,7 @@ export default function ZohoDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {stats?.webhookStats?.reduce((sum: number, s: any) => sum + Number(s.count), 0) || 0}
+              {statsData?.webhookStats?.reduce((sum: number, s: any) => sum + Number(s.count), 0) || 0}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Real-time updates received
@@ -122,13 +127,13 @@ export default function ZohoDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {rateLimits?.rateLimits?.[0] 
-                ? `${rateLimits.rateLimits[0].percentUsed.toFixed(1)}%`
+              {rateLimitsData?.rateLimits?.[0] 
+                ? `${rateLimitsData.rateLimits[0].percentUsed.toFixed(1)}%`
                 : '0%'}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {rateLimits?.rateLimits?.[0]
-                ? `${Math.floor(rateLimits.rateLimits[0].availableTokens).toLocaleString()} / 50,000 credits`
+              {rateLimitsData?.rateLimits?.[0]
+                ? `${Math.floor(rateLimitsData.rateLimits[0].availableTokens).toLocaleString()} / 50,000 credits`
                 : '50,000 / 50,000 credits'}
             </p>
           </CardContent>
@@ -194,13 +199,13 @@ export default function ZohoDashboardPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {recentLogs?.logs?.length === 0 || !recentLogs?.logs ? (
+          {recentLogsData?.logs?.length === 0 || !recentLogsData?.logs ? (
             <div className="text-center py-8 text-muted-foreground">
               No sync activity yet
             </div>
           ) : (
             <div className="space-y-3">
-              {recentLogs.logs.map((log: any) => (
+              {recentLogsData.logs.map((log: any) => (
                 <div key={log.id} className="flex items-center justify-between py-2 border-b last:border-0" data-testid={`log-${log.id}`}>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
