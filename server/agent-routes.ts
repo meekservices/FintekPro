@@ -105,30 +105,98 @@ const agentRegistrationSchema = z.object({
   email: z.string().email("Valid email is required"),
   phone: z.string().optional(),
   productTypes: z.array(z.enum(["loans", "mutual_funds", "aif", "pms", "insurance", "equity"])).min(1, "At least one product type is required"),
+  
+  // Regulatory credentials (required for master/associate agents with securities products)
   arnCode: z.string().regex(/^ARN-\d{5,6}$/i, "Invalid ARN format").optional(),
   euinNumber: z.string().regex(/^E\d{6}$/i, "Invalid EUIN format").optional(),
+  
+  // Basic KYC (required for sub-agents)
+  panNumber: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/i, "Invalid PAN format").optional(),
+  aadharNumber: z.string().length(12, "Aadhaar must be 12 digits").optional(),
+  
+  // Bank account details (required for commission payouts)
+  bankAccountNumber: z.string().optional(),
+  bankIfscCode: z.string().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/i, "Invalid IFSC code format").optional(),
+  bankName: z.string().optional(),
+  accountHolderName: z.string().optional(),
+  
+  // Agent hierarchy
   agentLevel: z.enum(["master", "sub_agent", "associate"]).optional(),
   masterAgentId: z.string().optional(),
   distributorId: z.string().optional(),
   distributorName: z.string().optional(),
 }).superRefine((data, ctx) => {
-  // SEBI-regulated securities products require ARN/EUIN
-  const securitiesProducts = ["mutual_funds", "aif", "pms", "equity"]; // SEBI only, NOT insurance
-  const hasSecurities = data.productTypes.some(pt => securitiesProducts.includes(pt));
+  // Sub-agents are marketing-only agents with basic KYC requirements
+  // They don't need ARN/EUIN as they refer clients to master agents
+  const isSubAgent = data.agentLevel === "sub_agent";
   
-  if (hasSecurities) {
-    if (!data.arnCode) {
+  if (!isSubAgent) {
+    // Master and associate agents distributing securities products require ARN/EUIN
+    const securitiesProducts = ["mutual_funds", "aif", "pms", "equity"]; // SEBI only, NOT insurance
+    const hasSecurities = data.productTypes.some(pt => securitiesProducts.includes(pt));
+    
+    if (hasSecurities) {
+      if (!data.arnCode) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "ARN code is required for distributing mutual funds, PMS, AIF, or equity products (SEBI-regulated)",
+          path: ["arnCode"],
+        });
+      }
+      if (!data.euinNumber) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "EUIN is required for distributing mutual funds, PMS, AIF, or equity products (SEBI-regulated)",
+          path: ["euinNumber"],
+        });
+      }
+    }
+  }
+  
+  // Sub-agents must have a master agent
+  if (isSubAgent && !data.masterAgentId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Sub-agents must be assigned to a master agent",
+      path: ["masterAgentId"],
+    });
+  }
+  
+  // Sub-agents require basic KYC: PAN, Aadhaar, and Bank Account
+  if (isSubAgent) {
+    if (!data.panNumber) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "ARN code is required for distributing mutual funds, PMS, AIF, or equity products (SEBI-regulated)",
-        path: ["arnCode"],
+        message: "PAN number is required for sub-agents",
+        path: ["panNumber"],
       });
     }
-    if (!data.euinNumber) {
+    if (!data.aadharNumber) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "EUIN is required for distributing mutual funds, PMS, AIF, or equity products (SEBI-regulated)",
-        path: ["euinNumber"],
+        message: "Aadhaar number is required for sub-agents",
+        path: ["aadharNumber"],
+      });
+    }
+    if (!data.bankAccountNumber) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Bank account number is required for commission payouts",
+        path: ["bankAccountNumber"],
+      });
+    }
+    if (!data.bankIfscCode) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Bank IFSC code is required for commission payouts",
+        path: ["bankIfscCode"],
+      });
+    }
+    if (!data.accountHolderName) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Account holder name is required",
+        path: ["accountHolderName"],
       });
     }
   }
@@ -201,7 +269,13 @@ router.post("/api/agents/register", async (req, res) => {
       agentLevel,
       masterAgentId,
       distributorId,
-      distributorName
+      distributorName,
+      panNumber,
+      aadharNumber,
+      bankAccountNumber,
+      bankIfscCode,
+      bankName,
+      accountHolderName
     } = validation.data;
 
     // Determine regulatory category based on product types
@@ -252,12 +326,14 @@ router.post("/api/agents/register", async (req, res) => {
       }
     }
 
-    // Conditional AMFI validation - only for securities products
+    // Conditional AMFI validation - only for master/associate agents with securities products
+    // Sub-agents don't need ARN/EUIN validation (marketing-only role)
     let arnValidation = null;
     let euinValidation = null;
+    const isSubAgent = agentLevel === "sub_agent";
     
-    if (hasSecurities) {
-      // Validate ARN with AMFI (required for securities)
+    if (hasSecurities && !isSubAgent) {
+      // Validate ARN with AMFI (required for master/associate securities distributors)
       if (arnCode) {
         arnValidation = await amfiValidationService.validateArn(arnCode);
         if (!arnValidation.isValid) {
@@ -268,7 +344,7 @@ router.post("/api/agents/register", async (req, res) => {
         }
       }
 
-      // Validate EUIN with AMFI (required for securities)
+      // Validate EUIN with AMFI (required for master/associate securities distributors)
       if (euinNumber) {
         euinValidation = await amfiValidationService.validateEuin(euinNumber, arnCode);
         if (!euinValidation.isValid) {
@@ -287,17 +363,37 @@ router.post("/api/agents/register", async (req, res) => {
       phone,
       productTypes,
       regulatoryCategory,
+      
+      // Regulatory credentials (for master/associate agents)
       arnCode: arnCode || null,
       euinNumber: euinNumber || null,
       distributorId,
       distributorName: distributorName || (arnValidation?.distributorDetails?.distributorName),
+      
+      // Basic KYC (for sub-agents)
+      panNumber: panNumber || null,
+      aadharNumber: aadharNumber || null,
+      
+      // Bank account details (required for all agents for commission payouts)
+      bankAccountNumber: bankAccountNumber || null,
+      bankIfscCode: bankIfscCode || null,
+      bankName: bankName || null,
+      accountHolderName: accountHolderName || null,
+      
+      // Agent hierarchy
       agentLevel: agentLevel || "master",
       masterAgentId,
-      arnVerificationStatus: hasSecurities ? (arnValidation?.isValid ? "verified" : "pending") : "not_required",
-      euinVerificationStatus: hasSecurities ? (euinValidation?.isValid ? "verified" : "pending") : "not_required",
+      
+      // Verification status
+      arnVerificationStatus: hasSecurities && !isSubAgent ? (arnValidation?.isValid ? "verified" : "pending") : "not_required",
+      euinVerificationStatus: hasSecurities && !isSubAgent ? (euinValidation?.isValid ? "verified" : "pending") : "not_required",
+      panVerified: false, // Will be verified via Cashfree OKYC or other service
+      aadharVerified: false, // Will be verified via Cashfree OKYC
+      bankAccountVerified: false, // Will be verified via penny drop
+      
       onboardingStatus: "pending",
       status: "active",
-      amfiVerificationResponse: hasSecurities ? {
+      amfiVerificationResponse: hasSecurities && !isSubAgent ? {
         arn: arnValidation,
         euin: euinValidation
       } : null,

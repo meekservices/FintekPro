@@ -1427,7 +1427,20 @@ export const customerCareAgents = pgTable("customer_care_agents", {
   verifiedAt: timestamp("verified_at"),
   rejectionReason: text("rejection_reason"),
   
-  // KYC Documents Status
+  // Basic KYC Information (Required for all agent levels)
+  panNumber: varchar("pan_number", { length: 10 }),
+  panName: varchar("pan_name"), // Name as per PAN
+  aadharNumber: varchar("aadhar_number", { length: 12 }), // Store masked: XXXX-XXXX-1234
+  aadharName: varchar("aadhar_name"), // Name as per Aadhaar
+  
+  // Bank Account Details (Required for commission payouts)
+  bankAccountNumber: varchar("bank_account_number"),
+  bankIfscCode: varchar("bank_ifsc_code"),
+  bankName: varchar("bank_name"),
+  bankBranch: varchar("bank_branch"),
+  accountHolderName: varchar("account_holder_name"),
+  
+  // KYC Documents Verification Status
   panVerified: boolean("pan_verified").default(false),
   aadharVerified: boolean("aadhar_verified").default(false),
   bankAccountVerified: boolean("bank_account_verified").default(false),
