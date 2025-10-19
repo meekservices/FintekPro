@@ -7,6 +7,7 @@
 import { Express, Request, Response } from "express";
 import { orderManagementService } from "./order-management-service";
 import { z } from "zod";
+import { blockSubAgentTransactions } from "./kyc-middleware";
 
 // Request validation schemas
 const createOrderSchema = z.object({
@@ -240,8 +241,9 @@ export function registerOrderRoutes(app: Express) {
   /**
    * POST /api/orders
    * Create a new order
+   * SECURITY: Sub-agents are blocked from executing transactions
    */
-  app.post('/api/orders', async (req: Request, res: Response) => {
+  app.post('/api/orders', blockSubAgentTransactions(), async (req: Request, res: Response) => {
     try {
       const userId = (req as any).user?.id;
       if (!userId) {

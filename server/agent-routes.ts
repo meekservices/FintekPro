@@ -982,6 +982,97 @@ router.get("/api/admin/agents/amfi-logs", requireAdmin, async (req, res) => {
   }
 });
 
+// ==================== SUB-AGENT DASHBOARD ENDPOINTS ====================
+
+// Get referral statistics for sub-agent
+router.get("/api/agents/:agentId/referral-stats", requireAuth, async (req, res) => {
+  try {
+    const { agentId } = req.params;
+    
+    const accessCheck = await verifyAgentAccess(req, agentId);
+    if (!accessCheck.allowed) {
+      return res.status(accessCheck.error === "Unauthorized" ? 401 : 403).json({ error: accessCheck.error });
+    }
+
+    const stats = await storage.getAgentReferralStats(agentId);
+    res.json(stats);
+  } catch (error) {
+    console.error("Get referral stats error:", error);
+    res.status(500).json({ error: "Failed to fetch referral statistics" });
+  }
+});
+
+// Get referred clients for sub-agent
+router.get("/api/agents/:agentId/referred-clients", requireAuth, async (req, res) => {
+  try {
+    const { agentId } = req.params;
+    
+    const accessCheck = await verifyAgentAccess(req, agentId);
+    if (!accessCheck.allowed) {
+      return res.status(accessCheck.error === "Unauthorized" ? 401 : 403).json({ error: accessCheck.error });
+    }
+
+    const clients = await storage.getReferredClients(agentId);
+    res.json(clients);
+  } catch (error) {
+    console.error("Get referred clients error:", error);
+    res.status(500).json({ error: "Failed to fetch referred clients" });
+  }
+});
+
+// Get earnings breakdown for sub-agent
+router.get("/api/agents/:agentId/earnings", requireAuth, async (req, res) => {
+  try {
+    const { agentId } = req.params;
+    
+    const accessCheck = await verifyAgentAccess(req, agentId);
+    if (!accessCheck.allowed) {
+      return res.status(accessCheck.error === "Unauthorized" ? 401 : 403).json({ error: accessCheck.error });
+    }
+
+    const earnings = await storage.getAgentEarnings(agentId);
+    res.json(earnings);
+  } catch (error) {
+    console.error("Get earnings error:", error);
+    res.status(500).json({ error: "Failed to fetch earnings" });
+  }
+});
+
+// Refer new client (sub-agent)
+router.post("/api/agents/:agentId/refer-client", requireAuth, async (req, res) => {
+  try {
+    const { agentId } = req.params;
+    
+    const accessCheck = await verifyAgentAccess(req, agentId);
+    if (!accessCheck.allowed) {
+      return res.status(accessCheck.error === "Unauthorized" ? 401 : 403).json({ error: accessCheck.error });
+    }
+
+    const { firstName, lastName, email, mobile, interestedProducts, notes } = req.body;
+
+    if (!firstName || !lastName || !email || !mobile) {
+      return res.status(400).json({ error: "First name, last name, email, and mobile are required" });
+    }
+
+    const referral = await storage.createClientReferral({
+      agentId,
+      firstName,
+      lastName,
+      email,
+      mobile,
+      interestedProducts: interestedProducts || [],
+      notes: notes || "",
+      status: "pending",
+      referredDate: new Date().toISOString(),
+    });
+
+    res.json({ success: true, referral });
+  } catch (error) {
+    console.error("Refer client error:", error);
+    res.status(500).json({ error: "Failed to refer client" });
+  }
+});
+
 // Export product eligibility utilities for use in other modules
 export { isSecuritiesAgent, isLoanAgent, isInsuranceAgent, canDistributeProduct, getRequiredCredentials };
 

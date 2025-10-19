@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { checkKYCCompliance, TransactionContext } from "./kyc-compliance-checker";
+import { storage } from "./storage";
 
 /**
  * KYC Validation Middleware
@@ -356,6 +357,113 @@ export function validateProductAccess(
         error: "ACCESS_CHECK_FAILED",
         message: "Unable to verify product access. Please try again.",
       });
+    }
+  };
+}
+
+/**
+ * Sub-Agent Transaction Control Middleware
+ * Blocks sub-agents from executing transactions while allowing product viewing and marketing
+ * 
+ * Sub-agents can:
+ * - View all products (no KYC restrictions)
+ * - Access product details and marketing materials
+ * - Add products to wishlists
+ * - Share referral links
+ * 
+ * Sub-agents cannot:
+ * - Execute buy/sell orders
+ * - Make payments
+ * - Place transactions on behalf of clients
+ */
+export function blockSubAgentTransactions() {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          error: "Authentication required"
+        });
+      }
+
+      // Check if user is a sub-agent
+      const agent = await storage.getAgentByUserId(userId);
+
+      // If not an agent or is a master/associate agent, allow transaction
+      if (!agent || agent.agentLevel !== 'sub_agent') {
+        return next();
+      }
+
+      // Sub-agent detected - block transaction execution
+      console.log(`[Sub-Agent Control] Blocked transaction attempt by sub-agent ${agent.id} (${userId})`);
+      
+      return res.status(403).json({
+        success: false,
+        error: "TRANSACTION_RESTRICTED",
+        message: "Sub-agents cannot execute transactions. You can refer clients to master agents for transaction execution.",
+        data: {
+          agentLevel: agent.agentLevel,
+          agentId: agent.id,
+          restriction: "transaction_execution",
+          allowedActions: [
+            "View all products",
+            "Access product details",
+            "Add to wishlist",
+            "Generate referral links",
+            "Refer clients to master agents"
+          ],
+          contactSupport: "Contact your master agent to execute transactions on behalf of referred clients"
+        }
+      });
+
+    } catch (error) {
+      console.error("[Sub-Agent Control Error]:", error);
+      // On error, fail safely by allowing the request to proceed
+      // This prevents blocking legitimate transactions due to system errors
+      return next();
+    }
+  };
+}
+
+/**
+ * Allow sub-agents to bypass KYC checks for product viewing (read-only access)
+ * Sub-agents can view all products to facilitate marketing without KYC restrictions
+ */
+export function allowSubAgentProductViewing() {
+  return async (req: KYCRequest, res: Response, next: NextFunction) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return next(); // Let auth middleware handle this
+      }
+
+      // Check if user is a sub-agent
+      const agent = await storage.getAgentByUserId(userId);
+
+      if (agent && agent.agentLevel === 'sub_agent') {
+        console.log(`[Sub-Agent Access] Allowing product view for sub-agent ${agent.id}`);
+        
+        // Set a flag to indicate sub-agent view mode
+        (req as any).isSubAgentView = true;
+        (req as any).agentInfo = {
+          agentId: agent.id,
+          agentLevel: agent.agentLevel,
+          canExecuteTransactions: false
+        };
+        
+        // Bypass KYC requirement for viewing
+        req.kycResult = {
+          compliant: true,
+          level: "sub_agent_view",
+          requiredActions: []
+        };
+      }
+
+      next();
+    } catch (error) {
+      console.error("[Sub-Agent Product Viewing Error]:", error);
+      next(); // Continue on error
     }
   };
 }

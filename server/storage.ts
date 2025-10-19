@@ -1001,6 +1001,31 @@ export interface IStorage {
   getMasterAgentCommissions(masterAgentId: string, filters?: { month?: string; productType?: string }): Promise<AgentCommission[]>;
   updateCommissionSettlementStatus(commissionId: string, agentType: 'agent' | 'master', status: string): Promise<AgentCommission | undefined>;
   getCommissionSummary(agentId: string, month?: string): Promise<{ totalEarned: number; settled: number; pending: number }>;
+  
+  // Sub-Agent Dashboard Methods
+  getAgentReferralStats(agentId: string): Promise<{
+    totalReferrals: number;
+    newReferralsThisMonth: number;
+    activeClients: number;
+    conversionRate: number;
+    totalEarnings: number;
+    earningsThisMonth: number;
+    pendingCommission: number;
+    nextPayoutDate: string;
+  }>;
+  getReferredClients(agentId: string): Promise<any[]>;
+  getAgentEarnings(agentId: string): Promise<any[]>;
+  createClientReferral(data: {
+    agentId: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    mobile: string;
+    interestedProducts: string[];
+    notes: string;
+    status: string;
+    referredDate: string;
+  }): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -6878,6 +6903,200 @@ export class DatabaseStorage implements IStorage {
       settled,
       pending
     };
+  }
+
+  // Sub-Agent Dashboard Methods
+  async getAgentReferralStats(agentId: string) {
+    const relationships = await db.select()
+      .from(schema.clientAgentRelationships)
+      .where(eq(schema.clientAgentRelationships.agentId, agentId));
+
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfMonthTimestamp = startOfMonth.getTime();
+
+    const newReferralsThisMonth = relationships.filter(r => {
+      if (!r.createdAt) return false;
+      const createdAtTimestamp = r.createdAt instanceof Date ? r.createdAt.getTime() : new Date(r.createdAt).getTime();
+      return createdAtTimestamp >= startOfMonthTimestamp;
+    }).length;
+
+    const activeClients = relationships.filter(r => r.status === 'active').length;
+    const totalReferrals = relationships.length;
+    const conversionRate = totalReferrals > 0 ? (activeClients / totalReferrals) * 100 : 0;
+
+    const commissions = await db.select()
+      .from(schema.agentCommissions)
+      .where(eq(schema.agentCommissions.agentId, agentId));
+
+    const totalEarnings = commissions.reduce((sum, c) => sum + parseFloat(c.agentNetCommission.toString()), 0);
+    
+    const currentMonthString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const earningsThisMonth = commissions
+      .filter(c => c.month && c.month === currentMonthString)
+      .reduce((sum, c) => sum + parseFloat(c.agentNetCommission.toString()), 0);
+
+    const pendingCommission = commissions
+      .filter(c => c.agentSettlementStatus === 'pending')
+      .reduce((sum, c) => sum + parseFloat(c.agentNetCommission.toString()), 0);
+
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 10);
+    const nextPayoutDate = nextMonth.toISOString().split('T')[0];
+
+    return {
+      totalReferrals,
+      newReferralsThisMonth,
+      activeClients,
+      conversionRate: Math.round(conversionRate * 100) / 100,
+      totalEarnings: Math.round(totalEarnings * 100) / 100,
+      earningsThisMonth: Math.round(earningsThisMonth * 100) / 100,
+      pendingCommission: Math.round(pendingCommission * 100) / 100,
+      nextPayoutDate,
+    };
+  }
+
+  async getReferredClients(agentId: string) {
+    const relationships = await db.select()
+      .from(schema.clientAgentRelationships)
+      .where(eq(schema.clientAgentRelationships.agentId, agentId))
+      .orderBy(desc(schema.clientAgentRelationships.createdAt));
+
+    const clientsWithDetails = await Promise.all(relationships.map(async (rel) => {
+      const [user] = await db.select()
+        .from(schema.users)
+        .where(eq(schema.users.id, rel.clientId));
+
+      const clientCommissions = await db.select()
+        .from(schema.agentCommissions)
+        .where(and(
+          eq(schema.agentCommissions.agentId, agentId),
+          eq(schema.agentCommissions.clientId, rel.clientId)
+        ));
+
+      const totalEarnings = clientCommissions.reduce((sum, c) => 
+        sum + parseFloat(c.agentNetCommission.toString()), 0
+      );
+
+      return {
+        id: rel.id,
+        firstName: user?.firstName || 'N/A',
+        lastName: user?.lastName || '',
+        email: user?.email || 'N/A',
+        mobile: user?.mobile || 'N/A',
+        status: rel.status || 'pending',
+        interestedProducts: rel.assignedProducts || [],
+        referredDate: rel.createdAt || new Date().toISOString(),
+        totalEarnings: Math.round(totalEarnings * 100) / 100,
+      };
+    }));
+
+    return clientsWithDetails;
+  }
+
+  async getAgentEarnings(agentId: string) {
+    const commissions = await db.select()
+      .from(schema.agentCommissions)
+      .where(eq(schema.agentCommissions.agentId, agentId))
+      .orderBy(desc(schema.agentCommissions.transactionDate));
+
+    const earningsWithDetails = await Promise.all(commissions.map(async (comm) => {
+      const [client] = comm.clientId ? await db.select()
+        .from(schema.users)
+        .where(eq(schema.users.id, comm.clientId)) : [null];
+
+      const grossCommission = parseFloat(comm.grossCommission.toString());
+      const agentNetCommission = parseFloat(comm.agentNetCommission.toString());
+      const tdsAmount = parseFloat(comm.tdsAmount.toString());
+
+      return {
+        id: comm.id,
+        transactionDate: comm.transactionDate || new Date().toISOString(),
+        clientName: client ? `${client.firstName || ''} ${client.lastName || ''}`.trim() : 'N/A',
+        productType: comm.productType || 'N/A',
+        transactionType: comm.transactionType || 'N/A',
+        transactionAmount: parseFloat(comm.transactionAmount.toString()),
+        commissionRate: parseFloat(comm.commissionRate.toString()),
+        marketingFee: agentNetCommission,
+        tdsAmount: tdsAmount,
+        netEarnings: agentNetCommission,
+        paymentStatus: comm.agentSettlementStatus || 'pending',
+      };
+    }));
+
+    return earningsWithDetails;
+  }
+
+  async createClientReferral(data: {
+    agentId: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    mobile: string;
+    interestedProducts: string[];
+    notes: string;
+    status: string;
+    referredDate: string;
+  }) {
+    const existingUser = await db.select()
+      .from(schema.users)
+      .where(eq(schema.users.email, data.email))
+      .limit(1);
+
+    let clientId: string;
+
+    if (existingUser.length > 0) {
+      clientId = existingUser[0].id;
+    } else {
+      const newUser = await this.createUser({
+        userId: await generateUniqueUserId(),
+        email: data.email,
+        mobile: data.mobile,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        password: '',
+        role: 'user',
+        isActive: false,
+        twoFactorEnabled: false,
+      });
+      clientId = newUser.id;
+    }
+
+    const existingRelationship = await db.select()
+      .from(schema.clientAgentRelationships)
+      .where(and(
+        eq(schema.clientAgentRelationships.clientId, clientId),
+        eq(schema.clientAgentRelationships.agentId, data.agentId)
+      ))
+      .limit(1);
+
+    if (existingRelationship.length > 0) {
+      const [updated] = await db.update(schema.clientAgentRelationships)
+        .set({
+          status: data.status,
+          assignedProducts: data.interestedProducts,
+          notes: data.notes,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.clientAgentRelationships.id, existingRelationship[0].id))
+        .returning();
+      return updated;
+    }
+
+    const [relationship] = await db.insert(schema.clientAgentRelationships)
+      .values({
+        id: randomUUID(),
+        clientId,
+        agentId: data.agentId,
+        relationshipType: 'referral',
+        status: data.status,
+        assignedProducts: data.interestedProducts,
+        notes: data.notes,
+        createdAt: new Date(data.referredDate),
+        updatedAt: new Date(),
+      })
+      .returning();
+
+    return relationship;
   }
 }
 
