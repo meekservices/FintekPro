@@ -1,5 +1,5 @@
 import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Supplier, type InsertSupplier, type EpfHolding, type PpfHolding, type EpsHolding, type GovernmentSchemeConsent, type InsertGovernmentSchemeConsent, type InsuranceHolding, type InsertInsuranceHolding, type UserBankAccount, type InsertUserBankAccount, type UserDematAccount, type InsertUserDematAccount, type AchievementCategory, type InsertAchievementCategory, type Achievement, type InsertAchievement, type UserAchievement, type InsertUserAchievement, type LearningProgress, type InsertLearningProgress, type SocialShare, type InsertSocialShare, type FinancialGoal, type InsertFinancialGoal, type TaxDocument, type InsertTaxDocument, type StructuredTaxData, type InsertStructuredTaxData, type UserAlert, type InsertUserAlert, type AlertHistory, type InsertAlertHistory, type AlertTemplate, type InsertAlertTemplate, type FamilyGroup, type InsertFamilyGroup, type FamilyMember, type InsertFamilyMember, type FamilyGoal, type InsertFamilyGoal, type FamilyGoalContribution, type InsertFamilyGoalContribution, type FamilyActivityLog, type InsertFamilyActivityLog, type FamilyDiscussion, type InsertFamilyDiscussion, type FamilyBudget, type InsertFamilyBudget, type FamilyPortfolioPermission, type InsertFamilyPortfolioPermission, type TaxCalculation, type InsertTaxCalculation, type TaxDocumentAccessLog, type InsertTaxDocumentAccessLog, type TaxSession, type InsertTaxSession, type TaxDataSource, type InsertTaxDataSource, type ValidationIssue, type InsertValidationIssue, type FilingRecord, type InsertFilingRecord, type AiOptimizationSuggestion, type InsertAiOptimizationSuggestion, type FundExtended, type Provenance, type FundSearchParams, type FundListResponse, type SourceStatus, type MultiSourceStatus, type LoanProduct, type InsertLoanProduct, type LoanProvider, type InsertLoanProvider, type ProviderProduct, type InsertProviderProduct, type CreditProfile, type InsertCreditProfile, type LoanRequest, type InsertLoanRequest, type LoanOffer, type InsertLoanOffer, type LoanApplicationMarketplace, type InsertLoanApplicationMarketplace, type ProviderIntegration, type InsertProviderIntegration, type PartnerApplicationDocument, type InsertPartnerApplicationDocument, type InvestmentIdea, type InsertInvestmentIdea, type InvestmentIdeaTracking, type InsertInvestmentIdeaTracking, type InvestmentIdeaAlert, type InsertInvestmentIdeaAlert, type YieldTracker, type InsertYieldTracker, type PartnerApplication, type InsertPartnerApplication, type TaxRule, type InsertTaxRule, type TaxReminderSubscription, type InsertTaxReminderSubscription, type CapitalGainsTaxReminder, type InsertCapitalGainsTaxReminder, type UserExpense, type InsertUserExpense, type UserBudget, type InsertUserBudget, type ExpenseInsight, type InsertExpenseInsight } from "@shared/schema";
-import { type CashfreeTransaction, type InsertCashfreeTransaction, type PhonePeTransaction, type InsertPhonePeTransaction } from "@shared/schema";
+import { type CashfreeTransaction, type InsertCashfreeTransaction, type PhonePeTransaction, type InsertPhonePeTransaction, type AgentDocument, type InsertAgentDocument, type AgentCommissionSplit, type InsertAgentCommissionSplit, type AgentCommission, type InsertAgentCommission, type AmfiVerificationLog, type InsertAmfiVerificationLog } from "@shared/schema";
 import { type Product, type InsertProduct, type ApplicationDocument, type InsertApplicationDocument, type ProductAccountPreference, type InsertProductAccountPreference, type ICICILoanApplication, type InsertICICILoanApplication, type ICICICreditScore, type InsertICICICreditScore, type PortfolioComparison, type InsertPortfolioComparison, type ChatSession, type InsertChatSession, type ChatMessage, type InsertChatMessage, type ChatAction, type InsertChatAction, type ChatFunction, type InsertChatFunction, type CurrencyRate, type InsertCurrencyRate, type CkycNotificationTrigger, type InsertCkycNotificationTrigger, type KycVerificationSession, type InsertKycVerificationSession, type ManualKycSubmission, type InsertManualKycSubmission, type ManualKycDocument, type InsertManualKycDocument } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
@@ -969,6 +969,38 @@ export interface IStorage {
   }): Promise<{ refunds: any[]; total: number }>;
   
   updateRefundStatus(refundId: string, status: string, gatewayRefundId?: string): Promise<any | undefined>;
+  
+  // Agent Onboarding & Hierarchy Methods
+  getAgentById(agentId: string): Promise<CustomerCareAgent | undefined>;
+  getAgentByEmail(email: string): Promise<CustomerCareAgent | undefined>;
+  getAgentByArn(arnCode: string): Promise<CustomerCareAgent | undefined>;
+  getAgentByEuin(euinNumber: string): Promise<CustomerCareAgent | undefined>;
+  getAllAgentsByStatus(status?: string): Promise<CustomerCareAgent[]>;
+  getSubAgents(masterAgentId: string): Promise<CustomerCareAgent[]>;
+  updateAgentVerificationStatus(agentId: string, updates: Partial<CustomerCareAgent>): Promise<CustomerCareAgent | undefined>;
+  
+  // Agent Document Management
+  uploadAgentDocument(document: InsertAgentDocument): Promise<AgentDocument>;
+  getAgentDocuments(agentId: string): Promise<AgentDocument[]>;
+  getAgentDocumentByType(agentId: string, documentType: string): Promise<AgentDocument | undefined>;
+  updateAgentDocumentVerification(documentId: string, status: string, verifiedBy: string, rejectionReason?: string): Promise<AgentDocument | undefined>;
+  
+  // AMFI Verification Logging
+  createAmfiVerificationLog(log: InsertAmfiVerificationLog): Promise<AmfiVerificationLog>;
+  getAmfiVerificationLogs(agentId?: string, verificationType?: string): Promise<AmfiVerificationLog[]>;
+  
+  // Agent Commission Splits
+  createCommissionSplit(split: InsertAgentCommissionSplit): Promise<AgentCommissionSplit>;
+  getCommissionSplits(subAgentId?: string, masterAgentId?: string): Promise<AgentCommissionSplit[]>;
+  getActiveCommissionSplit(subAgentId: string, productType?: string): Promise<AgentCommissionSplit | undefined>;
+  updateCommissionSplit(splitId: string, updates: Partial<AgentCommissionSplit>): Promise<AgentCommissionSplit | undefined>;
+  
+  // Agent Commission Tracking
+  createAgentCommission(commission: InsertAgentCommission): Promise<AgentCommission>;
+  getAgentCommissions(agentId?: string, filters?: { month?: string; productType?: string; settlementStatus?: string }): Promise<AgentCommission[]>;
+  getMasterAgentCommissions(masterAgentId: string, filters?: { month?: string; productType?: string }): Promise<AgentCommission[]>;
+  updateCommissionSettlementStatus(commissionId: string, agentType: 'agent' | 'master', status: string): Promise<AgentCommission | undefined>;
+  getCommissionSummary(agentId: string, month?: string): Promise<{ totalEarned: number; settled: number; pending: number }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -6636,6 +6668,216 @@ export class DatabaseStorage implements IStorage {
       .returning();
     
     return updated;
+  }
+
+  // Agent Onboarding & Hierarchy Methods
+  async getAgentById(agentId: string) {
+    const [agent] = await db.select().from(schema.customerCareAgents).where(eq(schema.customerCareAgents.id, agentId));
+    return agent;
+  }
+
+  async getAgentByEmail(email: string) {
+    const [agent] = await db.select().from(schema.customerCareAgents).where(eq(schema.customerCareAgents.email, email));
+    return agent;
+  }
+
+  async getAgentByArn(arnCode: string) {
+    const [agent] = await db.select().from(schema.customerCareAgents).where(eq(schema.customerCareAgents.arnCode, arnCode));
+    return agent;
+  }
+
+  async getAgentByEuin(euinNumber: string) {
+    const [agent] = await db.select().from(schema.customerCareAgents).where(eq(schema.customerCareAgents.euinNumber, euinNumber));
+    return agent;
+  }
+
+  async getAllAgentsByStatus(status?: string) {
+    if (status) {
+      return await db.select().from(schema.customerCareAgents).where(eq(schema.customerCareAgents.onboardingStatus, status));
+    }
+    return await db.select().from(schema.customerCareAgents);
+  }
+
+  async getSubAgents(masterAgentId: string) {
+    return await db.select().from(schema.customerCareAgents).where(eq(schema.customerCareAgents.masterAgentId, masterAgentId));
+  }
+
+  async updateAgentVerificationStatus(agentId: string, updates: Partial<CustomerCareAgent>) {
+    const [updated] = await db.update(schema.customerCareAgents)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.customerCareAgents.id, agentId))
+      .returning();
+    return updated;
+  }
+
+  // Agent Document Management
+  async uploadAgentDocument(document: InsertAgentDocument) {
+    const [uploaded] = await db.insert(schema.agentDocuments).values(document).returning();
+    return uploaded;
+  }
+
+  async getAgentDocuments(agentId: string) {
+    return await db.select().from(schema.agentDocuments).where(eq(schema.agentDocuments.agentId, agentId));
+  }
+
+  async getAgentDocumentByType(agentId: string, documentType: string) {
+    const [doc] = await db.select().from(schema.agentDocuments)
+      .where(and(
+        eq(schema.agentDocuments.agentId, agentId),
+        eq(schema.agentDocuments.documentType, documentType)
+      ));
+    return doc;
+  }
+
+  async updateAgentDocumentVerification(documentId: string, status: string, verifiedBy: string, rejectionReason?: string) {
+    const updateData: any = {
+      verificationStatus: status,
+      verifiedBy,
+      verifiedAt: new Date(),
+      updatedAt: new Date()
+    };
+    if (rejectionReason) {
+      updateData.rejectionReason = rejectionReason;
+    }
+    const [updated] = await db.update(schema.agentDocuments)
+      .set(updateData)
+      .where(eq(schema.agentDocuments.id, documentId))
+      .returning();
+    return updated;
+  }
+
+  // AMFI Verification Logging
+  async createAmfiVerificationLog(log: InsertAmfiVerificationLog) {
+    const [created] = await db.insert(schema.amfiVerificationLog).values(log).returning();
+    return created;
+  }
+
+  async getAmfiVerificationLogs(agentId?: string, verificationType?: string) {
+    const conditions = [];
+    if (agentId) {
+      conditions.push(eq(schema.amfiVerificationLog.agentId, agentId));
+    }
+    if (verificationType) {
+      conditions.push(eq(schema.amfiVerificationLog.verificationType, verificationType));
+    }
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    return await db.select().from(schema.amfiVerificationLog).where(whereClause).orderBy(desc(schema.amfiVerificationLog.createdAt));
+  }
+
+  // Agent Commission Splits
+  async createCommissionSplit(split: InsertAgentCommissionSplit) {
+    const [created] = await db.insert(schema.agentCommissionSplits).values(split).returning();
+    return created;
+  }
+
+  async getCommissionSplits(subAgentId?: string, masterAgentId?: string) {
+    const conditions = [];
+    if (subAgentId) {
+      conditions.push(eq(schema.agentCommissionSplits.subAgentId, subAgentId));
+    }
+    if (masterAgentId) {
+      conditions.push(eq(schema.agentCommissionSplits.masterAgentId, masterAgentId));
+    }
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    return await db.select().from(schema.agentCommissionSplits).where(whereClause);
+  }
+
+  async getActiveCommissionSplit(subAgentId: string, productType?: string) {
+    const conditions = [
+      eq(schema.agentCommissionSplits.subAgentId, subAgentId),
+      eq(schema.agentCommissionSplits.isActive, true)
+    ];
+    if (productType) {
+      conditions.push(eq(schema.agentCommissionSplits.productType, productType));
+    }
+    const [split] = await db.select().from(schema.agentCommissionSplits).where(and(...conditions));
+    return split;
+  }
+
+  async updateCommissionSplit(splitId: string, updates: Partial<AgentCommissionSplit>) {
+    const [updated] = await db.update(schema.agentCommissionSplits)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.agentCommissionSplits.id, splitId))
+      .returning();
+    return updated;
+  }
+
+  // Agent Commission Tracking
+  async createAgentCommission(commission: InsertAgentCommission) {
+    const [created] = await db.insert(schema.agentCommissions).values(commission).returning();
+    return created;
+  }
+
+  async getAgentCommissions(agentId?: string, filters?: { month?: string; productType?: string; settlementStatus?: string }) {
+    const conditions = [];
+    if (agentId) {
+      conditions.push(eq(schema.agentCommissions.agentId, agentId));
+    }
+    if (filters?.month) {
+      conditions.push(eq(schema.agentCommissions.month, filters.month));
+    }
+    if (filters?.productType) {
+      conditions.push(eq(schema.agentCommissions.productType, filters.productType));
+    }
+    if (filters?.settlementStatus) {
+      conditions.push(eq(schema.agentCommissions.agentSettlementStatus, filters.settlementStatus));
+    }
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    return await db.select().from(schema.agentCommissions).where(whereClause).orderBy(desc(schema.agentCommissions.transactionDate));
+  }
+
+  async getMasterAgentCommissions(masterAgentId: string, filters?: { month?: string; productType?: string }) {
+    const conditions = [eq(schema.agentCommissions.masterAgentId, masterAgentId)];
+    if (filters?.month) {
+      conditions.push(eq(schema.agentCommissions.month, filters.month));
+    }
+    if (filters?.productType) {
+      conditions.push(eq(schema.agentCommissions.productType, filters.productType));
+    }
+    return await db.select().from(schema.agentCommissions).where(and(...conditions)).orderBy(desc(schema.agentCommissions.transactionDate));
+  }
+
+  async updateCommissionSettlementStatus(commissionId: string, agentType: 'agent' | 'master', status: string) {
+    const updateData: any = {};
+    if (agentType === 'agent') {
+      updateData.agentSettlementStatus = status;
+      if (status === 'settled') {
+        updateData.agentSettledAt = new Date();
+      }
+    } else {
+      updateData.masterSettlementStatus = status;
+      if (status === 'settled') {
+        updateData.masterSettledAt = new Date();
+      }
+    }
+    updateData.updatedAt = new Date();
+    
+    const [updated] = await db.update(schema.agentCommissions)
+      .set(updateData)
+      .where(eq(schema.agentCommissions.id, commissionId))
+      .returning();
+    return updated;
+  }
+
+  async getCommissionSummary(agentId: string, month?: string) {
+    const conditions = [eq(schema.agentCommissions.agentId, agentId)];
+    if (month) {
+      conditions.push(eq(schema.agentCommissions.month, month));
+    }
+    
+    const commissions = await db.select().from(schema.agentCommissions).where(and(...conditions));
+    
+    const totalEarned = commissions.reduce((sum, c) => sum + parseFloat(c.agentNetCommission.toString()), 0);
+    const settled = commissions.filter(c => c.agentSettlementStatus === 'settled')
+      .reduce((sum, c) => sum + parseFloat(c.agentNetCommission.toString()), 0);
+    const pending = commissions.filter(c => c.agentSettlementStatus === 'pending')
+      .reduce((sum, c) => sum + parseFloat(c.agentNetCommission.toString()), 0);
+    
+    return {
+      totalEarned,
+      settled,
+      pending
+    };
   }
 }
 

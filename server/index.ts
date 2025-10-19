@@ -190,6 +190,10 @@ app.use((req, res, next) => {
   const zohoRoutes = await import('./zoho/routes');
   app.use('/api/zoho', zohoRoutes.default);
   
+  // Register Agent Onboarding routes
+  const agentRoutes = await import('./agent-routes');
+  app.use(agentRoutes.default);
+  
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
