@@ -21,7 +21,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
   }
   
   const user = await storage.getUser(req.user.id);
-  if (!user || user.role !== "admin") {
+  if (!user || !user.roles || !user.roles.includes("admin")) {
     return res.status(403).json({ error: "Forbidden: Admin access required" });
   }
   
@@ -40,7 +40,7 @@ const verifyAgentAccess = async (req: any, agentId: string): Promise<{ allowed: 
   }
 
   // Admins can access any agent
-  if (user.role === "admin") {
+  if (user.roles && user.roles.includes("admin")) {
     return { allowed: true, isAdmin: true };
   }
 
@@ -57,6 +57,33 @@ const verifyAgentAccess = async (req: any, agentId: string): Promise<{ allowed: 
   }
 
   return { allowed: false, isAdmin: false, error: "Forbidden: You can only access your own agent data" };
+};
+
+// Product Eligibility Helpers
+const isSecuritiesAgent = (agent: any): boolean => {
+  if (!agent.productTypes) return false;
+  const securitiesProducts = ["mutual_funds", "aif", "pms", "insurance", "equity"];
+  return agent.productTypes.some((pt: string) => securitiesProducts.includes(pt));
+};
+
+const isLoanAgent = (agent: any): boolean => {
+  if (!agent.productTypes) return false;
+  return agent.productTypes.includes("loans");
+};
+
+const canDistributeProduct = (agent: any, productType: string): boolean => {
+  if (!agent.productTypes) return false;
+  return agent.productTypes.includes(productType);
+};
+
+const getRequiredCredentials = (productType: string): { requiresARN: boolean; requiresEUIN: boolean } => {
+  const securitiesProducts = ["mutual_funds", "aif", "pms", "insurance", "equity"];
+  const isSecurities = securitiesProducts.includes(productType);
+  
+  return {
+    requiresARN: isSecurities,
+    requiresEUIN: isSecurities,
+  };
 };
 
 // Validation schemas
@@ -708,5 +735,8 @@ router.get("/api/admin/agents/amfi-logs", requireAdmin, async (req, res) => {
     res.status(500).json({ error: "Failed to fetch AMFI logs" });
   }
 });
+
+// Export product eligibility utilities for use in other modules
+export { isSecuritiesAgent, isLoanAgent, canDistributeProduct, getRequiredCredentials };
 
 export default router;
