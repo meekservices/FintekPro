@@ -62,7 +62,7 @@ const verifyAgentAccess = async (req: any, agentId: string): Promise<{ allowed: 
 // Product Eligibility Helpers
 const isSecuritiesAgent = (agent: any): boolean => {
   if (!agent.productTypes) return false;
-  const securitiesProducts = ["mutual_funds", "aif", "pms", "insurance", "equity"];
+  const securitiesProducts = ["mutual_funds", "aif", "pms", "equity"]; // SEBI-regulated only
   return agent.productTypes.some((pt: string) => securitiesProducts.includes(pt));
 };
 
@@ -71,18 +71,31 @@ const isLoanAgent = (agent: any): boolean => {
   return agent.productTypes.includes("loans");
 };
 
+const isInsuranceAgent = (agent: any): boolean => {
+  if (!agent.productTypes) return false;
+  return agent.productTypes.includes("insurance");
+};
+
 const canDistributeProduct = (agent: any, productType: string): boolean => {
   if (!agent.productTypes) return false;
   return agent.productTypes.includes(productType);
 };
 
-const getRequiredCredentials = (productType: string): { requiresARN: boolean; requiresEUIN: boolean } => {
-  const securitiesProducts = ["mutual_funds", "aif", "pms", "insurance", "equity"];
+const getRequiredCredentials = (productType: string): { requiresARN: boolean; requiresEUIN: boolean; requiresIRDAI: boolean } => {
+  // SEBI-regulated products (require ARN/EUIN)
+  const securitiesProducts = ["mutual_funds", "aif", "pms", "equity"];
   const isSecurities = securitiesProducts.includes(productType);
+  
+  // IRDAI-regulated (require IRDAI license, not ARN/EUIN)
+  const isInsurance = productType === "insurance";
+  
+  // RBI/NBFC-regulated (no ARN/EUIN/IRDAI needed)
+  const isLoan = productType === "loans";
   
   return {
     requiresARN: isSecurities,
     requiresEUIN: isSecurities,
+    requiresIRDAI: isInsurance,
   };
 };
 
@@ -99,26 +112,30 @@ const agentRegistrationSchema = z.object({
   distributorId: z.string().optional(),
   distributorName: z.string().optional(),
 }).superRefine((data, ctx) => {
-  // Securities products require ARN/EUIN
-  const securitiesProducts = ["mutual_funds", "aif", "pms", "insurance", "equity"];
+  // SEBI-regulated securities products require ARN/EUIN
+  const securitiesProducts = ["mutual_funds", "aif", "pms", "equity"]; // SEBI only, NOT insurance
   const hasSecurities = data.productTypes.some(pt => securitiesProducts.includes(pt));
   
   if (hasSecurities) {
     if (!data.arnCode) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "ARN code is required for distributing mutual funds, PMS, AIF, insurance, or equity products",
+        message: "ARN code is required for distributing mutual funds, PMS, AIF, or equity products (SEBI-regulated)",
         path: ["arnCode"],
       });
     }
     if (!data.euinNumber) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "EUIN is required for distributing mutual funds, PMS, AIF, insurance, or equity products",
+        message: "EUIN is required for distributing mutual funds, PMS, AIF, or equity products (SEBI-regulated)",
         path: ["euinNumber"],
       });
     }
   }
+  
+  // Insurance products require IRDAI license (handled separately, no ARN/EUIN needed)
+  const hasInsurance = data.productTypes.includes("insurance");
+  // Note: IRDAI validation would be implemented here if we had IRDAI integration
 });
 
 const arnValidationSchema = z.object({
@@ -188,15 +205,29 @@ router.post("/api/agents/register", async (req, res) => {
     } = validation.data;
 
     // Determine regulatory category based on product types
-    const securitiesProducts = ["mutual_funds", "aif", "pms", "insurance", "equity"];
+    const securitiesProducts = ["mutual_funds", "aif", "pms", "equity"]; // SEBI-regulated only
     const hasSecurities = productTypes.some(pt => securitiesProducts.includes(pt));
     const hasLoans = productTypes.includes("loans");
+    const hasInsurance = productTypes.includes("insurance"); // IRDAI-regulated
     
-    let regulatoryCategory: "loan_dsa" | "securities_distributor" | "hybrid" = "loan_dsa";
-    if (hasSecurities && hasLoans) {
+    // Determine regulatory category based on product mix
+    // NOTE: regulatoryCategory is a simplified field. For more granular control, use productTypes array
+    let regulatoryCategory: "loan_dsa" | "securities_distributor" | "insurance_agent" | "hybrid" = "loan_dsa";
+    
+    const productCount = (hasSecurities ? 1 : 0) + (hasLoans ? 1 : 0) + (hasInsurance ? 1 : 0);
+    
+    if (productCount > 1) {
+      // Mixed regulatory requirements (any combination of SEBI/IRDAI/RBI products)
       regulatoryCategory = "hybrid";
     } else if (hasSecurities) {
+      // Pure SEBI-regulated securities distributor
       regulatoryCategory = "securities_distributor";
+    } else if (hasInsurance) {
+      // Pure IRDAI-regulated insurance agent
+      regulatoryCategory = "insurance_agent";
+    } else if (hasLoans) {
+      // Pure RBI/NBFC loan DSA
+      regulatoryCategory = "loan_dsa";
     }
 
     // Check if email already exists
@@ -737,6 +768,6 @@ router.get("/api/admin/agents/amfi-logs", requireAdmin, async (req, res) => {
 });
 
 // Export product eligibility utilities for use in other modules
-export { isSecuritiesAgent, isLoanAgent, canDistributeProduct, getRequiredCredentials };
+export { isSecuritiesAgent, isLoanAgent, isInsuranceAgent, canDistributeProduct, getRequiredCredentials };
 
 export default router;
