@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import type { AgentProfile, AgentStats, AgentPartner } from "@shared/schema";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
+import { SubAgentDashboard } from "@/components/SubAgentDashboard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -583,91 +584,97 @@ export default function AgentPortal() {
 
           {/* Dashboard Tab */}
           <TabsContent value="dashboard" className="space-y-6">
-            {/* Stats Cards */}
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-              <Card data-testid="card-total-partners">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Partners</CardTitle>
-                  <Building2 className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold" data-testid="text-total-partners">
-                    {agentStats?.totalPartners ?? 0}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {agentStats?.activePartners ?? 0} active
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card data-testid="card-total-clients">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Clients</CardTitle>
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold" data-testid="text-total-clients">
-                    {agentStats?.totalClients ?? 0}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {agentStats?.activeClients ?? 0} active
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card data-testid="card-monthly-commissions">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Monthly Commissions</CardTitle>
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold" data-testid="text-monthly-commissions">
-                    ₹{agentStats?.monthlyCommissions ?? '0'}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    +{agentStats?.commissionGrowth ?? 0}% from last month
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card data-testid="card-pending-tasks">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Pending Tasks</CardTitle>
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold" data-testid="text-pending-tasks">
-                    {agentStats?.pendingTasks ?? 0}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {agentStats?.urgentTasks ?? 0} urgent
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Recent Activity */}
-            <Card data-testid="card-recent-activity">
-              <CardHeader>
-                <CardTitle>Recent Activity</CardTitle>
-                <CardDescription>Your latest actions and updates</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {agentStats?.recentActivity?.map((activity: any, index: number) => (
-                    <div key={index} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">{activity.description}</p>
-                        <p className="text-xs text-muted-foreground">{activity.timestamp}</p>
+            {agentProfile?.agentLevel === 'sub_agent' ? (
+              <SubAgentDashboard agentId={agentProfile.id} />
+            ) : (
+              <>
+                {/* Stats Cards */}
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                  <Card data-testid="card-total-partners">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Total Partners</CardTitle>
+                      <Building2 className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold" data-testid="text-total-partners">
+                        {agentStats?.totalPartners ?? 0}
                       </div>
-                    </div>
-                  )) || (
-                    <p className="text-sm text-muted-foreground">No recent activity</p>
-                  )}
+                      <p className="text-xs text-muted-foreground">
+                        {agentStats?.activePartners ?? 0} active
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card data-testid="card-total-clients">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Total Clients</CardTitle>
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold" data-testid="text-total-clients">
+                        {agentStats?.totalClients ?? 0}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {agentStats?.activeClients ?? 0} active
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card data-testid="card-monthly-commissions">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Monthly Commissions</CardTitle>
+                      <DollarSign className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold" data-testid="text-monthly-commissions">
+                        ₹{agentStats?.monthlyCommissions ?? '0'}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        +{agentStats?.commissionGrowth ?? 0}% from last month
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card data-testid="card-pending-tasks">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Pending Tasks</CardTitle>
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold" data-testid="text-pending-tasks">
+                        {agentStats?.pendingTasks ?? 0}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {agentStats?.urgentTasks ?? 0} urgent
+                      </p>
+                    </CardContent>
+                  </Card>
                 </div>
-              </CardContent>
-            </Card>
+
+                {/* Recent Activity */}
+                <Card data-testid="card-recent-activity">
+                  <CardHeader>
+                    <CardTitle>Recent Activity</CardTitle>
+                    <CardDescription>Your latest actions and updates</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {agentStats?.recentActivity?.map((activity: any, index: number) => (
+                        <div key={index} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">{activity.description}</p>
+                            <p className="text-xs text-muted-foreground">{activity.timestamp}</p>
+                          </div>
+                        </div>
+                      )) || (
+                        <p className="text-sm text-muted-foreground">No recent activity</p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            )}
           </TabsContent>
 
           {/* Partners Tab */}
