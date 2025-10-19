@@ -64,12 +64,34 @@ const agentRegistrationSchema = z.object({
   fullName: z.string().min(1, "Full name is required"),
   email: z.string().email("Valid email is required"),
   phone: z.string().optional(),
+  productTypes: z.array(z.enum(["loans", "mutual_funds", "aif", "pms", "insurance", "equity"])).min(1, "At least one product type is required"),
   arnCode: z.string().regex(/^ARN-\d{5,6}$/i, "Invalid ARN format").optional(),
   euinNumber: z.string().regex(/^E\d{6}$/i, "Invalid EUIN format").optional(),
   agentLevel: z.enum(["master", "sub_agent", "associate"]).optional(),
   masterAgentId: z.string().optional(),
   distributorId: z.string().optional(),
   distributorName: z.string().optional(),
+}).superRefine((data, ctx) => {
+  // Securities products require ARN/EUIN
+  const securitiesProducts = ["mutual_funds", "aif", "pms", "insurance", "equity"];
+  const hasSecurities = data.productTypes.some(pt => securitiesProducts.includes(pt));
+  
+  if (hasSecurities) {
+    if (!data.arnCode) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "ARN code is required for distributing mutual funds, PMS, AIF, insurance, or equity products",
+        path: ["arnCode"],
+      });
+    }
+    if (!data.euinNumber) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "EUIN is required for distributing mutual funds, PMS, AIF, insurance, or equity products",
+        path: ["euinNumber"],
+      });
+    }
+  }
 });
 
 const arnValidationSchema = z.object({
@@ -128,7 +150,8 @@ router.post("/api/agents/register", async (req, res) => {
     const { 
       fullName, 
       email, 
-      phone, 
+      phone,
+      productTypes,
       arnCode, 
       euinNumber, 
       agentLevel,
@@ -137,13 +160,25 @@ router.post("/api/agents/register", async (req, res) => {
       distributorName
     } = validation.data;
 
+    // Determine regulatory category based on product types
+    const securitiesProducts = ["mutual_funds", "aif", "pms", "insurance", "equity"];
+    const hasSecurities = productTypes.some(pt => securitiesProducts.includes(pt));
+    const hasLoans = productTypes.includes("loans");
+    
+    let regulatoryCategory: "loan_dsa" | "securities_distributor" | "hybrid" = "loan_dsa";
+    if (hasSecurities && hasLoans) {
+      regulatoryCategory = "hybrid";
+    } else if (hasSecurities) {
+      regulatoryCategory = "securities_distributor";
+    }
+
     // Check if email already exists
     const existingAgent = await storage.getAgentByEmail(email);
     if (existingAgent) {
       return res.status(400).json({ error: "Agent with this email already exists" });
     }
 
-    // Check if ARN already exists
+    // Check if ARN already exists (only if provided)
     if (arnCode) {
       const existingArn = await storage.getAgentByArn(arnCode);
       if (existingArn) {
@@ -151,7 +186,7 @@ router.post("/api/agents/register", async (req, res) => {
       }
     }
 
-    // Check if EUIN already exists
+    // Check if EUIN already exists (only if provided)
     if (euinNumber) {
       const existingEuin = await storage.getAgentByEuin(euinNumber);
       if (existingEuin) {
@@ -159,27 +194,31 @@ router.post("/api/agents/register", async (req, res) => {
       }
     }
 
-    // If ARN provided, validate it with AMFI
+    // Conditional AMFI validation - only for securities products
     let arnValidation = null;
-    if (arnCode) {
-      arnValidation = await amfiValidationService.validateArn(arnCode);
-      if (!arnValidation.isValid) {
-        return res.status(400).json({ 
-          error: "Invalid ARN code", 
-          details: arnValidation.errorMessage 
-        });
-      }
-    }
-
-    // If EUIN provided, validate it with AMFI
     let euinValidation = null;
-    if (euinNumber) {
-      euinValidation = await amfiValidationService.validateEuin(euinNumber, arnCode);
-      if (!euinValidation.isValid) {
-        return res.status(400).json({ 
-          error: "Invalid EUIN number", 
-          details: euinValidation.errorMessage 
-        });
+    
+    if (hasSecurities) {
+      // Validate ARN with AMFI (required for securities)
+      if (arnCode) {
+        arnValidation = await amfiValidationService.validateArn(arnCode);
+        if (!arnValidation.isValid) {
+          return res.status(400).json({ 
+            error: "Invalid ARN code", 
+            details: arnValidation.errorMessage 
+          });
+        }
+      }
+
+      // Validate EUIN with AMFI (required for securities)
+      if (euinNumber) {
+        euinValidation = await amfiValidationService.validateEuin(euinNumber, arnCode);
+        if (!euinValidation.isValid) {
+          return res.status(400).json({ 
+            error: "Invalid EUIN number", 
+            details: euinValidation.errorMessage 
+          });
+        }
       }
     }
 
@@ -188,20 +227,22 @@ router.post("/api/agents/register", async (req, res) => {
       fullName,
       email,
       phone,
-      arnCode,
-      euinNumber,
+      productTypes,
+      regulatoryCategory,
+      arnCode: arnCode || null,
+      euinNumber: euinNumber || null,
       distributorId,
       distributorName: distributorName || (arnValidation?.distributorDetails?.distributorName),
       agentLevel: agentLevel || "master",
       masterAgentId,
-      arnVerificationStatus: arnValidation?.isValid ? "verified" : "pending",
-      euinVerificationStatus: euinValidation?.isValid ? "verified" : "pending",
+      arnVerificationStatus: hasSecurities ? (arnValidation?.isValid ? "verified" : "pending") : "not_required",
+      euinVerificationStatus: hasSecurities ? (euinValidation?.isValid ? "verified" : "pending") : "not_required",
       onboardingStatus: "pending",
       status: "active",
-      amfiVerificationResponse: {
+      amfiVerificationResponse: hasSecurities ? {
         arn: arnValidation,
         euin: euinValidation
-      },
+      } : null,
       arnExpiryDate: arnValidation?.distributorDetails?.arnExpiryDate,
       amfiVerifiedAt: (arnValidation?.isValid || euinValidation?.isValid) ? new Date() : null,
     };
