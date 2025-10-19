@@ -1400,6 +1400,10 @@ export const customerCareAgents = pgTable("customer_care_agents", {
   specializations: text("specializations").array().default([]), // ['technical', 'billing', 'product_inquiry']
   languages: text("languages").array().default(["en"]), // Supported languages
   
+  // Product Distribution Authorization
+  productTypes: text("product_types").array().default([]), // ['loans', 'mutual_funds', 'aif', 'pms', 'insurance', 'equity']
+  regulatoryCategory: varchar("regulatory_category").default("loan_dsa"), // loan_dsa, securities_distributor, hybrid
+  
   // Agent Hierarchy for Multi-Level Distribution
   masterAgentId: varchar("master_agent_id"), // References parent agent
   agentLevel: varchar("agent_level").default("master"), // master, sub_agent, associate
