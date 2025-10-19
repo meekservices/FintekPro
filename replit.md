@@ -70,11 +70,19 @@ Do not make changes to the file `Y`.
   - **Key Files**: `client/src/components/SubAgentDashboard.tsx`, `server/storage.ts` (sub-agent methods), `server/routes.ts` (blockSubAgentTransactions middleware), `client/src/pages/agent-portal.tsx` (conditional rendering)
 
 ### System Design Choices
-- **Admin Portal**: Separate subdomain-based admin portal (admin.fintekpro.com) with triple-layer security (subdomain, authentication, role authorization). Includes AdminLayout, API configuration, and system monitoring.
-  - **Stakeholder Management**: Comprehensive dashboard for managing clients, partners, agents, and vendors with advanced filtering, search, and real-time data
-  - **KYC & Compliance Hub**: Review and approve KYC submissions, bulk actions, document verification, and compliance alerts
-  - **Financial Operations Dashboard**: Complete financial oversight with order management, payment tracking (Cashfree/PhonePe), revenue analytics, refund processing, and payment reconciliation
-  - **API & Integration Control Center** (In Progress): Webhook logging, API usage tracking, integration health monitoring, and key management for all 3rd party services
+- **Subdomain-Based Portal Architecture**: Multi-tenant platform with separate subdomains for different user types, providing isolation, security, and customized experiences:
+  - **Admin Portal** (admin.fintekpro.com): Triple-layer security (subdomain, authentication, role authorization) for platform administrators
+    - **Stakeholder Management**: Comprehensive dashboard for managing clients, partners, agents, and vendors with advanced filtering, search, and real-time data
+    - **KYC & Compliance Hub**: Review and approve KYC submissions, bulk actions, document verification, and compliance alerts
+    - **Financial Operations Dashboard**: Complete financial oversight with order management, payment tracking (Cashfree/PhonePe), revenue analytics, refund processing, and payment reconciliation
+    - **API & Integration Control Center** (In Progress): Webhook logging, API usage tracking, integration health monitoring, and key management for all 3rd party services
+  - **Agent Portal** (agent.fintekpro.com): Dedicated portal for agents (master/associate/sub-agents) with role-based dashboard rendering
+    - Automatic routing based on subdomain detection (server + client)
+    - Conditional dashboard: Sub-agents see SubAgentDashboard, master/associate agents see full agent management interface
+    - Secure access control requiring authentication + agent role verification
+    - Development support: `agent.localhost:5000` or `?agent=true` query parameter
+  - **Client Portal** (fintekpro.com): Main customer-facing application for end-users
+  - **Implementation**: `server/subdomain-middleware.ts` (backend detection), `client/src/hooks/useSubdomain.ts` (frontend detection), conditional routing in `App.tsx`
 - **Consistent Layout**: All pages follow a three-part layout: Left Sidebar Navigation (`EnhancedNavigation`), Main Content Area (`AppLayout`), and Footer (`Footer`). The sidebar is collapsible, process flow-based, and state-persisted.
 - **ScrollableTabsList Pattern**: Ensures tabbed navigation is responsive and user-friendly, with dynamic padding to prevent content overlap with navigation arrows.
 

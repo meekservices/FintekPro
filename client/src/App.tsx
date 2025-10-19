@@ -262,12 +262,31 @@ function AdminRoutes() {
   );
 }
 
+function AgentRoutes() {
+  return (
+    <AppLayout>
+      <Switch>
+        <Route path="/" component={AgentPortal} />
+        <Route path="/agent-portal" component={AgentPortal} />
+        <Route path="/auth" component={AuthPage} />
+        <Route path="/whatsapp-login" component={WhatsAppAuthPage} />
+        <Route component={NotFound} />
+      </Switch>
+    </AppLayout>
+  );
+}
+
 function Router() {
-  const { isAdminPortal } = useSubdomain();
+  const { isAdminPortal, isAgentPortal } = useSubdomain();
 
   // Render admin portal on admin subdomain
   if (isAdminPortal) {
     return <AdminRoutes />;
+  }
+
+  // Render agent portal on agent subdomain
+  if (isAgentPortal) {
+    return <AgentRoutes />;
   }
 
   // Render client portal on main domain
@@ -290,7 +309,6 @@ function Router() {
         <Route path="/admin/proposals" component={AdminProposalsPage} />
         <Route path="/admin/whatsapp-setup" component={AdminWhatsAppSetup} />
         <Route path="/agent" component={AgentDashboard} />
-        <Route path="/agent-portal" component={AgentPortal} />
         
         {/* User routes - require both authentication and profile completion */}
         <Route component={UserProtectedRoutes} />

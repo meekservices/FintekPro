@@ -8,16 +8,25 @@ export function useSubdomain() {
     // Development-only override - NEVER allow in production
     const urlParams = new URLSearchParams(window.location.search);
     const isDev = import.meta.env.DEV;
-    if (isDev && urlParams.get('admin') === 'true') {
-      return 'admin';
+    if (isDev) {
+      if (urlParams.get('admin') === 'true') {
+        return 'admin';
+      } else if (urlParams.get('agent') === 'true') {
+        return 'agent';
+      }
     }
     
-    // For localhost development (admin.localhost or just localhost)
+    // For localhost development (admin.localhost, agent.localhost, or just localhost)
     if (hostname.includes('localhost')) {
-      return parts[0] === 'admin' ? 'admin' : '';
+      if (parts[0] === 'admin') {
+        return 'admin';
+      } else if (parts[0] === 'agent') {
+        return 'agent';
+      }
+      return '';
     }
     
-    // For production domains (admin.fintekpro.com or fintekpro.com)
+    // For production domains (admin.fintekpro.com, agent.fintekpro.com, or fintekpro.com)
     if (parts.length >= 2) {
       // Check if first part is a subdomain (not www)
       if (parts[0] !== 'www' && parts.length > 2) {
@@ -29,10 +38,12 @@ export function useSubdomain() {
   }, []);
   
   const isAdminPortal = subdomain === 'admin';
+  const isAgentPortal = subdomain === 'agent';
   
   return {
     subdomain,
     isAdminPortal,
-    isClientPortal: !isAdminPortal
+    isAgentPortal,
+    isClientPortal: !isAdminPortal && !isAgentPortal
   };
 }
