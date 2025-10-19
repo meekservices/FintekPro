@@ -1393,19 +1393,59 @@ export const customerCareAgents = pgTable("customer_care_agents", {
   euinNumber: varchar("euin_number").unique(),
   arnCode: varchar("arn_code"),
   distributorId: varchar("distributor_id"),
+  distributorName: varchar("distributor_name"), // From AMFI registry
   // Authentication (if they need to log into system)
   password: text("password"),
   // Agent specialization
   specializations: text("specializations").array().default([]), // ['technical', 'billing', 'product_inquiry']
   languages: text("languages").array().default(["en"]), // Supported languages
+  
+  // Agent Hierarchy for Multi-Level Distribution
+  masterAgentId: varchar("master_agent_id"), // References parent agent
+  agentLevel: varchar("agent_level").default("master"), // master, sub_agent, associate
+  hierarchyPath: varchar("hierarchy_path"), // Materialized path: "master_id/sub_id" for efficient queries
+  
+  // AMFI Verification Status
+  arnVerificationStatus: varchar("arn_verification_status").default("pending"), // pending, verified, failed, expired
+  euinVerificationStatus: varchar("euin_verification_status").default("pending"),
+  amfiVerifiedAt: timestamp("amfi_verified_at"),
+  amfiVerificationResponse: jsonb("amfi_verification_response"), // Store AMFI API response
+  arnExpiryDate: timestamp("arn_expiry_date"),
+  
+  // Commission Split Configuration
+  commissionSplitModel: varchar("commission_split_model").default("standard"), // standard, custom
+  defaultCommissionShare: decimal("default_commission_share", { precision: 5, scale: 2 }).default("100.00"), // % share this agent receives
+  masterAgentShare: decimal("master_agent_share", { precision: 5, scale: 2 }).default("0.00"), // % that goes to master
+  
+  // Onboarding & Verification
+  onboardingStatus: varchar("onboarding_status").default("pending"), // pending, documents_submitted, under_review, approved, rejected
+  verifiedBy: varchar("verified_by").references(() => users.id),
+  verifiedAt: timestamp("verified_at"),
+  rejectionReason: text("rejection_reason"),
+  
+  // KYC Documents Status
+  panVerified: boolean("pan_verified").default(false),
+  aadharVerified: boolean("aadhar_verified").default(false),
+  bankAccountVerified: boolean("bank_account_verified").default(false),
+  amfiCertificateVerified: boolean("amfi_certificate_verified").default(false),
+  euinCardVerified: boolean("euin_card_verified").default(false),
+  
   // Status and availability
-  status: varchar("status").default("active"), // 'active', 'inactive', 'on_leave'
+  status: varchar("status").default("active"), // 'active', 'inactive', 'on_leave', 'suspended'
   maxTicketsPerDay: integer("max_tickets_per_day").default(50),
   currentTicketCount: integer("current_ticket_count").default(0),
   // Performance metrics
   totalTicketsHandled: integer("total_tickets_handled").default(0),
   averageResolutionTime: decimal("average_resolution_time", { precision: 8, scale: 2 }), // in hours
   customerSatisfactionRating: decimal("customer_satisfaction_rating", { precision: 3, scale: 2 }),
+  
+  // Client & Commission Metrics
+  totalClientsAssigned: integer("total_clients_assigned").default(0),
+  activeClientsCount: integer("active_clients_count").default(0),
+  totalCommissionsEarned: decimal("total_commissions_earned", { precision: 15, scale: 2 }).default("0.00"),
+  totalCommissionsPaid: decimal("total_commissions_paid", { precision: 15, scale: 2 }).default("0.00"),
+  pendingCommissions: decimal("pending_commissions", { precision: 15, scale: 2 }).default("0.00"),
+  
   // Timestamps
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -1448,6 +1488,143 @@ export const clientAgentRelationships = pgTable("client_agent_relationships", {
   // Tracking
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Agent Commission Split Rules - Defines how commissions are split in hierarchy
+export const agentCommissionSplits = pgTable("agent_commission_splits", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  subAgentId: varchar("sub_agent_id").references(() => customerCareAgents.id).notNull(),
+  masterAgentId: varchar("master_agent_id").references(() => customerCareAgents.id).notNull(),
+  
+  // Split Configuration
+  splitModel: varchar("split_model").default("percentage"), // percentage, fixed_amount, tiered
+  productType: varchar("product_type"), // mutual_funds, insurance, loans, equity - null means all products
+  
+  // Percentage Split (most common)
+  subAgentShare: decimal("sub_agent_share", { precision: 5, scale: 2 }).notNull(), // % for sub-agent
+  masterAgentShare: decimal("master_agent_share", { precision: 5, scale: 2 }).notNull(), // % for master
+  
+  // Fixed Amount Split (optional)
+  fixedSubAgentAmount: decimal("fixed_sub_agent_amount", { precision: 10, scale: 2 }),
+  fixedMasterAmount: decimal("fixed_master_amount", { precision: 10, scale: 2 }),
+  
+  // Tiered Split (based on volume)
+  tieredRules: jsonb("tiered_rules"), // [{minVolume: 0, maxVolume: 100000, subShare: 60, masterShare: 40}, ...]
+  
+  // Validity
+  effectiveFrom: timestamp("effective_from").notNull().defaultNow(),
+  effectiveTo: timestamp("effective_to"),
+  isActive: boolean("is_active").default(true),
+  
+  // Audit
+  createdBy: varchar("created_by").references(() => users.id),
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Agent Documents - Store onboarding and KYC documents
+export const agentDocuments = pgTable("agent_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").references(() => customerCareAgents.id).notNull(),
+  
+  // Document Details
+  documentType: varchar("document_type").notNull(), // pan_card, aadhar_card, amfi_certificate, euin_card, bank_proof, cancelled_cheque
+  documentName: varchar("document_name").notNull(),
+  documentUrl: text("document_url").notNull(), // Object storage URL
+  documentNumber: varchar("document_number"), // PAN number, Aadhar number, etc.
+  
+  // Verification Status
+  verificationStatus: varchar("verification_status").default("pending"), // pending, verified, rejected
+  verifiedBy: varchar("verified_by").references(() => users.id),
+  verifiedAt: timestamp("verified_at"),
+  rejectionReason: text("rejection_reason"),
+  
+  // Metadata
+  fileSize: integer("file_size"), // in bytes
+  mimeType: varchar("mime_type"),
+  uploadedFrom: varchar("uploaded_from"), // web, mobile, admin
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Agent Commissions - Track commission transactions in agent hierarchy
+export const agentCommissions = pgTable("agent_commissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").references(() => customerCareAgents.id).notNull(),
+  masterAgentId: varchar("master_agent_id").references(() => customerCareAgents.id), // Null if this is master agent
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  
+  // Transaction Reference
+  orderId: varchar("order_id").notNull(), // Link to unified_orders or product-specific order
+  productType: varchar("product_type").notNull(), // mutual_funds, insurance, loans, equity
+  transactionType: varchar("transaction_type").notNull(), // purchase, sip, renewal, redemption
+  
+  // Amount Breakdown
+  transactionAmount: decimal("transaction_amount", { precision: 15, scale: 2 }).notNull(),
+  totalCommissionAmount: decimal("total_commission_amount", { precision: 15, scale: 2 }).notNull(), // Total commission on transaction
+  
+  // Agent's Share
+  agentCommissionRate: decimal("agent_commission_rate", { precision: 5, scale: 2 }).notNull(),
+  agentCommissionAmount: decimal("agent_commission_amount", { precision: 15, scale: 2 }).notNull(),
+  agentTdsAmount: decimal("agent_tds_amount", { precision: 15, scale: 2 }).default("0.00"),
+  agentNetCommission: decimal("agent_net_commission", { precision: 15, scale: 2 }).notNull(),
+  
+  // Master Agent's Share (if applicable)
+  masterCommissionRate: decimal("master_commission_rate", { precision: 5, scale: 2 }).default("0.00"),
+  masterCommissionAmount: decimal("master_commission_amount", { precision: 15, scale: 2 }).default("0.00"),
+  masterTdsAmount: decimal("master_tds_amount", { precision: 15, scale: 2 }).default("0.00"),
+  masterNetCommission: decimal("master_net_commission", { precision: 15, scale: 2 }).default("0.00"),
+  
+  // Split Rule Applied
+  splitRuleId: varchar("split_rule_id").references(() => agentCommissionSplits.id),
+  
+  // Settlement Status
+  agentSettlementStatus: varchar("agent_settlement_status").default("pending"), // pending, settled, cancelled
+  masterSettlementStatus: varchar("master_settlement_status").default("pending"),
+  agentSettledAt: timestamp("agent_settled_at"),
+  masterSettledAt: timestamp("master_settled_at"),
+  
+  // Metadata
+  transactionDate: timestamp("transaction_date").notNull().defaultNow(),
+  month: varchar("month").notNull(), // YYYY-MM
+  financialYear: varchar("financial_year"), // FY2024-25
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// AMFI Verification Log - Track all AMFI API calls for audit
+export const amfiVerificationLog = pgTable("amfi_verification_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").references(() => customerCareAgents.id),
+  
+  // Verification Details
+  verificationType: varchar("verification_type").notNull(), // arn_verification, euin_verification, distributor_details
+  arnCode: varchar("arn_code"),
+  euinNumber: varchar("euin_number"),
+  
+  // API Response
+  apiRequest: jsonb("api_request"), // Request payload
+  apiResponse: jsonb("api_response"), // Response from AMFI
+  verificationStatus: varchar("verification_status").notNull(), // success, failed, error
+  errorMessage: text("error_message"),
+  
+  // Extracted Data
+  distributorName: varchar("distributor_name"),
+  distributorStatus: varchar("distributor_status"), // active, inactive, suspended
+  arnExpiryDate: timestamp("arn_expiry_date"),
+  registrationDate: timestamp("registration_date"),
+  
+  // Audit
+  verifiedBy: varchar("verified_by").references(() => users.id),
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Partners table for managing partner accounts with revenue sharing
@@ -2731,6 +2908,41 @@ export const insertAgentPartnerMappingSchema = createInsertSchema(agentPartnerMa
 });
 export type InsertAgentPartnerMapping = z.infer<typeof insertAgentPartnerMappingSchema>;
 export type AgentPartnerMapping = typeof agentPartnerMappings.$inferSelect;
+
+// Agent Commission Split schemas
+export const insertAgentCommissionSplitSchema = createInsertSchema(agentCommissionSplits).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertAgentCommissionSplit = z.infer<typeof insertAgentCommissionSplitSchema>;
+export type AgentCommissionSplit = typeof agentCommissionSplits.$inferSelect;
+
+// Agent Documents schemas
+export const insertAgentDocumentSchema = createInsertSchema(agentDocuments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertAgentDocument = z.infer<typeof insertAgentDocumentSchema>;
+export type AgentDocument = typeof agentDocuments.$inferSelect;
+
+// Agent Commissions schemas
+export const insertAgentCommissionSchema = createInsertSchema(agentCommissions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertAgentCommission = z.infer<typeof insertAgentCommissionSchema>;
+export type AgentCommission = typeof agentCommissions.$inferSelect;
+
+// AMFI Verification Log schemas
+export const insertAmfiVerificationLogSchema = createInsertSchema(amfiVerificationLog).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertAmfiVerificationLog = z.infer<typeof insertAmfiVerificationLogSchema>;
+export type AmfiVerificationLog = typeof amfiVerificationLog.$inferSelect;
 export type OtpVerification = typeof otpVerifications.$inferSelect;
 export type InsertOtpVerification = z.infer<typeof insertOtpVerificationSchema>;
 export type SmartKycProgress = typeof smartKycProgress.$inferSelect;
