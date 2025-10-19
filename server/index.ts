@@ -253,7 +253,7 @@ app.use((req, res, next) => {
     try {
       import('./services/alert-monitoring-service').then(({ alertMonitoringService }) => {
         alertMonitoringService.start();
-        log('✅ Alert Monitoring Service initialized');
+        logger.service('Alert Monitoring Service', 'Service initialized successfully');
       }).catch(error => {
         console.error('❌ Failed to initialize alert monitoring service:', error);
       });
@@ -266,7 +266,7 @@ app.use((req, res, next) => {
       import('./services/currency-exchange-service').then(async ({ currencyExchangeService }) => {
         await currencyExchangeService.initializeRates();
         currencyExchangeService.startAutoRefresh();
-        log('✅ Currency Exchange Service initialized');
+        logger.service('Currency Exchange Service', 'Service initialized successfully');
       }).catch(error => {
         console.error('❌ Failed to initialize currency exchange service:', error);
       });
