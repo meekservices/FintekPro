@@ -49,6 +49,25 @@ Do not make changes to the file `Y`.
 - **Product Access Control Middleware**: Tier-based access enforcement with SEBI-compliant transaction limits (₹50,000 annual limit for basic-tier mutual funds), automated upgrade prompts, and regulatory compliance logging.
 - **Partner Revenue Sharing System**: Comprehensive commission tracking and automated settlement system for multi-product partners (MF distributors, insurance agents, RIAs, loan advisors) with Cashfree API integration for monthly payouts, tiered commission structure, volume bonuses, TDS calculation, and reconciliation.
 - **Agent Onboarding & Management System**: Regulation-compliant agent onboarding with differential validation based on agent level (master/associate/sub_agent). Master and associate agents require SEBI ARN/EUIN credentials for transaction execution, while sub-agents need only basic KYC (PAN + Aadhaar + Bank Account) for marketing/referral activities. Features hierarchical commission distribution with marketing fees (25% sub-agent, 75% master agent for referred clients), Cashfree OKYC API for secure Aadhaar verification (two-step OTP flow with UIDAI-verified data only), document verification workflow, and automated TDS calculation (10%). Includes secure API endpoints with role-based access control, ownership verification, and comprehensive audit logging.
+  - **Sub-Agent Dashboard System**: Dedicated referral-focused dashboard for marketing agents with four tabs:
+    - **Overview Tab**: Real-time metrics (total referrals, active clients, pending verifications, monthly earnings), conversion funnel analytics, and performance indicators
+    - **Referred Clients Tab**: Complete client list with status tracking (pending verification, KYC in progress, active, rejected), referral dates, product interests, and KYC status badges
+    - **Earnings Breakdown Tab**: Detailed commission tracking per client/product, monthly/total earnings summary, TDS calculations, payment status (pending/processing/paid), and payout history with UTR tracking
+    - **Refer New Client Tab**: Client referral form with mobile/email collection, product interest selection (mutual funds, loans, insurance, equities, PMS, AIF), and automated sub-agent attribution
+  - **Storage Methods**: Enhanced storage interface with sub-agent operations:
+    - `getAgentReferralStats(agentId)`: Aggregates referral metrics with date-normalized timestamp comparisons using `.getTime()` for accurate month/today filtering
+    - `getReferredClients(agentId)`: Fetches client list with KYC status, product interests, and referral metadata
+    - `getAgentEarnings(agentId)`: Commission breakdown with strict month filtering (`===` equality check) for accurate monthly earnings, client-wise and product-wise summaries
+    - `createClientReferral(data)`: Captures referred client data with sub-agent attribution and timestamp tracking
+  - **Product Access Control**: `blockSubAgentTransactions` middleware applied to POST `/api/orders` endpoint prevents sub-agents from executing transactions while allowing full product browsing and marketing activities. Returns HTTP 403 with clear error message directing sub-agents to refer clients to master agents.
+  - **Agent Portal Integration**: Conditional dashboard rendering based on `agentProfile.agentLevel`:
+    - Sub-agents (`agentLevel === 'sub_agent'`) see SubAgentDashboard with referral tracking and earnings
+    - Master/associate agents see regular dashboard with partners, clients, commissions, and tasks
+  - **Date Handling**: Critical bug fixes for accurate time-based calculations:
+    - Referral stats use `.getTime()` for timestamp normalization instead of direct Date comparison
+    - Monthly earnings filter changed from `>=` to `===` for strict month-specific calculations
+    - All date-based queries properly handle timezone considerations
+  - **Key Files**: `client/src/components/SubAgentDashboard.tsx`, `server/storage.ts` (sub-agent methods), `server/routes.ts` (blockSubAgentTransactions middleware), `client/src/pages/agent-portal.tsx` (conditional rendering)
 
 ### System Design Choices
 - **Admin Portal**: Separate subdomain-based admin portal (admin.fintekpro.com) with triple-layer security (subdomain, authentication, role authorization). Includes AdminLayout, API configuration, and system monitoring.
