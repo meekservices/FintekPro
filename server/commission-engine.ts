@@ -11,6 +11,8 @@ export interface CommissionCalculationInput {
   transactionAmount: number;
   totalCommissionAmount: number;
   transactionDate?: Date;
+  commissionType?: "transaction_commission" | "marketing_fee"; // Type of commission
+  referralAgentId?: string; // For marketing fees - the sub-agent who referred the client
 }
 
 export interface CommissionCalculationResult {
@@ -275,6 +277,107 @@ class CommissionEngine {
       productType,
       ...data,
     }));
+  }
+
+  /**
+   * Calculate marketing fee for sub-agent client referral
+   * Sub-agents earn a fixed percentage (marketing fee) when their referred clients transact
+   * This is different from transaction commissions - sub-agents don't execute transactions
+   */
+  async calculateMarketingFee(input: CommissionCalculationInput): Promise<CommissionCalculationResult> {
+    const referralAgent = await storage.getAgentById(input.referralAgentId || input.agentId);
+    
+    if (!referralAgent) {
+      throw new Error(`Referral agent ${input.referralAgentId || input.agentId} not found`);
+    }
+
+    // Verify this is a sub-agent (marketing-only role)
+    if (referralAgent.agentLevel !== "sub_agent") {
+      throw new Error(`Marketing fees only apply to sub-agents. Agent ${referralAgent.id} is ${referralAgent.agentLevel}`);
+    }
+
+    // Marketing fee calculation
+    // Sub-agents typically get a smaller percentage (e.g., 20-30% of total commission)
+    // Master agent gets the remaining commission for executing the transaction
+    const marketingFeeRate = 25; // 25% of total commission goes to referring sub-agent
+    const masterFeeRate = 75; // 75% goes to master agent who executes
+
+    const subAgentMarketingFee = (input.totalCommissionAmount * marketingFeeRate) / 100;
+    const masterAgentFee = (input.totalCommissionAmount * masterFeeRate) / 100;
+
+    // Calculate TDS (10% on both)
+    const subAgentTds = subAgentMarketingFee * this.TDS_RATE;
+    const masterAgentTds = masterAgentFee * this.TDS_RATE;
+
+    // Net amounts after TDS
+    const subAgentNet = subAgentMarketingFee - subAgentTds;
+    const masterAgentNet = masterAgentFee - masterAgentTds;
+
+    return {
+      agentId: referralAgent.id,
+      masterAgentId: referralAgent.masterAgentId,
+      agentCommissionRate: marketingFeeRate,
+      agentCommissionAmount: subAgentMarketingFee,
+      agentTdsAmount: subAgentTds,
+      agentNetCommission: subAgentNet,
+      masterCommissionRate: masterFeeRate,
+      masterCommissionAmount: masterAgentFee,
+      masterTdsAmount: masterAgentTds,
+      masterNetCommission: masterAgentNet,
+      splitRuleId: null, // Marketing fees don't use split rules
+    };
+  }
+
+  /**
+   * Record marketing fee commission for sub-agent referral
+   */
+  async recordMarketingFee(input: CommissionCalculationInput): Promise<void> {
+    try {
+      const calculation = await this.calculateMarketingFee(input);
+      const transactionDate = input.transactionDate || new Date();
+      const month = format(transactionDate, "yyyy-MM");
+      const financialYear = this.getFinancialYear(transactionDate);
+
+      const commissionData: InsertAgentCommission = {
+        agentId: calculation.agentId,
+        masterAgentId: calculation.masterAgentId,
+        clientId: input.clientId,
+        orderId: input.orderId,
+        productType: input.productType,
+        transactionType: "referral_fee", // Special transaction type for marketing fees
+        transactionAmount: input.transactionAmount.toFixed(2),
+        totalCommissionAmount: input.totalCommissionAmount.toFixed(2),
+        
+        agentCommissionRate: calculation.agentCommissionRate.toFixed(2),
+        agentCommissionAmount: calculation.agentCommissionAmount.toFixed(2),
+        agentTdsAmount: calculation.agentTdsAmount.toFixed(2),
+        agentNetCommission: calculation.agentNetCommission.toFixed(2),
+        
+        masterCommissionRate: calculation.masterCommissionRate.toFixed(2),
+        masterCommissionAmount: calculation.masterCommissionAmount.toFixed(2),
+        masterTdsAmount: calculation.masterTdsAmount.toFixed(2),
+        masterNetCommission: calculation.masterNetCommission.toFixed(2),
+        
+        splitRuleId: null, // Marketing fees don't use split rules
+        
+        agentSettlementStatus: "pending",
+        masterSettlementStatus: "pending",
+        
+        transactionDate,
+        month,
+        financialYear,
+      };
+
+      await storage.createAgentCommission(commissionData);
+      
+      console.log(`✅ Marketing fee recorded for sub-agent ${calculation.agentId}: ₹${calculation.agentNetCommission.toFixed(2)}`);
+      if (calculation.masterAgentId) {
+        console.log(`✅ Transaction commission for master agent ${calculation.masterAgentId}: ₹${calculation.masterNetCommission.toFixed(2)}`);
+      }
+    } catch (error) {
+      console.error("Marketing fee recording error:", error);
+      throw error;
+    }
   }
 }
 

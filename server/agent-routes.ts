@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { storage } from "./storage";
 import { amfiValidationService } from "./amfi-validation-service";
+import { CashfreeAadhaarService } from "./services/cashfree-aadhaar-service";
 import { z } from "zod";
 import { randomUUID } from "crypto";
 
@@ -504,6 +505,124 @@ router.post("/api/agents/validate-euin", async (req, res) => {
   } catch (error) {
     console.error("EUIN validation error:", error);
     res.status(500).json({ error: "Failed to validate EUIN" });
+  }
+});
+
+// Generate OTP for Aadhaar verification (for sub-agent onboarding)
+router.post("/api/agents/:agentId/aadhaar/generate-otp", requireAuth, async (req, res) => {
+  try {
+    const { agentId } = req.params;
+    const { aadhaarNumber } = req.body;
+    
+    // Verify ownership or admin access
+    const accessCheck = await verifyAgentAccess(req, agentId);
+    if (!accessCheck.allowed) {
+      return res.status(accessCheck.error === "Unauthorized" ? 401 : 403).json({ error: accessCheck.error });
+    }
+    
+    // Validate Aadhaar number
+    if (!aadhaarNumber || !/^\d{12}$/.test(aadhaarNumber)) {
+      return res.status(400).json({ error: "Invalid Aadhaar number. Must be 12 digits." });
+    }
+    
+    // Check if Cashfree is configured
+    if (!CashfreeAadhaarService.isConfigured()) {
+      return res.status(503).json({ 
+        error: "Aadhaar verification service not configured",
+        message: "Please contact support to enable Aadhaar verification" 
+      });
+    }
+    
+    // Generate OTP using Cashfree OKYC
+    const otpResponse = await CashfreeAadhaarService.generateOTP(aadhaarNumber);
+    
+    if (!otpResponse.success) {
+      return res.status(400).json({ 
+        error: "Failed to generate OTP", 
+        message: otpResponse.message 
+      });
+    }
+    
+    // Store ref_id temporarily (in production, you'd store this in a session or temporary table)
+    // For now, we'll return it to the client to send back with OTP verification
+    res.json({
+      success: true,
+      message: otpResponse.message,
+      refId: otpResponse.ref_id,
+      maskedAadhaar: otpResponse.maskedAadhaar
+    });
+    
+  } catch (error) {
+    console.error("Aadhaar OTP generation error:", error);
+    res.status(500).json({ error: "Failed to generate OTP for Aadhaar verification" });
+  }
+});
+
+// Verify Aadhaar OTP and update agent verification status
+router.post("/api/agents/:agentId/aadhaar/verify-otp", requireAuth, async (req, res) => {
+  try {
+    const { agentId } = req.params;
+    const { otp, refId } = req.body;
+    
+    // Verify ownership or admin access
+    const accessCheck = await verifyAgentAccess(req, agentId);
+    if (!accessCheck.allowed) {
+      return res.status(accessCheck.error === "Unauthorized" ? 401 : 403).json({ error: accessCheck.error });
+    }
+    
+    // Validate inputs
+    if (!otp || !refId) {
+      return res.status(400).json({ error: "OTP and reference ID are required" });
+    }
+    
+    // Verify OTP using Cashfree OKYC
+    const verificationResponse = await CashfreeAadhaarService.verifyOTP(otp, refId);
+    
+    if (!verificationResponse.success || !verificationResponse.verified) {
+      return res.status(400).json({ 
+        error: "Aadhaar verification failed", 
+        message: verificationResponse.message 
+      });
+    }
+    
+    // SECURITY: Ensure verified data exists
+    if (!verificationResponse.data?.aadhaarNumber || !verificationResponse.data?.name) {
+      return res.status(400).json({ 
+        error: "Verification failed", 
+        message: "Missing verified Aadhaar data from UIDAI" 
+      });
+    }
+    
+    // Get agent record
+    const agent = await storage.getAgentById(agentId);
+    if (!agent) {
+      return res.status(404).json({ error: "Agent not found" });
+    }
+    
+    // CRITICAL: Use ONLY verified data from Cashfree/UIDAI, never client-supplied data
+    await storage.updateCustomerCareAgent(agentId, {
+      aadharNumber: verificationResponse.data.aadhaarNumber, // Verified Aadhaar from UIDAI
+      aadharName: verificationResponse.data.name, // Verified name from UIDAI
+      aadharVerified: true,
+      onboardingStatus: agent.panVerified && agent.bankAccountVerified ? "approved" : "pending"
+    });
+    
+    res.json({
+      success: true,
+      verified: true,
+      message: "Aadhaar verified successfully",
+      data: {
+        aadhaarNumber: verificationResponse.data.aadhaarNumber, // Return verified number
+        name: verificationResponse.data.name,
+        dob: verificationResponse.data.dob,
+        gender: verificationResponse.data.gender,
+        address: verificationResponse.data.address
+      }
+    });
+    
+  } catch (error) {
+    console.error("Aadhaar OTP verification error:", error);
+    res.status(500).json({ error: "Failed to verify Aadhaar OTP" });
   }
 });
 

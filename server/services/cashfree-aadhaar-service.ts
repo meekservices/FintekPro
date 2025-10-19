@@ -22,6 +22,7 @@ interface CashfreeVerificationResponse {
   message: string;
   verified: boolean;
   data?: {
+    aadhaarNumber: string; // Verified Aadhaar number from UIDAI
     name: string;
     dob: string;
     gender: string;
@@ -147,6 +148,7 @@ export class CashfreeAadhaarService {
           message: "Aadhaar verified successfully",
           verified: true,
           data: {
+            aadhaarNumber: aadhaarData.aadhaar_number, // CRITICAL: Use verified Aadhaar from UIDAI
             name: aadhaarData.full_name || aadhaarData.name || '',
             dob: aadhaarData.dob || aadhaarData.date_of_birth || '',
             gender: aadhaarData.gender || '',
