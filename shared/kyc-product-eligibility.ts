@@ -237,33 +237,31 @@ export const PRODUCT_ELIGIBILITY_MATRIX: ProductEligibilityRule[] = [
     sebiGuideline: 'RBI Master Direction - KYC for Bank Accounts'
   },
   
-  // Loans - Enhanced KYC
+  // Loans - Basic KYC (Lender partners handle eligibility)
   {
     productCode: 'loans',
     productName: 'Loans & Credit',
-    minKycTier: 'enhanced',
+    minKycTier: 'basic',
     requiresVideoKyc: false,
     requiresPanVerified: true,
     requiresAadhaarVerified: true,
     requiresBankVerified: true,
-    requiresIncomeProof: true,
-    minAnnualIncome: 300000, // ₹3 lakh minimum
-    regulatoryNotes: 'Enhanced KYC + income proof mandatory for loan eligibility.',
+    requiresIncomeProof: false, // Partner lenders verify income
+    regulatoryNotes: 'Basic KYC to view pre-approved offers. Partner lenders perform full eligibility checks.',
     sebiGuideline: 'RBI Guidelines on Digital Lending'
   },
   
-  // Credit Cards - Enhanced KYC
+  // Credit Cards - Basic KYC (Issuer banks handle eligibility)
   {
     productCode: 'credit_cards',
     productName: 'Credit Cards',
-    minKycTier: 'enhanced',
+    minKycTier: 'basic',
     requiresVideoKyc: false,
     requiresPanVerified: true,
     requiresAadhaarVerified: true,
     requiresBankVerified: true,
-    requiresIncomeProof: true,
-    minAnnualIncome: 300000, // ₹3 lakh minimum
-    regulatoryNotes: 'Enhanced KYC + income verification for credit card issuance.',
+    requiresIncomeProof: false, // Issuer banks verify income
+    regulatoryNotes: 'Basic KYC to view pre-approved offers. Issuer banks perform credit checks and income verification.',
     sebiGuideline: 'RBI Master Direction on Credit Card Operations'
   },
   
