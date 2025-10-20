@@ -104,7 +104,7 @@ export function ProfileCompletionReminder() {
   };
 
   const handleCompleteProfile = () => {
-    setLocation("/profile");
+    setLocation("/kyc-dashboard");
     setReminderVisible(false);
   };
 

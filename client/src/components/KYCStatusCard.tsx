@@ -292,7 +292,7 @@ export function KYCStatusCard() {
         ) : (
           <div className="flex gap-2">
             <Button
-              onClick={() => window.location.href = "/profile"}
+              onClick={() => window.location.href = "/kyc-dashboard"}
               className="flex-1"
               variant="outline"
               data-testid="button-view-verification"
@@ -302,7 +302,7 @@ export function KYCStatusCard() {
             </Button>
             {status.currentLevel !== "enhanced" && (
               <Button
-                onClick={() => window.location.href = "/profile"}
+                onClick={() => window.location.href = "/kyc-dashboard"}
                 className="flex-1"
                 variant="default"
                 data-testid="button-upgrade-kyc"
