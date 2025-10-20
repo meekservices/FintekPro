@@ -31018,24 +31018,14 @@ System Security Data:`;
         });
       }
       
-      // Update user record with upgrade request
+      // Update user record with upgrade request timestamp
       await storage.updateUser(userId, {
-        kycTierUpgradeRequestedAt: new Date(),
-        kycUpgradeRequestStatus: 'pending',
-        kycUpgradeTargetTier: targetTier
+        kycTierUpgradeRequestedAt: new Date()
       });
       
-      // Log the upgrade request
-      await storage.logEvent({
-        eventType: 'KYC_TIER_UPGRADE_REQUESTED',
-        userId: userId,
-        description: `User requested KYC tier upgrade from ${currentTier} to ${targetTier}`,
-        metadata: { 
-          currentTier, 
-          targetTier, 
-          reason: reason || 'Not provided' 
-        }
-      });
+      
+      // Log the upgrade request for monitoring
+      console.log(`[KYC UPGRADE REQUEST] User ${userId} requested upgrade from ${currentTier} to ${targetTier}. Reason: ${reason || 'Not provided'}`);
       
       res.json({ 
         success: true, 
