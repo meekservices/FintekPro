@@ -8478,6 +8478,99 @@ export type ExpenseInsight = typeof expenseInsights.$inferSelect;
 export type InsertExpenseInsight = z.infer<typeof insertExpenseInsightSchema>;
 
 // ============================================================================
+// PRE-APPROVED LOAN OFFERS (Portfolio Display)
+// ============================================================================
+
+// Pre-Approved Loan Offers - Personalized loan offers shown in client portfolio
+export const preApprovedLoanOffers = pgTable("pre_approved_loan_offers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Lender details
+  lenderName: varchar("lender_name").notNull(), // Bajaj Finance, Tata Capital, HDFC, ICICI, etc.
+  lenderLogo: varchar("lender_logo"),
+  lenderType: varchar("lender_type").default("nbfc"), // nbfc, bank, fintech
+  
+  // Loan product details
+  productType: varchar("product_type").notNull(), // personal_loan, home_loan, business_loan, education_loan, vehicle_loan, gold_loan
+  productName: varchar("product_name").notNull(), // e.g., "Bajaj Finserv Personal Loan", "HDFC Home Loan"
+  
+  // Offer details
+  offerAmount: decimal("offer_amount", { precision: 15, scale: 2 }).notNull(), // Pre-approved loan amount
+  interestRate: decimal("interest_rate", { precision: 5, scale: 2 }).notNull(), // Annual interest rate
+  processingFee: decimal("processing_fee", { precision: 15, scale: 2 }).default("0"), // Processing fee amount
+  processingFeePercentage: decimal("processing_fee_percentage", { precision: 5, scale: 2 }), // Processing fee as %
+  
+  // Tenure options
+  minTenureMonths: integer("min_tenure_months").notNull(),
+  maxTenureMonths: integer("max_tenure_months").notNull(),
+  defaultTenureMonths: integer("default_tenure_months").notNull(), // Default shown to user
+  
+  // EMI calculation (for default tenure)
+  monthlyEmi: decimal("monthly_emi", { precision: 15, scale: 2 }).notNull(),
+  totalInterest: decimal("total_interest", { precision: 15, scale: 2 }),
+  totalRepayment: decimal("total_repayment", { precision: 15, scale: 2 }),
+  
+  // Eligibility and status
+  eligibilityStatus: varchar("eligibility_status").default("pre_approved"), // pre_approved, eligible, not_eligible, conditionally_approved
+  eligibilityCriteria: jsonb("eligibility_criteria"), // Criteria details (income, credit score, etc.)
+  
+  // Offer validity
+  offerValidUntil: timestamp("offer_valid_until").notNull(),
+  offerCode: varchar("offer_code"), // Unique offer code for tracking
+  
+  // Features and benefits
+  features: jsonb("features"), // Array of feature strings ["Zero prepayment charges", "Flexible EMI options", etc.]
+  benefits: text("benefits"), // Key benefits description
+  
+  // Documentation required
+  documentsRequired: jsonb("documents_required"), // Array of required documents
+  
+  // Application tracking
+  applicationStatus: varchar("application_status").default("not_started"), // not_started, in_progress, submitted, approved, rejected, disbursed
+  applicationId: varchar("application_id"), // Lender's application ID
+  appliedAt: timestamp("applied_at"),
+  approvedAt: timestamp("approved_at"),
+  disbursedAt: timestamp("disbursed_at"),
+  disbursedAmount: decimal("disbursed_amount", { precision: 15, scale: 2 }),
+  
+  // Priority and display
+  displayPriority: integer("display_priority").default(0), // Higher number = higher priority
+  isFeatured: boolean("is_featured").default(false),
+  isRecommended: boolean("is_recommended").default(false), // AI/system recommendation
+  recommendationReason: text("recommendation_reason"),
+  
+  // Partner integration
+  partnerOfferId: varchar("partner_offer_id"), // Lender's offer ID
+  partnerApiEndpoint: varchar("partner_api_endpoint"), // API endpoint for application
+  partnerApplicationUrl: varchar("partner_application_url"), // Direct URL for lender application
+  
+  // Metadata
+  metadata: jsonb("metadata"), // Additional lender-specific data
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  viewedAt: timestamp("viewed_at"), // When user viewed the offer
+}, (table) => [
+  index("idx_pre_approved_loan_offers_user").on(table.userId),
+  index("idx_pre_approved_loan_offers_lender").on(table.lenderName),
+  index("idx_pre_approved_loan_offers_product_type").on(table.productType),
+  index("idx_pre_approved_loan_offers_eligibility").on(table.eligibilityStatus),
+  index("idx_pre_approved_loan_offers_application").on(table.applicationStatus),
+  index("idx_pre_approved_loan_offers_validity").on(table.offerValidUntil),
+]);
+
+// Insert schema and types
+export const insertPreApprovedLoanOfferSchema = createInsertSchema(preApprovedLoanOffers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type PreApprovedLoanOffer = typeof preApprovedLoanOffers.$inferSelect;
+export type InsertPreApprovedLoanOffer = z.infer<typeof insertPreApprovedLoanOfferSchema>;
+
+// ============================================================================
 // API & INTEGRATION CONTROL CENTER
 // ============================================================================
 
