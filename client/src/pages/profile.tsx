@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -400,7 +400,7 @@ export default function ProfilePage() {
   });
 
   // Calculate profile completeness
-  const calculateCompleteness = () => {
+  const calculateCompleteness = useCallback(() => {
     const values = form.getValues();
     const requiredFields = [
       'clientType', 'email', 'mobile', 'panNumber', 'residentStatus',
@@ -427,7 +427,7 @@ export default function ProfilePage() {
 
     const percentage = Math.round((filledFields.length / requiredFields.length) * 100);
     setProfileCompleteness(percentage);
-  };
+  }, [form]);
 
   // Handle form submission
   const onSubmit = async (data: ProfileFormData) => {
@@ -456,7 +456,7 @@ export default function ProfilePage() {
   // Auto-calculate completeness on form changes
   useEffect(() => {
     calculateCompleteness();
-  }, [form.watch()]);
+  }, [form.watch, calculateCompleteness]);
 
   // Load profile data when available
   useEffect(() => {
@@ -469,7 +469,7 @@ export default function ProfilePage() {
       });
       calculateCompleteness();
     }
-  }, [profile, profileLoading]);
+  }, [profile, profileLoading, form, calculateCompleteness]);
 
   if (profileLoading) {
     return (
