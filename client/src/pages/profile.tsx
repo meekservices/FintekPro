@@ -572,22 +572,7 @@ export default function ProfilePage() {
 
             {/* KYC Dashboard Tab */}
             <TabsContent value="kyc-dashboard" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Award className="h-6 w-6" />
-                    KYC Dashboard - Coming Soon
-                  </CardTitle>
-                  <CardDescription>
-                    Progressive KYC tier system for product access
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-gray-600">
-                    Tier-based KYC system implementation in progress. Navigate to other tabs to complete your profile.
-                  </p>
-                </CardContent>
-              </Card>
+              <KYCVerificationDashboard />
             </TabsContent>
 
             {/* Basic Information Tab */}
