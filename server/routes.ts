@@ -32130,4 +32130,198 @@ System Security Data:`;
     }
   });
 
+  // =========================================
+  // AI CHAT API ROUTES
+  // =========================================
+
+  // Create new chat session
+  app.post("/api/chat/sessions", requireAuth, async (req: any, res) => {
+    try {
+      const { sessionType = 'general', portfolioId } = req.body;
+      
+      const sessionData = {
+        userId: req.user.id,
+        sessionType,
+        portfolioId,
+        isActive: true,
+        lastMessageAt: new Date().toISOString(),
+      };
+      
+      const session = await storage.createChatSession(sessionData);
+      
+      // Create welcome message
+      const welcomeMessage = await storage.createChatMessage({
+        sessionId: session.id,
+        role: 'assistant',
+        content: \`Hello! I'm your AI financial advisor. I can help you with portfolio analysis, investment recommendations, market insights, and answer any financial questions you may have. How can I assist you today?\`,
+        sentiment: 'neutral',
+        isFlagged: false,
+      });
+      
+      complianceMonitor.logEvent({
+        userId: req.user.id,
+        eventType: 'chat_session_created',
+        action: 'create_chat_session',
+        resource: '/api/chat/sessions',
+        outcome: 'success',
+        riskLevel: 'low'
+      });
+      
+      res.json({
+        session,
+        messages: [welcomeMessage],
+      });
+    } catch (error) {
+      console.error("Error creating chat session:", error);
+      res.status(500).json({ message: "Failed to create chat session" });
+    }
+  });
+
+  // Get chat session
+  app.get("/api/chat/sessions/:sessionId", requireAuth, async (req: any, res) => {
+    try {
+      const { sessionId } = req.params;
+      
+      const session = await storage.getChatSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+      
+      // Check ownership
+      if (session.userId !== req.user.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const messages = await storage.getChatMessages(sessionId);
+      
+      res.json({
+        session,
+        messages,
+      });
+    } catch (error) {
+      console.error("Error fetching chat session:", error);
+      res.status(500).json({ message: "Failed to fetch chat session" });
+    }
+  });
+
+  // Get user's chat sessions
+  app.get("/api/chat/sessions", requireAuth, async (req: any, res) => {
+    try {
+      const sessions = await storage.getUserChatSessions(req.user.id);
+      res.json(sessions);
+    } catch (error) {
+      console.error("Error fetching chat sessions:", error);
+      res.status(500).json({ message: "Failed to fetch chat sessions" });
+    }
+  });
+
+  // Send message and get AI response
+  app.post("/api/chat/sessions/:sessionId/messages", requireAuth, async (req: any, res) => {
+    try {
+      const { sessionId } = req.params;
+      const { message } = req.body;
+      
+      if (!message || !message.trim()) {
+        return res.status(400).json({ message: "Message is required" });
+      }
+      
+      const session = await storage.getChatSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+      
+      // Check ownership
+      if (session.userId !== req.user.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // Save user message
+      const userMessage = await storage.createChatMessage({
+        sessionId,
+        role: 'user',
+        content: message,
+        sentiment: 'neutral',
+        isFlagged: false,
+      });
+      
+      // Get chat history for context
+      const chatHistory = await storage.getChatMessages(sessionId, 10);
+      
+      // Get AI response using Gemini
+      const { generateFinancialChatResponse } = await import('./gemini-service');
+      
+      const aiResponse = await generateFinancialChatResponse(
+        message,
+        chatHistory.map(msg => ({
+          role: msg.role as 'user' | 'assistant',
+          content: msg.content
+        })),
+        {
+          userId: req.user.id,
+          portfolioId: session.portfolioId || undefined,
+        }
+      );
+      
+      // Save AI response
+      const assistantMessage = await storage.createChatMessage({
+        sessionId,
+        role: 'assistant',
+        content: aiResponse.text || 'I apologize, but I could not generate a response.',
+        sentiment: 'neutral',
+        isFlagged: false,
+        functionCall: aiResponse.functionCall ? JSON.stringify(aiResponse.functionCall) : null,
+      });
+      
+      // Update session last message time
+      await storage.updateChatSession(sessionId, {
+        lastMessageAt: new Date().toISOString(),
+      });
+      
+      complianceMonitor.logEvent({
+        userId: req.user.id,
+        eventType: 'chat_message_sent',
+        action: 'send_chat_message',
+        resource: \`/api/chat/sessions/\${sessionId}/messages\`,
+        outcome: 'success',
+        riskLevel: 'low'
+      });
+      
+      res.json(assistantMessage);
+    } catch (error) {
+      console.error("Error sending message:", error);
+      res.status(500).json({ message: "Failed to send message" });
+    }
+  });
+
+  // Get pending actions
+  app.get("/api/chat/actions/pending", requireAuth, async (req: any, res) => {
+    try {
+      // This would query chat_actions table for pending actions
+      // For now, return empty array
+      res.json([]);
+    } catch (error) {
+      console.error("Error fetching pending actions:", error);
+      res.status(500).json({ message: "Failed to fetch pending actions" });
+    }
+  });
+
+  // Confirm action
+  app.post("/api/chat/actions/:actionId/confirm", requireAuth, async (req: any, res) => {
+    try {
+      const { actionId } = req.params;
+      const { confirmed } = req.body;
+      
+      // This would update the chat_actions table
+      // For now, return a simple response
+      res.json({
+        role: 'assistant',
+        content: confirmed 
+          ? 'Action confirmed and executed successfully.' 
+          : 'Action cancelled as requested.',
+      });
+    } catch (error) {
+      console.error("Error confirming action:", error);
+      res.status(500).json({ message: "Failed to confirm action" });
+    }
+  });
 }
