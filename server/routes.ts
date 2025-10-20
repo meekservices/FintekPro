@@ -32153,7 +32153,7 @@ System Security Data:`;
       const welcomeMessage = await storage.createChatMessage({
         sessionId: session.id,
         role: 'assistant',
-        content: \`Hello! I'm your AI financial advisor. I can help you with portfolio analysis, investment recommendations, market insights, and answer any financial questions you may have. How can I assist you today?\`,
+        content: `Hello! I'm your AI financial advisor. I can help you with portfolio analysis, investment recommendations, market insights, and answer any financial questions you may have. How can I assist you today?`,
         sentiment: 'neutral',
         isFlagged: false,
       });
@@ -32281,7 +32281,7 @@ System Security Data:`;
         userId: req.user.id,
         eventType: 'chat_message_sent',
         action: 'send_chat_message',
-        resource: \`/api/chat/sessions/\${sessionId}/messages\`,
+        resource: `/api/chat/sessions/${sessionId}/messages`,
         outcome: 'success',
         riskLevel: 'low'
       });
