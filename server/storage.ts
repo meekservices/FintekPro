@@ -1026,6 +1026,12 @@ export interface IStorage {
     status: string;
     referredDate: string;
   }): Promise<any>;
+  
+  // Pre-Approved Loan Offers Methods
+  getPreApprovedLoanOffers(userId: string): Promise<any[]>;
+  createPreApprovedLoanOffer(offer: any): Promise<any>;
+  updateLoanOfferApplicationStatus(offerId: string, status: string, applicationData?: any): Promise<any | undefined>;
+  markLoanOfferAsViewed(offerId: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -7097,6 +7103,63 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     return relationship;
+  }
+
+  // Pre-Approved Loan Offers Methods
+  async getPreApprovedLoanOffers(userId: string): Promise<any[]> {
+    const offers = await db.select()
+      .from(schema.preApprovedLoanOffers)
+      .where(eq(schema.preApprovedLoanOffers.userId, userId))
+      .orderBy(desc(schema.preApprovedLoanOffers.displayPriority), desc(schema.preApprovedLoanOffers.createdAt));
+    
+    // Filter out expired offers
+    const now = new Date();
+    return offers.filter(offer => new Date(offer.offerValidUntil) > now);
+  }
+
+  async createPreApprovedLoanOffer(offer: any): Promise<any> {
+    const [newOffer] = await db.insert(schema.preApprovedLoanOffers)
+      .values({
+        ...offer,
+        id: randomUUID(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+    return newOffer;
+  }
+
+  async updateLoanOfferApplicationStatus(offerId: string, status: string, applicationData?: any): Promise<any | undefined> {
+    const updateData: any = {
+      applicationStatus: status,
+      updatedAt: new Date(),
+    };
+
+    if (applicationData) {
+      if (applicationData.applicationId) updateData.applicationId = applicationData.applicationId;
+      if (status === 'in_progress' && !applicationData.appliedAt) updateData.appliedAt = new Date();
+      if (status === 'approved') updateData.approvedAt = new Date();
+      if (status === 'disbursed') {
+        updateData.disbursedAt = new Date();
+        if (applicationData.disbursedAmount) updateData.disbursedAmount = applicationData.disbursedAmount;
+      }
+    }
+
+    const [updated] = await db.update(schema.preApprovedLoanOffers)
+      .set(updateData)
+      .where(eq(schema.preApprovedLoanOffers.id, offerId))
+      .returning();
+    
+    return updated || undefined;
+  }
+
+  async markLoanOfferAsViewed(offerId: string): Promise<boolean> {
+    const [updated] = await db.update(schema.preApprovedLoanOffers)
+      .set({ viewedAt: new Date() })
+      .where(eq(schema.preApprovedLoanOffers.id, offerId))
+      .returning();
+    
+    return !!updated;
   }
 }
 
