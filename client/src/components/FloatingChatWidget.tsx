@@ -26,19 +26,10 @@ export function FloatingChatWidget() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  // Load session history when session ID is available
-  const { data: sessionData } = useQuery({
-    queryKey: [`/api/chat/sessions/${currentSessionId}`],
-    enabled: !!currentSessionId && isOpen,
-    refetchOnMount: true,
-  });
-
-  // Update messages when session data is loaded
-  useEffect(() => {
-    if (sessionData?.messages) {
-      setMessages(sessionData.messages);
-    }
-  }, [sessionData]);
+  // Note: We don't fetch session history here to avoid infinite re-render loops
+  // Messages are managed purely through local state:
+  // - Initial messages come from startSessionMutation
+  // - New messages are added optimistically (user) and via mutation response (assistant)
 
   // Start a new session
   const startSessionMutation = useMutation({
@@ -75,9 +66,6 @@ export function FloatingChatWidget() {
       // The API returns only the assistant's response message
       // The user message was already optimistically added to state
       setMessages(prev => [...prev, assistantMessage]);
-      
-      // Invalidate session query to refresh
-      queryClient.invalidateQueries({ queryKey: [`/api/chat/sessions/${currentSessionId}`] });
     },
     onError: () => {
       // Remove the optimistic user message on error
