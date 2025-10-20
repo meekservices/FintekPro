@@ -1,5 +1,6 @@
 import { EnhancedNavigation } from "./enhanced-navigation";
 import { Footer } from "./footer";
+import { FloatingChatWidget } from "@/components/FloatingChatWidget";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -18,6 +19,9 @@ export function AppLayout({ children }: AppLayoutProps) {
         </div>
         <Footer />
       </main>
+      
+      {/* Floating AI Chat Widget */}
+      <FloatingChatWidget />
     </div>
   );
 }
