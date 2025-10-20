@@ -14,6 +14,7 @@ import { useCart } from "@/hooks/use-cart";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
+import { LoanOffersCard } from "@/components/LoanOffersCard";
 import { 
   Heart, ShoppingCart, Search, Star, TrendingUp, Shield, Globe, CreditCard, FileText, 
   Briefcase, Banknote, Target, Crown, Landmark, Store as StoreIcon, ArrowRight, Sparkles, 
@@ -714,6 +715,13 @@ export default function StorePage() {
             
             <TabsContent value={selectedCategory} className="mt-6">
               <div className="space-y-4">
+                {/* Pre-Approved Loan Offers for Banking Products */}
+                {selectedCategory === "Banking Products" && (
+                  <div className="mb-6">
+                    <LoanOffersCard />
+                  </div>
+                )}
+                
                 <div className="flex items-center justify-between">
                   <Badge variant="outline" className="text-purple-600 border-purple-600">
                     {getFilteredProducts(
