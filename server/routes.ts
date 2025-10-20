@@ -32325,3 +32325,63 @@ System Security Data:`;
     }
   });
 }
+
+  // ===========================
+  // PRE-APPROVED LOAN OFFERS
+  // ===========================
+  
+  // Get pre-approved loan offers for user
+  app.get("/api/loan-offers", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const offers = await storage.getPreApprovedLoanOffers(userId);
+      
+      complianceMonitor.logEvent({
+        userId,
+        eventType: 'data_access',
+        action: 'GET /api/loan-offers',
+        outcome: 'success',
+        riskLevel: 'low'
+      });
+      
+      res.json(offers);
+    } catch (error) {
+      console.error("Error fetching loan offers:", error);
+      res.status(500).json({ message: "Failed to fetch loan offers" });
+    }
+  });
+  
+  // Proceed with a loan offer (track application start)
+  app.post("/api/loan-offers/:id/proceed", requireAuth, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.id;
+      
+      // Mark offer as viewed and update status to in_progress
+      await storage.markLoanOfferAsViewed(id);
+      const updatedOffer = await storage.updateLoanOfferApplicationStatus(id, 'in_progress');
+      
+      if (!updatedOffer) {
+        return res.status(404).json({ message: "Loan offer not found" });
+      }
+      
+      complianceMonitor.logEvent({
+        userId,
+        eventType: 'loan_application',
+        action: 'POST /api/loan-offers/:id/proceed',
+        resource: `/api/loan-offers/${id}/proceed`,
+        metadata: { lenderName: updatedOffer.lenderName, offerAmount: updatedOffer.offerAmount },
+        outcome: 'success',
+        riskLevel: 'medium'
+      });
+      
+      res.json({
+        message: "Application initiated successfully",
+        offer: updatedOffer,
+        redirectUrl: updatedOffer.partnerApplicationUrl,
+      });
+    } catch (error) {
+      console.error("Error processing loan application:", error);
+      res.status(500).json({ message: "Failed to process loan application" });
+    }
+  });
