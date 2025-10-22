@@ -5,7 +5,7 @@ declare global {
   namespace Express {
     interface Request {
       isAdminPortal?: boolean;
-      isAgentPortal?: boolean;
+      isPartnerPortal?: boolean;
       subdomain?: string;
     }
   }
@@ -15,10 +15,10 @@ declare global {
  * Middleware to detect subdomain from hostname and set portal context
  * Supports:
  * - admin.fintekpro.com → Admin Portal
- * - agent.fintekpro.com → Agent Portal
+ * - partner.fintekpro.com → Partner Portal
  * - fintekpro.com / www.fintekpro.com → Client Portal
  * - admin.localhost:5000 → Admin Portal (dev)
- * - agent.localhost:5000 → Agent Portal (dev)
+ * - partner.localhost:5000 → Partner Portal (dev)
  * - localhost:5000 → Client Portal (dev)
  */
 export function subdomainDetection(req: Request, res: Response, next: NextFunction) {
@@ -28,12 +28,12 @@ export function subdomainDetection(req: Request, res: Response, next: NextFuncti
   const parts = hostname.split('.');
   let subdomain = '';
   
-  // For localhost development (admin.localhost, agent.localhost, or just localhost)
+  // For localhost development (admin.localhost, partner.localhost, or just localhost)
   if (hostname.includes('localhost')) {
     if (parts[0] === 'admin') {
       subdomain = 'admin';
-    } else if (parts[0] === 'agent') {
-      subdomain = 'agent';
+    } else if (parts[0] === 'partner') {
+      subdomain = 'partner';
     } else {
       subdomain = '';
     }
@@ -50,19 +50,19 @@ export function subdomainDetection(req: Request, res: Response, next: NextFuncti
   if (process.env.NODE_ENV === 'development') {
     if (req.query.admin === 'true') {
       subdomain = 'admin';
-    } else if (req.query.agent === 'true') {
-      subdomain = 'agent';
+    } else if (req.query.partner === 'true') {
+      subdomain = 'partner';
     }
   }
   
   // Set flags on request
   req.subdomain = subdomain;
   req.isAdminPortal = subdomain === 'admin';
-  req.isAgentPortal = subdomain === 'agent';
+  req.isPartnerPortal = subdomain === 'partner';
   
   // Log for debugging
   if (process.env.NODE_ENV !== 'production') {
-    console.log(`🌐 Subdomain: ${subdomain || '(none)'} | Admin Portal: ${req.isAdminPortal || false} | Agent Portal: ${req.isAgentPortal || false} | Hostname: ${hostname}`);
+    console.log(`🌐 Subdomain: ${subdomain || '(none)'} | Admin Portal: ${req.isAdminPortal || false} | Partner Portal: ${req.isPartnerPortal || false} | Hostname: ${hostname}`);
   }
   
   next();
@@ -105,16 +105,16 @@ export async function requireAdminPortal(req: Request, res: Response, next: Next
 }
 
 /**
- * Middleware to restrict routes to agent portal only
- * SECURITY: Requires BOTH agent subdomain AND agent user role
+ * Middleware to restrict routes to partner portal only
+ * SECURITY: Requires BOTH partner subdomain AND partner/agent user role
  */
-export async function requireAgentPortal(req: Request, res: Response, next: NextFunction) {
-  // First check: Must be on agent subdomain
-  if (!req.isAgentPortal) {
+export async function requirePartnerPortal(req: Request, res: Response, next: NextFunction) {
+  // First check: Must be on partner subdomain
+  if (!req.isPartnerPortal) {
     return res.status(403).json({ 
       error: 'Access denied',
-      message: 'This resource is only available on the agent portal',
-      redirectTo: `https://agent.${req.hostname.replace(/^(admin\.|agent\.)/, '')}`
+      message: 'This resource is only available on the partner portal',
+      redirectTo: `https://partner.${req.hostname.replace(/^(admin\.|partner\.)/, '')}`
     });
   }
   
@@ -122,20 +122,20 @@ export async function requireAgentPortal(req: Request, res: Response, next: Next
   if (!req.user) {
     return res.status(401).json({ 
       error: 'Authentication required',
-      message: 'Please log in to access the agent portal'
+      message: 'Please log in to access the partner portal'
     });
   }
   
-  // Third check: User must have agent role
+  // Third check: User must have agent/partner role
   const userRoles = req.user.roles || [];
-  const isAgent = userRoles.includes('agent') || 
-                  userRoles.includes('master_agent') || 
-                  userRoles.includes('sub_agent');
+  const isPartner = userRoles.includes('agent') || 
+                    userRoles.includes('master_agent') || 
+                    userRoles.includes('sub_agent');
   
-  if (!isAgent) {
+  if (!isPartner) {
     return res.status(403).json({ 
       error: 'Access denied',
-      message: 'Agent privileges required'
+      message: 'Partner privileges required'
     });
   }
   
@@ -146,11 +146,11 @@ export async function requireAgentPortal(req: Request, res: Response, next: Next
  * Middleware to restrict routes to client portal only
  */
 export function requireClientPortal(req: Request, res: Response, next: NextFunction) {
-  if (req.isAdminPortal || req.isAgentPortal) {
+  if (req.isAdminPortal || req.isPartnerPortal) {
     return res.status(403).json({ 
       error: 'Access denied',
-      message: 'This resource is not available on the admin or agent portal',
-      redirectTo: `https://${req.hostname.replace(/^(admin\.|agent\.)/, '')}`
+      message: 'This resource is not available on the admin or partner portal',
+      redirectTo: `https://${req.hostname.replace(/^(admin\.|partner\.)/, '')}`
     });
   }
   next();
