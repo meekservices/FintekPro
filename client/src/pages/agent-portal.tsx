@@ -138,10 +138,7 @@ function ClientProfileCompletion() {
 
   // Update profile mutation using apiRequest
   const updateProfileMutation = useMutation({
-    mutationFn: (data: any) => apiRequest('/api/user/profile', {
-      method: 'PUT',
-      body: JSON.stringify(data)
-    }),
+    mutationFn: (data: any) => apiRequest('PUT', '/api/user/profile', { body: data }),
     onSuccess: () => {
       toast({ title: "Success", description: "Profile updated successfully" });
       queryClient.invalidateQueries({ queryKey: ['/api/user/profile'] });
@@ -584,8 +581,8 @@ export default function AgentPortal() {
 
           {/* Dashboard Tab */}
           <TabsContent value="dashboard" className="space-y-6">
-            {agentProfile?.agentLevel === 'sub_agent' ? (
-              <SubAgentDashboard agentId={agentProfile.id} />
+            {(agentProfile as any)?.agentLevel === 'sub_agent' ? (
+              <SubAgentDashboard agentId={agentProfile?.id || ''} />
             ) : (
               <>
                 {/* Stats Cards */}
