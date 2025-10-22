@@ -84,6 +84,7 @@ import { verifyBankAccountPennyDrop, validateIFSC, validateAccountNumber, isName
 import { lookupIFSC, isValidIFSCFormat } from './ifsc-lookup-service';
 import { ProductAccountService } from './product-account-service';
 import { BSEStarKYCService } from './services/bse-star-kyc-service';
+import { autoPopulationRouter } from "./auto-population-routes";
 import * as schema from "@shared/schema";
 
 // Tax Calculation Request Validation Schemas
@@ -24789,6 +24790,7 @@ System Security Data:`;
   app.post("/api/cibil/improvement-tips", CibilAPI.getCreditImprovementTips);
   app.post("/api/cibil/loan-eligibility", CibilAPI.checkLoanEligibility);
   app.post("/api/cibil/card-eligibility", CibilAPI.checkCreditCardEligibility);
+  app.post("/api/cibil/fetch-loan-liabilities", CibilAPI.fetchLoanLiabilities);
   
   // Personalized Loan Recommendations
   app.get("/api/loans/personalized-recommendations", getPersonalizedLoanRecommendations);
@@ -30368,5 +30370,8 @@ System Security Data:`;
       res.status(500).json({ message: "Failed to process loan application" });
     }
   });
+
+  // Auto-Population System Routes
+  app.use("/api/auto-populate", autoPopulationRouter);
 
 }

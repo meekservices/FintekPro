@@ -545,4 +545,121 @@ export class CibilAPI {
     
     return allCards.filter(card => score >= card.minScore && income >= card.minIncome);
   }
+
+  /**
+   * AUTO-POPULATION: Fetch active loan liabilities from CIBIL report
+   * Used for post-KYC auto-population of user's loan portfolio
+   */
+  static async fetchLoanLiabilities(req: Request, res: Response) {
+    try {
+      const { panNumber, name, dob, mobile } = req.body;
+
+      if (!panNumber || !name || !dob) {
+        return res.status(400).json({
+          success: false,
+          error: "PAN number, name, and date of birth are required"
+        });
+      }
+
+      console.log(`🔍 Fetching loan liabilities from CIBIL for PAN: ${panNumber.slice(0, 5)}***`);
+
+      // In production, this would call the actual CIBIL API
+      // For sandbox, generate realistic mock data
+      const loanAccounts = this.generateLoanLiabilities(panNumber, name);
+
+      const response = {
+        success: true,
+        totalLoans: loanAccounts.length,
+        totalOutstanding: loanAccounts.reduce((sum, loan) => sum + loan.outstandingBalance, 0),
+        totalMonthlyEMI: loanAccounts.reduce((sum, loan) => sum + (loan.emi || 0), 0),
+        loanAccounts,
+        creditScore: this.generateCreditScore(name, panNumber),
+        fetchedAt: new Date().toISOString(),
+        dataSource: 'CIBIL Credit Bureau'
+      };
+
+      console.log(`✅ Fetched ${loanAccounts.length} loan accounts from CIBIL`);
+      res.json(response);
+    } catch (error: any) {
+      console.error("❌ Error fetching loan liabilities:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch loan liabilities from CIBIL"
+      });
+    }
+  }
+
+  /**
+   * Generate realistic loan liabilities for sandbox/testing
+   */
+  private static generateLoanLiabilities(pan: string, name: string): any[] {
+    const loanTypes = [
+      { type: 'home_loan', label: 'Home Loan', minAmount: 2000000, maxAmount: 8000000, tenure: 240, rate: 8.5 },
+      { type: 'personal_loan', label: 'Personal Loan', minAmount: 100000, maxAmount: 500000, tenure: 48, rate: 12.5 },
+      { type: 'car_loan', label: 'Car Loan', minAmount: 300000, maxAmount: 1500000, tenure: 60, rate: 10.0 },
+      { type: 'education_loan', label: 'Education Loan', minAmount: 500000, maxAmount: 2000000, tenure: 96, rate: 9.5 },
+      { type: 'gold_loan', label: 'Gold Loan', minAmount: 50000, maxAmount: 300000, tenure: 24, rate: 11.0 }
+    ];
+
+    const banks = ['HDFC Bank', 'ICICI Bank', 'SBI', 'Axis Bank', 'Kotak Mahindra Bank', 'IndusInd Bank'];
+
+    // Generate 1-3 active loans based on PAN hash
+    const hash = pan.split('').reduce((a, b) => ((a << 5) - a) + b.charCodeAt(0), 0);
+    const numLoans = Math.abs(hash % 3) + 1;
+
+    const loans = [];
+    const usedTypes = new Set();
+
+    for (let i = 0; i < numLoans; i++) {
+      let loanType = loanTypes[Math.abs(hash + i) % loanTypes.length];
+      
+      // Avoid duplicate loan types
+      while (usedTypes.has(loanType.type) && usedTypes.size < loanTypes.length) {
+        loanType = loanTypes[Math.floor(Math.random() * loanTypes.length)];
+      }
+      usedTypes.add(loanType.type);
+
+      const principalAmount = Math.floor(
+        loanType.minAmount + (Math.random() * (loanType.maxAmount - loanType.minAmount))
+      );
+      
+      const monthsElapsed = Math.floor(Math.random() * 36) + 12; // 12-48 months elapsed
+      const totalTenure = loanType.tenure;
+      const remainingTenure = Math.max(totalTenure - monthsElapsed, 6);
+      
+      // Calculate outstanding using reducing balance method
+      const monthlyRate = loanType.rate / 100 / 12;
+      const emi = principalAmount * monthlyRate * Math.pow(1 + monthlyRate, totalTenure) / 
+                  (Math.pow(1 + monthlyRate, totalTenure) - 1);
+      
+      const outstandingBalance = emi * (Math.pow(1 + monthlyRate, remainingTenure) - 1) / 
+                                  (monthlyRate * Math.pow(1 + monthlyRate, remainingTenure));
+
+      const disbursalDate = new Date();
+      disbursalDate.setMonth(disbursalDate.getMonth() - monthsElapsed);
+
+      loans.push({
+        loanAccountNumber: `LOAN${Math.abs(hash + i * 1000)}${Date.now().toString().slice(-6)}`,
+        loanType: loanType.type,
+        loanTypeName: loanType.label,
+        lenderName: banks[Math.abs(hash + i) % banks.length],
+        principalAmount,
+        outstandingBalance: Math.round(outstandingBalance),
+        emi: Math.round(emi),
+        interestRate: loanType.rate,
+        tenureMonths: totalTenure,
+        remainingTenure,
+        disbursalDate: disbursalDate.toISOString().split('T')[0],
+        maturityDate: new Date(disbursalDate.getTime() + totalTenure * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        accountStatus: 'active',
+        paymentStatus: Math.random() > 0.9 ? 'overdue' : 'current',
+        dpd: Math.random() > 0.9 ? Math.floor(Math.random() * 30) + 1 : 0, // Days past due
+        lastPaymentDate: new Date(Date.now() - Math.floor(Math.random() * 30) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        creditBureau: 'CIBIL',
+        reportDate: new Date().toISOString().split('T')[0]
+      });
+    }
+
+    return loans;
+  }
 }

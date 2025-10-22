@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, decimal, timestamp, jsonb, boolean, index, integer, date, bigint } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, decimal, timestamp, jsonb, boolean, index, integer, date, bigint, numeric } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -8891,6 +8891,90 @@ export const kycReuseTokens = pgTable("kyc_reuse_tokens", {
   index("idx_kyc_reuse_active").on(table.isActive),
 ]);
 
+// Data Source Consents - Track user consent for auto-population from each data source
+export const dataSourceConsents = pgTable("data_source_consents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // User information
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Data source details
+  dataSource: varchar("data_source").notNull(), // mutual_funds/demat/bank/loans/insurance
+  provider: varchar("provider"), // e.g., BSE_STAR/NSDL/CDSL/CIBIL/Turtlefin
+  
+  // Consent status
+  consentGiven: boolean("consent_given").notNull(),
+  consentPurpose: text("consent_purpose").notNull(), // auto_populate_holdings/portfolio_sync
+  consentText: text("consent_text").notNull(), // Full consent text shown to user
+  
+  // Digital signature
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  
+  // Validity period
+  consentedAt: timestamp("consented_at").defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(), // Default: 90 days from consent
+  revokedAt: timestamp("revoked_at"),
+  revokeReason: text("revoke_reason"),
+  
+  // Status tracking
+  isActive: boolean("is_active").default(true),
+  lastSyncedAt: timestamp("last_synced_at"), // Last successful data fetch
+  nextSyncDue: timestamp("next_sync_due"), // Next scheduled sync
+  syncFrequency: varchar("sync_frequency").default("weekly"), // daily/weekly/monthly/manual
+  
+  // Audit metadata
+  consentVersion: varchar("consent_version").default("v1.0"), // Track consent text versions
+  regulatoryCompliance: jsonb("regulatory_compliance"), // RBI AA/SEBI compliance flags
+}, (table) => [
+  index("idx_data_source_consent_user").on(table.userId),
+  index("idx_data_source_consent_source").on(table.dataSource),
+  index("idx_data_source_consent_active").on(table.isActive),
+  index("idx_data_source_consent_expires").on(table.expiresAt),
+]);
+
+// Auto-Population Status Tracking - Track progress of auto-population workflows
+export const autoPopulationStatus = pgTable("auto_population_status", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // User information
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Workflow details
+  workflowId: varchar("workflow_id").notNull().unique(), // Unique ID for this auto-population run
+  triggeredBy: varchar("triggered_by").notNull(), // kyc_completion/manual_refresh/scheduled_sync
+  
+  // Overall status
+  status: varchar("status").notNull().default("initiated"), // initiated/in_progress/completed/partial_success/failed
+  totalDataSources: integer("total_data_sources").default(0),
+  successfulSources: integer("successful_sources").default(0),
+  failedSources: integer("failed_sources").default(0),
+  
+  // Per-source status (JSON tracking)
+  sourceStatus: jsonb("source_status"), // { mutual_funds: 'success', demat: 'failed', ... }
+  sourceErrors: jsonb("source_errors"), // { demat: 'API timeout', ... }
+  
+  // Data metrics
+  totalRecordsFetched: integer("total_records_fetched").default(0),
+  totalHoldingsValue: numeric("total_holdings_value", { precision: 15, scale: 2 }),
+  
+  // Timestamps
+  initiatedAt: timestamp("initiated_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  
+  // Duration tracking
+  durationMs: integer("duration_ms"), // Total time taken in milliseconds
+  
+  // Error handling
+  errorMessage: text("error_message"),
+  retryCount: integer("retry_count").default(0),
+}, (table) => [
+  index("idx_auto_pop_user").on(table.userId),
+  index("idx_auto_pop_workflow").on(table.workflowId),
+  index("idx_auto_pop_status").on(table.status),
+  index("idx_auto_pop_initiated").on(table.initiatedAt),
+]);
+
 // Insert schemas and types for KYC Vault System
 export const insertKycVaultSchema = createInsertSchema(kycVault).omit({
   id: true,
@@ -8950,4 +9034,18 @@ export const insertIntegrationHealthSchema = createInsertSchema(integrationHealt
 });
 export type IntegrationHealth = typeof integrationHealth.$inferSelect;
 export type InsertIntegrationHealth = z.infer<typeof insertIntegrationHealthSchema>;
+
+export const insertDataSourceConsentSchema = createInsertSchema(dataSourceConsents).omit({
+  id: true,
+  consentedAt: true,
+});
+export type DataSourceConsent = typeof dataSourceConsents.$inferSelect;
+export type InsertDataSourceConsent = z.infer<typeof insertDataSourceConsentSchema>;
+
+export const insertAutoPopulationStatusSchema = createInsertSchema(autoPopulationStatus).omit({
+  id: true,
+  initiatedAt: true,
+});
+export type AutoPopulationStatus = typeof autoPopulationStatus.$inferSelect;
+export type InsertAutoPopulationStatus = z.infer<typeof insertAutoPopulationStatusSchema>;
 
