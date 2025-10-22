@@ -76,11 +76,11 @@ Do not make changes to the file `Y`.
     - **KYC & Compliance Hub**: Review and approve KYC submissions, bulk actions, document verification, and compliance alerts
     - **Financial Operations Dashboard**: Complete financial oversight with order management, payment tracking (Cashfree/PhonePe), revenue analytics, refund processing, and payment reconciliation
     - **API & Integration Control Center** (In Progress): Webhook logging, API usage tracking, integration health monitoring, and key management for all 3rd party services
-  - **Agent Portal** (agent.fintekpro.com): Dedicated portal for agents (master/associate/sub-agents) with role-based dashboard rendering
+  - **Partner Portal** (partner.fintekpro.com): Dedicated portal for agents and partners (master/associate/sub-agents) with role-based dashboard rendering
     - Automatic routing based on subdomain detection (server + client)
     - Conditional dashboard: Sub-agents see SubAgentDashboard, master/associate agents see full agent management interface
     - Secure access control requiring authentication + agent role verification
-    - Development support: `agent.localhost:5000` or `?agent=true` query parameter
+    - Development support: `partner.localhost:5000` or `?partner=true` query parameter
   - **Client Portal** (fintekpro.com): Main customer-facing application for end-users
   - **Implementation**: `server/subdomain-middleware.ts` (backend detection), `client/src/hooks/useSubdomain.ts` (frontend detection), conditional routing in `App.tsx`
 - **Consistent Layout**: All pages follow a three-part layout: Left Sidebar Navigation (`EnhancedNavigation`), Main Content Area (`AppLayout`), and Footer (`Footer`). The sidebar is collapsible, process flow-based, and state-persisted.
