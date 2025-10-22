@@ -561,7 +561,7 @@ export class CibilAPI {
         });
       }
 
-      console.log(`🔍 Fetching loan liabilities from CIBIL for PAN: ${panNumber.slice(0, 5)}***`);
+      console.log(`🔍 Fetching loan liabilities from CIBIL`);
 
       // In production, this would call the actual CIBIL API
       // For sandbox, generate realistic mock data

@@ -113,7 +113,7 @@ export class TurtlefinAPI {
    */
   async searchPoliciesByKYC(params: PolicySearchParams): Promise<PolicySearchResult> {
     try {
-      console.log('🔍 Searching Turtlefin for policies:', { pan: params.pan.slice(0, 5) + '***' });
+      console.log('🔍 Searching Turtlefin for policies');
 
       // In sandbox mode, return mock data
       if (this.config.environment === 'sandbox') {

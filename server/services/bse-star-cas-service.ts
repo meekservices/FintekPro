@@ -90,7 +90,7 @@ export class BSEStarCASService {
    */
   async fetchCAS(request: CASFetchRequest): Promise<CASFetchResponse> {
     try {
-      console.log(`📊 Fetching BSE STAR CAS for PAN: ${request.panNumber.slice(0, 5)}***`);
+      console.log(`📊 Fetching BSE STAR CAS`);
 
       if (!this.isProduction) {
         // Return mock data for development

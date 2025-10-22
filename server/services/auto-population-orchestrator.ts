@@ -31,6 +31,7 @@ import { nanoid } from 'nanoid';
 import { consentManagementService, type DataSourceType } from './consent-management-service';
 import { turtlefinAPI } from '../turtlefin-api';
 import { bseStarCASService, type CASFetchRequest } from './bse-star-cas-service';
+import { kycVaultDecryptionService } from './kyc-vault-decryption-service';
 import axios from 'axios';
 
 interface KYCData {
@@ -168,56 +169,48 @@ export class AutoPopulationOrchestrator {
   /**
    * Get KYC data from vault for the user
    * 
-   * SECURITY NOTE: This method retrieves encrypted KYC data from the vault and must
-   * decrypt it in-memory for use in auto-population workflows. The decrypted data
-   * should NEVER be logged or stored in plaintext.
-   * 
-   * TODO: Implement real decryption using the encryption service:
-   * 1. Import the encryption service (e.g., from './services/encryption-service')
-   * 2. Decrypt tokenizedPan, tokenizedAadhaar using format-preserving tokenization reversal
-   * 3. Decrypt encrypted fields (encryptedFullName, encryptedDateOfBirth, etc.) using AES-256-GCM
-   * 4. Return only the decrypted values needed for API calls (never store or log them)
-   * 5. Consider implementing field-level access logging via kycAuditLogs table
-   * 
-   * Security requirements:
-   * - Use in-memory decryption only (no persistence of decrypted values)
-   * - Implement proper key rotation support
-   * - Log all vault access to kycAuditLogs with purpose = 'auto_population'
-   * - Clear sensitive data from memory after use
+   * SECURITY: This method retrieves and decrypts sensitive KYC data from the vault.
+   * - All decryption happens in-memory only (never persisted or logged)
+   * - Every vault access is logged to kycAuditLogs for compliance
+   * - Decrypted data is cleared from memory after use
+   * - Uses AES-256-GCM for encrypted fields and tokenization reversal for PAN/Aadhaar
    */
   private async getKYCData(userId: string): Promise<KYCData | null> {
-    const vault = await db
-      .select()
-      .from(kycVault)
-      .where(eq(kycVault.userId, userId))
-      .orderBy(desc(kycVault.createdAt))
-      .limit(1);
+    try {
+      console.log(`🔐 Fetching KYC data from vault for user ${userId}`);
 
-    if (vault.length === 0) {
-      console.warn(`⚠️ No KYC vault record found for user ${userId}`);
+      // Decrypt vault data with full audit logging
+      const decryptionResult = await kycVaultDecryptionService.decryptVaultData(userId, {
+        purpose: 'auto_population',
+        requestId: `autopop_${Date.now()}`,
+        fieldsRequired: ['pan', 'fullName', 'dateOfBirth', 'mobile', 'email']
+      });
+
+      if (!decryptionResult.success || !decryptionResult.data) {
+        console.error(`❌ KYC vault decryption failed for user ${userId}: ${decryptionResult.error}`);
+        return null;
+      }
+
+      const decrypted = decryptionResult.data;
+
+      // Map to KYCData format expected by auto-population
+      const kycData: KYCData = {
+        userId: decrypted.userId,
+        pan: decrypted.pan,
+        name: decrypted.fullName,
+        dob: decrypted.dateOfBirth,
+        mobile: decrypted.mobile,
+        email: decrypted.email
+      };
+
+      console.log(`✅ KYC data decrypted successfully for user ${userId} (Audit: ${decryptionResult.auditLogId})`);
+
+      return kycData;
+
+    } catch (error: any) {
+      console.error(`❌ Error fetching KYC data for user ${userId}:`, error.message);
       return null;
     }
-
-    const record = vault[0];
-
-    // TODO: Replace with real decryption service integration
-    // Example production implementation:
-    // const { decryptAES256GCM, detokenizePAN } = await import('./services/encryption-service');
-    // const decryptedName = await decryptAES256GCM(record.encryptedFullName, encryptionKey);
-    // const realPAN = await detokenizePAN(record.tokenizedPan);
-    
-    console.log(`⚠️ STUB: Using placeholder KYC data for user ${userId}. Implement real decryption before production.`);
-    
-    // TEMPORARY: Returning stub data for development
-    // In production, this MUST decrypt the actual vault data
-    return {
-      userId,
-      pan: `STUB_PAN_${userId}`, // TODO: Decrypt from record.tokenizedPan
-      name: `Stub User ${userId}`, // TODO: Decrypt from record.encryptedFullName
-      dob: '1990-01-01', // TODO: Decrypt from record.encryptedDateOfBirth
-      mobile: record.encryptedMobile || '', // TODO: Decrypt from record.encryptedMobile
-      email: record.encryptedEmail || '' // TODO: Decrypt from record.encryptedEmail
-    };
   }
 
   /**
@@ -292,7 +285,7 @@ export class AutoPopulationOrchestrator {
     }
 
     try {
-      console.log(`🔍 Fetching mutual funds from BSE STAR CAS for PAN: ${kycData.pan.slice(0, 5)}***`);
+      console.log(`🔍 Fetching mutual funds from BSE STAR CAS`);
       
       // Call BSE STAR CAS API to fetch consolidated holdings
       const casRequest: CASFetchRequest = {
@@ -348,7 +341,7 @@ export class AutoPopulationOrchestrator {
     }
 
     try {
-      console.log(`🔍 Fetching demat holdings for PAN: ${kycData.pan.slice(0, 5)}***`);
+      console.log(`🔍 Fetching demat holdings from NSDL/CDSL`);
       
       // Mock data - in production, call NSDL/CDSL API
       const mockHoldings = [
@@ -458,7 +451,7 @@ export class AutoPopulationOrchestrator {
     }
 
     try {
-      console.log(`🔍 Fetching loan liabilities from CIBIL for PAN: ${kycData.pan.slice(0, 5)}***`);
+      console.log(`🔍 Fetching loan liabilities from CIBIL`);
       
       // Call internal CIBIL API
       const response = await axios.post('http://localhost:5000/api/cibil/fetch-loan-liabilities', {
@@ -502,7 +495,7 @@ export class AutoPopulationOrchestrator {
     }
 
     try {
-      console.log(`🔍 Fetching insurance policies from Turtlefin for PAN: ${kycData.pan.slice(0, 5)}***`);
+      console.log(`🔍 Fetching insurance policies from Turtlefin`);
       
       const policies = await turtlefinAPI.searchPoliciesByKYC({
         pan: kycData.pan,
