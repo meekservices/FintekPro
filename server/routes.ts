@@ -68,6 +68,7 @@ import { AadhaarMockService } from './services/aadhaar-mock-service';
 import { CashfreeAadhaarService } from './services/cashfree-aadhaar-service';
 import { DemographicProtectionService } from './services/demographic-protection-service';
 import { AutoPopulationOrchestrator } from './services/auto-population-orchestrator';
+import { consentManagementService } from './services/consent-management-service';
 import { providerRegistry, type UnifiedApplicationData } from './partner-application-adapters';
 import { insertPartnerApplicationSchema, insertCashfreeTransactionSchema, insertPhonePeTransactionSchema } from '@shared/schema';
 import { cashfreeService } from './cashfree-service';
@@ -30410,6 +30411,41 @@ System Security Data:`;
   });
 
   // Auto-Population System Routes
+  // Batch grant consents for auto-population
+  app.post('/api/consents/batch-grant', requireAuth, async (req: any, res) => {
+    try {
+      const { consents } = req.body;
+
+      if (!Array.isArray(consents) || consents.length === 0) {
+        return res.status(400).json({ message: 'Consents array is required' });
+      }
+
+      // Extract unique data sources from the consents array
+      const dataSources = consents.map((c: any) => c.dataSource);
+      const uniqueDataSources = [...new Set(dataSources)];
+
+      // Grant batch consents
+      const grantedConsents = await consentManagementService.grantBatchConsents(
+        req.user.id,
+        uniqueDataSources,
+        'Auto-populate financial portfolio data',
+        req.ip,
+        req.get('user-agent')
+      );
+
+      console.log(`[CONSENT] Batch granted for user ${req.user.id}: ${uniqueDataSources.join(', ')}`);
+
+      res.json({
+        success: true,
+        message: `Consents granted for ${grantedConsents.length} data source(s)`,
+        consents: grantedConsents
+      });
+    } catch (error) {
+      console.error('Error granting batch consents:', error);
+      res.status(500).json({ message: 'Failed to grant consents' });
+    }
+  });
+
   app.use("/api/auto-populate", autoPopulationRouter);
 
 }

@@ -16,7 +16,7 @@ import { dataSourceConsents, type InsertDataSourceConsent, type DataSourceConsen
 import { eq, and, desc } from 'drizzle-orm';
 import crypto from 'crypto';
 
-export type DataSourceType = 'mutual_funds' | 'demat' | 'bank' | 'loans' | 'insurance';
+export type DataSourceType = 'mutual_funds' | 'demat' | 'bank' | 'loans' | 'insurance' | 'epf' | 'nps' | 'apy';
 export type SyncFrequency = 'daily' | 'weekly' | 'monthly' | 'manual';
 
 interface ConsentRequest {
@@ -78,6 +78,35 @@ export class ConsentManagementService {
     console.log(`✅ Consent granted for ${request.dataSource} by user ${request.userId}`);
     
     return consent;
+  }
+
+  /**
+   * Grant consents for selected data sources (batch operation)
+   */
+  async grantBatchConsents(
+    userId: string,
+    dataSources: DataSourceType[],
+    consentPurpose: string = 'auto_populate_holdings',
+    ipAddress?: string,
+    userAgent?: string
+  ): Promise<DataSourceConsent[]> {
+    const consents: DataSourceConsent[] = [];
+
+    for (const dataSource of dataSources) {
+      const consent = await this.grantConsent({
+        userId,
+        dataSource,
+        consentPurpose,
+        ipAddress,
+        userAgent,
+        syncFrequency: 'weekly',
+        validityDays: 365 // 1 year validity for auto-population
+      });
+      consents.push(consent);
+    }
+
+    console.log(`✅ Batch consents granted for user ${userId} (${consents.length} sources: ${dataSources.join(', ')})`);
+    return consents;
   }
 
   /**
@@ -234,7 +263,10 @@ export class ConsentManagementService {
       demat: 'Demat Account Holdings',
       bank: 'Bank Account Information',
       loans: 'Loan Liabilities',
-      insurance: 'Insurance Policies'
+      insurance: 'Insurance Policies',
+      epf: 'EPF/VPF Account Information',
+      nps: 'National Pension System Accounts',
+      apy: 'Atal Pension Yojana Benefits'
     };
     return labels[dataSource];
   }
@@ -248,7 +280,10 @@ export class ConsentManagementService {
       demat: 'NSDL/CDSL',
       bank: 'Account Aggregator',
       loans: 'CIBIL Credit Bureau',
-      insurance: 'Turtlefin Insurance API'
+      insurance: 'Turtlefin Insurance API',
+      epf: 'EPFO API',
+      nps: 'NPS CRA (Central Recordkeeping Agency)',
+      apy: 'Account Aggregator / NSDL'
     };
     return providers[dataSource];
   }
