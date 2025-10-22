@@ -8702,6 +8702,232 @@ export const integrationHealth = pgTable("integration_health", {
   index("idx_integration_health_category").on(table.category),
 ]);
 
+// ============================================================================
+// KYC VAULT SYSTEM - Comprehensive KYC Data Storage & Reuse
+// ============================================================================
+
+// KYC Vault - Secure storage with segregated encryption levels
+export const kycVault = pgTable("kyc_vault", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  
+  // ENCRYPTED FIELDS (AES-256-GCM)
+  encryptedFullName: text("encrypted_full_name"), // Full name from OKYC
+  encryptedDateOfBirth: text("encrypted_date_of_birth"), // DOB
+  encryptedGender: text("encrypted_gender"), // Gender
+  encryptedFatherName: text("encrypted_father_name"), // Father's name
+  encryptedAddress: text("encrypted_address"), // Complete address from Aadhaar
+  encryptedCity: text("encrypted_city"),
+  encryptedState: text("encrypted_state"),
+  encryptedPincode: text("encrypted_pincode"),
+  encryptedMobile: text("encrypted_mobile"), // Aadhaar-linked mobile
+  encryptedEmail: text("encrypted_email"), // Aadhaar-linked email
+  
+  // TOKENIZED FIELDS (Format-preserving tokenization)
+  tokenizedPan: varchar("tokenized_pan"), // Tokenized PAN
+  tokenizedAadhaar: varchar("tokenized_aadhaar"), // Tokenized Aadhaar (full)
+  tokenizedCkycKin: varchar("tokenized_ckyc_kin"), // Tokenized CKYC KIN number
+  aadhaarLast4: varchar("aadhaar_last_4", { length: 4 }), // Last 4 digits (plain text for display)
+  
+  // HASHED FIELDS (SHA-256 for liveness reuse)
+  faceImageHash: varchar("face_image_hash"), // Hash of face photo from OKYC
+  faceImageHashAlgorithm: varchar("face_image_hash_algorithm").default("SHA-256"),
+  
+  // PLAIN TEXT STATUS FIELDS
+  kycStatus: varchar("kyc_status").default("pending"), // pending/verified/failed/expired
+  ckycStatus: varchar("ckyc_status").default("not_checked"), // not_checked/found/created/failed
+  source: varchar("source").notNull(), // cashfree_okyc/ckyc_registry/manual
+  verificationMethod: varchar("verification_method"), // aadhaar_otp/video_kyc/offline
+  isReusable: boolean("is_reusable").default(false), // Can KYC be shared with external APIs?
+  
+  // CKYC INFORMATION (Encrypted for security)
+  encryptedCkycKin: text("encrypted_ckyc_kin"), // CKYC KIN from registry (AES-256-GCM encrypted)
+  ckycRegistrationDate: timestamp("ckyc_registration_date"),
+  ckycExpiryDate: timestamp("ckyc_expiry_date"),
+  ckycVerificationLevel: varchar("ckyc_verification_level"), // basic/enhanced
+  
+  // VERIFICATION METADATA
+  cashfreeRefId: varchar("cashfree_ref_id"), // Cashfree OKYC reference ID
+  aadhaarVerifiedAt: timestamp("aadhaar_verified_at"),
+  panVerifiedAt: timestamp("pan_verified_at"),
+  addressVerifiedAt: timestamp("address_verified_at"),
+  
+  // VALIDITY AND COMPLIANCE
+  kycVerifiedAt: timestamp("kyc_verified_at").defaultNow(),
+  kycExpiryDate: timestamp("kyc_expiry_date"), // Auto-calculated: verified + 2 years (SEBI norms)
+  kycNextRenewalDate: timestamp("kyc_next_renewal_date"),
+  isExpired: boolean("is_expired").default(false),
+  
+  // METADATA
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_kyc_vault_user").on(table.userId),
+  index("idx_kyc_vault_status").on(table.kycStatus),
+]);
+
+// KYC Token Map - Reversible tokenization mapping (encrypted storage)
+export const kycTokenMap = pgTable("kyc_token_map", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Token mapping
+  token: varchar("token").notNull().unique(), // The tokenized value
+  encryptedOriginalValue: text("encrypted_original_value").notNull(), // AES-encrypted original value
+  fieldType: varchar("field_type").notNull(), // pan/aadhaar/ckyc_kin
+  
+  // Metadata
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  expiresAt: timestamp("expires_at"), // Optional expiry for tokens
+}, (table) => [
+  index("idx_kyc_token_map_token").on(table.token),
+  index("idx_kyc_token_map_user").on(table.userId),
+]);
+
+// KYC Consent Logs - Digital consent for KYC data reuse
+export const kycConsentLogs = pgTable("kyc_consent_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // User information
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Consent details
+  consentType: varchar("consent_type").notNull(), // kyc_reuse/data_sharing/third_party_access
+  consentGiven: boolean("consent_given").notNull(),
+  consentText: text("consent_text").notNull(), // Full text of consent shown to user
+  
+  // Context
+  purpose: text("purpose"), // e.g., "BSE STAR MF Onboarding", "Loan Application"
+  thirdPartyName: varchar("third_party_name"), // e.g., "BSE", "AMC XYZ"
+  
+  // Digital signature
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  consentSignature: text("consent_signature"), // HMAC signature of consent
+  
+  // Timestamps
+  consentedAt: timestamp("consented_at").defaultNow(),
+  expiresAt: timestamp("expires_at"), // Consent validity period
+  revokedAt: timestamp("revoked_at"), // If user revokes consent
+}, (table) => [
+  index("idx_kyc_consent_user").on(table.userId),
+  index("idx_kyc_consent_type").on(table.consentType),
+  index("idx_kyc_consent_given").on(table.consentGiven),
+]);
+
+// KYC Audit Logs - Comprehensive access tracking for compliance
+export const kycAuditLogs = pgTable("kyc_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Target user
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Access details
+  accessedBy: varchar("accessed_by"), // User ID or system identifier who accessed
+  accessType: varchar("access_type").notNull(), // read/write/share/token_generate/token_validate
+  dataFieldsAccessed: jsonb("data_fields_accessed"), // Array of field names accessed
+  
+  // Purpose and context
+  purpose: text("purpose").notNull(), // Why was KYC accessed?
+  apiEndpoint: varchar("api_endpoint"), // Which API endpoint was used
+  externalParty: varchar("external_party"), // If shared with external party (BSE/NSE/AMC)
+  
+  // Request metadata
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  requestId: varchar("request_id"), // Correlation ID for request tracing
+  
+  // Result
+  accessStatus: varchar("access_status").default("success"), // success/failed/denied
+  failureReason: text("failure_reason"),
+  
+  // Compliance
+  regulatoryPurpose: varchar("regulatory_purpose"), // AML/KYC/CDD/EDD
+  complianceCheckPassed: boolean("compliance_check_passed").default(true),
+  
+  // Timestamps
+  accessedAt: timestamp("accessed_at").defaultNow(),
+}, (table) => [
+  index("idx_kyc_audit_user").on(table.userId),
+  index("idx_kyc_audit_accessed_by").on(table.accessedBy),
+  index("idx_kyc_audit_type").on(table.accessType),
+  index("idx_kyc_audit_timestamp").on(table.accessedAt),
+]);
+
+// KYC Reuse Tokens - JWT tokens for external API sharing
+export const kycReuseTokens = pgTable("kyc_reuse_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Token details
+  tokenId: varchar("token_id").notNull().unique(), // Format: KYC_REUSE_{nanoid}
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // JWT payload (encrypted at rest)
+  encryptedJwtPayload: text("encrypted_jwt_payload").notNull(), // Encrypted JWT claims
+  jwtSignature: text("jwt_signature").notNull(), // HMAC-SHA256 signature
+  
+  // Token metadata
+  tokenPurpose: varchar("token_purpose"), // bse_star_mf/loan_application/insurance/pms_aif
+  issuedTo: varchar("issued_to"), // External party name (BSE/AMC/Lender)
+  scope: jsonb("scope"), // What data fields are included in token
+  
+  // Validity
+  isActive: boolean("is_active").default(true),
+  isRevoked: boolean("is_revoked").default(false),
+  revokedAt: timestamp("revoked_at"),
+  revokeReason: text("revoke_reason"),
+  
+  // Usage tracking
+  usageCount: integer("usage_count").default(0),
+  maxUsageLimit: integer("max_usage_limit"), // Optional usage limit
+  lastUsedAt: timestamp("last_used_at"),
+  
+  // Timestamps
+  issuedAt: timestamp("issued_at").defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(), // Token expiry (typ. 1 year)
+}, (table) => [
+  index("idx_kyc_reuse_token_id").on(table.tokenId),
+  index("idx_kyc_reuse_user").on(table.userId),
+  index("idx_kyc_reuse_active").on(table.isActive),
+]);
+
+// Insert schemas and types for KYC Vault System
+export const insertKycVaultSchema = createInsertSchema(kycVault).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type KycVault = typeof kycVault.$inferSelect;
+export type InsertKycVault = z.infer<typeof insertKycVaultSchema>;
+
+export const insertKycTokenMapSchema = createInsertSchema(kycTokenMap).omit({
+  id: true,
+  createdAt: true,
+});
+export type KycTokenMap = typeof kycTokenMap.$inferSelect;
+export type InsertKycTokenMap = z.infer<typeof insertKycTokenMapSchema>;
+
+export const insertKycConsentLogSchema = createInsertSchema(kycConsentLogs).omit({
+  id: true,
+  consentedAt: true,
+});
+export type KycConsentLog = typeof kycConsentLogs.$inferSelect;
+export type InsertKycConsentLog = z.infer<typeof insertKycConsentLogSchema>;
+
+export const insertKycAuditLogSchema = createInsertSchema(kycAuditLogs).omit({
+  id: true,
+  accessedAt: true,
+});
+export type KycAuditLog = typeof kycAuditLogs.$inferSelect;
+export type InsertKycAuditLog = z.infer<typeof insertKycAuditLogSchema>;
+
+export const insertKycReuseTokenSchema = createInsertSchema(kycReuseTokens).omit({
+  id: true,
+  issuedAt: true,
+});
+export type KycReuseToken = typeof kycReuseTokens.$inferSelect;
+export type InsertKycReuseToken = z.infer<typeof insertKycReuseTokenSchema>;
+
 // Insert schemas and types
 export const insertWebhookLogSchema = createInsertSchema(webhookLogs).omit({
   id: true,
