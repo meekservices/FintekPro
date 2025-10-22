@@ -20,11 +20,13 @@ import { db } from '../db';
 import { 
   autoPopulationStatus,
   comprehensiveHoldings,
+  epfHoldings,
   kycVault,
   portfolios,
   type InsertAutoPopulationStatus,
   type AutoPopulationStatus,
-  type InsertComprehensiveHolding
+  type InsertComprehensiveHolding,
+  type InsertEpfHolding
 } from '@shared/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -32,6 +34,8 @@ import { consentManagementService, type DataSourceType } from './consent-managem
 import { turtlefinAPI } from '../turtlefin-api';
 import { bseStarCASService, type CASFetchRequest } from './bse-star-cas-service';
 import { kycVaultDecryptionService } from './kyc-vault-decryption-service';
+import { dematHoldingsService, type DematFetchRequest } from './demat-holdings-service';
+import { epfoService, type EPFFetchRequest } from './epfo-service';
 import axios from 'axios';
 
 interface KYCData {
@@ -328,7 +332,7 @@ export class AutoPopulationOrchestrator {
   }
 
   /**
-   * Fetch demat holdings from NSDL/CDSL
+   * Fetch demat holdings from NSDL/CDSL via Account Aggregator
    */
   private async fetchDematHoldings(kycData: KYCData, hasConsent: boolean): Promise<DataSourceResult> {
     if (!hasConsent) {
@@ -341,42 +345,44 @@ export class AutoPopulationOrchestrator {
     }
 
     try {
-      console.log(`🔍 Fetching demat holdings from NSDL/CDSL`);
+      console.log(`🔍 Fetching demat holdings from NSDL/CDSL via Account Aggregator`);
       
-      // Mock data - in production, call NSDL/CDSL API
-      const mockHoldings = [
-        {
-          isin: 'INE002A01018',
-          companyName: 'Reliance Industries Ltd',
-          quantity: 50,
-          averagePrice: 2350.00,
-          currentPrice: 2615.50,
-          currentValue: 130775.00,
-          investedAmount: 117500.00,
-          returns: 13275.00,
-          returnsPercentage: 11.30
-        },
-        {
-          isin: 'INE009A01021',
-          companyName: 'Infosys Ltd',
-          quantity: 100,
-          averagePrice: 1450.00,
-          currentPrice: 1589.25,
-          currentValue: 158925.00,
-          investedAmount: 145000.00,
-          returns: 13925.00,
-          returnsPercentage: 9.60
-        }
-      ];
+      // Call demat holdings service
+      const dematRequest: DematFetchRequest = {
+        panNumber: kycData.pan,
+        name: kycData.name,
+        dob: kycData.dob,
+        mobile: kycData.mobile,
+        email: kycData.email,
+        requestId: `demat_${kycData.userId}_${Date.now()}`
+      };
+
+      const dematResponse = await dematHoldingsService.fetchHoldings(dematRequest);
+
+      if (!dematResponse.success) {
+        console.error(`❌ Demat holdings fetch failed: ${dematResponse.message}`);
+        return {
+          source: 'demat',
+          success: false,
+          recordsFetched: 0,
+          error: dematResponse.message || 'Failed to fetch demat holdings'
+        };
+      }
+
+      // Demat holdings will be stored via the storeHoldings method which is called by the main workflow
+      // No need to store inline here - it will be handled in the data source results loop
+
+      console.log(`✅ Fetched ${dematResponse.totalHoldings} demat holdings across ${dematResponse.accounts.length} accounts (NSDL: ${dematResponse.nsdlHoldings}, CDSL: ${dematResponse.cdslHoldings})`);
 
       return {
         source: 'demat',
         success: true,
-        recordsFetched: mockHoldings.length,
-        totalValue: mockHoldings.reduce((sum, h) => sum + h.currentValue, 0),
-        data: mockHoldings
+        recordsFetched: dematResponse.totalHoldings,
+        totalValue: dematResponse.totalValue,
+        data: dematResponse.holdings
       };
     } catch (error: any) {
+      console.error('❌ Demat holdings fetch error:', error.message);
       return {
         source: 'demat',
         success: false,
@@ -384,6 +390,77 @@ export class AutoPopulationOrchestrator {
         error: error.message
       };
     }
+  }
+
+  /**
+   * Store demat holdings in comprehensiveHoldings table
+   */
+  private async storeDematHoldings(userId: string, dematResponse: any): Promise<void> {
+    try {
+      // Get user's portfolio
+      const userPortfolios = await db
+        .select()
+        .from(portfolios)
+        .where(eq(portfolios.userId, userId))
+        .limit(1);
+
+      if (userPortfolios.length === 0) {
+        console.warn(`⚠️ No portfolio found for user ${userId}, skipping demat storage`);
+        return;
+      }
+
+      const portfolio = userPortfolios[0];
+      const today = new Date().toISOString().split('T')[0];
+
+      // Map demat holdings to comprehensiveHoldings format
+      const holdingsToInsert: InsertComprehensiveHolding[] = dematResponse.holdings.map((holding: any) => ({
+        portfolioId: portfolio.id,
+        userId,
+        holdingDate: today,
+        symbol: holding.symbol,
+        isin: holding.isin,
+        assetName: holding.companyName,
+        assetType: holding.assetType, // 'equity', 'bond', 'etf'
+        assetClass: holding.assetType === 'equity' ? this.determineEquityClass(holding) : null,
+        quantity: holding.quantity.toString(),
+        avgPrice: holding.averagePrice.toString(),
+        currentPrice: holding.currentPrice.toString(),
+        marketValue: holding.currentValue.toString(),
+        investedValue: holding.investedAmount.toString(),
+        gainLoss: holding.returns.toString(),
+        gainLossPercent: holding.returnsPercentage.toString(),
+        dataSource: dematResponse.accounts[0]?.depository?.toLowerCase() || 'nsdl',
+        dematAccountNumber: dematResponse.accounts[0]?.dematAccountNumber || null,
+        sector: holding.sector || null,
+        industry: holding.industry || null,
+        marketCap: holding.marketCap?.toString() || null,
+        metadata: {
+          pledgedQuantity: holding.pledgedQuantity || 0,
+          freeQuantity: holding.freeQuantity || holding.quantity,
+          lockedQuantity: holding.lockedQuantity || 0,
+          exchange: holding.exchange || 'NSE'
+        }
+      }));
+
+      // Insert holdings (upsert logic can be added later)
+      await db.insert(comprehensiveHoldings).values(holdingsToInsert);
+
+      console.log(`✅ Stored ${holdingsToInsert.length} demat holdings in comprehensiveHoldings table`);
+    } catch (error: any) {
+      console.error('❌ Error storing demat holdings:', error.message);
+      // Don't throw - this is not critical for the workflow
+    }
+  }
+
+  /**
+   * Determine equity asset class based on market cap
+   */
+  private determineEquityClass(holding: any): string {
+    const marketCap = holding.marketCap || 0;
+    
+    if (marketCap >= 20000000000000) return 'large_cap'; // > ₹20,000 Cr
+    if (marketCap >= 5000000000000) return 'mid_cap'; // ₹5,000-20,000 Cr
+    return 'small_cap'; // < ₹5,000 Cr
   }
 
   /**
@@ -517,6 +594,68 @@ export class AutoPopulationOrchestrator {
     } catch (error: any) {
       return {
         source: 'insurance',
+        success: false,
+        recordsFetched: 0,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Fetch EPF/VPF accounts from EPFO
+   */
+  private async fetchEPFAccounts(kycData: KYCData, hasConsent: boolean): Promise<DataSourceResult> {
+    if (!hasConsent) {
+      return {
+        source: 'epf',
+        success: false,
+        recordsFetched: 0,
+        error: 'User consent not granted'
+      };
+    }
+
+    try {
+      console.log(`🔍 Fetching EPF/VPF accounts from EPFO`);
+      
+      // Call EPFO service
+      const epfRequest: EPFFetchRequest = {
+        panNumber: kycData.pan,
+        name: kycData.name,
+        dob: kycData.dob,
+        mobile: kycData.mobile,
+        requestId: `epf_${kycData.userId}_${Date.now()}`
+      };
+
+      const epfResponse = await epfoService.fetchEPFAccounts(epfRequest);
+
+      if (!epfResponse.success) {
+        console.error(`❌ EPF fetch failed: ${epfResponse.message}`);
+        return {
+          source: 'epf',
+          success: false,
+          recordsFetched: 0,
+          error: epfResponse.message || 'Failed to fetch EPF accounts'
+        };
+      }
+
+      // Store EPF accounts in epfHoldings table
+      if (epfResponse.accounts.length > 0) {
+        await this.storeEPFHoldings(kycData.userId, epfResponse.accounts);
+      }
+
+      console.log(`✅ Fetched ${epfResponse.totalAccounts} EPF accounts (Total Balance: ₹${epfResponse.totalBalance.toFixed(2)})`);
+
+      return {
+        source: 'epf',
+        success: true,
+        recordsFetched: epfResponse.totalAccounts,
+        totalValue: epfResponse.totalBalance,
+        data: epfResponse.accounts
+      };
+    } catch (error: any) {
+      console.error('❌ EPF accounts fetch error:', error.message);
+      return {
+        source: 'epf',
         success: false,
         recordsFetched: 0,
         error: error.message
@@ -670,11 +809,53 @@ export class AutoPopulationOrchestrator {
   }
 
   /**
-   * Store demat holdings (placeholder)
+   * Store demat holdings in comprehensiveHoldings table
    */
   private async storeDematHoldings(userId: string, portfolioId: string, holdings: any[]): Promise<void> {
-    // TODO: Implement in Phase A2
-    console.log(`  ℹ️ Demat holdings storage - to be implemented in A2`);
+    const today = new Date().toISOString().split('T')[0];
+
+    for (const holding of holdings) {
+      const record: InsertComprehensiveHolding = {
+        portfolioId,
+        userId,
+        holdingDate: today,
+        
+        // Asset identification
+        symbol: holding.symbol,
+        isin: holding.isin,
+        assetName: holding.companyName,
+        assetType: holding.assetType, // 'equity', 'bond', 'etf'
+        assetClass: holding.assetType === 'equity' ? this.determineEquityClass(holding) : null,
+        
+        // Holding details
+        quantity: holding.quantity.toString(),
+        avgPrice: holding.averagePrice.toString(),
+        currentPrice: holding.currentPrice.toString(),
+        marketValue: holding.currentValue.toString(),
+        investedValue: holding.investedAmount.toString(),
+        gainLoss: holding.returns.toString(),
+        gainLossPercent: holding.returnsPercentage.toString(),
+        
+        // Source details
+        dataSource: holding.depository?.toLowerCase() || 'nsdl',
+        dematAccountNumber: holding.dematAccountNumber || null,
+        
+        // Additional details
+        sector: holding.sector || null,
+        industry: holding.industry || null,
+        marketCap: holding.marketCap?.toString() || null,
+        
+        // Metadata
+        metadata: {
+          pledgedQuantity: holding.pledgedQuantity || 0,
+          freeQuantity: holding.freeQuantity || holding.quantity,
+          lockedQuantity: holding.lockedQuantity || 0,
+          exchange: holding.exchange || 'NSE'
+        }
+      };
+
+      await db.insert(comprehensiveHoldings).values(record);
+    }
   }
 
   /**
@@ -699,6 +880,40 @@ export class AutoPopulationOrchestrator {
   private async storeInsurancePolicies(userId: string, portfolioId: string, policies: any[]): Promise<void> {
     // Insurance is stored separately, not in comprehensive holdings
     console.log(`  ℹ️ Insurance policies storage - handled separately`);
+  }
+
+  /**
+   * Store EPF/VPF holdings in epfHoldings table
+   */
+  private async storeEPFHoldings(userId: string, accounts: any[]): Promise<void> {
+    try {
+      // Map EPF accounts to epfHoldings format
+      const holdingsToInsert: InsertEpfHolding[] = accounts.map((account: any) => ({
+        userId,
+        epfAccountNumber: account.epfAccountNumber,
+        employerName: account.employerName,
+        memberName: account.memberName,
+        employeeContribution: account.employeeContribution.toString(),
+        employerContribution: account.employerContribution.toString(),
+        pensionContribution: account.pensionContribution.toString(),
+        totalBalance: account.totalBalance.toString(),
+        interestEarned: account.interestEarned.toString(),
+        interestRate: account.interestRate.toString(),
+        dateOfJoining: account.dateOfJoining,
+        dateOfExit: account.dateOfExit || null,
+        isActive: account.isActive,
+        nomineeName: account.nomineeName || null,
+        nomineeRelationship: account.nomineeRelationship || null
+      }));
+
+      // Insert EPF holdings (upsert logic can be added later)
+      await db.insert(epfHoldings).values(holdingsToInsert);
+
+      console.log(`  ✓ Stored ${holdingsToInsert.length} EPF accounts in epfHoldings table`);
+    } catch (error: any) {
+      console.error(`  ✗ Error storing EPF holdings:`, error.message);
+      // Don't throw - this is not critical for the workflow
+    }
   }
 
   /**
