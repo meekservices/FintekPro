@@ -64,7 +64,7 @@ const itrForms: ITRForm[] = [
     applicableFor: ["Salaried Employees", "Pensioners", "Single House Property"],
     complexity: "Simple",
     estimatedTime: "15-30 minutes",
-    price: 499,
+    price: 999,
     features: ["Auto-filled data", "E-verification", "Quick refund", "Expert review"]
   },
   {
@@ -74,7 +74,7 @@ const itrForms: ITRForm[] = [
     applicableFor: ["Multiple Properties", "Capital Gains", "Foreign Income", "Director of Companies"],
     complexity: "Moderate",
     estimatedTime: "45-90 minutes",
-    price: 999,
+    price: 1499,
     features: ["Capital gains computation", "Foreign income reporting", "Schedule AL filing", "CA assistance"]
   },
   {
@@ -84,7 +84,7 @@ const itrForms: ITRForm[] = [
     applicableFor: ["Business Income", "Professional Income", "Partnership Firms", "LLP Partners"],
     complexity: "Complex",
     estimatedTime: "2-4 hours",
-    price: 2499,
+    price: 2999,
     features: ["P&L preparation", "Balance sheet", "Tax audit support", "Dedicated CA"]
   },
   {
@@ -94,7 +94,7 @@ const itrForms: ITRForm[] = [
     applicableFor: ["Small Business", "Presumptive Taxation", "Freelancers", "Consultants"],
     complexity: "Simple",
     estimatedTime: "30-45 minutes",
-    price: 799,
+    price: 1299,
     features: ["Presumptive scheme", "Simple calculation", "Quick filing", "Expert guidance"]
   },
   {
@@ -104,7 +104,7 @@ const itrForms: ITRForm[] = [
     applicableFor: ["Partnership Firms", "LLPs", "AOP/BOI", "Co-operative Societies"],
     complexity: "Complex",
     estimatedTime: "4-6 hours",
-    price: 4999,
+    price: 5499,
     features: ["Partnership taxation", "Book profit calculation", "MAT computation", "Senior CA review"]
   },
   {
@@ -114,7 +114,7 @@ const itrForms: ITRForm[] = [
     applicableFor: ["Private Companies", "Public Companies", "Foreign Companies"],
     complexity: "Complex",
     estimatedTime: "6-8 hours",
-    price: 9999,
+    price: 10499,
     features: ["Corporate taxation", "MAT/AMT calculation", "Transfer pricing", "Compliance check"]
   },
   {
@@ -124,7 +124,7 @@ const itrForms: ITRForm[] = [
     applicableFor: ["Trusts", "Political Parties", "Institutions", "Universities"],
     complexity: "Complex",
     estimatedTime: "4-6 hours",
-    price: 7499,
+    price: 7999,
     features: ["Trust taxation", "Exemption claims", "Compliance reporting", "Legal review"]
   }
 ];
@@ -138,8 +138,8 @@ const taxServices: TaxService[] = [
     description: "Simple tax filing for salaried individuals with standard deductions",
     category: "Filing",
     features: ["ITR-1 Filing", "Form 16 Upload", "Quick Refund", "E-verification"],
-    price: 499,
-    originalPrice: 999,
+    price: 999,
+    originalPrice: 1499,
     processingTime: "24 hours",
     rating: 4.6,
     isPopular: true,
