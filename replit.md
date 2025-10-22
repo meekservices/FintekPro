@@ -24,11 +24,33 @@ Key features include real-time portfolio and market data tracking, various finan
 ### System Design Choices
 The platform employs a subdomain-based portal architecture, providing isolated and customized experiences for different user types: Admin Portal (admin.fintekpro.com), Partner Portal (partner.fintekpro.com), and Client Portal (fintekpro.com). This architecture ensures security and role-based access control. All pages maintain a consistent three-part layout: Left Sidebar Navigation, Main Content Area, and Footer, with a collapsible, state-persisted sidebar. The `ScrollableTabsList` pattern is utilized for responsive tabbed navigation.
 
+## Production Blockers
+
+### Auto-Population KYC Vault Decryption (CRITICAL)
+**Status**: Blocked - Requires vault decryption implementation
+
+The auto-population orchestrator's `getKYCData()` method currently returns stubbed PII (`STUB_PAN_${userId}`, mock names, etc.) which causes all production API calls to fail. This affects:
+- BSE STAR CAS (mutual fund holdings) - Returns authentication errors with stub PANs
+- NSDL/CDSL demat integration - Will fail PAN validation  
+- CIBIL loan fetching - Requires real PAN/DOB/mobile
+- Insurance policy lookups - Needs valid identification
+
+**Required Actions**:
+1. Implement encryption service integration in `getKYCData()` to decrypt:
+   - tokenizedPan → real PAN using format-preserving detokenization
+   - encryptedFullName, encryptedDateOfBirth, encryptedMobile, encryptedEmail using AES-256-GCM
+2. Add vault access audit logging to kycAuditLogs table (purpose: 'auto_population')
+3. Implement proper key rotation support and in-memory-only decryption
+4. Test all auto-population sources against production APIs with real (test) credentials
+5. Add feature flag to prevent production use until vault decryption is complete
+
+**Dependencies**: Encryption service, Key management system, Audit logging framework
+
 ## External Dependencies
 
 ### Third-Party APIs
 - **Market Data Sources**: For real-time and historical market information.
-- **BSE Star MFD API**: Mutual fund transaction processing.
+- **BSE Star MFD API**: Mutual fund transaction processing via CAS (Consolidated Account Statement).
 - **NSE NCB & BSE Bond API**: Government securities and corporate bond trading.
 - **Bajaj Finance Integration**: Calculators and eligibility checks.
 - **Tata Capital Integration**: Loans, credit checks, CKYC, GST verification.

@@ -21,13 +21,16 @@ import {
   autoPopulationStatus,
   comprehensiveHoldings,
   kycVault,
+  portfolios,
   type InsertAutoPopulationStatus,
-  type AutoPopulationStatus 
+  type AutoPopulationStatus,
+  type InsertComprehensiveHolding
 } from '@shared/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { consentManagementService, type DataSourceType } from './consent-management-service';
 import { turtlefinAPI } from '../turtlefin-api';
+import { bseStarCASService, type CASFetchRequest } from './bse-star-cas-service';
 import axios from 'axios';
 
 interface KYCData {
@@ -276,7 +279,7 @@ export class AutoPopulationOrchestrator {
   }
 
   /**
-   * Fetch mutual fund holdings from BSE STAR
+   * Fetch mutual fund holdings from BSE STAR via CAS (Consolidated Account Statement)
    */
   private async fetchMutualFunds(kycData: KYCData, hasConsent: boolean): Promise<DataSourceResult> {
     if (!hasConsent) {
@@ -289,43 +292,39 @@ export class AutoPopulationOrchestrator {
     }
 
     try {
-      // Call BSE STAR API (mock implementation)
-      console.log(`🔍 Fetching mutual funds from BSE STAR for PAN: ${kycData.pan.slice(0, 5)}***`);
+      console.log(`🔍 Fetching mutual funds from BSE STAR CAS for PAN: ${kycData.pan.slice(0, 5)}***`);
       
-      // Mock data - in production, call actual BSE STAR API
-      const mockHoldings = [
-        {
-          folioNumber: `FOL${nanoid(8)}`,
-          schemeName: 'HDFC Flexi Cap Fund - Growth',
-          amcName: 'HDFC Mutual Fund',
-          units: 1250.50,
-          nav: 845.30,
-          currentValue: 1056797.65,
-          investedAmount: 950000,
-          returns: 106797.65,
-          returnsPercentage: 11.24
-        },
-        {
-          folioNumber: `FOL${nanoid(8)}`,
-          schemeName: 'Axis Bluechip Fund - Direct Growth',
-          amcName: 'Axis Mutual Fund',
-          units: 2100.00,
-          nav: 425.80,
-          currentValue: 894180.00,
-          investedAmount: 800000,
-          returns: 94180.00,
-          returnsPercentage: 11.77
-        }
-      ];
+      // Call BSE STAR CAS API to fetch consolidated holdings
+      const casRequest: CASFetchRequest = {
+        panNumber: kycData.pan,
+        name: kycData.name,
+        dob: kycData.dob,
+        mobile: kycData.mobile,
+        email: kycData.email
+      };
+
+      const casResponse = await bseStarCASService.fetchCAS(casRequest);
+
+      if (!casResponse.success) {
+        return {
+          source: 'mutual_funds',
+          success: false,
+          recordsFetched: 0,
+          error: casResponse.message || 'CAS fetch failed'
+        };
+      }
+
+      console.log(`✅ Fetched ${casResponse.totalHoldings} mutual fund holdings across ${casResponse.rtaSummary.camsHoldings + casResponse.rtaSummary.karvyHoldings + casResponse.rtaSummary.franklinHoldings} RTAs`);
 
       return {
         source: 'mutual_funds',
         success: true,
-        recordsFetched: mockHoldings.length,
-        totalValue: mockHoldings.reduce((sum, h) => sum + h.currentValue, 0),
-        data: mockHoldings
+        recordsFetched: casResponse.totalHoldings,
+        totalValue: casResponse.totalValue,
+        data: casResponse.holdings
       };
     } catch (error: any) {
+      console.error('❌ Mutual funds fetch error:', error.message);
       return {
         source: 'mutual_funds',
         success: false,
@@ -538,13 +537,175 @@ export class AutoPopulationOrchestrator {
   private async storeHoldings(userId: string, results: DataSourceResult[]): Promise<void> {
     console.log(`💾 Storing ${results.length} data source results in database...`);
 
-    for (const result of results) {
-      if (!result.success || !result.data) continue;
+    // Get or create default portfolio for user
+    const portfolio = await this.getOrCreateDefaultPortfolio(userId);
 
-      // Store each type of holding appropriately
-      // Note: This is a simplified version - in production you'd map to actual schema
-      console.log(`  ✓ Stored ${result.recordsFetched} records from ${result.source}`);
+    for (const result of results) {
+      if (!result.success || !result.data || !Array.isArray(result.data)) continue;
+
+      try {
+        // Store each type of holding based on source
+        switch (result.source) {
+          case 'mutual_funds':
+            await this.storeMutualFundHoldings(userId, portfolio.id, result.data);
+            break;
+          case 'demat':
+            await this.storeDematHoldings(userId, portfolio.id, result.data);
+            break;
+          case 'bank':
+            await this.storeBankAccounts(userId, portfolio.id, result.data);
+            break;
+          case 'loans':
+            await this.storeLoanLiabilities(userId, portfolio.id, result.data);
+            break;
+          case 'insurance':
+            await this.storeInsurancePolicies(userId, portfolio.id, result.data);
+            break;
+        }
+
+        console.log(`  ✓ Stored ${result.recordsFetched} records from ${result.source}`);
+      } catch (error: any) {
+        console.error(`  ✗ Failed to store ${result.source}:`, error.message);
+      }
     }
+  }
+
+  /**
+   * Get or create default portfolio for user
+   */
+  private async getOrCreateDefaultPortfolio(userId: string): Promise<{ id: string }> {
+    // Check if user has a default portfolio
+    const existingPortfolio = await db
+      .select()
+      .from(portfolios)
+      .where(and(
+        eq(portfolios.userId, userId),
+        eq(portfolios.isDefault, true)
+      ))
+      .limit(1);
+
+    if (existingPortfolio.length > 0) {
+      return existingPortfolio[0];
+    }
+
+    // Create default portfolio
+    const newPortfolio = await db
+      .insert(portfolios)
+      .values({
+        userId,
+        name: 'Default Portfolio',
+        isDefault: true,
+        totalValue: '0',
+        cash: '0'
+      })
+      .returning();
+
+    console.log(`📁 Created default portfolio for user ${userId}`);
+    return newPortfolio[0];
+  }
+
+  /**
+   * Store mutual fund holdings in comprehensive holdings table
+   */
+  private async storeMutualFundHoldings(userId: string, portfolioId: string, holdings: any[]): Promise<void> {
+    const today = new Date().toISOString().split('T')[0];
+
+    for (const holding of holdings) {
+      const record: InsertComprehensiveHolding = {
+        portfolioId,
+        userId,
+        holdingDate: today,
+        
+        // Asset identification
+        symbol: holding.schemeCode,
+        isin: holding.isin || null,
+        assetName: holding.schemeName,
+        assetType: 'mutual_fund',
+        assetClass: this.determineMFAssetClass(holding.schemeName),
+        
+        // Holding details
+        units: holding.units.toString(),
+        currentPrice: holding.nav.toString(),
+        marketValue: holding.currentValue.toString(),
+        investedValue: holding.investedAmount.toString(),
+        gainLoss: holding.returns.toString(),
+        gainLossPercent: holding.returnsPercentage.toString(),
+        
+        // Source details
+        dataSource: `bse_star_${holding.rtaCode.toLowerCase()}`,
+        folio: holding.folioNumber,
+        
+        // Additional metadata
+        metadata: {
+          amcName: holding.amcName,
+          registrarName: holding.registrarName,
+          schemePlan: holding.schemePlan,
+          schemeOption: holding.schemeOption,
+          purchaseDate: holding.purchaseDate,
+          lastTransactionDate: holding.lastTransactionDate,
+          lockinStatus: holding.lockinStatus,
+          lockinDate: holding.lockinDate,
+          averageNav: holding.averageNav
+        }
+      };
+
+      await db.insert(comprehensiveHoldings).values(record);
+    }
+  }
+
+  /**
+   * Determine asset class from mutual fund scheme name
+   */
+  private determineMFAssetClass(schemeName: string): string {
+    const name = schemeName.toLowerCase();
+    
+    if (name.includes('equity') || name.includes('bluechip') || name.includes('large cap') || 
+        name.includes('mid cap') || name.includes('small cap') || name.includes('flexi cap') || 
+        name.includes('multi cap') || name.includes('focused')) {
+      return 'equity';
+    } else if (name.includes('debt') || name.includes('bond') || name.includes('gilt') || 
+               name.includes('liquid') || name.includes('overnight') || name.includes('ultra short')) {
+      return 'debt';
+    } else if (name.includes('hybrid') || name.includes('balanced') || name.includes('aggressive') || 
+               name.includes('conservative') || name.includes('dynamic asset')) {
+      return 'hybrid';
+    } else if (name.includes('elss') || name.includes('tax saver')) {
+      return 'equity'; // ELSS is equity-oriented
+    } else {
+      return 'other';
+    }
+  }
+
+  /**
+   * Store demat holdings (placeholder)
+   */
+  private async storeDematHoldings(userId: string, portfolioId: string, holdings: any[]): Promise<void> {
+    // TODO: Implement in Phase A2
+    console.log(`  ℹ️ Demat holdings storage - to be implemented in A2`);
+  }
+
+  /**
+   * Store bank accounts (placeholder)
+   */
+  private async storeBankAccounts(userId: string, portfolioId: string, accounts: any[]): Promise<void> {
+    // Bank accounts are stored separately, not in comprehensive holdings
+    console.log(`  ℹ️ Bank accounts storage - handled separately`);
+  }
+
+  /**
+   * Store loan liabilities (placeholder)
+   */
+  private async storeLoanLiabilities(userId: string, portfolioId: string, loans: any[]): Promise<void> {
+    // Loans are stored separately, not in comprehensive holdings
+    console.log(`  ℹ️ Loan liabilities storage - handled separately`);
+  }
+
+  /**
+   * Store insurance policies (placeholder)
+   */
+  private async storeInsurancePolicies(userId: string, portfolioId: string, policies: any[]): Promise<void> {
+    // Insurance is stored separately, not in comprehensive holdings
+    console.log(`  ℹ️ Insurance policies storage - handled separately`);
   }
 
   /**
