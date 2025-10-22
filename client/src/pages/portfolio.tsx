@@ -132,7 +132,7 @@ export default function Portfolio() {
 
         {/* Enhanced Portfolio with Tabs */}
         <Tabs defaultValue="overview" className="space-y-6">
-          <ScrollableTabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1">
+          <ScrollableTabsList>
             <TabsTrigger value="overview">Portfolio Overview</TabsTrigger>
             <TabsTrigger value="insurance" className="flex items-center space-x-1">
               <Shield className="h-4 w-4" />
