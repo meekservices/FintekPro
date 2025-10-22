@@ -535,11 +535,11 @@ export default function AgentPortal() {
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white" data-testid="title-agent-portal">
-                Agent Portal
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white" data-testid="title-partner-portal">
+                Partner Portal
               </h1>
               <p className="text-gray-600 dark:text-gray-300 mt-1">
-                Welcome back, {agentProfile?.fullName || 'Agent'}
+                Welcome back, {agentProfile?.fullName || 'Partner'}
               </p>
               {agentProfile?.euinNumber && (
                 <div className="flex items-center gap-4 mt-2">
@@ -555,8 +555,8 @@ export default function AgentPortal() {
               )}
             </div>
             <div className="text-right">
-              <p className="text-sm text-gray-500">agent.fintekpro.com</p>
-              <p className="text-xs text-gray-400">Agent ID: {agentProfile?.employeeId}</p>
+              <p className="text-sm text-gray-500">partner.fintekpro.com</p>
+              <p className="text-xs text-gray-400">Partner ID: {agentProfile?.employeeId}</p>
             </div>
           </div>
         </div>

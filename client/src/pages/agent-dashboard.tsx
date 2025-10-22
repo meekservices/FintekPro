@@ -324,7 +324,7 @@ export default function AgentDashboard() {
         </div>
         <Badge variant="secondary" className="flex items-center gap-2">
           <User size={16} />
-          Agent Portal
+          Partner Portal
         </Badge>
       </div>
 
