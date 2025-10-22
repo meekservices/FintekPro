@@ -262,12 +262,12 @@ function AdminRoutes() {
   );
 }
 
-function AgentRoutes() {
+function PartnerRoutes() {
   return (
     <AppLayout>
       <Switch>
         <Route path="/" component={AgentPortal} />
-        <Route path="/agent-portal" component={AgentPortal} />
+        <Route path="/partner-portal" component={AgentPortal} />
         <Route path="/auth" component={AuthPage} />
         <Route path="/whatsapp-login" component={WhatsAppAuthPage} />
         <Route component={NotFound} />
@@ -277,16 +277,16 @@ function AgentRoutes() {
 }
 
 function Router() {
-  const { isAdminPortal, isAgentPortal } = useSubdomain();
+  const { isAdminPortal, isPartnerPortal } = useSubdomain();
 
   // Render admin portal on admin subdomain
   if (isAdminPortal) {
     return <AdminRoutes />;
   }
 
-  // Render agent portal on agent subdomain
-  if (isAgentPortal) {
-    return <AgentRoutes />;
+  // Render partner portal on partner subdomain
+  if (isPartnerPortal) {
+    return <PartnerRoutes />;
   }
 
   // Render client portal on main domain
