@@ -30300,48 +30300,11 @@ System Security Data:`;
         }
       });
 
-      // Trigger auto-population workflow after KYC approval
-      if (status === 'approved' && updated.userId) {
-        try {
-          console.log(`[KYC APPROVED] Triggering auto-population for user: ${updated.userId}`);
-          const orchestrator = new AutoPopulationOrchestrator();
-          const workflowResult = await orchestrator.initiateFromKYC(
-            updated.userId,
-            'kyc_completion'
-          );
-          console.log(`[AUTO-POPULATION] Workflow initiated: ${workflowResult.workflowId}`);
-          
-          // Add workflow info to response
-          res.json({
-            success: true,
-            message: `Submission ${status} successfully`,
-            submission: updated,
-            autoPopulation: {
-              initiated: true,
-              workflowId: workflowResult.workflowId,
-              message: 'Financial data auto-population started'
-            }
-          });
-        } catch (autoPopError) {
-          console.error('[AUTO-POPULATION] Failed to initiate:', autoPopError);
-          // Don't fail the KYC approval if auto-population fails
-          res.json({
-            success: true,
-            message: `Submission ${status} successfully`,
-            submission: updated,
-            autoPopulation: {
-              initiated: false,
-              error: 'Failed to initiate auto-population'
-            }
-          });
-        }
-      } else {
-        res.json({
-          success: true,
-          message: `Submission ${status} successfully`,
-          submission: updated
-        });
-      }
+      res.json({
+        success: true,
+        message: `Submission ${status} successfully`,
+        submission: updated
+      });
     } catch (error) {
       console.error('Error reviewing manual KYC submission:', error);
       res.status(500).json({ message: 'Failed to review submission' });
