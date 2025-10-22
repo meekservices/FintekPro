@@ -11,22 +11,22 @@ export function useSubdomain() {
     if (isDev) {
       if (urlParams.get('admin') === 'true') {
         return 'admin';
-      } else if (urlParams.get('agent') === 'true') {
-        return 'agent';
+      } else if (urlParams.get('partner') === 'true') {
+        return 'partner';
       }
     }
     
-    // For localhost development (admin.localhost, agent.localhost, or just localhost)
+    // For localhost development (admin.localhost, partner.localhost, or just localhost)
     if (hostname.includes('localhost')) {
       if (parts[0] === 'admin') {
         return 'admin';
-      } else if (parts[0] === 'agent') {
-        return 'agent';
+      } else if (parts[0] === 'partner') {
+        return 'partner';
       }
       return '';
     }
     
-    // For production domains (admin.fintekpro.com, agent.fintekpro.com, or fintekpro.com)
+    // For production domains (admin.fintekpro.com, partner.fintekpro.com, or fintekpro.com)
     if (parts.length >= 2) {
       // Check if first part is a subdomain (not www)
       if (parts[0] !== 'www' && parts.length > 2) {
@@ -38,12 +38,12 @@ export function useSubdomain() {
   }, []);
   
   const isAdminPortal = subdomain === 'admin';
-  const isAgentPortal = subdomain === 'agent';
+  const isPartnerPortal = subdomain === 'partner';
   
   return {
     subdomain,
     isAdminPortal,
-    isAgentPortal,
-    isClientPortal: !isAdminPortal && !isAgentPortal
+    isPartnerPortal,
+    isClientPortal: !isAdminPortal && !isPartnerPortal
   };
 }
