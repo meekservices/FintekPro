@@ -18287,6 +18287,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  // Admin Store Management - Get all store products
+  app.get("/api/admin/store-products", requireAdmin, async (req, res) => {
+    try {
+      const products = await storage.getAllStoreProducts();
+      res.json(products);
+    } catch (error) {
+      console.error("Error fetching store products:", error);
+      res.status(500).json({ error: "Failed to fetch store products" });
+    }
+  });
+
+  // Admin Store Management - Update store product status
+  app.patch("/api/admin/store-products/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { isActive } = req.body;
+
+      if (typeof isActive !== 'boolean') {
+        return res.status(400).json({ error: "isActive must be a boolean value" });
+      }
+
+      const updated = await storage.updateStoreProductStatus(id, isActive);
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Product not found" });
+      }
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating product status:", error);
+      res.status(500).json({ error: "Failed to update product status" });
+    }
+  });
+
+  // Admin Store Management - Get all store categories
+  app.get("/api/admin/store-categories", requireAdmin, async (req, res) => {
+    try {
+      const categories = await storage.getAllStoreCategories();
+      res.json(categories);
+    } catch (error) {
+      console.error("Error fetching store categories:", error);
+      res.status(500).json({ error: "Failed to fetch store categories" });
+    }
+  });
+
+  // Admin Store Management - Update store category status
+  app.patch("/api/admin/store-categories/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { isActive } = req.body;
+
+      if (typeof isActive !== 'boolean') {
+        return res.status(400).json({ error: "isActive must be a boolean value" });
+      }
+
+      const updated = await storage.updateStoreCategoryStatus(id, isActive);
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Category not found" });
+      }
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating category status:", error);
+      res.status(500).json({ error: "Failed to update category status" });
+    }
+  });
   // Admin Activity Feed - Recent system activities
   app.get("/api/admin/activities", requireAdmin, async (req, res) => {
     try {
