@@ -110,6 +110,7 @@ import CommoditiesPage from "@/pages/commodities";
 import CreditCardsPage from "@/pages/credit-cards";
 import ProfessionalServicesPage from "@/pages/professional-services";
 import ExpensesBudgets from "@/pages/expenses-budgets";
+import AutoPopulationDashboard from "@/pages/auto-population-dashboard";
 
 function UserProtectedRoutes() {
   return (
@@ -207,6 +208,7 @@ function UserProtectedRoutes() {
         <Route path="/commodities" component={CommoditiesPage} />
         <Route path="/credit-cards" component={CreditCardsPage} />
         <Route path="/professional-services" component={ProfessionalServicesPage} />
+        <Route path="/auto-populate" component={AutoPopulationDashboard} />
       </Switch>
     </ProfileCompletionGuard>
   );

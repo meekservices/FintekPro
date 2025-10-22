@@ -1,7 +1,7 @@
 # FintekPro - Financial Services Platform
 
 ## Overview
-FintekPro is a comprehensive full-stack TypeScript financial services platform for personal finance and investment management. It provides tools for portfolio management, real-time market data, and a wide array of financial services including stocks, mutual funds, IPOs, bonds, and loans. The platform aims to offer a modern, robust, and secure solution for managing investments and financial planning, incorporating features like family collaboration, a unified KYC compliance system, and an AI-powered financial assistant.
+FintekPro is a comprehensive full-stack TypeScript financial services platform designed for personal finance and investment management. It offers robust tools for portfolio management, real-time market data, and a wide array of financial services including stocks, mutual funds, IPOs, bonds, and loans. The platform aims to provide a modern, secure solution for financial planning, incorporating features such as family collaboration, a unified KYC compliance system, and an AI-powered financial assistant. Its business vision is to empower users with advanced financial tools and insights, catering to both individual investors and financial advisors, with ambitions to expand into a leading full-service digital financial ecosystem.
 
 ## User Preferences
 I want iterative development.
@@ -13,78 +13,16 @@ Do not make changes to the file `Y`.
 ## System Architecture
 
 ### UI/UX Decisions
-- **Frameworks**: React 18 with TypeScript.
-- **UI Library**: shadcn/ui components built on Radix UI.
-- **Styling**: Tailwind CSS with CSS custom properties.
-- **Charts**: Recharts for data visualization.
-- **Design Approach**: Mobile-first, responsive, and adaptive layouts, utilizing a custom `ScrollableTabsList` component for optimized mobile user experience.
+The platform utilizes React 18 with TypeScript for the frontend, employing shadcn/ui components built on Radix UI for its user interface. Styling is managed with Tailwind CSS and CSS custom properties, ensuring a modern and responsive design. Recharts is used for data visualization, and a mobile-first approach is maintained across all layouts, including a custom `ScrollableTabsList` for optimized mobile interaction.
 
 ### Technical Implementations
-- **Frontend**: Wouter for routing, TanStack Query for state management, React Hook Form with Zod for forms, Vite for building.
-- **Backend**: Express.js with TypeScript, PostgreSQL with Drizzle ORM and Drizzle Kit for migrations, Connect-pg-simple for session management, RESTful API pattern, centralized error handling.
-- **Authentication**: Simplified system with mandatory two-factor OTP verification (email/SMS/WhatsApp). Unified login accepts email/mobile/userId. Uses Passport.js for credential validation.
-- **Data Storage**: PostgreSQL (Neon serverless driver) with Drizzle ORM for type-safe queries and schemas for various financial entities.
+The frontend leverages Wouter for routing, TanStack Query for state management, and React Hook Form with Zod for form handling, all built with Vite. The backend is developed using Express.js with TypeScript, connected to a PostgreSQL database via Drizzle ORM and Drizzle Kit for migrations. A RESTful API pattern is implemented with centralized error handling. Authentication includes a simplified system with mandatory two-factor OTP verification (email/SMS/WhatsApp) and unified login supporting email, mobile, or userId, utilizing Passport.js. Data is stored in PostgreSQL (Neon serverless driver), with Drizzle ORM ensuring type-safe queries and schemas for various financial entities.
 
 ### Feature Specifications
-- **Portfolio & Market Data**: Real-time tracking, asset allocation, live quotes, charts, and news.
-- **Financial Calculators**: SIP, EMI, retirement, and tax calculators.
-- **Multi-Asset Support**: Equities, bonds, mutual funds, IPOs, alternative investments.
-- **Family Collaboration**: Shared financial groups, permission-based access, and combined net worth management.
-- **Intelligent Tiered KYC System**: Progressive 3-tier KYC with SEBI Accredited Investor compliance and re-KYC automation.
-- **Investment Proposal System**: Custom ID generation, filtering, creation, and CRUD operations.
-- **Financial Products Marketplace**: Slidable category tabs, real-time filtering, wishlist, cart, and product detail modals.
-- **AI Chat Assistant System**: Integrated chatbot powered by Gemini AI for financial queries and tasks.
-- **Dynamic Wealth Management Analysis**: Aggregates real-time financial data for investment recommendations.
-- **Multi-Currency Support**: Comprehensive functionality for global investments with exchange rate services.
-- **Alert System**: Customizable alerts for market monitoring and spending.
-- **Bank Account Penny Drop Verification**: Instant bank account validation using sandbox API.
-- **Dual Payment Gateway System**: India-focused payment processing with Cashfree (primary) and PhonePe (secondary) for robust payment redundancy.
-- **Unified Order Management System**: Centralized tracking across all product types with lifecycle management and document generation.
-- **Payment-to-Execution Bridge Service**: Automated orchestration connecting payment callbacks to order execution.
-- **AIF Order Execution Service**: Automated Alternative Investment Fund processing with SEBI accredited investor validation.
-- **AI-Powered Expense Tracking & Budgeting System**: Intelligent personal finance management with automated categorization (Gemini AI), real-time budget tracking, and spending insights.
-- **BBPS-Expense Integration**: Seamless bill payment integration with automatic expense tracking and categorization.
-- **Client KYC Dashboard**: Regulation-compliant user dashboard displaying UID, KYC tier badge, verification status, product eligibility matrix with lock/unlock indicators, and tier upgrade CTAs.
-- **Product Eligibility Matrix**: SEBI/RBI/PMLA-compliant matrix defining KYC tier requirements for 16 product categories including mutual funds, equities, derivatives, bonds, insurance, and alternative investments.
-- **Product Access Control Middleware**: Tier-based access enforcement with SEBI-compliant transaction limits (₹50,000 annual limit for basic-tier mutual funds), automated upgrade prompts, and regulatory compliance logging.
-- **Partner Revenue Sharing System**: Comprehensive commission tracking and automated settlement system for multi-product partners (MF distributors, insurance agents, RIAs, loan advisors) with Cashfree API integration for monthly payouts, tiered commission structure, volume bonuses, TDS calculation, and reconciliation.
-- **Agent Onboarding & Management System**: Regulation-compliant agent onboarding with differential validation based on agent level (master/associate/sub_agent). Master and associate agents require SEBI ARN/EUIN credentials for transaction execution, while sub-agents need only basic KYC (PAN + Aadhaar + Bank Account) for marketing/referral activities. Features hierarchical commission distribution with marketing fees (25% sub-agent, 75% master agent for referred clients), Cashfree OKYC API for secure Aadhaar verification (two-step OTP flow with UIDAI-verified data only), document verification workflow, and automated TDS calculation (10%). Includes secure API endpoints with role-based access control, ownership verification, and comprehensive audit logging.
-  - **Sub-Agent Dashboard System**: Dedicated referral-focused dashboard for marketing agents with four tabs:
-    - **Overview Tab**: Real-time metrics (total referrals, active clients, pending verifications, monthly earnings), conversion funnel analytics, and performance indicators
-    - **Referred Clients Tab**: Complete client list with status tracking (pending verification, KYC in progress, active, rejected), referral dates, product interests, and KYC status badges
-    - **Earnings Breakdown Tab**: Detailed commission tracking per client/product, monthly/total earnings summary, TDS calculations, payment status (pending/processing/paid), and payout history with UTR tracking
-    - **Refer New Client Tab**: Client referral form with mobile/email collection, product interest selection (mutual funds, loans, insurance, equities, PMS, AIF), and automated sub-agent attribution
-  - **Storage Methods**: Enhanced storage interface with sub-agent operations:
-    - `getAgentReferralStats(agentId)`: Aggregates referral metrics with date-normalized timestamp comparisons using `.getTime()` for accurate month/today filtering
-    - `getReferredClients(agentId)`: Fetches client list with KYC status, product interests, and referral metadata
-    - `getAgentEarnings(agentId)`: Commission breakdown with strict month filtering (`===` equality check) for accurate monthly earnings, client-wise and product-wise summaries
-    - `createClientReferral(data)`: Captures referred client data with sub-agent attribution and timestamp tracking
-  - **Product Access Control**: `blockSubAgentTransactions` middleware applied to POST `/api/orders` endpoint prevents sub-agents from executing transactions while allowing full product browsing and marketing activities. Returns HTTP 403 with clear error message directing sub-agents to refer clients to master agents.
-  - **Agent Portal Integration**: Conditional dashboard rendering based on `agentProfile.agentLevel`:
-    - Sub-agents (`agentLevel === 'sub_agent'`) see SubAgentDashboard with referral tracking and earnings
-    - Master/associate agents see regular dashboard with partners, clients, commissions, and tasks
-  - **Date Handling**: Critical bug fixes for accurate time-based calculations:
-    - Referral stats use `.getTime()` for timestamp normalization instead of direct Date comparison
-    - Monthly earnings filter changed from `>=` to `===` for strict month-specific calculations
-    - All date-based queries properly handle timezone considerations
-  - **Key Files**: `client/src/components/SubAgentDashboard.tsx`, `server/storage.ts` (sub-agent methods), `server/routes.ts` (blockSubAgentTransactions middleware), `client/src/pages/agent-portal.tsx` (conditional rendering)
+Key features include real-time portfolio and market data tracking, various financial calculators (SIP, EMI, retirement, tax), and multi-asset support (equities, bonds, mutual funds, IPOs, alternative investments). The platform supports family collaboration with shared financial groups and permission-based access. An intelligent tiered KYC system (3-tier with SEBI Accredited Investor compliance) and an AI Chat Assistant powered by Google Gemini are integrated. Dynamic wealth management analysis, multi-currency support, and a customizable alert system enhance user experience. Financial product marketplace features slidable category tabs, filtering, wishlist, and cart functionalities. Robust payment processing is handled by a dual payment gateway system (Cashfree and PhonePe), and a unified order management system with a payment-to-execution bridge ensures seamless transaction workflows. Advanced features include an AI-powered expense tracking and budgeting system with automated categorization, BBPS-Expense integration for bill payments, and a regulation-compliant Client KYC Dashboard with a Product Eligibility Matrix and access control middleware. A comprehensive Partner Revenue Sharing System and an Agent Onboarding & Management System with tiered agent levels, secure Aadhaar verification (Cashfree OKYC API), and hierarchical commission distribution are also implemented. Post-KYC, an Auto-Population System integrates with various data sources (e.g., Turtlefin Insurance API, CIBIL) for automated financial data aggregation with multi-source consent management.
 
 ### System Design Choices
-- **Subdomain-Based Portal Architecture**: Multi-tenant platform with separate subdomains for different user types, providing isolation, security, and customized experiences:
-  - **Admin Portal** (admin.fintekpro.com): Triple-layer security (subdomain, authentication, role authorization) for platform administrators
-    - **Stakeholder Management**: Comprehensive dashboard for managing clients, partners, agents, and vendors with advanced filtering, search, and real-time data
-    - **KYC & Compliance Hub**: Review and approve KYC submissions, bulk actions, document verification, and compliance alerts
-    - **Financial Operations Dashboard**: Complete financial oversight with order management, payment tracking (Cashfree/PhonePe), revenue analytics, refund processing, and payment reconciliation
-    - **API & Integration Control Center** (In Progress): Webhook logging, API usage tracking, integration health monitoring, and key management for all 3rd party services
-  - **Partner Portal** (partner.fintekpro.com): Dedicated portal for agents and partners (master/associate/sub-agents) with role-based dashboard rendering
-    - Automatic routing based on subdomain detection (server + client)
-    - Conditional dashboard: Sub-agents see SubAgentDashboard, master/associate agents see full agent management interface
-    - Secure access control requiring authentication + agent role verification
-    - Development support: `partner.localhost:5000` or `?partner=true` query parameter
-  - **Client Portal** (fintekpro.com): Main customer-facing application for end-users
-  - **Implementation**: `server/subdomain-middleware.ts` (backend detection), `client/src/hooks/useSubdomain.ts` (frontend detection), conditional routing in `App.tsx`
-- **Consistent Layout**: All pages follow a three-part layout: Left Sidebar Navigation (`EnhancedNavigation`), Main Content Area (`AppLayout`), and Footer (`Footer`). The sidebar is collapsible, process flow-based, and state-persisted.
-- **ScrollableTabsList Pattern**: Ensures tabbed navigation is responsive and user-friendly, with dynamic padding to prevent content overlap with navigation arrows.
+The platform employs a subdomain-based portal architecture, providing isolated and customized experiences for different user types: Admin Portal (admin.fintekpro.com), Partner Portal (partner.fintekpro.com), and Client Portal (fintekpro.com). This architecture ensures security and role-based access control. All pages maintain a consistent three-part layout: Left Sidebar Navigation, Main Content Area, and Footer, with a collapsible, state-persisted sidebar. The `ScrollableTabsList` pattern is utilized for responsive tabbed navigation.
 
 ## External Dependencies
 
@@ -92,18 +30,20 @@ Do not make changes to the file `Y`.
 - **Market Data Sources**: For real-time and historical market information.
 - **BSE Star MFD API**: Mutual fund transaction processing.
 - **NSE NCB & BSE Bond API**: Government securities and corporate bond trading.
-- **Bajaj Finance Integration**: EMI, loan, fixed deposit calculators, eligibility checks.
+- **Bajaj Finance Integration**: Calculators and eligibility checks.
 - **Tata Capital Integration**: Loans, credit checks, CKYC, GST verification.
 - **exchangerate-api.com**: Live currency exchange rates.
 - **Google Gemini API**: AI Chat Assistant.
 - **Cashfree OKYC API**: Aadhaar verification.
 - **Sandbox API**: Bank account penny drop verification.
-- **Payment Gateways**: Cashfree (primary), PhonePe (secondary) - India-compliant payment processing.
-- **Cashfree Payout API**: Vendor management, automated commission settlements, Easy Split API for real-time payment splitting (0.1% fee), vendor reconciliation, and UTR tracking.
+- **Payment Gateways**: Cashfree (primary), PhonePe (secondary).
+- **Cashfree Payout API**: Vendor management, automated commission settlements.
 - **Twilio**: SMS OTP delivery.
 - **WhatsApp (whatsapp-web.js)**: WhatsApp OTP delivery.
 - **Nodemailer**: Email service integration.
-- **AMFI Registry API** (Simulated): ARN validation, EUIN verification, and distributor details fetching for agent onboarding. Currently using simulated validation service, ready for real API integration.
+- **AMFI Registry API** (Simulated): ARN validation, EUIN verification for agent onboarding.
+- **Turtlefin Insurance API**: For insurance policy details and auto-population.
+- **CIBIL**: For loan liabilities auto-population.
 
 ### Database Services
 - **Neon Database**: Serverless PostgreSQL hosting.
