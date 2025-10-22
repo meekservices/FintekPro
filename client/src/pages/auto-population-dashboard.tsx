@@ -23,6 +23,7 @@ import {
   Settings
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { AutoPopulationProgressIndicator } from '@/components/AutoPopulationProgressIndicator';
 
 // Types
 interface ConsentRecord {
@@ -221,85 +222,21 @@ export default function AutoPopulationDashboard() {
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-4">
-          {/* Current Workflow Status */}
-          {currentStatus && (
-            <Card data-testid="card-current-workflow">
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>Current Workflow</span>
-                  <Badge
-                    variant={
-                      currentStatus.status === 'completed'
-                        ? 'default'
-                        : currentStatus.status === 'failed'
-                        ? 'destructive'
-                        : 'secondary'
-                    }
-                    data-testid={`badge-workflow-${currentStatus.status}`}
-                  >
-                    {currentStatus.status}
-                  </Badge>
-                </CardTitle>
-                <CardDescription>
-                  Started {new Date(currentStatus.startedAt).toLocaleString()}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Overall Progress */}
-                <div>
-                  <div className="flex justify-between mb-2">
-                    <span className="text-sm font-medium">Overall Progress</span>
-                    <span className="text-sm text-muted-foreground">
-                      {currentStatus.summary.successfulSources}/{currentStatus.summary.totalSources} sources
-                    </span>
-                  </div>
-                  <Progress value={getOverallProgress()} className="h-2" data-testid="progress-overall" />
-                </div>
-
-                {/* Source Statuses */}
-                <div className="space-y-2">
-                  {currentStatus.sourceStatuses.map((source) => {
-                    const config = DATA_SOURCE_CONFIG[source.source as keyof typeof DATA_SOURCE_CONFIG];
-                    const Icon = config?.icon || FileText;
-
-                    return (
-                      <div
-                        key={source.source}
-                        className="flex items-center justify-between p-3 border rounded-lg"
-                        data-testid={`source-status-${source.source}`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <Icon className={`h-5 w-5 ${config?.color || 'text-gray-600'}`} />
-                          <div>
-                            <p className="font-medium">{config?.label || source.source}</p>
-                            {source.recordsFetched !== undefined && (
-                              <p className="text-sm text-muted-foreground">
-                                {source.recordsFetched} records fetched
-                              </p>
-                            )}
-                            {source.error && (
-                              <p className="text-sm text-destructive">{source.error}</p>
-                            )}
-                          </div>
-                        </div>
-                        {source.status === 'completed' && (
-                          <CheckCircle2 className="h-5 w-5 text-green-600" data-testid={`icon-success-${source.source}`} />
-                        )}
-                        {source.status === 'failed' && (
-                          <XCircle className="h-5 w-5 text-destructive" data-testid={`icon-failed-${source.source}`} />
-                        )}
-                        {source.status === 'in_progress' && (
-                          <RefreshCw className="h-5 w-5 text-blue-600 animate-spin" data-testid={`icon-loading-${source.source}`} />
-                        )}
-                        {source.status === 'pending' && (
-                          <Clock className="h-5 w-5 text-gray-400" data-testid={`icon-pending-${source.source}`} />
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
+          {/* Current Workflow Status - Use Progress Indicator Component */}
+          {selectedWorkflow && (
+            <AutoPopulationProgressIndicator 
+              workflowId={selectedWorkflow}
+              onComplete={(status) => {
+                toast({
+                  title: status.status === 'completed' ? 'Auto-population completed!' : 'Auto-population failed',
+                  description: status.status === 'completed' 
+                    ? `Successfully fetched ${status.summary.totalRecordsFetched} records from ${status.summary.successfulSources} sources`
+                    : `Failed to fetch data from ${status.summary.failedSources} sources`,
+                  variant: status.status === 'completed' ? 'default' : 'destructive'
+                });
+                queryClient.invalidateQueries({ queryKey: ['/api/auto-populate/workflows', userId] });
+              }}
+            />
           )}
 
           {/* Data Sources Health */}
