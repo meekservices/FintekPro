@@ -1032,6 +1032,12 @@ export interface IStorage {
   createPreApprovedLoanOffer(offer: any): Promise<any>;
   updateLoanOfferApplicationStatus(offerId: string, status: string, applicationData?: any): Promise<any | undefined>;
   markLoanOfferAsViewed(offerId: string): Promise<boolean>;
+  
+  // Store Management Methods (Admin)
+  getAllStoreProducts(): Promise<any[]>;
+  getAllStoreCategories(): Promise<any[]>;
+  updateStoreProductStatus(productId: string, isActive: boolean): Promise<any | undefined>;
+  updateStoreCategoryStatus(categoryId: string, isActive: boolean): Promise<any | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -7160,6 +7166,45 @@ export class DatabaseStorage implements IStorage {
       .returning();
     
     return !!updated;
+  }
+  
+  // Store Management Methods Implementation
+  async getAllStoreProducts(): Promise<any[]> {
+    const products = await db.select()
+      .from(schema.storeProducts)
+      .orderBy(asc(schema.storeProducts.name));
+    return products;
+  }
+
+  async getAllStoreCategories(): Promise<any[]> {
+    const categories = await db.select()
+      .from(schema.storeCategories)
+      .orderBy(asc(schema.storeCategories.displayOrder), asc(schema.storeCategories.name));
+    return categories;
+  }
+
+  async updateStoreProductStatus(productId: string, isActive: boolean): Promise<any | undefined> {
+    const [updated] = await db.update(schema.storeProducts)
+      .set({ 
+        isActive, 
+        updatedAt: new Date() 
+      })
+      .where(eq(schema.storeProducts.id, productId))
+      .returning();
+    
+    return updated || undefined;
+  }
+
+  async updateStoreCategoryStatus(categoryId: string, isActive: boolean): Promise<any | undefined> {
+    const [updated] = await db.update(schema.storeCategories)
+      .set({ 
+        isActive, 
+        updatedAt: new Date() 
+      })
+      .where(eq(schema.storeCategories.id, categoryId))
+      .returning();
+    
+    return updated || undefined;
   }
 }
 
