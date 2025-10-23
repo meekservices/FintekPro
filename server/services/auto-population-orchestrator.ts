@@ -21,12 +21,14 @@ import {
   autoPopulationStatus,
   comprehensiveHoldings,
   epfHoldings,
+  npsAccounts,
   kycVault,
   portfolios,
   type InsertAutoPopulationStatus,
   type AutoPopulationStatus,
   type InsertComprehensiveHolding,
-  type InsertEpfHolding
+  type InsertEpfHolding,
+  type InsertNpsAccount
 } from '@shared/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -36,6 +38,7 @@ import { bseStarCASService, type CASFetchRequest } from './bse-star-cas-service'
 import { kycVaultDecryptionService } from './kyc-vault-decryption-service';
 import { dematHoldingsService, type DematFetchRequest } from './demat-holdings-service';
 import { epfoService, type EPFFetchRequest } from './epfo-service';
+import { NPSService, type NPSFetchRequest } from './nps-service';
 import axios from 'axios';
 
 interface KYCData {
@@ -89,7 +92,7 @@ export class AutoPopulationOrchestrator {
       workflowId,
       triggeredBy,
       status: 'in_progress',
-      totalDataSources: 5,
+      totalDataSources: 7, // mutual_funds, demat, bank, loans, insurance, epf, nps
       successfulSources: 0,
       failedSources: 0,
       sourceStatus: {},
@@ -221,7 +224,7 @@ export class AutoPopulationOrchestrator {
    * Check consents for all data sources
    */
   private async checkAllConsents(userId: string): Promise<Record<DataSourceType, boolean>> {
-    const sources: DataSourceType[] = ['mutual_funds', 'demat', 'bank', 'loans', 'insurance'];
+    const sources: DataSourceType[] = ['mutual_funds', 'demat', 'bank', 'loans', 'insurance', 'epf', 'nps'];
     const consents: Record<DataSourceType, boolean> = {} as any;
 
     for (const source of sources) {
@@ -248,14 +251,16 @@ export class AutoPopulationOrchestrator {
       this.fetchDematHoldings(kycData, consents.demat),
       this.fetchBankAccounts(kycData, consents.bank),
       this.fetchLoanLiabilities(kycData, consents.loans),
-      this.fetchInsurance(kycData, consents.insurance)
+      this.fetchInsurance(kycData, consents.insurance),
+      this.fetchEPFAccounts(kycData, consents.epf),
+      this.fetchNPSAccounts(kycData, consents.nps)
     ];
 
     // Promise.allSettled ensures all promises complete regardless of individual failures
     const settledResults = await Promise.allSettled(fetchPromises);
 
     // Map settled results to DataSourceResult format
-    const sources: DataSourceType[] = ['mutual_funds', 'demat', 'bank', 'loans', 'insurance'];
+    const sources: DataSourceType[] = ['mutual_funds', 'demat', 'bank', 'loans', 'insurance', 'epf', 'nps'];
     
     return settledResults.map((result, index) => {
       const source = sources[index];
@@ -389,66 +394,6 @@ export class AutoPopulationOrchestrator {
         recordsFetched: 0,
         error: error.message
       };
-    }
-  }
-
-  /**
-   * Store demat holdings in comprehensiveHoldings table
-   */
-  private async storeDematHoldings(userId: string, dematResponse: any): Promise<void> {
-    try {
-      // Get user's portfolio
-      const userPortfolios = await db
-        .select()
-        .from(portfolios)
-        .where(eq(portfolios.userId, userId))
-        .limit(1);
-
-      if (userPortfolios.length === 0) {
-        console.warn(`⚠️ No portfolio found for user ${userId}, skipping demat storage`);
-        return;
-      }
-
-      const portfolio = userPortfolios[0];
-      const today = new Date().toISOString().split('T')[0];
-
-      // Map demat holdings to comprehensiveHoldings format
-      const holdingsToInsert: InsertComprehensiveHolding[] = dematResponse.holdings.map((holding: any) => ({
-        portfolioId: portfolio.id,
-        userId,
-        holdingDate: today,
-        symbol: holding.symbol,
-        isin: holding.isin,
-        assetName: holding.companyName,
-        assetType: holding.assetType, // 'equity', 'bond', 'etf'
-        assetClass: holding.assetType === 'equity' ? this.determineEquityClass(holding) : null,
-        quantity: holding.quantity.toString(),
-        avgPrice: holding.averagePrice.toString(),
-        currentPrice: holding.currentPrice.toString(),
-        marketValue: holding.currentValue.toString(),
-        investedValue: holding.investedAmount.toString(),
-        gainLoss: holding.returns.toString(),
-        gainLossPercent: holding.returnsPercentage.toString(),
-        dataSource: dematResponse.accounts[0]?.depository?.toLowerCase() || 'nsdl',
-        dematAccountNumber: dematResponse.accounts[0]?.dematAccountNumber || null,
-        sector: holding.sector || null,
-        industry: holding.industry || null,
-        marketCap: holding.marketCap?.toString() || null,
-        metadata: {
-          pledgedQuantity: holding.pledgedQuantity || 0,
-          freeQuantity: holding.freeQuantity || holding.quantity,
-          lockedQuantity: holding.lockedQuantity || 0,
-          exchange: holding.exchange || 'NSE'
-        }
-      }));
-
-      // Insert holdings (upsert logic can be added later)
-      await db.insert(comprehensiveHoldings).values(holdingsToInsert);
-
-      console.log(`✅ Stored ${holdingsToInsert.length} demat holdings in comprehensiveHoldings table`);
-    } catch (error: any) {
-      console.error('❌ Error storing demat holdings:', error.message);
-      // Don't throw - this is not critical for the workflow
     }
   }
 
@@ -638,10 +583,8 @@ export class AutoPopulationOrchestrator {
         };
       }
 
-      // Store EPF accounts in epfHoldings table
-      if (epfResponse.accounts.length > 0) {
-        await this.storeEPFHoldings(kycData.userId, epfResponse.accounts);
-      }
+      // EPF accounts will be stored via the storeHoldings method which is called by the main workflow
+      // No need to store inline here - it will be handled in the data source results loop
 
       console.log(`✅ Fetched ${epfResponse.totalAccounts} EPF accounts (Total Balance: ₹${epfResponse.totalBalance.toFixed(2)})`);
 
@@ -656,6 +599,66 @@ export class AutoPopulationOrchestrator {
       console.error('❌ EPF accounts fetch error:', error.message);
       return {
         source: 'epf',
+        success: false,
+        recordsFetched: 0,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Fetch NPS (National Pension System) accounts from NPS CRA
+   */
+  private async fetchNPSAccounts(kycData: KYCData, hasConsent: boolean): Promise<DataSourceResult> {
+    if (!hasConsent) {
+      return {
+        source: 'nps',
+        success: false,
+        recordsFetched: 0,
+        error: 'User consent not granted'
+      };
+    }
+
+    try {
+      console.log(`🔍 Fetching NPS accounts from NPS CRA`);
+      
+      // Call NPS service
+      const npsService = new NPSService();
+      const npsRequest: NPSFetchRequest = {
+        panNumber: kycData.pan,
+        dateOfBirth: kycData.dob,
+        name: kycData.name,
+        mobile: kycData.mobile
+      };
+
+      const npsResponse = await npsService.fetchNPSAccounts(npsRequest);
+
+      if (!npsResponse.success) {
+        console.error(`❌ NPS fetch failed: ${npsResponse.message}`);
+        return {
+          source: 'nps',
+          success: false,
+          recordsFetched: 0,
+          error: npsResponse.message || 'Failed to fetch NPS accounts'
+        };
+      }
+
+      // NPS accounts will be stored via the storeHoldings method which is called by the main workflow
+      // No need to store inline here - it will be handled in the data source results loop
+
+      console.log(`✅ Fetched ${npsResponse.accounts.length} NPS accounts (Total Balance: ₹${npsResponse.totalBalance.toFixed(2)})`);
+
+      return {
+        source: 'nps',
+        success: true,
+        recordsFetched: npsResponse.accounts.length,
+        totalValue: npsResponse.totalBalance,
+        data: npsResponse.holdings
+      };
+    } catch (error: any) {
+      console.error('❌ NPS accounts fetch error:', error.message);
+      return {
+        source: 'nps',
         success: false,
         recordsFetched: 0,
         error: error.message
@@ -692,6 +695,12 @@ export class AutoPopulationOrchestrator {
             break;
           case 'insurance':
             await this.storeInsurancePolicies(userId, portfolio.id, result.data);
+            break;
+          case 'epf':
+            await this.storeEPFHoldings(userId, result.data);
+            break;
+          case 'nps':
+            await this.storeNPSAccounts(userId, result.data);
             break;
         }
 
@@ -912,6 +921,53 @@ export class AutoPopulationOrchestrator {
       console.log(`  ✓ Stored ${holdingsToInsert.length} EPF accounts in epfHoldings table`);
     } catch (error: any) {
       console.error(`  ✗ Error storing EPF holdings:`, error.message);
+      // Don't throw - this is not critical for the workflow
+    }
+  }
+
+  /**
+   * Store NPS accounts in npsAccounts table
+   */
+  private async storeNPSAccounts(userId: string, holdings: any[]): Promise<void> {
+    try {
+      // Map NPS holdings to npsAccounts format
+      const accountsToInsert: InsertNpsAccount[] = holdings.map((holding: any) => ({
+        userId,
+        pran: holding.pran,
+        accountHolderName: holding.accountHolderName,
+        dateOfBirth: holding.dateOfBirth,
+        registrationDate: holding.registrationDate,
+        // Tier I
+        tierIBalance: holding.tierIBalance.toString(),
+        tierIContributions: holding.tierIContributions.toString(),
+        tierIReturns: holding.tierIReturns.toString(),
+        tierIAssetAllocation: holding.tierIAssetAllocation,
+        // Tier II
+        tierIIBalance: holding.tierIIBalance.toString(),
+        tierIIContributions: holding.tierIIContributions.toString(),
+        tierIIReturns: holding.tierIIReturns.toString(),
+        tierIIAssetAllocation: holding.tierIIAssetAllocation,
+        // Total
+        totalBalance: holding.totalBalance.toString(),
+        totalContributions: holding.totalContributions.toString(),
+        totalReturns: holding.totalReturns.toString(),
+        returnsPercentage: holding.returnsPercentage.toString(),
+        // Account details
+        fundManager: holding.fundManager,
+        scheme: holding.scheme,
+        tier: holding.tier,
+        nominee: holding.nominee || null,
+        nomineeRelation: holding.nomineeRelation || null,
+        status: holding.status,
+        lastContributionDate: holding.lastContributionDate || null
+      }));
+
+      // Insert NPS accounts (upsert logic can be added later)
+      await db.insert(npsAccounts).values(accountsToInsert);
+
+      console.log(`  ✓ Stored ${accountsToInsert.length} NPS accounts in npsAccounts table`);
+    } catch (error: any) {
+      console.error(`  ✗ Error storing NPS accounts:`, error.message);
       // Don't throw - this is not critical for the workflow
     }
   }

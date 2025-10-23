@@ -1194,6 +1194,52 @@ export const epsHoldings = pgTable("eps_holdings", {
   lastUpdated: timestamp("last_updated").defaultNow().notNull(),
 });
 
+// NPS (National Pension System) Holdings table
+export const npsAccounts = pgTable("nps_accounts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  pran: varchar("pran").notNull().unique(), // Permanent Retirement Account Number (12 digits)
+  accountHolderName: text("account_holder_name").notNull(),
+  dateOfBirth: date("date_of_birth").notNull(),
+  registrationDate: date("registration_date").notNull(),
+  
+  // Tier I Details (Mandatory retirement account - Cannot withdraw before 60)
+  tierIBalance: decimal("tier_i_balance", { precision: 15, scale: 2 }).default("0"),
+  tierIContributions: decimal("tier_i_contributions", { precision: 15, scale: 2 }).default("0"),
+  tierIReturns: decimal("tier_i_returns", { precision: 15, scale: 2 }).default("0"),
+  tierIAssetAllocation: jsonb("tier_i_asset_allocation"), // {equityPercent, corporateBondPercent, governmentBondPercent, alternativePercent}
+  
+  // Tier II Details (Voluntary savings - Can withdraw anytime)
+  tierIIBalance: decimal("tier_ii_balance", { precision: 15, scale: 2 }).default("0"),
+  tierIIContributions: decimal("tier_ii_contributions", { precision: 15, scale: 2 }).default("0"),
+  tierIIReturns: decimal("tier_ii_returns", { precision: 15, scale: 2 }).default("0"),
+  tierIIAssetAllocation: jsonb("tier_ii_asset_allocation"), // Same structure, null if Tier II not active
+  
+  // Total across both tiers
+  totalBalance: decimal("total_balance", { precision: 15, scale: 2 }).default("0"),
+  totalContributions: decimal("total_contributions", { precision: 15, scale: 2 }).default("0"),
+  totalReturns: decimal("total_returns", { precision: 15, scale: 2 }).default("0"),
+  returnsPercentage: decimal("returns_percentage", { precision: 8, scale: 2 }).default("0"),
+  
+  // Account Details
+  fundManager: text("fund_manager"), // HDFC, SBI, ICICI, LIC, UTI, Kotak, Birla, etc.
+  scheme: text("scheme"), // Active Choice (E%, C%, G%) or Auto Choice (LC, LC-50, LC-75)
+  tier: varchar("tier").notNull(), // 'Tier I', 'Tier II', 'Both'
+  
+  // Nominee Information
+  nominee: text("nominee"),
+  nomineeRelation: varchar("nominee_relation"),
+  
+  // Status
+  status: varchar("status").notNull().default("active"), // active, frozen, closed
+  lastContributionDate: date("last_contribution_date"),
+  
+  // Tracking
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Pi Chat Asset Summaries
 export const piChatSummaries = pgTable("pi_chat_summaries", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -3588,6 +3634,17 @@ export type EpsHolding = typeof epsHoldings.$inferSelect;
 export type InsertEpsHolding = typeof epsHoldings.$inferInsert;
 
 export const insertEpsHoldingSchema = createInsertSchema(epsHoldings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastUpdated: true,
+});
+
+// NPS Accounts types
+export type NpsAccount = typeof npsAccounts.$inferSelect;
+export type InsertNpsAccount = typeof npsAccounts.$inferInsert;
+
+export const insertNpsAccountSchema = createInsertSchema(npsAccounts).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
