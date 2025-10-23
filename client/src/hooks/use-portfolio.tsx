@@ -53,14 +53,14 @@ export function usePortfoliosByPan() {
   });
 }
 
-export function usePortfolioHoldings(portfolioId: string) {
+export function usePortfolioHoldings(portfolioId: string | null) {
   return useQuery<PortfolioHolding[]>({
     queryKey: ['/api/portfolios', portfolioId, 'holdings'],
     enabled: !!portfolioId,
   });
 }
 
-export function useEnhancedPortfolioHoldings(portfolioId: string) {
+export function useEnhancedPortfolioHoldings(portfolioId: string | null) {
   return useQuery<EnhancedHolding[]>({
     queryKey: ['/api/portfolios', portfolioId, 'holdings', 'enhanced'],
     enabled: !!portfolioId,
@@ -68,7 +68,7 @@ export function useEnhancedPortfolioHoldings(portfolioId: string) {
   });
 }
 
-export function usePortfolioPerformance(portfolioId: string) {
+export function usePortfolioPerformance(portfolioId: string | null) {
   return useQuery<PortfolioPerformance>({
     queryKey: ['/api/portfolios', portfolioId, 'performance'],
     enabled: !!portfolioId,
@@ -76,7 +76,7 @@ export function usePortfolioPerformance(portfolioId: string) {
   });
 }
 
-export function useAssetAllocation(portfolioId: string) {
+export function useAssetAllocation(portfolioId: string | null) {
   return useQuery<AssetAllocation[]>({
     queryKey: ['/api/portfolios', portfolioId, 'allocation'],
     enabled: !!portfolioId,
@@ -161,7 +161,7 @@ export function useRebalancePortfolio() {
 }
 
 // Portfolio-specific rebalancing suggestions
-export function usePortfolioRebalancingSuggestions(portfolioId: string) {
+export function usePortfolioRebalancingSuggestions(portfolioId: string | null) {
   return useQuery<any[]>({
     queryKey: ['/api/portfolios', portfolioId, 'rebalancing-suggestions'],
     enabled: !!portfolioId,
@@ -169,7 +169,7 @@ export function usePortfolioRebalancingSuggestions(portfolioId: string) {
 }
 
 // Portfolio-specific news based on holdings
-export function usePortfolioNews(portfolioId: string) {
+export function usePortfolioNews(portfolioId: string | null) {
   return useQuery<any[]>({
     queryKey: ['/api/portfolios', portfolioId, 'news'],
     enabled: !!portfolioId,
