@@ -63,7 +63,7 @@ export default function Home() {
   const { data: fallbackUser } = useQuery({ queryKey: ["/api/user"], retry: false });
   const currentUser = user || (fallbackUser as any);
   const userId = (currentUser as any)?.id;
-  const portfolioId = userId ? `portfolio-${userId}` : null;
+  const portfolioId = userId ? `portfolio-${userId}` : undefined;
   
   // Get greeting based on time of day
   const getGreeting = (): string => {

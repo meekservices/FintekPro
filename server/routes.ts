@@ -1652,7 +1652,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Smart KYC Wizard Routes
   
   // Start or get active KYC verification session
-  app.post("/api/kyc/wizard/start", requireClientOrHigher, async (req: any, res) => {
+  app.post("/api/kyc/wizard/start", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user!.id;
       
@@ -1702,7 +1702,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Get current session status
-  app.get("/api/kyc/wizard/session", requireClientOrHigher, async (req: any, res) => {
+  app.get("/api/kyc/wizard/session", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user!.id;
       const session = await storage.getActiveKycSession(userId);
@@ -1728,7 +1728,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Step 1: Verify PAN with DOB
-  app.post("/api/kyc/wizard/verify-pan", requireClientOrHigher, async (req: any, res) => {
+  app.post("/api/kyc/wizard/verify-pan", requireAuth, async (req: any, res) => {
     try {
       const { sessionId, panNumber, fullName, dob } = req.body;
       const userId = req.user!.id;
@@ -1799,7 +1799,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Step 2: Send Aadhaar OTP
-  app.post("/api/kyc/wizard/send-aadhaar-otp", requireClientOrHigher, async (req: any, res) => {
+  app.post("/api/kyc/wizard/send-aadhaar-otp", requireAuth, async (req: any, res) => {
     try {
       const { sessionId, aadhaarNumber } = req.body;
       const userId = req.user!.id;
@@ -1862,7 +1862,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Step 3: Verify Aadhaar OTP
-  app.post("/api/kyc/wizard/verify-aadhaar-otp", requireClientOrHigher, async (req: any, res) => {
+  app.post("/api/kyc/wizard/verify-aadhaar-otp", requireAuth, async (req: any, res) => {
     try {
       const { sessionId, transactionId, otp } = req.body;
       const userId = req.user!.id;
@@ -1927,7 +1927,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Step 4: Complete KYC wizard
-  app.post("/api/kyc/wizard/complete", requireClientOrHigher, async (req: any, res) => {
+  app.post("/api/kyc/wizard/complete", requireAuth, async (req: any, res) => {
     try {
       const { sessionId } = req.body;
       const userId = req.user!.id;

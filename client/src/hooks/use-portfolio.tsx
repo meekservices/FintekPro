@@ -148,7 +148,7 @@ export function useRebalancePortfolio() {
   return useMutation({
     mutationFn: async ({ portfolioId, targetAllocations }: { portfolioId: string; targetAllocations: any[] }) => {
       const response = await apiRequest("POST", `/api/portfolios/${portfolioId}/rebalance`, {
-        targetAllocations
+        body: { targetAllocations }
       });
       return response.json();
     },

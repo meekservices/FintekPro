@@ -145,9 +145,8 @@ export default function InvestmentDashboard() {
   const generateIdeasMutation = useMutation({
     mutationFn: async (data: NewIdeaFormData) => {
       const symbols = data.symbols.split(',').map(s => s.trim().toUpperCase());
-      return apiRequest('/api/investment-ideas/generate', {
-        method: 'POST',
-        body: JSON.stringify({ symbols, riskLevel: data.riskLevel, timeHorizon: data.timeHorizon })
+      return apiRequest('POST', '/api/investment-ideas/generate', {
+        body: { symbols, riskLevel: data.riskLevel, timeHorizon: data.timeHorizon }
       });
     },
     onSuccess: (data) => {
@@ -170,9 +169,7 @@ export default function InvestmentDashboard() {
 
   const markAlertReadMutation = useMutation({
     mutationFn: async (alertId: string) => {
-      return apiRequest(`/api/investment-alerts/${alertId}/read`, {
-        method: 'PUT'
-      });
+      return apiRequest('PUT', `/api/investment-alerts/${alertId}/read`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/investment-alerts/unread'] });
