@@ -136,6 +136,11 @@ export default function InvestmentDashboard() {
     queryKey: ['/api/investment-ideas/recommendations/popular']
   });
 
+  // Portfolio Analytics
+  const { data: portfolioAnalytics, isLoading: loadingAnalytics } = useQuery<any>({
+    queryKey: ['/api/analytics/portfolio']
+  });
+
   // Mutations
   const generateIdeasMutation = useMutation({
     mutationFn: async (data: NewIdeaFormData) => {
@@ -714,77 +719,140 @@ export default function InvestmentDashboard() {
           <TabsContent value="analytics" className="space-y-6">
             <h2 className="text-2xl font-bold" data-testid="title-analytics">Portfolio Analytics</h2>
             
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Sector Allocation */}
-              <Card data-testid="card-sector-allocation">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <PieChartIcon className="h-5 w-5" />
-                    Sector Allocation
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={Object.entries(portfolioYield?.sectorAllocation || {}).map(([sector, value]) => ({
-                            name: sector,
-                            value: Number(value)
-                          }))}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                          outerRadius={80}
-                          fill="#8884d8"
-                          dataKey="value"
-                        >
-                          {Object.entries(portfolioYield?.sectorAllocation || {}).map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={Object.values(colors)[index % Object.values(colors).length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
+            {loadingAnalytics ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-2 text-gray-600 dark:text-gray-300">Loading analytics...</p>
+              </div>
+            ) : portfolioAnalytics ? (
+              <>
+                {/* Portfolio Summary */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <Card data-testid="card-total-invested">
+                    <CardHeader className="pb-2">
+                      <CardDescription>Total Invested</CardDescription>
+                      <CardTitle className="text-2xl">{formatCurrency(portfolioAnalytics.totalInvested)}</CardTitle>
+                    </CardHeader>
+                  </Card>
+                  <Card data-testid="card-current-value">
+                    <CardHeader className="pb-2">
+                      <CardDescription>Current Value</CardDescription>
+                      <CardTitle className="text-2xl">{formatCurrency(portfolioAnalytics.currentValue)}</CardTitle>
+                    </CardHeader>
+                  </Card>
+                  <Card data-testid="card-absolute-returns">
+                    <CardHeader className="pb-2">
+                      <CardDescription>Absolute Returns</CardDescription>
+                      <CardTitle className={`text-2xl ${portfolioAnalytics.absoluteReturns >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {portfolioAnalytics.absoluteReturns >= 0 ? '+' : ''}{formatCurrency(portfolioAnalytics.absoluteReturns)}
+                        <span className="text-sm ml-2">({portfolioAnalytics.absoluteReturnsPercentage}%)</span>
+                      </CardTitle>
+                    </CardHeader>
+                  </Card>
+                  <Card data-testid="card-xirr">
+                    <CardHeader className="pb-2">
+                      <CardDescription>Portfolio XIRR</CardDescription>
+                      <CardTitle className={`text-2xl ${portfolioAnalytics.xirr?.success ? (portfolioAnalytics.xirr.xirrPercentage >= 0 ? 'text-green-600' : 'text-red-600') : ''}`}>
+                        {portfolioAnalytics.xirr?.success ? `${portfolioAnalytics.xirr.xirrPercentage}%` : 'N/A'}
+                      </CardTitle>
+                    </CardHeader>
+                  </Card>
+                </div>
 
-              {/* Risk Metrics */}
-              <Card data-testid="card-risk-metrics">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingDownIcon className="h-5 w-5" />
-                    Risk Analysis
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600 dark:text-gray-300">Portfolio Volatility</span>
-                      <span className="font-medium">12.5%</span>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Asset Allocation */}
+                  <Card data-testid="card-asset-allocation">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <PieChartIcon className="h-5 w-5" />
+                        Asset Allocation
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {Object.entries(portfolioAnalytics.assetAllocation || {})
+                          .filter(([key]) => key !== 'total')
+                          .map(([asset, data]: [string, any]) => (
+                            data.percentage > 0 && (
+                              <div key={asset} className="space-y-1">
+                                <div className="flex justify-between text-sm">
+                                  <span className="capitalize">{asset}</span>
+                                  <span className="font-medium">{data.percentage}% ({data.count})</span>
+                                </div>
+                                <Progress value={data.percentage} className="h-2" />
+                              </div>
+                            )
+                          ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Risk Profile */}
+                  <Card data-testid="card-risk-profile">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Target className="h-5 w-5" />
+                        Risk Profile
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="text-center py-4">
+                          <div className="text-4xl font-bold text-blue-600">{portfolioAnalytics.riskProfile?.score || 0}</div>
+                          <Badge className="mt-2">{portfolioAnalytics.riskProfile?.classification || 'N/A'}</Badge>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600 dark:text-gray-300">Equity Exposure</span>
+                            <span className="font-medium">{portfolioAnalytics.riskProfile?.equityExposure?.toFixed(2) || 0}%</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600 dark:text-gray-300">Debt Exposure</span>
+                            <span className="font-medium">{portfolioAnalytics.riskProfile?.debtExposure?.toFixed(2) || 0}%</span>
+                          </div>
+                        </div>
+                        <Separator />
+                        <p className="text-sm text-gray-600 dark:text-gray-300">{portfolioAnalytics.riskProfile?.recommendation}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Category Performance */}
+                <Card data-testid="card-category-performance">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <BarChart3 className="h-5 w-5" />
+                      Category Performance
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {portfolioAnalytics.categoryPerformance?.map((cat: any) => (
+                        <div key={cat.category} className="border-b pb-3 last:border-0">
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <h4 className="font-medium">{cat.category}</h4>
+                              <p className="text-xs text-gray-500">Invested: {formatCurrency(cat.invested)}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-medium">{formatCurrency(cat.currentValue)}</p>
+                              <p className={`text-sm ${cat.returnsPercentage >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {cat.returnsPercentage >= 0 ? '+' : ''}{cat.returnsPercentage}%
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600 dark:text-gray-300">Sharpe Ratio</span>
-                      <span className="font-medium">1.84</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600 dark:text-gray-300">Max Drawdown</span>
-                      <span className="font-medium text-red-600">-8.2%</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600 dark:text-gray-300">Beta</span>
-                      <span className="font-medium">0.95</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600 dark:text-gray-300">Alpha</span>
-                      <span className="font-medium text-green-600">+2.1%</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-600 dark:text-gray-300">No analytics data available</p>
+              </div>
+            )}
           </TabsContent>
 
           {/* Alerts Tab */}
