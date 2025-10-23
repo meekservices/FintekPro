@@ -68,6 +68,7 @@ import { AadhaarMockService } from './services/aadhaar-mock-service';
 import { CashfreeAadhaarService } from './services/cashfree-aadhaar-service';
 import { DemographicProtectionService } from './services/demographic-protection-service';
 import { AutoPopulationOrchestrator } from './services/auto-population-orchestrator';
+import { kycWorkflowOrchestrator } from './services/kyc-workflow-orchestrator';
 import { consentManagementService } from './services/consent-management-service';
 import { providerRegistry, type UnifiedApplicationData } from './partner-application-adapters';
 import { insertPartnerApplicationSchema, insertCashfreeTransactionSchema, insertPhonePeTransactionSchema } from '@shared/schema';
@@ -1967,18 +1968,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Mark session as completed
+      // ✅ Always mark session as completed first (resilience requirement)
       await storage.completeKycSession(sessionId);
       
-      // Update user's smart KYC completion
-      await storage.updateUser(userId, {
-        smartKycCompletedAt: new Date()
-      });
+      // ✅ NEW: Store KYC data in secure vault with CKYC integration
+      try {
+        // Decrypt PAN from session
+        const decryptedPAN = await PANConsentService.decryptPAN(session.panNumber);
+        
+        // Extract Aadhaar data from verification
+        const aadhaarData = session.aadhaarVerificationData as any;
+        
+        if (!aadhaarData || !aadhaarData.aadhaarNumber) {
+          throw new Error('Aadhaar verification data not found in session');
+        }
+        
+        // Prepare OKYC data format for vault storage
+        const okycData = {
+          aadhaarNumber: aadhaarData.aadhaarNumber,
+          name: aadhaarData.name,
+          dob: aadhaarData.dob,
+          gender: aadhaarData.gender,
+          fatherName: aadhaarData.fatherName || '',
+          address: aadhaarData.address || {
+            house: '',
+            street: '',
+            landmark: '',
+            locality: '',
+            city: '',
+            state: '',
+            pincode: '',
+            country: 'India'
+          },
+          mobile: aadhaarData.mobile || '',
+          email: aadhaarData.email || '',
+          photoUrl: aadhaarData.photoUrl || ''
+        };
+        
+        // Call KYC Workflow Orchestrator to store in vault
+        const vaultResult = await kycWorkflowOrchestrator.storePreVerifiedKYCData(
+          userId,
+          decryptedPAN,
+          okycData,
+          sessionId, // Use session ID as cashfree ref (for audit purposes)
+          req.ip,
+          req.headers['user-agent'] || 'unknown'
+        );
+        
+        if (!vaultResult.success) {
+          throw new Error(vaultResult.error || 'Vault storage failed');
+        }
+        
+        console.log(`✅ Smart KYC vault storage successful for user ${userId}`);
+        console.log(`   CKYC KIN: ${vaultResult.ckycKinNumber}`);
+        console.log(`   KYC Reuse Token: ${vaultResult.kycReuseToken}`);
+        
+        // Update user's smart KYC completion and tier
+        await storage.updateUser(userId, {
+          smartKycCompletedAt: new Date(),
+          kycTier: 'enhanced', // Smart KYC provides enhanced tier
+          kycStatus: 'verified',
+          ckycNumber: vaultResult.ckycKinNumber
+        });
+        
+        // Return success with CKYC KIN and token
+        res.json({
+          success: true,
+          message: "Smart KYC completed and vault storage successful",
+          data: {
+            ckycKinNumber: vaultResult.ckycKinNumber,
+            kycReuseToken: vaultResult.kycReuseToken,
+            kycStatus: 'verified',
+            kycTier: 'enhanced',
+            vaultStored: true,
+            autoPopulationReady: true
+          }
+        });
+        
+      } catch (vaultError: any) {
+        // Log vault storage failure - session already completed above
+        console.error('❌ Vault storage failed for Smart KYC:', vaultError.message);
+        
+        // Update user to mark KYC attempted (even if vault failed)
+        try {
+          await storage.updateUser(userId, {
+            smartKycCompletedAt: new Date(),
+            kycTier: 'basic', // Fallback to basic tier if vault fails
+            kycStatus: 'pending_vault' // Special status indicating retry needed
+          });
+        } catch (updateErr) {
+          console.error('Failed to update user after vault error:', updateErr);
+        }
+        
+        // Return partial success - session complete but vault failed
+        return res.status(207).json({
+          success: false,
+          message: 'KYC session completed but vault storage failed',
+          error: vaultError.message,
+          data: {
+            sessionCompleted: true,
+            kycVerified: true,
+            vaultStored: false,
+            kycStatus: 'pending_vault',
+            requiresRetry: true,
+            nextSteps: 'Your KYC verification is complete, but secure data storage encountered an issue. Please retry or contact support to complete the process.'
+          }
+        });
+      }
       
-      res.json({
-        success: true,
-        message: "Smart KYC completed successfully"
-      });
     } catch (error) {
       console.error('Error completing KYC:', error);
       res.status(500).json({

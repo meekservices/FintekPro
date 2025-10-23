@@ -36,9 +36,25 @@ export class PANConsentService {
   private static readonly ALGORITHM = 'aes-256-gcm';
 
   /**
-   * Encrypt PAN number using AES-256-GCM
+   * Public async wrapper for PAN encryption
+   * Use this for encrypting PAN in routes and external services
    */
-  private static encryptPAN(panNumber: string): string {
+  static async encryptPAN(panNumber: string): Promise<string> {
+    return this.encryptPANInternal(panNumber);
+  }
+
+  /**
+   * Public async wrapper for PAN decryption
+   * Use this for decrypting PAN in routes and external services
+   */
+  static async decryptPAN(encryptedPAN: string): Promise<string> {
+    return this.decryptPANInternal(encryptedPAN);
+  }
+
+  /**
+   * Encrypt PAN number using AES-256-GCM (Internal)
+   */
+  private static encryptPANInternal(panNumber: string): string {
     try {
       const key = Buffer.from(this.ENCRYPTION_KEY, 'hex');
       const iv = crypto.randomBytes(16);
@@ -58,9 +74,9 @@ export class PANConsentService {
   }
 
   /**
-   * Decrypt PAN number
+   * Decrypt PAN number (Internal)
    */
-  private static decryptPAN(encryptedPAN: string): string {
+  private static decryptPANInternal(encryptedPAN: string): string {
     try {
       const key = Buffer.from(this.ENCRYPTION_KEY, 'hex');
       const parts = encryptedPAN.split(':');
@@ -119,7 +135,7 @@ export class PANConsentService {
     }
 
     try {
-      const encryptedPan = this.encryptPAN(panNumber);
+      const encryptedPan = this.encryptPANInternal(panNumber);
       const panHash = this.hashPAN(panNumber);
 
       const consentData: InsertPanConsent = {
@@ -213,7 +229,7 @@ export class PANConsentService {
         accessReason: accessReason || "Tax service operation"
       });
 
-      return this.decryptPAN(consent.encryptedPan);
+      return this.decryptPANInternal(consent.encryptedPan);
     } catch (error) {
       console.error('Error getting decrypted PAN:', error);
       return null;
@@ -359,7 +375,7 @@ export class PANConsentService {
       }
 
       // Get the actual PAN to create proper mask
-      const actualPan = this.decryptPAN(consent.encryptedPan);
+      const actualPan = this.decryptPANInternal(consent.encryptedPan);
       
       // Create masked version (show first 3 and last 2 characters)
       const maskedPan = actualPan.substring(0, 3) + 'X'.repeat(5) + actualPan.substring(8, 10);

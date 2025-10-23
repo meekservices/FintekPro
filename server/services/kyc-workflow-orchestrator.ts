@@ -446,6 +446,92 @@ export class KYCWorkflowOrchestrator {
   }
 
   /**
+   * Store Pre-Verified KYC Data (For Smart KYC Wizard)
+   * Use this when OTP has already been verified and we have Aadhaar data
+   * Skips the OKYC verification step and goes directly to vault storage
+   */
+  async storePreVerifiedKYCData(
+    userId: string,
+    panNumber: string,
+    okycData: OKYCData,
+    cashfreeRefId: string,
+    ipAddress?: string,
+    userAgent?: string
+  ): Promise<WorkflowResult> {
+    try {
+      console.log('🚀 Starting pre-verified KYC storage workflow for user:', userId);
+
+      // Step 1: Check CKYC Registry
+      const ckycCheckResult = await this.checkCKYC(panNumber, okycData.aadhaarNumber);
+      
+      let ckycKinNumber: string;
+
+      if (ckycCheckResult.data?.found && ckycCheckResult.ckycKinNumber) {
+        // CKYC exists
+        console.log('✅ Existing CKYC record found:', ckycCheckResult.ckycKinNumber);
+        ckycKinNumber = ckycCheckResult.ckycKinNumber;
+      } else {
+        // Step 2: Create new CKYC record
+        const ckycCreateResult = await this.createCKYC(okycData, panNumber);
+        if (!ckycCreateResult.success || !ckycCreateResult.ckycKinNumber) {
+          return ckycCreateResult;
+        }
+        ckycKinNumber = ckycCreateResult.ckycKinNumber;
+      }
+
+      // Step 3: Store in Vault
+      const vaultResult = await this.storeInVault(
+        userId,
+        okycData,
+        panNumber,
+        ckycKinNumber,
+        cashfreeRefId
+      );
+      
+      if (!vaultResult.success) {
+        return vaultResult;
+      }
+
+      // Step 4: Record Consent
+      const consentResult = await this.recordConsent(userId, ipAddress, userAgent);
+      if (!consentResult.success) {
+        console.warn('⚠️  Consent recording failed, but continuing...');
+      }
+
+      // Step 5: Generate Reuse Token
+      const tokenResult = await this.generateReuseToken(
+        userId,
+        'smart_kyc_wizard',
+        'FintekPro Platform'
+      );
+
+      console.log('🎉 Pre-verified KYC storage completed successfully!');
+
+      return {
+        success: true,
+        step: 'workflow_complete',
+        kycStatus: 'verified',
+        ckycKinNumber,
+        kycReuseToken: tokenResult.kycReuseToken,
+        message: 'Smart KYC data stored successfully in vault',
+        data: {
+          okycVerified: true,
+          ckycKinNumber,
+          kycReuseToken: tokenResult.kycReuseToken,
+          tokenExpiresAt: tokenResult.data?.expiresAt
+        }
+      };
+    } catch (error: any) {
+      console.error('❌ Pre-verified KYC storage error:', error);
+      return {
+        success: false,
+        step: 'vault_storage_error',
+        error: error.message || 'Failed to store pre-verified KYC data'
+      };
+    }
+  }
+
+  /**
    * Complete Workflow: Execute all steps end-to-end
    * This is the main orchestrator method
    */
