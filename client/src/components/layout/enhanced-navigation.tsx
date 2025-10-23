@@ -173,16 +173,6 @@ export function EnhancedNavigation() {
                 { name: "Enhanced KYC (Tier 2)", href: "/profile?tab=enhanced", description: "Video KYC, income proof → Unlock F&O, Commodities, Global" },
                 { name: "Accredited Investor (Tier 3)", href: "/profile?tab=accredited", description: "Net worth ₹7.5Cr+ → Unlock AIF, PMS, Pre-IPO", badge: "PREMIUM" }
               ]
-            },
-            { 
-              name: "Profile Management", 
-              description: "Manage your profile data",
-              subItems: [
-                { name: "Identity & Documents", href: "/profile?tab=identity", description: "All identity proofs and verification" },
-                { name: "Address & Financial", href: "/profile?tab=financial", description: "Address, income, occupation details" },
-                { name: "Compliance & AML", href: "/profile?tab=compliance", description: "FATCA, PEP, sanctions screening" },
-                { name: "Banking & Demat", href: "/profile?tab=banking", description: "Bank accounts and demat details" }
-              ]
             }
           ]
         }
