@@ -88,6 +88,7 @@ import { ProductAccountService } from './product-account-service';
 import { BSEStarKYCService } from './services/bse-star-kyc-service';
 import { autoPopulationRouter } from "./auto-population-routes";
 import * as schema from "@shared/schema";
+import { createChatGPTService } from './services/chatgpt-service';
 
 // Tax Calculation Request Validation Schemas
 const calculateCapitalGainsSchema = z.object({
@@ -138,6 +139,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize Product Account Service
   const productAccountService = new ProductAccountService(storage as any);
   
+  // Initialize ChatGPT Service
+  const chatgptService = createChatGPTService(storage);
   // Initialize WhatsApp service with secure version
   // DISABLED: WhatsApp QR code generation causes excessive log output
   // Uncomment when needed for WhatsApp authentication features
@@ -25752,6 +25755,281 @@ System Security Data:`;
   // Initialize DigiLocker app configuration (non-blocking, optional service)
   digilockerService.initializeDigiLockerApp().catch(err => {
     console.warn('⚠️ DigiLocker optional service unavailable, using Cashfree OKYC fallback');
+  });
+
+  // ===== Chat/AI Assistant Routes =====
+
+  // Start or resume chat session
+  app.post("/api/chat/sessions", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { sessionId, sessionType, portfolioId, contextData } = req.body;
+      
+      const session = await chatgptService.startSession({
+        userId,
+        sessionId,
+        sessionType,
+        portfolioId,
+        contextData
+      });
+      
+      // Log compliance event
+      complianceMonitor.logEvent({
+        userId,
+        eventType: 'ai_interaction',
+        action: 'chat_session_started',
+        ipAddress: req.ip || req.connection.remoteAddress,
+        userAgent: req.get('User-Agent'),
+        outcome: 'success',
+        riskLevel: 'low',
+        details: { sessionId: session.id, sessionType }
+      });
+      
+      res.json({ success: true, session });
+    } catch (error: any) {
+      res.status(400).json({ success: false, error: error.message });
+    }
+  });
+
+  // Get user's chat sessions
+  app.get("/api/chat/sessions", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const sessions = await chatgptService.getUserSessions(userId);
+      res.json({ success: true, sessions });
+    } catch (error: any) {
+      res.status(400).json({ success: false, error: error.message });
+    }
+  });
+
+  // Get session messages
+  app.get("/api/chat/sessions/:sessionId/messages", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { sessionId } = req.params;
+      
+      const messages = await chatgptService.getSessionMessages(sessionId, userId);
+      res.json({ success: true, messages });
+    } catch (error: any) {
+      res.status(400).json({ success: false, error: error.message });
+    }
+  });
+
+  // Send message (non-streaming)
+  app.post("/api/chat/sessions/:sessionId/messages", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { sessionId } = req.params;
+      const { content, provider, model, temperature } = req.body;
+      
+      const result = await chatgptService.sendMessage(sessionId, userId, content, {
+        provider,
+        model,
+        temperature
+      });
+      
+      // Log AI interaction
+      complianceMonitor.logEvent({
+        userId,
+        eventType: 'ai_interaction',
+        action: 'chat_message_sent',
+        ipAddress: req.ip || req.connection.remoteAddress,
+        userAgent: req.get('User-Agent'),
+        outcome: 'success',
+        riskLevel: 'low',
+        details: { sessionId, provider, model }
+      });
+      
+      res.json({ success: true, ...result });
+    } catch (error: any) {
+      res.status(400).json({ success: false, error: error.message });
+    }
+  });
+
+  // Send message (streaming) using Server-Sent Events
+  app.post("/api/chat/sessions/:sessionId/stream", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { sessionId } = req.params;
+      const { content, provider, model, temperature } = req.body;
+      
+      // Set up SSE
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      
+      const result = await chatgptService.streamMessage(
+        sessionId,
+        userId,
+        content,
+        (chunk: string) => {
+          res.write(`data: ${JSON.stringify({ type: 'chunk', content: chunk })}\n\n`);
+        },
+        { provider, model, temperature }
+      );
+      
+      // Send final result
+      res.write(`data: ${JSON.stringify({ type: 'done', ...result })}\n\n`);
+      res.end();
+      
+      // Log streaming interaction
+      complianceMonitor.logEvent({
+        userId,
+        eventType: 'ai_interaction',
+        action: 'chat_message_streamed',
+        ipAddress: req.ip || req.connection.remoteAddress,
+        userAgent: req.get('User-Agent'),
+        outcome: 'success',
+        riskLevel: 'low',
+        details: { sessionId, provider, model, streaming: true }
+      });
+    } catch (error: any) {
+      res.write(`data: ${JSON.stringify({ type: 'error', error: error.message })}\n\n`);
+      res.end();
+    }
+  });
+
+  // End session
+  app.post("/api/chat/sessions/:sessionId/end", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { sessionId } = req.params;
+      
+      await chatgptService.endSession(sessionId, userId);
+      
+      // Log session end
+      complianceMonitor.logEvent({
+        userId,
+        eventType: 'ai_interaction',
+        action: 'chat_session_ended',
+        ipAddress: req.ip || req.connection.remoteAddress,
+        userAgent: req.get('User-Agent'),
+        outcome: 'success',
+        riskLevel: 'low',
+        details: { sessionId }
+      });
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ success: false, error: error.message });
+    }
+  });
+
+  // Rate message
+  app.post("/api/chat/messages/:messageId/rate", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { messageId } = req.params;
+      const { rating, feedback } = req.body;
+      
+      await chatgptService.rateMessage(messageId, userId, rating, feedback);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ success: false, error: error.message });
+    }
+  });
+
+  // Portfolio analysis
+  app.post("/api/chat/analyze/portfolio", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { portfolioData, analysisType } = req.body;
+      
+      const result = await chatgptService.analyzePortfolio(userId, portfolioData, analysisType);
+      
+      // Log portfolio analysis
+      complianceMonitor.logEvent({
+        userId,
+        eventType: 'ai_interaction',
+        action: 'portfolio_analyzed',
+        ipAddress: req.ip || req.connection.remoteAddress,
+        userAgent: req.get('User-Agent'),
+        outcome: 'success',
+        riskLevel: 'medium',
+        details: { analysisType }
+      });
+      
+      res.json({ success: true, ...result });
+    } catch (error: any) {
+      res.status(400).json({ success: false, error: error.message });
+    }
+  });
+
+  // Product recommendations
+  app.post("/api/chat/recommend/products", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { userProfile, productType, criteria } = req.body;
+      
+      const result = await chatgptService.getProductRecommendations(userId, userProfile, productType, criteria);
+      
+      // Log product recommendations
+      complianceMonitor.logEvent({
+        userId,
+        eventType: 'ai_interaction',
+        action: 'product_recommendations_generated',
+        ipAddress: req.ip || req.connection.remoteAddress,
+        userAgent: req.get('User-Agent'),
+        outcome: 'success',
+        riskLevel: 'medium',
+        details: { productType }
+      });
+      
+      res.json({ success: true, ...result });
+    } catch (error: any) {
+      res.status(400).json({ success: false, error: error.message });
+    }
+  });
+
+  // Generate report
+  app.post("/api/chat/generate/report", requireAuth, async (req: any, res) => {
+    try {
+      const { reportType, data, format } = req.body;
+      
+      const report = await chatgptService.generateReport(reportType, data, format);
+      
+      // Log report generation
+      complianceMonitor.logEvent({
+        userId: (req as any).user?.id,
+        eventType: 'ai_interaction',
+        action: 'report_generated',
+        ipAddress: req.ip || req.connection.remoteAddress,
+        userAgent: req.get('User-Agent'),
+        outcome: 'success',
+        riskLevel: 'low',
+        details: { reportType, format }
+      });
+      
+      res.json({ success: true, report });
+    } catch (error: any) {
+      res.status(400).json({ success: false, error: error.message });
+    }
+  });
+
+  // Smart onboarding
+  app.post("/api/chat/onboarding", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { currentStep, userResponse, contextData } = req.body;
+      
+      const result = await chatgptService.conductOnboarding(userId, currentStep, userResponse, contextData);
+      
+      // Log onboarding interaction
+      complianceMonitor.logEvent({
+        userId,
+        eventType: 'ai_interaction',
+        action: 'onboarding_step_completed',
+        ipAddress: req.ip || req.connection.remoteAddress,
+        userAgent: req.get('User-Agent'),
+        outcome: 'success',
+        riskLevel: 'low',
+        details: { currentStep, isComplete: result.isComplete }
+      });
+      
+      res.json({ success: true, ...result });
+    } catch (error: any) {
+      res.status(400).json({ success: false, error: error.message });
+    }
   });
 
   // ==================== DigiLocker Integration Routes ====================

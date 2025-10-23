@@ -94,7 +94,7 @@
     "node-cron": "^4.2.1",
     "node-fetch": "^3.3.2",
     "nodemailer": "^7.0.7",
-    "openai": "^5.20.0",
+    "openai": "^5.23.2",
     "openid-client": "^6.7.1",
     "passport": "^0.7.0",
     "passport-local": "^1.0.0",
