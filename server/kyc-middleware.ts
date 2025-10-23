@@ -1,6 +1,9 @@
 import { Request, Response, NextFunction } from "express";
 import { checkKYCCompliance, TransactionContext } from "./kyc-compliance-checker";
 import { storage } from "./storage";
+import { db } from "./db";
+import { customerCareAgents } from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 /**
  * KYC Validation Middleware
@@ -387,8 +390,16 @@ export function blockSubAgentTransactions() {
         });
       }
 
-      // Check if user is a sub-agent
-      const agent = await storage.getAgentByUserId(userId);
+      // Check if user is a sub-agent by looking up their user record and checking email
+      const user = await storage.getUserById(userId);
+      if (!user?.email) {
+        return next(); // No email means can't be an agent
+      }
+
+      const [agent] = await db.select()
+        .from(customerCareAgents)
+        .where(eq(customerCareAgents.email, user.email))
+        .limit(1);
 
       // If not an agent or is a master/associate agent, allow transaction
       if (!agent || agent.agentLevel !== 'sub_agent') {
@@ -438,8 +449,16 @@ export function allowSubAgentProductViewing() {
         return next(); // Let auth middleware handle this
       }
 
-      // Check if user is a sub-agent
-      const agent = await storage.getAgentByUserId(userId);
+      // Check if user is a sub-agent by looking up their user record and checking email
+      const user = await storage.getUserById(userId);
+      if (!user?.email) {
+        return next(); // No email means can't be an agent
+      }
+
+      const [agent] = await db.select()
+        .from(customerCareAgents)
+        .where(eq(customerCareAgents.email, user.email))
+        .limit(1);
 
       if (agent && agent.agentLevel === 'sub_agent') {
         console.log(`[Sub-Agent Access] Allowing product view for sub-agent ${agent.id}`);
