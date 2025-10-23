@@ -391,7 +391,7 @@ export function blockSubAgentTransactions() {
       }
 
       // Check if user is a sub-agent by looking up their user record and checking email
-      const user = await storage.getUserById(userId);
+      const user = await storage.getUser(userId);
       if (!user?.email) {
         return next(); // No email means can't be an agent
       }
@@ -450,7 +450,7 @@ export function allowSubAgentProductViewing() {
       }
 
       // Check if user is a sub-agent by looking up their user record and checking email
-      const user = await storage.getUserById(userId);
+      const user = await storage.getUser(userId);
       if (!user?.email) {
         return next(); // No email means can't be an agent
       }
