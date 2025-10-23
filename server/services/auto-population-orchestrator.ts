@@ -22,13 +22,15 @@ import {
   comprehensiveHoldings,
   epfHoldings,
   npsAccounts,
+  apyAccounts,
   kycVault,
   portfolios,
   type InsertAutoPopulationStatus,
   type AutoPopulationStatus,
   type InsertComprehensiveHolding,
   type InsertEpfHolding,
-  type InsertNpsAccount
+  type InsertNpsAccount,
+  type InsertApyAccount
 } from '@shared/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -39,6 +41,7 @@ import { kycVaultDecryptionService } from './kyc-vault-decryption-service';
 import { dematHoldingsService, type DematFetchRequest } from './demat-holdings-service';
 import { epfoService, type EPFFetchRequest } from './epfo-service';
 import { NPSService, type NPSFetchRequest } from './nps-service';
+import { APYService, type APYFetchRequest } from './apy-service';
 import axios from 'axios';
 
 interface KYCData {
@@ -92,7 +95,7 @@ export class AutoPopulationOrchestrator {
       workflowId,
       triggeredBy,
       status: 'in_progress',
-      totalDataSources: 7, // mutual_funds, demat, bank, loans, insurance, epf, nps
+      totalDataSources: 8, // mutual_funds, demat, bank, loans, insurance, epf, nps, apy
       successfulSources: 0,
       failedSources: 0,
       sourceStatus: {},
@@ -224,7 +227,7 @@ export class AutoPopulationOrchestrator {
    * Check consents for all data sources
    */
   private async checkAllConsents(userId: string): Promise<Record<DataSourceType, boolean>> {
-    const sources: DataSourceType[] = ['mutual_funds', 'demat', 'bank', 'loans', 'insurance', 'epf', 'nps'];
+    const sources: DataSourceType[] = ['mutual_funds', 'demat', 'bank', 'loans', 'insurance', 'epf', 'nps', 'apy'];
     const consents: Record<DataSourceType, boolean> = {} as any;
 
     for (const source of sources) {
@@ -253,14 +256,15 @@ export class AutoPopulationOrchestrator {
       this.fetchLoanLiabilities(kycData, consents.loans),
       this.fetchInsurance(kycData, consents.insurance),
       this.fetchEPFAccounts(kycData, consents.epf),
-      this.fetchNPSAccounts(kycData, consents.nps)
+      this.fetchNPSAccounts(kycData, consents.nps),
+      this.fetchAPYAccounts(kycData, consents.apy)
     ];
 
     // Promise.allSettled ensures all promises complete regardless of individual failures
     const settledResults = await Promise.allSettled(fetchPromises);
 
     // Map settled results to DataSourceResult format
-    const sources: DataSourceType[] = ['mutual_funds', 'demat', 'bank', 'loans', 'insurance', 'epf', 'nps'];
+    const sources: DataSourceType[] = ['mutual_funds', 'demat', 'bank', 'loans', 'insurance', 'epf', 'nps', 'apy'];
     
     return settledResults.map((result, index) => {
       const source = sources[index];
@@ -667,6 +671,66 @@ export class AutoPopulationOrchestrator {
   }
 
   /**
+   * Fetch APY (Atal Pension Yojana) accounts via Account Aggregator
+   */
+  private async fetchAPYAccounts(kycData: KYCData, hasConsent: boolean): Promise<DataSourceResult> {
+    if (!hasConsent) {
+      return {
+        source: 'apy',
+        success: false,
+        recordsFetched: 0,
+        error: 'User consent not granted'
+      };
+    }
+
+    try {
+      console.log(`🔍 Fetching APY accounts via Account Aggregator`);
+      
+      // Call APY service
+      const apyService = new APYService();
+      const apyRequest: APYFetchRequest = {
+        panNumber: kycData.pan,
+        dateOfBirth: kycData.dob,
+        name: kycData.name,
+        mobile: kycData.mobile
+      };
+
+      const apyResponse = await apyService.fetchAPYAccounts(apyRequest);
+
+      if (!apyResponse.success) {
+        console.error(`❌ APY fetch failed: ${apyResponse.message}`);
+        return {
+          source: 'apy',
+          success: false,
+          recordsFetched: 0,
+          error: apyResponse.message || 'Failed to fetch APY accounts'
+        };
+      }
+
+      // APY accounts will be stored via the storeHoldings method which is called by the main workflow
+      // No need to store inline here - it will be handled in the data source results loop
+
+      console.log(`✅ Fetched ${apyResponse.accounts.length} APY accounts (Total Balance: ₹${apyResponse.totalBalance.toFixed(2)})`);
+
+      return {
+        source: 'apy',
+        success: true,
+        recordsFetched: apyResponse.accounts.length,
+        totalValue: apyResponse.totalBalance,
+        data: apyResponse.holdings
+      };
+    } catch (error: any) {
+      console.error('❌ APY accounts fetch error:', error.message);
+      return {
+        source: 'apy',
+        success: false,
+        recordsFetched: 0,
+        error: error.message
+      };
+    }
+  }
+
+  /**
    * Store fetched holdings in database
    */
   private async storeHoldings(userId: string, results: DataSourceResult[]): Promise<void> {
@@ -701,6 +765,9 @@ export class AutoPopulationOrchestrator {
             break;
           case 'nps':
             await this.storeNPSAccounts(userId, result.data);
+            break;
+          case 'apy':
+            await this.storeAPYAccounts(userId, result.data);
             break;
         }
 
@@ -968,6 +1035,54 @@ export class AutoPopulationOrchestrator {
       console.log(`  ✓ Stored ${accountsToInsert.length} NPS accounts in npsAccounts table`);
     } catch (error: any) {
       console.error(`  ✗ Error storing NPS accounts:`, error.message);
+      // Don't throw - this is not critical for the workflow
+    }
+  }
+
+  /**
+   * Store APY accounts in apyAccounts table
+   */
+  private async storeAPYAccounts(userId: string, holdings: any[]): Promise<void> {
+    try {
+      // Map APY holdings to apyAccounts format
+      const accountsToInsert: InsertApyAccount[] = holdings.map((holding: any) => ({
+        userId,
+        pran: holding.pran,
+        accountHolderName: holding.accountHolderName,
+        dateOfBirth: holding.dateOfBirth,
+        enrollmentDate: holding.enrollmentDate,
+        // Pension Details
+        pensionAmount: holding.pensionAmount.toString(),
+        monthlyContribution: holding.monthlyContribution.toString(),
+        // Contributions
+        totalContribution: holding.totalContribution.toString(),
+        governmentContribution: holding.governmentContribution.toString(),
+        totalBalance: holding.totalBalance.toString(),
+        // Account Details
+        enrollmentAge: holding.enrollmentAge,
+        maturityAge: holding.maturityAge,
+        yearsToMaturity: holding.yearsToMaturity,
+        expectedMaturityDate: holding.expectedMaturityDate,
+        // Bank Details
+        bankName: holding.bankName,
+        bankAccountNumber: holding.bankAccountNumber,
+        ifscCode: holding.ifscCode,
+        branchName: holding.branchName || null,
+        // Nominee
+        nominee: holding.nominee || null,
+        nomineeRelation: holding.nomineeRelation || null,
+        nomineeAge: holding.nomineeAge || null,
+        // Status
+        status: holding.status,
+        lastContributionDate: holding.lastContributionDate || null
+      }));
+
+      // Insert APY accounts (upsert logic can be added later)
+      await db.insert(apyAccounts).values(accountsToInsert);
+
+      console.log(`  ✓ Stored ${accountsToInsert.length} APY accounts in apyAccounts table`);
+    } catch (error: any) {
+      console.error(`  ✗ Error storing APY accounts:`, error.message);
       // Don't throw - this is not critical for the workflow
     }
   }

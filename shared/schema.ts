@@ -1240,6 +1240,54 @@ export const npsAccounts = pgTable("nps_accounts", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// APY (Atal Pension Yojana) Accounts table
+export const apyAccounts = pgTable("apy_accounts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  pran: varchar("pran").notNull().unique(), // PRAN number (12 digits) - same format as NPS
+  accountHolderName: text("account_holder_name").notNull(),
+  dateOfBirth: date("date_of_birth").notNull(),
+  enrollmentDate: date("enrollment_date").notNull(),
+  
+  // Pension Details
+  pensionAmount: decimal("pension_amount", { precision: 15, scale: 2 }).notNull(), // Guaranteed monthly pension: ₹1000, ₹2000, ₹3000, ₹4000, or ₹5000
+  monthlyContribution: decimal("monthly_contribution", { precision: 15, scale: 2 }).notNull(), // Calculated based on age and pension choice
+  
+  // Contribution Tracking
+  totalContribution: decimal("total_contribution", { precision: 15, scale: 2 }).default("0"), // User's total contributions
+  governmentContribution: decimal("government_contribution", { precision: 15, scale: 2 }).default("0"), // Govt co-contribution for eligible users (50% of contribution or ₹1000/year, whichever is lower)
+  totalBalance: decimal("total_balance", { precision: 15, scale: 2 }).default("0"), // Current accumulated balance
+  
+  // Account Details
+  enrollmentAge: integer("enrollment_age").notNull(), // Age at enrollment (18-40 years)
+  maturityAge: integer("maturity_age").notNull().default(60), // Fixed at 60 years
+  yearsToMaturity: integer("years_to_maturity"), // Calculated: 60 - current age
+  expectedMaturityDate: date("expected_maturity_date"),
+  
+  // Bank Account Details (APY is bank-account linked)
+  bankName: text("bank_name").notNull(),
+  bankAccountNumber: varchar("bank_account_number").notNull(),
+  ifscCode: varchar("ifsc_code").notNull(),
+  branchName: text("branch_name"),
+  
+  // Nominee Information
+  nominee: text("nominee"),
+  nomineeRelation: varchar("nominee_relation"),
+  nomineeAge: integer("nominee_age"),
+  
+  // Status & Tracking
+  status: varchar("status").notNull().default("active"), // active, matured, discontinued, exited
+  lastContributionDate: date("last_contribution_date"),
+  exitDate: date("exit_date"), // If user exits before maturity
+  exitReason: text("exit_reason"), // Reason for discontinuation
+  
+  // Metadata
+  remarks: text("remarks"),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Pi Chat Asset Summaries
 export const piChatSummaries = pgTable("pi_chat_summaries", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -3645,6 +3693,17 @@ export type NpsAccount = typeof npsAccounts.$inferSelect;
 export type InsertNpsAccount = typeof npsAccounts.$inferInsert;
 
 export const insertNpsAccountSchema = createInsertSchema(npsAccounts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastUpdated: true,
+});
+
+// APY Accounts types
+export type ApyAccount = typeof apyAccounts.$inferSelect;
+export type InsertApyAccount = typeof apyAccounts.$inferInsert;
+
+export const insertApyAccountSchema = createInsertSchema(apyAccounts).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
