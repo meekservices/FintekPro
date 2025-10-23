@@ -30448,4 +30448,17 @@ System Security Data:`;
 
   app.use("/api/auto-populate", autoPopulationRouter);
 
+  // Portfolio Analytics Routes
+  app.get('/api/analytics/portfolio', requireAuth, async (req: any, res) => {
+    try {
+      const { PortfolioAnalytics } = await import('./services/portfolio-analytics');
+      const analytics = await PortfolioAnalytics.getPortfolioAnalytics(req.user.id);
+      
+      res.json(analytics);
+    } catch (error) {
+      console.error('Error fetching portfolio analytics:', error);
+      res.status(500).json({ message: 'Failed to fetch portfolio analytics' });
+    }
+  });
+
 }
