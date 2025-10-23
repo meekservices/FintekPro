@@ -1686,6 +1686,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Expire any old active sessions (including expired ones) to avoid unique constraint violation
+      await db.update(schema.kycVerificationSessions)
+        .set({ isActive: false })
+        .where(
+          and(
+            eq(schema.kycVerificationSessions.userId, userId),
+            eq(schema.kycVerificationSessions.isActive, true)
+          )
+        );
+
       // Create new session
       const session = await storage.createKycVerificationSession({
         userId,
