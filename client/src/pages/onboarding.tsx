@@ -49,6 +49,7 @@ export default function SmartKYCOnboarding() {
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState<WizardStep>('pan_verification');
   const [sessionId, setSessionId] = useState<string>('');
+  const [sessionError, setSessionError] = useState<string>('');
   
   // Pan Verification State
   const [panNumber, setPanNumber] = useState('');
@@ -73,6 +74,7 @@ export default function SmartKYCOnboarding() {
       if (data.success && data.session) {
         setSessionId(data.session.id);
         setCurrentStep(data.session.currentStep);
+        setSessionError(''); // Clear any previous errors
         
         // Restore state if resuming
         if (data.session.panVerified) {
@@ -86,10 +88,12 @@ export default function SmartKYCOnboarding() {
         }
       }
     },
-    onError: () => {
+    onError: (error) => {
+      const errorMessage = error instanceof Error ? error.message : "Failed to start KYC session. Please try again.";
+      setSessionError(errorMessage);
       toast({
-        title: "Error",
-        description: "Failed to start KYC session. Please try again.",
+        title: "Session Error",
+        description: errorMessage,
         variant: "destructive"
       });
     }
@@ -98,6 +102,11 @@ export default function SmartKYCOnboarding() {
   // PAN Verification
   const verifyPanMutation = useMutation({
     mutationFn: async () => {
+      // Defensive check: ensure sessionId exists before making request
+      if (!sessionId) {
+        throw new Error("Session not initialized. Please refresh the page.");
+      }
+      
       const res = await apiRequest('POST', '/api/kyc/wizard/verify-pan', {
         body: {
           sessionId,
@@ -123,6 +132,13 @@ export default function SmartKYCOnboarding() {
           variant: "destructive"
         });
       }
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "PAN verification failed. Please try again.",
+        variant: "destructive"
+      });
     }
   });
   
@@ -230,6 +246,15 @@ export default function SmartKYCOnboarding() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {sessionId && (
+          <Alert className="bg-blue-50 border-blue-200">
+            <CheckCircle className="h-4 w-4 text-blue-600" />
+            <AlertDescription className="text-blue-800">
+              <strong>Session Active:</strong> Your KYC session is ready
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <Alert>
           <Sparkles className="h-4 w-4" />
           <AlertDescription>
@@ -278,7 +303,7 @@ export default function SmartKYCOnboarding() {
         <Button
           data-testid="button-verify-pan"
           onClick={() => verifyPanMutation.mutate()}
-          disabled={!panNumber || !panFullName || !panDob || verifyPanMutation.isPending}
+          disabled={!sessionId || !panNumber || !panFullName || !panDob || verifyPanMutation.isPending}
           className="w-full"
         >
           {verifyPanMutation.isPending ? (
@@ -551,10 +576,32 @@ export default function SmartKYCOnboarding() {
     </Card>
   );
   
+  // Show loading state while session initializes
   if (startSessionMutation.isPending) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-muted-foreground">Initializing KYC session...</p>
+      </div>
+    );
+  }
+  
+  // Show error state if session failed to initialize
+  if (sessionError || (!sessionId && !startSessionMutation.isPending)) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4 px-4">
+        <Alert variant="destructive" className="max-w-md">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            {sessionError || "Failed to initialize KYC session"}
+          </AlertDescription>
+        </Alert>
+        <Button 
+          onClick={() => startSessionMutation.mutate()}
+          data-testid="button-retry-session"
+        >
+          Retry
+        </Button>
       </div>
     );
   }
