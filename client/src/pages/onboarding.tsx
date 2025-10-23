@@ -14,7 +14,8 @@ import {
   Shield,
   Sparkles,
   ArrowRight,
-  ArrowLeft
+  ArrowLeft,
+  Clock
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -26,6 +27,7 @@ interface SessionData {
   panVerified: boolean;
   aadhaarOtpSent: boolean;
   aadhaarOtpVerified: boolean;
+  expiresAt?: string;
   panVerificationData?: {
     name: string;
     fatherName: string;
@@ -51,6 +53,13 @@ export default function SmartKYCOnboarding() {
   const [sessionId, setSessionId] = useState<string>('');
   const [sessionError, setSessionError] = useState<string>('');
   
+  // Session Timer State
+  const [sessionExpiresAt, setSessionExpiresAt] = useState<Date | null>(null);
+  const [timeRemaining, setTimeRemaining] = useState<number>(0);
+  const [showFiveMinWarning, setShowFiveMinWarning] = useState(false);
+  const [showOneMinWarning, setShowOneMinWarning] = useState(false);
+  const [sessionExpiredShown, setSessionExpiredShown] = useState(false);
+  
   // Pan Verification State
   const [panNumber, setPanNumber] = useState('');
   const [panFullName, setPanFullName] = useState('');
@@ -75,6 +84,14 @@ export default function SmartKYCOnboarding() {
         setSessionId(data.session.id);
         setCurrentStep(data.session.currentStep);
         setSessionError(''); // Clear any previous errors
+        
+        // Set session expiry time and reset warning flags
+        if (data.session.expiresAt) {
+          setSessionExpiresAt(new Date(data.session.expiresAt));
+          setShowFiveMinWarning(false);
+          setShowOneMinWarning(false);
+          setSessionExpiredShown(false);
+        }
         
         // Restore state if resuming
         if (data.session.panVerified) {
@@ -228,10 +245,89 @@ export default function SmartKYCOnboarding() {
     startSessionMutation.mutate();
   }, []);
   
+  // Session countdown timer
+  useEffect(() => {
+    if (!sessionExpiresAt || currentStep === 'completed') return;
+    
+    const updateTimer = () => {
+      const now = new Date().getTime();
+      const expiryTime = sessionExpiresAt.getTime();
+      const remaining = Math.max(0, expiryTime - now);
+      
+      setTimeRemaining(remaining);
+      
+      // Check for warnings
+      const minutesRemaining = Math.floor(remaining / 60000);
+      
+      if (minutesRemaining === 5 && !showFiveMinWarning) {
+        setShowFiveMinWarning(true);
+        toast({
+          title: "Session Expiring Soon",
+          description: "Your KYC session will expire in 5 minutes. Please complete the verification process.",
+          variant: "destructive"
+        });
+      }
+      
+      if (minutesRemaining === 1 && !showOneMinWarning) {
+        setShowOneMinWarning(true);
+        toast({
+          title: "Session Expiring",
+          description: "Your KYC session will expire in 1 minute! Please complete verification immediately.",
+          variant: "destructive"
+        });
+      }
+      
+      if (remaining === 0 && !sessionExpiredShown) {
+        setSessionExpiredShown(true);
+        setSessionExpiresAt(null); // Hide timer after expiry
+        toast({
+          title: "Session Expired",
+          description: "Your KYC session has expired. Please start a new session.",
+          variant: "destructive"
+        });
+      }
+    };
+    
+    updateTimer(); // Initial update
+    const interval = setInterval(updateTimer, 1000); // Update every second
+    
+    return () => clearInterval(interval);
+  }, [sessionExpiresAt, currentStep, showFiveMinWarning, showOneMinWarning, sessionExpiredShown, toast]);
+  
   const getStepProgress = () => {
     const steps: WizardStep[] = ['pan_verification', 'aadhaar_otp', 'aadhaar_verification', 'data_collection', 'completed'];
     const currentIndex = steps.indexOf(currentStep);
     return ((currentIndex + 1) / steps.length) * 100;
+  };
+  
+  const formatTimeRemaining = () => {
+    if (timeRemaining === 0) return "Expired";
+    const minutes = Math.floor(timeRemaining / 60000);
+    const seconds = Math.floor((timeRemaining % 60000) / 1000);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+  
+  const getTimerColor = () => {
+    const minutes = Math.floor(timeRemaining / 60000);
+    if (minutes <= 1) return "text-red-600 dark:text-red-400";
+    if (minutes <= 5) return "text-orange-600 dark:text-orange-400";
+    return "text-green-600 dark:text-green-400";
+  };
+  
+  const renderSessionTimer = () => {
+    if (!sessionExpiresAt || currentStep === 'completed') return null;
+    
+    return (
+      <Alert className="mb-4">
+        <Clock className={`h-4 w-4 ${getTimerColor()}`} />
+        <AlertDescription className="flex items-center justify-between">
+          <span>Session Time Remaining:</span>
+          <span className={`font-mono font-bold ${getTimerColor()}`} data-testid="text-session-timer">
+            {formatTimeRemaining()}
+          </span>
+        </AlertDescription>
+      </Alert>
+    );
   };
   
   const renderPanVerificationStep = () => (
@@ -622,6 +718,8 @@ export default function SmartKYCOnboarding() {
           <span>{Math.round(getStepProgress())}% Complete</span>
         </div>
       </div>
+      
+      {renderSessionTimer()}
       
       {currentStep === 'pan_verification' && renderPanVerificationStep()}
       {currentStep === 'aadhaar_otp' && renderAadhaarOtpStep()}
