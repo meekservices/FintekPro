@@ -20,6 +20,7 @@ import { tokenizationService } from './tokenization-service';
 import { faceHashingService } from './face-hashing-service';
 import { kycReuseTokenService } from './kyc-reuse-token-service';
 import { encryptionService } from '../encryption-service';
+import { kycVaultDecryptionService } from './kyc-vault-decryption-service';
 import { eq } from 'drizzle-orm';
 
 interface OKYCData {
@@ -344,6 +345,79 @@ export class KYCWorkflowOrchestrator {
   }
 
   /**
+   * Validate Vault Storage
+   * Verifies that stored KYC data can be retrieved and decrypted successfully
+   */
+  async validateVaultStorage(
+    userId: string,
+    expectedPAN: string,
+    expectedName: string
+  ): Promise<WorkflowResult> {
+    try {
+      console.log('🔍 Validating vault storage for user:', userId);
+
+      // Read back vault data with decryption
+      const decryptionResult = await kycVaultDecryptionService.decryptVaultData(userId, {
+        purpose: 'vault_validation',
+        requestId: `validation_${Date.now()}`,
+        fieldsRequired: ['pan', 'fullName', 'dateOfBirth']
+      });
+
+      if (!decryptionResult.success || !decryptionResult.data) {
+        return {
+          success: false,
+          step: 'vault_validation',
+          error: 'Vault data could not be decrypted or retrieved'
+        };
+      }
+
+      const decrypted = decryptionResult.data;
+
+      // Verify critical fields match
+      if (decrypted.pan !== expectedPAN) {
+        return {
+          success: false,
+          step: 'vault_validation',
+          error: 'PAN mismatch: vault data integrity check failed'
+        };
+      }
+
+      if (decrypted.fullName !== expectedName) {
+        return {
+          success: false,
+          step: 'vault_validation',
+          error: 'Name mismatch: vault data integrity check failed'
+        };
+      }
+
+      // Verify essential fields are present
+      if (!decrypted.dateOfBirth || !decrypted.fullName || !decrypted.pan) {
+        return {
+          success: false,
+          step: 'vault_validation',
+          error: 'Missing essential fields in vault data'
+        };
+      }
+
+      console.log(`✅ Vault validation successful for user ${userId} (Audit: ${decryptionResult.auditLogId})`);
+
+      return {
+        success: true,
+        step: 'vault_validation',
+        message: 'Vault data validated successfully'
+      };
+
+    } catch (error: any) {
+      console.error('Vault validation error:', error);
+      return {
+        success: false,
+        step: 'vault_validation',
+        error: error.message || 'Vault validation failed'
+      };
+    }
+  }
+
+  /**
    * Step 6: Record user consent for KYC reuse
    */
   async recordConsent(
@@ -492,6 +566,18 @@ export class KYCWorkflowOrchestrator {
         return vaultResult;
       }
 
+      // Step 3.5: Validate Vault Storage (prevent silent failures)
+      const validationResult = await this.validateVaultStorage(userId, panNumber, okycData.name);
+      if (!validationResult.success) {
+        console.error(`❌ Vault validation failed: ${validationResult.error}`);
+        return {
+          success: false,
+          step: 'vault_validation_failed',
+          error: `Data stored but validation failed: ${validationResult.error}. Please contact support.`
+        };
+      }
+      console.log('✅ Vault storage validated successfully');
+
       // Step 4: Record Consent
       const consentResult = await this.recordConsent(userId, ipAddress, userAgent);
       if (!consentResult.success) {
@@ -585,6 +671,18 @@ export class KYCWorkflowOrchestrator {
       if (!vaultResult.success) {
         return vaultResult;
       }
+
+      // Step 5.5: Validate Vault Storage (prevent silent failures)
+      const validationResult = await this.validateVaultStorage(userId, panNumber, okycData.name);
+      if (!validationResult.success) {
+        console.error(`❌ Vault validation failed: ${validationResult.error}`);
+        return {
+          success: false,
+          step: 'vault_validation_failed',
+          error: `Data stored but validation failed: ${validationResult.error}. Please contact support.`
+        };
+      }
+      console.log('✅ Vault storage validated successfully');
 
       // Step 6: Record Consent
       const consentResult = await this.recordConsent(userId, ipAddress, userAgent);
