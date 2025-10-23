@@ -248,6 +248,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
 
+  // Authentication middleware for user-specific portfolio access
+  const requireAuth = (req: any, res: any, next: any) => {
+    if (!req.user) {
+      // In development mode, use demo user for easier testing
+      // Check for Replit development environment or non-production conditions
+      const isDevelopment = !process.env.NODE_ENV || process.env.NODE_ENV === 'development' || process.env.REPL_ID;
+      if (isDevelopment) {
+        req.user = { id: 'demo-user-1' };
+      } else {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+    }
+    next();
+  };
+
   // Helper function to generate custom proposal IDs based on source
   const generateProposalId = (source: 'ai' | 'agent' | 'client' | 'hybrid'): string => {
     const timestamp = Date.now();
@@ -10107,21 +10122,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to fetch sector performance" });
     }
   });
-
-  // Authentication middleware for user-specific portfolio access
-  const requireAuth = (req: any, res: any, next: any) => {
-    if (!req.user) {
-      // In development mode, use demo user for easier testing
-      // Check for Replit development environment or non-production conditions
-      const isDevelopment = !process.env.NODE_ENV || process.env.NODE_ENV === 'development' || process.env.REPL_ID;
-      if (isDevelopment) {
-        req.user = { id: 'demo-user-1' };
-      } else {
-        return res.status(401).json({ error: "Authentication required" });
-      }
-    }
-    next();
-  };
 
   // =================================================================
   // ICICI BANK LOS ROUTES - PROTECTED (requireAuth)  
