@@ -683,13 +683,13 @@ export default function SmartKYCOnboarding() {
   }
   
   // Show error state if session failed to initialize
-  if (sessionError || (!sessionId && !startSessionMutation.isPending)) {
+  if (sessionError && !startSessionMutation.isPending) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4 px-4">
         <Alert variant="destructive" className="max-w-md">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            {sessionError || "Failed to initialize KYC session"}
+            {sessionError}
           </AlertDescription>
         </Alert>
         <Button 
@@ -698,6 +698,16 @@ export default function SmartKYCOnboarding() {
         >
           Retry
         </Button>
+      </div>
+    );
+  }
+  
+  // Show loading if session hasn't been created yet
+  if (!sessionId && !sessionError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-muted-foreground">Initializing KYC session...</p>
       </div>
     );
   }
