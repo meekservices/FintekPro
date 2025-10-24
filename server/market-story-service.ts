@@ -1,7 +1,4 @@
-import OpenAI from "openai";
-
-// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+import { aiService } from "./services/ai-service";
 
 export interface MarketData {
   symbol: string;
@@ -32,42 +29,39 @@ export class MarketStoryService {
     try {
       const prompt = this.buildStoryPrompt(marketData);
       
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o", // Using the latest stable OpenAI model
-        messages: [
-          {
-            role: "system",
-            content: `You are an expert financial analyst and storyteller. Create compelling, insightful narratives about market movements. 
+      const systemPrompt = `You are an expert financial analyst and storyteller. Create compelling, insightful narratives about market movements. 
             
-            Your response must be valid JSON with this exact structure:
-            {
-              "title": "engaging headline about the market trend",
-              "content": "detailed narrative story (HTML formatted with <p>, <h3>, <ul>, <li> tags)",
-              "summary": "brief 2-3 sentence summary",
-              "sentiment": "bullish/bearish/neutral",
-              "confidence": 0.85,
-              "keyPoints": ["point 1", "point 2", "point 3"]
-            }
-            
-            Guidelines:
-            - Write engaging, professional financial journalism
-            - Use storytelling techniques to make data compelling
-            - Include specific numbers and percentages
-            - Explain what the movements mean for investors
-            - Be objective but engaging
-            - Format content with proper HTML tags for readability`
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        response_format: { type: "json_object" },
+Your response must be valid JSON with this exact structure:
+{
+  "title": "engaging headline about the market trend",
+  "content": "detailed narrative story (HTML formatted with <p>, <h3>, <ul>, <li> tags)",
+  "summary": "brief 2-3 sentence summary",
+  "sentiment": "bullish/bearish/neutral",
+  "confidence": 0.85,
+  "keyPoints": ["point 1", "point 2", "point 3"]
+}
+
+Guidelines:
+- Write engaging, professional financial journalism
+- Use storytelling techniques to make data compelling
+- Include specific numbers and percentages
+- Explain what the movements mean for investors
+- Be objective but engaging
+- Format content with proper HTML tags for readability
+
+IMPORTANT: Return ONLY valid JSON, no markdown code blocks or extra text.`;
+
+      const response = await aiService.chat([
+        { role: "system", content: systemPrompt },
+        { role: "user", content: prompt }
+      ], {
+        provider: 'gemini',
+        model: 'gemini-2.0-flash-exp',
         temperature: 0.7,
-        max_tokens: 1500
+        maxTokens: 1500
       });
 
-      const aiResponse = JSON.parse(response.choices[0].message.content || '{}');
+      const aiResponse = JSON.parse(response.content || '{}');
       
       const story: MarketStory = {
         id: `story-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -162,23 +156,20 @@ Focus on trends, patterns, and what these movements signal about market sentimen
 
   async analyzeSentiment(text: string): Promise<{ sentiment: string; confidence: number }> {
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o", // Using the latest stable OpenAI model
-        messages: [
-          {
-            role: "system",
-            content: "Analyze the sentiment of financial text. Respond with JSON: { \"sentiment\": \"bullish/bearish/neutral\", \"confidence\": 0.85 }"
-          },
-          {
-            role: "user",
-            content: text
-          }
-        ],
-        response_format: { type: "json_object" },
+      const systemPrompt = `Analyze the sentiment of financial text. Respond with JSON: { "sentiment": "bullish/bearish/neutral", "confidence": 0.85 }
+
+IMPORTANT: Return ONLY valid JSON, no markdown code blocks or extra text.`;
+
+      const response = await aiService.chat([
+        { role: "system", content: systemPrompt },
+        { role: "user", content: text }
+      ], {
+        provider: 'gemini',
+        model: 'gemini-2.0-flash-exp',
         temperature: 0.3
       });
 
-      const result = JSON.parse(response.choices[0].message.content || '{}');
+      const result = JSON.parse(response.content || '{}');
       return {
         sentiment: this.validateSentiment(result.sentiment),
         confidence: Math.max(0, Math.min(1, result.confidence || 0.5))

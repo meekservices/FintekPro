@@ -1,7 +1,5 @@
-import OpenAI from "openai";
+import { aiService } from "./services/ai-service";
 import { DatabaseStorage } from "./storage";
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export interface PortfolioData {
   id: string;
@@ -109,51 +107,48 @@ export class AIPortfolioService {
     try {
       const prompt = this.buildRebalancingPrompt(portfolioData, userProfile);
       
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a senior portfolio manager and financial advisor with 20+ years of experience. 
-            Analyze the provided portfolio data and user profile to generate specific, actionable rebalancing recommendations.
-            
-            Your response must be valid JSON with this exact structure:
-            {
-              "recommendations": [
-                {
-                  "title": "specific recommendation title",
-                  "priority": "high/medium/low",
-                  "recommendation": "clear action to take",
-                  "reasoning": "detailed explanation of why this recommendation is important",
-                  "expectedImpact": "expected impact on portfolio performance and risk",
-                  "actionRequired": "specific steps the user needs to take",
-                  "estimatedCost": 0,
-                  "timeframe": "immediate/1-3 months/3-6 months",
-                  "riskLevel": "low/medium/high"
-                }
-              ]
-            }
-            
-            Guidelines:
-            - Provide 3-7 specific, actionable recommendations
-            - Consider asset allocation, diversification, risk management, and cost optimization
-            - Account for user's risk tolerance, age, and investment goals
-            - Include specific percentages and amounts where appropriate
-            - Consider tax implications and transaction costs
-            - Be conservative with high-risk recommendations
-            - Focus on long-term wealth building aligned with user's profile`
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        response_format: { type: "json_object" },
+      const systemPrompt = `You are a senior portfolio manager and financial advisor with 20+ years of experience. 
+Analyze the provided portfolio data and user profile to generate specific, actionable rebalancing recommendations.
+
+Your response must be valid JSON with this exact structure:
+{
+  "recommendations": [
+    {
+      "title": "specific recommendation title",
+      "priority": "high/medium/low",
+      "recommendation": "clear action to take",
+      "reasoning": "detailed explanation of why this recommendation is important",
+      "expectedImpact": "expected impact on portfolio performance and risk",
+      "actionRequired": "specific steps the user needs to take",
+      "estimatedCost": 0,
+      "timeframe": "immediate/1-3 months/3-6 months",
+      "riskLevel": "low/medium/high"
+    }
+  ]
+}
+
+Guidelines:
+- Provide 3-7 specific, actionable recommendations
+- Consider asset allocation, diversification, risk management, and cost optimization
+- Account for user's risk tolerance, age, and investment goals
+- Include specific percentages and amounts where appropriate
+- Consider tax implications and transaction costs
+- Be conservative with high-risk recommendations
+- Focus on long-term wealth building aligned with user's profile
+
+IMPORTANT: Return ONLY valid JSON, no markdown code blocks or extra text.`;
+
+      const response = await aiService.chat([
+        { role: "system", content: systemPrompt },
+        { role: "user", content: prompt }
+      ], {
+        provider: 'gemini',
+        model: 'gemini-2.0-flash-exp',
         temperature: 0.6,
-        max_tokens: 2000
+        maxTokens: 2000
       });
 
-      const aiResponse = JSON.parse(response.choices[0].message.content || '{}');
+      const aiResponse = JSON.parse(response.content || '{}');
       
       return aiResponse.recommendations?.map((rec: any, index: number) => ({
         id: `rebalance-${Date.now()}-${index}`,
@@ -182,15 +177,10 @@ export class AIPortfolioService {
     try {
       const prompt = this.buildInvestmentProposalPrompt(portfolioData, userProfile, additionalCapital);
       
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a certified financial planner (CFP) and portfolio strategist with expertise in Indian financial markets. 
-            Create a comprehensive investment proposal based on the user's current portfolio and profile.
-            
-            Your response must be valid JSON with this exact structure:
+      const systemPrompt = `You are a certified financial planner (CFP) and portfolio strategist with expertise in Indian financial markets. 
+Create a comprehensive investment proposal based on the user's current portfolio and profile.
+
+Your response must be valid JSON with this exact structure:
             {
               "title": "comprehensive investment proposal title",
               "summary": "executive summary of the proposal",
@@ -255,19 +245,21 @@ export class AIPortfolioService {
             - Consider inflation impact on goals
             - Account for market volatility and timing risks
             - Provide realistic return expectations
-            - Include cost analysis (expense ratios, brokerage, etc.)`
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        response_format: { type: "json_object" },
+            - Include cost analysis (expense ratios, brokerage, etc.)
+
+IMPORTANT: Return ONLY valid JSON, no markdown code blocks or extra text.`;
+
+      const response = await aiService.chat([
+        { role: "system", content: systemPrompt },
+        { role: "user", content: prompt }
+      ], {
+        provider: 'gemini',
+        model: 'gemini-2.0-flash-exp',
         temperature: 0.7,
-        max_tokens: 3000
+        maxTokens: 3000
       });
 
-      const aiResponse = JSON.parse(response.choices[0].message.content || '{}');
+      const aiResponse = JSON.parse(response.content || '{}');
       
       const proposal: InvestmentProposal = {
         id: `proposal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -379,10 +371,11 @@ export class AIPortfolioService {
     try {
       // Create the main proposal record
       const proposalData = {
+        id: aiProposal.id,
         clientId,
         portfolioId,
         proposalSource: 'ai' as const,
-        aiModelVersion: 'gpt-4o',
+        aiModelVersion: 'gemini-2.0-flash-exp',
         aiConfidenceScore: '85.5', // AI confidence score
         title: aiProposal.title,
         description: aiProposal.summary,

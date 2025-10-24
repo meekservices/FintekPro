@@ -52,8 +52,8 @@ class AIService {
     options: AIServiceOptions = {}
   ): Promise<{ content: string; usage: AIUsageMetrics }> {
     const {
-      provider = 'openai',
-      model = 'gpt-5',
+      provider = 'gemini',
+      model = 'gemini-2.0-flash-exp',
       temperature = 0.7,
       maxTokens = 8192,
       stream = false
@@ -70,10 +70,10 @@ class AIService {
     } catch (error: any) {
       console.error(`AI Service Error (${provider}):`, error.message);
       
-      // Fallback: OpenAI -> Gemini
-      if (provider === 'openai' && gemini) {
-        console.log('Falling back to Gemini...');
-        return await this.chatWithGemini(messages, 'gemini-2.0-flash-exp', temperature, maxTokens);
+      // Fallback: Gemini -> OpenAI (if OpenAI is available)
+      if (provider === 'gemini') {
+        console.log('Falling back to OpenAI...');
+        return await this.chatWithOpenAI(messages, 'gpt-5', temperature, maxTokens, stream);
       }
       
       throw error;
@@ -90,8 +90,8 @@ class AIService {
     options: AIServiceOptions = {}
   ): Promise<{ content: string; usage: AIUsageMetrics }> {
     const {
-      provider = 'openai',
-      model = 'gpt-5',
+      provider = 'gemini',
+      model = 'gemini-2.0-flash-exp',
       temperature = 0.7,
       maxTokens = 8192
     } = options;
@@ -107,10 +107,10 @@ class AIService {
     } catch (error: any) {
       console.error(`AI Streaming Error (${provider}):`, error.message);
       
-      // Fallback: OpenAI -> Gemini
-      if (provider === 'openai' && gemini) {
-        console.log('Falling back to Gemini for streaming...');
-        return await this.streamGemini(messages, 'gemini-2.0-flash-exp', temperature, maxTokens, onChunk);
+      // Fallback: Gemini -> OpenAI (if OpenAI is available)
+      if (provider === 'gemini') {
+        console.log('Falling back to OpenAI for streaming...');
+        return await this.streamOpenAI(messages, 'gpt-5', temperature, maxTokens, onChunk);
       }
       
       throw error;
