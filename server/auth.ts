@@ -792,9 +792,15 @@ export function setupAuth(app: Express) {
       // Complete login by creating session with updated user data
       req.login(updatedUser, (loginErr) => {
         if (loginErr) {
-          console.error("Login session error:", loginErr);
+          console.error("❌ Login session error:", loginErr);
           return res.status(500).json({ message: "Login failed" });
         }
+        
+        // Log session details for debugging
+        console.log("✅ Session created for user:", updatedUser.email || updatedUser.mobile);
+        console.log("📝 Session ID:", req.sessionID);
+        console.log("🔑 User roles:", updatedUser.roles);
+        console.log("🍪 Session cookie:", req.session.cookie);
         
         res.json({
           id: updatedUser.id,

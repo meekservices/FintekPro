@@ -242,6 +242,11 @@ export async function setupAuth(app: Express) {
     // req.user is now always a database user object (from both OAuth and local auth)
     const user = req.user as any;
     
+    console.log("🔍 /api/user request - isAuthenticated:", req.isAuthenticated());
+    console.log("🔍 Session ID:", req.sessionID);
+    console.log("🔍 Session data:", req.session);
+    console.log("🔍 User:", user ? `${user.email || user.mobile} (roles: ${user.roles})` : 'null');
+    
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
