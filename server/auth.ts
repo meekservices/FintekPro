@@ -193,6 +193,15 @@ export function setupAuth(app: Express) {
   // Register endpoint - Step 1: Send OTP for verification
   app.post("/api/register", async (req, res) => {
     try {
+      // Block registration on admin portal
+      const hostname = (req.headers["x-forwarded-host"] || req.hostname || req.get('host') || '').toString().toLowerCase();
+      if (hostname.startsWith('admin.') || hostname.includes('admin.fintekpro.com')) {
+        console.warn(`⚠️ [SECURITY] Registration blocked from admin portal - Host: ${hostname}, IP: ${req.ip}`);
+        return res.status(403).json({ 
+          message: "Registration is not allowed on the admin portal. Please contact an administrator for access." 
+        });
+      }
+
       const { email, mobile, password } = req.body;
 
       // Require both email AND mobile for registration
@@ -289,6 +298,15 @@ export function setupAuth(app: Express) {
   // Register endpoint - Step 2: Verify OTP and create account
   app.post("/api/register/verify-otp", async (req, res) => {
     try {
+      // Block registration on admin portal
+      const hostname = (req.headers["x-forwarded-host"] || req.hostname || req.get('host') || '').toString().toLowerCase();
+      if (hostname.startsWith('admin.') || hostname.includes('admin.fintekpro.com')) {
+        console.warn(`⚠️ [SECURITY] Registration OTP verification blocked from admin portal - Host: ${hostname}, IP: ${req.ip}`);
+        return res.status(403).json({ 
+          message: "Registration is not allowed on the admin portal. Please contact an administrator for access." 
+        });
+      }
+
       const { identifier, otp } = req.body;
 
       if (!identifier || !otp) {
@@ -482,6 +500,15 @@ export function setupAuth(app: Express) {
   // Resend OTP during registration (secure endpoint)
   app.post("/api/register/resend-otp", async (req, res) => {
     try {
+      // Block registration on admin portal
+      const hostname = (req.headers["x-forwarded-host"] || req.hostname || req.get('host') || '').toString().toLowerCase();
+      if (hostname.startsWith('admin.') || hostname.includes('admin.fintekpro.com')) {
+        console.warn(`⚠️ [SECURITY] Registration OTP resend blocked from admin portal - Host: ${hostname}, IP: ${req.ip}`);
+        return res.status(403).json({ 
+          message: "Registration is not allowed on the admin portal. Please contact an administrator for access." 
+        });
+      }
+
       const { identifier, registrationToken } = req.body;
 
       if (!identifier || !registrationToken) {
