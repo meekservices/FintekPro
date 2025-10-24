@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
+import { useSubdomain } from "@/hooks/useSubdomain";
 import { Loader2, Eye, EyeOff, Shield, TrendingUp, BarChart3, MessageSquare, CheckCircle2, Mail, Smartphone, User, Info, Clock, RefreshCw } from "lucide-react";
 
 const loginSchema = z.object({
@@ -62,6 +63,7 @@ type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>;
 export default function AuthPage() {
   const [, navigate] = useLocation();
   const { user, isLoading: isAuthLoading } = useAuth();
+  const { isAdminPortal } = useSubdomain();
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
@@ -595,9 +597,9 @@ export default function AuthPage() {
                   {/* Traditional Login Tab */}
                   <TabsContent value="traditional">
                     <Tabs value={authMode} onValueChange={(v) => setAuthMode(v as "login" | "register")} className="space-y-4">
-                      <ScrollableTabsList className="grid w-full grid-cols-2">
+                      <ScrollableTabsList className={`grid w-full ${isAdminPortal ? 'grid-cols-1' : 'grid-cols-2'}`}>
                         <TabsTrigger value="login" data-testid="tab-login">Login</TabsTrigger>
-                        <TabsTrigger value="register" data-testid="tab-register">Register</TabsTrigger>
+                        {!isAdminPortal && <TabsTrigger value="register" data-testid="tab-register">Register</TabsTrigger>}
                       </ScrollableTabsList>
 
                       {/* Login Form */}
