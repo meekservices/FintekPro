@@ -183,6 +183,13 @@ export default function SmartKYCOnboarding() {
           variant: "destructive"
         });
       }
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to send OTP. Please try again.",
+        variant: "destructive"
+      });
     }
   });
   
@@ -212,6 +219,13 @@ export default function SmartKYCOnboarding() {
           variant: "destructive"
         });
       }
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to verify OTP. Please try again.",
+        variant: "destructive"
+      });
     }
   });
   
@@ -232,6 +246,13 @@ export default function SmartKYCOnboarding() {
           description: "Smart KYC completed successfully!",
         });
       }
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to complete KYC. Please try again.",
+        variant: "destructive"
+      });
     }
   });
   
