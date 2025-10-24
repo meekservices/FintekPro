@@ -32,6 +32,11 @@ Key features include real-time portfolio and market data tracking, various finan
 ### System Design Choices
 The platform employs a subdomain-based portal architecture, providing isolated and customized experiences for different user types: Admin Portal (admin.fintekpro.com), Partner Portal (partner.fintekpro.com), and Client Portal (fintekpro.com). This architecture ensures security and role-based access control. All pages maintain a consistent three-part layout: Left Sidebar Navigation, Main Content Area, and Footer, with a collapsible, state-persisted sidebar. The `ScrollableTabsList` pattern is utilized for responsive tabbed navigation.
 
+**Admin Portal Security** (2025-10-24): Registration is completely disabled on the admin portal to prevent unauthorized account creation. Implementation includes:
+- Frontend: Registration tab hidden via `isAdminPortal` flag from `useSubdomain` hook
+- Backend: Hostname validation on all registration endpoints (`/api/register`, `/api/register/verify-otp`, `/api/register/resend-otp`) using normalized lowercase hostname with x-forwarded-host priority
+- Security: All blocked registration attempts are logged with hostname and IP address for monitoring and compliance auditing
+
 ## Production Blockers
 
 ### Auto-Population KYC Vault Decryption (CRITICAL)
