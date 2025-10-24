@@ -804,6 +804,7 @@ export function setupAuth(app: Express) {
           firstName: updatedUser.firstName,
           middleName: updatedUser.middleName,
           lastName: updatedUser.lastName,
+          roles: updatedUser.roles,
           isEmailVerified: updatedUser.isEmailVerified,
           isMobileVerified: updatedUser.isMobileVerified,
           lastLoginAt: updatedUser.lastLoginAt,
