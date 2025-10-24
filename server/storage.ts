@@ -15,7 +15,7 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserByMobile(mobile: string): Promise<User | undefined>;
   getUserByUserId(userId: string): Promise<User | undefined>;
-  createUser(user: Omit<User, 'id' | 'createdAt' | 'updatedAt'>): Promise<User>;
+  createUser(user: UpsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<User>): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   deleteUser(id: string): Promise<boolean>;
@@ -1062,7 +1062,7 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
-  async createUser(user: Omit<User, 'id' | 'createdAt' | 'updatedAt'>): Promise<User> {
+  async createUser(user: UpsertUser): Promise<User> {
     // Guard: Ensure userId is always provided to prevent NULL values
     if (!user.userId) {
       throw new Error("userId is required and must be provided when creating a user");
