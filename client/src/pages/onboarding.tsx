@@ -292,7 +292,7 @@ export default function SmartKYCOnboarding() {
     const interval = setInterval(updateTimer, 1000); // Update every second
     
     return () => clearInterval(interval);
-  }, [sessionExpiresAt, currentStep, showFiveMinWarning, showOneMinWarning, sessionExpiredShown, toast]);
+  }, [sessionExpiresAt, currentStep, showFiveMinWarning, showOneMinWarning, sessionExpiredShown]);
   
   const getStepProgress = () => {
     const steps: WizardStep[] = ['pan_verification', 'aadhaar_otp', 'aadhaar_verification', 'data_collection', 'completed'];
