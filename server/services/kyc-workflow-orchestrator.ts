@@ -358,7 +358,7 @@ export class KYCWorkflowOrchestrator {
 
       // Read back vault data with decryption
       const decryptionResult = await kycVaultDecryptionService.decryptVaultData(userId, {
-        purpose: 'vault_validation',
+        purpose: 'compliance_check',
         requestId: `validation_${Date.now()}`,
         fieldsRequired: ['pan', 'fullName', 'dateOfBirth']
       });
