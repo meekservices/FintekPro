@@ -955,7 +955,7 @@ export function setupAuth(app: Express) {
       // Store the reset token in database
       await storage.createPasswordResetToken(user.id, identifier, resetOtp);
 
-      // Send OTP via email if identifier is email, otherwise log to console
+      // Send OTP via email if identifier is email, otherwise send via SMS
       const isEmail = identifier.includes('@');
       if (isEmail) {
         const emailSent = await emailService.sendPasswordResetOTP(identifier, resetOtp);
@@ -965,8 +965,19 @@ export function setupAuth(app: Express) {
           console.log(`⚠️ Failed to send email, OTP for ${identifier}: ${resetOtp}`);
         }
       } else {
-        // For mobile numbers, log to console (SMS integration can be added later)
-        console.log(`📱 Password Reset OTP for ${identifier}: ${resetOtp}`);
+        // For mobile numbers, try SMS first, then WhatsApp as fallback
+        const smsSent = await smsService.sendPasswordResetOTP(identifier, resetOtp);
+        if (smsSent) {
+          console.log(`✅ Password reset OTP sent via SMS to ${identifier}`);
+        } else {
+          // Try WhatsApp as fallback
+          const whatsappSent = await whatsappService.sendPasswordResetOTP(identifier, resetOtp);
+          if (whatsappSent) {
+            console.log(`✅ Password reset OTP sent via WhatsApp to ${identifier}`);
+          } else {
+            console.log(`📱 Password Reset OTP for ${identifier}: ${resetOtp} (SMS and WhatsApp unavailable)`);
+          }
+        }
       }
 
       res.json({ message: "If an account exists, a password reset OTP has been sent" });
