@@ -796,27 +796,35 @@ export function setupAuth(app: Express) {
           return res.status(500).json({ message: "Login failed" });
         }
         
-        // Log session details for debugging
-        console.log("✅ Session created for user:", updatedUser.email || updatedUser.mobile);
-        console.log("📝 Session ID:", req.sessionID);
-        console.log("🔑 User roles:", updatedUser.roles);
-        console.log("🍪 Session cookie:", req.session.cookie);
-        
-        res.json({
-          id: updatedUser.id,
-          userId: updatedUser.userId,
-          email: updatedUser.email,
-          mobile: updatedUser.mobile,
-          firstName: updatedUser.firstName,
-          middleName: updatedUser.middleName,
-          lastName: updatedUser.lastName,
-          roles: updatedUser.roles,
-          isEmailVerified: updatedUser.isEmailVerified,
-          isMobileVerified: updatedUser.isMobileVerified,
-          lastLoginAt: updatedUser.lastLoginAt,
-          previousLoginAt: updatedUser.previousLoginAt,
-          loginCount: updatedUser.loginCount,
-          message: "Login successful"
+        // Explicitly save session to ensure it persists
+        req.session.save((saveErr) => {
+          if (saveErr) {
+            console.error("❌ Session save error:", saveErr);
+            return res.status(500).json({ message: "Session save failed" });
+          }
+          
+          // Log session details for debugging
+          console.log("✅ Session created and saved for user:", updatedUser.email || updatedUser.mobile);
+          console.log("📝 Session ID:", req.sessionID);
+          console.log("🔑 User roles:", updatedUser.roles);
+          console.log("🍪 Session cookie:", req.session.cookie);
+          
+          res.json({
+            id: updatedUser.id,
+            userId: updatedUser.userId,
+            email: updatedUser.email,
+            mobile: updatedUser.mobile,
+            firstName: updatedUser.firstName,
+            middleName: updatedUser.middleName,
+            lastName: updatedUser.lastName,
+            roles: updatedUser.roles,
+            isEmailVerified: updatedUser.isEmailVerified,
+            isMobileVerified: updatedUser.isMobileVerified,
+            lastLoginAt: updatedUser.lastLoginAt,
+            previousLoginAt: updatedUser.previousLoginAt,
+            loginCount: updatedUser.loginCount,
+            message: "Login successful"
+          });
         });
       });
     } catch (error) {
