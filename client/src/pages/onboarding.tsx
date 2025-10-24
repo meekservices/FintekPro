@@ -76,8 +76,7 @@ export default function SmartKYCOnboarding() {
   // Start or resume session
   const startSessionMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest('POST', '/api/kyc/wizard/start');
-      return res.json();
+      return await apiRequest('POST', '/api/kyc/wizard/start');
     },
     onSuccess: (data) => {
       if (data.success && data.session) {
@@ -124,7 +123,7 @@ export default function SmartKYCOnboarding() {
         throw new Error("Session not initialized. Please refresh the page.");
       }
       
-      const res = await apiRequest('POST', '/api/kyc/wizard/verify-pan', {
+      return await apiRequest('POST', '/api/kyc/wizard/verify-pan', {
         body: {
           sessionId,
           panNumber: panNumber.toUpperCase(),
@@ -132,7 +131,6 @@ export default function SmartKYCOnboarding() {
           dob: panDob
         }
       });
-      return res.json();
     },
     onSuccess: (data) => {
       if (data.success) {
@@ -162,13 +160,12 @@ export default function SmartKYCOnboarding() {
   // Send Aadhaar OTP
   const sendAadhaarOtpMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest('POST', '/api/kyc/wizard/send-aadhaar-otp', {
+      return await apiRequest('POST', '/api/kyc/wizard/send-aadhaar-otp', {
         body: {
           sessionId,
           aadhaarNumber
         }
       });
-      return res.json();
     },
     onSuccess: (data) => {
       if (data.success) {
@@ -192,14 +189,13 @@ export default function SmartKYCOnboarding() {
   // Verify Aadhaar OTP
   const verifyAadhaarOtpMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest('POST', '/api/kyc/wizard/verify-aadhaar-otp', {
+      return await apiRequest('POST', '/api/kyc/wizard/verify-aadhaar-otp', {
         body: {
           sessionId,
           transactionId: aadhaarTransactionId,
           otp: aadhaarOtp
         }
       });
-      return res.json();
     },
     onSuccess: (data) => {
       if (data.success && data.verified) {
@@ -222,12 +218,11 @@ export default function SmartKYCOnboarding() {
   // Complete KYC
   const completeKycMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest('POST', '/api/kyc/wizard/complete', {
+      return await apiRequest('POST', '/api/kyc/wizard/complete', {
         body: {
           sessionId
         }
       });
-      return res.json();
     },
     onSuccess: (data) => {
       if (data.success) {
