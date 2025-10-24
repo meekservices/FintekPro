@@ -115,8 +115,14 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     },
   });
 
-  // Redirect if not admin
-  const isAdmin = user?.roles?.includes('admin') || user?.roles?.includes('super_admin');
+  // First check: Must be logged in
+  if (!user) {
+    window.location.href = '/auth';
+    return null;
+  }
+
+  // Second check: Must have admin role
+  const isAdmin = user.roles?.includes('admin') || user.roles?.includes('super_admin');
   
   if (!isAdmin) {
     return (

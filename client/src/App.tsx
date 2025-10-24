@@ -54,6 +54,7 @@ import ProfileCompletionGuard from "@/components/ProfileCompletionGuard";
 import { AppLayout } from "@/components/layout/app-layout";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { useSubdomain } from "@/hooks/useSubdomain";
+import { useAuth } from "@/hooks/useAuth";
 import AdminDashboard from "@/pages/admin/dashboard";
 import StakeholdersPage from "@/pages/admin/stakeholders";
 import KycCompliancePage from "@/pages/admin/kyc-compliance";
@@ -215,53 +216,152 @@ function UserProtectedRoutes() {
 }
 
 function AdminRoutes() {
+  const { user } = useAuth();
+  
   return (
-    <AdminLayout>
-      <Switch>
-        <Route path="/" component={AdminDashboard} />
-        <Route path="/admin/dashboard" component={AdminDashboard} />
-        <Route path="/admin/stakeholders" component={StakeholdersPage} />
-        <Route path="/admin/kyc-compliance" component={KycCompliancePage} />
-        <Route path="/admin/financial-operations" component={FinancialOperationsPage} />
-        <Route path="/admin/api-config" component={APIConfiguration} />
-        <Route path="/admin/api-configuration" component={APIConfiguration} />
-        <Route path="/admin/production-readiness" component={ProductionReadiness} />
-        <Route path="/admin/zoho-dashboard" component={ZohoDashboardPage} />
-        <Route path="/admin/zoho-connections" component={ZohoConnectionsPage} />
-        <Route path="/admin/zoho-logs" component={ZohoLogsPage} />
-        <Route path="/admin/system-health">{() => (
-          <div className="text-center py-20">
-            <h2 className="text-2xl font-bold text-white mb-4">System Health</h2>
-            <p className="text-gray-400">Coming soon...</p>
-          </div>
-        )}</Route>
-        <Route path="/admin/users">{() => (
-          <div className="text-center py-20">
-            <h2 className="text-2xl font-bold text-white mb-4">User Management</h2>
-            <p className="text-gray-400">Coming soon...</p>
-          </div>
-        )}</Route>
-        <Route path="/admin/reports">{() => (
-          <div className="text-center py-20">
-            <h2 className="text-2xl font-bold text-white mb-4">Reports & Analytics</h2>
-            <p className="text-gray-400">Coming soon...</p>
-          </div>
-        )}</Route>
-        <Route path="/admin/compliance">{() => (
-          <div className="text-center py-20">
-            <h2 className="text-2xl font-bold text-white mb-4">Compliance Dashboard</h2>
-            <p className="text-gray-400">Coming soon...</p>
-          </div>
-        )}</Route>
-        <Route path="/admin/database">{() => (
-          <div className="text-center py-20">
-            <h2 className="text-2xl font-bold text-white mb-4">Database Management</h2>
-            <p className="text-gray-400">Coming soon...</p>
-          </div>
-        )}</Route>
-        <Route component={NotFound} />
-      </Switch>
-    </AdminLayout>
+    <Switch>
+      {/* Public auth routes - no AdminLayout wrapper */}
+      <Route path="/auth" component={AuthPage} />
+      <Route path="/whatsapp-login" component={WhatsAppAuthPage} />
+      
+      {/* Protected admin routes - wrapped in AdminLayout */}
+      <Route path="/">
+        {() => {
+          // Redirect root to dashboard if logged in, or to auth if not
+          if (!user) {
+            window.location.href = '/auth';
+            return null;
+          }
+          return (
+            <AdminLayout>
+              <AdminDashboard />
+            </AdminLayout>
+          );
+        }}
+      </Route>
+      
+      <Route path="/admin/dashboard">
+        {() => (
+          <AdminLayout>
+            <AdminDashboard />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/stakeholders">
+        {() => (
+          <AdminLayout>
+            <StakeholdersPage />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/kyc-compliance">
+        {() => (
+          <AdminLayout>
+            <KycCompliancePage />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/financial-operations">
+        {() => (
+          <AdminLayout>
+            <FinancialOperationsPage />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/api-config">
+        {() => (
+          <AdminLayout>
+            <APIConfiguration />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/api-configuration">
+        {() => (
+          <AdminLayout>
+            <APIConfiguration />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/production-readiness">
+        {() => (
+          <AdminLayout>
+            <ProductionReadiness />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/zoho-dashboard">
+        {() => (
+          <AdminLayout>
+            <ZohoDashboardPage />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/zoho-connections">
+        {() => (
+          <AdminLayout>
+            <ZohoConnectionsPage />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/zoho-logs">
+        {() => (
+          <AdminLayout>
+            <ZohoLogsPage />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/system-health">
+        {() => (
+          <AdminLayout>
+            <div className="text-center py-20">
+              <h2 className="text-2xl font-bold text-white mb-4">System Health</h2>
+              <p className="text-gray-400">Coming soon...</p>
+            </div>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/users">
+        {() => (
+          <AdminLayout>
+            <div className="text-center py-20">
+              <h2 className="text-2xl font-bold text-white mb-4">User Management</h2>
+              <p className="text-gray-400">Coming soon...</p>
+            </div>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/reports">
+        {() => (
+          <AdminLayout>
+            <div className="text-center py-20">
+              <h2 className="text-2xl font-bold text-white mb-4">Reports & Analytics</h2>
+              <p className="text-gray-400">Coming soon...</p>
+            </div>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/compliance">
+        {() => (
+          <AdminLayout>
+            <div className="text-center py-20">
+              <h2 className="text-2xl font-bold text-white mb-4">Compliance Dashboard</h2>
+              <p className="text-gray-400">Coming soon...</p>
+            </div>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/database">
+        {() => (
+          <AdminLayout>
+            <div className="text-center py-20">
+              <h2 className="text-2xl font-bold text-white mb-4">Database Management</h2>
+              <p className="text-gray-400">Coming soon...</p>
+            </div>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route component={NotFound} />
+    </Switch>
   );
 }
 
