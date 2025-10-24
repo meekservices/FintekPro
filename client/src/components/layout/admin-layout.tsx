@@ -122,7 +122,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   }
 
   // Second check: Must have admin role
-  const isAdmin = user.roles?.includes('admin') || user.roles?.includes('super_admin');
+  const isAdmin = user.roles?.includes('admin') || user.roles?.includes('superadmin');
   
   if (!isAdmin) {
     return (
@@ -173,7 +173,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               <div className="text-right">
                 <p className="text-sm font-medium text-white">{user?.email}</p>
                 <p className="text-xs text-gray-400 capitalize">
-                  {user?.roles?.includes('super_admin') ? 'Super Admin' : 'Admin'}
+                  {user?.roles?.includes('superadmin') ? 'Super Admin' : 'Admin'}
                 </p>
               </div>
               <Button
