@@ -242,7 +242,7 @@ export class TwilioWhatsAppService {
    */
   cleanupExpiredSessions() {
     const now = new Date();
-    for (const [sessionId, session] of this.authSessions.entries()) {
+    for (const [sessionId, session] of Array.from(this.authSessions.entries())) {
       if (session.expiresAt < now) {
         this.authSessions.delete(sessionId);
       }

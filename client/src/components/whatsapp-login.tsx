@@ -25,10 +25,10 @@ export function WhatsAppLogin({ onSuccess, onError }: WhatsAppLoginProps) {
   const { toast } = useToast();
 
   // Check WhatsApp service status
-  const { data: serviceStatus } = useQuery<{ isReady: boolean; hasQrCode?: boolean }>({
+  const { data: serviceStatus } = useQuery<{ isReady: boolean }>({
     queryKey: ["/api/whatsapp/status"],
-    refetchInterval: 10000, // Check every 10 seconds
-    retry: 2,
+    refetchInterval: 30000, // Check every 30 seconds
+    retry: 1,
   });
 
   // Countdown timer for resending code
@@ -175,17 +175,7 @@ export function WhatsAppLogin({ onSuccess, onError }: WhatsAppLoginProps) {
           <Alert className="bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
             <AlertCircle className="h-4 w-4 text-amber-600" />
             <AlertDescription className="text-amber-800 dark:text-amber-200">
-              {serviceStatus?.hasQrCode ? (
-                <>
-                  WhatsApp login is currently unavailable. The system is waiting for authentication. 
-                  Please try again later or use email login.
-                </>
-              ) : (
-                <>
-                  WhatsApp login is currently being set up. 
-                  Please use email login or contact support.
-                </>
-              )}
+              WhatsApp login is temporarily unavailable. Please use email/mobile login or contact support.
             </AlertDescription>
           </Alert>
         )}
