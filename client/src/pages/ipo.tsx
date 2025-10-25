@@ -9,6 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import type { IpoCompany, IpoNews } from "@shared/schema";
 import { KYCWarningBanner } from "@/components/KYCWarningBanner";
+import { LoadingState } from "@/components/LoadingState";
 
 export default function IPO() {
   const { data: upcomingIpos = [], isLoading: upcomingLoading } = useQuery({
@@ -182,20 +183,7 @@ export default function IPO() {
 
           <TabsContent value="upcoming" className="space-y-6" data-testid="upcoming-ipos">
             {upcomingLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {[...Array(6)].map((_, i) => (
-                  <Card key={i} className="animate-pulse">
-                    <CardContent className="p-6">
-                      <div className="h-4 bg-gray-200 rounded mb-2"></div>
-                      <div className="h-3 bg-gray-200 rounded mb-4 w-2/3"></div>
-                      <div className="space-y-2">
-                        <div className="h-3 bg-gray-200 rounded"></div>
-                        <div className="h-3 bg-gray-200 rounded w-3/4"></div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+              <LoadingState variant="card" count={6} />
             ) : upcomingIpos.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {upcomingIpos.map((ipo: IpoCompany) => renderIpoCard(ipo))}
@@ -215,20 +203,7 @@ export default function IPO() {
 
           <TabsContent value="ongoing" className="space-y-6" data-testid="ongoing-ipos">
             {ongoingLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {[...Array(3)].map((_, i) => (
-                  <Card key={i} className="animate-pulse">
-                    <CardContent className="p-6">
-                      <div className="h-4 bg-gray-200 rounded mb-2"></div>
-                      <div className="h-3 bg-gray-200 rounded mb-4 w-2/3"></div>
-                      <div className="space-y-2">
-                        <div className="h-3 bg-gray-200 rounded"></div>
-                        <div className="h-3 bg-gray-200 rounded w-3/4"></div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+              <LoadingState variant="card" count={3} />
             ) : ongoingIpos.length > 0 ? (
               <div className="space-y-6">
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4" data-testid="live-ipo-notice">
@@ -259,20 +234,7 @@ export default function IPO() {
 
           <TabsContent value="listed" className="space-y-6" data-testid="listed-ipos">
             {listedLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {[...Array(6)].map((_, i) => (
-                  <Card key={i} className="animate-pulse">
-                    <CardContent className="p-6">
-                      <div className="h-4 bg-gray-200 rounded mb-2"></div>
-                      <div className="h-3 bg-gray-200 rounded mb-4 w-2/3"></div>
-                      <div className="space-y-2">
-                        <div className="h-3 bg-gray-200 rounded"></div>
-                        <div className="h-3 bg-gray-200 rounded w-3/4"></div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+              <LoadingState variant="card" count={6} />
             ) : listedIpos.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {listedIpos.map((ipo: IpoCompany) => renderIpoCard(ipo, true))}
@@ -531,12 +493,7 @@ export default function IPO() {
               </h2>
               <div className="space-y-3">
                 {newsLoading ? (
-                  [...Array(4)].map((_, i) => (
-                    <div key={i} className="animate-pulse p-3 border rounded-lg">
-                      <div className="h-4 bg-gray-200 rounded mb-2"></div>
-                      <div className="h-3 bg-gray-200 rounded w-1/4"></div>
-                    </div>
-                  ))
+                  <LoadingState variant="list" count={4} />
                 ) : ipoNews.length > 0 ? (
                   ipoNews.slice(0, 5).map((news: IpoNews) => (
                     <Card key={news.id} className="hover:shadow-sm transition-shadow" data-testid={`news-${news.id}`}>

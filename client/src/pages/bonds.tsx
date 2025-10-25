@@ -13,6 +13,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { KYCWarningBanner } from "@/components/KYCWarningBanner";
+import { LoadingState } from "@/components/LoadingState";
 
 // Bond Categories Component with Real-time Data
 function BondCategoriesSection() {
@@ -40,13 +41,7 @@ function BondCategoriesSection() {
     return (
       <section>
         <h2 className="text-2xl font-bold text-gray-900 mb-6">Bond Categories</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="animate-pulse">
-              <div className="h-48 bg-gray-200 rounded-lg"></div>
-            </div>
-          ))}
-        </div>
+        <LoadingState variant="card" count={4} />
       </section>
     );
   }
@@ -129,9 +124,7 @@ function GovernmentSecurities() {
   });
 
   if (isLoading) {
-    return <div className="animate-pulse space-y-4">
-      {[1, 2].map(i => <div key={i} className="h-32 bg-gray-200 rounded-lg" />)}
-    </div>;
+    return <LoadingState variant="list" count={2} />;
   }
 
   const bonds = (gsecs as any)?.data || [];
@@ -305,9 +298,7 @@ function CorporateBonds() {
   });
 
   if (isLoading) {
-    return <div className="animate-pulse space-y-4">
-      {[1, 2].map(i => <div key={i} className="h-32 bg-gray-200 rounded-lg" />)}
-    </div>;
+    return <LoadingState variant="list" count={2} />;
   }
 
   const bonds = (corporateBonds as any)?.data || [];
@@ -470,7 +461,7 @@ function BondHoldings() {
   });
 
   if (isLoading) {
-    return <div className="animate-pulse h-48 bg-gray-200 rounded-lg" />;
+    return <LoadingState variant="card" count={1} />;
   }
 
   const bonds = (holdings as any)?.data || [];
@@ -586,7 +577,7 @@ function BondOrders() {
   });
 
   if (isLoading) {
-    return <div className="animate-pulse h-32 bg-gray-200 rounded-lg mt-6" />;
+    return <div className="mt-6"><LoadingState variant="list" count={1} /></div>;
   }
 
   const orderList = (orders as any)?.data || [];

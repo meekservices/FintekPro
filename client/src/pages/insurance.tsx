@@ -6,6 +6,7 @@ import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Shield, Heart, Car, Home, Users, TrendingUp, Calculator } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { LoadingState } from "@/components/LoadingState";
 
 export default function Insurance() {
   const [selectedType, setSelectedType] = useState<string>("all");
@@ -97,13 +98,7 @@ export default function Insurance() {
 
           <TabsContent value={selectedType} className="space-y-4">
             {isLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {[1, 2, 3, 4, 5, 6].map((i) => (
-                  <div key={i} className="animate-pulse">
-                    <div className="h-64 bg-gray-200 rounded-lg"></div>
-                  </div>
-                ))}
-              </div>
+              <LoadingState variant="card" count={6} />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {insuranceProducts && insuranceProducts.length > 0 ? (
