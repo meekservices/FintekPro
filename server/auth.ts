@@ -916,112 +916,6 @@ export function setupAuth(app: Express) {
     }
   });
 
-  // Forgot Password - Send OTP
-  app.post("/api/auth/forgot-password", async (req, res) => {
-    try {
-      const { identifier } = req.body; // Can be email or mobile
-
-      if (!identifier) {
-        return apiResponse.badRequest(res, "Email or mobile number is required");
-      }
-
-      // Find user by email or mobile
-      let user = await storage.getUserByEmail(identifier);
-      if (!user) {
-        user = await storage.getUserByMobile(identifier);
-      }
-
-      if (!user) {
-        // Don't reveal if user exists or not for security
-        return apiResponse.success(res, {}, "If an account exists, a password reset OTP has been sent");
-      }
-
-      // Generate 6-digit OTP
-      const resetOtp = generateOtp();
-
-      // Store the reset token in database
-      await storage.createPasswordResetToken(user.id, identifier, resetOtp);
-
-      // Send OTP via email if identifier is email, otherwise send via SMS
-      const isEmail = identifier.includes('@');
-      if (isEmail) {
-        const emailSent = await emailService.sendPasswordResetOTP(identifier, resetOtp);
-        if (emailSent) {
-          console.log(`✅ Password reset OTP sent to ${identifier}`);
-        } else {
-          console.log(`⚠️ Failed to send email, OTP for ${identifier}: ${resetOtp}`);
-        }
-      } else {
-        // For mobile numbers, try SMS first, then WhatsApp as fallback
-        const smsSent = await smsService.sendPasswordResetOTP(identifier, resetOtp);
-        if (smsSent) {
-          console.log(`✅ Password reset OTP sent via SMS to ${identifier}`);
-        } else {
-          // Try WhatsApp as fallback
-          const whatsappSent = await whatsappService.sendPasswordResetOTP(identifier, resetOtp);
-          if (whatsappSent) {
-            console.log(`✅ Password reset OTP sent via WhatsApp to ${identifier}`);
-          } else {
-            console.log(`📱 Password Reset OTP for ${identifier}: ${resetOtp} (SMS and WhatsApp unavailable)`);
-          }
-        }
-      }
-
-      return apiResponse.success(res, {}, "If an account exists, a password reset OTP has been sent");
-    } catch (error) {
-      console.error("Forgot password error:", error);
-      return apiResponse.serverError(res, "Failed to process password reset request");
-    }
-  });
-
-  // Reset Password - Verify OTP and Update Password
-  app.post("/api/auth/reset-password", async (req, res) => {
-    try {
-      const { identifier, otp, newPassword } = req.body;
-
-      if (!identifier || !otp || !newPassword) {
-        return apiResponse.badRequest(res, "All fields are required");
-      }
-
-      // Find user by email or mobile
-      let user = await storage.getUserByEmail(identifier);
-      if (!user) {
-        user = await storage.getUserByMobile(identifier);
-      }
-
-      if (!user) {
-        return apiResponse.badRequest(res, "Invalid or expired OTP");
-      }
-
-      // Get the reset token
-      const resetToken = await storage.getPasswordResetToken(user.id, otp);
-      
-      if (!resetToken) {
-        return apiResponse.badRequest(res, "Invalid or expired OTP");
-      }
-
-      // Check if token is expired (10 minutes)
-      const isExpired = new Date() > new Date(resetToken.expiresAt);
-      if (isExpired) {
-        return apiResponse.badRequest(res, "OTP has expired. Please request a new one");
-      }
-
-      // Hash the new password
-      const hashedPassword = await hashPassword(newPassword);
-
-      // Update user password
-      await storage.updateUser(user.id, { password: hashedPassword });
-
-      // Mark token as used
-      await storage.markPasswordResetTokenAsUsed(resetToken.id);
-
-      return apiResponse.success(res, {}, "Password reset successfully");
-    } catch (error) {
-      console.error("Reset password error:", error);
-      return apiResponse.serverError(res, "Failed to reset password");
-    }
-  });
-
   // Logout endpoint
   app.post("/api/logout", (req, res) => {
     req.logout((err) => {
@@ -1710,15 +1604,26 @@ export function setupAuth(app: Express) {
         return apiResponse.badRequest(res, "Invalid identifier or OTP");
       }
 
-      // Verify OTP
-      const otpRecord = await storage.verifyOtp(
-        user.email || user.mobile || user.userId,
-        otp,
+      // Get the OTP verification record
+      const identifier = user.email || user.mobile || user.userId;
+      const otpRecord = await storage.getOtpVerification(
+        identifier,
         "password_reset"
       );
 
       if (!otpRecord) {
         return apiResponse.badRequest(res, "Invalid or expired OTP");
+      }
+
+      // Check if OTP is expired
+      const isExpired = new Date() > new Date(otpRecord.expiresAt);
+      if (isExpired) {
+        return apiResponse.badRequest(res, "OTP has expired. Please request a new one");
+      }
+
+      // Verify OTP matches
+      if (otpRecord.otp !== otp) {
+        return apiResponse.badRequest(res, "Invalid OTP");
       }
 
       // Hash the new password
