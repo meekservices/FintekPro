@@ -12,6 +12,7 @@ import * as schema from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { smsService } from "./services/sms-service";
 import { whatsappService } from "./whatsapp";
+import { apiResponse } from "./utils/responses";
 
 declare global {
   namespace Express {
@@ -197,32 +198,30 @@ export function setupAuth(app: Express) {
       const hostname = (req.headers["x-forwarded-host"] || req.hostname || req.get('host') || '').toString().toLowerCase();
       if (hostname.startsWith('admin.') || hostname.includes('admin.fintekpro.com')) {
         console.warn(`⚠️ [SECURITY] Registration blocked from admin portal - Host: ${hostname}, IP: ${req.ip}`);
-        return res.status(403).json({ 
-          message: "Registration is not allowed on the admin portal. Please contact an administrator for access." 
-        });
+        return apiResponse.forbidden(res, "Registration is not allowed on the admin portal. Please contact an administrator for access.");
       }
 
       const { email, mobile, password } = req.body;
 
       // Require both email AND mobile for registration
       if (!email || !mobile) {
-        return res.status(400).json({ message: "Email and mobile number are required" });
+        return apiResponse.badRequest(res, "Email and mobile number are required");
       }
 
       if (!password) {
-        return res.status(400).json({ message: "Password is required" });
+        return apiResponse.badRequest(res, "Password is required");
       }
 
       // Validate email format
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
-        return res.status(400).json({ message: "Invalid email format" });
+        return apiResponse.badRequest(res, "Invalid email format");
       }
 
       // Validate mobile format (10 digits)
       const mobileRegex = /^[0-9]{10}$/;
       if (!mobileRegex.test(mobile)) {
-        return res.status(400).json({ message: "Mobile number must be exactly 10 digits" });
+        return apiResponse.badRequest(res, "Mobile number must be exactly 10 digits");
       }
 
       // Hash password for storage in metadata
@@ -281,17 +280,16 @@ export function setupAuth(app: Express) {
       }
 
       // Return success response indicating OTP is required
-      res.status(200).json({
+      return apiResponse.success(res, {
         requiresOtp: true,
         identifier: email,
         registrationToken, // Send token to frontend (NOT password)
-        otpSentTo: `${email} and ${mobile}`,
-        message: "Verification code sent to your email and mobile"
-      });
+        otpSentTo: `${email} and ${mobile}`
+      }, "Verification code sent to your email and mobile");
 
     } catch (error) {
       console.error("Registration error:", error);
-      res.status(500).json({ message: "Registration failed" });
+      return apiResponse.serverError(res, "Registration failed");
     }
   });
 
@@ -302,15 +300,13 @@ export function setupAuth(app: Express) {
       const hostname = (req.headers["x-forwarded-host"] || req.hostname || req.get('host') || '').toString().toLowerCase();
       if (hostname.startsWith('admin.') || hostname.includes('admin.fintekpro.com')) {
         console.warn(`⚠️ [SECURITY] Registration OTP verification blocked from admin portal - Host: ${hostname}, IP: ${req.ip}`);
-        return res.status(403).json({ 
-          message: "Registration is not allowed on the admin portal. Please contact an administrator for access." 
-        });
+        return apiResponse.forbidden(res, "Registration is not allowed on the admin portal. Please contact an administrator for access.");
       }
 
       const { identifier, otp } = req.body;
 
       if (!identifier || !otp) {
-        return res.status(400).json({ message: "Identifier and OTP are required" });
+        return apiResponse.badRequest(res, "Identifier and OTP are required");
       }
 
       // Find OTP verification record
@@ -324,7 +320,7 @@ export function setupAuth(app: Express) {
       });
 
       if (!otpRecord) {
-        return res.status(400).json({ message: "Invalid or expired OTP" });
+        return apiResponse.badRequest(res, "Invalid or expired OTP");
       }
 
       // Check if OTP is expired
@@ -332,18 +328,18 @@ export function setupAuth(app: Express) {
         // Clean up expired OTP
         await db.delete(schema.otpVerifications)
           .where(eq(schema.otpVerifications.id, otpRecord.id));
-        return res.status(400).json({ message: "OTP has expired" });
+        return apiResponse.badRequest(res, "OTP has expired");
       }
 
       // Check if already verified
       if (otpRecord.verified) {
-        return res.status(400).json({ message: "OTP already used" });
+        return apiResponse.badRequest(res, "OTP already used");
       }
 
       // Get registration data from metadata
       const metadata = otpRecord.metadata as any;
       if (!metadata || !metadata.email || !metadata.mobile || !metadata.hashedPassword) {
-        return res.status(400).json({ message: "Invalid registration data" });
+        return apiResponse.badRequest(res, "Invalid registration data");
       }
 
       const { email, mobile, hashedPassword } = metadata;
@@ -472,12 +468,9 @@ export function setupAuth(app: Express) {
       req.login(user, (err) => {
         if (err) {
           console.error("Login error:", err);
-          return res.status(500).json({ 
-            message: "Registration successful but login failed",
-            userId: user.userId
-          });
+          return apiResponse.serverError(res, "Registration successful but login failed");
         }
-        res.status(201).json({
+        return apiResponse.created(res, {
           id: user.id,
           userId: user.userId,
           email: user.email,
@@ -486,14 +479,13 @@ export function setupAuth(app: Express) {
           middleName: user.middleName,
           lastName: user.lastName,
           isEmailVerified: user.isEmailVerified,
-          isMobileVerified: user.isMobileVerified,
-          message: "Registration successful"
-        });
+          isMobileVerified: user.isMobileVerified
+        }, "Registration successful");
       });
 
     } catch (error) {
       console.error("OTP verification error:", error);
-      res.status(500).json({ message: "OTP verification failed" });
+      return apiResponse.serverError(res, "OTP verification failed");
     }
   });
 
@@ -504,15 +496,13 @@ export function setupAuth(app: Express) {
       const hostname = (req.headers["x-forwarded-host"] || req.hostname || req.get('host') || '').toString().toLowerCase();
       if (hostname.startsWith('admin.') || hostname.includes('admin.fintekpro.com')) {
         console.warn(`⚠️ [SECURITY] Registration OTP resend blocked from admin portal - Host: ${hostname}, IP: ${req.ip}`);
-        return res.status(403).json({ 
-          message: "Registration is not allowed on the admin portal. Please contact an administrator for access." 
-        });
+        return apiResponse.forbidden(res, "Registration is not allowed on the admin portal. Please contact an administrator for access.");
       }
 
       const { identifier, registrationToken } = req.body;
 
       if (!identifier || !registrationToken) {
-        return res.status(400).json({ message: "Identifier and registration token are required" });
+        return apiResponse.badRequest(res, "Identifier and registration token are required");
       }
 
       // Find existing OTP verification record
@@ -525,13 +515,13 @@ export function setupAuth(app: Express) {
       });
 
       if (!otpRecord) {
-        return res.status(400).json({ message: "No pending registration found" });
+        return apiResponse.badRequest(res, "No pending registration found");
       }
 
       // Verify registration token matches
       const metadata = otpRecord.metadata as any;
       if (!metadata || metadata.registrationToken !== registrationToken) {
-        return res.status(401).json({ message: "Invalid registration token" });
+        return apiResponse.unauthorized(res, "Invalid registration token");
       }
 
       // Generate new OTP
@@ -565,15 +555,14 @@ export function setupAuth(app: Express) {
         }
       }
 
-      res.status(200).json({
+      return apiResponse.success(res, {
         success: true,
-        otpSentTo: `${metadata.email} and ${metadata.mobile}`,
-        message: "New verification code sent"
-      });
+        otpSentTo: `${metadata.email} and ${metadata.mobile}`
+      }, "New verification code sent");
 
     } catch (error) {
       console.error("Resend OTP error:", error);
-      res.status(500).json({ message: "Failed to resend OTP" });
+      return apiResponse.serverError(res, "Failed to resend OTP");
     }
   });
 
@@ -582,17 +571,17 @@ export function setupAuth(app: Express) {
     passport.authenticate("email-local", (err: any, user: any, info: any) => {
       if (err) {
         console.error("Login error:", err);
-        return res.status(500).json({ message: "Login failed" });
+        return apiResponse.serverError(res, "Login failed");
       }
       if (!user) {
-        return res.status(401).json({ message: info?.message || "Invalid credentials" });
+        return apiResponse.unauthorized(res, info?.message || "Invalid credentials");
       }
       req.login(user, (loginErr) => {
         if (loginErr) {
           console.error("Login session error:", loginErr);
-          return res.status(500).json({ message: "Login failed" });
+          return apiResponse.serverError(res, "Login failed");
         }
-        res.json({
+        return apiResponse.success(res, {
           id: user.id,
           email: user.email,
           mobile: user.mobile,
@@ -600,7 +589,7 @@ export function setupAuth(app: Express) {
           middleName: user.middleName,
           lastName: user.lastName,
           isEmailVerified: user.isEmailVerified,
-          isMobileVerified: user.isMobileVerified,
+          isMobileVerified: user.isMobileVerified
         });
       });
     })(req, res, next);
@@ -611,17 +600,17 @@ export function setupAuth(app: Express) {
     passport.authenticate("mobile-local", (err: any, user: any, info: any) => {
       if (err) {
         console.error("Login error:", err);
-        return res.status(500).json({ message: "Login failed" });
+        return apiResponse.serverError(res, "Login failed");
       }
       if (!user) {
-        return res.status(401).json({ message: info?.message || "Invalid credentials" });
+        return apiResponse.unauthorized(res, info?.message || "Invalid credentials");
       }
       req.login(user, (loginErr) => {
         if (loginErr) {
           console.error("Login session error:", loginErr);
-          return res.status(500).json({ message: "Login failed" });
+          return apiResponse.serverError(res, "Login failed");
         }
-        res.json({
+        return apiResponse.success(res, {
           id: user.id,
           email: user.email,
           mobile: user.mobile,
@@ -629,7 +618,7 @@ export function setupAuth(app: Express) {
           middleName: user.middleName,
           lastName: user.lastName,
           isEmailVerified: user.isEmailVerified,
-          isMobileVerified: user.isMobileVerified,
+          isMobileVerified: user.isMobileVerified
         });
       });
     })(req, res, next);
@@ -642,7 +631,7 @@ export function setupAuth(app: Express) {
       const { identifier, password } = req.body;
 
       if (!identifier || !password) {
-        return res.status(400).json({ message: "Identifier and password are required" });
+        return apiResponse.badRequest(res, "Identifier and password are required");
       }
 
       // Detect identifier type and determine which strategy to use
@@ -678,10 +667,10 @@ export function setupAuth(app: Express) {
       passport.authenticate(strategy, async (err: any, user: any, info: any) => {
         if (err) {
           console.error("Login error:", err);
-          return res.status(500).json({ message: "Login failed" });
+          return apiResponse.serverError(res, "Login failed");
         }
         if (!user) {
-          return res.status(401).json({ message: info?.message || "Invalid credentials" });
+          return apiResponse.unauthorized(res, info?.message || "Invalid credentials");
         }
 
         // Credentials are valid - now send OTP for mandatory verification
@@ -704,7 +693,7 @@ export function setupAuth(app: Express) {
             otpDestination = user.mobile;
             otpType = "mobile";
           } else {
-            return res.status(400).json({ message: "User account has no email or mobile for OTP verification" });
+            return apiResponse.badRequest(res, "User account has no email or mobile for OTP verification");
           }
         } else {
           otpDestination = user.mobile;
@@ -712,7 +701,7 @@ export function setupAuth(app: Express) {
         }
 
         if (!otpDestination) {
-          return res.status(400).json({ message: "No valid OTP destination found for this account" });
+          return apiResponse.badRequest(res, "No valid OTP destination found for this account");
         }
 
         // Store OTP for verification
@@ -747,17 +736,16 @@ export function setupAuth(app: Express) {
         }
 
         // Return success with OTP destination info (don't complete login yet)
-        res.json({
+        return apiResponse.success(res, {
           requiresOtp: true,
           otpSentTo: otpType === "email" ? "email" : "mobile",
           identifier: otpDestination,
-          userId: user.userId,
-          message: `OTP sent to your ${otpType}`
-        });
+          userId: user.userId
+        }, `OTP sent to your ${otpType}`);
       })(modifiedReq, res, next);
     } catch (error) {
       console.error("Unified login error:", error);
-      res.status(500).json({ message: "Login failed" });
+      return apiResponse.serverError(res, "Login failed");
     }
   });
 
@@ -767,7 +755,7 @@ export function setupAuth(app: Express) {
       const { identifier, otp } = req.body;
 
       if (!identifier || !otp) {
-        return res.status(400).json({ message: "Identifier and OTP are required" });
+        return apiResponse.badRequest(res, "Identifier and OTP are required");
       }
 
       // Determine OTP type based on identifier
@@ -777,7 +765,7 @@ export function setupAuth(app: Express) {
       const isValid = await storage.verifyOtp(identifier, otpType, otp);
 
       if (!isValid) {
-        return res.status(400).json({ message: "Invalid or expired OTP" });
+        return apiResponse.badRequest(res, "Invalid or expired OTP");
       }
 
       // OTP is valid - find user and complete login
@@ -789,7 +777,7 @@ export function setupAuth(app: Express) {
       }
 
       if (!user) {
-        return res.status(404).json({ message: "User not found" });
+        return apiResponse.notFound(res, "User not found");
       }
 
       // Update verification status and login timestamps
@@ -813,21 +801,21 @@ export function setupAuth(app: Express) {
       // Fetch updated user data after saving timestamps
       const updatedUser = await storage.getUser(user.id);
       if (!updatedUser) {
-        return res.status(500).json({ message: "Failed to retrieve updated user data" });
+        return apiResponse.serverError(res, "Failed to retrieve updated user data");
       }
 
       // Complete login by creating session with updated user data
       req.login(updatedUser, (loginErr) => {
         if (loginErr) {
           console.error("❌ Login session error:", loginErr);
-          return res.status(500).json({ message: "Login failed" });
+          return apiResponse.serverError(res, "Login failed");
         }
         
         // Explicitly save session to ensure it persists
         req.session.save((saveErr) => {
           if (saveErr) {
             console.error("❌ Session save error:", saveErr);
-            return res.status(500).json({ message: "Session save failed" });
+            return apiResponse.serverError(res, "Session save failed");
           }
           
           // Log session details for debugging
@@ -836,7 +824,7 @@ export function setupAuth(app: Express) {
           console.log("🔑 User roles:", updatedUser.roles);
           console.log("🍪 Session cookie:", req.session.cookie);
           
-          res.json({
+          return apiResponse.success(res, {
             id: updatedUser.id,
             userId: updatedUser.userId,
             email: updatedUser.email,
@@ -849,14 +837,13 @@ export function setupAuth(app: Express) {
             isMobileVerified: updatedUser.isMobileVerified,
             lastLoginAt: updatedUser.lastLoginAt,
             previousLoginAt: updatedUser.previousLoginAt,
-            loginCount: updatedUser.loginCount,
-            message: "Login successful"
-          });
+            loginCount: updatedUser.loginCount
+          }, "Login successful");
         });
       });
     } catch (error) {
       console.error("OTP verification error:", error);
-      res.status(500).json({ message: "OTP verification failed" });
+      return apiResponse.serverError(res, "OTP verification failed");
     }
   });
 
@@ -866,11 +853,11 @@ export function setupAuth(app: Express) {
       const { identifier, type } = req.body; // identifier = email or mobile, type = 'email' or 'mobile'
 
       if (!identifier || !type) {
-        return res.status(400).json({ message: "Identifier and type are required" });
+        return apiResponse.badRequest(res, "Identifier and type are required");
       }
 
       if (type !== "email" && type !== "mobile") {
-        return res.status(400).json({ message: "Type must be either 'email' or 'mobile'" });
+        return apiResponse.badRequest(res, "Type must be either 'email' or 'mobile'");
       }
 
       const otp = generateOtp();
@@ -888,10 +875,10 @@ export function setupAuth(app: Express) {
       // For development, we'll just log the OTP
       console.log(`OTP for ${identifier} (${type}): ${otp}`);
 
-      res.json({ message: "OTP sent successfully" });
+      return apiResponse.success(res, {}, "OTP sent successfully");
     } catch (error) {
       console.error("OTP send error:", error);
-      res.status(500).json({ message: "Failed to send OTP" });
+      return apiResponse.serverError(res, "Failed to send OTP");
     }
   });
 
@@ -901,13 +888,13 @@ export function setupAuth(app: Express) {
       const { identifier, type, otp } = req.body;
 
       if (!identifier || !type || !otp) {
-        return res.status(400).json({ message: "Identifier, type, and OTP are required" });
+        return apiResponse.badRequest(res, "Identifier, type, and OTP are required");
       }
 
       const isValid = await storage.verifyOtp(identifier, type, otp);
 
       if (!isValid) {
-        return res.status(400).json({ message: "Invalid or expired OTP" });
+        return apiResponse.badRequest(res, "Invalid or expired OTP");
       }
 
       // Update user verification status if logged in
@@ -922,10 +909,10 @@ export function setupAuth(app: Express) {
         await storage.updateUser(req.user.id, updates);
       }
 
-      res.json({ message: "OTP verified successfully" });
+      return apiResponse.success(res, {}, "OTP verified successfully");
     } catch (error) {
       console.error("OTP verify error:", error);
-      res.status(500).json({ message: "OTP verification failed" });
+      return apiResponse.serverError(res, "OTP verification failed");
     }
   });
 
@@ -935,7 +922,7 @@ export function setupAuth(app: Express) {
       const { identifier } = req.body; // Can be email or mobile
 
       if (!identifier) {
-        return res.status(400).json({ message: "Email or mobile number is required" });
+        return apiResponse.badRequest(res, "Email or mobile number is required");
       }
 
       // Find user by email or mobile
@@ -946,7 +933,7 @@ export function setupAuth(app: Express) {
 
       if (!user) {
         // Don't reveal if user exists or not for security
-        return res.json({ message: "If an account exists, a password reset OTP has been sent" });
+        return apiResponse.success(res, {}, "If an account exists, a password reset OTP has been sent");
       }
 
       // Generate 6-digit OTP
@@ -980,10 +967,10 @@ export function setupAuth(app: Express) {
         }
       }
 
-      res.json({ message: "If an account exists, a password reset OTP has been sent" });
+      return apiResponse.success(res, {}, "If an account exists, a password reset OTP has been sent");
     } catch (error) {
       console.error("Forgot password error:", error);
-      res.status(500).json({ message: "Failed to process password reset request" });
+      return apiResponse.serverError(res, "Failed to process password reset request");
     }
   });
 
@@ -993,7 +980,7 @@ export function setupAuth(app: Express) {
       const { identifier, otp, newPassword } = req.body;
 
       if (!identifier || !otp || !newPassword) {
-        return res.status(400).json({ message: "All fields are required" });
+        return apiResponse.badRequest(res, "All fields are required");
       }
 
       // Find user by email or mobile
@@ -1003,20 +990,20 @@ export function setupAuth(app: Express) {
       }
 
       if (!user) {
-        return res.status(400).json({ message: "Invalid or expired OTP" });
+        return apiResponse.badRequest(res, "Invalid or expired OTP");
       }
 
       // Get the reset token
       const resetToken = await storage.getPasswordResetToken(user.id, otp);
       
       if (!resetToken) {
-        return res.status(400).json({ message: "Invalid or expired OTP" });
+        return apiResponse.badRequest(res, "Invalid or expired OTP");
       }
 
       // Check if token is expired (10 minutes)
       const isExpired = new Date() > new Date(resetToken.expiresAt);
       if (isExpired) {
-        return res.status(400).json({ message: "OTP has expired. Please request a new one" });
+        return apiResponse.badRequest(res, "OTP has expired. Please request a new one");
       }
 
       // Hash the new password
@@ -1028,10 +1015,10 @@ export function setupAuth(app: Express) {
       // Mark token as used
       await storage.markPasswordResetTokenAsUsed(resetToken.id);
 
-      res.json({ message: "Password reset successfully" });
+      return apiResponse.success(res, {}, "Password reset successfully");
     } catch (error) {
       console.error("Reset password error:", error);
-      res.status(500).json({ message: "Failed to reset password" });
+      return apiResponse.serverError(res, "Failed to reset password");
     }
   });
 
@@ -1040,19 +1027,19 @@ export function setupAuth(app: Express) {
     req.logout((err) => {
       if (err) {
         console.error("Logout error:", err);
-        return res.status(500).json({ message: "Logout failed" });
+        return apiResponse.serverError(res, "Logout failed");
       }
-      res.json({ message: "Logged out successfully" });
+      return apiResponse.success(res, {}, "Logged out successfully");
     });
   });
 
   // Get current user
   app.get("/api/auth/user", (req, res) => {
     if (!req.isAuthenticated() || !req.user) {
-      return res.status(401).json({ message: "Unauthorized" });
+      return apiResponse.unauthorized(res);
     }
 
-    res.json({
+    return apiResponse.success(res, {
       id: req.user.id,
       email: req.user.email,
       mobile: req.user.mobile,
@@ -1060,7 +1047,7 @@ export function setupAuth(app: Express) {
       middleName: req.user.middleName,
       lastName: req.user.lastName,
       isEmailVerified: req.user.isEmailVerified,
-      isMobileVerified: req.user.isMobileVerified,
+      isMobileVerified: req.user.isMobileVerified
     });
   });
 
@@ -1069,20 +1056,20 @@ export function setupAuth(app: Express) {
   app.get("/api/agent/profile/:userId", async (req, res) => {
     try {
       if (!req.isAuthenticated() || !req.user) {
-        return res.status(401).json({ message: "Unauthorized" });
+        return apiResponse.unauthorized(res);
       }
 
       // Check if user has agent/admin role
       const userRoles = req.user.roles || [];
       if (!userRoles.includes('agent') && !userRoles.includes('admin') && !userRoles.includes('super_admin')) {
-        return res.status(403).json({ message: "Agent access required" });
+        return apiResponse.forbidden(res, "Agent access required");
       }
 
       const userId = req.params.userId;
 
       const user = await storage.getUser(userId);
       if (!user) {
-        return res.status(404).json({ message: "User not found" });
+        return apiResponse.notFound(res, "User not found");
       }
 
       // Fetch agent data for API integration codes
@@ -1100,7 +1087,7 @@ export function setupAuth(app: Express) {
         console.log("No agent assigned or error fetching agent data:", error);
       }
 
-      res.json({
+      return apiResponse.success(res, {
         // Enhanced KYC Fields
         panNumber: user.panNumber,
         aadharNumber: user.aadharNumber,
@@ -1153,11 +1140,11 @@ export function setupAuth(app: Express) {
         
         // PAN Consent Status
         panVerificationConsent: user.panVerificationConsent || false,
-        panConsentGivenAt: user.panConsentGivenAt,
+        panConsentGivenAt: user.panConsentGivenAt
       });
     } catch (error) {
       console.error("Error fetching profile:", error);
-      res.status(500).json({ message: "Internal server error" });
+      return apiResponse.serverError(res);
     }
   });
 
@@ -1165,13 +1152,13 @@ export function setupAuth(app: Express) {
   app.put("/api/agent/profile/:userId", async (req, res) => {
     try {
       if (!req.isAuthenticated() || !req.user) {
-        return res.status(401).json({ message: "Unauthorized" });
+        return apiResponse.unauthorized(res);
       }
 
       // Check if user has agent/admin role
       const userRoles = req.user.roles || [];
       if (!userRoles.includes('agent') && !userRoles.includes('admin') && !userRoles.includes('super_admin')) {
-        return res.status(403).json({ message: "Agent access required" });
+        return apiResponse.forbidden(res, "Agent access required");
       }
 
       const userId = req.params.userId;
@@ -1368,10 +1355,10 @@ export function setupAuth(app: Express) {
       });
 
       if (!updatedUser) {
-        return res.status(404).json({ message: "User not found" });
+        return apiResponse.notFound(res, "User not found");
       }
 
-      res.json({
+      return apiResponse.success(res, {
         // Enhanced KYC Fields
         panNumber: updatedUser.panNumber,
         aadharNumber: updatedUser.aadharNumber,
@@ -1426,11 +1413,11 @@ export function setupAuth(app: Express) {
         preferredCamsRegistration: updatedUser.preferredCamsRegistration,
         preferredKfintechRegistration: updatedUser.preferredKfintechRegistration,
         preferredNsdlRegistration: updatedUser.preferredNsdlRegistration,
-        preferredCdslRegistration: updatedUser.preferredCdslRegistration,
+        preferredCdslRegistration: updatedUser.preferredCdslRegistration
       });
     } catch (error) {
       console.error("Error updating profile:", error);
-      res.status(500).json({ message: "Internal server error" });
+      return apiResponse.serverError(res);
     }
   });
 
@@ -1438,19 +1425,19 @@ export function setupAuth(app: Express) {
   app.post("/api/agent/ckyc-register/:userId", async (req, res) => {
     try {
       if (!req.isAuthenticated() || !req.user) {
-        return res.status(401).json({ message: "Unauthorized" });
+        return apiResponse.unauthorized(res);
       }
 
       // Check if user has agent/admin role
       const userRoles = req.user.roles || [];
       if (!userRoles.includes('agent') && !userRoles.includes('admin') && !userRoles.includes('super_admin')) {
-        return res.status(403).json({ message: "Agent access required" });
+        return apiResponse.forbidden(res, "Agent access required");
       }
 
       const userId = req.params.userId;
       const user = await storage.getUser(userId);
       if (!user) {
-        return res.status(404).json({ message: "User not found" });
+        return apiResponse.notFound(res, "User not found");
       }
 
       // Import CKYC service dynamically to avoid module loading issues
@@ -1460,43 +1447,36 @@ export function setupAuth(app: Express) {
       // Perform comprehensive KYC registration
       const results = await ckycService.performComprehensiveKYC(user);
 
-      res.json({
+      return apiResponse.success(res, {
         success: true,
-        message: "CKYC registration completed",
         results: {
           ckyc: results.ckyc,
           kra: results.kra || null,
-          cvl: results.cvl || null,
+          cvl: results.cvl || null
         }
-      });
+      }, "CKYC registration completed");
     } catch (error) {
       console.error("Error in CKYC registration:", error);
-      res.status(500).json({ 
-        success: false,
-        message: "CKYC registration failed",
-        error: "Internal server error" 
-      });
+      return apiResponse.serverError(res, "CKYC registration failed");
     }
   });
 
   app.get("/api/agent/ckyc-search", async (req, res) => {
     try {
       if (!req.isAuthenticated() || !req.user) {
-        return res.status(401).json({ message: "Unauthorized" });
+        return apiResponse.unauthorized(res);
       }
 
       // Check if user has agent/admin role
       const userRoles = req.user.roles || [];
       if (!userRoles.includes('agent') && !userRoles.includes('admin') && !userRoles.includes('super_admin')) {
-        return res.status(403).json({ message: "Agent access required" });
+        return apiResponse.forbidden(res, "Agent access required");
       }
 
       const { panNumber, ckycNumber, aadharNumber, passportNumber } = req.query;
 
       if (!panNumber && !ckycNumber && !aadharNumber && !passportNumber) {
-        return res.status(400).json({ 
-          message: "At least one search parameter is required (PAN, CKYC, Aadhaar, or Passport)" 
-        });
+        return apiResponse.badRequest(res, "At least one search parameter is required (PAN, CKYC, Aadhaar, or Passport)");
       }
 
       const { CKYCService } = await import("./ckyc-service");
@@ -1509,14 +1489,10 @@ export function setupAuth(app: Express) {
         passportNumber: passportNumber as string,
       });
 
-      res.json(searchResult);
+      return apiResponse.success(res, searchResult);
     } catch (error) {
       console.error("Error in CKYC search:", error);
-      res.status(500).json({ 
-        success: false,
-        message: "CKYC search failed",
-        error: "Internal server error" 
-      });
+      return apiResponse.serverError(res, "CKYC search failed");
     }
   });
 
@@ -1524,12 +1500,12 @@ export function setupAuth(app: Express) {
   app.post("/api/profile/aml-screening", async (req, res) => {
     try {
       if (!req.isAuthenticated() || !req.user) {
-        return res.status(401).json({ message: "Unauthorized" });
+        return apiResponse.unauthorized(res);
       }
 
       const user = await storage.getUser(req.user.id);
       if (!user) {
-        return res.status(404).json({ message: "User not found" });
+        return apiResponse.notFound(res, "User not found");
       }
 
       // Import AML service dynamically
@@ -1563,18 +1539,13 @@ export function setupAuth(app: Express) {
 
       const screeningResult = await amlService.performFullScreening(screeningData);
 
-      res.json({
+      return apiResponse.success(res, {
         success: true,
-        message: "AML screening completed successfully",
         result: screeningResult
-      });
+      }, "AML screening completed successfully");
     } catch (error) {
       console.error("Error in AML screening:", error);
-      res.status(500).json({ 
-        success: false,
-        message: "AML screening failed",
-        error: "Internal server error" 
-      });
+      return apiResponse.serverError(res, "AML screening failed");
     }
   });
 
@@ -1582,34 +1553,34 @@ export function setupAuth(app: Express) {
   app.get("/api/agent/pan-consent/check/:userId", async (req, res) => {
     try {
       if (!req.isAuthenticated() || !req.user) {
-        return res.status(401).json({ message: "Unauthorized" });
+        return apiResponse.unauthorized(res);
       }
 
       // Check if user has agent/admin role
       const userRoles = req.user.roles || [];
       if (!userRoles.includes('agent') && !userRoles.includes('admin') && !userRoles.includes('super_admin')) {
-        return res.status(403).json({ message: "Agent access required" });
+        return apiResponse.forbidden(res, "Agent access required");
       }
 
       const userId = req.params.userId;
       const hasConsent = await storage.checkPanVerificationConsent(userId);
-      res.json({ hasConsent });
+      return apiResponse.success(res, { hasConsent });
     } catch (error) {
       console.error("Error checking PAN consent:", error);
-      res.status(500).json({ message: "Failed to check consent status" });
+      return apiResponse.serverError(res, "Failed to check consent status");
     }
   });
 
   app.post("/api/agent/pan-consent/record/:userId", async (req, res) => {
     try {
       if (!req.isAuthenticated() || !req.user) {
-        return res.status(401).json({ message: "Unauthorized" });
+        return apiResponse.unauthorized(res);
       }
 
       // Check if user has agent/admin role
       const userRoles = req.user.roles || [];
       if (!userRoles.includes('agent') && !userRoles.includes('admin') && !userRoles.includes('super_admin')) {
-        return res.status(403).json({ message: "Agent access required" });
+        return apiResponse.forbidden(res, "Agent access required");
       }
 
       const userId = req.params.userId;
@@ -1617,7 +1588,7 @@ export function setupAuth(app: Express) {
       // Check if consent already exists
       const existingConsent = await storage.checkPanVerificationConsent(userId);
       if (existingConsent) {
-        return res.json({ message: "Consent already recorded", hasConsent: true });
+        return apiResponse.success(res, { hasConsent: true }, "Consent already recorded");
       }
 
       const ipAddress = req.ip || req.headers['x-forwarded-for'] as string || 'unknown';
@@ -1625,10 +1596,10 @@ export function setupAuth(app: Express) {
 
       await storage.recordPanVerificationConsent(userId, ipAddress, userAgent);
       
-      res.json({ message: "PAN verification consent recorded successfully", hasConsent: true });
+      return apiResponse.success(res, { hasConsent: true }, "PAN verification consent recorded successfully");
     } catch (error) {
       console.error("Error recording PAN consent:", error);
-      res.status(500).json({ message: "Failed to record consent" });
+      return apiResponse.serverError(res, "Failed to record consent");
     }
   });
 

@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
+import { LoadingState } from "@/components/LoadingState";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -320,24 +321,11 @@ export default function Loans() {
             {/* Loan Products */}
             <div>
               <h2 className="text-2xl font-bold text-gray-900 mb-6">Available Loan Products</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {productsLoading ? (
-                  Array.from({ length: 6 }).map((_, index) => (
-                    <Card key={index} className="animate-pulse">
-                      <CardContent className="p-6">
-                        <div className="w-12 h-12 bg-gray-200 rounded-lg mb-4"></div>
-                        <div className="h-6 bg-gray-200 rounded mb-2"></div>
-                        <div className="h-4 bg-gray-200 rounded mb-4"></div>
-                        <div className="space-y-2">
-                          <div className="h-3 bg-gray-200 rounded"></div>
-                          <div className="h-3 bg-gray-200 rounded"></div>
-                          <div className="h-3 bg-gray-200 rounded"></div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
-                ) : (
-                  loanProducts?.data?.map((product: any, index: number) => {
+              {productsLoading ? (
+                <LoadingState variant="card" count={6} />
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {loanProducts?.data?.map((product: any, index: number) => {
                     const IconComponent = getIcon(product.key);
                     return (
                       <Card 
@@ -388,9 +376,9 @@ export default function Loans() {
                         </CardContent>
                       </Card>
                     );
-                  })
-                )}
-              </div>
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Provider Network */}

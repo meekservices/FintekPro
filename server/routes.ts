@@ -68,8 +68,6 @@ import { AadhaarMockService } from './services/aadhaar-mock-service';
 import { CashfreeAadhaarService } from './services/cashfree-aadhaar-service';
 import { DemographicProtectionService } from './services/demographic-protection-service';
 import { AutoPopulationOrchestrator } from './services/auto-population-orchestrator';
-import { kycWorkflowOrchestrator } from './services/kyc-workflow-orchestrator';
-import { consentManagementService } from './services/consent-management-service';
 import { providerRegistry, type UnifiedApplicationData } from './partner-application-adapters';
 import { insertPartnerApplicationSchema, insertCashfreeTransactionSchema, insertPhonePeTransactionSchema } from '@shared/schema';
 import { cashfreeService } from './cashfree-service';
@@ -89,7 +87,6 @@ import { ProductAccountService } from './product-account-service';
 import { BSEStarKYCService } from './services/bse-star-kyc-service';
 import { autoPopulationRouter } from "./auto-population-routes";
 import * as schema from "@shared/schema";
-import { createChatGPTService } from './services/chatgpt-service';
 
 // Tax Calculation Request Validation Schemas
 const calculateCapitalGainsSchema = z.object({
@@ -140,8 +137,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize Product Account Service
   const productAccountService = new ProductAccountService(storage as any);
   
-  // Initialize ChatGPT Service
-  const chatgptService = createChatGPTService(storage);
   // Initialize WhatsApp service with secure version
   // DISABLED: WhatsApp QR code generation causes excessive log output
   // Uncomment when needed for WhatsApp authentication features
@@ -249,21 +244,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(403).json({ message: "Client access required" });
     }
     
-    next();
-  };
-
-  // Authentication middleware for user-specific portfolio access
-  const requireAuth = (req: any, res: any, next: any) => {
-    if (!req.user) {
-      // In development mode, use demo user for easier testing
-      // Check for Replit development environment or non-production conditions
-      const isDevelopment = !process.env.NODE_ENV || process.env.NODE_ENV === 'development' || process.env.REPL_ID;
-      if (isDevelopment) {
-        req.user = { id: 'demo-user-1' };
-      } else {
-        return res.status(401).json({ error: "Authentication required" });
-      }
-    }
     next();
   };
 
@@ -1671,7 +1651,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Smart KYC Wizard Routes
   
   // Start or get active KYC verification session
-  app.post("/api/kyc/wizard/start", requireAuth, async (req: any, res) => {
+  app.post("/api/kyc/wizard/start", requireClientOrHigher, async (req: any, res) => {
     try {
       const userId = req.user!.id;
       
@@ -1686,16 +1666,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Expire any old active sessions (including expired ones) to avoid unique constraint violation
-      await db.update(schema.kycVerificationSessions)
-        .set({ isActive: false })
-        .where(
-          and(
-            eq(schema.kycVerificationSessions.userId, userId),
-            eq(schema.kycVerificationSessions.isActive, true)
-          )
-        );
-
       // Create new session
       const session = await storage.createKycVerificationSession({
         userId,
@@ -1731,7 +1701,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Get current session status
-  app.get("/api/kyc/wizard/session", requireAuth, async (req: any, res) => {
+  app.get("/api/kyc/wizard/session", requireClientOrHigher, async (req: any, res) => {
     try {
       const userId = req.user!.id;
       const session = await storage.getActiveKycSession(userId);
@@ -1757,7 +1727,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Step 1: Verify PAN with DOB
-  app.post("/api/kyc/wizard/verify-pan", requireAuth, async (req: any, res) => {
+  app.post("/api/kyc/wizard/verify-pan", requireClientOrHigher, async (req: any, res) => {
     try {
       const { sessionId, panNumber, fullName, dob } = req.body;
       const userId = req.user!.id;
@@ -1828,7 +1798,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Step 2: Send Aadhaar OTP
-  app.post("/api/kyc/wizard/send-aadhaar-otp", requireAuth, async (req: any, res) => {
+  app.post("/api/kyc/wizard/send-aadhaar-otp", requireClientOrHigher, async (req: any, res) => {
     try {
       const { sessionId, aadhaarNumber } = req.body;
       const userId = req.user!.id;
@@ -1891,7 +1861,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Step 3: Verify Aadhaar OTP
-  app.post("/api/kyc/wizard/verify-aadhaar-otp", requireAuth, async (req: any, res) => {
+  app.post("/api/kyc/wizard/verify-aadhaar-otp", requireClientOrHigher, async (req: any, res) => {
     try {
       const { sessionId, transactionId, otp } = req.body;
       const userId = req.user!.id;
@@ -1956,7 +1926,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Step 4: Complete KYC wizard
-  app.post("/api/kyc/wizard/complete", requireAuth, async (req: any, res) => {
+  app.post("/api/kyc/wizard/complete", requireClientOrHigher, async (req: any, res) => {
     try {
       const { sessionId } = req.body;
       const userId = req.user!.id;
@@ -1978,114 +1948,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // ✅ Always mark session as completed first (resilience requirement)
+      // Mark session as completed
       await storage.completeKycSession(sessionId);
       
-      // ✅ NEW: Store KYC data in secure vault with CKYC integration
-      try {
-        // Decrypt PAN from session
-        const decryptedPAN = await PANConsentService.decryptPAN(session.panNumber);
-        
-        // Extract Aadhaar data from verification
-        const aadhaarData = session.aadhaarVerificationData as any;
-        
-        if (!aadhaarData || !aadhaarData.aadhaarNumber) {
-          throw new Error('Aadhaar verification data not found in session');
-        }
-        
-        // Prepare OKYC data format for vault storage
-        const okycData = {
-          aadhaarNumber: aadhaarData.aadhaarNumber,
-          name: aadhaarData.name,
-          dob: aadhaarData.dob,
-          gender: aadhaarData.gender,
-          fatherName: aadhaarData.fatherName || '',
-          address: aadhaarData.address || {
-            house: '',
-            street: '',
-            landmark: '',
-            locality: '',
-            city: '',
-            state: '',
-            pincode: '',
-            country: 'India'
-          },
-          mobile: aadhaarData.mobile || '',
-          email: aadhaarData.email || '',
-          photoUrl: aadhaarData.photoUrl || ''
-        };
-        
-        // Call KYC Workflow Orchestrator to store in vault
-        const vaultResult = await kycWorkflowOrchestrator.storePreVerifiedKYCData(
-          userId,
-          decryptedPAN,
-          okycData,
-          sessionId, // Use session ID as cashfree ref (for audit purposes)
-          req.ip,
-          req.headers['user-agent'] || 'unknown'
-        );
-        
-        if (!vaultResult.success) {
-          throw new Error(vaultResult.error || 'Vault storage failed');
-        }
-        
-        console.log(`✅ Smart KYC vault storage successful for user ${userId}`);
-        console.log(`   CKYC KIN: ${vaultResult.ckycKinNumber}`);
-        console.log(`   KYC Reuse Token: ${vaultResult.kycReuseToken}`);
-        
-        // Update user's smart KYC completion and tier
-        await storage.updateUser(userId, {
-          smartKycCompletedAt: new Date(),
-          kycTier: 'enhanced', // Smart KYC provides enhanced tier
-          kycStatus: 'verified',
-          ckycNumber: vaultResult.ckycKinNumber
-        });
-        
-        // Return success with CKYC KIN and token
-        res.json({
-          success: true,
-          message: "Smart KYC completed and vault storage successful",
-          data: {
-            ckycKinNumber: vaultResult.ckycKinNumber,
-            kycReuseToken: vaultResult.kycReuseToken,
-            kycStatus: 'verified',
-            kycTier: 'enhanced',
-            vaultStored: true,
-            autoPopulationReady: true
-          }
-        });
-        
-      } catch (vaultError: any) {
-        // Log vault storage failure - session already completed above
-        console.error('❌ Vault storage failed for Smart KYC:', vaultError.message);
-        
-        // Update user to mark KYC attempted (even if vault failed)
-        try {
-          await storage.updateUser(userId, {
-            smartKycCompletedAt: new Date(),
-            kycTier: 'basic', // Fallback to basic tier if vault fails
-            kycStatus: 'pending_vault' // Special status indicating retry needed
-          });
-        } catch (updateErr) {
-          console.error('Failed to update user after vault error:', updateErr);
-        }
-        
-        // Return partial success - session complete but vault failed
-        return res.status(207).json({
-          success: false,
-          message: 'KYC session completed but vault storage failed',
-          error: vaultError.message,
-          data: {
-            sessionCompleted: true,
-            kycVerified: true,
-            vaultStored: false,
-            kycStatus: 'pending_vault',
-            requiresRetry: true,
-            nextSteps: 'Your KYC verification is complete, but secure data storage encountered an issue. Please retry or contact support to complete the process.'
-          }
-        });
-      }
+      // Update user's smart KYC completion
+      await storage.updateUser(userId, {
+        smartKycCompletedAt: new Date()
+      });
       
+      res.json({
+        success: true,
+        message: "Smart KYC completed successfully"
+      });
     } catch (error) {
       console.error('Error completing KYC:', error);
       res.status(500).json({
@@ -10232,6 +10106,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to fetch sector performance" });
     }
   });
+
+  // Authentication middleware for user-specific portfolio access
+  const requireAuth = (req: any, res: any, next: any) => {
+    if (!req.user) {
+      // In development mode, use demo user for easier testing
+      // Check for Replit development environment or non-production conditions
+      const isDevelopment = !process.env.NODE_ENV || process.env.NODE_ENV === 'development' || process.env.REPL_ID;
+      if (isDevelopment) {
+        req.user = { id: 'demo-user-1' };
+      } else {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+    }
+    next();
+  };
 
   // =================================================================
   // ICICI BANK LOS ROUTES - PROTECTED (requireAuth)  
@@ -25864,281 +25753,6 @@ System Security Data:`;
     console.warn('⚠️ DigiLocker optional service unavailable, using Cashfree OKYC fallback');
   });
 
-  // ===== Chat/AI Assistant Routes =====
-
-  // Start or resume chat session
-  app.post("/api/chat/sessions", requireAuth, async (req: any, res) => {
-    try {
-      const userId = req.user!.id;
-      const { sessionId, sessionType, portfolioId, contextData } = req.body;
-      
-      const session = await chatgptService.startSession({
-        userId,
-        sessionId,
-        sessionType,
-        portfolioId,
-        contextData
-      });
-      
-      // Log compliance event
-      complianceMonitor.logEvent({
-        userId,
-        eventType: 'ai_interaction',
-        action: 'chat_session_started',
-        ipAddress: req.ip || req.connection.remoteAddress,
-        userAgent: req.get('User-Agent'),
-        outcome: 'success',
-        riskLevel: 'low',
-        details: { sessionId: session.id, sessionType }
-      });
-      
-      res.json({ success: true, session });
-    } catch (error: any) {
-      res.status(400).json({ success: false, error: error.message });
-    }
-  });
-
-  // Get user's chat sessions
-  app.get("/api/chat/sessions", requireAuth, async (req: any, res) => {
-    try {
-      const userId = req.user!.id;
-      const sessions = await chatgptService.getUserSessions(userId);
-      res.json({ success: true, sessions });
-    } catch (error: any) {
-      res.status(400).json({ success: false, error: error.message });
-    }
-  });
-
-  // Get session messages
-  app.get("/api/chat/sessions/:sessionId/messages", requireAuth, async (req: any, res) => {
-    try {
-      const userId = req.user!.id;
-      const { sessionId } = req.params;
-      
-      const messages = await chatgptService.getSessionMessages(sessionId, userId);
-      res.json({ success: true, messages });
-    } catch (error: any) {
-      res.status(400).json({ success: false, error: error.message });
-    }
-  });
-
-  // Send message (non-streaming)
-  app.post("/api/chat/sessions/:sessionId/messages", requireAuth, async (req: any, res) => {
-    try {
-      const userId = req.user!.id;
-      const { sessionId } = req.params;
-      const { content, provider, model, temperature } = req.body;
-      
-      const result = await chatgptService.sendMessage(sessionId, userId, content, {
-        provider,
-        model,
-        temperature
-      });
-      
-      // Log AI interaction
-      complianceMonitor.logEvent({
-        userId,
-        eventType: 'ai_interaction',
-        action: 'chat_message_sent',
-        ipAddress: req.ip || req.connection.remoteAddress,
-        userAgent: req.get('User-Agent'),
-        outcome: 'success',
-        riskLevel: 'low',
-        details: { sessionId, provider, model }
-      });
-      
-      res.json({ success: true, ...result });
-    } catch (error: any) {
-      res.status(400).json({ success: false, error: error.message });
-    }
-  });
-
-  // Send message (streaming) using Server-Sent Events
-  app.post("/api/chat/sessions/:sessionId/stream", requireAuth, async (req: any, res) => {
-    try {
-      const userId = req.user!.id;
-      const { sessionId } = req.params;
-      const { content, provider, model, temperature } = req.body;
-      
-      // Set up SSE
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
-      
-      const result = await chatgptService.streamMessage(
-        sessionId,
-        userId,
-        content,
-        (chunk: string) => {
-          res.write(`data: ${JSON.stringify({ type: 'chunk', content: chunk })}\n\n`);
-        },
-        { provider, model, temperature }
-      );
-      
-      // Send final result
-      res.write(`data: ${JSON.stringify({ type: 'done', ...result })}\n\n`);
-      res.end();
-      
-      // Log streaming interaction
-      complianceMonitor.logEvent({
-        userId,
-        eventType: 'ai_interaction',
-        action: 'chat_message_streamed',
-        ipAddress: req.ip || req.connection.remoteAddress,
-        userAgent: req.get('User-Agent'),
-        outcome: 'success',
-        riskLevel: 'low',
-        details: { sessionId, provider, model, streaming: true }
-      });
-    } catch (error: any) {
-      res.write(`data: ${JSON.stringify({ type: 'error', error: error.message })}\n\n`);
-      res.end();
-    }
-  });
-
-  // End session
-  app.post("/api/chat/sessions/:sessionId/end", requireAuth, async (req: any, res) => {
-    try {
-      const userId = req.user!.id;
-      const { sessionId } = req.params;
-      
-      await chatgptService.endSession(sessionId, userId);
-      
-      // Log session end
-      complianceMonitor.logEvent({
-        userId,
-        eventType: 'ai_interaction',
-        action: 'chat_session_ended',
-        ipAddress: req.ip || req.connection.remoteAddress,
-        userAgent: req.get('User-Agent'),
-        outcome: 'success',
-        riskLevel: 'low',
-        details: { sessionId }
-      });
-      
-      res.json({ success: true });
-    } catch (error: any) {
-      res.status(400).json({ success: false, error: error.message });
-    }
-  });
-
-  // Rate message
-  app.post("/api/chat/messages/:messageId/rate", requireAuth, async (req: any, res) => {
-    try {
-      const userId = req.user!.id;
-      const { messageId } = req.params;
-      const { rating, feedback } = req.body;
-      
-      await chatgptService.rateMessage(messageId, userId, rating, feedback);
-      res.json({ success: true });
-    } catch (error: any) {
-      res.status(400).json({ success: false, error: error.message });
-    }
-  });
-
-  // Portfolio analysis
-  app.post("/api/chat/analyze/portfolio", requireAuth, async (req: any, res) => {
-    try {
-      const userId = req.user!.id;
-      const { portfolioData, analysisType } = req.body;
-      
-      const result = await chatgptService.analyzePortfolio(userId, portfolioData, analysisType);
-      
-      // Log portfolio analysis
-      complianceMonitor.logEvent({
-        userId,
-        eventType: 'ai_interaction',
-        action: 'portfolio_analyzed',
-        ipAddress: req.ip || req.connection.remoteAddress,
-        userAgent: req.get('User-Agent'),
-        outcome: 'success',
-        riskLevel: 'medium',
-        details: { analysisType }
-      });
-      
-      res.json({ success: true, ...result });
-    } catch (error: any) {
-      res.status(400).json({ success: false, error: error.message });
-    }
-  });
-
-  // Product recommendations
-  app.post("/api/chat/recommend/products", requireAuth, async (req: any, res) => {
-    try {
-      const userId = req.user!.id;
-      const { userProfile, productType, criteria } = req.body;
-      
-      const result = await chatgptService.getProductRecommendations(userId, userProfile, productType, criteria);
-      
-      // Log product recommendations
-      complianceMonitor.logEvent({
-        userId,
-        eventType: 'ai_interaction',
-        action: 'product_recommendations_generated',
-        ipAddress: req.ip || req.connection.remoteAddress,
-        userAgent: req.get('User-Agent'),
-        outcome: 'success',
-        riskLevel: 'medium',
-        details: { productType }
-      });
-      
-      res.json({ success: true, ...result });
-    } catch (error: any) {
-      res.status(400).json({ success: false, error: error.message });
-    }
-  });
-
-  // Generate report
-  app.post("/api/chat/generate/report", requireAuth, async (req: any, res) => {
-    try {
-      const { reportType, data, format } = req.body;
-      
-      const report = await chatgptService.generateReport(reportType, data, format);
-      
-      // Log report generation
-      complianceMonitor.logEvent({
-        userId: (req as any).user?.id,
-        eventType: 'ai_interaction',
-        action: 'report_generated',
-        ipAddress: req.ip || req.connection.remoteAddress,
-        userAgent: req.get('User-Agent'),
-        outcome: 'success',
-        riskLevel: 'low',
-        details: { reportType, format }
-      });
-      
-      res.json({ success: true, report });
-    } catch (error: any) {
-      res.status(400).json({ success: false, error: error.message });
-    }
-  });
-
-  // Smart onboarding
-  app.post("/api/chat/onboarding", requireAuth, async (req: any, res) => {
-    try {
-      const userId = req.user!.id;
-      const { currentStep, userResponse, contextData } = req.body;
-      
-      const result = await chatgptService.conductOnboarding(userId, currentStep, userResponse, contextData);
-      
-      // Log onboarding interaction
-      complianceMonitor.logEvent({
-        userId,
-        eventType: 'ai_interaction',
-        action: 'onboarding_step_completed',
-        ipAddress: req.ip || req.connection.remoteAddress,
-        userAgent: req.get('User-Agent'),
-        outcome: 'success',
-        riskLevel: 'low',
-        details: { currentStep, isComplete: result.isComplete }
-      });
-      
-      res.json({ success: true, ...result });
-    } catch (error: any) {
-      res.status(400).json({ success: false, error: error.message });
-    }
-  });
-
   // ==================== DigiLocker Integration Routes ====================
   
   // Get DigiLocker widget configuration
@@ -30686,48 +30300,11 @@ System Security Data:`;
         }
       });
 
-      // Trigger auto-population workflow after KYC approval
-      if (status === 'approved' && updated.userId) {
-        try {
-          console.log(`[KYC APPROVED] Triggering auto-population for user: ${updated.userId}`);
-          const orchestrator = new AutoPopulationOrchestrator();
-          const workflowResult = await orchestrator.initiateFromKYC(
-            updated.userId,
-            'kyc_completion'
-          );
-          console.log(`[AUTO-POPULATION] Workflow initiated: ${workflowResult.workflowId}`);
-          
-          // Add workflow info to response
-          res.json({
-            success: true,
-            message: `Submission ${status} successfully`,
-            submission: updated,
-            autoPopulation: {
-              initiated: true,
-              workflowId: workflowResult.workflowId,
-              message: 'Financial data auto-population started'
-            }
-          });
-        } catch (autoPopError) {
-          console.error('[AUTO-POPULATION] Failed to initiate:', autoPopError);
-          // Don't fail the KYC approval if auto-population fails
-          res.json({
-            success: true,
-            message: `Submission ${status} successfully`,
-            submission: updated,
-            autoPopulation: {
-              initiated: false,
-              error: 'Failed to initiate auto-population'
-            }
-          });
-        }
-      } else {
-        res.json({
-          success: true,
-          message: `Submission ${status} successfully`,
-          submission: updated
-        });
-      }
+      res.json({
+        success: true,
+        message: `Submission ${status} successfully`,
+        submission: updated
+      });
     } catch (error) {
       console.error('Error reviewing manual KYC submission:', error);
       res.status(500).json({ message: 'Failed to review submission' });
@@ -30796,54 +30373,6 @@ System Security Data:`;
   });
 
   // Auto-Population System Routes
-  // Batch grant consents for auto-population
-  app.post('/api/consents/batch-grant', requireAuth, async (req: any, res) => {
-    try {
-      const { consents } = req.body;
-
-      if (!Array.isArray(consents) || consents.length === 0) {
-        return res.status(400).json({ message: 'Consents array is required' });
-      }
-
-      // Extract unique data sources from the consents array
-      const dataSources = consents.map((c: any) => c.dataSource);
-      const uniqueDataSources = [...new Set(dataSources)];
-
-      // Grant batch consents
-      const grantedConsents = await consentManagementService.grantBatchConsents(
-        req.user.id,
-        uniqueDataSources,
-        'Auto-populate financial portfolio data',
-        req.ip,
-        req.get('user-agent')
-      );
-
-      console.log(`[CONSENT] Batch granted for user ${req.user.id}: ${uniqueDataSources.join(', ')}`);
-
-      res.json({
-        success: true,
-        message: `Consents granted for ${grantedConsents.length} data source(s)`,
-        consents: grantedConsents
-      });
-    } catch (error) {
-      console.error('Error granting batch consents:', error);
-      res.status(500).json({ message: 'Failed to grant consents' });
-    }
-  });
-
   app.use("/api/auto-populate", autoPopulationRouter);
-
-  // Portfolio Analytics Routes
-  app.get('/api/analytics/portfolio', requireAuth, async (req: any, res) => {
-    try {
-      const { PortfolioAnalytics } = await import('./services/portfolio-analytics');
-      const analytics = await PortfolioAnalytics.getPortfolioAnalytics(req.user.id);
-      
-      res.json(analytics);
-    } catch (error) {
-      console.error('Error fetching portfolio analytics:', error);
-      res.status(500).json({ message: 'Failed to fetch portfolio analytics' });
-    }
-  });
 
 }
