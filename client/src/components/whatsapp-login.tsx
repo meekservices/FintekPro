@@ -25,7 +25,7 @@ export function WhatsAppLogin({ onSuccess, onError }: WhatsAppLoginProps) {
   const { toast } = useToast();
 
   // Check WhatsApp service status
-  const { data: serviceStatus } = useQuery({
+  const { data: serviceStatus } = useQuery<{ isReady: boolean; hasQrCode?: boolean }>({
     queryKey: ["/api/whatsapp/status"],
     refetchInterval: 10000, // Check every 10 seconds
     retry: 2,
@@ -67,7 +67,7 @@ export function WhatsAppLogin({ onSuccess, onError }: WhatsAppLoginProps) {
     try {
       const formattedPhone = formatPhoneNumber(phoneNumber);
       const response = await apiRequest("POST", "/api/whatsapp/auth/phone-login", {
-        phoneNumber: formattedPhone
+        body: { phoneNumber: formattedPhone }
       });
 
       if (response.ok) {
@@ -105,8 +105,7 @@ export function WhatsAppLogin({ onSuccess, onError }: WhatsAppLoginProps) {
 
     try {
       const response = await apiRequest("POST", "/api/whatsapp/auth/verify", {
-        sessionId,
-        code: verificationCode
+        body: { sessionId, code: verificationCode }
       });
 
       if (response.ok) {
