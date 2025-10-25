@@ -1603,6 +1603,145 @@ export function setupAuth(app: Express) {
     }
   });
 
+  // Forgot Password - Request OTP
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    try {
+      const { identifier } = req.body;
+
+      if (!identifier) {
+        return apiResponse.badRequest(res, "Email, mobile, or User ID is required");
+      }
+
+      // Find user by identifier (email, mobile, or userId)
+      let user;
+      if (identifier.includes("@")) {
+        user = await storage.getUserByEmail(identifier);
+      } else if (identifier.startsWith("FTP")) {
+        user = await storage.getUserByUserId(identifier);
+      } else {
+        user = await storage.getUserByMobile(identifier);
+      }
+
+      // Don't reveal whether user exists for security
+      if (!user) {
+        // Still return success to prevent user enumeration
+        return apiResponse.success(res, {
+          message: "If an account exists with this identifier, an OTP has been sent"
+        });
+      }
+
+      // Generate OTP
+      const otp = generateOtp();
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+      // Delete any existing password reset OTP for this user
+      await db.delete(schema.otpVerifications)
+        .where(eq(schema.otpVerifications.identifier, user.email || user.mobile || user.userId));
+
+      // Store OTP for password reset
+      await storage.createOtpVerification({
+        identifier: user.email || user.mobile || user.userId,
+        otp,
+        type: "password_reset",
+        expiresAt,
+        verified: false,
+        metadata: {
+          userId: user.id,
+          resetRequestedAt: new Date().toISOString()
+        }
+      });
+
+      // Send OTP via email (primary)
+      if (user.email) {
+        const emailSent = await emailService.sendPasswordResetOTP(user.email, otp);
+        if (emailSent) {
+          console.log(`✅ Password reset OTP sent to email: ${user.email}`);
+        }
+      }
+
+      // Also try SMS
+      if (user.mobile) {
+        const smsSent = await smsService.sendOTP(user.mobile, otp);
+        if (smsSent) {
+          console.log(`✅ Password reset OTP sent via SMS to: ${user.mobile}`);
+        } else {
+          console.log(`⚠️ SMS delivery failed for ${user.mobile}, trying WhatsApp...`);
+          const whatsappSent = await whatsappService.sendLoginOTP(user.mobile, otp);
+          if (whatsappSent) {
+            console.log(`✅ Password reset OTP sent via WhatsApp to: ${user.mobile}`);
+          }
+        }
+      }
+
+      return apiResponse.success(res, {
+        message: "If an account exists with this identifier, an OTP has been sent"
+      });
+    } catch (error) {
+      console.error("Error in forgot password:", error);
+      return apiResponse.serverError(res, "Failed to process password reset request");
+    }
+  });
+
+  // Reset Password - Verify OTP and Update Password
+  app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const { identifier, otp, newPassword } = req.body;
+
+      if (!identifier || !otp || !newPassword) {
+        return apiResponse.badRequest(res, "Identifier, OTP, and new password are required");
+      }
+
+      // Validate password strength
+      if (newPassword.length < 6) {
+        return apiResponse.badRequest(res, "Password must be at least 6 characters long");
+      }
+
+      // Find user by identifier
+      let user;
+      if (identifier.includes("@")) {
+        user = await storage.getUserByEmail(identifier);
+      } else if (identifier.startsWith("FTP")) {
+        user = await storage.getUserByUserId(identifier);
+      } else {
+        user = await storage.getUserByMobile(identifier);
+      }
+
+      if (!user) {
+        return apiResponse.badRequest(res, "Invalid identifier or OTP");
+      }
+
+      // Verify OTP
+      const otpRecord = await storage.verifyOtp(
+        user.email || user.mobile || user.userId,
+        otp,
+        "password_reset"
+      );
+
+      if (!otpRecord) {
+        return apiResponse.badRequest(res, "Invalid or expired OTP");
+      }
+
+      // Hash the new password
+      const hashedPassword = await hashPassword(newPassword);
+
+      // Update user password
+      await storage.updateUser(user.id, { password: hashedPassword });
+
+      // Delete the used OTP
+      await db.delete(schema.otpVerifications)
+        .where(eq(schema.otpVerifications.id, otpRecord.id));
+
+      console.log(`✅ Password reset successful for user: ${user.userId}`);
+
+      return apiResponse.success(res, {
+        message: "Password reset successful. You can now log in with your new password."
+      });
+    } catch (error) {
+      console.error("Error in reset password:", error);
+      return apiResponse.serverError(res, "Failed to reset password");
+    }
+  });
+
   // Cleanup expired OTPs periodically
   setInterval(async () => {
     try {
