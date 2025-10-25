@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect } from "wouter";
 import { lazy } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -227,10 +227,9 @@ function AdminRoutes() {
       {/* Protected admin routes - wrapped in AdminLayout */}
       <Route path="/">
         {() => {
-          // Redirect root to dashboard if logged in, or to auth if not
+          // Redirect root to auth if not logged in, otherwise show dashboard
           if (!user) {
-            window.location.href = '/auth';
-            return null;
+            return <Redirect to="/auth" />;
           }
           return (
             <AdminLayout>
