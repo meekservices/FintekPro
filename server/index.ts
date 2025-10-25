@@ -40,9 +40,29 @@ app.use(helmet({
 
 // CORS configuration
 app.use(cors({
-  origin: process.env.NODE_ENV === "production" 
-    ? ["https://*.replit.app", "https://*.repl.co", "https://fintekpro.com", "https://www.fintekpro.com", "https://admin.fintekpro.com"]
-    : ["http://localhost:5000", "http://127.0.0.1:5000", "http://admin.localhost:5000"],
+  origin: (origin, callback) => {
+    const allowedOrigins = [
+      // Production domains
+      "https://fintekpro.com",
+      "https://www.fintekpro.com",
+      "https://admin.fintekpro.com",
+      // Development domains
+      "http://localhost:5000",
+      "http://127.0.0.1:5000",
+      "http://admin.localhost:5000",
+    ];
+    
+    // Allow Replit domains (*.replit.dev, *.repl.co, *.replit.app)
+    if (!origin || 
+        allowedOrigins.includes(origin) ||
+        origin.endsWith('.replit.dev') ||
+        origin.endsWith('.repl.co') ||
+        origin.endsWith('.replit.app')) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"]
