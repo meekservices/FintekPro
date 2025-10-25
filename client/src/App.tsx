@@ -224,7 +224,8 @@ function AdminRoot() {
     if (!isLoading && !user) {
       navigate('/auth');
     }
-  }, [user, isLoading, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, isLoading]);
   
   if (isLoading) {
     return null;
