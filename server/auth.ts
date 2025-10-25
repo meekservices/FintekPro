@@ -1605,9 +1605,9 @@ export function setupAuth(app: Express) {
       }
 
       // Get the OTP verification record
-      const identifier = user.email || user.mobile || user.userId;
+      const otpIdentifier = user.email || user.mobile || user.userId;
       const otpRecord = await storage.getOtpVerification(
-        identifier,
+        otpIdentifier,
         "password_reset"
       );
 
