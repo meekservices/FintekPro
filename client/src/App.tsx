@@ -1,5 +1,5 @@
-import { Switch, Route, Redirect } from "wouter";
-import { lazy } from "react";
+import { Switch, Route, useLocation } from "wouter";
+import { lazy, useEffect } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -215,9 +215,33 @@ function UserProtectedRoutes() {
   );
 }
 
-function AdminRoutes() {
-  const { user } = useAuth();
+// Component to handle admin root redirect
+function AdminRoot() {
+  const { user, isLoading } = useAuth();
+  const [, navigate] = useLocation();
   
+  useEffect(() => {
+    if (!isLoading && !user) {
+      navigate('/auth');
+    }
+  }, [user, isLoading, navigate]);
+  
+  if (isLoading) {
+    return null;
+  }
+  
+  if (!user) {
+    return null;
+  }
+  
+  return (
+    <AdminLayout>
+      <AdminDashboard />
+    </AdminLayout>
+  );
+}
+
+function AdminRoutes() {
   return (
     <Switch>
       {/* Public auth routes - no AdminLayout wrapper */}
@@ -225,19 +249,7 @@ function AdminRoutes() {
       <Route path="/whatsapp-login" component={WhatsAppAuthPage} />
       
       {/* Protected admin routes - wrapped in AdminLayout */}
-      <Route path="/">
-        {() => {
-          // Redirect root to auth if not logged in, otherwise show dashboard
-          if (!user) {
-            return <Redirect to="/auth" />;
-          }
-          return (
-            <AdminLayout>
-              <AdminDashboard />
-            </AdminLayout>
-          );
-        }}
-      </Route>
+      <Route path="/" component={AdminRoot} />
       
       <Route path="/admin/dashboard">
         {() => (
