@@ -37,6 +37,65 @@ The platform employs a subdomain-based portal architecture, providing isolated a
 - Backend: Hostname validation on all registration endpoints (`/api/register`, `/api/register/verify-otp`, `/api/register/resend-otp`) using normalized lowercase hostname with x-forwarded-host priority
 - Security: All blocked registration attempts are logged with hostname and IP address for monitoring and compliance auditing
 
+### Code Consistency & Best Practices (2025-10-25)
+
+**Backend API Response Pattern**: Standardized response utilities (`server/utils/responses.ts`) ensure consistent API responses across all endpoints:
+- **Success Responses**: Use `apiResponse.success(data, message?)` for 200 OK responses
+  ```typescript
+  return res.json(apiResponse.success(userData, "User profile updated successfully"));
+  ```
+- **Error Responses**: Use dedicated helpers for common error scenarios:
+  - `apiResponse.error(message, statusCode?)` - General error with custom status
+  - `apiResponse.badRequest(message)` - 400 Bad Request
+  - `apiResponse.unauthorized(message?)` - 401 Unauthorized (default: "Unauthorized")
+  - `apiResponse.forbidden(message?)` - 403 Forbidden (default: "Forbidden")
+  - `apiResponse.notFound(message?)` - 404 Not Found (default: "Resource not found")
+  - `apiResponse.serverError(message?)` - 500 Internal Server Error
+  ```typescript
+  if (!user) return res.status(404).json(apiResponse.notFound("User not found"));
+  if (!hasPermission) return res.status(403).json(apiResponse.forbidden());
+  ```
+- **Validation Errors**: Use `apiResponse.formatValidationError(error)` for Zod validation errors
+  ```typescript
+  const result = insertUserSchema.safeParse(req.body);
+  if (!result.success) {
+    return res.status(400).json(apiResponse.formatValidationError(result.error));
+  }
+  ```
+- **Response Format**: All responses follow `{ success: boolean, data?: any, error?: string, validationErrors?: array }`
+
+**Frontend Error Handling**: Updated `client/src/lib/queryClient.ts` with backward-compatible error parsing:
+- Extracts `error` or `message` fields from JSON responses
+- Maintains compatibility with legacy `{ message }` responses
+- Automatically throws errors with descriptive messages for failed requests
+
+**Reusable UI Components** (2025-10-25):
+- **LoadingState** (`client/src/components/LoadingState.tsx`): Skeleton-based loading component with 5 variants:
+  - `card` - Grid of card skeletons (default 3 columns)
+  - `list` - Stacked list item skeletons
+  - `table` - Table row skeletons
+  - `form` - Form field skeletons
+  - `stats` - Stats card skeletons
+  ```typescript
+  {isLoading ? <LoadingState variant="card" count={6} /> : renderData()}
+  ```
+- **EmptyState** (`client/src/components/EmptyState.tsx`): Standardized empty state with icon, title, description, and optional CTA
+  ```typescript
+  <EmptyState 
+    icon={Building2} 
+    title="No Data Available" 
+    description="Your data will appear here"
+    actionLabel="Add New"
+    onAction={() => handleAdd()}
+  />
+  ```
+
+**Migration Status**:
+- ✅ `server/auth.ts` - 100 endpoints migrated to apiResponse pattern
+- ✅ `client/src/lib/queryClient.ts` - Error parser updated with backward compatibility
+- ✅ Loading states replaced in: `loans.tsx`, `ipo.tsx`, `insurance.tsx`, `bonds.tsx`
+- ⏳ `server/routes.ts` - Deferred for incremental feature-based migration to avoid high-risk bulk edits
+
 ## Production Blockers
 
 ### Auto-Population KYC Vault Decryption (CRITICAL)
