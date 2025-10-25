@@ -566,17 +566,6 @@ export default function AuthPage() {
                   {/* Social Login Tab */}
                   <TabsContent value="social" className="space-y-4">
                     <div className="space-y-3">
-                      {/* Replit Auth */}
-                      <a href="/api/login" data-testid="link-replit-login">
-                        <Button 
-                          variant="outline" 
-                          className="w-full h-12 text-base bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 dark:border-blue-800 dark:text-blue-400"
-                        >
-                          <Shield className="w-5 h-5 mr-3" />
-                          Continue with One-Click Sign In
-                        </Button>
-                      </a>
-                      
                       {/* WhatsApp Sign In */}
                       <Link href="/whatsapp-login" data-testid="link-whatsapp-login">
                         <Button 
