@@ -574,8 +574,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const normalizedInput = normalizePhone(phoneNumber);
 
+      // DEBUG LOGGING - START
+      console.log("\n🔍 ===== WhatsApp Login Debug =====");
+      console.log("📱 Input phoneNumber:", phoneNumber);
+      console.log("✨ Normalized input:", normalizedInput);
+      console.log("🔢 Input length:", phoneNumber.length, "| Normalized length:", normalizedInput.length);
+      // DEBUG LOGGING - END
+
       // Check if user exists with this phone number (flexible matching)
       const users = await storage.getAllUsers();
+      
+      // DEBUG LOGGING - Database users
+      console.log("\n👥 Database users with mobile numbers:");
+      users.forEach((u, idx) => {
+        if (u.mobile) {
+          const normalizedMobile = normalizePhone(u.mobile);
+          const matches = normalizedMobile === normalizedInput;
+          console.log(`  [${idx}] userId: ${u.userId}, mobile: "${u.mobile}", normalized: "${normalizedMobile}", matches: ${matches ? '✅' : '❌'}`);
+        }
+      });
+      console.log("===================================\n");
+      
       const user = users.find(u => {
         if (!u.mobile) return false;
         const normalizedMobile = normalizePhone(u.mobile);
@@ -583,10 +602,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       if (!user) {
+        console.log("❌ No user found matching normalized input:", normalizedInput);
         return res.status(404).json({ 
           error: "No account found with this phone number. Please register first." 
         });
       }
+      
+      console.log("✅ User found:", user.userId, user.firstName, user.lastName);
 
       // Create authentication session
       const sessionId = await whatsappService.createAuthSession(phoneNumber);
