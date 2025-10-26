@@ -224,6 +224,23 @@ export function setupAuth(app: Express) {
         return apiResponse.badRequest(res, "Mobile number must be exactly 10 digits");
       }
 
+      // Check if user already exists with this email or mobile
+      const existingUserByEmail = await db.query.users.findFirst({
+        where: eq(schema.users.email, email)
+      });
+
+      if (existingUserByEmail) {
+        return apiResponse.badRequest(res, "This email is already registered. Please use Forgot Password to reset your account.");
+      }
+
+      const existingUserByMobile = await db.query.users.findFirst({
+        where: eq(schema.users.mobile, mobile)
+      });
+
+      if (existingUserByMobile) {
+        return apiResponse.badRequest(res, "This mobile number is already registered. Please use Forgot Password to reset your account.");
+      }
+
       // Hash password for storage in metadata
       const hashedPassword = await hashPassword(password);
 
