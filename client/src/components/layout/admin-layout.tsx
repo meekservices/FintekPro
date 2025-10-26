@@ -42,6 +42,12 @@ const adminNavItems = [
     description: "Manage clients, partners, agents & suppliers"
   },
   {
+    title: "Duplicate Accounts",
+    href: "/admin/duplicates",
+    icon: AlertCircle,
+    description: "Detect & resolve duplicate registrations"
+  },
+  {
     title: "KYC & Compliance",
     href: "/admin/kyc-compliance",
     icon: FileCheck,

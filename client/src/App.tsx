@@ -64,6 +64,7 @@ import ZohoDashboardPage from "@/pages/admin/zoho-dashboard";
 import ZohoConnectionsPage from "@/pages/admin/zoho-connections";
 import ZohoLogsPage from "@/pages/admin/zoho-logs";
 import StoreManagement from "@/pages/admin/store-management";
+import DuplicatesPage from "@/pages/admin/duplicates";
 import BBPSPage from "@/pages/BBPSPage";
 import DigiLockerPage from "@/pages/DigiLockerPage";
 import LoanApplication from "@/pages/loan-application";
@@ -317,6 +318,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <ZohoLogsPage />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/duplicates">
+        {() => (
+          <AdminLayout>
+            <DuplicatesPage />
           </AdminLayout>
         )}
       </Route>
