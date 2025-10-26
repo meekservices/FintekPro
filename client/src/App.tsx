@@ -30,7 +30,6 @@ import Support from "@/pages/support";
 import InvestSmart from "@/pages/wealth-management";
 import Achievements from "@/pages/achievements";
 import CapitalGainsReports from "@/pages/capital-gains-reports";
-import WhatsAppAuthPage from "@/pages/whatsapp-auth-page";
 import AgentDashboard from "@/pages/agent-dashboard";
 import IBTradingPage from "@/pages/ib-trading";
 import StorePage from "@/pages/store";
@@ -247,7 +246,6 @@ function AdminRoutes() {
     <Switch>
       {/* Public auth routes - no AdminLayout wrapper */}
       <Route path="/auth" component={AuthPage} />
-      <Route path="/whatsapp-login" component={WhatsAppAuthPage} />
       
       {/* Protected admin routes - wrapped in AdminLayout */}
       <Route path="/" component={AdminRoot} />
@@ -384,7 +382,6 @@ function PartnerRoutes() {
         <Route path="/" component={AgentPortal} />
         <Route path="/partner-portal" component={AgentPortal} />
         <Route path="/auth" component={AuthPage} />
-        <Route path="/whatsapp-login" component={WhatsAppAuthPage} />
         <Route component={NotFound} />
       </Switch>
     </AppLayout>
@@ -410,7 +407,6 @@ function Router() {
       <Switch>
         {/* Public routes - no authentication or profile completion required */}
         <Route path="/auth" component={AuthPage} />
-        <Route path="/whatsapp-login" component={WhatsAppAuthPage} />
         <Route path="/profile" component={Profile} />
         <Route path="/onboarding" component={OnboardingPage} />
         <Route path="/manual-kyc" component={ManualKYCPage} />
