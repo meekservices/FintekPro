@@ -943,7 +943,21 @@ export function setupAuth(app: Express) {
         console.error("Logout error:", err);
         return apiResponse.serverError(res, "Logout failed");
       }
-      return apiResponse.success(res, {}, "Logged out successfully");
+      
+      // Destroy the session completely
+      req.session.destroy((destroyErr) => {
+        if (destroyErr) {
+          console.error("Session destroy error:", destroyErr);
+        }
+        
+        // Clear the session cookie
+        res.clearCookie('fintekpro.sid', {
+          path: '/',
+          domain: process.env.NODE_ENV === "production" ? ".fintekpro.com" : undefined
+        });
+        
+        return apiResponse.success(res, {}, "Logged out successfully");
+      });
     });
   });
 
