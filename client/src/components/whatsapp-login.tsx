@@ -80,27 +80,20 @@ export function WhatsAppLogin({ onSuccess, onError }: WhatsAppLoginProps) {
 
     try {
       const fullPhoneNumber = `${countryCode}${cleanedPhone}`;
-      const response = await apiRequest("POST", "/api/whatsapp/auth/phone-login", {
+      const data = await apiRequest("POST", "/api/whatsapp/auth/phone-login", {
         body: { phoneNumber: fullPhoneNumber }
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setSessionId(data.sessionId);
-        setStep("verification");
-        setCountdown(300);
-        
-        toast({
-          title: "Verification Code Sent",
-          description: "Please check your WhatsApp for the 6-digit verification code.",
-        });
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error || "Failed to send verification code");
-        onError?.(errorData.error || "Failed to send verification code");
-      }
+      setSessionId(data.sessionId);
+      setStep("verification");
+      setCountdown(300);
+      
+      toast({
+        title: "Verification Code Sent",
+        description: "Please check your WhatsApp for the 6-digit verification code.",
+      });
     } catch (err) {
-      const errorMsg = "Network error. Please check your connection.";
+      const errorMsg = err instanceof Error ? err.message : "Failed to send verification code";
       setError(errorMsg);
       onError?.(errorMsg);
     } finally {
@@ -118,26 +111,20 @@ export function WhatsAppLogin({ onSuccess, onError }: WhatsAppLoginProps) {
     setError("");
 
     try {
-      const response = await apiRequest("POST", "/api/whatsapp/auth/verify", {
+      const data = await apiRequest("POST", "/api/whatsapp/auth/verify", {
         body: { sessionId, code: verificationCode }
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setStep("success");
-        
-        toast({
-          title: "Login Successful",
-          description: `Welcome back, ${data.user.firstName || 'User'}!`,
-        });
+      setStep("success");
+      
+      toast({
+        title: "Login Successful",
+        description: `Welcome back, ${data.user.firstName || 'User'}!`,
+      });
 
-        onSuccess?.(data.user);
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error || "Invalid verification code");
-      }
+      onSuccess?.(data.user);
     } catch (err) {
-      const errorMsg = "Network error. Please try again.";
+      const errorMsg = err instanceof Error ? err.message : "Invalid verification code";
       setError(errorMsg);
     } finally {
       setIsLoading(false);
