@@ -4,10 +4,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Loader2, MessageSquare, Shield, CheckCircle, Clock, RefreshCw, AlertCircle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
+import { countryCodes } from "@/lib/countryCodes";
+import { detectCountryFromIP, getCallingCodeFromCountry } from "@/lib/geolocation";
 
 interface WhatsAppLoginProps {
   onSuccess?: (user: any) => void;
@@ -15,6 +24,7 @@ interface WhatsAppLoginProps {
 }
 
 export function WhatsAppLogin({ onSuccess, onError }: WhatsAppLoginProps) {
+  const [countryCode, setCountryCode] = useState("+91");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
   const [sessionId, setSessionId] = useState("");
@@ -24,10 +34,23 @@ export function WhatsAppLogin({ onSuccess, onError }: WhatsAppLoginProps) {
   const [countdown, setCountdown] = useState(0);
   const { toast } = useToast();
 
+  // Detect country from IP and set default country code
+  useEffect(() => {
+    const detectCountry = async () => {
+      const detectedCountry = await detectCountryFromIP();
+      if (detectedCountry) {
+        const callingCode = getCallingCodeFromCountry(detectedCountry);
+        setCountryCode(callingCode);
+      }
+    };
+    
+    detectCountry();
+  }, []);
+
   // Check WhatsApp service status
   const { data: serviceStatus } = useQuery<{ isReady: boolean }>({
     queryKey: ["/api/whatsapp/status"],
-    refetchInterval: 30000, // Check every 30 seconds
+    refetchInterval: 30000,
     retry: 1,
   });
 
@@ -39,25 +62,16 @@ export function WhatsAppLogin({ onSuccess, onError }: WhatsAppLoginProps) {
     }
   }, [countdown]);
 
-  const formatPhoneNumber = (phone: string) => {
-    // Remove all non-digit characters
-    const cleaned = phone.replace(/\D/g, '');
-    
-    // If it doesn't start with country code, assume it's Indian number
-    if (cleaned.length === 10) {
-      return `+91${cleaned}`;
-    } else if (cleaned.startsWith('91') && cleaned.length === 12) {
-      return `+${cleaned}`;
-    } else if (cleaned.startsWith('+91') && cleaned.length === 13) {
-      return cleaned;
-    }
-    
-    return phone; // Return as-is if format is unclear
-  };
-
   const handleSendCode = async () => {
     if (!phoneNumber.trim()) {
       setError("Please enter your phone number");
+      return;
+    }
+
+    // Validate phone number (basic validation - should be digits only)
+    const cleanedPhone = phoneNumber.replace(/\D/g, '');
+    if (cleanedPhone.length < 7 || cleanedPhone.length > 15) {
+      setError("Please enter a valid phone number");
       return;
     }
 
@@ -65,16 +79,16 @@ export function WhatsAppLogin({ onSuccess, onError }: WhatsAppLoginProps) {
     setError("");
 
     try {
-      const formattedPhone = formatPhoneNumber(phoneNumber);
+      const fullPhoneNumber = `${countryCode}${cleanedPhone}`;
       const response = await apiRequest("POST", "/api/whatsapp/auth/phone-login", {
-        body: { phoneNumber: formattedPhone }
+        body: { phoneNumber: fullPhoneNumber }
       });
 
       if (response.ok) {
         const data = await response.json();
         setSessionId(data.sessionId);
         setStep("verification");
-        setCountdown(300); // 5 minutes countdown
+        setCountdown(300);
         
         toast({
           title: "Verification Code Sent",
@@ -184,15 +198,45 @@ export function WhatsAppLogin({ onSuccess, onError }: WhatsAppLoginProps) {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="phone">Phone Number</Label>
-              <Input
-                id="phone"
-                type="tel"
-                placeholder="+91 98765 43210"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                data-testid="input-phone-number"
-                disabled={isLoading}
-              />
+              <div className="flex gap-2">
+                <Select
+                  value={countryCode}
+                  onValueChange={setCountryCode}
+                  disabled={isLoading}
+                >
+                  <SelectTrigger className="w-[140px]" data-testid="select-country-code">
+                    <SelectValue placeholder="Code" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {countryCodes.map((country) => (
+                      <SelectItem 
+                        key={country.code} 
+                        value={country.dialCode}
+                        data-testid={`country-${country.code}`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <span>{country.flag}</span>
+                          <span>{country.dialCode}</span>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="9876543210"
+                  value={phoneNumber}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '');
+                    setPhoneNumber(value);
+                  }}
+                  data-testid="input-phone-number"
+                  disabled={isLoading}
+                  className="flex-1"
+                />
+              </div>
               <p className="text-sm text-muted-foreground">
                 We'll send a verification code to your WhatsApp
               </p>
@@ -235,7 +279,7 @@ export function WhatsAppLogin({ onSuccess, onError }: WhatsAppLoginProps) {
                 className="text-center text-lg tracking-wider"
               />
               <div className="flex items-center justify-between text-sm text-muted-foreground">
-                <span>Code sent to {phoneNumber}</span>
+                <span>Code sent to {countryCode} {phoneNumber}</span>
                 {countdown > 0 && (
                   <span className="flex items-center">
                     <Clock className="w-3 h-3 mr-1" />
