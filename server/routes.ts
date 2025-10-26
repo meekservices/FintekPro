@@ -565,9 +565,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Phone number is required" });
       }
 
-      // Check if user exists with this phone number
+      // Normalize phone number by extracting last 10 digits for matching
+      const normalizePhone = (phone: string) => {
+        const cleaned = phone.replace(/\D/g, ''); // Remove non-digits
+        // For Indian numbers, get last 10 digits (handles both with/without country code)
+        return cleaned.length >= 10 ? cleaned.slice(-10) : cleaned;
+      };
+
+      const normalizedInput = normalizePhone(phoneNumber);
+
+      // Check if user exists with this phone number (flexible matching)
       const users = await storage.getAllUsers();
-      const user = users.find(u => u.mobile === phoneNumber);
+      const user = users.find(u => {
+        if (!u.mobile) return false;
+        const normalizedMobile = normalizePhone(u.mobile);
+        return normalizedMobile === normalizedInput;
+      });
       
       if (!user) {
         return res.status(404).json({ 
