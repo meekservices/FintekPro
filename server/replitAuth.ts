@@ -45,6 +45,8 @@ export function getSession() {
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: sessionTtl,
       path: '/',
+      // Share cookie across all fintekpro.com subdomains in production
+      domain: process.env.NODE_ENV === "production" ? ".fintekpro.com" : undefined,
     },
   });
 }
