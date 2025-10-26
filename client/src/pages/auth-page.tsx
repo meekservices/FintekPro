@@ -566,21 +566,10 @@ export default function AuthPage() {
                   {/* Social Login Tab */}
                   <TabsContent value="social" className="space-y-4">
                     <div className="space-y-3">
-                      {/* WhatsApp Sign In */}
-                      <Link href="/whatsapp-login" data-testid="link-whatsapp-login">
-                        <Button 
-                          variant="outline" 
-                          className="w-full h-12 text-base bg-green-50 hover:bg-green-100 border-green-200 text-green-700 dark:bg-green-900/20 dark:hover:bg-green-900/30 dark:border-green-800 dark:text-green-400"
-                        >
-                          <MessageSquare className="w-5 h-5 mr-3" />
-                          Continue with WhatsApp
-                        </Button>
-                      </Link>
+                      <p className="text-sm text-center text-gray-500 dark:text-gray-400 py-8">
+                        Social login options are currently unavailable. Please use traditional login.
+                      </p>
                     </div>
-
-                    <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-4">
-                      🔒 Quick, secure, and password-free authentication
-                    </p>
                   </TabsContent>
 
                   {/* Traditional Login Tab */}
