@@ -1,6 +1,53 @@
 # FintekPro - Production Deployment Checklist
-**Status:** ✅ READY FOR DEPLOYMENT  
-**Last Updated:** October 17, 2025
+**Status:** ✅ READY FOR DEPLOYMENT (Updated with Session Management Fixes)  
+**Last Updated:** October 26, 2025
+
+## CRITICAL UPDATE - Session Management Fixes (Oct 26, 2025)
+
+### 🔧 Issues Fixed
+
+**1. Subdomain Cookie Sharing ✅ FIXED**
+- **Problem:** Sessions created on `fintekpro.com` weren't accessible on `admin.fintekpro.com` or `partner.fintekpro.com`
+- **Fix:** Added `domain: ".fintekpro.com"` to session cookie configuration
+- **Impact:** Users can now seamlessly switch between portals without re-authenticating
+- **File:** `server/replitAuth.ts` (line 52)
+
+**2. Enhanced Logout ✅ FIXED**
+- **Problem:** Logout didn't fully clear sessions, leaving stale authentication data
+- **Fix:** Logout now:
+  1. Calls `req.logout()` to clear Passport session
+  2. Calls `req.session.destroy()` to remove from database
+  3. Calls `res.clearCookie()` with proper subdomain settings
+- **Impact:** Complete session cleanup across all portals
+- **File:** `server/auth.ts` (lines 943-965)
+
+**3. Admin Role Access Issue ✅ IDENTIFIED**
+- **Problem:** Users with correct admin roles couldn't access admin portal
+- **Root Cause:** Old session data cached before role update
+- **Solution:** Users must **logout and login again** after role changes
+- **How It Works Now:** 
+  - Passport deserializer fetches fresh user data from database on every request
+  - Role updates are immediately recognized after new login
+
+### 🎯 Required Actions Before Deployment
+
+1. **Update Admin Roles in Production Database:**
+```sql
+UPDATE users 
+SET roles = ARRAY['user', 'admin'] 
+WHERE email = 'skmohanty0@gmail.com';
+```
+
+2. **Clear All User Sessions:**
+   - After deployment, ask all logged-in users to logout and login again
+   - This ensures they get fresh sessions with new cookie domain settings
+
+3. **Test Cross-Portal Authentication:**
+   - Login to fintekpro.com → Check session works
+   - Navigate to admin.fintekpro.com → Verify access control
+   - Logout from one portal → Verify logout across all portals
+
+---
 
 ## Pre-Deployment Tasks
 
