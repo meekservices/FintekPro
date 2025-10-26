@@ -103,7 +103,7 @@ export function setupAuth(app: Express) {
           
           const user = users[0];
           if (!(await comparePasswords(password, user.password))) {
-            return done(null, false, { message: "Invalid email or password" });
+            return done(null, false, { message: "Incorrect password. Please try again or use Forgot Password." });
           }
           
           // Normalize user data for Express
@@ -143,7 +143,7 @@ export function setupAuth(app: Express) {
           
           const user = users[0];
           if (!(await comparePasswords(password, user.password))) {
-            return done(null, false, { message: "Invalid mobile number or password" });
+            return done(null, false, { message: "Incorrect password. Please try again or use Forgot Password." });
           }
           
           // Normalize user data for Express
@@ -171,8 +171,11 @@ export function setupAuth(app: Express) {
       async (userId, password, done) => {
         try {
           const user = await storage.getUserByUserId(userId);
-          if (!user || !(await comparePasswords(password, user.password))) {
-            return done(null, false, { message: "Invalid user ID or password" });
+          if (!user) {
+            return done(null, false, { message: "User ID not found" });
+          }
+          if (!(await comparePasswords(password, user.password))) {
+            return done(null, false, { message: "Incorrect password. Please try again or use Forgot Password." });
           }
           // Normalize user data for Express
           const normalizedUser = {
