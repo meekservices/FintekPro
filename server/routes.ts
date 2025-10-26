@@ -30408,6 +30408,99 @@ System Security Data:`;
   });
 
   // Auto-Population System Routes
+
+  // Admin: Duplicate Account Detection
+  app.get("/api/admin/duplicates", requireAdmin, async (req: any, res: any) => {
+    try {
+      // Find duplicate emails
+      const duplicateEmails = await db
+        .select({
+          email: schema.users.email,
+          count: sql<number>`COUNT(*)::int`,
+        })
+        .from(schema.users)
+        .groupBy(schema.users.email)
+        .having(sql`COUNT(*) > 1`);
+
+      // Find duplicate mobiles
+      const duplicateMobiles = await db
+        .select({
+          mobile: schema.users.mobile,
+          count: sql<number>`COUNT(*)::int`,
+        })
+        .from(schema.users)
+        .groupBy(schema.users.mobile)
+        .having(sql`COUNT(*) > 1`);
+
+      // Get full user details for duplicate emails
+      const emailDuplicateDetails = await Promise.all(
+        duplicateEmails.map(async ({ email }) => {
+          const users = await db.query.users.findMany({
+            where: eq(schema.users.email, email),
+            columns: {
+              id: true,
+              userId: true,
+              email: true,
+              mobile: true,
+              firstName: true,
+              middleName: true,
+              lastName: true,
+              createdAt: true,
+              role: true,
+              isActive: true,
+            },
+            orderBy: schema.users.createdAt,
+          });
+          return { email, count: users.length, users };
+        })
+      );
+
+      // Get full user details for duplicate mobiles
+      const mobileDuplicateDetails = await Promise.all(
+        duplicateMobiles.map(async ({ mobile }) => {
+          const users = await db.query.users.findMany({
+            where: eq(schema.users.mobile, mobile),
+            columns: {
+              id: true,
+              userId: true,
+              email: true,
+              mobile: true,
+              firstName: true,
+              middleName: true,
+              lastName: true,
+              createdAt: true,
+              role: true,
+              isActive: true,
+            },
+            orderBy: schema.users.createdAt,
+          });
+          return { mobile, count: users.length, users };
+        })
+      );
+
+      res.json({
+        success: true,
+        data: {
+          duplicateEmails: emailDuplicateDetails,
+          duplicateMobiles: mobileDuplicateDetails,
+          summary: {
+            totalDuplicateEmails: duplicateEmails.length,
+            totalDuplicateMobiles: duplicateMobiles.length,
+            totalAffectedAccounts: 
+              emailDuplicateDetails.reduce((sum, dup) => sum + dup.count, 0) +
+              mobileDuplicateDetails.reduce((sum, dup) => sum + dup.count, 0),
+          },
+        },
+      });
+    } catch (error) {
+      console.error("Error detecting duplicates:", error);
+      res.status(500).json({ 
+        success: false,
+        error: "Failed to detect duplicate accounts" 
+      });
+    }
+  });
+
   app.use("/api/auto-populate", autoPopulationRouter);
 
 }
