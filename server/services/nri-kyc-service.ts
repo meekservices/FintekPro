@@ -4,7 +4,7 @@
  * Flow: PAN/Passport → Overseas Address → PIS Permission → FATCA/CRS → Review
  */
 
-import { SandboxKYCService } from './sandbox-kyc-service';
+import { CashfreePANService } from './cashfree-pan-service';
 import { db } from '../db';
 import { nriKycProgress, users } from '@shared/schema';
 import { eq } from 'drizzle-orm';
@@ -36,10 +36,8 @@ interface FatcaDeclarationResult {
 }
 
 export class NRIKYCService {
-  private sandboxService: SandboxKYCService;
-
   constructor() {
-    this.sandboxService = new SandboxKYCService();
+    // No service initialization needed - using static Cashfree methods
   }
 
   /**
@@ -57,10 +55,10 @@ export class NRIKYCService {
     try {
       let panDetails = null;
 
-      // If PAN provided, verify it
+      // If PAN provided, verify it using Cashfree
       if (pan && dob) {
         try {
-          panDetails = await this.sandboxService.verifyIndividualPAN(pan, passportName, dob);
+          panDetails = await CashfreePANService.verifyIndividualPAN(pan, passportName, dob);
         } catch (error) {
           console.warn('PAN verification failed for NRI, continuing with passport only:', error);
         }
