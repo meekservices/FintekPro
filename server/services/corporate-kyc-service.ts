@@ -4,7 +4,7 @@
  * Flow: Corporate PAN → Company Documents → Authorized Signatory → Account Discovery → Review
  */
 
-import { SandboxKYCService } from './sandbox-kyc-service';
+import { CashfreePANService } from './cashfree-pan-service';
 import { DigiLockerService } from './digilockerService';
 import { db } from '../db';
 import { corporateKycProgress, users } from '@shared/schema';
@@ -33,11 +33,9 @@ interface CorporateAccountDiscoveryResult {
 }
 
 export class CorporateKYCService {
-  private sandboxService: SandboxKYCService;
   private digilockerService: DigiLockerService;
 
   constructor() {
-    this.sandboxService = new SandboxKYCService();
     this.digilockerService = new DigiLockerService();
   }
 
@@ -46,11 +44,16 @@ export class CorporateKYCService {
    */
   async verifyCorporatePAN(userId: string, pan: string, companyName: string): Promise<CorporatePanVerificationResult> {
     try {
-      // Verify PAN using Sandbox API
-      const panDetails = await this.sandboxService.verifyCorporatePAN(pan, companyName);
+      // Verify PAN using Cashfree API
+      const verification = await CashfreePANService.verifyCompanyPAN(pan, companyName);
+
+      // Check if verification succeeded
+      if (!verification.verified || !verification.data) {
+        throw new Error(verification.message || 'Corporate PAN verification failed');
+      }
 
       // Validate it's a corporate PAN
-      if (panDetails.category === 'Individual') {
+      if (verification.data.type === 'Individual') {
         throw new Error('This appears to be an individual PAN. Please use Individual KYC for personal accounts.');
       }
 
@@ -63,11 +66,11 @@ export class CorporateKYCService {
         await db.update(corporateKycProgress)
           .set({
             step1CorporatePanVerified: true,
-            step1CorporatePan: pan,
-            step1CompanyName: panDetails.name,
-            step1CompanyType: panDetails.category,
+            step1CorporatePan: verification.data.pan,
+            step1CompanyName: verification.data.registeredName,
+            step1CompanyType: verification.data.type,
             step1CompletedAt: new Date(),
-            step1Data: panDetails,
+            step1Data: verification.data,
             currentStep: 2,
             lastUpdatedStep: 1,
             updatedAt: new Date(),
@@ -77,11 +80,11 @@ export class CorporateKYCService {
         await db.insert(corporateKycProgress).values({
           userId,
           step1CorporatePanVerified: true,
-          step1CorporatePan: pan,
-          step1CompanyName: panDetails.name,
-          step1CompanyType: panDetails.category,
+          step1CorporatePan: verification.data.pan,
+          step1CompanyName: verification.data.registeredName,
+          step1CompanyType: verification.data.type,
           step1CompletedAt: new Date(),
-          step1Data: panDetails,
+          step1Data: verification.data,
           currentStep: 2,
           lastUpdatedStep: 1,
         });
@@ -89,10 +92,10 @@ export class CorporateKYCService {
 
       return {
         success: true,
-        pan: panDetails.pan,
-        companyName: panDetails.name,
-        companyType: panDetails.category,
-        data: panDetails,
+        pan: verification.data.pan,
+        companyName: verification.data.registeredName,
+        companyType: verification.data.type,
+        data: verification.data,
       };
     } catch (error: any) {
       console.error('Corporate PAN verification error:', error);

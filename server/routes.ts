@@ -66,6 +66,7 @@ import { PANConsentService } from './services/pan-consent-service';
 import { sandboxKYCService } from './services/sandbox-kyc-service';
 import { AadhaarMockService } from './services/aadhaar-mock-service';
 import { CashfreeAadhaarService } from './services/cashfree-aadhaar-service';
+import { CashfreePANService } from './services/cashfree-pan-service';
 import { DemographicProtectionService } from './services/demographic-protection-service';
 import { AutoPopulationOrchestrator } from './services/auto-population-orchestrator';
 import { providerRegistry, type UnifiedApplicationData } from './partner-application-adapters';
@@ -1783,16 +1784,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message: "Invalid session"
         });
       }
+      // Verify PAN using Cashfree API
+      const verification = await CashfreePANService.verifyIndividualPAN(panNumber, fullName, dob);
       
-      // Verify PAN using Sandbox API with name parameter
-      const verification = await sandboxKYCService.verifyIndividualPAN(panNumber, fullName, dob);
       
-      
-      // verification returns IndividualPANDetails directly (no success wrapper)
-      if (!verification || !verification.pan) {
+      // Cashfree returns wrapped response with success/verified/data
+      if (!verification.verified || !verification.data) {
         return res.json({
           success: false,
-          message: "PAN verification failed"
+          message: verification.message || "PAN verification failed"
         });
       }
       
@@ -1802,8 +1802,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         panDob: new Date(dob),
         panVerified: true,
         panVerificationData: {
-          name: verification.fullName,
-          fatherName: verification.fatherName
+          name: verification.data.registeredName,
+          fatherName: null, // Cashfree doesn't provide fatherName
+          panType: verification.data.type,
+          nameMatchScore: verification.data.nameMatchScore,
+          aadhaarLinked: verification.data.aadhaarSeedingStatus === 'Y'
         },
         panVerifiedAt: new Date(),
         currentStep: "aadhaar_otp",

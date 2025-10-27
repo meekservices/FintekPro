@@ -1,6 +1,7 @@
 /**
  * API Services Health Check Script
- * Tests Sandbox.co.in PAN verification and Cashfree OKYC Aadhaar verification
+ * Tests Cashfree PAN verification and OKYC Aadhaar verification
+ * Note: Sandbox.co.in is reserved for ITR filing only
  */
 
 import axios from 'axios';
@@ -126,7 +127,127 @@ async function testSandboxPAN(): Promise<TestResult> {
   }
 }
 
-// Test 2: Cashfree OKYC Aadhaar Verification
+// Test 2: Cashfree PAN Verification
+async function testCashfreePAN(): Promise<TestResult> {
+  const serviceName = 'Cashfree PAN Verification';
+  
+  try {
+    const appId = process.env.CASHFREE_APP_ID;
+    const secretKey = process.env.CASHFREE_SECRET_KEY;
+    const environment = process.env.CASHFREE_ENVIRONMENT || 'SANDBOX';
+    
+    if (!appId || !secretKey) {
+      return {
+        service: serviceName,
+        status: 'NOT_CONFIGURED',
+        message: 'Missing CASHFREE_APP_ID or CASHFREE_SECRET_KEY environment variables'
+      };
+    }
+    
+    const baseUrl = environment === 'PRODUCTION' 
+      ? 'https://api.cashfree.com/verification'
+      : 'https://sandbox.cashfree.com/verification';
+    
+    console.log(`\n🔍 Testing Cashfree PAN Verification (${environment} mode)...`);
+    console.log(`   Base URL: ${baseUrl}`);
+    
+    // Test with sample PAN (Cashfree provides test data for sandbox)
+    const response = await axios.post(
+      `${baseUrl}/pan`,
+      { 
+        pan: 'ABCDE1234F',  // Test PAN for sandbox
+        name: 'Test User'
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'x-client-id': appId,
+          'x-client-secret': secretKey,
+          'x-api-version': '2022-09-12'
+        },
+        timeout: 10000,
+        validateStatus: (status) => status < 500 // Accept 4xx as valid response
+      }
+    );
+    
+    console.log(`   API Response Status: ${response.status}`);
+    console.log(`   PAN Valid: ${response.data.valid || false}`);
+    console.log(`   Response: ${JSON.stringify(response.data).substring(0, 200)}`);
+    
+    // If we get a 200 response, API is working
+    if (response.status === 200) {
+      return {
+        service: serviceName,
+        status: 'OPERATIONAL',
+        message: 'PAN verification API is operational',
+        details: {
+          environment,
+          baseUrl,
+          apiReachable: true,
+          responseStatus: response.status,
+          panValid: response.data.valid || false
+        }
+      };
+    }
+    
+    return {
+      service: serviceName,
+      status: 'OPERATIONAL',
+      message: 'API responded but PAN verification may need valid credentials',
+      details: {
+        environment,
+        baseUrl,
+        responseStatus: response.status
+      }
+    };
+    
+  } catch (error: any) {
+    console.error('❌ Error:', error.message);
+    
+    if (error.response?.status === 401) {
+      return {
+        service: serviceName,
+        status: 'FAILED',
+        message: 'Authentication failed. Invalid CASHFREE_APP_ID or CASHFREE_SECRET_KEY.',
+        details: {
+          statusCode: 401,
+          action: 'Verify credentials in Cashfree dashboard'
+        }
+      };
+    }
+    
+    if (error.response) {
+      return {
+        service: serviceName,
+        status: 'OPERATIONAL',
+        message: `API is reachable. Response: ${error.response.data?.message || error.message}`,
+        details: {
+          statusCode: error.response.status,
+          errorMessage: error.response.data?.message || 'Unknown error',
+          responseData: error.response.data
+        }
+      };
+    }
+    
+    if (error.code === 'ENOTFOUND' || error.code === 'ETIMEDOUT') {
+      return {
+        service: serviceName,
+        status: 'FAILED',
+        message: 'Network error: Cannot reach Cashfree API. Check internet connection.',
+        details: { errorCode: error.code }
+      };
+    }
+    
+    return {
+      service: serviceName,
+      status: 'FAILED',
+      message: error.message,
+      details: { error: error.toString() }
+    };
+  }
+}
+
+// Test 3: Cashfree OKYC Aadhaar Verification
 async function testCashfreeOKYC(): Promise<TestResult> {
   const serviceName = 'Cashfree OKYC Aadhaar Verification';
   
@@ -234,8 +355,9 @@ async function runTests() {
   console.log('════════════════════════════════════════════════════════════');
   
   // Run tests
-  results.push(await testSandboxPAN());
-  results.push(await testCashfreeOKYC());
+  results.push(await testSandboxPAN()); // Reserved for ITR filing only
+  results.push(await testCashfreePAN());  // Primary PAN verification
+  results.push(await testCashfreeOKYC()); // Aadhaar verification
   
   // Print summary
   console.log('\n════════════════════════════════════════════════════════════');
