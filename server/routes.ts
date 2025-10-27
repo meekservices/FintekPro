@@ -721,6 +721,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get verified KYC profile data (name, PAN, tier, verification date)
+  app.get("/api/profile/kyc-verified-data", requireClientOrHigher, async (req, res) => {
+    try {
+      const { getVerifiedKYCProfile } = await import("./services/verified-kyc-profile-service");
+      const userId = req.user!.id;
+      
+      const verifiedData = await getVerifiedKYCProfile(userId);
+      
+      return res.json(apiResponse.success(verifiedData));
+    } catch (error) {
+      console.error("Error fetching verified KYC data:", error);
+      return res.status(500).json(apiResponse.serverError("Failed to fetch verified KYC data"));
+    }
+  });
+
   // Trigger Re-KYC process
   app.post("/api/profile/trigger-rekyc", requireClientOrHigher, async (req, res) => {
     try {
@@ -1940,13 +1955,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
       
-      // Also update user's verification status
-      await storage.updateUser(userId, {
-        panVerifiedViaSmartKyc: true,
-        panVerificationDate: session.panVerifiedAt,
-        aadhaarVerifiedViaSmartKyc: true,
-        aadhaarVerificationDate: new Date()
-      });
+      // Transfer verified KYC data to user profile
+      const { transferVerifiedKYCData } = await import("./services/kyc-completion-service");
+      await transferVerifiedKYCData(userId, session, verification.data);
       
       res.json({
         success: true,

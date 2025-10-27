@@ -17,7 +17,11 @@ import {
   Smartphone,
   ArrowRight,
   Lock,
-  Globe
+  Globe,
+  Edit,
+  TrendingUp,
+  CreditCard,
+  Package
 } from "lucide-react";
 import { ProductVerificationStatus } from "@/components/ProductVerificationStatus";
 import { Link } from "wouter";
@@ -44,6 +48,26 @@ interface UserProfile {
   lastName?: string;
 }
 
+interface VerifiedKYCData {
+  fullName: string | null;
+  panNumber: string | null;
+  kycTier: string;
+  panVerified: boolean;
+  aadhaarVerified: boolean;
+  verificationDate: string | null;
+  smartKycCompleted: boolean;
+}
+
+interface ProductAccess {
+  tier: string;
+  unlockedProducts: string[];
+  tierProducts: {
+    basic: string[];
+    enhanced: string[];
+    accredited_investor: string[];
+  };
+}
+
 export function KYCVerificationDashboard() {
   const { data: kycStatus } = useQuery<{ success: boolean; data: KYCStatus }>({
     queryKey: ["/api/profile/kyc-status"],
@@ -53,9 +77,23 @@ export function KYCVerificationDashboard() {
     queryKey: ["/api/profile"],
   });
 
+  // Fetch verified KYC profile data
+  const { data: verifiedKYCData } = useQuery<{ success: boolean; data: VerifiedKYCData }>({
+    queryKey: ["/api/profile/kyc-verified-data"],
+  });
+
+  // Fetch product access based on tier
+  const { data: productAccessData } = useQuery<{ success: boolean; data: ProductAccess }>({
+    queryKey: ["/api/profile/kyc-tier/product-access"],
+  });
+
   const profile = profileData;
   const status = kycStatus?.data;
+  const verifiedKYC = verifiedKYCData?.data;
+  const productAccess = productAccessData?.data;
 
+  // Show loading state only if critical data (profile or status) is missing
+  // Verified KYC and product access are optional enhancements
   if (!profile || !status) {
     return (
       <div className="space-y-4">
@@ -113,8 +151,203 @@ export function KYCVerificationDashboard() {
     return 0;
   };
 
+  // Helper functions for product display names
+  const getProductDisplayName = (productCode: string): string => {
+    const displayNames: Record<string, string> = {
+      mutual_funds_regular: "Mutual Funds (Regular)",
+      mutual_funds_direct: "Mutual Funds (Direct)",
+      equity_cash_limited: "Equity Cash (Limited ₹50K)",
+      equity_cash_unlimited: "Equity Cash (Unlimited)",
+      equity_delivery: "Equity Delivery",
+      ipo_retail: "IPO (Retail)",
+      government_securities: "Government Securities",
+      fixed_deposits: "Fixed Deposits",
+      savings_products: "Savings Products",
+      derivatives_fo: "Futures & Options",
+      commodities_trading: "Commodities",
+      currency_derivatives: "Currency Derivatives",
+      global_trading: "Global Trading",
+      unlisted_securities: "Unlisted Securities",
+      bonds_ncds: "Bonds & NCDs",
+      mlds: "Market Linked Debentures",
+      etf_trading: "ETF Trading",
+      margin_trading: "Margin Trading",
+      aif_cat1: "AIF Category I",
+      aif_cat2: "AIF Category II",
+      aif_cat3: "AIF Category III",
+      pms: "Portfolio Management",
+      pre_ipo_investments: "Pre-IPO Investments",
+      structured_products: "Structured Products",
+      offshore_investments: "Offshore Investments",
+      private_equity: "Private Equity",
+      venture_capital: "Venture Capital",
+      real_estate_investment_trusts: "REITs",
+      invoice_discounting: "Invoice Discounting",
+      startup_investments: "Startup Investments",
+    };
+    return displayNames[productCode] || productCode;
+  };
+
+  const getTierDisplayName = (tier: string): string => {
+    if (tier === "basic") return "Basic KYC";
+    if (tier === "enhanced") return "Enhanced KYC";
+    if (tier === "accredited_investor") return "Accredited Investor";
+    return tier;
+  };
+
+  const getTierBadgeColor = (tier: string) => {
+    if (tier === "basic") return "bg-yellow-600 hover:bg-yellow-700";
+    if (tier === "enhanced") return "bg-purple-600 hover:bg-purple-700";
+    if (tier === "accredited_investor") return "bg-green-600 hover:bg-green-700";
+    return "bg-gray-600";
+  };
+
   return (
     <div className="space-y-6" data-testid="kyc-verification-dashboard">
+      {/* Verified Profile Card */}
+      {verifiedKYC && verifiedKYC.panVerified && (
+        <Card className="border-green-200 dark:border-green-900">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-12 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center">
+                  <User className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl">{verifiedKYC.fullName || "User"}</CardTitle>
+                  <CardDescription className="flex items-center gap-2 mt-1">
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    Verified Profile
+                  </CardDescription>
+                </div>
+              </div>
+              <Button variant="outline" size="sm" data-testid="button-edit-profile">
+                <Edit className="h-4 w-4 mr-2" />
+                Edit
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">PAN Number</p>
+                <p className="font-semibold text-lg" data-testid="text-pan-number">
+                  {verifiedKYC.panNumber || "Not Available"}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">KYC Tier</p>
+                <Badge className={getTierBadgeColor(verifiedKYC.kycTier)} data-testid="badge-kyc-tier">
+                  {getTierDisplayName(verifiedKYC.kycTier)}
+                </Badge>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Verified On</p>
+                <p className="font-medium" data-testid="text-verification-date">
+                  {verifiedKYC.verificationDate 
+                    ? new Date(verifiedKYC.verificationDate).toLocaleDateString('en-IN', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric'
+                      })
+                    : "Not Available"}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Upgrade CTA for non-accredited investors */}
+      {productAccess && productAccess.tier !== "accredited_investor" && (
+        <Alert className="border-purple-200 dark:border-purple-900 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950 dark:to-blue-950">
+          <TrendingUp className="h-5 w-5 text-purple-600" />
+          <AlertTitle className="text-lg font-semibold">Unlock Premium Investment Products</AlertTitle>
+          <AlertDescription className="mt-2">
+            <p className="mb-3">
+              {productAccess.tier === "basic" 
+                ? "Upgrade to Enhanced KYC to access advanced investment products including direct mutual funds, F&O trading, and international markets."
+                : "Become an Accredited Investor to unlock exclusive products like AIFs, PMS, and private equity."}
+            </p>
+            <Link href="/profile">
+              <Button variant="default" className="bg-purple-600 hover:bg-purple-700" data-testid="button-upgrade-tier">
+                <Shield className="h-4 w-4 mr-2" />
+                {productAccess.tier === "basic" ? "Upgrade to Enhanced KYC" : "Apply for Accredited Status"}
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            </Link>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Product Eligibility Matrix */}
+      {productAccess && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Product Eligibility
+            </CardTitle>
+            <CardDescription>
+              Investment products you can access with your current KYC tier
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {/* Accessible Products */}
+              <div>
+                <h3 className="font-semibold text-green-600 dark:text-green-400 mb-3 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Accessible Products ({productAccess.unlockedProducts.length})
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {productAccess.unlockedProducts.map((product) => (
+                    <div 
+                      key={product}
+                      className="flex items-center gap-2 p-2 rounded border border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/20"
+                      data-testid={`product-accessible-${product}`}
+                    >
+                      <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                      <span className="text-sm">{getProductDisplayName(product)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Locked Products */}
+              {productAccess.tier !== "accredited_investor" && (
+                <>
+                  <Separator />
+                  <div>
+                    <h3 className="font-semibold text-gray-500 mb-3 flex items-center gap-2">
+                      <Lock className="h-4 w-4" />
+                      Upgrade to Unlock
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                      {(productAccess.tier === "basic" 
+                        ? [...productAccess.tierProducts.enhanced, ...productAccess.tierProducts.accredited_investor]
+                        : productAccess.tierProducts.accredited_investor
+                      ).map((product) => (
+                        <div 
+                          key={product}
+                          className="flex items-center gap-2 p-2 rounded border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/20 opacity-60"
+                          data-testid={`product-locked-${product}`}
+                        >
+                          <Lock className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                          <span className="text-sm text-gray-600 dark:text-gray-400">
+                            {getProductDisplayName(product)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Overall KYC Status */}
       <Card>
         <CardHeader>
