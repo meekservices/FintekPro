@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubdomain } from "@/hooks/useSubdomain";
+import { SessionConflictDialog } from "@/components/SessionConflictDialog";
 import { Loader2, Eye, EyeOff, Shield, TrendingUp, BarChart3, MessageSquare, CheckCircle2, Mail, Smartphone, User, Info, Clock, RefreshCw } from "lucide-react";
 
 const loginSchema = z.object({
@@ -95,6 +96,11 @@ export default function AuthPage() {
   // Progress indicator
   const [loginStep, setLoginStep] = useState<"credentials" | "otp" | "complete">("credentials");
   const [registrationStep, setRegistrationStep] = useState<"details" | "otp" | "complete">("details");
+
+  // Session Conflict States
+  const [sessionConflictOpen, setSessionConflictOpen] = useState(false);
+  const [sessionCount, setSessionCount] = useState(0);
+  const [pendingLoginData, setPendingLoginData] = useState<LoginFormData | null>(null);
 
   // OTP Timer Countdown (Login)
   useEffect(() => {
@@ -177,6 +183,65 @@ export default function AuthPage() {
       newPassword: "",
       confirmPassword: ""
     }
+  });
+
+  // Check for active sessions before attempting login
+  const sessionCheckMutation = useMutation({
+    mutationFn: async (identifier: string) => {
+      const response = await apiRequest("POST", "/api/sessions/check", {
+        body: { identifier }
+      });
+      return response;
+    },
+    onSuccess: (data, identifier) => {
+      const loginData = pendingLoginData || loginForm.getValues();
+      
+      if (data.hasActiveSession) {
+        // User has active session - show conflict dialog
+        setSessionCount(data.sessionCount || 1);
+        setSessionConflictOpen(true);
+      } else {
+        // No active session - proceed with normal login
+        loginMutation.mutate(loginData);
+      }
+    },
+    onError: (error: Error) => {
+      // If session check fails, proceed with login anyway (fail gracefully)
+      console.error("Session check failed:", error);
+      const loginData = pendingLoginData || loginForm.getValues();
+      loginMutation.mutate(loginData);
+    },
+  });
+
+  // Force logout all sessions for the user
+  const forceLogoutMutation = useMutation({
+    mutationFn: async (identifier: string) => {
+      const response = await apiRequest("POST", "/api/sessions/force-logout", {
+        body: { identifier }
+      });
+      return response;
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Sessions Terminated",
+        description: `${data.destroyedSessions || 0} session(s) terminated successfully`,
+      });
+      
+      // Close the conflict dialog
+      setSessionConflictOpen(false);
+      
+      // Proceed with login using the pending credentials
+      if (pendingLoginData) {
+        loginMutation.mutate(pendingLoginData);
+      }
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Force logout failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   const loginMutation = useMutation({
@@ -474,7 +539,31 @@ export default function AuthPage() {
   }
 
   const onLoginSubmit = (data: LoginFormData) => {
-    loginMutation.mutate(data);
+    // Store login data for potential use after session conflict resolution
+    setPendingLoginData(data);
+    
+    // Check for active sessions first
+    sessionCheckMutation.mutate(data.identifier);
+  };
+
+  // Handle session conflict - continue with existing session
+  const handleContinueSession = () => {
+    setSessionConflictOpen(false);
+    setPendingLoginData(null);
+    
+    // Redirect to dashboard
+    toast({
+      title: "Continuing with existing session",
+      description: "Redirecting you to the dashboard...",
+    });
+    navigate("/");
+  };
+
+  // Handle session conflict - force logout and login fresh
+  const handleForceLogout = () => {
+    if (pendingLoginData) {
+      forceLogoutMutation.mutate(pendingLoginData.identifier);
+    }
   };
 
   const onRegisterSubmit = (data: RegisterFormData) => {
@@ -1161,6 +1250,14 @@ export default function AuthPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Session Conflict Dialog */}
+      <SessionConflictDialog
+        open={sessionConflictOpen}
+        onContinue={handleContinueSession}
+        onForceLogout={handleForceLogout}
+        sessionCount={sessionCount}
+      />
     </div>
   );
 }
