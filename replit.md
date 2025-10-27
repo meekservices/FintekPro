@@ -128,8 +128,8 @@ The auto-population orchestrator's `getKYCData()` method currently returns stubb
 - **Tata Capital Integration**: Loans, credit checks, CKYC, GST verification.
 - **exchangerate-api.com**: Live currency exchange rates.
 - **Google Gemini API**: AI Chat Assistant.
-- **Cashfree OKYC API**: Aadhaar verification.
-- **Sandbox API**: Bank account penny drop verification.
+- **Cashfree Verification Suite API**: PAN verification (Individual & Corporate) and Aadhaar OKYC verification.
+- **Sandbox.co.in API**: Reserved for ITR (Income Tax Return) filing functionality only.
 - **Payment Gateways**: Cashfree (primary), PhonePe (secondary).
 - **Cashfree Payout API**: Vendor management, automated commission settlements.
 - **Twilio**: SMS OTP delivery.
