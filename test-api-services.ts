@@ -4,9 +4,6 @@
  */
 
 import axios from 'axios';
-import * as dotenv from 'dotenv';
-
-dotenv.config();
 
 interface TestResult {
   service: string;
@@ -34,6 +31,8 @@ async function testSandboxPAN(): Promise<TestResult> {
     }
     
     console.log('\n🔍 Testing Sandbox.co.in Authentication...');
+    console.log(`   API Key: ${apiKey.substring(0, 15)}...`);
+    console.log(`   API Secret: ${apiSecret.substring(0, 15)}...`);
     
     // Step 1: Authenticate
     const authResponse = await axios.post(
@@ -42,7 +41,12 @@ async function testSandboxPAN(): Promise<TestResult> {
         x_api_key: apiKey,
         x_api_secret: apiSecret
       },
-      { timeout: 10000 }
+      { 
+        timeout: 10000,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
     );
     
     if (!authResponse.data.access_token) {
