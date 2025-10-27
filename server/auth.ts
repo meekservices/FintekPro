@@ -936,6 +936,88 @@ export function setupAuth(app: Express) {
     }
   });
 
+  // Check if user has active sessions (used before login to detect session conflicts)
+  app.post("/api/sessions/check", async (req, res) => {
+    try {
+      const { identifier } = req.body;
+
+      if (!identifier) {
+        return apiResponse.badRequest(res, "Identifier is required");
+      }
+
+      // Find user by identifier
+      let user;
+      if (identifier.includes("@")) {
+        user = await storage.getUserByEmail(identifier);
+      } else if (identifier.startsWith("FTP")) {
+        user = await storage.getUserByUserId(identifier);
+      } else {
+        user = await storage.getUserByMobile(identifier);
+      }
+
+      if (!user) {
+        // Don't reveal that user doesn't exist (security)
+        return apiResponse.success(res, { hasActiveSession: false });
+      }
+
+      // Query sessions table for active sessions for this user
+      const activeSessions = await db
+        .select()
+        .from(schema.sessions)
+        .where(sql`sess::jsonb->'passport'->'user'->>'id' = ${user.id}`)
+        .execute();
+
+      const hasActiveSession = activeSessions.length > 0;
+
+      return apiResponse.success(res, {
+        hasActiveSession,
+        sessionCount: activeSessions.length
+      });
+    } catch (error) {
+      console.error("Session check error:", error);
+      return apiResponse.serverError(res, "Failed to check sessions");
+    }
+  });
+
+  // Force logout all sessions for a user (destroys all their active sessions)
+  app.post("/api/sessions/force-logout", async (req, res) => {
+    try {
+      const { identifier } = req.body;
+
+      if (!identifier) {
+        return apiResponse.badRequest(res, "Identifier is required");
+      }
+
+      // Find user by identifier
+      let user;
+      if (identifier.includes("@")) {
+        user = await storage.getUserByEmail(identifier);
+      } else if (identifier.startsWith("FTP")) {
+        user = await storage.getUserByUserId(identifier);
+      } else {
+        user = await storage.getUserByMobile(identifier);
+      }
+
+      if (!user) {
+        // Still return success even if user not found (security)
+        return apiResponse.success(res, { destroyedSessions: 0 }, "All sessions terminated");
+      }
+
+      // Delete all sessions for this user from the sessions table
+      const result = await db
+        .delete(schema.sessions)
+        .where(sql`sess::jsonb->'passport'->'user'->>'id' = ${user.id}`)
+        .execute();
+
+      return apiResponse.success(res, {
+        destroyedSessions: result.rowCount || 0
+      }, "All sessions terminated successfully");
+    } catch (error) {
+      console.error("Force logout error:", error);
+      return apiResponse.serverError(res, "Failed to terminate sessions");
+    }
+  });
+
   // Logout endpoint
   app.post("/api/logout", (req, res) => {
     req.logout((err) => {
