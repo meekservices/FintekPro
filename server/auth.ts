@@ -9,7 +9,7 @@ import { type User } from "@shared/schema";
 import { emailService } from "./email-service";
 import { db } from "./db";
 import * as schema from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { smsService } from "./services/sms-service";
 import { whatsappService } from "./whatsapp";
 import { apiResponse } from "./utils/responses";
@@ -960,12 +960,17 @@ export function setupAuth(app: Express) {
         return apiResponse.success(res, { hasActiveSession: false });
       }
 
+      console.log(`[Session Check] Checking sessions for user ID: ${user.id}`);
+
       // Query sessions table for active sessions for this user
+      // Using raw SQL to query JSONB column
       const activeSessions = await db
         .select()
         .from(schema.sessions)
-        .where(sql`sess::jsonb->'passport'->'user'->>'id' = ${user.id}`)
+        .where(sql`(sess->'passport'->'user'->>'id') = ${user.id}`)
         .execute();
+
+      console.log(`[Session Check] Found ${activeSessions.length} active session(s) for user ${user.id}`);
 
       const hasActiveSession = activeSessions.length > 0;
 
@@ -974,7 +979,8 @@ export function setupAuth(app: Express) {
         sessionCount: activeSessions.length
       });
     } catch (error) {
-      console.error("Session check error:", error);
+      console.error("[Session Check] Error:", error);
+      console.error("[Session Check] Stack:", error instanceof Error ? error.stack : 'No stack trace');
       return apiResponse.serverError(res, "Failed to check sessions");
     }
   });
@@ -1003,17 +1009,23 @@ export function setupAuth(app: Express) {
         return apiResponse.success(res, { destroyedSessions: 0 }, "All sessions terminated");
       }
 
+      console.log(`[Force Logout] Terminating all sessions for user ID: ${user.id}`);
+
       // Delete all sessions for this user from the sessions table
+      // Using raw SQL to query JSONB column
       const result = await db
         .delete(schema.sessions)
-        .where(sql`sess::jsonb->'passport'->'user'->>'id' = ${user.id}`)
+        .where(sql`(sess->'passport'->'user'->>'id') = ${user.id}`)
         .execute();
+
+      console.log(`[Force Logout] Destroyed ${result.rowCount || 0} session(s) for user ${user.id}`);
 
       return apiResponse.success(res, {
         destroyedSessions: result.rowCount || 0
       }, "All sessions terminated successfully");
     } catch (error) {
-      console.error("Force logout error:", error);
+      console.error("[Force Logout] Error:", error);
+      console.error("[Force Logout] Stack:", error instanceof Error ? error.stack : 'No stack trace');
       return apiResponse.serverError(res, "Failed to terminate sessions");
     }
   });
