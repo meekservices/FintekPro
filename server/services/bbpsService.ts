@@ -16,6 +16,7 @@ import {
   type InsertBbpsTransaction,
 } from "../../shared/schema";
 import { v4 as uuidv4 } from "uuid";
+import { cashfreeService } from "../cashfree-service";
 
 // Database connection
 const sql = neon(process.env.DATABASE_URL!);
@@ -284,15 +285,17 @@ export class BBPSService {
     }
   }
 
-  // Process bill payment (mock implementation)
-  async payBill(params: {
+  // Initiate bill payment through Cashfree
+  async initiateBillPayment(params: {
     billId: string;
     paymentAmount: string;
-    paymentMode: string;
     userId: string;
-  }): Promise<BbpsTransaction> {
+    userPhone?: string;
+    userEmail?: string;
+    userName?: string;
+  }): Promise<{ transaction: BbpsTransaction; paymentUrl: string }> {
     try {
-      const { billId, paymentAmount, paymentMode, userId } = params;
+      const { billId, paymentAmount, userId, userPhone, userEmail, userName } = params;
 
       // Get bill details
       const bill = await db
@@ -305,27 +308,46 @@ export class BBPSService {
         throw new Error("Bill not found");
       }
 
-      // Generate transaction ID
-      const transactionId = `TXN${Date.now()}${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
-      
-      // Mock payment processing - In production, this would integrate with payment gateway
-      const isPaymentSuccess = Math.random() > 0.1; // 90% success rate for demo
+      // Get biller details
+      const biller = await db
+        .select()
+        .from(bbpsBillers)
+        .where(eq(bbpsBillers.id, bill[0].billerId))
+        .limit(1);
 
+      if (!biller[0]) {
+        throw new Error("Biller not found");
+      }
+
+      // Generate transaction ID
+      const transactionId = `BBPS${Date.now()}${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+      
+      // Create Cashfree payment order
+      const cashfreeOrder = await cashfreeService.createOrder({
+        amount: parseFloat(paymentAmount),
+        userId,
+        phone: userPhone,
+        email: userEmail,
+        name: userName,
+        returnUrl: `${process.env.REPLIT_DEV_DOMAIN || 'http://localhost:5000'}/api/bbps/payment-callback`,
+      });
+
+      if (!cashfreeOrder.success || !cashfreeOrder.orderId) {
+        throw new Error(cashfreeOrder.message || "Failed to create payment order");
+      }
+
+      // Create BBPS transaction record with PENDING status
       const transactionData: InsertBbpsTransaction = {
         userId,
         billId,
-        billerCode: "", // Will be fetched from biller
+        billerCode: biller[0].billerCode,
         customerParam: bill[0].customerParam,
         paymentAmount,
         transactionId,
-        bbpsTransactionId: isPaymentSuccess ? `BBPS${transactionId}` : undefined,
-        paymentStatus: isPaymentSuccess ? "SUCCESS" : "FAILED",
-        paymentMode,
-        transactionReference: isPaymentSuccess ? `REF${Date.now()}` : undefined,
-        failureReason: !isPaymentSuccess ? "Payment gateway error" : undefined,
-        commissionAmount: isPaymentSuccess ? (parseFloat(paymentAmount) * 0.01).toFixed(0) : undefined, // 1% commission
+        paymentStatus: "PENDING",
+        paymentMode: "cashfree",
+        transactionReference: cashfreeOrder.orderId,
         initiatedAt: new Date(),
-        completedAt: isPaymentSuccess ? new Date() : undefined,
       };
 
       const [insertedTransaction] = await db
@@ -333,11 +355,83 @@ export class BBPSService {
         .values(transactionData)
         .returning();
 
-      return insertedTransaction;
+      console.log(`✅ BBPS payment initiated: ${transactionId} -> Cashfree order: ${cashfreeOrder.orderId}`);
+
+      return {
+        transaction: insertedTransaction,
+        paymentUrl: cashfreeOrder.paymentUrl || "",
+      };
     } catch (error) {
-      console.error("Error processing payment:", error);
+      console.error("Error initiating BBPS payment:", error);
       throw error;
     }
+  }
+
+  // Confirm payment after Cashfree callback
+  async confirmPayment(params: {
+    transactionId: string;
+    cashfreeOrderId: string;
+    status: "SUCCESS" | "FAILED";
+    bbpsTransactionId?: string;
+    failureReason?: string;
+  }): Promise<BbpsTransaction> {
+    try {
+      const { transactionId, status, bbpsTransactionId, failureReason } = params;
+
+      // Get transaction
+      const [transaction] = await db
+        .select()
+        .from(bbpsTransactions)
+        .where(eq(bbpsTransactions.transactionId, transactionId))
+        .limit(1);
+
+      if (!transaction) {
+        throw new Error("Transaction not found");
+      }
+
+      // Calculate commission (1% for successful payments)
+      const commissionAmount = status === "SUCCESS" 
+        ? (parseFloat(transaction.paymentAmount) * 0.01).toFixed(2)
+        : undefined;
+
+      // Update transaction status
+      const [updatedTransaction] = await db
+        .update(bbpsTransactions)
+        .set({
+          paymentStatus: status,
+          bbpsTransactionId: bbpsTransactionId || `BBPS${transactionId}`,
+          completedAt: new Date(),
+          failureReason,
+          commissionAmount,
+        })
+        .where(eq(bbpsTransactions.transactionId, transactionId))
+        .returning();
+
+      console.log(`✅ BBPS payment ${status.toLowerCase()}: ${transactionId}`);
+
+      return updatedTransaction;
+    } catch (error) {
+      console.error("Error confirming BBPS payment:", error);
+      throw error;
+    }
+  }
+
+  // Legacy method for backward compatibility (now redirects to new flow)
+  async payBill(params: {
+    billId: string;
+    paymentAmount: string;
+    paymentMode: string;
+    userId: string;
+  }): Promise<BbpsTransaction> {
+    console.warn("⚠️ payBill() is deprecated. Use initiateBillPayment() instead.");
+    
+    const result = await this.initiateBillPayment({
+      billId: params.billId,
+      paymentAmount: params.paymentAmount,
+      userId: params.userId,
+    });
+
+    return result.transaction;
   }
 
   // Get user's bill history
