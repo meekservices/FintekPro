@@ -93,6 +93,11 @@ export default function AuthPage() {
   const [registeredUserId, setRegisteredUserId] = useState<string>("");
   const [showUserIdDialog, setShowUserIdDialog] = useState(false);
 
+  // Duplicate Warning States
+  const [duplicateWarningOpen, setDuplicateWarningOpen] = useState(false);
+  const [duplicateWarnings, setDuplicateWarnings] = useState<any[]>([]);
+  const [pendingRegistrationData, setPendingRegistrationData] = useState<any>(null);
+
   // Progress indicator
   const [loginStep, setLoginStep] = useState<"credentials" | "otp" | "complete">("credentials");
   const [registrationStep, setRegistrationStep] = useState<"details" | "otp" | "complete">("details");
@@ -358,6 +363,15 @@ export default function AuthPage() {
       return response;
     },
     onSuccess: (data, variables) => {
+      // Check for duplicate warnings first
+      if (data.warnings?.hasDuplicates && data.warnings.duplicates?.length > 0) {
+        // Show duplicate warning dialog
+        setDuplicateWarnings(data.warnings.duplicates);
+        setPendingRegistrationData(data);
+        setDuplicateWarningOpen(true);
+        return;
+      }
+      
       if (data.requiresOtp) {
         // Registration requires OTP verification
         setRegistrationStep("otp");
