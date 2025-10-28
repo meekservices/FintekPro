@@ -14,7 +14,7 @@ import { sql, eq, and, or, like } from "drizzle-orm";
 import { db } from "./db";
 import { setupAuth as setupReplitAuth } from "./replitAuth";
 import { setupAuth as setupLocalAuth } from "./auth";
-import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema, insertCapitalGainsReportSchema, insertTransactionReportSchema, insertTransactionRecordSchema, insertCkycRecordSchema, insertCkycDocumentSchema, userCart, userCartItems, storeProducts, storeCategories, fundComparisons, portfolioComparisons, comparisonHistory, insertFamilyGroupSchema, insertFamilyMemberSchema, insertFamilyGoalSchema, insertFamilyGoalContributionSchema, insertFamilyActivityLogSchema, insertFamilyDiscussionSchema, insertFamilyBudgetSchema, kycFormProgress, insertProductAccountPreferenceSchema } from "@shared/schema";
+import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema, insertCapitalGainsReportSchema, insertTransactionReportSchema, insertTransactionRecordSchema, insertCkycRecordSchema, insertCkycDocumentSchema, userCart, userCartItems, storeProducts, storeCategories, fundComparisons, portfolioComparisons, comparisonHistory, insertFamilyGroupSchema, insertFamilyMemberSchema, insertFamilyGoalSchema, insertFamilyGoalContributionSchema, insertFamilyActivityLogSchema, insertFamilyDiscussionSchema, insertFamilyBudgetSchema, kycFormProgress, insertProductAccountPreferenceSchema, familyMembers } from "@shared/schema";
 import { marketStoryService, type MarketData as StoryMarketData } from "./market-story-service";
 import { generateMarketInsight, analyzePortfolio, generateInvestmentStory, explainFinancialConcept } from "./gemini";
 import { whatsappService } from "./whatsapp";
@@ -718,6 +718,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Link user to family group (for duplicate prevention during registration)
+  app.post("/api/users/:userId/link-family", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { linkedUserId, createNew } = req.body; // linkedUserId: existing family member to link with
+
+      // Validate userId
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return apiResponse.notFound(res, "User not found");
+      }
+
+      let familyId: string;
+      
+      if (createNew || !linkedUserId) {
+        // Create a new family group for this user
+        const familyGroup = await storage.createFamilyGroup({
+          name: `${user.firstName || 'User'}'s Family`,
+          createdBy: userId,
+          groupType: "family",
+          description: "Family account created during registration"
+        } as any);
+        
+        familyId = familyGroup.id;
+      } else {
+        // Find existing family of the linked user
+        const linkedUser = await storage.getUser(linkedUserId);
+        if (!linkedUser) {
+          return apiResponse.notFound(res, "Linked user not found");
+        }
+
+        // Get linked user's family membership
+        const existingMembership = await storage.db.query.familyMembers.findFirst({
+          where: (familyMembers, { eq }) => eq(familyMembers.userId, linkedUserId)
+        });
+
+        if (existingMembership) {
+          familyId = existingMembership.familyId;
+        } else {
+          // Linked user has no family, create one
+          const familyGroup = await storage.createFamilyGroup({
+            name: `${linkedUser.firstName || 'User'}'s Family`,
+            createdBy: linkedUserId,
+            groupType: "family",
+            description: "Family account"
+          } as any);
+          
+          familyId = familyGroup.id;
+          
+          // Add linked user to the new family
+          await storage.db.insert(familyMembers).values({
+            familyId: familyId,
+            userId: linkedUserId,
+            role: "owner",
+            invitationStatus: "accepted",
+            joinedAt: new Date()
+          });
+        }
+      }
+
+      // Add current user as family member
+      await storage.db.insert(familyMembers).values({
+        familyId: familyId,
+        userId: userId,
+        role: "member",
+        invitationStatus: "accepted",
+        joinedAt: new Date()
+      });
+
+      res.json({
+        success: true,
+        familyId,
+        message: "Successfully linked to family group"
+      });
+    } catch (error) {
+      console.error("Error linking user to family:", error);
+      return apiResponse.serverError(res, "Failed to link family");
+    }
+  });
   app.post("/api/profile", requireClientOrHigher, async (req, res) => {
     try {
       const profileData = {
