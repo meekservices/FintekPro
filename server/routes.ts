@@ -604,6 +604,119 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return apiResponse.serverError(res, "Failed to fetch profile");
     }
   });
+  // User Registration endpoint with duplicate detection
+  app.post("/api/register", async (req, res) => {
+    try {
+      const { email, mobile, password, name } = req.body;
+
+      // Validate required fields
+      if (!email || !mobile || !password) {
+        return apiResponse.badRequest(res, "Email, mobile, and password are required");
+      }
+
+      // Extract name parts if provided, otherwise use email prefix
+      let firstName = "";
+      let lastName = "";
+      
+      if (name) {
+        const nameParts = name.split(' ');
+        firstName = nameParts[0] || '';
+        lastName = nameParts.slice(1).join(' ') || '';
+      } else {
+        // Use email prefix as first name if name not provided
+        firstName = email.split('@')[0] || 'User';
+        lastName = '';
+      }
+
+      // Check for duplicates before creating user
+      const duplicates = await duplicateDetectionService.checkForDuplicates({
+        email: email || undefined,
+        mobile: mobile || undefined,
+        panNumber: undefined, // PAN not provided during initial registration
+        firstName,
+        lastName
+      });
+      
+      // Warn about email/mobile duplicates but allow registration
+      const contactDuplicates = duplicates.filter(d => d.emailMatch || d.mobileMatch);
+      
+      // Check if user already exists with this email or mobile
+      const existingUserByEmail = email ? await storage.getUserByEmail(email) : null;
+      const existingUserByMobile = mobile ? await storage.getUserByMobile(mobile) : null;
+      
+      if (existingUserByEmail || existingUserByMobile) {
+        return apiResponse.badRequest(res, "An account with this email or mobile number already exists. Please login instead.");
+      }
+
+      // Create user record
+      const user = await storage.createUser({
+        firstName,
+        lastName,
+        email,
+        mobile: mobile || null,
+        panNumber: null, // Will be added during KYC
+        password, // Will be hashed in storage
+        roles: ["user"],
+        isActive: true,
+        middleName: null,
+        profileImageUrl: null,
+        isEmailVerified: false,
+        isMobileVerified: false,
+        aadharNumber: null,
+        passportNumber: null,
+        drivingLicense: null,
+        voterIdNumber: null,
+        dateOfBirth: null,
+        nationality: null,
+        fatherName: null,
+        motherName: null,
+        spouseName: null,
+        maritalStatus: null,
+        address: null,
+        city: null,
+        state: null,
+        pincode: null,
+        occupation: null,
+        annualIncome: null,
+        investmentExperience: null,
+        riskTolerance: null,
+        loginCount: 0,
+        lastLoginAt: null
+      } as any);
+
+      console.log("User registered:", user);
+
+      // Return response with duplicate warnings if any
+      const response = {
+        user: {
+          id: user.id,
+          email: user.email,
+          mobile: user.mobile,
+          firstName: user.firstName,
+          lastName: user.lastName
+        },
+        requiresOtp: true, // For now, OTP verification is handled separately
+        identifier: email,
+        otpSentTo: `${email} and ${mobile}`,
+        registrationToken: "temp-token-" + Date.now(), // Temporary token for OTP flow
+        warnings: contactDuplicates.length > 0 ? {
+          hasDuplicates: true,
+          duplicates: contactDuplicates.map(d => ({
+            userId: d.user2.userId,
+            name: [d.user2.firstName, d.user2.lastName].filter(Boolean).join(" "),
+            emailMatch: d.emailMatch,
+            mobileMatch: d.mobileMatch,
+            message: "An account with similar contact information already exists."
+          }))
+        } : null
+      };
+      
+      res.status(201).json(response);
+    } catch (error) {
+      console.error("Error during registration:", error);
+      return apiResponse.serverError(res, "Registration failed");
+    }
+  });
 
   app.post("/api/profile", requireClientOrHigher, async (req, res) => {
     try {
