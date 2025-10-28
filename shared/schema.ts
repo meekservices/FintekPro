@@ -509,7 +509,11 @@ export const users = pgTable("users", {
   loginCount: integer("login_count").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_users_email").on(table.email),
+  index("idx_users_mobile").on(table.mobile),
+  index("idx_users_pan_number").on(table.panNumber),
+]);
 
 // KYC Verification Sessions table for tracking step-by-step Smart KYC wizard flow
 export const kycVerificationSessions = pgTable("kyc_verification_sessions", {

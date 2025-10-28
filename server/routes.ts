@@ -21,6 +21,7 @@ import { whatsappService } from "./whatsapp";
 import { marketingService } from "./marketing-automation";
 import { portfolioIntelligence } from "./portfolio-intelligence";
 import { adminService } from "./admin-service";
+import { duplicateDetectionService } from "./services/duplicateDetectionService";
 import { partnerService } from "./partner-service";
 import { z } from "zod";
 import { NseIndia } from 'stock-nse-india';
@@ -2790,6 +2791,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const firstName = nameParts[0] || '';
       const lastName = nameParts.slice(1).join(' ') || '';
       
+      
+      // Check for duplicates before creating user
+      const duplicates = await duplicateDetectionService.checkForDuplicates({
+        email: email || undefined,
+        mobile: mobile || undefined,
+        panNumber: panNumber || undefined,
+        firstName,
+        lastName
+      });
+      
+      // Block registration if PAN duplicates found
+      const panDuplicates = duplicates.filter(d => d.panNumberMatch);
+      if (panDuplicates.length > 0) {
+        return apiResponse.badRequest(res, "A user with this PAN number already exists. Each PAN can only be registered once.");
+      }
+      
+      // Warn about email/mobile duplicates but allow registration
+      const contactDuplicates = duplicates.filter(d => d.emailMatch || d.mobileMatch);
       // Create user record directly in the users system
       const client = await storage.createUser({
         firstName,
@@ -2828,7 +2847,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log("Client created and added to users:", client);
       
-      res.status(201).json(client);
+      // Return response with duplicate warnings if any
+      const response = {
+        client,
+        warnings: contactDuplicates.length > 0 ? {
+          hasDuplicates: true,
+          duplicates: contactDuplicates.map(d => ({
+            userId: d.user2.userId,
+            name: [d.user2.firstName, d.user2.lastName].filter(Boolean).join(" "),
+            emailMatch: d.emailMatch,
+            mobileMatch: d.mobileMatch,
+            message: "An account with similar contact information already exists."
+          }))
+        } : null
+      };
+      
+      res.status(201).json(response);
     } catch (error) {
       console.error("Error creating client:", error);
       return apiResponse.serverError(res, "Failed to create client");
@@ -17934,8 +17968,104 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error sending user guidance:", error);
       return apiResponse.serverError(res, "Failed to send guidance");
     }
+
+  });
+  // ==================== DUPLICATE DETECTION ENDPOINTS ====================
+
+  
+  // Get all duplicate pairs in the database
+  app.get("/api/admin/duplicates", requireAdmin, async (req, res) => {
+    try {
+      const duplicates = await duplicateDetectionService.findAllDuplicates();
+      res.json({ duplicates });
+    } catch (error) {
+      console.error("Error finding duplicates:", error);
+      return apiResponse.serverError(res, "Failed to find duplicates");
+    }
+  });
+  
+  // Get duplicate statistics
+  app.get("/api/admin/duplicate-stats", requireAdmin, async (req, res) => {
+    try {
+      const stats = await duplicateDetectionService.getDuplicateStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error getting duplicate stats:", error);
+      return apiResponse.serverError(res, "Failed to get duplicate statistics");
+    }
+  });
+  
+  // Check for duplicates (for registration validation)
+  app.post("/api/admin/check-duplicates", async (req, res) => {
+    try {
+      const { email, mobile, panNumber, firstName, lastName, excludeUserId } = req.body;
+      
+      const duplicates = await duplicateDetectionService.checkForDuplicates({
+        email,
+        mobile,
+        panNumber,
+        firstName,
+        lastName,
+        excludeUserId
+      });
+      
+      res.json({ duplicates });
+    } catch (error) {
+      console.error("Error checking for duplicates:", error);
+      return apiResponse.serverError(res, "Failed to check for duplicates");
+    }
   });
 
+  // Account merge endpoint
+  app.post("/api/admin/merge-accounts", requireAdmin, async (req, res) => {
+    try {
+      const { keepUserId, mergeUserId } = req.body;
+      
+      if (!keepUserId || !mergeUserId) {
+        return apiResponse.badRequest(res, "Both keepUserId and mergeUserId are required");
+      }
+      
+      if (keepUserId === mergeUserId) {
+        return apiResponse.badRequest(res, "Cannot merge an account with itself");
+      }
+      
+      // Get both users
+      const [keepUser] = await db.select().from(users).where(eq(users.id, keepUserId));
+      const [mergeUser] = await db.select().from(users).where(eq(users.id, mergeUserId));
+      
+      if (!keepUser || !mergeUser) {
+        return apiResponse.notFound(res, "One or both users not found");
+      }
+      
+      // TODO: Implement comprehensive merge logic
+      // For now, just deactivate the merge user
+      await db.update(users)
+        .set({ 
+          isActive: false,
+          email: mergeUser.email ? `${mergeUser.email}.merged.${Date.now()}` : null,
+          mobile: mergeUser.mobile ? `${mergeUser.mobile}.merged.${Date.now()}` : null
+        })
+        .where(eq(users.id, mergeUserId));
+      
+      await adminService.logActivity({
+        userId: req.user!.id,
+        action: 'accounts_merged',
+        resource: `user:${keepUserId}`,
+        details: { mergedFrom: mergeUserId },
+        ipAddress: req.ip
+      });
+      
+      res.json({ 
+        success: true, 
+        message: "Duplicate account deactivated",
+        keepUserId,
+        mergedUserId: mergeUserId 
+      });
+    } catch (error) {
+      console.error("Error merging accounts:", error);
+      return apiResponse.serverError(res, "Failed to merge accounts");
+    }
+  });
   // Admin User Management - Create new user
   app.post("/api/admin/users", requireAdmin, async (req, res) => {
     try {
