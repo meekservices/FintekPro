@@ -23713,16 +23713,97 @@ System Security Data:`;
 
       const clientData = clientSchema.parse(req.body);
       
-      // In production, implement client creation and agent assignment
-      const client = {
-        id: Date.now().toString(),
-        ...clientData,
-        agentId: req.user.id,
-        isActive: true,
-        createdAt: new Date().toISOString()
-      };
+      // Check for duplicates before creating client
+      const duplicates = await duplicateDetectionService.checkForDuplicates({
+        email: clientData.email || undefined,
+        mobile: clientData.mobile || undefined,
+        panNumber: clientData.panNumber || undefined,
+        firstName: clientData.firstName,
+        lastName: clientData.lastName
+      });
 
-      res.json({ success: true, client });
+      // Block PAN duplicates (strict enforcement)
+      const panDuplicates = duplicates.filter(d => d.panNumberMatch);
+      if (panDuplicates.length > 0) {
+        return res.status(409).json({
+          error: "Duplicate PAN number",
+          message: `A client with PAN number ${clientData.panNumber} already exists.`,
+          existingClients: panDuplicates.map(d => ({
+            userId: d.user2.userId,
+            name: [d.user2.firstName, d.user2.lastName].filter(Boolean).join(" "),
+            panNumber: d.user2.panNumber
+          }))
+        });
+      }
+
+      // Warn about email/mobile duplicates but allow creation
+      const contactDuplicates = duplicates.filter(d => d.emailMatch || d.mobileMatch);
+      
+      // Create the client user
+      const client = await storage.createUser({
+        firstName: clientData.firstName,
+        lastName: clientData.lastName,
+        email: clientData.email,
+        mobile: clientData.mobile || null,
+        panNumber: clientData.panNumber || null,
+        password: 'temp-password-' + Date.now(), // Temporary password, should be reset
+        roles: ["user"],
+        isActive: true,
+        middleName: null,
+        profileImageUrl: null,
+        isEmailVerified: false,
+        isMobileVerified: false,
+        aadharNumber: null,
+        passportNumber: null,
+        drivingLicense: null,
+        voterIdNumber: null,
+        dateOfBirth: null,
+        nationality: null,
+        fatherName: null,
+        motherName: null,
+        spouseName: null,
+        maritalStatus: null,
+        address: null,
+        city: null,
+        state: null,
+        pincode: null,
+        occupation: null,
+        annualIncome: null,
+        investmentExperience: null,
+        riskTolerance: null,
+        loginCount: 0,
+        lastLoginAt: null
+      } as any);
+
+      console.log(`Agent ${req.user.id} created client:`, client.id);
+
+      // Return response with duplicate warnings if any
+      const response = {
+        success: true,
+        client: {
+          id: client.id,
+          firstName: client.firstName,
+          lastName: client.lastName,
+          email: client.email,
+          mobile: client.mobile,
+          panNumber: client.panNumber,
+          agentId: req.user.id,
+          isActive: true,
+          createdAt: new Date().toISOString()
+        },
+        warnings: contactDuplicates.length > 0 ? {
+          hasDuplicates: true,
+          duplicates: contactDuplicates.map(d => ({
+            userId: d.user2.userId,
+            name: [d.user2.firstName, d.user2.lastName].filter(Boolean).join(" "),
+            emailMatch: d.emailMatch,
+            mobileMatch: d.mobileMatch,
+            message: "A client with similar contact information already exists."
+          }))
+        } : null
+      };
+      
+      res.json(response);
     } catch (error) {
       console.error("Error creating client:", error);
       return apiResponse.serverError(res, "Failed to create client");
