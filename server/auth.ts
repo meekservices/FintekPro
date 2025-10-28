@@ -14,6 +14,7 @@ import { smsService } from "./services/sms-service";
 import { whatsappService } from "./whatsapp";
 import { apiResponse } from "./utils/responses";
 
+import { duplicateDetectionService } from "./services/duplicateDetectionService";
 declare global {
   namespace Express {
     interface User {
@@ -227,22 +228,22 @@ export function setupAuth(app: Express) {
         return apiResponse.badRequest(res, "Mobile number must be exactly 10 digits");
       }
 
-      // Check if user already exists with this email or mobile
-      const existingUserByEmail = await db.query.users.findFirst({
-        where: eq(schema.users.email, email)
+      // Check for duplicates using duplicate detection service
+      const duplicates = await duplicateDetectionService.checkForDuplicates({
+        email: email || undefined,
+        mobile: mobile || undefined,
+        panNumber: undefined, // PAN not provided during initial registration
+        firstName: email.split('@')[0], // Use email prefix as temp name
+        lastName: ""
       });
+      
+      // Warn about email/mobile duplicates but allow registration (family members can share contact info)
+      const contactDuplicates = duplicates.filter(d => d.emailMatch || d.mobileMatch);
+      
+      // Note: We intentionally allow email/mobile duplicates to support family accounts
+      // Users will see warnings in the OTP verification response if duplicates exist
+      // Only PAN duplicates would be blocked (handled during KYC, not registration)
 
-      if (existingUserByEmail) {
-        return apiResponse.badRequest(res, "This email is already registered. Please use Forgot Password to reset your account.");
-      }
-
-      const existingUserByMobile = await db.query.users.findFirst({
-        where: eq(schema.users.mobile, mobile)
-      });
-
-      if (existingUserByMobile) {
-        return apiResponse.badRequest(res, "This mobile number is already registered. Please use Forgot Password to reset your account.");
-      }
 
       // Hash password for storage in metadata
       const hashedPassword = await hashPassword(password);

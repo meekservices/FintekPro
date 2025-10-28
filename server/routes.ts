@@ -637,16 +637,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastName
       });
       
-      // Warn about email/mobile duplicates but allow registration
+      // Warn about email/mobile duplicates but allow registration (family members can share contact info)
       const contactDuplicates = duplicates.filter(d => d.emailMatch || d.mobileMatch);
       
-      // Check if user already exists with this email or mobile
-      const existingUserByEmail = email ? await storage.getUserByEmail(email) : null;
-      const existingUserByMobile = mobile ? await storage.getUserByMobile(mobile) : null;
-      
-      if (existingUserByEmail || existingUserByMobile) {
-        return apiResponse.badRequest(res, "An account with this email or mobile number already exists. Please login instead.");
-      }
+      // Note: We intentionally allow email/mobile duplicates to support family accounts
+      // Users will see warnings in the response if duplicates exist
+      // Only PAN duplicates would be blocked (handled during KYC, not registration)
 
       // Create user record
       const user = await storage.createUser({
