@@ -14,6 +14,7 @@ import { CreditCard, IndianRupee, Send, CheckCircle, AlertCircle, Clock, Eye, Do
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { LoadingState } from "@/components/LoadingState";
 
 export default function ICICIBanking() {
   const [selectedAccount, setSelectedAccount] = useState("");
@@ -298,10 +299,7 @@ export default function ICICIBanking() {
               </CardHeader>
               <CardContent>
                 {balanceLoading ? (
-                  <div className="flex items-center justify-center p-8">
-                    <RefreshCw className="h-6 w-6 animate-spin" />
-                    <span className="ml-2">Loading balance...</span>
-                  </div>
+                  <LoadingState variant="stats" count={3} />
                 ) : accountBalance?.success ? (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">

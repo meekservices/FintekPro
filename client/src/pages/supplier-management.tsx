@@ -11,6 +11,7 @@ import { TrendingUp, TrendingDown, IndianRupee, Package, Users, AlertTriangle, S
 import { ProfitDashboard } from "@/components/supplier/profit-dashboard";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { LoadingState } from "@/components/LoadingState";
 
 export function SupplierManagement() {
   const [selectedProductId, setSelectedProductId] = useState<string>("");
@@ -79,12 +80,7 @@ export function SupplierManagement() {
   if (isLoading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Card>
-          <CardContent className="p-12 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-finance-blue mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Loading...</p>
-          </CardContent>
-        </Card>
+        <LoadingState variant="card" count={4} />
       </div>
     );
   }

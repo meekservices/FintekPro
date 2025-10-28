@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { TrendingUp, Shield, Calendar, DollarSign, BarChart3, Info } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { LoadingState } from "@/components/LoadingState";
 
 export default function MLDs() {
   const { data: mldProducts, isLoading } = useQuery({
@@ -76,13 +77,7 @@ export default function MLDs() {
 
           <TabsContent value="all" className="space-y-4">
             {isLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {[1, 2, 3, 4, 5, 6].map((i) => (
-                  <div key={i} className="animate-pulse">
-                    <div className="h-64 bg-gray-200 rounded-lg"></div>
-                  </div>
-                ))}
-              </div>
+              <LoadingState variant="card" count={6} />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {mldProducts && mldProducts.length > 0 ? (

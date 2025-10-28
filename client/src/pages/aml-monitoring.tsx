@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Shield, AlertTriangle, CheckCircle, User, Activity } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
+import { LoadingState } from "@/components/LoadingState";
 
 interface AMLScreeningData {
   firstName: string;
@@ -208,11 +209,7 @@ export default function AMLMonitoring() {
           </CardHeader>
           <CardContent>
             {alertsLoading ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-16 bg-gray-100 rounded animate-pulse" />
-                ))}
-              </div>
+              <LoadingState variant="list" count={3} />
             ) : alerts && Array.isArray(alerts) && alerts.length > 0 ? (
               <div className="space-y-3 max-h-80 overflow-y-auto">
                 {Array.isArray(alerts) ? alerts.map((alert: AMLAlert) => (

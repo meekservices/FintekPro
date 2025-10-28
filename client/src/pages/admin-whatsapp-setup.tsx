@@ -6,6 +6,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, CheckCircle2, AlertCircle, RefreshCw, Smartphone, QrCode } from "lucide-react";
 import QRCode from "react-qr-code";
+import { LoadingState } from "@/components/LoadingState";
 
 interface WhatsAppStatus {
   isReady: boolean;
@@ -69,9 +70,7 @@ export default function AdminWhatsAppSetup() {
           </CardHeader>
           <CardContent className="space-y-4">
             {isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-              </div>
+              <LoadingState variant="form" count={3} />
             ) : (
               <>
                 <div className="flex items-center justify-between">
@@ -150,9 +149,7 @@ export default function AdminWhatsAppSetup() {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-              </div>
+              <LoadingState variant="card" count={1} />
             ) : data?.isReady ? (
               <div className="flex flex-col items-center justify-center py-8 space-y-4">
                 <CheckCircle2 className="w-16 h-16 text-green-500" />
