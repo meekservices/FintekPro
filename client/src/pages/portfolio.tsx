@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { usePortfoliosByPan, useEnhancedPortfolioHoldings, usePortfolioPerformance, useEpfHoldings, usePpfHoldings, useEpsHoldings, useInsuranceHoldings } from "@/hooks/use-portfolio";
-import { Skeleton } from "@/components/ui/skeleton";
+import { LoadingState } from "@/components/LoadingState";
 import { Plus, TrendingUp, TrendingDown, RefreshCw, Bot, Coins, CreditCard, PiggyBank, Shield, Target, Calculator, AlertTriangle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
@@ -230,7 +230,7 @@ export default function Portfolio() {
                         Total Portfolio Value
                       </h3>
                       {conversionLoading ? (
-                        <Skeleton className="h-12 w-48" />
+                        <LoadingState variant="stats" count={1} />
                       ) : selectedCurrency !== defaultCurrency && convertedPortfolio ? (
                         <>
                           <div className="text-4xl font-bold text-green-600 mb-2" data-testid="portfolio-total-converted">
@@ -559,20 +559,7 @@ export default function Portfolio() {
               </CardHeader>
               <CardContent>
                 {isLoading ? (
-                  <div className="space-y-4">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <div key={i} className="flex justify-between items-center p-4 border-b">
-                        <div>
-                          <Skeleton className="h-4 w-24 mb-2" />
-                          <Skeleton className="h-3 w-16" />
-                        </div>
-                        <div className="text-right">
-                          <Skeleton className="h-4 w-20 mb-2" />
-                          <Skeleton className="h-3 w-16" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <LoadingState variant="list" count={5} />
                 ) : enhancedHoldings && enhancedHoldings.length > 0 ? (
                   <div className="space-y-6" data-testid="holdings-list">
                     {/* Group holdings by asset class */}
@@ -808,10 +795,7 @@ export default function Portfolio() {
                   </CardHeader>
                   <CardContent>
                     {insuranceLoading ? (
-                      <div className="space-y-4">
-                        <Skeleton className="h-24 w-full" />
-                        <Skeleton className="h-32 w-full" />
-                      </div>
+                      <LoadingState variant="card" count={3} />
                     ) : (
                     <div className="space-y-6">
                       {/* Summary Stats */}
@@ -879,11 +863,7 @@ export default function Portfolio() {
                   </CardHeader>
                   <CardContent>
                     {insuranceLoading ? (
-                      <div className="space-y-4">
-                        <Skeleton className="h-24 w-full" />
-                        <Skeleton className="h-24 w-full" />
-                        <Skeleton className="h-24 w-full" />
-                      </div>
+                      <LoadingState variant="card" count={3} />
                     ) : (
                     <div className="space-y-4">
                       {insuranceHoldings && insuranceHoldings.length > 0 ? (
@@ -1056,16 +1036,7 @@ export default function Portfolio() {
               </div>
               
               {epfLoading ? (
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-                  <div className="space-y-4">
-                    <Skeleton className="h-8 w-48" />
-                    <Skeleton className="h-64 w-full" />
-                  </div>
-                  <div className="space-y-4">
-                    <Skeleton className="h-8 w-48" />
-                    <Skeleton className="h-64 w-full" />
-                  </div>
-                </div>
+                <LoadingState variant="card" count={2} />
               ) : (
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
                 {epfHoldings?.map((epf) => (
@@ -1319,16 +1290,7 @@ export default function Portfolio() {
               </div>
               
               {ppfLoading ? (
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-                <div className="space-y-4">
-                  <Skeleton className="h-8 w-48" />
-                  <Skeleton className="h-64 w-full" />
-                </div>
-                <div className="space-y-4">
-                  <Skeleton className="h-8 w-48" />
-                  <Skeleton className="h-64 w-full" />
-                </div>
-              </div>
+              <LoadingState variant="card" count={2} />
             ) : (
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
                 {ppfHoldings?.map((ppf) => (
@@ -1652,16 +1614,7 @@ export default function Portfolio() {
               </div>
               
               {epsLoading ? (
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-                <div className="space-y-4">
-                  <Skeleton className="h-8 w-48" />
-                  <Skeleton className="h-64 w-full" />
-                </div>
-                <div className="space-y-4">
-                  <Skeleton className="h-8 w-48" />
-                  <Skeleton className="h-64 w-full" />
-                </div>
-              </div>
+              <LoadingState variant="card" count={2} />
             ) : (
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
                 {epsHoldings?.map((eps) => (

@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingState } from '@/components/LoadingState';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
@@ -413,8 +413,7 @@ export default function FamilyDashboard() {
   if (loadingFamily) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-6">
-        <Skeleton className="h-12 w-64 mb-6" />
-        <Skeleton className="h-96 w-full" />
+        <LoadingState variant="card" count={2} />
       </div>
     );
   }
@@ -543,11 +542,7 @@ export default function FamilyDashboard() {
               </CardHeader>
               <CardContent>
                 {loadingActivities ? (
-                  <div className="space-y-4">
-                    {[1, 2, 3].map((i) => (
-                      <Skeleton key={i} className="h-16 w-full" />
-                    ))}
-                  </div>
+                  <LoadingState variant="list" count={3} />
                 ) : activities.length === 0 ? (
                   <p className="text-center text-gray-500 py-8" data-testid="text-no-activities">
                     No activities yet
@@ -662,11 +657,7 @@ export default function FamilyDashboard() {
             </div>
 
             {loadingMembers ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-32 w-full" />
-                ))}
-              </div>
+              <LoadingState variant="card" count={3} />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {members.map((member) => (
@@ -881,11 +872,7 @@ export default function FamilyDashboard() {
             </div>
 
             {loadingGoals ? (
-              <div className="space-y-4">
-                {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-40 w-full" />
-                ))}
-              </div>
+              <LoadingState variant="card" count={3} />
             ) : goals.length === 0 ? (
               <Card className="text-center py-12" data-testid="card-no-goals">
                 <CardContent>
@@ -1149,11 +1136,7 @@ export default function FamilyDashboard() {
             </div>
 
             {loadingBudgets ? (
-              <div className="space-y-4">
-                {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-32 w-full" />
-                ))}
-              </div>
+              <LoadingState variant="card" count={3} />
             ) : budgets.length === 0 ? (
               <Card className="text-center py-12" data-testid="card-no-budgets">
                 <CardContent>
@@ -1217,11 +1200,7 @@ export default function FamilyDashboard() {
           <TabsContent value="activity" className="space-y-6">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Family Activity</h2>
             {loadingActivities ? (
-              <div className="space-y-4">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <Skeleton key={i} className="h-20 w-full" />
-                ))}
-              </div>
+              <LoadingState variant="list" count={5} />
             ) : activities.length === 0 ? (
               <Card className="text-center py-12" data-testid="card-no-activities">
                 <CardContent>
@@ -1360,11 +1339,7 @@ export default function FamilyDashboard() {
             </div>
 
             {loadingDiscussions ? (
-              <div className="space-y-4">
-                {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-32 w-full" />
-                ))}
-              </div>
+              <LoadingState variant="card" count={3} />
             ) : discussions.length === 0 ? (
               <Card className="text-center py-12" data-testid="card-no-discussions">
                 <CardContent>

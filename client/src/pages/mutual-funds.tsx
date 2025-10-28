@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { LoadingState } from "@/components/LoadingState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
@@ -115,40 +116,6 @@ function FundCard({ fund, sebiData, onInvestClick }: { fund: MutualFundData; seb
             <Award className="w-4 h-4 mr-1.5" />
             <span className="text-xs sm:text-sm">View Details</span>
           </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function FundSkeleton() {
-  return (
-    <Card>
-      <CardContent className="p-6">
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Skeleton className="h-4 w-3/4" />
-            <Skeleton className="h-3 w-1/2" />
-            <Skeleton className="h-5 w-16" />
-          </div>
-          <div className="grid grid-cols-3 gap-4">
-            <div className="text-center space-y-2">
-              <Skeleton className="h-8 w-16 mx-auto" />
-              <Skeleton className="h-3 w-12 mx-auto" />
-            </div>
-            <div className="text-center space-y-2">
-              <Skeleton className="h-6 w-12 mx-auto" />
-              <Skeleton className="h-3 w-16 mx-auto" />
-            </div>
-            <div className="text-center space-y-2">
-              <Skeleton className="h-6 w-12 mx-auto" />
-              <Skeleton className="h-3 w-12 mx-auto" />
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Skeleton className="h-8 flex-1" />
-            <Skeleton className="h-8 flex-1" />
-          </div>
         </div>
       </CardContent>
     </Card>
@@ -1144,11 +1111,7 @@ export default function MutualFunds() {
               </div>
               
               {isLoadingPopular ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {[...Array(6)].map((_, i) => (
-                    <FundSkeleton key={i} />
-                  ))}
-                </div>
+                <LoadingState variant="card" count={6} />
               ) : popularError ? (
                 <Card className="border-red-200 bg-red-50">
                   <CardContent className="flex flex-col items-center justify-center py-8">
@@ -1195,11 +1158,7 @@ export default function MutualFunds() {
 
             {/* Loading state for search/all funds */}
             {isLoading && !isLoadingPopular && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {[...Array(9)].map((_, i) => (
-                  <FundSkeleton key={i} />
-                ))}
-              </div>
+              <LoadingState variant="card" count={6} />
             )}
 
           </TabsContent>
