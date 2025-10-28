@@ -88,6 +88,10 @@ export interface DuplicateMatch {
   reasons: string[];
   nameSimilarity: number;
   autoMergeRecommended: boolean;
+  // Boolean flags for easy filtering
+  panNumberMatch: boolean;
+  emailMatch: boolean;
+  mobileMatch: boolean;
 }
 
 export class DuplicateDetectionService {
@@ -335,6 +339,10 @@ export class DuplicateDetectionService {
       reasons,
       nameSimilarity: nameSimilarity.similarity,
       autoMergeRecommended,
+      // Boolean flags for easy filtering
+      panNumberMatch: !!(user1.panNumber && user2.panNumber && user1.panNumber === user2.panNumber),
+      emailMatch: !!(user1.email && user2.email && user1.email === user2.email),
+      mobileMatch: !!(user1.mobile && user2.mobile && user1.mobile === user2.mobile),
     };
   }
   
