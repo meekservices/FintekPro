@@ -1,6 +1,8 @@
 import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { apiResponse } from "./utils/responses";
+import { apiResponse } from "./utils/responses";
 // Extend Express Request to include partner property
 declare global {
   namespace Express {
@@ -199,12 +201,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // }
     
     if (!req.user) {
-      return res.status(401).json({ message: "Authentication required" });
+      return apiResponse.unauthorized(res, "Authentication required");
     }
     
     const isAdmin = await adminService.isAdmin(req.user.id);
     if (!isAdmin) {
-      return res.status(403).json({ message: "Admin access required" });
+      return apiResponse.forbidden(res, "Admin access required");
     }
     
     next();
@@ -222,11 +224,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Agent middleware - requires user to be authenticated with 'agent' or 'admin' role
   const requireAgent = async (req: any, res: any, next: any) => {
     if (!req.user) {
-      return res.status(401).json({ message: "Authentication required" });
+      return apiResponse.unauthorized(res, "Authentication required");
     }
     
     if (!hasRole(req.user, ['agent', 'partner', 'admin', 'superadmin'])) {
-      return res.status(403).json({ message: "Agent, partner, or admin access required" });
+      return apiResponse.forbidden(res, "Agent, partner, or admin access required");
     }
     
     next();
@@ -234,11 +236,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const requireClientOrHigher = async (req: any, res: any, next: any) => {
     if (!req.user) {
-      return res.status(401).json({ message: "Authentication required" });
+      return apiResponse.unauthorized(res, "Authentication required");
     }
     
     if (!hasRole(req.user, ['client', 'business_client', 'agent', 'partner', 'admin', 'superadmin'])) {
-      return res.status(403).json({ message: "Client access required" });
+      return apiResponse.forbidden(res, "Client access required");
     }
     
     next();
@@ -286,7 +288,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error recording consent:", error);
-      res.status(500).json({ error: "Failed to record consent preferences" });
+      return apiResponse.serverError(res, "Failed to record consent preferences");
     }
   });
 
@@ -304,7 +306,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error seeding products:", error);
-      res.status(500).json({ error: "Failed to seed products" });
+      return apiResponse.serverError(res, "Failed to seed products");
     }
   });
 
@@ -330,7 +332,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error fetching compliance events:", error);
-      res.status(500).json({ error: "Failed to fetch compliance events" });
+      return apiResponse.serverError(res, "Failed to fetch compliance events");
     }
   });
 
@@ -348,7 +350,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error fetching security alerts:", error);
-      res.status(500).json({ error: "Failed to fetch security alerts" });
+      return apiResponse.serverError(res, "Failed to fetch security alerts");
     }
   });
 
@@ -372,11 +374,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         res.json({ success: true, message: "Alert resolved successfully" });
       } else {
-        res.status(404).json({ error: "Alert not found" });
+        return apiResponse.notFound(res, "Alert not found");
       }
     } catch (error) {
       console.error("Error resolving alert:", error);
-      res.status(500).json({ error: "Failed to resolve alert" });
+      return apiResponse.serverError(res, "Failed to resolve alert");
     }
   });
 
@@ -388,7 +390,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(report);
     } catch (error) {
       console.error("Error generating compliance report:", error);
-      res.status(500).json({ error: "Failed to generate compliance report" });
+      return apiResponse.serverError(res, "Failed to generate compliance report");
     }
   });
 
@@ -399,7 +401,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { orderId, amount, status } = req.body;
 
       if (!orderId) {
-        return res.status(400).json({ error: "Order ID is required" });
+        return apiResponse.badRequest(res, "Order ID is required");
       }
 
       const result = await webhookTester.sendTestWebhook({
@@ -412,7 +414,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(result);
     } catch (error) {
       console.error("Error testing webhook:", error);
-      res.status(500).json({ error: "Failed to test webhook" });
+      return apiResponse.serverError(res, "Failed to test webhook");
     }
   });
 
@@ -423,7 +425,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { orderId } = req.body;
 
       if (!orderId) {
-        return res.status(400).json({ error: "Order ID is required for test suite" });
+        return apiResponse.badRequest(res, "Order ID is required for test suite");
       }
 
       // Run test suite asynchronously
@@ -437,7 +439,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error running test suite:", error);
-      res.status(500).json({ error: "Failed to run test suite" });
+      return apiResponse.serverError(res, "Failed to run test suite");
     }
   });
 
@@ -447,7 +449,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { phoneNumber } = req.body;
       
       if (!phoneNumber) {
-        return res.status(400).json({ error: "Phone number is required" });
+        return apiResponse.badRequest(res, "Phone number is required");
       }
 
       // Create authentication session
@@ -460,7 +462,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error initiating WhatsApp auth:", error);
-      res.status(500).json({ error: "Failed to initiate WhatsApp authentication" });
+      return apiResponse.serverError(res, "Failed to initiate WhatsApp authentication");
     }
   });
 
@@ -469,13 +471,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { sessionId, code } = req.body;
       
       if (!sessionId || !code) {
-        return res.status(400).json({ error: "Session ID and verification code are required" });
+        return apiResponse.badRequest(res, "Session ID and verification code are required");
       }
 
       const result = await whatsappService.verifyCode(sessionId, code);
       
       if (!result.success) {
-        return res.status(400).json({ error: "Invalid or expired verification code" });
+        return apiResponse.badRequest(res, "Invalid or expired verification code");
       }
 
       if (result.userId) {
@@ -495,14 +497,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             message: "Authentication successful" 
           });
         } else {
-          res.status(404).json({ error: "User not found" });
+          return apiResponse.notFound(res, "User not found");
         }
       } else {
-        res.status(400).json({ error: "Authentication failed" });
+        return apiResponse.badRequest(res, "Authentication failed");
       }
     } catch (error) {
       console.error("Error verifying WhatsApp auth:", error);
-      res.status(500).json({ error: "Failed to verify authentication" });
+      return apiResponse.serverError(res, "Failed to verify authentication");
     }
   });
 
@@ -522,7 +524,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error getting WhatsApp status:", error);
-      res.status(500).json({ error: "Failed to get WhatsApp status" });
+      return apiResponse.serverError(res, "Failed to get WhatsApp status");
     }
   });
 
@@ -550,7 +552,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error getting WhatsApp QR code:", error);
-      res.status(500).json({ error: "Failed to get WhatsApp QR code" });
+      return apiResponse.serverError(res, "Failed to get WhatsApp QR code");
     }
   });
 
@@ -559,7 +561,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { phoneNumber } = req.body;
       
       if (!phoneNumber) {
-        return res.status(400).json({ error: "Phone number is required" });
+        return apiResponse.badRequest(res, "Phone number is required");
       }
 
       // Check if user exists with this phone number
@@ -582,7 +584,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error initiating phone login:", error);
-      res.status(500).json({ error: "Failed to initiate phone login" });
+      return apiResponse.serverError(res, "Failed to initiate phone login");
     }
   });
   
@@ -593,13 +595,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const profile = await storage.getUserProfile(userId);
       
       if (!profile) {
-        return res.status(404).json({ error: "Profile not found" });
+        return apiResponse.notFound(res, "Profile not found");
       }
       
       res.json(profile);
     } catch (error) {
       console.error("Error fetching user profile:", error);
-      res.status(500).json({ error: "Failed to fetch profile" });
+      return apiResponse.serverError(res, "Failed to fetch profile");
     }
   });
 
@@ -614,7 +616,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(profile);
     } catch (error) {
       console.error("Error updating user profile:", error);
-      res.status(500).json({ error: "Failed to update profile" });
+      return apiResponse.serverError(res, "Failed to update profile");
     }
   });
 
@@ -628,7 +630,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const profile = await storage.getUserProfile(userId);
       
       if (!user) {
-        return res.status(404).json({ error: "User not found" });
+        return apiResponse.notFound(res, "User not found");
       }
       
       res.json({
@@ -638,7 +640,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error fetching user profile:", error);
-      res.status(500).json({ error: "Failed to fetch profile" });
+      return apiResponse.serverError(res, "Failed to fetch profile");
     }
   });
 
@@ -657,7 +659,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(profile);
     } catch (error) {
       console.error("Error updating user profile:", error);
-      res.status(500).json({ error: "Failed to update profile" });
+      return apiResponse.serverError(res, "Failed to update profile");
     }
   });
 
@@ -693,7 +695,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(result);
     } catch (error) {
       console.error("Error triggering Re-KYC:", error);
-      res.status(500).json({ error: "Failed to trigger Re-KYC process" });
+      return apiResponse.serverError(res, "Failed to trigger Re-KYC process");
     }
   });
 
@@ -716,7 +718,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       if (!user) {
-        return res.status(404).json({ error: "User not found" });
+        return apiResponse.notFound(res, "User not found");
       }
       
       // Get user profile for KYC tier and net worth information
@@ -980,7 +982,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
     } catch (error) {
       console.error("Error aggregating net worth:", error);
-      res.status(500).json({ error: "Failed to calculate net worth" });
+      return apiResponse.serverError(res, "Failed to calculate net worth");
     }
   });
 
@@ -992,7 +994,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get user profile to determine client type and entity type
       const profile = await storage.getUserProfile(userId);
       if (!profile) {
-        return res.status(404).json({ error: "User profile not found" });
+        return apiResponse.notFound(res, "User profile not found");
       }
 
       // Get KYC status to determine verification level
@@ -1098,7 +1100,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error completing user profile:", error);
-      res.status(500).json({ error: "Failed to complete profile" });
+      return apiResponse.serverError(res, "Failed to complete profile");
     }
   });
 
@@ -1427,7 +1429,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(goals);
     } catch (error) {
       console.error("Error fetching financial goals:", error);
-      res.status(500).json({ error: "Failed to fetch financial goals" });
+      return apiResponse.serverError(res, "Failed to fetch financial goals");
     }
   });
 
@@ -1437,7 +1439,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Validate required fields
       if (!goalData.name || !goalData.targetAmount || !goalData.targetDate) {
-        return res.status(400).json({ error: "Name, target amount, and target date are required" });
+        return apiResponse.badRequest(res, "Name, target amount, and target date are required");
       }
 
       // Check authentication
@@ -1452,7 +1454,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(goal);
     } catch (error) {
       console.error("Error creating financial goal:", error);
-      res.status(500).json({ error: "Failed to create financial goal" });
+      return apiResponse.serverError(res, "Failed to create financial goal");
     }
   });
 
@@ -1469,13 +1471,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const goal = await storage.updateFinancialGoal(id, updates);
       
       if (!goal) {
-        return res.status(404).json({ error: "Financial goal not found" });
+        return apiResponse.notFound(res, "Financial goal not found");
       }
       
       res.json(goal);
     } catch (error) {
       console.error("Error updating financial goal:", error);
-      res.status(500).json({ error: "Failed to update financial goal" });
+      return apiResponse.serverError(res, "Failed to update financial goal");
     }
   });
 
@@ -1490,13 +1492,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const deleted = await storage.deleteFinancialGoal(id);
       
       if (!deleted) {
-        return res.status(404).json({ error: "Financial goal not found" });
+        return apiResponse.notFound(res, "Financial goal not found");
       }
       
       res.json({ success: true, message: "Financial goal deleted successfully" });
     } catch (error) {
       console.error("Error deleting financial goal:", error);
-      res.status(500).json({ error: "Failed to delete financial goal" });
+      return apiResponse.serverError(res, "Failed to delete financial goal");
     }
   });
 
@@ -1508,7 +1510,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(recommendations);
     } catch (error) {
       console.error("Error generating goal-based recommendations:", error);
-      res.status(500).json({ error: "Failed to generate recommendations" });
+      return apiResponse.serverError(res, "Failed to generate recommendations");
     }
   });
 
@@ -1523,7 +1525,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(recommendations);
     } catch (error) {
       console.error("Error generating rebalance recommendations:", error);
-      res.status(500).json({ error: "Failed to generate rebalance recommendations" });
+      return apiResponse.serverError(res, "Failed to generate rebalance recommendations");
     }
   });
 
@@ -2410,7 +2412,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(bondCategories);
     } catch (error) {
       console.error("Error fetching bond categories:", error);
-      res.status(500).json({ error: "Failed to fetch bond categories" });
+      return apiResponse.serverError(res, "Failed to fetch bond categories");
     }
   });
 
@@ -2431,7 +2433,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(liveRates);
     } catch (error) {
       console.error("Error fetching live bond rates:", error);
-      res.status(500).json({ error: "Failed to fetch live bond rates" });
+      return apiResponse.serverError(res, "Failed to fetch live bond rates");
     }
   });
 
@@ -2481,7 +2483,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(mappedRows);
     } catch (error) {
       console.error("Error fetching IPOs:", error);
-      res.status(500).json({ error: "Failed to fetch IPO data" });
+      return apiResponse.serverError(res, "Failed to fetch IPO data");
     }
   });
 
@@ -2518,7 +2520,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(ipoNews);
     } catch (error) {
       console.error("Error fetching IPO news:", error);
-      res.status(500).json({ error: "Failed to fetch IPO news" });
+      return apiResponse.serverError(res, "Failed to fetch IPO news");
     }
   });
 
@@ -2545,7 +2547,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(products);
     } catch (error) {
       console.error("Error fetching products:", error);
-      res.status(500).json({ error: "Failed to fetch products" });
+      return apiResponse.serverError(res, "Failed to fetch products");
     }
   });
 
@@ -2556,13 +2558,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const product = await storage.getProductById(id);
       
       if (!product) {
-        return res.status(404).json({ error: "Product not found" });
+        return apiResponse.notFound(res, "Product not found");
       }
       
       res.json(product);
     } catch (error) {
       console.error("Error fetching product:", error);
-      res.status(500).json({ error: "Failed to fetch product" });
+      return apiResponse.serverError(res, "Failed to fetch product");
     }
   });
 
@@ -2573,13 +2575,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const product = await storage.getProductBySlug(slug);
       
       if (!product) {
-        return res.status(404).json({ error: "Product not found" });
+        return apiResponse.notFound(res, "Product not found");
       }
       
       res.json(product);
     } catch (error) {
       console.error("Error fetching product:", error);
-      res.status(500).json({ error: "Failed to fetch product" });
+      return apiResponse.serverError(res, "Failed to fetch product");
     }
   });
 
@@ -2597,7 +2599,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(products);
     } catch (error) {
       console.error("Error fetching top performers:", error);
-      res.status(500).json({ error: "Failed to fetch top performers" });
+      return apiResponse.serverError(res, "Failed to fetch top performers");
     }
   });
 
@@ -2615,7 +2617,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(products);
     } catch (error) {
       console.error("Error fetching products by category:", error);
-      res.status(500).json({ error: "Failed to fetch products by category" });
+      return apiResponse.serverError(res, "Failed to fetch products by category");
     }
   });
 
@@ -2633,7 +2635,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(products);
     } catch (error) {
       console.error("Error fetching products by theme:", error);
-      res.status(500).json({ error: "Failed to fetch products by theme" });
+      return apiResponse.serverError(res, "Failed to fetch products by theme");
     }
   });
 
@@ -2647,7 +2649,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(products);
     } catch (error) {
       console.error("Error fetching featured products:", error);
-      res.status(500).json({ error: "Failed to fetch featured products" });
+      return apiResponse.serverError(res, "Failed to fetch featured products");
     }
   });
 
@@ -2661,7 +2663,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(products);
     } catch (error) {
       console.error("Error fetching new products:", error);
-      res.status(500).json({ error: "Failed to fetch new products" });
+      return apiResponse.serverError(res, "Failed to fetch new products");
     }
   });
 
@@ -2671,14 +2673,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { q } = req.query;
       
       if (!q) {
-        return res.status(400).json({ error: "Search query required" });
+        return apiResponse.badRequest(res, "Search query required");
       }
       
       const products = await storage.searchProducts(q as string);
       res.json(products);
     } catch (error) {
       console.error("Error searching products:", error);
-      res.status(500).json({ error: "Failed to search products" });
+      return apiResponse.serverError(res, "Failed to search products");
     }
   });
 
@@ -2689,13 +2691,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const product = await storage.refreshProductPerformance(id);
       
       if (!product) {
-        return res.status(404).json({ error: "Product not found" });
+        return apiResponse.notFound(res, "Product not found");
       }
       
       res.json(product);
     } catch (error) {
       console.error("Error refreshing product:", error);
-      res.status(500).json({ error: "Failed to refresh product" });
+      return apiResponse.serverError(res, "Failed to refresh product");
     }
   });
 
@@ -2830,7 +2832,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(client);
     } catch (error) {
       console.error("Error creating client:", error);
-      res.status(500).json({ error: "Failed to create client" });
+      return apiResponse.serverError(res, "Failed to create client");
     }
   });
 
@@ -2922,7 +2924,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(portfolio);
     } catch (error) {
       console.error("Error creating portfolio holdings:", error);
-      res.status(500).json({ error: "Failed to create portfolio holdings" });
+      return apiResponse.serverError(res, "Failed to create portfolio holdings");
     }
   });
 
@@ -3140,7 +3142,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error loading AMC partners:", error);
-      res.status(500).json({ error: "Failed to load AMC partners" });
+      return apiResponse.serverError(res, "Failed to load AMC partners");
     }
   });
 
@@ -3155,7 +3157,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(partners);
     } catch (error) {
       console.error("Error fetching partners:", error);
-      res.status(500).json({ error: "Failed to fetch partners" });
+      return apiResponse.serverError(res, "Failed to fetch partners");
     }
   });
 
@@ -3190,7 +3192,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(currentRates);
     } catch (error) {
       console.error("Error fetching current rates:", error);
-      res.status(500).json({ error: "Failed to fetch current rates" });
+      return apiResponse.serverError(res, "Failed to fetch current rates");
     }
   });
 
@@ -4295,7 +4297,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error fetching Pre-IPO investments:", error);
-      res.status(500).json({ error: "Failed to fetch investments" });
+      return apiResponse.serverError(res, "Failed to fetch investments");
     }
   });
 
@@ -4310,12 +4312,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { companyId, investmentAmount, portfolioId } = req.body;
       
       if (!companyId || !investmentAmount) {
-        return res.status(400).json({ error: "Company ID and investment amount are required" });
+        return apiResponse.badRequest(res, "Company ID and investment amount are required");
       }
 
       // Validate minimum investment
       if (investmentAmount < 50000) {
-        return res.status(400).json({ error: "Minimum investment amount is ₹50,000" });
+        return apiResponse.badRequest(res, "Minimum investment amount is ₹50,000");
       }
 
       // In production, save to database
@@ -4339,7 +4341,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error creating Pre-IPO investment:", error);
-      res.status(500).json({ error: "Failed to create investment" });
+      return apiResponse.serverError(res, "Failed to create investment");
     }
   });
 
@@ -4389,7 +4391,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error fetching Pre-IPO analytics:", error);
-      res.status(500).json({ error: "Failed to fetch analytics" });
+      return apiResponse.serverError(res, "Failed to fetch analytics");
     }
   });
 
@@ -4435,7 +4437,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error fetching market insights:", error);
-      res.status(500).json({ error: "Failed to fetch market insights" });
+      return apiResponse.serverError(res, "Failed to fetch market insights");
     }
   });
 
@@ -4509,7 +4511,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error fetching Pre-IPO companies:", error);
-      res.status(500).json({ error: "Failed to fetch companies" });
+      return apiResponse.serverError(res, "Failed to fetch companies");
     }
   });
 
@@ -4582,7 +4584,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error fetching company details:", error);
-      res.status(500).json({ error: "Failed to fetch company details" });
+      return apiResponse.serverError(res, "Failed to fetch company details");
     }
   });
 
@@ -8994,7 +8996,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ gainers, losers });
     } catch (error) {
       console.error("Error fetching market movers:", error);
-      res.status(500).json({ error: "Failed to fetch market movers" });
+      return apiResponse.serverError(res, "Failed to fetch market movers");
     }
   });
   app.get("/api/market/quote/:symbol", async (req, res) => {
@@ -9036,7 +9038,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(data);
     } catch (error) {
       console.error("Error fetching quote:", error);
-      res.status(500).json({ error: "Failed to fetch market quote" });
+      return apiResponse.serverError(res, "Failed to fetch market quote");
     }
   });
 
@@ -9078,7 +9080,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(data);
     } catch (error) {
       console.error("Error fetching candles:", error);
-      res.status(500).json({ error: "Failed to fetch market candles" });
+      return apiResponse.serverError(res, "Failed to fetch market candles");
     }
   });
 
@@ -9376,7 +9378,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(results);
     } catch (error) {
       console.error("Error fetching indices:", error);
-      res.status(500).json({ error: "Failed to fetch market indices" });
+      return apiResponse.serverError(res, "Failed to fetch market indices");
     }
   });
 
@@ -9549,7 +9551,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(sortedNews);
     } catch (error) {
       console.error("Error fetching news:", error);
-      res.status(500).json({ error: "Failed to fetch market news" });
+      return apiResponse.serverError(res, "Failed to fetch market news");
     }
   });
 
@@ -9574,7 +9576,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(categories);
     } catch (error) {
       console.error("Error fetching news categories:", error);
-      res.status(500).json({ error: "Failed to fetch news categories" });
+      return apiResponse.serverError(res, "Failed to fetch news categories");
     }
   });
 
@@ -9584,7 +9586,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { q: searchQuery, category, limit = 10 } = req.query;
       
       if (!searchQuery) {
-        return res.status(400).json({ error: "Search query is required" });
+        return apiResponse.badRequest(res, "Search query is required");
       }
 
       // Comprehensive searchable news database
@@ -9716,7 +9718,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error searching news:", error);
-      res.status(500).json({ error: "Failed to search news" });
+      return apiResponse.serverError(res, "Failed to search news");
     }
   });
 
@@ -9811,7 +9813,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(trending);
     } catch (error) {
       console.error("Error fetching trending news:", error);
-      res.status(500).json({ error: "Failed to fetch trending news" });
+      return apiResponse.serverError(res, "Failed to fetch trending news");
     }
   });
 
@@ -9907,7 +9909,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(marketStatus);
     } catch (error) {
       console.error("Error fetching market status:", error);
-      res.status(500).json({ error: "Failed to fetch market status" });
+      return apiResponse.serverError(res, "Failed to fetch market status");
     }
   });
 
@@ -9929,7 +9931,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(data);
     } catch (error) {
       console.error("Error fetching company profile:", error);
-      res.status(500).json({ error: "Failed to fetch company profile" });
+      return apiResponse.serverError(res, "Failed to fetch company profile");
     }
   });
 
@@ -9951,7 +9953,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(data);
     } catch (error) {
       console.error("Error fetching earnings:", error);
-      res.status(500).json({ error: "Failed to fetch earnings data" });
+      return apiResponse.serverError(res, "Failed to fetch earnings data");
     }
   });
 
@@ -9974,7 +9976,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(data);
     } catch (error) {
       console.error("Error fetching recommendations:", error);
-      res.status(500).json({ error: "Failed to fetch analyst recommendations" });
+      return apiResponse.serverError(res, "Failed to fetch analyst recommendations");
     }
   });
 
@@ -9996,7 +9998,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(data);
     } catch (error) {
       console.error("Error fetching financial metrics:", error);
-      res.status(500).json({ error: "Failed to fetch financial metrics" });
+      return apiResponse.serverError(res, "Failed to fetch financial metrics");
     }
   });
 
@@ -10022,7 +10024,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(data);
     } catch (error) {
       console.error("Error fetching IPO calendar:", error);
-      res.status(500).json({ error: "Failed to fetch IPO calendar" });
+      return apiResponse.serverError(res, "Failed to fetch IPO calendar");
     }
   });
 
@@ -10043,7 +10045,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(data);
     } catch (error) {
       console.error("Error fetching economic calendar:", error);
-      res.status(500).json({ error: "Failed to fetch economic calendar" });
+      return apiResponse.serverError(res, "Failed to fetch economic calendar");
     }
   });
 
@@ -10068,7 +10070,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(data);
     } catch (error) {
       console.error("Error fetching sector performance:", error);
-      res.status(500).json({ error: "Failed to fetch sector performance" });
+      return apiResponse.serverError(res, "Failed to fetch sector performance");
     }
   });
 
@@ -10743,7 +10745,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get portfolio data and verify ownership
       const portfolio = await storage.getPortfolio(portfolioId);
       if (!portfolio) {
-        return res.status(404).json({ error: "Portfolio not found" });
+        return apiResponse.notFound(res, "Portfolio not found");
       }
       
       // Verify portfolio ownership (for non-demo users)
@@ -10844,7 +10846,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get portfolio data and verify ownership
       const portfolio = await storage.getPortfolio(portfolioId);
       if (!portfolio) {
-        return res.status(404).json({ error: "Portfolio not found" });
+        return apiResponse.notFound(res, "Portfolio not found");
       }
       
       // Verify portfolio ownership (for non-demo users)
@@ -10957,7 +10959,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if the portfolio belongs to the authenticated user
       const portfolio = await storage.getPortfolio(portfolioId);
       if (!portfolio) {
-        return res.status(404).json({ error: "Portfolio not found" });
+        return apiResponse.notFound(res, "Portfolio not found");
       }
       
       // Simple ownership check - portfolio must belong to user
@@ -10968,7 +10970,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       next();
     } catch (error) {
       console.error("Error checking portfolio ownership:", error);
-      res.status(500).json({ error: "Failed to verify portfolio access" });
+      return apiResponse.serverError(res, "Failed to verify portfolio access");
     }
   };
 
@@ -10980,7 +10982,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(portfolios);
     } catch (error) {
       console.error("Error fetching portfolios:", error);
-      res.status(500).json({ error: "Failed to fetch portfolios" });
+      return apiResponse.serverError(res, "Failed to fetch portfolios");
     }
   });
 
@@ -10991,7 +10993,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.getUser(userId);
       
       if (!user) {
-        return res.status(404).json({ error: "User not found" });
+        return apiResponse.notFound(res, "User not found");
       }
       
       if (!user.panNumber) {
@@ -11006,7 +11008,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(portfolios);
     } catch (error) {
       console.error("Error fetching portfolios by PAN:", error);
-      res.status(500).json({ error: "Failed to fetch portfolios" });
+      return apiResponse.serverError(res, "Failed to fetch portfolios");
     }
   });
 
@@ -11027,7 +11029,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(analysis);
     } catch (error) {
       console.error("Error fetching financial analysis:", error);
-      res.status(500).json({ error: "Failed to fetch financial analysis" });
+      return apiResponse.serverError(res, "Failed to fetch financial analysis");
     }
   });
 
@@ -11039,7 +11041,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(epfHoldings);
     } catch (error) {
       console.error("Error fetching EPF holdings:", error);
-      res.status(500).json({ error: "Failed to fetch EPF holdings" });
+      return apiResponse.serverError(res, "Failed to fetch EPF holdings");
     }
   });
 
@@ -11050,7 +11052,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(ppfHoldings);
     } catch (error) {
       console.error("Error fetching PPF holdings:", error);
-      res.status(500).json({ error: "Failed to fetch PPF holdings" });
+      return apiResponse.serverError(res, "Failed to fetch PPF holdings");
     }
   });
 
@@ -11061,7 +11063,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(epsHoldings);
     } catch (error) {
       console.error("Error fetching EPS holdings:", error);
-      res.status(500).json({ error: "Failed to fetch EPS holdings" });
+      return apiResponse.serverError(res, "Failed to fetch EPS holdings");
     }
   });
 
@@ -11074,7 +11076,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ hasConsent, panNumber, schemeType });
     } catch (error) {
       console.error("Error checking consent:", error);
-      res.status(500).json({ error: "Failed to check consent status" });
+      return apiResponse.serverError(res, "Failed to check consent status");
     }
   });
 
@@ -11100,7 +11102,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(consent);
     } catch (error) {
       console.error("Error creating consent:", error);
-      res.status(500).json({ error: "Failed to create consent" });
+      return apiResponse.serverError(res, "Failed to create consent");
     }
   });
 
@@ -11112,7 +11114,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(consents);
     } catch (error) {
       console.error("Error fetching consents:", error);
-      res.status(500).json({ error: "Failed to fetch consents" });
+      return apiResponse.serverError(res, "Failed to fetch consents");
     }
   });
 
@@ -11124,7 +11126,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ revoked, panNumber, schemeType });
     } catch (error) {
       console.error("Error revoking consent:", error);
-      res.status(500).json({ error: "Failed to revoke consent" });
+      return apiResponse.serverError(res, "Failed to revoke consent");
     }
   });
 
@@ -11136,7 +11138,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(insuranceHoldings);
     } catch (error) {
       console.error("Error fetching insurance holdings:", error);
-      res.status(500).json({ error: "Failed to fetch insurance holdings" });
+      return apiResponse.serverError(res, "Failed to fetch insurance holdings");
     }
   });
 
@@ -11148,7 +11150,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(insuranceHolding);
     } catch (error) {
       console.error("Error creating insurance holding:", error);
-      res.status(500).json({ error: "Failed to create insurance holding" });
+      return apiResponse.serverError(res, "Failed to create insurance holding");
     }
   });
 
@@ -11158,12 +11160,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updates = req.body;
       const updatedHolding = await storage.updateInsuranceHolding(id, updates);
       if (!updatedHolding) {
-        return res.status(404).json({ error: "Insurance holding not found" });
+        return apiResponse.notFound(res, "Insurance holding not found");
       }
       res.json(updatedHolding);
     } catch (error) {
       console.error("Error updating insurance holding:", error);
-      res.status(500).json({ error: "Failed to update insurance holding" });
+      return apiResponse.serverError(res, "Failed to update insurance holding");
     }
   });
 
@@ -11175,7 +11177,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(portfolios);
     } catch (error) {
       console.error("Error fetching portfolios:", error);
-      res.status(500).json({ error: "Failed to fetch portfolios" });
+      return apiResponse.serverError(res, "Failed to fetch portfolios");
     }
   });
 
@@ -11189,7 +11191,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         res.status(400).json({ error: "Invalid portfolio data", details: error.errors });
       } else {
-        res.status(500).json({ error: "Failed to create portfolio" });
+        return apiResponse.serverError(res, "Failed to create portfolio");
       }
     }
   });
@@ -11201,7 +11203,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(holdings);
     } catch (error) {
       console.error("Error fetching holdings:", error);
-      res.status(500).json({ error: "Failed to fetch portfolio holdings" });
+      return apiResponse.serverError(res, "Failed to fetch portfolio holdings");
     }
   });
 
@@ -11219,7 +11221,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         res.status(400).json({ error: "Invalid holding data", details: error.errors });
       } else {
-        res.status(500).json({ error: "Failed to create holding" });
+        return apiResponse.serverError(res, "Failed to create holding");
       }
     }
   });
@@ -11389,7 +11391,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(enhancedHoldings);
     } catch (error) {
       console.error("Error fetching enhanced holdings:", error);
-      res.status(500).json({ error: "Failed to fetch enhanced portfolio holdings" });
+      return apiResponse.serverError(res, "Failed to fetch enhanced portfolio holdings");
     }
   });
 
@@ -11401,7 +11403,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const holdings = await storage.getPortfolioHoldings(portfolioId);
       
       if (!portfolio || !holdings) {
-        return res.status(404).json({ error: "Portfolio not found" });
+        return apiResponse.notFound(res, "Portfolio not found");
       }
 
       // Calculate performance metrics with live market data
@@ -11474,7 +11476,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(performanceSummary);
     } catch (error) {
       console.error("Error calculating portfolio performance:", error);
-      res.status(500).json({ error: "Failed to calculate portfolio performance" });
+      return apiResponse.serverError(res, "Failed to calculate portfolio performance");
     }
   });
 
@@ -11486,7 +11488,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(allocation);
     } catch (error) {
       console.error("Error fetching asset allocation:", error);
-      res.status(500).json({ error: "Failed to fetch asset allocation" });
+      return apiResponse.serverError(res, "Failed to fetch asset allocation");
     }
   });
 
@@ -11500,7 +11502,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const portfolio = await storage.getPortfolio(portfolioId);
       
       if (!portfolio) {
-        return res.status(404).json({ error: "Portfolio not found" });
+        return apiResponse.notFound(res, "Portfolio not found");
       }
 
       // Calculate current allocation and rebalance amounts
@@ -11539,7 +11541,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ rebalanceCalculations });
     } catch (error) {
       console.error("Error calculating rebalance:", error);
-      res.status(500).json({ error: "Failed to calculate rebalance" });
+      return apiResponse.serverError(res, "Failed to calculate rebalance");
     }
   });
 
@@ -11554,7 +11556,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const holdings = await storage.getPortfolioHoldings(portfolioId);
       
       if (!portfolio || !holdings) {
-        return res.status(404).json({ error: "Portfolio not found" });
+        return apiResponse.notFound(res, "Portfolio not found");
       }
 
       // Generate personalized rebalancing suggestions based on the user's actual portfolio
@@ -11686,7 +11688,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(suggestions_data);
     } catch (error) {
       console.error("Error getting rebalancing suggestions:", error);
-      res.status(500).json({ error: "Failed to get rebalancing suggestions" });
+      return apiResponse.serverError(res, "Failed to get rebalancing suggestions");
     }
   });
 
@@ -11698,7 +11700,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(performance);
     } catch (error) {
       console.error("Error fetching portfolio performance:", error);
-      res.status(500).json({ error: "Failed to fetch portfolio performance" });
+      return apiResponse.serverError(res, "Failed to fetch portfolio performance");
     }
   });
 
@@ -11863,7 +11865,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(sortedNews);
     } catch (error) {
       console.error("Error fetching portfolio-specific news:", error);
-      res.status(500).json({ error: "Failed to fetch portfolio news" });
+      return apiResponse.serverError(res, "Failed to fetch portfolio news");
     }
   });
 
@@ -11875,7 +11877,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(summaries);
     } catch (error) {
       console.error("Error fetching Pi Chat summaries:", error);
-      res.status(500).json({ error: "Failed to fetch Pi Chat summaries" });
+      return apiResponse.serverError(res, "Failed to fetch Pi Chat summaries");
     }
   });
 
@@ -11886,7 +11888,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(prices);
     } catch (error) {
       console.error("Error fetching commodity prices:", error);
-      res.status(500).json({ error: "Failed to fetch commodity prices" });
+      return apiResponse.serverError(res, "Failed to fetch commodity prices");
     }
   });
 
@@ -11899,7 +11901,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(currencies);
     } catch (error) {
       console.error("Error fetching supported currencies:", error);
-      res.status(500).json({ error: "Failed to fetch supported currencies" });
+      return apiResponse.serverError(res, "Failed to fetch supported currencies");
     }
   });
 
@@ -11923,7 +11925,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error fetching exchange rates:", error);
-      res.status(500).json({ error: "Failed to fetch exchange rates" });
+      return apiResponse.serverError(res, "Failed to fetch exchange rates");
     }
   });
 
@@ -11942,7 +11944,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error refreshing exchange rates:", error);
-      res.status(500).json({ error: "Failed to refresh exchange rates" });
+      return apiResponse.serverError(res, "Failed to refresh exchange rates");
     }
   });
 
@@ -11956,7 +11958,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const portfolio = await storage.getPortfolio(id);
       if (!portfolio) {
-        return res.status(404).json({ error: "Portfolio not found" });
+        return apiResponse.notFound(res, "Portfolio not found");
       }
 
       const holdings = await storage.getPortfolioHoldings(id);
@@ -11998,7 +12000,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error converting portfolio:", error);
-      res.status(500).json({ error: "Failed to convert portfolio" });
+      return apiResponse.serverError(res, "Failed to convert portfolio");
     }
   });
 
@@ -12011,7 +12013,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(profiles);
     } catch (error) {
       console.error("Error fetching risk profiles:", error);
-      res.status(500).json({ error: "Failed to fetch risk profiles" });
+      return apiResponse.serverError(res, "Failed to fetch risk profiles");
     }
   });
 
@@ -12023,11 +12025,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (profile) {
         res.json(profile);
       } else {
-        res.status(404).json({ error: "Risk profile not found" });
+        return apiResponse.notFound(res, "Risk profile not found");
       }
     } catch (error) {
       console.error("Error fetching risk profile:", error);
-      res.status(500).json({ error: "Failed to fetch risk profile" });
+      return apiResponse.serverError(res, "Failed to fetch risk profile");
     }
   });
 
@@ -12038,7 +12040,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(profile);
     } catch (error) {
       console.error("Error creating risk profile:", error);
-      res.status(500).json({ error: "Failed to create risk profile" });
+      return apiResponse.serverError(res, "Failed to create risk profile");
     }
   });
 
@@ -12050,11 +12052,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (profile) {
         res.json(profile);
       } else {
-        res.status(404).json({ error: "Risk profile not found" });
+        return apiResponse.notFound(res, "Risk profile not found");
       }
     } catch (error) {
       console.error("Error updating risk profile:", error);
-      res.status(500).json({ error: "Failed to update risk profile" });
+      return apiResponse.serverError(res, "Failed to update risk profile");
     }
   });
 
@@ -12066,7 +12068,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting risk profile:", error);
-      res.status(500).json({ error: "Failed to delete risk profile" });
+      return apiResponse.serverError(res, "Failed to delete risk profile");
     }
   });
 
@@ -12079,7 +12081,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(questions);
     } catch (error) {
       console.error("Error fetching risk assessment questions:", error);
-      res.status(500).json({ error: "Failed to fetch risk assessment questions" });
+      return apiResponse.serverError(res, "Failed to fetch risk assessment questions");
     }
   });
 
@@ -12090,7 +12092,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(question);
     } catch (error) {
       console.error("Error creating risk assessment question:", error);
-      res.status(500).json({ error: "Failed to create risk assessment question" });
+      return apiResponse.serverError(res, "Failed to create risk assessment question");
     }
   });
 
@@ -12102,11 +12104,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (question) {
         res.json(question);
       } else {
-        res.status(404).json({ error: "Risk assessment question not found" });
+        return apiResponse.notFound(res, "Risk assessment question not found");
       }
     } catch (error) {
       console.error("Error updating risk assessment question:", error);
-      res.status(500).json({ error: "Failed to update risk assessment question" });
+      return apiResponse.serverError(res, "Failed to update risk assessment question");
     }
   });
 
@@ -12118,7 +12120,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting risk assessment question:", error);
-      res.status(500).json({ error: "Failed to delete risk assessment question" });
+      return apiResponse.serverError(res, "Failed to delete risk assessment question");
     }
   });
 
@@ -12135,7 +12137,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(reports);
     } catch (error) {
       console.error("Error fetching capital gains reports:", error);
-      res.status(500).json({ error: "Failed to fetch capital gains reports" });
+      return apiResponse.serverError(res, "Failed to fetch capital gains reports");
     }
   });
 
@@ -12146,11 +12148,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (report) {
         res.json(report);
       } else {
-        res.status(404).json({ error: "Capital gains report not found" });
+        return apiResponse.notFound(res, "Capital gains report not found");
       }
     } catch (error) {
       console.error("Error fetching capital gains report:", error);
-      res.status(500).json({ error: "Failed to fetch capital gains report" });
+      return apiResponse.serverError(res, "Failed to fetch capital gains report");
     }
   });
 
@@ -12160,7 +12162,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(report);
     } catch (error) {
       console.error("Error creating capital gains report:", error);
-      res.status(500).json({ error: "Failed to create capital gains report" });
+      return apiResponse.serverError(res, "Failed to create capital gains report");
     }
   });
 
@@ -12171,11 +12173,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (report) {
         res.json(report);
       } else {
-        res.status(404).json({ error: "Capital gains report not found" });
+        return apiResponse.notFound(res, "Capital gains report not found");
       }
     } catch (error) {
       console.error("Error updating capital gains report:", error);
-      res.status(500).json({ error: "Failed to update capital gains report" });
+      return apiResponse.serverError(res, "Failed to update capital gains report");
     }
   });
 
@@ -12190,7 +12192,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(reports);
     } catch (error) {
       console.error("Error fetching transaction reports:", error);
-      res.status(500).json({ error: "Failed to fetch transaction reports" });
+      return apiResponse.serverError(res, "Failed to fetch transaction reports");
     }
   });
 
@@ -12201,11 +12203,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (report) {
         res.json(report);
       } else {
-        res.status(404).json({ error: "Transaction report not found" });
+        return apiResponse.notFound(res, "Transaction report not found");
       }
     } catch (error) {
       console.error("Error fetching transaction report:", error);
-      res.status(500).json({ error: "Failed to fetch transaction report" });
+      return apiResponse.serverError(res, "Failed to fetch transaction report");
     }
   });
 
@@ -12215,7 +12217,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(report);
     } catch (error) {
       console.error("Error creating transaction report:", error);
-      res.status(500).json({ error: "Failed to create transaction report" });
+      return apiResponse.serverError(res, "Failed to create transaction report");
     }
   });
 
@@ -12226,11 +12228,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (report) {
         res.json(report);
       } else {
-        res.status(404).json({ error: "Transaction report not found" });
+        return apiResponse.notFound(res, "Transaction report not found");
       }
     } catch (error) {
       console.error("Error updating transaction report:", error);
-      res.status(500).json({ error: "Failed to update transaction report" });
+      return apiResponse.serverError(res, "Failed to update transaction report");
     }
   });
 
@@ -12242,7 +12244,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(records);
     } catch (error) {
       console.error("Error fetching transaction records:", error);
-      res.status(500).json({ error: "Failed to fetch transaction records" });
+      return apiResponse.serverError(res, "Failed to fetch transaction records");
     }
   });
 
@@ -12257,7 +12259,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(records);
     } catch (error) {
       console.error("Error fetching user transaction records:", error);
-      res.status(500).json({ error: "Failed to fetch user transaction records" });
+      return apiResponse.serverError(res, "Failed to fetch user transaction records");
     }
   });
 
@@ -12267,7 +12269,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(record);
     } catch (error) {
       console.error("Error creating transaction record:", error);
-      res.status(500).json({ error: "Failed to create transaction record" });
+      return apiResponse.serverError(res, "Failed to create transaction record");
     }
   });
 
@@ -12279,7 +12281,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const report = await storage.getCapitalGainsReport(id);
       if (!report) {
-        return res.status(404).json({ error: "Capital gains report not found" });
+        return apiResponse.notFound(res, "Capital gains report not found");
       }
 
       const filename = `capital-gains-${report.financialYear}-${report.source}-${Date.now()}`;
@@ -12309,7 +12311,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error) {
       console.error("Error downloading capital gains report:", error);
-      res.status(500).json({ error: "Failed to download capital gains report" });
+      return apiResponse.serverError(res, "Failed to download capital gains report");
     }
   });
 
@@ -12321,7 +12323,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const report = await storage.getTransactionReport(id);
       if (!report) {
-        return res.status(404).json({ error: "Transaction report not found" });
+        return apiResponse.notFound(res, "Transaction report not found");
       }
 
       const filename = `transaction-report-${report.financialYear}-${report.source}-${Date.now()}`;
@@ -12351,7 +12353,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error) {
       console.error("Error downloading transaction report:", error);
-      res.status(500).json({ error: "Failed to download transaction report" });
+      return apiResponse.serverError(res, "Failed to download transaction report");
     }
   });
 
@@ -12389,7 +12391,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error fetching from MF Central:", error);
-      res.status(500).json({ error: "Failed to fetch report from MF Central" });
+      return apiResponse.serverError(res, "Failed to fetch report from MF Central");
     }
   });
 
@@ -12427,7 +12429,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error fetching from NSDL:", error);
-      res.status(500).json({ error: "Failed to fetch report from NSDL" });
+      return apiResponse.serverError(res, "Failed to fetch report from NSDL");
     }
   });
 
@@ -12465,7 +12467,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error fetching from CDSL:", error);
-      res.status(500).json({ error: "Failed to fetch report from CDSL" });
+      return apiResponse.serverError(res, "Failed to fetch report from CDSL");
     }
   });
 
@@ -12477,7 +12479,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(watchlists);
     } catch (error) {
       console.error("Error fetching watchlists:", error);
-      res.status(500).json({ error: "Failed to fetch watchlists" });
+      return apiResponse.serverError(res, "Failed to fetch watchlists");
     }
   });
 
@@ -12491,7 +12493,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         res.status(400).json({ error: "Invalid watchlist data", details: error.errors });
       } else {
-        res.status(500).json({ error: "Failed to create watchlist" });
+        return apiResponse.serverError(res, "Failed to create watchlist");
       }
     }
   });
@@ -13171,7 +13173,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error calculating SIP:", error);
-      res.status(500).json({ error: "Failed to calculate SIP" });
+      return apiResponse.serverError(res, "Failed to calculate SIP");
     }
   });
 
@@ -13202,7 +13204,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error calculating lumpsum:", error);
-      res.status(500).json({ error: "Failed to calculate lumpsum investment" });
+      return apiResponse.serverError(res, "Failed to calculate lumpsum investment");
     }
   });
 
@@ -13263,7 +13265,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error comparing schemes:", error);
-      res.status(500).json({ error: "Failed to compare schemes" });
+      return apiResponse.serverError(res, "Failed to compare schemes");
     }
   });
 
@@ -13304,7 +13306,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error planning goal:", error);
-      res.status(500).json({ error: "Failed to plan investment goal" });
+      return apiResponse.serverError(res, "Failed to plan investment goal");
     }
   });
 
@@ -15428,11 +15430,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { text } = req.body;
       
       if (!text || typeof text !== 'string') {
-        return res.status(400).json({ error: "Text is required for sentiment analysis" });
+        return apiResponse.badRequest(res, "Text is required for sentiment analysis");
       }
       
       if (text.length > 5000) {
-        return res.status(400).json({ error: "Text is too long (max 5000 characters)" });
+        return apiResponse.badRequest(res, "Text is too long (max 5000 characters)");
       }
       
       const result = await marketStoryService.analyzeSentiment(text);
@@ -15474,7 +15476,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ insight });
     } catch (error) {
       console.error("Error generating market insight:", error);
-      res.status(500).json({ error: "Failed to generate market insight" });
+      return apiResponse.serverError(res, "Failed to generate market insight");
     }
   });
 
@@ -15485,7 +15487,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(analysis);
     } catch (error) {
       console.error("Error analyzing portfolio:", error);
-      res.status(500).json({ error: "Failed to analyze portfolio" });
+      return apiResponse.serverError(res, "Failed to analyze portfolio");
     }
   });
 
@@ -15497,7 +15499,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ story });
     } catch (error) {
       console.error("Error generating investment story:", error);
-      res.status(500).json({ error: "Failed to generate investment story" });
+      return apiResponse.serverError(res, "Failed to generate investment story");
     }
   });
 
@@ -15505,13 +15507,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { concept } = req.body;
       if (!concept) {
-        return res.status(400).json({ error: "Concept is required" });
+        return apiResponse.badRequest(res, "Concept is required");
       }
       const explanation = await explainFinancialConcept(concept);
       res.json({ explanation });
     } catch (error) {
       console.error("Error explaining concept:", error);
-      res.status(500).json({ error: "Failed to explain concept" });
+      return apiResponse.serverError(res, "Failed to explain concept");
     }
   });
 
@@ -15525,7 +15527,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error checking WhatsApp status:", error);
-      res.status(500).json({ error: "Failed to check WhatsApp status" });
+      return apiResponse.serverError(res, "Failed to check WhatsApp status");
     }
   });
 
@@ -15534,7 +15536,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { phoneNumber, message } = req.body;
       
       if (!phoneNumber || !message) {
-        return res.status(400).json({ error: "Phone number and message are required" });
+        return apiResponse.badRequest(res, "Phone number and message are required");
       }
 
       const success = await whatsappService.sendMessage(phoneNumber, message);
@@ -15542,11 +15544,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (success) {
         res.json({ success: true, message: "Message sent successfully" });
       } else {
-        res.status(500).json({ error: "Failed to send message" });
+        return apiResponse.serverError(res, "Failed to send message");
       }
     } catch (error) {
       console.error("Error sending WhatsApp message:", error);
-      res.status(500).json({ error: "Failed to send WhatsApp message" });
+      return apiResponse.serverError(res, "Failed to send WhatsApp message");
     }
   });
 
@@ -15555,7 +15557,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { phoneNumber, portfolioData } = req.body;
       
       if (!phoneNumber || !portfolioData) {
-        return res.status(400).json({ error: "Phone number and portfolio data are required" });
+        return apiResponse.badRequest(res, "Phone number and portfolio data are required");
       }
 
       const success = await whatsappService.sendPortfolioUpdate(phoneNumber, portfolioData);
@@ -15563,11 +15565,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (success) {
         res.json({ success: true, message: "Portfolio update sent successfully" });
       } else {
-        res.status(500).json({ error: "Failed to send portfolio update" });
+        return apiResponse.serverError(res, "Failed to send portfolio update");
       }
     } catch (error) {
       console.error("Error sending portfolio update:", error);
-      res.status(500).json({ error: "Failed to send portfolio update" });
+      return apiResponse.serverError(res, "Failed to send portfolio update");
     }
   });
 
@@ -15576,7 +15578,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { phoneNumber, alertData } = req.body;
       
       if (!phoneNumber || !alertData) {
-        return res.status(400).json({ error: "Phone number and alert data are required" });
+        return apiResponse.badRequest(res, "Phone number and alert data are required");
       }
 
       const success = await whatsappService.sendMarketAlert(phoneNumber, alertData);
@@ -15584,11 +15586,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (success) {
         res.json({ success: true, message: "Market alert sent successfully" });
       } else {
-        res.status(500).json({ error: "Failed to send market alert" });
+        return apiResponse.serverError(res, "Failed to send market alert");
       }
     } catch (error) {
       console.error("Error sending market alert:", error);
-      res.status(500).json({ error: "Failed to send market alert" });
+      return apiResponse.serverError(res, "Failed to send market alert");
     }
   });
 
@@ -15598,7 +15600,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ chats: chats.length, data: chats.slice(0, 10) }); // Return first 10 chats
     } catch (error) {
       console.error("Error getting WhatsApp chats:", error);
-      res.status(500).json({ error: "Failed to get WhatsApp chats" });
+      return apiResponse.serverError(res, "Failed to get WhatsApp chats");
     }
   });
 
@@ -15610,7 +15612,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(campaign);
     } catch (error) {
       console.error("Error generating marketing campaign:", error);
-      res.status(500).json({ error: "Failed to generate marketing campaign" });
+      return apiResponse.serverError(res, "Failed to generate marketing campaign");
     }
   });
 
@@ -15621,7 +15623,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, message: "Marketing campaigns sent successfully" });
     } catch (error) {
       console.error("Error sending marketing campaigns:", error);
-      res.status(500).json({ error: "Failed to send marketing campaigns" });
+      return apiResponse.serverError(res, "Failed to send marketing campaigns");
     }
   });
 
@@ -15629,13 +15631,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { phoneNumber, userName } = req.body;
       if (!phoneNumber || !userName) {
-        return res.status(400).json({ error: "Phone number and user name are required" });
+        return apiResponse.badRequest(res, "Phone number and user name are required");
       }
       await marketingService.sendOnboardingSequence(phoneNumber, userName);
       res.json({ success: true, message: "Onboarding sequence initiated" });
     } catch (error) {
       console.error("Error sending onboarding sequence:", error);
-      res.status(500).json({ error: "Failed to send onboarding sequence" });
+      return apiResponse.serverError(res, "Failed to send onboarding sequence");
     }
   });
 
@@ -15645,7 +15647,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, message: "Market alerts sent successfully" });
     } catch (error) {
       console.error("Error sending market alerts:", error);
-      res.status(500).json({ error: "Failed to send market alerts" });
+      return apiResponse.serverError(res, "Failed to send market alerts");
     }
   });
 
@@ -15657,7 +15659,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(optimization);
     } catch (error) {
       console.error("Error optimizing portfolio:", error);
-      res.status(500).json({ error: "Failed to optimize portfolio" });
+      return apiResponse.serverError(res, "Failed to optimize portfolio");
     }
   });
 
@@ -15668,7 +15670,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ report });
     } catch (error) {
       console.error("Error generating portfolio report:", error);
-      res.status(500).json({ error: "Failed to generate portfolio report" });
+      return apiResponse.serverError(res, "Failed to generate portfolio report");
     }
   });
 
@@ -15677,13 +15679,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { userId } = req.params;
       const { phoneNumber } = req.body;
       if (!phoneNumber) {
-        return res.status(400).json({ error: "Phone number is required" });
+        return apiResponse.badRequest(res, "Phone number is required");
       }
       await portfolioIntelligence.sendPortfolioUpdates(userId, phoneNumber);
       res.json({ success: true, message: "Portfolio update sent successfully" });
     } catch (error) {
       console.error("Error sending portfolio update:", error);
-      res.status(500).json({ error: "Failed to send portfolio update" });
+      return apiResponse.serverError(res, "Failed to send portfolio update");
     }
   });
 
@@ -15694,7 +15696,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(opportunities);
     } catch (error) {
       console.error("Error finding investment opportunities:", error);
-      res.status(500).json({ error: "Failed to find investment opportunities" });
+      return apiResponse.serverError(res, "Failed to find investment opportunities");
     }
   });
 
@@ -15705,7 +15707,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(recommendations);
     } catch (error) {
       console.error("Error getting rebalancing recommendations:", error);
-      res.status(500).json({ error: "Failed to get rebalancing recommendations" });
+      return apiResponse.serverError(res, "Failed to get rebalancing recommendations");
     }
   });
 
@@ -15713,13 +15715,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { subscribers } = req.body;
       if (!subscribers || !Array.isArray(subscribers)) {
-        return res.status(400).json({ error: "Subscribers array is required" });
+        return apiResponse.badRequest(res, "Subscribers array is required");
       }
       await portfolioIntelligence.sendDailyMarketInsights(subscribers);
       res.json({ success: true, message: "Daily insights sent successfully" });
     } catch (error) {
       console.error("Error sending daily insights:", error);
-      res.status(500).json({ error: "Failed to send daily insights" });
+      return apiResponse.serverError(res, "Failed to send daily insights");
     }
   });
 
@@ -15735,7 +15737,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { panNumber, assessmentYear } = req.body;
       
       if (!panNumber || !assessmentYear) {
-        return res.status(400).json({ error: "PAN number and assessment year are required" });
+        return apiResponse.badRequest(res, "PAN number and assessment year are required");
       }
 
       // Check for existing session
@@ -15754,7 +15756,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(session);
     } catch (error) {
       console.error("Error creating tax session:", error);
-      res.status(500).json({ error: "Failed to create tax session" });
+      return apiResponse.serverError(res, "Failed to create tax session");
     }
   });
 
@@ -15765,13 +15767,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const summary = await taxOrchestrator.getSessionSummary(sessionId);
       
       if (!summary.session) {
-        return res.status(404).json({ error: "Tax session not found" });
+        return apiResponse.notFound(res, "Tax session not found");
       }
       
       res.json(summary);
     } catch (error) {
       console.error("Error fetching tax session:", error);
-      res.status(500).json({ error: "Failed to fetch tax session" });
+      return apiResponse.serverError(res, "Failed to fetch tax session");
     }
   });
 
@@ -15787,7 +15789,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json([]);
     } catch (error) {
       console.error("Error fetching tax sessions:", error);
-      res.status(500).json({ error: "Failed to fetch tax sessions" });
+      return apiResponse.serverError(res, "Failed to fetch tax sessions");
     }
   });
 
@@ -15801,7 +15803,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ dataSources, message: "Data sources initialized successfully" });
     } catch (error) {
       console.error("Error initializing data sources:", error);
-      res.status(500).json({ error: "Failed to initialize data sources" });
+      return apiResponse.serverError(res, "Failed to initialize data sources");
     }
   });
 
@@ -15818,7 +15820,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(result);
     } catch (error) {
       console.error("Error syncing data sources:", error);
-      res.status(500).json({ error: "Failed to sync data sources" });
+      return apiResponse.serverError(res, "Failed to sync data sources");
     }
   });
 
@@ -15840,7 +15842,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error validating tax data:", error);
-      res.status(500).json({ error: "Failed to validate tax data" });
+      return apiResponse.serverError(res, "Failed to validate tax data");
     }
   });
 
@@ -15860,7 +15862,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error generating optimization suggestions:", error);
-      res.status(500).json({ error: "Failed to generate optimization suggestions" });
+      return apiResponse.serverError(res, "Failed to generate optimization suggestions");
     }
   });
 
@@ -15874,7 +15876,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(result);
     } catch (error) {
       console.error("Error generating ITR JSON:", error);
-      res.status(500).json({ error: "Failed to generate ITR JSON" });
+      return apiResponse.serverError(res, "Failed to generate ITR JSON");
     }
   });
 
@@ -15885,7 +15887,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { itrJson, verificationMethod = "aadhaar" } = req.body;
       
       if (!itrJson) {
-        return res.status(400).json({ error: "ITR JSON is required for filing" });
+        return apiResponse.badRequest(res, "ITR JSON is required for filing");
       }
 
       const filingRecord = await taxOrchestrator.submitFiling(sessionId, itrJson, verificationMethod);
@@ -15894,7 +15896,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(filingRecord);
     } catch (error) {
       console.error("Error filing ITR:", error);
-      res.status(500).json({ error: "Failed to file ITR" });
+      return apiResponse.serverError(res, "Failed to file ITR");
     }
   });
 
@@ -15915,7 +15917,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error fetching session status:", error);
-      res.status(500).json({ error: "Failed to fetch session status" });
+      return apiResponse.serverError(res, "Failed to fetch session status");
     }
   });
 
@@ -15930,7 +15932,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(defaults);
     } catch (error) {
       console.error("Error fetching smart defaults:", error);
-      res.status(500).json({ error: "Failed to fetch smart defaults" });
+      return apiResponse.serverError(res, "Failed to fetch smart defaults");
     }
   });
 
@@ -15941,7 +15943,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { status, userResponse } = req.body;
       
       if (!['accepted', 'rejected', 'implemented'].includes(status)) {
-        return res.status(400).json({ error: "Invalid response status" });
+        return apiResponse.badRequest(res, "Invalid response status");
       }
 
       // In real implementation, update suggestion in database
@@ -15954,7 +15956,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error responding to suggestion:", error);
-      res.status(500).json({ error: "Failed to respond to suggestion" });
+      return apiResponse.serverError(res, "Failed to respond to suggestion");
     }
   });
 
@@ -16020,7 +16022,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, data: dataSources });
     } catch (error) {
       console.error("Error fetching ITR data sources:", error);
-      res.status(500).json({ error: "Failed to fetch ITR data sources" });
+      return apiResponse.serverError(res, "Failed to fetch ITR data sources");
     }
   });
 
@@ -16097,7 +16099,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, data: itrData });
     } catch (error) {
       console.error("Error fetching pre-filled ITR data:", error);
-      res.status(500).json({ error: "Failed to fetch pre-filled ITR data" });
+      return apiResponse.serverError(res, "Failed to fetch pre-filled ITR data");
     }
   });
 
@@ -16126,7 +16128,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error auto-populating ITR:", error);
-      res.status(500).json({ error: "Failed to auto-populate ITR" });
+      return apiResponse.serverError(res, "Failed to auto-populate ITR");
     }
   });
 
@@ -16147,7 +16149,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error syncing data source:", error);
-      res.status(500).json({ error: "Failed to sync data source" });
+      return apiResponse.serverError(res, "Failed to sync data source");
     }
   });
 
@@ -16175,7 +16177,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(validationResult);
     } catch (error) {
       console.error("Error validating ITR:", error);
-      res.status(500).json({ error: "Failed to validate ITR" });
+      return apiResponse.serverError(res, "Failed to validate ITR");
     }
   });
 
@@ -16197,7 +16199,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error generating ITR:", error);
-      res.status(500).json({ error: "Failed to generate ITR" });
+      return apiResponse.serverError(res, "Failed to generate ITR");
     }
   });
 
@@ -16233,7 +16235,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.send(mockContent);
     } catch (error) {
       console.error("Error downloading ITR file:", error);
-      res.status(500).json({ error: "Failed to download ITR file" });
+      return apiResponse.serverError(res, "Failed to download ITR file");
     }
   });
 
@@ -16243,7 +16245,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { userId } = req.body;
       
       if (!userId) {
-        return res.status(400).json({ error: "User ID is required" });
+        return apiResponse.badRequest(res, "User ID is required");
       }
 
       // Auto-detect and connect available data sources
@@ -16266,7 +16268,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error connecting data sources:", error);
-      res.status(500).json({ error: "Failed to connect data sources" });
+      return apiResponse.serverError(res, "Failed to connect data sources");
     }
   });
 
@@ -16297,7 +16299,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, data: itrData });
     } catch (error) {
       console.error("Error fetching ITR data:", error);
-      res.status(500).json({ error: "Failed to fetch ITR data" });
+      return apiResponse.serverError(res, "Failed to fetch ITR data");
     }
   });
 
@@ -16307,7 +16309,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { userId, assessmentYear, financialYear, taxRegime, dataSources } = req.body;
       
       if (!userId || !assessmentYear) {
-        return res.status(400).json({ error: "User ID and Assessment Year are required" });
+        return apiResponse.badRequest(res, "User ID and Assessment Year are required");
       }
 
       // Simulate intelligent auto-population from multiple sources
@@ -16336,7 +16338,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error auto-populating ITR:", error);
-      res.status(500).json({ error: "Failed to auto-populate ITR" });
+      return apiResponse.serverError(res, "Failed to auto-populate ITR");
     }
   });
 
@@ -16362,7 +16364,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error validating ITR:", error);
-      res.status(500).json({ error: "Failed to validate ITR" });
+      return apiResponse.serverError(res, "Failed to validate ITR");
     }
   });
 
@@ -16372,7 +16374,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { itrId } = req.body;
       
       if (!itrId) {
-        return res.status(400).json({ error: "ITR ID is required" });
+        return apiResponse.badRequest(res, "ITR ID is required");
       }
 
       // Simulate filing process with Income Tax Department
@@ -16389,7 +16391,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error filing ITR:", error);
-      res.status(500).json({ error: "Failed to file ITR" });
+      return apiResponse.serverError(res, "Failed to file ITR");
     }
   });
 
@@ -16404,7 +16406,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { pan } = req.query;
       
       if (!pan) {
-        return res.status(400).json({ error: "PAN number is required" });
+        return apiResponse.badRequest(res, "PAN number is required");
       }
       
       // Mock data sources status - in production, check actual connections
@@ -16470,7 +16472,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(dataSources);
     } catch (error) {
       console.error("Error fetching tax data sources:", error);
-      res.status(500).json({ error: "Failed to fetch data sources" });
+      return apiResponse.serverError(res, "Failed to fetch data sources");
     }
   });
 
@@ -16481,7 +16483,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { pan } = req.query;
       
       if (!pan) {
-        return res.status(400).json({ error: "PAN number is required" });
+        return apiResponse.badRequest(res, "PAN number is required");
       }
       
       // Mock aggregated tax data - in production, aggregate from all sources
@@ -16503,7 +16505,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(taxSummary);
     } catch (error) {
       console.error("Error fetching tax summary:", error);
-      res.status(500).json({ error: "Failed to fetch tax summary" });
+      return apiResponse.serverError(res, "Failed to fetch tax summary");
     }
   });
 
@@ -16514,7 +16516,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { year, pan } = req.body;
       
       if (!pan || !year) {
-        return res.status(400).json({ error: "PAN and year are required" });
+        return apiResponse.badRequest(res, "PAN and year are required");
       }
       
       // Mock sync process - in production, connect to actual APIs
@@ -16537,7 +16539,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error syncing tax data:", error);
-      res.status(500).json({ error: "Failed to sync data source" });
+      return apiResponse.serverError(res, "Failed to sync data source");
     }
   });
 
@@ -16547,7 +16549,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { year, format, pan } = req.body;
       
       if (!pan || !year || !format) {
-        return res.status(400).json({ error: "PAN, year, and format are required" });
+        return apiResponse.badRequest(res, "PAN, year, and format are required");
       }
       
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -16567,7 +16569,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(reportData);
     } catch (error) {
       console.error("Error generating tax report:", error);
-      res.status(500).json({ error: "Failed to generate tax report" });
+      return apiResponse.serverError(res, "Failed to generate tax report");
     }
   });
 
@@ -16603,7 +16605,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.send(mockContent);
     } catch (error) {
       console.error("Error downloading tax report:", error);
-      res.status(500).json({ error: "Failed to download tax report" });
+      return apiResponse.serverError(res, "Failed to download tax report");
     }
   });
 
@@ -16614,7 +16616,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { year, pan } = req.query;
       
       if (!pan || !year) {
-        return res.status(400).json({ error: "PAN and year are required" });
+        return apiResponse.badRequest(res, "PAN and year are required");
       }
       
       // Mock detailed source data
@@ -16649,7 +16651,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(sourceData);
     } catch (error) {
       console.error("Error fetching source data:", error);
-      res.status(500).json({ error: "Failed to fetch source data" });
+      return apiResponse.serverError(res, "Failed to fetch source data");
     }
   });
 
@@ -16659,7 +16661,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { year, pan, platform, format } = req.body;
       
       if (!pan || !year || !platform) {
-        return res.status(400).json({ error: "PAN, year, and platform are required" });
+        return apiResponse.badRequest(res, "PAN, year, and platform are required");
       }
       
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -16679,7 +16681,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(exportData);
     } catch (error) {
       console.error("Error exporting tax data:", error);
-      res.status(500).json({ error: "Failed to export tax data" });
+      return apiResponse.serverError(res, "Failed to export tax data");
     }
   });
 
@@ -16726,7 +16728,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(guide);
     } catch (error) {
       console.error("Error fetching filing guide:", error);
-      res.status(500).json({ error: "Failed to fetch filing guide" });
+      return apiResponse.serverError(res, "Failed to fetch filing guide");
     }
   });
 
@@ -16740,7 +16742,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { pan, year } = req.params;
       
       if (!pan || !year) {
-        return res.status(400).json({ error: "PAN and year are required" });
+        return apiResponse.badRequest(res, "PAN and year are required");
       }
       
       // Mock ITR form data - in production, fetch from database
@@ -16758,7 +16760,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(itrFormData);
     } catch (error) {
       console.error("Error fetching ITR form data:", error);
-      res.status(500).json({ error: "Failed to fetch ITR form data" });
+      return apiResponse.serverError(res, "Failed to fetch ITR form data");
     }
   });
 
@@ -16768,7 +16770,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { itrId } = req.params;
       
       if (!itrId) {
-        return res.status(400).json({ error: "ITR ID is required" });
+        return apiResponse.badRequest(res, "ITR ID is required");
       }
       
       // Mock validation results - in production, run actual validation
@@ -16787,7 +16789,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(validationResults);
     } catch (error) {
       console.error("Error fetching validation results:", error);
-      res.status(500).json({ error: "Failed to fetch validation results" });
+      return apiResponse.serverError(res, "Failed to fetch validation results");
     }
   });
 
@@ -16797,7 +16799,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { itrId, mode } = req.body;
       
       if (!itrId) {
-        return res.status(400).json({ error: "ITR ID is required" });
+        return apiResponse.badRequest(res, "ITR ID is required");
       }
       
       // Mock ITR generation - in production, generate actual ITR-XML
@@ -16813,7 +16815,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(generateResult);
     } catch (error) {
       console.error("Error generating ITR:", error);
-      res.status(500).json({ error: "Failed to generate ITR" });
+      return apiResponse.serverError(res, "Failed to generate ITR");
     }
   });
 
@@ -16823,7 +16825,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { itrId } = req.body;
       
       if (!itrId) {
-        return res.status(400).json({ error: "ITR ID is required" });
+        return apiResponse.badRequest(res, "ITR ID is required");
       }
       
       // Mock ITR filing - in production, submit to ITD portal
@@ -16839,7 +16841,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(filingResult);
     } catch (error) {
       console.error("Error filing ITR:", error);
-      res.status(500).json({ error: "Failed to file ITR" });
+      return apiResponse.serverError(res, "Failed to file ITR");
     }
   });
 
@@ -16849,7 +16851,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { pan, assessmentYear } = req.body;
       
       if (!pan || !assessmentYear) {
-        return res.status(400).json({ error: "PAN and assessment year are required" });
+        return apiResponse.badRequest(res, "PAN and assessment year are required");
       }
       
       // Mock auto-population - in production, fetch from tax data sources
@@ -16868,7 +16870,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(populationResult);
     } catch (error) {
       console.error("Error auto-populating ITR:", error);
-      res.status(500).json({ error: "Failed to auto-populate ITR" });
+      return apiResponse.serverError(res, "Failed to auto-populate ITR");
     }
   });
 
@@ -16905,7 +16907,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.send(mockContent);
     } catch (error) {
       console.error("Error downloading ITR file:", error);
-      res.status(500).json({ error: "Failed to download ITR file" });
+      return apiResponse.serverError(res, "Failed to download ITR file");
     }
   });
 
@@ -16931,7 +16933,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { amount, tenure, loanType, monthlyIncome, creditScore } = validationResult.data;
       
       if (!amount || !tenure || !loanType || !monthlyIncome) {
-        return res.status(400).json({ error: "Missing required parameters" });
+        return apiResponse.badRequest(res, "Missing required parameters");
       }
       
       // Mock offer generation - in production, integrate with provider APIs
@@ -17079,7 +17081,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error generating loan offers:", error);
-      res.status(500).json({ error: "Failed to generate loan offers" });
+      return apiResponse.serverError(res, "Failed to generate loan offers");
     }
   });
 
@@ -17116,7 +17118,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(data.offers || []);
     } catch (error) {
       console.error("Error fetching loan offers:", error);
-      res.status(500).json({ error: "Failed to fetch loan offers" });
+      return apiResponse.serverError(res, "Failed to fetch loan offers");
     }
   });
 
@@ -17138,7 +17140,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = validationResult.data;
       
       if (!validatedData.selectedOffers || (Array.isArray(validatedData.selectedOffers) && validatedData.selectedOffers.length < 2)) {
-        return res.status(400).json({ error: "At least 2 offers must be selected for comparison" });
+        return apiResponse.badRequest(res, "At least 2 offers must be selected for comparison");
       }
       
       // Mock save - in production, save to database
@@ -17157,7 +17159,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error saving comparison:", error);
-      res.status(500).json({ error: "Failed to save comparison" });
+      return apiResponse.serverError(res, "Failed to save comparison");
     }
   });
 
@@ -17189,7 +17191,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(savedComparisons);
     } catch (error) {
       console.error("Error fetching saved comparisons:", error);
-      res.status(500).json({ error: "Failed to fetch saved comparisons" });
+      return apiResponse.serverError(res, "Failed to fetch saved comparisons");
     }
   });
 
@@ -17211,7 +17213,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(analytics);
     } catch (error) {
       console.error("Error fetching comparison analytics:", error);
-      res.status(500).json({ error: "Failed to fetch analytics" });
+      return apiResponse.serverError(res, "Failed to fetch analytics");
     }
   });
 
@@ -17232,7 +17234,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Validate lender
       if (!providerRegistry.getAllLenders().includes(lender)) {
-        return res.status(400).json({ error: "Invalid lender specified" });
+        return apiResponse.badRequest(res, "Invalid lender specified");
       }
 
       const prefillData = await storage.getApplicationPrefillData(
@@ -17249,7 +17251,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error fetching prefill data:", error);
-      res.status(500).json({ error: "Failed to fetch prefill data" });
+      return apiResponse.serverError(res, "Failed to fetch prefill data");
     }
   });
 
@@ -17296,7 +17298,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           validationErrors: error.errors 
         });
       }
-      res.status(500).json({ error: "Failed to create application" });
+      return apiResponse.serverError(res, "Failed to create application");
     }
   });
 
@@ -17312,7 +17314,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, data: applications });
     } catch (error) {
       console.error("Error fetching partner applications:", error);
-      res.status(500).json({ error: "Failed to fetch applications" });
+      return apiResponse.serverError(res, "Failed to fetch applications");
     }
   });
 
@@ -17329,7 +17331,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const application = await storage.getPartnerApplication(id);
       
       if (!application) {
-        return res.status(404).json({ error: "Application not found" });
+        return apiResponse.notFound(res, "Application not found");
       }
 
       // Check if user owns this application
@@ -17340,7 +17342,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return apiResponse.success(res, application);
     } catch (error) {
       console.error("Error fetching partner application:", error);
-      res.status(500).json({ error: "Failed to fetch application" });
+      return apiResponse.serverError(res, "Failed to fetch application");
     }
   });
 
@@ -17357,7 +17359,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Verify application ownership
       const existingApplication = await storage.getPartnerApplication(id);
       if (!existingApplication || existingApplication.userId !== userId) {
-        return res.status(404).json({ error: "Application not found" });
+        return apiResponse.notFound(res, "Application not found");
       }
 
       // Validate updated data if provided
@@ -17383,7 +17385,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, data: updatedApplication });
     } catch (error) {
       console.error("Error updating partner application:", error);
-      res.status(500).json({ error: "Failed to update application" });
+      return apiResponse.serverError(res, "Failed to update application");
     }
   });
 
@@ -17400,11 +17402,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get application
       const application = await storage.getPartnerApplication(id);
       if (!application || application.userId !== userId) {
-        return res.status(404).json({ error: "Application not found" });
+        return apiResponse.notFound(res, "Application not found");
       }
 
       if (application.status !== 'draft') {
-        return res.status(400).json({ error: "Application has already been submitted" });
+        return apiResponse.badRequest(res, "Application has already been submitted");
       }
 
       // Transform data to provider format
@@ -17451,7 +17453,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error submitting partner application:", error);
-      res.status(500).json({ error: "Failed to submit application" });
+      return apiResponse.serverError(res, "Failed to submit application");
     }
   });
 
@@ -17467,11 +17469,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const application = await storage.getPartnerApplication(id);
       if (!application || application.userId !== userId) {
-        return res.status(404).json({ error: "Application not found" });
+        return apiResponse.notFound(res, "Application not found");
       }
 
       if (!application.providerApplicationId) {
-        return res.status(400).json({ error: "Application not yet submitted to provider" });
+        return apiResponse.badRequest(res, "Application not yet submitted to provider");
       }
 
       // Mock status check - in production, this would call the provider API
@@ -17491,7 +17493,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error fetching application status:", error);
-      res.status(500).json({ error: "Failed to fetch application status" });
+      return apiResponse.serverError(res, "Failed to fetch application status");
     }
   });
 
@@ -17512,7 +17514,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error fetching lender information:", error);
-      res.status(500).json({ error: "Failed to fetch lender information" });
+      return apiResponse.serverError(res, "Failed to fetch lender information");
     }
   });
 
@@ -17531,7 +17533,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error generating upload URL:", error);
-      res.status(500).json({ error: "Failed to generate upload URL" });
+      return apiResponse.serverError(res, "Failed to generate upload URL");
     }
   });
 
@@ -17568,7 +17570,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Verify application exists and belongs to user
       const application = await storage.getPartnerApplication(applicationId);
       if (!application || application.userId !== req.user!.id) {
-        return res.status(404).json({ error: "Application not found" });
+        return apiResponse.notFound(res, "Application not found");
       }
 
       // Normalize the object path  
@@ -17599,7 +17601,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error associating document:", error);
-      res.status(500).json({ error: "Failed to associate document with application" });
+      return apiResponse.serverError(res, "Failed to associate document with application");
     }
   });
 
@@ -17611,7 +17613,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Verify application exists and belongs to user
       const application = await storage.getPartnerApplication(applicationId);
       if (!application || application.userId !== req.user!.id) {
-        return res.status(404).json({ error: "Application not found" });
+        return apiResponse.notFound(res, "Application not found");
       }
       
       // Fetch documents from database
@@ -17623,7 +17625,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error fetching application documents:", error);
-      res.status(500).json({ error: "Failed to fetch application documents" });
+      return apiResponse.serverError(res, "Failed to fetch application documents");
     }
   });
 
@@ -17636,13 +17638,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Verify application ownership
       const application = await storage.getPartnerApplication(applicationId);
       if (!application || application.userId !== userId) {
-        return res.status(404).json({ error: "Application not found" });
+        return apiResponse.notFound(res, "Application not found");
       }
 
       // Get document to verify ownership and get file path
       const document = await storage.getApplicationDocument(documentId);
       if (!document || document.applicationId !== applicationId || document.userId !== userId) {
-        return res.status(404).json({ error: "Document not found" });
+        return apiResponse.notFound(res, "Document not found");
       }
 
       // Delete from object storage
@@ -17657,7 +17659,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Delete from database
       const deleted = await storage.deleteApplicationDocument(documentId);
       if (!deleted) {
-        return res.status(404).json({ error: "Document not found" });
+        return apiResponse.notFound(res, "Document not found");
       }
 
       res.json({ 
@@ -17666,7 +17668,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error('Error deleting application document:', error);
-      res.status(500).json({ error: "Failed to delete document" });
+      return apiResponse.serverError(res, "Failed to delete document");
     }
   });
 
@@ -17679,13 +17681,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Verify application ownership
       const application = await storage.getPartnerApplication(applicationId);
       if (!application || application.userId !== userId) {
-        return res.status(404).json({ error: "Application not found" });
+        return apiResponse.notFound(res, "Application not found");
       }
 
       // Get document to verify ownership
       const document = await storage.getApplicationDocument(documentId);
       if (!document || document.applicationId !== applicationId || document.userId !== userId) {
-        return res.status(404).json({ error: "Document not found" });
+        return apiResponse.notFound(res, "Document not found");
       }
 
       // Allow updating verification status
@@ -17705,7 +17707,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const updatedDocument = await storage.updateApplicationDocument(documentId, updates);
       if (!updatedDocument) {
-        return res.status(404).json({ error: "Document not found" });
+        return apiResponse.notFound(res, "Document not found");
       }
 
       res.json({
@@ -17714,7 +17716,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error('Error updating application document:', error);
-      res.status(500).json({ error: "Failed to update document" });
+      return apiResponse.serverError(res, "Failed to update document");
     }
   });
 
@@ -17747,7 +17749,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(response);
     } catch (error) {
       console.error("Error in test dashboard:", error);
-      res.status(500).json({ error: "Failed to fetch test dashboard data" });
+      return apiResponse.serverError(res, "Failed to fetch test dashboard data");
     }
   });
   
@@ -17810,7 +17812,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error fetching admin dashboard:", error);
-      res.status(500).json({ error: "Failed to fetch dashboard data" });
+      return apiResponse.serverError(res, "Failed to fetch dashboard data");
     }
   });
 
@@ -17843,7 +17845,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(result);
     } catch (error) {
       console.error("Error fetching users:", error);
-      res.status(500).json({ error: "Failed to fetch users" });
+      return apiResponse.serverError(res, "Failed to fetch users");
     }
   });
 
@@ -17854,7 +17856,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { role } = req.body;
 
       if (!['user', 'admin', 'super_admin'].includes(role)) {
-        return res.status(400).json({ error: "Invalid role" });
+        return apiResponse.badRequest(res, "Invalid role");
       }
 
       await storage.updateUserRole(userId, role);
@@ -17869,7 +17871,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, message: "User role updated successfully" });
     } catch (error) {
       console.error("Error updating user role:", error);
-      res.status(500).json({ error: "Failed to update user role" });
+      return apiResponse.serverError(res, "Failed to update user role");
     }
   });
 
@@ -17891,7 +17893,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, message: "User status updated successfully" });
     } catch (error) {
       console.error("Error updating user status:", error);
-      res.status(500).json({ error: "Failed to update user status" });
+      return apiResponse.serverError(res, "Failed to update user status");
     }
   });
 
@@ -17905,7 +17907,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(activities);
     } catch (error) {
       console.error("Error fetching user activity:", error);
-      res.status(500).json({ error: "Failed to fetch user activity" });
+      return apiResponse.serverError(res, "Failed to fetch user activity");
     }
   });
 
@@ -17916,7 +17918,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { title, message, type = 'guidance', actionUrl, priority = 'medium' } = req.body;
 
       if (!title || !message) {
-        return res.status(400).json({ error: "Title and message are required" });
+        return apiResponse.badRequest(res, "Title and message are required");
       }
 
       await adminService.sendUserGuidance(userId, title, message, type, actionUrl, priority);
@@ -17931,7 +17933,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, message: "Guidance sent successfully" });
     } catch (error) {
       console.error("Error sending user guidance:", error);
-      res.status(500).json({ error: "Failed to send guidance" });
+      return apiResponse.serverError(res, "Failed to send guidance");
     }
   });
 
@@ -17941,7 +17943,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { firstName, lastName, email, mobile, role = 'user', isActive = true } = req.body;
       
       if (!firstName || !lastName || !email) {
-        return res.status(400).json({ error: "First name, last name, and email are required" });
+        return apiResponse.badRequest(res, "First name, last name, and email are required");
       }
       
       // Check if user already exists
@@ -17989,7 +17991,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(newUser);
     } catch (error) {
       console.error("Error creating user:", error);
-      res.status(500).json({ error: "Failed to create user" });
+      return apiResponse.serverError(res, "Failed to create user");
     }
   });
 
@@ -18002,7 +18004,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedUser = await storage.updateUser(userId, updates);
       
       if (!updatedUser) {
-        return res.status(404).json({ error: "User not found" });
+        return apiResponse.notFound(res, "User not found");
       }
       
       await adminService.logActivity({
@@ -18016,7 +18018,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updatedUser);
     } catch (error) {
       console.error("Error updating user:", error);
-      res.status(500).json({ error: "Failed to update user" });
+      return apiResponse.serverError(res, "Failed to update user");
     }
   });
 
@@ -18028,7 +18030,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get user info before deletion for logging
       const user = await storage.getUser(userId);
       if (!user) {
-        return res.status(404).json({ error: "User not found" });
+        return apiResponse.notFound(res, "User not found");
       }
       
       // Prevent deletion of admin users by non-super-admin
@@ -18039,7 +18041,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const deleted = await storage.deleteUser(userId);
       
       if (!deleted) {
-        return res.status(404).json({ error: "User not found or could not be deleted" });
+        return apiResponse.notFound(res, "User not found or could not be deleted");
       }
       
       await adminService.logActivity({
@@ -18053,7 +18055,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, message: "User deleted successfully" });
     } catch (error) {
       console.error("Error deleting user:", error);
-      res.status(500).json({ error: "Failed to delete user" });
+      return apiResponse.serverError(res, "Failed to delete user");
     }
   });
 
@@ -18064,7 +18066,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(agents);
     } catch (error) {
       console.error("Error fetching agents:", error);
-      res.status(500).json({ error: "Failed to fetch agents" });
+      return apiResponse.serverError(res, "Failed to fetch agents");
     }
   });
 
@@ -18085,7 +18087,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(newAgent);
     } catch (error) {
       console.error("Error creating agent:", error);
-      res.status(500).json({ error: "Failed to create agent" });
+      return apiResponse.serverError(res, "Failed to create agent");
     }
   });
 
@@ -18097,7 +18099,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedAgent = await storage.updateCustomerCareAgent(id, updates);
       
       if (!updatedAgent) {
-        return res.status(404).json({ error: "Agent not found" });
+        return apiResponse.notFound(res, "Agent not found");
       }
       
       await adminService.logActivity({
@@ -18111,7 +18113,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updatedAgent);
     } catch (error) {
       console.error("Error updating agent:", error);
-      res.status(500).json({ error: "Failed to update agent" });
+      return apiResponse.serverError(res, "Failed to update agent");
     }
   });
 
@@ -18123,13 +18125,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get agent info before deletion for logging
       const agent = await storage.getCustomerCareAgent(id);
       if (!agent) {
-        return res.status(404).json({ error: "Agent not found" });
+        return apiResponse.notFound(res, "Agent not found");
       }
       
       const deleted = await storage.deleteCustomerCareAgent(id);
       
       if (!deleted) {
-        return res.status(404).json({ error: "Agent not found or could not be deleted" });
+        return apiResponse.notFound(res, "Agent not found or could not be deleted");
       }
       
       await adminService.logActivity({
@@ -18143,7 +18145,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, message: "Agent deleted successfully" });
     } catch (error) {
       console.error("Error deleting agent:", error);
-      res.status(500).json({ error: "Failed to delete agent" });
+      return apiResponse.serverError(res, "Failed to delete agent");
     }
   });
 
@@ -18154,7 +18156,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(insights);
     } catch (error) {
       console.error("Error fetching platform insights:", error);
-      res.status(500).json({ error: "Failed to fetch platform insights" });
+      return apiResponse.serverError(res, "Failed to fetch platform insights");
     }
   });
 
@@ -18173,7 +18175,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(insights);
     } catch (error) {
       console.error("Error generating AI insights:", error);
-      res.status(500).json({ error: "Failed to generate AI insights" });
+      return apiResponse.serverError(res, "Failed to generate AI insights");
     }
   });
 
@@ -18184,7 +18186,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(metrics);
     } catch (error) {
       console.error("Error fetching business metrics:", error);
-      res.status(500).json({ error: "Failed to fetch business metrics" });
+      return apiResponse.serverError(res, "Failed to fetch business metrics");
     }
   });
 
@@ -18196,7 +18198,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(insights);
     } catch (error) {
       console.error("Error generating profitability insights:", error);
-      res.status(500).json({ error: "Failed to generate profitability insights" });
+      return apiResponse.serverError(res, "Failed to generate profitability insights");
     }
   });
 
@@ -18208,7 +18210,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(insights);
     } catch (error) {
       console.error("Error generating service quality insights:", error);
-      res.status(500).json({ error: "Failed to generate service quality insights" });
+      return apiResponse.serverError(res, "Failed to generate service quality insights");
     }
   });
 
@@ -18220,7 +18222,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(insights);
     } catch (error) {
       console.error("Error generating marketing insights:", error);
-      res.status(500).json({ error: "Failed to generate marketing insights" });
+      return apiResponse.serverError(res, "Failed to generate marketing insights");
     }
   });
 
@@ -18232,7 +18234,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(insights);
     } catch (error) {
       console.error("Error generating operational insights:", error);
-      res.status(500).json({ error: "Failed to generate operational insights" });
+      return apiResponse.serverError(res, "Failed to generate operational insights");
     }
   });
 
@@ -18253,7 +18255,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(adminActivities);
     } catch (error) {
       console.error("Error fetching admin activities:", error);
-      res.status(500).json({ error: "Failed to fetch activities" });
+      return apiResponse.serverError(res, "Failed to fetch activities");
     }
   });
 
@@ -18653,12 +18655,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Super Admin only middleware
   const requireSuperAdmin = async (req: any, res: any, next: any) => {
     if (!req.user) {
-      return res.status(401).json({ message: "Authentication required" });
+      return apiResponse.unauthorized(res, "Authentication required");
     }
     
     const user = await storage.getUser(req.user.id);
     if (!user || !hasRole(user, ['superadmin'])) {
-      return res.status(403).json({ message: "Super admin access required" });
+      return apiResponse.forbidden(res, "Super admin access required");
     }
     
     next();
@@ -18995,13 +18997,13 @@ System Security Data:`;
       const ckycRecord = await storage.getCkycRecord(userId);
       
       if (!ckycRecord) {
-        return res.status(404).json({ error: "CKYC record not found" });
+        return apiResponse.notFound(res, "CKYC record not found");
       }
       
       res.json(ckycRecord);
     } catch (error) {
       console.error("Error fetching CKYC record:", error);
-      res.status(500).json({ error: "Failed to fetch CKYC record" });
+      return apiResponse.serverError(res, "Failed to fetch CKYC record");
     }
   });
 
@@ -19098,7 +19100,7 @@ System Security Data:`;
       res.json(ckycRecord);
     } catch (error) {
       console.error("Error creating/updating CKYC record:", error);
-      res.status(500).json({ error: "Failed to create/update CKYC record" });
+      return apiResponse.serverError(res, "Failed to create/update CKYC record");
     }
   });
 
@@ -19113,7 +19115,7 @@ System Security Data:`;
       res.json(document);
     } catch (error) {
       console.error("Error uploading CKYC document:", error);
-      res.status(500).json({ error: "Failed to upload document" });
+      return apiResponse.serverError(res, "Failed to upload document");
     }
   });
 
@@ -19125,7 +19127,7 @@ System Security Data:`;
       res.json(documents);
     } catch (error) {
       console.error("Error fetching CKYC documents:", error);
-      res.status(500).json({ error: "Failed to fetch documents" });
+      return apiResponse.serverError(res, "Failed to fetch documents");
     }
   });
 
@@ -19137,7 +19139,7 @@ System Security Data:`;
       res.json(history);
     } catch (error) {
       console.error("Error fetching CKYC status history:", error);
-      res.status(500).json({ error: "Failed to fetch status history" });
+      return apiResponse.serverError(res, "Failed to fetch status history");
     }
   });
 
@@ -19148,7 +19150,7 @@ System Security Data:`;
       res.json(records);
     } catch (error) {
       console.error("Error fetching CKYC clients for agent:", error);
-      res.status(500).json({ error: "Failed to fetch CKYC clients" });
+      return apiResponse.serverError(res, "Failed to fetch CKYC clients");
     }
   });
 
@@ -19159,7 +19161,7 @@ System Security Data:`;
       res.json(agentNotifications);
     } catch (error) {
       console.error("Error fetching agent notifications:", error);
-      res.status(500).json({ error: "Failed to fetch notifications" });
+      return apiResponse.serverError(res, "Failed to fetch notifications");
     }
   });
 
@@ -19191,7 +19193,7 @@ System Security Data:`;
       res.json(notification);
     } catch (error) {
       console.error("Error creating agent notification:", error);
-      res.status(500).json({ error: "Failed to create notification" });
+      return apiResponse.serverError(res, "Failed to create notification");
     }
   });
 
@@ -19208,7 +19210,7 @@ System Security Data:`;
       res.json(records);
     } catch (error) {
       console.error("Error fetching all CKYC records:", error);
-      res.status(500).json({ error: "Failed to fetch CKYC records" });
+      return apiResponse.serverError(res, "Failed to fetch CKYC records");
     }
   });
 
@@ -19224,7 +19226,7 @@ System Security Data:`;
       });
       
       if (!updated) {
-        return res.status(404).json({ error: "CKYC record not found" });
+        return apiResponse.notFound(res, "CKYC record not found");
       }
       
       // Log status change
@@ -19238,7 +19240,7 @@ System Security Data:`;
       res.json(updated);
     } catch (error) {
       console.error("Error updating CKYC status:", error);
-      res.status(500).json({ error: "Failed to update CKYC status" });
+      return apiResponse.serverError(res, "Failed to update CKYC status");
     }
   });
 
@@ -19274,7 +19276,7 @@ System Security Data:`;
       res.json(compliance);
     } catch (error) {
       console.error("Error checking CKYC compliance:", error);
-      res.status(500).json({ error: "Failed to check compliance" });
+      return apiResponse.serverError(res, "Failed to check compliance");
     }
   });
 
@@ -19291,7 +19293,7 @@ System Security Data:`;
       // Validate CKYC record exists
       const ckycRecord = await storage.getCkycRecord(ckycRecordId);
       if (!ckycRecord) {
-        return res.status(404).json({ error: "CKYC record not found" });
+        return apiResponse.notFound(res, "CKYC record not found");
       }
       
       const trigger = await storage.createCkycNotificationTrigger({
@@ -19321,7 +19323,7 @@ System Security Data:`;
       res.status(201).json(trigger);
     } catch (error) {
       console.error("Error creating CKYC notification trigger:", error);
-      res.status(500).json({ error: "Failed to create notification trigger" });
+      return apiResponse.serverError(res, "Failed to create notification trigger");
     }
   });
   */
@@ -19338,7 +19340,7 @@ System Security Data:`;
       res.json(triggers);
     } catch (error) {
       console.error("Error fetching CKYC notification triggers:", error);
-      res.status(500).json({ error: "Failed to fetch notification triggers" });
+      return apiResponse.serverError(res, "Failed to fetch notification triggers");
     }
   });
 
@@ -19356,13 +19358,13 @@ System Security Data:`;
       );
       
       if (!updated) {
-        return res.status(404).json({ error: "Notification trigger not found" });
+        return apiResponse.notFound(res, "Notification trigger not found");
       }
       
       res.json(updated);
     } catch (error) {
       console.error("Error updating notification status:", error);
-      res.status(500).json({ error: "Failed to update notification status" });
+      return apiResponse.serverError(res, "Failed to update notification status");
     }
   });
 
@@ -19396,7 +19398,7 @@ System Security Data:`;
       res.status(201).json(step);
     } catch (error) {
       console.error("Error creating CKYC progress step:", error);
-      res.status(500).json({ error: "Failed to create progress step" });
+      return apiResponse.serverError(res, "Failed to create progress step");
     }
   });
 
@@ -19408,7 +19410,7 @@ System Security Data:`;
       res.json(steps);
     } catch (error) {
       console.error("Error fetching CKYC progress steps:", error);
-      res.status(500).json({ error: "Failed to fetch progress steps" });
+      return apiResponse.serverError(res, "Failed to fetch progress steps");
     }
   });
 
@@ -19426,7 +19428,7 @@ System Security Data:`;
       });
       
       if (!updated) {
-        return res.status(404).json({ error: "Progress step not found" });
+        return apiResponse.notFound(res, "Progress step not found");
       }
       
       // Log the action
@@ -19443,7 +19445,7 @@ System Security Data:`;
       res.json(updated);
     } catch (error) {
       console.error("Error updating CKYC progress step:", error);
-      res.status(500).json({ error: "Failed to update progress step" });
+      return apiResponse.serverError(res, "Failed to update progress step");
     }
   });
 
@@ -19455,7 +19457,7 @@ System Security Data:`;
       // Validate CKYC record exists
       const ckycRecord = await storage.getCkycRecord(ckycRecordId);
       if (!ckycRecord) {
-        return res.status(404).json({ error: "CKYC record not found" });
+        return apiResponse.notFound(res, "CKYC record not found");
       }
       
       const trigger = await storage.createCkycNotificationTrigger({
@@ -19484,7 +19486,7 @@ System Security Data:`;
       res.status(201).json(trigger);
     } catch (error) {
       console.error("Error creating agent notification trigger:", error);
-      res.status(500).json({ error: "Failed to create notification trigger" });
+      return apiResponse.serverError(res, "Failed to create notification trigger");
     }
   });
 
@@ -19496,7 +19498,7 @@ System Security Data:`;
       res.json(logs);
     } catch (error) {
       console.error("Error fetching CKYC action logs:", error);
-      res.status(500).json({ error: "Failed to fetch action logs" });
+      return apiResponse.serverError(res, "Failed to fetch action logs");
     }
   });
 
@@ -19508,7 +19510,7 @@ System Security Data:`;
       res.json(logs);
     } catch (error) {
       console.error("Error fetching all CKYC action logs:", error);
-      res.status(500).json({ error: "Failed to fetch action logs" });
+      return apiResponse.serverError(res, "Failed to fetch action logs");
     }
   });
 
@@ -19519,7 +19521,7 @@ System Security Data:`;
       res.json({ success: true, message: "Pending notifications processed" });
     } catch (error) {
       console.error("Error processing pending notifications:", error);
-      res.status(500).json({ error: "Failed to process notifications" });
+      return apiResponse.serverError(res, "Failed to process notifications");
     }
   });
   END OF COMMENTED OUT CKYC ROUTES */
@@ -19537,13 +19539,13 @@ System Security Data:`;
         .limit(1);
 
       if (result.length === 0) {
-        return res.status(404).json({ error: "No progress found" });
+        return apiResponse.notFound(res, "No progress found");
       }
 
       res.json(result[0]);
     } catch (error) {
       console.error("Error fetching KYC progress:", error);
-      res.status(500).json({ error: "Failed to fetch KYC progress" });
+      return apiResponse.serverError(res, "Failed to fetch KYC progress");
     }
   });
 
@@ -19625,7 +19627,7 @@ System Security Data:`;
       res.json(result[0]);
     } catch (error) {
       console.error("Error saving KYC progress:", error);
-      res.status(500).json({ error: "Failed to save KYC progress" });
+      return apiResponse.serverError(res, "Failed to save KYC progress");
     }
   });
 
@@ -19654,7 +19656,7 @@ System Security Data:`;
       res.json(agentsWithMappings);
     } catch (error) {
       console.error("Error fetching agents:", error);
-      res.status(500).json({ error: "Failed to fetch agents" });
+      return apiResponse.serverError(res, "Failed to fetch agents");
     }
   });
 
@@ -19665,7 +19667,7 @@ System Security Data:`;
       res.status(201).json(agent);
     } catch (error) {
       console.error("Error creating customer care agent:", error);
-      res.status(500).json({ error: "Failed to create agent" });
+      return apiResponse.serverError(res, "Failed to create agent");
     }
   });
 
@@ -19676,13 +19678,13 @@ System Security Data:`;
       const updated = await storage.updateCustomerCareAgent(agentId, req.body);
       
       if (!updated) {
-        return res.status(404).json({ error: "Agent not found" });
+        return apiResponse.notFound(res, "Agent not found");
       }
       
       res.json(updated);
     } catch (error) {
       console.error("Error updating customer care agent:", error);
-      res.status(500).json({ error: "Failed to update agent" });
+      return apiResponse.serverError(res, "Failed to update agent");
     }
   });
 
@@ -19693,7 +19695,7 @@ System Security Data:`;
       const deleted = await storage.deleteCustomerCareAgent(agentId);
       
       if (!deleted) {
-        return res.status(404).json({ error: "Agent not found" });
+        return apiResponse.notFound(res, "Agent not found");
       }
       
       // Also delete all partner mappings for this agent
@@ -19703,7 +19705,7 @@ System Security Data:`;
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting customer care agent:", error);
-      res.status(500).json({ error: "Failed to delete agent" });
+      return apiResponse.serverError(res, "Failed to delete agent");
     }
   });
 
@@ -19715,7 +19717,7 @@ System Security Data:`;
       res.json(mappings);
     } catch (error) {
       console.error("Error fetching agent-partner mappings:", error);
-      res.status(500).json({ error: "Failed to fetch mappings" });
+      return apiResponse.serverError(res, "Failed to fetch mappings");
     }
   });
 
@@ -19729,7 +19731,7 @@ System Security Data:`;
       res.status(201).json(mapping);
     } catch (error) {
       console.error("Error creating agent-partner mapping:", error);
-      res.status(500).json({ error: "Failed to create mapping" });
+      return apiResponse.serverError(res, "Failed to create mapping");
     }
   });
 
@@ -19740,13 +19742,13 @@ System Security Data:`;
       const updated = await storage.updateAgentPartnerMapping(mappingId, req.body);
       
       if (!updated) {
-        return res.status(404).json({ error: "Mapping not found" });
+        return apiResponse.notFound(res, "Mapping not found");
       }
       
       res.json(updated);
     } catch (error) {
       console.error("Error updating agent-partner mapping:", error);
-      res.status(500).json({ error: "Failed to update mapping" });
+      return apiResponse.serverError(res, "Failed to update mapping");
     }
   });
 
@@ -19757,13 +19759,13 @@ System Security Data:`;
       const deleted = await storage.deleteAgentPartnerMapping(mappingId);
       
       if (!deleted) {
-        return res.status(404).json({ error: "Mapping not found" });
+        return apiResponse.notFound(res, "Mapping not found");
       }
       
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting agent-partner mapping:", error);
-      res.status(500).json({ error: "Failed to delete mapping" });
+      return apiResponse.serverError(res, "Failed to delete mapping");
     }
   });
 
@@ -19780,7 +19782,7 @@ System Security Data:`;
       res.json(relationships);
     } catch (error) {
       console.error("Error fetching client-agent relationships:", error);
-      res.status(500).json({ error: "Failed to fetch relationships" });
+      return apiResponse.serverError(res, "Failed to fetch relationships");
     }
   });
 
@@ -19809,7 +19811,7 @@ System Security Data:`;
       });
     } catch (error) {
       console.error("Error fetching client-agent relationship stats:", error);
-      res.status(500).json({ error: "Failed to fetch relationship stats" });
+      return apiResponse.serverError(res, "Failed to fetch relationship stats");
     }
   });
 
@@ -19820,14 +19822,14 @@ System Security Data:`;
       
       // Validate required fields
       if (!relationshipData.clientId || !relationshipData.agentId || !relationshipData.euinNumber) {
-        return res.status(400).json({ error: "Client ID, Agent ID, and EUIN number are required" });
+        return apiResponse.badRequest(res, "Client ID, Agent ID, and EUIN number are required");
       }
 
       const relationship = await storage.createClientAgentRelationship(relationshipData);
       res.json(relationship);
     } catch (error) {
       console.error("Error creating client-agent relationship:", error);
-      res.status(500).json({ error: "Failed to create relationship" });
+      return apiResponse.serverError(res, "Failed to create relationship");
     }
   });
 
@@ -19840,13 +19842,13 @@ System Security Data:`;
       const updated = await storage.updateClientAgentRelationship(relationshipId, updates);
       
       if (!updated) {
-        return res.status(404).json({ error: "Relationship not found" });
+        return apiResponse.notFound(res, "Relationship not found");
       }
       
       res.json(updated);
     } catch (error) {
       console.error("Error updating client-agent relationship:", error);
-      res.status(500).json({ error: "Failed to update relationship" });
+      return apiResponse.serverError(res, "Failed to update relationship");
     }
   });
 
@@ -19857,13 +19859,13 @@ System Security Data:`;
       const deleted = await storage.deleteClientAgentRelationship(relationshipId);
       
       if (!deleted) {
-        return res.status(404).json({ error: "Relationship not found" });
+        return apiResponse.notFound(res, "Relationship not found");
       }
       
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting client-agent relationship:", error);
-      res.status(500).json({ error: "Failed to delete relationship" });
+      return apiResponse.serverError(res, "Failed to delete relationship");
     }
   });
 
@@ -19879,13 +19881,13 @@ System Security Data:`;
       );
       
       if (!agentRelationship) {
-        return res.status(404).json({ error: "No agent assigned to this client" });
+        return apiResponse.notFound(res, "No agent assigned to this client");
       }
       
       res.json(agentRelationship);
     } catch (error) {
       console.error("Error fetching agent for client:", error);
-      res.status(500).json({ error: "Failed to fetch agent" });
+      return apiResponse.serverError(res, "Failed to fetch agent");
     }
   });
 
@@ -19898,7 +19900,7 @@ System Security Data:`;
       res.json(clientRelationships);
     } catch (error) {
       console.error("Error fetching clients for agent:", error);
-      res.status(500).json({ error: "Failed to fetch clients" });
+      return apiResponse.serverError(res, "Failed to fetch clients");
     }
   });
 
@@ -19925,7 +19927,7 @@ System Security Data:`;
       });
     } catch (error) {
       console.error("Error fetching EUIN/ARN for client:", error);
-      res.status(500).json({ error: "Failed to fetch EUIN/ARN data" });
+      return apiResponse.serverError(res, "Failed to fetch EUIN/ARN data");
     }
   });
 
@@ -19940,7 +19942,7 @@ System Security Data:`;
       const partner = await partnerService.authenticatePartner(email, password);
       
       if (!partner) {
-        return res.status(401).json({ message: "Invalid credentials" });
+        return apiResponse.unauthorized(res, "Invalid credentials");
       }
 
       // Store partner in session
@@ -19963,7 +19965,7 @@ System Security Data:`;
     // For demo purposes, authenticate with email/password from headers
     const authHeader = req.headers.authorization;
     if (!authHeader) {
-      return res.status(401).json({ message: "Partner authentication required" });
+      return apiResponse.unauthorized(res, "Partner authentication required");
     }
 
     try {
@@ -19971,13 +19973,13 @@ System Security Data:`;
       const partner = await partnerService.authenticatePartner(email, password);
       
       if (!partner) {
-        return res.status(401).json({ message: "Invalid partner credentials" });
+        return apiResponse.unauthorized(res, "Invalid partner credentials");
       }
 
       req.partner = partner;
       next();
     } catch (error) {
-      return res.status(401).json({ message: "Invalid authentication format" });
+      return apiResponse.unauthorized(res, "Invalid authentication format");
     }
   };
 
@@ -20014,7 +20016,7 @@ System Security Data:`;
       });
     } catch (error) {
       console.error("Error fetching partner dashboard:", error);
-      res.status(500).json({ error: "Failed to fetch dashboard" });
+      return apiResponse.serverError(res, "Failed to fetch dashboard");
     }
   });
 
@@ -20028,7 +20030,7 @@ System Security Data:`;
       res.json(products);
     } catch (error) {
       console.error("Error fetching products:", error);
-      res.status(500).json({ error: "Failed to fetch products" });
+      return apiResponse.serverError(res, "Failed to fetch products");
     }
   });
 
@@ -20038,7 +20040,7 @@ System Security Data:`;
       const product = await partnerService.getProduct(req.params.id);
       
       if (!product || product.partnerId !== req.partner.id) {
-        return res.status(404).json({ error: "Product not found" });
+        return apiResponse.notFound(res, "Product not found");
       }
 
       // Get product metrics
@@ -20047,7 +20049,7 @@ System Security Data:`;
       res.json({ product, metrics });
     } catch (error) {
       console.error("Error fetching product:", error);
-      res.status(500).json({ error: "Failed to fetch product" });
+      return apiResponse.serverError(res, "Failed to fetch product");
     }
   });
 
@@ -20070,7 +20072,7 @@ System Security Data:`;
       res.status(201).json(product);
     } catch (error) {
       console.error("Error creating product:", error);
-      res.status(500).json({ error: "Failed to create product" });
+      return apiResponse.serverError(res, "Failed to create product");
     }
   });
 
@@ -20080,7 +20082,7 @@ System Security Data:`;
       const product = await partnerService.getProduct(req.params.id);
       
       if (!product || product.partnerId !== req.partner.id) {
-        return res.status(404).json({ error: "Product not found" });
+        return apiResponse.notFound(res, "Product not found");
       }
 
       const updates = { ...req.body };
@@ -20091,7 +20093,7 @@ System Security Data:`;
       res.json(updatedProduct);
     } catch (error) {
       console.error("Error updating product:", error);
-      res.status(500).json({ error: "Failed to update product" });
+      return apiResponse.serverError(res, "Failed to update product");
     }
   });
 
@@ -20101,7 +20103,7 @@ System Security Data:`;
       const product = await partnerService.getProduct(req.params.id);
       
       if (!product || product.partnerId !== req.partner.id) {
-        return res.status(404).json({ error: "Product not found" });
+        return apiResponse.notFound(res, "Product not found");
       }
 
       const success = await partnerService.deleteProduct(req.params.id);
@@ -20109,11 +20111,11 @@ System Security Data:`;
       if (success) {
         res.json({ message: "Product deleted successfully" });
       } else {
-        res.status(500).json({ error: "Failed to delete product" });
+        return apiResponse.serverError(res, "Failed to delete product");
       }
     } catch (error) {
       console.error("Error deleting product:", error);
-      res.status(500).json({ error: "Failed to delete product" });
+      return apiResponse.serverError(res, "Failed to delete product");
     }
   });
 
@@ -20127,7 +20129,7 @@ System Security Data:`;
       res.json(tickets);
     } catch (error) {
       console.error("Error fetching support tickets:", error);
-      res.status(500).json({ error: "Failed to fetch support tickets" });
+      return apiResponse.serverError(res, "Failed to fetch support tickets");
     }
   });
 
@@ -20137,7 +20139,7 @@ System Security Data:`;
       const ticket = await partnerService.getTicket(req.params.id);
       
       if (!ticket || ticket.assignedTo !== req.partner.id) {
-        return res.status(404).json({ error: "Ticket not found" });
+        return apiResponse.notFound(res, "Ticket not found");
       }
 
       const messages = await partnerService.getTicketMessages(ticket.id);
@@ -20145,7 +20147,7 @@ System Security Data:`;
       res.json({ ticket, messages });
     } catch (error) {
       console.error("Error fetching support ticket:", error);
-      res.status(500).json({ error: "Failed to fetch support ticket" });
+      return apiResponse.serverError(res, "Failed to fetch support ticket");
     }
   });
 
@@ -20155,7 +20157,7 @@ System Security Data:`;
       const ticket = await partnerService.getTicket(req.params.id);
       
       if (!ticket || ticket.assignedTo !== req.partner.id) {
-        return res.status(404).json({ error: "Ticket not found" });
+        return apiResponse.notFound(res, "Ticket not found");
       }
 
       const { status, resolution } = req.body;
@@ -20170,7 +20172,7 @@ System Security Data:`;
       res.json(updatedTicket);
     } catch (error) {
       console.error("Error updating support ticket:", error);
-      res.status(500).json({ error: "Failed to update support ticket" });
+      return apiResponse.serverError(res, "Failed to update support ticket");
     }
   });
 
@@ -20180,7 +20182,7 @@ System Security Data:`;
       const ticket = await partnerService.getTicket(req.params.id);
       
       if (!ticket || ticket.assignedTo !== req.partner.id) {
-        return res.status(404).json({ error: "Ticket not found" });
+        return apiResponse.notFound(res, "Ticket not found");
       }
 
       const messageData = {
@@ -20198,7 +20200,7 @@ System Security Data:`;
       res.status(201).json(message);
     } catch (error) {
       console.error("Error adding ticket message:", error);
-      res.status(500).json({ error: "Failed to add message" });
+      return apiResponse.serverError(res, "Failed to add message");
     }
   });
 
@@ -20214,7 +20216,7 @@ System Security Data:`;
       res.status(201).json(ticket);
     } catch (error) {
       console.error("Error creating support ticket:", error);
-      res.status(500).json({ error: "Failed to create support ticket" });
+      return apiResponse.serverError(res, "Failed to create support ticket");
     }
   });
 
@@ -20225,7 +20227,7 @@ System Security Data:`;
       
       // Validate required fields
       if (!fullName || !email || !phone || !inquiryType || !subject || !message) {
-        return res.status(400).json({ error: "All required fields must be provided" });
+        return apiResponse.badRequest(res, "All required fields must be provided");
       }
 
       // Create a support ticket from the contact form
@@ -20252,7 +20254,7 @@ System Security Data:`;
       });
     } catch (error) {
       console.error("Error processing contact form:", error);
-      res.status(500).json({ error: "Failed to submit contact form" });
+      return apiResponse.serverError(res, "Failed to submit contact form");
     }
   });
 
@@ -20275,7 +20277,7 @@ System Security Data:`;
       res.json(products);
     } catch (error) {
       console.error("Error fetching public products:", error);
-      res.status(500).json({ error: "Failed to fetch products" });
+      return apiResponse.serverError(res, "Failed to fetch products");
     }
   });
 
@@ -20285,13 +20287,13 @@ System Security Data:`;
       const product = await partnerService.getProduct(req.params.id);
       
       if (!product || !product.isPublic || product.status !== 'active') {
-        return res.status(404).json({ error: "Product not found" });
+        return apiResponse.notFound(res, "Product not found");
       }
 
       res.json(product);
     } catch (error) {
       console.error("Error fetching product:", error);
-      res.status(500).json({ error: "Failed to fetch product" });
+      return apiResponse.serverError(res, "Failed to fetch product");
     }
   });
 
@@ -20369,7 +20371,7 @@ System Security Data:`;
       });
     } catch (error) {
       console.error("Error fetching cart:", error);
-      res.status(500).json({ error: "Failed to fetch cart" });
+      return apiResponse.serverError(res, "Failed to fetch cart");
     }
   });
 
@@ -20405,13 +20407,13 @@ System Security Data:`;
 
       // Type-specific validation
       if (itemType === "product" && !productId) {
-        return res.status(400).json({ error: "productId is required for product items" });
+        return apiResponse.badRequest(res, "productId is required for product items");
       }
       if (itemType === "proposal" && !proposalId) {
-        return res.status(400).json({ error: "proposalId is required for proposal items" });
+        return apiResponse.badRequest(res, "proposalId is required for proposal items");
       }
       if (itemType === "investment" && !investmentId) {
-        return res.status(400).json({ error: "investmentId is required for investment items" });
+        return apiResponse.badRequest(res, "investmentId is required for investment items");
       }
 
       // For products, verify the product exists
@@ -20422,7 +20424,7 @@ System Security Data:`;
           .where(eq(storeProducts.id, productId));
 
         if (!product) {
-          return res.status(404).json({ error: "Product not found" });
+          return apiResponse.notFound(res, "Product not found");
         }
       }
 
@@ -20483,7 +20485,7 @@ System Security Data:`;
       }
     } catch (error) {
       console.error("Error adding to cart:", error);
-      res.status(500).json({ error: "Failed to add item to cart" });
+      return apiResponse.serverError(res, "Failed to add item to cart");
     }
   });
 
@@ -20508,7 +20510,7 @@ System Security Data:`;
         ));
 
       if (!cartItem) {
-        return res.status(404).json({ error: "Cart item not found" });
+        return apiResponse.notFound(res, "Cart item not found");
       }
 
       const updates: any = {};
@@ -20524,7 +20526,7 @@ System Security Data:`;
       res.json(updatedItem);
     } catch (error) {
       console.error("Error updating cart item:", error);
-      res.status(500).json({ error: "Failed to update cart item" });
+      return apiResponse.serverError(res, "Failed to update cart item");
     }
   });
 
@@ -20547,7 +20549,7 @@ System Security Data:`;
         ));
 
       if (!cartItem) {
-        return res.status(404).json({ error: "Cart item not found" });
+        return apiResponse.notFound(res, "Cart item not found");
       }
 
       await db
@@ -20557,7 +20559,7 @@ System Security Data:`;
       res.json({ success: true });
     } catch (error) {
       console.error("Error removing from cart:", error);
-      res.status(500).json({ error: "Failed to remove item from cart" });
+      return apiResponse.serverError(res, "Failed to remove item from cart");
     }
   });
 
@@ -20580,7 +20582,7 @@ System Security Data:`;
       res.json({ success: true });
     } catch (error) {
       console.error("Error clearing cart:", error);
-      res.status(500).json({ error: "Failed to clear cart" });
+      return apiResponse.serverError(res, "Failed to clear cart");
     }
   });
 
@@ -20936,7 +20938,7 @@ System Security Data:`;
       // Get the proposal and verify access
       const proposal = await storage.getInvestmentProposal(proposalId);
       if (!proposal) {
-        return res.status(404).json({ error: "Proposal not found" });
+        return apiResponse.notFound(res, "Proposal not found");
       }
 
       // Check if user is client or agent for this proposal
@@ -20951,7 +20953,7 @@ System Security Data:`;
       // Get proposal items
       const proposalItems = await storage.getInvestmentProposalItems(proposalId);
       if (!proposalItems || proposalItems.length === 0) {
-        return res.status(400).json({ error: "No items found in proposal" });
+        return apiResponse.badRequest(res, "No items found in proposal");
       }
 
       // Get or create user's cart
@@ -21067,7 +21069,7 @@ System Security Data:`;
 
     } catch (error) {
       console.error("Error loading proposal to cart:", error);
-      res.status(500).json({ error: "Failed to load proposal items to cart" });
+      return apiResponse.serverError(res, "Failed to load proposal items to cart");
     }
   });
 
@@ -21106,7 +21108,7 @@ System Security Data:`;
       res.json({ uploadURL });
     } catch (error) {
       console.error("Error getting upload URL:", error);
-      res.status(500).json({ error: "Failed to get upload URL" });
+      return apiResponse.serverError(res, "Failed to get upload URL");
     }
   });
 
@@ -21117,7 +21119,7 @@ System Security Data:`;
       const { documentURL, documentType, documentName } = req.body;
 
       if (!documentURL) {
-        return res.status(400).json({ error: "documentURL is required" });
+        return apiResponse.badRequest(res, "documentURL is required");
       }
 
       const objectStorageService = new ObjectStorageService();
@@ -21143,7 +21145,7 @@ System Security Data:`;
       });
     } catch (error) {
       console.error("Error setting document metadata:", error);
-      res.status(500).json({ error: "Internal server error" });
+      return apiResponse.serverError(res, "Internal server error");
     }
   });
 
@@ -21215,7 +21217,7 @@ System Security Data:`;
       res.json(achievements);
     } catch (error) {
       console.error("Error fetching user achievements:", error);
-      res.status(500).json({ error: "Failed to fetch achievements" });
+      return apiResponse.serverError(res, "Failed to fetch achievements");
     }
   });
 
@@ -21237,7 +21239,7 @@ System Security Data:`;
       res.json(stats);
     } catch (error) {
       console.error("Error fetching achievement stats:", error);
-      res.status(500).json({ error: "Failed to fetch achievement stats" });
+      return apiResponse.serverError(res, "Failed to fetch achievement stats");
     }
   });
 
@@ -21271,7 +21273,7 @@ System Security Data:`;
       res.json(leaderboard);
     } catch (error) {
       console.error("Error fetching leaderboard:", error);
-      res.status(500).json({ error: "Failed to fetch leaderboard" });
+      return apiResponse.serverError(res, "Failed to fetch leaderboard");
     }
   });
 
@@ -21295,7 +21297,7 @@ System Security Data:`;
       res.status(201).json(share);
     } catch (error) {
       console.error("Error creating social share:", error);
-      res.status(500).json({ error: "Failed to create social share" });
+      return apiResponse.serverError(res, "Failed to create social share");
     }
   });
 
@@ -21320,7 +21322,7 @@ System Security Data:`;
       res.status(201).json(progress);
     } catch (error) {
       console.error("Error recording progress:", error);
-      res.status(500).json({ error: "Failed to record progress" });
+      return apiResponse.serverError(res, "Failed to record progress");
     }
   });
 
@@ -21358,7 +21360,7 @@ System Security Data:`;
       res.json(categories);
     } catch (error) {
       console.error("Error fetching categories:", error);
-      res.status(500).json({ error: "Failed to fetch categories" });
+      return apiResponse.serverError(res, "Failed to fetch categories");
     }
   });
 
@@ -21372,7 +21374,7 @@ System Security Data:`;
       const { accountNumber, financialYear, fromDate, toDate } = req.body;
 
       if (!accountNumber || !financialYear) {
-        return res.status(400).json({ error: "Account number and financial year are required" });
+        return apiResponse.badRequest(res, "Account number and financial year are required");
       }
 
       console.log("NSDL Capital Gains API Call:", { accountNumber, financialYear, fromDate, toDate });
@@ -21456,7 +21458,7 @@ System Security Data:`;
       const { boId, financialYear, fromDate, toDate } = req.body;
 
       if (!boId || !financialYear) {
-        return res.status(400).json({ error: "BO ID and financial year are required" });
+        return apiResponse.badRequest(res, "BO ID and financial year are required");
       }
 
       console.log("CDSL Capital Gains API Call:", { boId, financialYear, fromDate, toDate });
@@ -21540,7 +21542,7 @@ System Security Data:`;
       const { reportData, userId } = req.body;
 
       if (!reportData || !userId) {
-        return res.status(400).json({ error: "Report data and user ID are required" });
+        return apiResponse.badRequest(res, "Report data and user ID are required");
       }
 
       const capitalGainsReport = {
@@ -21688,7 +21690,7 @@ System Security Data:`;
       const { email, message, includeAttachment } = req.body;
 
       if (!email) {
-        return res.status(400).json({ error: "Email address is required" });
+        return apiResponse.badRequest(res, "Email address is required");
       }
 
       // Mock email sharing
@@ -22586,7 +22588,7 @@ System Security Data:`;
       res.json(proposals);
     } catch (error) {
       console.error("Error fetching investment proposals:", error);
-      res.status(500).json({ error: "Failed to fetch proposals" });
+      return apiResponse.serverError(res, "Failed to fetch proposals");
     }
   });
 
@@ -22597,7 +22599,7 @@ System Security Data:`;
       const proposal = await storage.getInvestmentProposal(proposalId);
       
       if (!proposal) {
-        return res.status(404).json({ error: "Proposal not found" });
+        return apiResponse.notFound(res, "Proposal not found");
       }
       
       // Check if user has access to this proposal
@@ -22613,7 +22615,7 @@ System Security Data:`;
       res.json({ ...proposal, items });
     } catch (error) {
       console.error("Error fetching proposal details:", error);
-      res.status(500).json({ error: "Failed to fetch proposal details" });
+      return apiResponse.serverError(res, "Failed to fetch proposal details");
     }
   });
 
@@ -22634,7 +22636,7 @@ System Security Data:`;
       res.status(201).json(proposal);
     } catch (error) {
       console.error("Error creating investment proposal:", error);
-      res.status(500).json({ error: "Failed to create proposal" });
+      return apiResponse.serverError(res, "Failed to create proposal");
     }
   });
 
@@ -22645,7 +22647,7 @@ System Security Data:`;
       const proposal = await storage.getInvestmentProposal(proposalId);
       
       if (!proposal) {
-        return res.status(404).json({ error: "Proposal not found" });
+        return apiResponse.notFound(res, "Proposal not found");
       }
       
       // Only the agent who created it or admin can update
@@ -22655,14 +22657,14 @@ System Security Data:`;
       
       // Prevent updating if already approved or executed
       if (proposal.status === 'approved' || proposal.status === 'executed') {
-        return res.status(400).json({ error: "Cannot update approved or executed proposals" });
+        return apiResponse.badRequest(res, "Cannot update approved or executed proposals");
       }
       
       const updated = await storage.updateInvestmentProposal(proposalId, req.body);
       res.json(updated);
     } catch (error) {
       console.error("Error updating investment proposal:", error);
-      res.status(500).json({ error: "Failed to update proposal" });
+      return apiResponse.serverError(res, "Failed to update proposal");
     }
   });
 
@@ -22674,7 +22676,7 @@ System Security Data:`;
       
       const proposal = await storage.getInvestmentProposal(proposalId);
       if (!proposal) {
-        return res.status(404).json({ error: "Proposal not found" });
+        return apiResponse.notFound(res, "Proposal not found");
       }
       
       // Only the client can approve their proposal
@@ -22683,14 +22685,14 @@ System Security Data:`;
       }
       
       if (proposal.status !== 'pending') {
-        return res.status(400).json({ error: "Proposal is not in pending status" });
+        return apiResponse.badRequest(res, "Proposal is not in pending status");
       }
       
       const approved = await storage.approveProposal(proposalId, clientResponse);
       res.json(approved);
     } catch (error) {
       console.error("Error approving proposal:", error);
-      res.status(500).json({ error: "Failed to approve proposal" });
+      return apiResponse.serverError(res, "Failed to approve proposal");
     }
   });
 
@@ -22700,12 +22702,12 @@ System Security Data:`;
       const { clientResponse } = req.body;
       
       if (!clientResponse) {
-        return res.status(400).json({ error: "Client response is required for rejection" });
+        return apiResponse.badRequest(res, "Client response is required for rejection");
       }
       
       const proposal = await storage.getInvestmentProposal(proposalId);
       if (!proposal) {
-        return res.status(404).json({ error: "Proposal not found" });
+        return apiResponse.notFound(res, "Proposal not found");
       }
       
       // Only the client can reject their proposal
@@ -22714,14 +22716,14 @@ System Security Data:`;
       }
       
       if (proposal.status !== 'pending') {
-        return res.status(400).json({ error: "Proposal is not in pending status" });
+        return apiResponse.badRequest(res, "Proposal is not in pending status");
       }
       
       const rejected = await storage.rejectProposal(proposalId, clientResponse);
       res.json(rejected);
     } catch (error) {
       console.error("Error rejecting proposal:", error);
-      res.status(500).json({ error: "Failed to reject proposal" });
+      return apiResponse.serverError(res, "Failed to reject proposal");
     }
   });
 
@@ -22756,7 +22758,7 @@ System Security Data:`;
       // Verify user has access to this proposal
       const proposal = await storage.getInvestmentProposal(proposalId);
       if (!proposal) {
-        return res.status(404).json({ error: "Proposal not found" });
+        return apiResponse.notFound(res, "Proposal not found");
       }
       
       if (!hasRole(req.user, ['admin']) && 
@@ -22769,7 +22771,7 @@ System Security Data:`;
       res.json(items);
     } catch (error) {
       console.error("Error fetching proposal items:", error);
-      res.status(500).json({ error: "Failed to fetch proposal items" });
+      return apiResponse.serverError(res, "Failed to fetch proposal items");
     }
   });
 
@@ -22780,7 +22782,7 @@ System Security Data:`;
       // Verify user is the agent who created the proposal
       const proposal = await storage.getInvestmentProposal(proposalId);
       if (!proposal) {
-        return res.status(404).json({ error: "Proposal not found" });
+        return apiResponse.notFound(res, "Proposal not found");
       }
       
       if (!hasRole(req.user, ['admin']) && proposal.agentId !== req.user.id) {
@@ -22788,7 +22790,7 @@ System Security Data:`;
       }
       
       if (proposal.status !== 'pending') {
-        return res.status(400).json({ error: "Cannot add items to non-pending proposals" });
+        return apiResponse.badRequest(res, "Cannot add items to non-pending proposals");
       }
       
       const itemData = { ...req.body, proposalId };
@@ -22796,7 +22798,7 @@ System Security Data:`;
       res.status(201).json(item);
     } catch (error) {
       console.error("Error creating proposal item:", error);
-      res.status(500).json({ error: "Failed to create proposal item" });
+      return apiResponse.serverError(res, "Failed to create proposal item");
     }
   });
 
@@ -22808,7 +22810,7 @@ System Security Data:`;
       // Verify user has access to this proposal
       const proposal = await storage.getInvestmentProposal(proposalId);
       if (!proposal) {
-        return res.status(404).json({ error: "Proposal not found" });
+        return apiResponse.notFound(res, "Proposal not found");
       }
       
       if (!hasRole(req.user, ['admin']) && 
@@ -22821,7 +22823,7 @@ System Security Data:`;
       res.json(payments);
     } catch (error) {
       console.error("Error fetching proposal payments:", error);
-      res.status(500).json({ error: "Failed to fetch payments" });
+      return apiResponse.serverError(res, "Failed to fetch payments");
     }
   });
 
@@ -22833,12 +22835,12 @@ System Security Data:`;
       
       const proposal = await storage.getInvestmentProposal(proposalId);
       if (!proposal) {
-        return res.status(404).json({ error: "Proposal not found" });
+        return apiResponse.notFound(res, "Proposal not found");
       }
       
       // Only approved proposals can have payments initiated
       if (proposal.status !== 'approved') {
-        return res.status(400).json({ error: "Only approved proposals can have payments initiated" });
+        return apiResponse.badRequest(res, "Only approved proposals can have payments initiated");
       }
       
       // Only the client can initiate payment
@@ -22847,7 +22849,7 @@ System Security Data:`;
       }
       
       if (!gateway || !['mf_central', 'cams', 'kfintech'].includes(gateway)) {
-        return res.status(400).json({ error: "Valid payment gateway is required" });
+        return apiResponse.badRequest(res, "Valid payment gateway is required");
       }
       
       const paymentData = {
@@ -22872,7 +22874,7 @@ System Security Data:`;
       res.status(201).json(payment);
     } catch (error) {
       console.error("Error initiating payment:", error);
-      res.status(500).json({ error: "Failed to initiate payment" });
+      return apiResponse.serverError(res, "Failed to initiate payment");
     }
   });
 
@@ -22888,7 +22890,7 @@ System Security Data:`;
       }
       
       if (!clientId || !reportType || !apiProvider) {
-        return res.status(400).json({ error: "Missing required fields" });
+        return apiResponse.badRequest(res, "Missing required fields");
       }
       
       // Verify agent has access to this client
@@ -22918,7 +22920,7 @@ System Security Data:`;
       });
     } catch (error) {
       console.error("Error requesting transaction report:", error);
-      res.status(500).json({ error: "Failed to request transaction report" });
+      return apiResponse.serverError(res, "Failed to request transaction report");
     }
   });
   
@@ -22945,7 +22947,7 @@ System Security Data:`;
       });
     } catch (error) {
       console.error("Error fetching agent transaction reports:", error);
-      res.status(500).json({ error: "Failed to fetch transaction reports" });
+      return apiResponse.serverError(res, "Failed to fetch transaction reports");
     }
   });
   
@@ -22961,7 +22963,7 @@ System Security Data:`;
       
       const report = await storage.getTransactionReport(id);
       if (!report) {
-        return res.status(404).json({ error: "Transaction report not found" });
+        return apiResponse.notFound(res, "Transaction report not found");
       }
       
       // Verify agent has access to this report
@@ -22970,7 +22972,7 @@ System Security Data:`;
       }
       
       if (report.status !== 'generated') {
-        return res.status(400).json({ error: "Report is not ready for download" });
+        return apiResponse.badRequest(res, "Report is not ready for download");
       }
       
       // Update download count
@@ -22997,11 +22999,11 @@ System Security Data:`;
         
         res.send(Buffer.from(excelContent));
       } else {
-        res.status(400).json({ error: "Invalid format. Use 'pdf' or 'excel'" });
+        return apiResponse.badRequest(res, "Invalid format. Use 'pdf' or 'excel'");
       }
     } catch (error) {
       console.error("Error downloading transaction report:", error);
-      res.status(500).json({ error: "Failed to download transaction report" });
+      return apiResponse.serverError(res, "Failed to download transaction report");
     }
   });
   
@@ -23017,7 +23019,7 @@ System Security Data:`;
       
       const report = await storage.getTransactionReport(id);
       if (!report) {
-        return res.status(404).json({ error: "Transaction report not found" });
+        return apiResponse.notFound(res, "Transaction report not found");
       }
       
       // Verify agent has access to this report
@@ -23047,7 +23049,7 @@ System Security Data:`;
       });
     } catch (error) {
       console.error("Error sharing transaction report:", error);
-      res.status(500).json({ error: "Failed to share transaction report" });
+      return apiResponse.serverError(res, "Failed to share transaction report");
     }
   });
   
@@ -23063,7 +23065,7 @@ System Security Data:`;
       }
       
       if (!clientId || !financialYear || !dataSource) {
-        return res.status(400).json({ error: "Missing required fields" });
+        return apiResponse.badRequest(res, "Missing required fields");
       }
       
       // Verify agent has access to this client
@@ -23093,7 +23095,7 @@ System Security Data:`;
       });
     } catch (error) {
       console.error("Error requesting capital gains report:", error);
-      res.status(500).json({ error: "Failed to request capital gains report" });
+      return apiResponse.serverError(res, "Failed to request capital gains report");
     }
   });
   
@@ -23120,7 +23122,7 @@ System Security Data:`;
       });
     } catch (error) {
       console.error("Error fetching agent capital gains reports:", error);
-      res.status(500).json({ error: "Failed to fetch capital gains reports" });
+      return apiResponse.serverError(res, "Failed to fetch capital gains reports");
     }
   });
   
@@ -23136,7 +23138,7 @@ System Security Data:`;
       
       const report = await storage.getCapitalGainsReport(id);
       if (!report) {
-        return res.status(404).json({ error: "Capital gains report not found" });
+        return apiResponse.notFound(res, "Capital gains report not found");
       }
       
       // Verify agent has access to this report
@@ -23145,7 +23147,7 @@ System Security Data:`;
       }
       
       if (report.status !== 'generated') {
-        return res.status(400).json({ error: "Report is not ready for download" });
+        return apiResponse.badRequest(res, "Report is not ready for download");
       }
       
       // Update download count
@@ -23172,11 +23174,11 @@ System Security Data:`;
         
         res.send(Buffer.from(excelContent));
       } else {
-        res.status(400).json({ error: "Invalid format. Use 'pdf' or 'excel'" });
+        return apiResponse.badRequest(res, "Invalid format. Use 'pdf' or 'excel'");
       }
     } catch (error) {
       console.error("Error downloading capital gains report:", error);
-      res.status(500).json({ error: "Failed to download capital gains report" });
+      return apiResponse.serverError(res, "Failed to download capital gains report");
     }
   });
   
@@ -23192,7 +23194,7 @@ System Security Data:`;
       
       const report = await storage.getCapitalGainsReport(id);
       if (!report) {
-        return res.status(404).json({ error: "Capital gains report not found" });
+        return apiResponse.notFound(res, "Capital gains report not found");
       }
       
       // Verify agent has access to this report
@@ -23222,7 +23224,7 @@ System Security Data:`;
       });
     } catch (error) {
       console.error("Error sharing capital gains report:", error);
-      res.status(500).json({ error: "Failed to share capital gains report" });
+      return apiResponse.serverError(res, "Failed to share capital gains report");
     }
   });
   
@@ -23247,7 +23249,7 @@ System Security Data:`;
       });
     } catch (error) {
       console.error("Error fetching shared reports:", error);
-      res.status(500).json({ error: "Failed to fetch shared reports" });
+      return apiResponse.serverError(res, "Failed to fetch shared reports");
     }
   });
 
@@ -23261,7 +23263,7 @@ System Security Data:`;
       const agent = agents.find(a => a.employeeId === req.user.id);
 
       if (!agent) {
-        return res.status(404).json({ error: "Agent profile not found" });
+        return apiResponse.notFound(res, "Agent profile not found");
       }
 
       // Return data in the format expected by frontend
@@ -23281,7 +23283,7 @@ System Security Data:`;
       res.json(agentProfile);
     } catch (error) {
       console.error("Error fetching agent profile:", error);
-      res.status(500).json({ error: "Failed to fetch agent profile" });
+      return apiResponse.serverError(res, "Failed to fetch agent profile");
     }
   });
 
@@ -23307,7 +23309,7 @@ System Security Data:`;
       res.json(mockPartners);
     } catch (error) {
       console.error("Error fetching agent partners:", error);
-      res.status(500).json({ error: "Failed to fetch partners" });
+      return apiResponse.serverError(res, "Failed to fetch partners");
     }
   });
 
@@ -23342,7 +23344,7 @@ System Security Data:`;
       res.json({ success: true, partner });
     } catch (error) {
       console.error("Error creating partner:", error);
-      res.status(500).json({ error: "Failed to create partner" });
+      return apiResponse.serverError(res, "Failed to create partner");
     }
   });
 
@@ -23370,7 +23372,7 @@ System Security Data:`;
       res.json(filteredClients);
     } catch (error) {
       console.error("Error fetching agent clients:", error);
-      res.status(500).json({ error: "Failed to fetch clients" });
+      return apiResponse.serverError(res, "Failed to fetch clients");
     }
   });
 
@@ -23402,7 +23404,7 @@ System Security Data:`;
       res.json({ success: true, client });
     } catch (error) {
       console.error("Error creating client:", error);
-      res.status(500).json({ error: "Failed to create client" });
+      return apiResponse.serverError(res, "Failed to create client");
     }
   });
 
@@ -23442,7 +23444,7 @@ System Security Data:`;
       res.json(stats);
     } catch (error) {
       console.error("Error fetching agent stats:", error);
-      res.status(500).json({ error: "Failed to fetch agent statistics" });
+      return apiResponse.serverError(res, "Failed to fetch agent statistics");
     }
   });
 
@@ -23457,7 +23459,7 @@ System Security Data:`;
       res.json({ accounts });
     } catch (error) {
       console.error("Error fetching IB accounts:", error);
-      res.status(500).json({ error: "Failed to fetch IB accounts" });
+      return apiResponse.serverError(res, "Failed to fetch IB accounts");
     }
   });
 
@@ -23470,7 +23472,7 @@ System Security Data:`;
       const { accountNumber, host = "127.0.0.1", port = 7497, clientId } = req.body;
 
       if (!accountNumber || !clientId) {
-        return res.status(400).json({ error: "Account number and client ID are required" });
+        return apiResponse.badRequest(res, "Account number and client ID are required");
       }
 
       const account = await storage.createIBAccount({
@@ -23485,7 +23487,7 @@ System Security Data:`;
       res.json({ account });
     } catch (error) {
       console.error("Error creating IB account:", error);
-      res.status(500).json({ error: "Failed to create IB account" });
+      return apiResponse.serverError(res, "Failed to create IB account");
     }
   });
 
@@ -23499,7 +23501,7 @@ System Security Data:`;
       const account = await storage.getIBAccount(id);
 
       if (!account || account.userId !== req.user.id) {
-        return res.status(404).json({ error: "IB account not found" });
+        return apiResponse.notFound(res, "IB account not found");
       }
 
       // TODO: Implement actual IB API connection logic
@@ -23513,7 +23515,7 @@ System Security Data:`;
       res.json({ account: updatedAccount });
     } catch (error) {
       console.error("Error connecting to IB account:", error);
-      res.status(500).json({ error: "Failed to connect to IB account" });
+      return apiResponse.serverError(res, "Failed to connect to IB account");
     }
   });
 
@@ -23528,7 +23530,7 @@ System Security Data:`;
       res.json({ positions });
     } catch (error) {
       console.error("Error fetching IB positions:", error);
-      res.status(500).json({ error: "Failed to fetch IB positions" });
+      return apiResponse.serverError(res, "Failed to fetch IB positions");
     }
   });
 
@@ -23543,7 +23545,7 @@ System Security Data:`;
       res.json({ orders });
     } catch (error) {
       console.error("Error fetching IB orders:", error);
-      res.status(500).json({ error: "Failed to fetch IB orders" });
+      return apiResponse.serverError(res, "Failed to fetch IB orders");
     }
   });
 
@@ -23556,13 +23558,13 @@ System Security Data:`;
       const { ibAccountId, symbol, action, quantity, orderType, price, timeInForce } = req.body;
 
       if (!ibAccountId || !symbol || !action || !quantity || !orderType) {
-        return res.status(400).json({ error: "Missing required order parameters" });
+        return apiResponse.badRequest(res, "Missing required order parameters");
       }
 
       // Verify account ownership
       const account = await storage.getIBAccount(ibAccountId);
       if (!account || account.userId !== req.user.id) {
-        return res.status(404).json({ error: "IB account not found" });
+        return apiResponse.notFound(res, "IB account not found");
       }
 
       const order = await storage.createIBOrder({
@@ -23582,7 +23584,7 @@ System Security Data:`;
       res.json({ order });
     } catch (error) {
       console.error("Error creating IB order:", error);
-      res.status(500).json({ error: "Failed to create IB order" });
+      return apiResponse.serverError(res, "Failed to create IB order");
     }
   });
 
@@ -23597,7 +23599,7 @@ System Security Data:`;
       res.json({ summaries });
     } catch (error) {
       console.error("Error fetching IB account summary:", error);
-      res.status(500).json({ error: "Failed to fetch IB account summary" });
+      return apiResponse.serverError(res, "Failed to fetch IB account summary");
     }
   });
 
@@ -23608,7 +23610,7 @@ System Security Data:`;
       res.json({ suppliers });
     } catch (error) {
       console.error("Error fetching suppliers:", error);
-      res.status(500).json({ error: "Failed to fetch suppliers" });
+      return apiResponse.serverError(res, "Failed to fetch suppliers");
     }
   });
 
@@ -23617,7 +23619,7 @@ System Security Data:`;
       const { name, contactEmail, contactPhone, address, description, rating, isActive } = req.body;
 
       if (!name || !contactEmail) {
-        return res.status(400).json({ error: "Name and contact email are required" });
+        return apiResponse.badRequest(res, "Name and contact email are required");
       }
 
       const supplier = await storage.createSupplier({
@@ -23633,7 +23635,7 @@ System Security Data:`;
       res.json({ supplier });
     } catch (error) {
       console.error("Error creating supplier:", error);
-      res.status(500).json({ error: "Failed to create supplier" });
+      return apiResponse.serverError(res, "Failed to create supplier");
     }
   });
 
@@ -23644,13 +23646,13 @@ System Security Data:`;
 
       const supplier = await storage.updateSupplier(id, updates);
       if (!supplier) {
-        return res.status(404).json({ error: "Supplier not found" });
+        return apiResponse.notFound(res, "Supplier not found");
       }
 
       res.json({ supplier });
     } catch (error) {
       console.error("Error updating supplier:", error);
-      res.status(500).json({ error: "Failed to update supplier" });
+      return apiResponse.serverError(res, "Failed to update supplier");
     }
   });
 
@@ -23660,13 +23662,13 @@ System Security Data:`;
       const deleted = await storage.deleteSupplier(id);
       
       if (!deleted) {
-        return res.status(404).json({ error: "Supplier not found" });
+        return apiResponse.notFound(res, "Supplier not found");
       }
 
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting supplier:", error);
-      res.status(500).json({ error: "Failed to delete supplier" });
+      return apiResponse.serverError(res, "Failed to delete supplier");
     }
   });
 
@@ -23678,7 +23680,7 @@ System Security Data:`;
       res.json({ products });
     } catch (error) {
       console.error("Error fetching supplier products:", error);
-      res.status(500).json({ error: "Failed to fetch supplier products" });
+      return apiResponse.serverError(res, "Failed to fetch supplier products");
     }
   });
 
@@ -23687,7 +23689,7 @@ System Security Data:`;
       const { supplierId, productName, description, price, profitMargin, category, isActive } = req.body;
 
       if (!supplierId || !productName || !price || !profitMargin) {
-        return res.status(400).json({ error: "Supplier ID, product name, price, and profit margin are required" });
+        return apiResponse.badRequest(res, "Supplier ID, product name, price, and profit margin are required");
       }
 
       const product = await storage.createSupplierProduct({
@@ -23703,7 +23705,7 @@ System Security Data:`;
       res.json({ product });
     } catch (error) {
       console.error("Error creating supplier product:", error);
-      res.status(500).json({ error: "Failed to create supplier product" });
+      return apiResponse.serverError(res, "Failed to create supplier product");
     }
   });
 
@@ -23714,13 +23716,13 @@ System Security Data:`;
 
       const product = await storage.updateSupplierProduct(id, updates);
       if (!product) {
-        return res.status(404).json({ error: "Supplier product not found" });
+        return apiResponse.notFound(res, "Supplier product not found");
       }
 
       res.json({ product });
     } catch (error) {
       console.error("Error updating supplier product:", error);
-      res.status(500).json({ error: "Failed to update supplier product" });
+      return apiResponse.serverError(res, "Failed to update supplier product");
     }
   });
 
@@ -23730,13 +23732,13 @@ System Security Data:`;
       const deleted = await storage.deleteSupplierProduct(id);
       
       if (!deleted) {
-        return res.status(404).json({ error: "Supplier product not found" });
+        return apiResponse.notFound(res, "Supplier product not found");
       }
 
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting supplier product:", error);
-      res.status(500).json({ error: "Failed to delete supplier product" });
+      return apiResponse.serverError(res, "Failed to delete supplier product");
     }
   });
 
@@ -23747,13 +23749,13 @@ System Security Data:`;
       const optimalSupplier = await storage.getOptimalSupplier(productId);
       
       if (!optimalSupplier) {
-        return res.status(404).json({ error: "No suppliers found for this product" });
+        return apiResponse.notFound(res, "No suppliers found for this product");
       }
 
       res.json({ optimalSupplier });
     } catch (error) {
       console.error("Error finding optimal supplier:", error);
-      res.status(500).json({ error: "Failed to find optimal supplier" });
+      return apiResponse.serverError(res, "Failed to find optimal supplier");
     }
   });
 
@@ -23764,7 +23766,7 @@ System Security Data:`;
       res.json({ analysis });
     } catch (error) {
       console.error("Error generating profit analysis:", error);
-      res.status(500).json({ error: "Failed to generate profit analysis" });
+      return apiResponse.serverError(res, "Failed to generate profit analysis");
     }
   });
 
@@ -23775,7 +23777,7 @@ System Security Data:`;
       res.json({ suppliers: comparison });
     } catch (error) {
       console.error("Error generating supplier comparison:", error);
-      res.status(500).json({ error: "Failed to generate supplier comparison" });
+      return apiResponse.serverError(res, "Failed to generate supplier comparison");
     }
   });
 
@@ -23787,7 +23789,7 @@ System Security Data:`;
       res.json({ metrics });
     } catch (error) {
       console.error("Error fetching product performance metrics:", error);
-      res.status(500).json({ error: "Failed to fetch product performance metrics" });
+      return apiResponse.serverError(res, "Failed to fetch product performance metrics");
     }
   });
 
@@ -23796,7 +23798,7 @@ System Security Data:`;
       const { productId, salesVolume, revenue, customerSatisfaction, returnRate, profitMargin, trendDirection } = req.body;
 
       if (!productId || !salesVolume || !revenue) {
-        return res.status(400).json({ error: "Product ID, sales volume, and revenue are required" });
+        return apiResponse.badRequest(res, "Product ID, sales volume, and revenue are required");
       }
 
       const metric = await storage.createProductPerformanceMetric({
@@ -23813,7 +23815,7 @@ System Security Data:`;
       res.json({ metric });
     } catch (error) {
       console.error("Error creating product performance metric:", error);
-      res.status(500).json({ error: "Failed to create product performance metric" });
+      return apiResponse.serverError(res, "Failed to create product performance metric");
     }
   });
 
@@ -23847,7 +23849,7 @@ System Security Data:`;
       const assignment = await storage.updateClientAssignment(id, updates);
       
       if (!assignment) {
-        return res.status(404).json({ error: "Assignment not found" });
+        return apiResponse.notFound(res, "Assignment not found");
       }
 
       // Log the update activity
@@ -24102,7 +24104,7 @@ System Security Data:`;
       const { principal, interestRate, tenure } = req.body;
       
       if (!principal || !interestRate || !tenure) {
-        return res.status(400).json({ error: "Missing required parameters: principal, interestRate, tenure" });
+        return apiResponse.badRequest(res, "Missing required parameters: principal, interestRate, tenure");
       }
 
       const result = bajajFinanceAPI.calculateEMI(
@@ -24114,7 +24116,7 @@ System Security Data:`;
       res.json({ success: true, data: result });
     } catch (error) {
       console.error("Error calculating EMI:", error);
-      res.status(500).json({ error: "Failed to calculate EMI" });
+      return apiResponse.serverError(res, "Failed to calculate EMI");
     }
   });
 
@@ -24124,7 +24126,7 @@ System Security Data:`;
       const { amount, tenure } = req.body;
       
       if (!amount || !tenure) {
-        return res.status(400).json({ error: "Missing required parameters: amount, tenure" });
+        return apiResponse.badRequest(res, "Missing required parameters: amount, tenure");
       }
 
       const result = bajajFinanceAPI.calculatePersonalLoan(
@@ -24135,7 +24137,7 @@ System Security Data:`;
       res.json({ success: true, data: result });
     } catch (error) {
       console.error("Error calculating personal loan:", error);
-      res.status(500).json({ error: "Failed to calculate personal loan" });
+      return apiResponse.serverError(res, "Failed to calculate personal loan");
     }
   });
 
@@ -24145,7 +24147,7 @@ System Security Data:`;
       const { amount, tenure, businessType } = req.body;
       
       if (!amount || !tenure || !businessType) {
-        return res.status(400).json({ error: "Missing required parameters: amount, tenure, businessType" });
+        return apiResponse.badRequest(res, "Missing required parameters: amount, tenure, businessType");
       }
 
       const result = bajajFinanceAPI.calculateBusinessLoan(
@@ -24157,7 +24159,7 @@ System Security Data:`;
       res.json({ success: true, data: result });
     } catch (error) {
       console.error("Error calculating business loan:", error);
-      res.status(500).json({ error: "Failed to calculate business loan" });
+      return apiResponse.serverError(res, "Failed to calculate business loan");
     }
   });
 
@@ -24167,7 +24169,7 @@ System Security Data:`;
       const { amount, tenure, fdType = 'regular' } = req.body;
       
       if (!amount || !tenure) {
-        return res.status(400).json({ error: "Missing required parameters: amount, tenure" });
+        return apiResponse.badRequest(res, "Missing required parameters: amount, tenure");
       }
 
       const result = bajajFinanceAPI.calculateFD(
@@ -24179,7 +24181,7 @@ System Security Data:`;
       res.json({ success: true, data: result });
     } catch (error) {
       console.error("Error calculating FD:", error);
-      res.status(500).json({ error: "Failed to calculate fixed deposit" });
+      return apiResponse.serverError(res, "Failed to calculate fixed deposit");
     }
   });
 
@@ -24189,7 +24191,7 @@ System Security Data:`;
       const { vehiclePrice, downPayment, tenure } = req.body;
       
       if (!vehiclePrice || !downPayment || !tenure) {
-        return res.status(400).json({ error: "Missing required parameters: vehiclePrice, downPayment, tenure" });
+        return apiResponse.badRequest(res, "Missing required parameters: vehiclePrice, downPayment, tenure");
       }
 
       const result = bajajFinanceAPI.calculateTwoWheelerLoan(
@@ -24201,7 +24203,7 @@ System Security Data:`;
       res.json({ success: true, data: result });
     } catch (error) {
       console.error("Error calculating two wheeler loan:", error);
-      res.status(500).json({ error: "Failed to calculate two wheeler loan" });
+      return apiResponse.serverError(res, "Failed to calculate two wheeler loan");
     }
   });
 
@@ -24211,7 +24213,7 @@ System Security Data:`;
       const { age, sumAssured, policyType } = req.body;
       
       if (!age || !sumAssured || !policyType) {
-        return res.status(400).json({ error: "Missing required parameters: age, sumAssured, policyType" });
+        return apiResponse.badRequest(res, "Missing required parameters: age, sumAssured, policyType");
       }
 
       const result = bajajFinanceAPI.calculateInsurancePremium(
@@ -24223,7 +24225,7 @@ System Security Data:`;
       res.json({ success: true, data: result });
     } catch (error) {
       console.error("Error calculating insurance premium:", error);
-      res.status(500).json({ error: "Failed to calculate insurance premium" });
+      return apiResponse.serverError(res, "Failed to calculate insurance premium");
     }
   });
 
@@ -24233,7 +24235,7 @@ System Security Data:`;
       const { monthlyAmount, annualReturn, tenure } = req.body;
       
       if (!monthlyAmount || !annualReturn || !tenure) {
-        return res.status(400).json({ error: "Missing required parameters: monthlyAmount, annualReturn, tenure" });
+        return apiResponse.badRequest(res, "Missing required parameters: monthlyAmount, annualReturn, tenure");
       }
 
       const result = bajajFinanceAPI.calculateSIP(
@@ -24245,7 +24247,7 @@ System Security Data:`;
       res.json({ success: true, data: result });
     } catch (error) {
       console.error("Error calculating SIP:", error);
-      res.status(500).json({ error: "Failed to calculate SIP" });
+      return apiResponse.serverError(res, "Failed to calculate SIP");
     }
   });
 
@@ -24256,7 +24258,7 @@ System Security Data:`;
       res.json({ success: true, data: rates });
     } catch (error) {
       console.error("Error fetching interest rates:", error);
-      res.status(500).json({ error: "Failed to fetch interest rates" });
+      return apiResponse.serverError(res, "Failed to fetch interest rates");
     }
   });
 
@@ -24266,7 +24268,7 @@ System Security Data:`;
       const { salary, age, loanType } = req.body;
       
       if (!salary || !age || !loanType) {
-        return res.status(400).json({ error: "Missing required parameters: salary, age, loanType" });
+        return apiResponse.badRequest(res, "Missing required parameters: salary, age, loanType");
       }
 
       const result = bajajFinanceAPI.checkLoanEligibility(
@@ -24278,7 +24280,7 @@ System Security Data:`;
       res.json({ success: true, data: result });
     } catch (error) {
       console.error("Error checking loan eligibility:", error);
-      res.status(500).json({ error: "Failed to check loan eligibility" });
+      return apiResponse.serverError(res, "Failed to check loan eligibility");
     }
   });
 
@@ -24292,7 +24294,7 @@ System Security Data:`;
       const { principal, tenure, employmentType } = req.body;
       
       if (!principal || !tenure || !employmentType) {
-        return res.status(400).json({ error: "Missing required parameters: principal, tenure, employmentType" });
+        return apiResponse.badRequest(res, "Missing required parameters: principal, tenure, employmentType");
       }
 
       const result = tataCapitalAPI.calculatePersonalLoan(
@@ -24304,7 +24306,7 @@ System Security Data:`;
       res.json({ success: true, data: result });
     } catch (error) {
       console.error("Error calculating personal loan:", error);
-      res.status(500).json({ error: "Failed to calculate personal loan" });
+      return apiResponse.serverError(res, "Failed to calculate personal loan");
     }
   });
 
@@ -24314,7 +24316,7 @@ System Security Data:`;
       const { principal, tenure, propertyType } = req.body;
       
       if (!principal || !tenure || !propertyType) {
-        return res.status(400).json({ error: "Missing required parameters: principal, tenure, propertyType" });
+        return apiResponse.badRequest(res, "Missing required parameters: principal, tenure, propertyType");
       }
 
       const result = tataCapitalAPI.calculateHomeLoan(
@@ -24326,7 +24328,7 @@ System Security Data:`;
       res.json({ success: true, data: result });
     } catch (error) {
       console.error("Error calculating home loan:", error);
-      res.status(500).json({ error: "Failed to calculate home loan" });
+      return apiResponse.serverError(res, "Failed to calculate home loan");
     }
   });
 
@@ -24336,7 +24338,7 @@ System Security Data:`;
       const { principal, tenure, businessVintage, turnover } = req.body;
       
       if (!principal || !tenure || !businessVintage || !turnover) {
-        return res.status(400).json({ error: "Missing required parameters: principal, tenure, businessVintage, turnover" });
+        return apiResponse.badRequest(res, "Missing required parameters: principal, tenure, businessVintage, turnover");
       }
 
       const result = tataCapitalAPI.calculateBusinessLoan(
@@ -24349,7 +24351,7 @@ System Security Data:`;
       res.json({ success: true, data: result });
     } catch (error) {
       console.error("Error calculating business loan:", error);
-      res.status(500).json({ error: "Failed to calculate business loan" });
+      return apiResponse.serverError(res, "Failed to calculate business loan");
     }
   });
 
@@ -24359,7 +24361,7 @@ System Security Data:`;
       const { vehiclePrice, vehicleAge, downPayment, tenure } = req.body;
       
       if (!vehiclePrice || vehicleAge === undefined || !downPayment || !tenure) {
-        return res.status(400).json({ error: "Missing required parameters: vehiclePrice, vehicleAge, downPayment, tenure" });
+        return apiResponse.badRequest(res, "Missing required parameters: vehiclePrice, vehicleAge, downPayment, tenure");
       }
 
       const result = tataCapitalAPI.calculateUsedCarLoan(
@@ -24372,7 +24374,7 @@ System Security Data:`;
       res.json({ success: true, data: result });
     } catch (error) {
       console.error("Error calculating used car loan:", error);
-      res.status(500).json({ error: "Failed to calculate used car loan" });
+      return apiResponse.serverError(res, "Failed to calculate used car loan");
     }
   });
 
@@ -24382,7 +24384,7 @@ System Security Data:`;
       const { propertyValue, loanAmount, tenure, propertyType } = req.body;
       
       if (!propertyValue || !loanAmount || !tenure || !propertyType) {
-        return res.status(400).json({ error: "Missing required parameters: propertyValue, loanAmount, tenure, propertyType" });
+        return apiResponse.badRequest(res, "Missing required parameters: propertyValue, loanAmount, tenure, propertyType");
       }
 
       const result = tataCapitalAPI.calculateLoanAgainstProperty(
@@ -24395,7 +24397,7 @@ System Security Data:`;
       res.json({ success: true, data: result });
     } catch (error) {
       console.error("Error calculating loan against property:", error);
-      res.status(500).json({ error: "Failed to calculate loan against property" });
+      return apiResponse.serverError(res, "Failed to calculate loan against property");
     }
   });
 
@@ -24405,7 +24407,7 @@ System Security Data:`;
       const { portfolioValue, loanAmount, securityType } = req.body;
       
       if (!portfolioValue || !loanAmount || !securityType) {
-        return res.status(400).json({ error: "Missing required parameters: portfolioValue, loanAmount, securityType" });
+        return apiResponse.badRequest(res, "Missing required parameters: portfolioValue, loanAmount, securityType");
       }
 
       const result = tataCapitalAPI.calculateLoanAgainstSecurities(
@@ -24417,7 +24419,7 @@ System Security Data:`;
       res.json({ success: true, data: result });
     } catch (error) {
       console.error("Error calculating loan against securities:", error);
-      res.status(500).json({ error: "Failed to calculate loan against securities" });
+      return apiResponse.serverError(res, "Failed to calculate loan against securities");
     }
   });
 
@@ -24427,7 +24429,7 @@ System Security Data:`;
       const { pan, income, loanType } = req.body;
       
       if (!pan || !income || !loanType) {
-        return res.status(400).json({ error: "Missing required parameters: pan, income, loanType" });
+        return apiResponse.badRequest(res, "Missing required parameters: pan, income, loanType");
       }
 
       const result = await tataCapitalAPI.checkCreditEligibility(
@@ -24439,7 +24441,7 @@ System Security Data:`;
       res.json({ success: true, data: result });
     } catch (error) {
       console.error("Error checking credit eligibility:", error);
-      res.status(500).json({ error: "Failed to check credit eligibility" });
+      return apiResponse.serverError(res, "Failed to check credit eligibility");
     }
   });
 
@@ -24449,7 +24451,7 @@ System Security Data:`;
       const { gstin } = req.body;
       
       if (!gstin) {
-        return res.status(400).json({ error: "Missing required parameter: gstin" });
+        return apiResponse.badRequest(res, "Missing required parameter: gstin");
       }
 
       const result = await tataCapitalAPI.verifyGST(String(gstin));
@@ -24457,7 +24459,7 @@ System Security Data:`;
       res.json({ success: true, data: result });
     } catch (error) {
       console.error("Error verifying GST:", error);
-      res.status(500).json({ error: "Failed to verify GST" });
+      return apiResponse.serverError(res, "Failed to verify GST");
     }
   });
 
@@ -24467,7 +24469,7 @@ System Security Data:`;
       const { statements } = req.body;
       
       if (!statements) {
-        return res.status(400).json({ error: "Missing required parameter: statements" });
+        return apiResponse.badRequest(res, "Missing required parameter: statements");
       }
 
       const result = tataCapitalAPI.analyzeBankStatement(statements);
@@ -24475,7 +24477,7 @@ System Security Data:`;
       res.json({ success: true, data: result });
     } catch (error) {
       console.error("Error analyzing bank statement:", error);
-      res.status(500).json({ error: "Failed to analyze bank statement" });
+      return apiResponse.serverError(res, "Failed to analyze bank statement");
     }
   });
 
@@ -24485,7 +24487,7 @@ System Security Data:`;
       const { loanAccountNumber } = req.params;
       
       if (!loanAccountNumber) {
-        return res.status(400).json({ error: "Missing loan account number" });
+        return apiResponse.badRequest(res, "Missing loan account number");
       }
 
       const result = await tataCapitalAPI.getOutstandingBalance(loanAccountNumber);
@@ -24493,7 +24495,7 @@ System Security Data:`;
       res.json({ success: true, data: result });
     } catch (error) {
       console.error("Error fetching outstanding balance:", error);
-      res.status(500).json({ error: "Failed to fetch outstanding balance" });
+      return apiResponse.serverError(res, "Failed to fetch outstanding balance");
     }
   });
 
@@ -24503,7 +24505,7 @@ System Security Data:`;
       const { loanAccountNumber } = req.params;
       
       if (!loanAccountNumber) {
-        return res.status(400).json({ error: "Missing loan account number" });
+        return apiResponse.badRequest(res, "Missing loan account number");
       }
 
       const result = await tataCapitalAPI.getForeclosureDetails(loanAccountNumber);
@@ -24511,7 +24513,7 @@ System Security Data:`;
       res.json({ success: true, data: result });
     } catch (error) {
       console.error("Error fetching foreclosure details:", error);
-      res.status(500).json({ error: "Failed to fetch foreclosure details" });
+      return apiResponse.serverError(res, "Failed to fetch foreclosure details");
     }
   });
 
@@ -24521,7 +24523,7 @@ System Security Data:`;
       const { customerId } = req.params;
       
       if (!customerId) {
-        return res.status(400).json({ error: "Missing customer ID" });
+        return apiResponse.badRequest(res, "Missing customer ID");
       }
 
       const result = await tataCapitalAPI.getAccountAggregatorData(customerId);
@@ -24529,7 +24531,7 @@ System Security Data:`;
       res.json({ success: true, data: result });
     } catch (error) {
       console.error("Error fetching account aggregator data:", error);
-      res.status(500).json({ error: "Failed to fetch account aggregator data" });
+      return apiResponse.serverError(res, "Failed to fetch account aggregator data");
     }
   });
 
@@ -24539,7 +24541,7 @@ System Security Data:`;
       const { ckycId } = req.body;
       
       if (!ckycId) {
-        return res.status(400).json({ error: "Missing required parameter: ckycId" });
+        return apiResponse.badRequest(res, "Missing required parameter: ckycId");
       }
 
       const result = await tataCapitalAPI.performCKYC(String(ckycId));
@@ -24547,7 +24549,7 @@ System Security Data:`;
       res.json({ success: true, data: result });
     } catch (error) {
       console.error("Error performing CKYC verification:", error);
-      res.status(500).json({ error: "Failed to perform CKYC verification" });
+      return apiResponse.serverError(res, "Failed to perform CKYC verification");
     }
   });
 
@@ -24557,7 +24559,7 @@ System Security Data:`;
       const { name, mobile, email, loanType, loanAmount, city } = req.body;
       
       if (!name || !mobile || !email || !loanType || !loanAmount || !city) {
-        return res.status(400).json({ error: "Missing required parameters: name, mobile, email, loanType, loanAmount, city" });
+        return apiResponse.badRequest(res, "Missing required parameters: name, mobile, email, loanType, loanAmount, city");
       }
 
       const result = await tataCapitalAPI.createLead({
@@ -24572,7 +24574,7 @@ System Security Data:`;
       res.json({ success: true, data: result });
     } catch (error) {
       console.error("Error creating lead:", error);
-      res.status(500).json({ error: "Failed to create lead" });
+      return apiResponse.serverError(res, "Failed to create lead");
     }
   });
 
@@ -24582,7 +24584,7 @@ System Security Data:`;
       const { loanAccountNumber, amount, beneficiaryAccount } = req.body;
       
       if (!loanAccountNumber || !amount || !beneficiaryAccount) {
-        return res.status(400).json({ error: "Missing required parameters: loanAccountNumber, amount, beneficiaryAccount" });
+        return apiResponse.badRequest(res, "Missing required parameters: loanAccountNumber, amount, beneficiaryAccount");
       }
 
       const result = await tataCapitalAPI.instantDisbursement(
@@ -24594,7 +24596,7 @@ System Security Data:`;
       res.json({ success: true, data: result });
     } catch (error) {
       console.error("Error processing instant disbursement:", error);
-      res.status(500).json({ error: "Failed to process instant disbursement" });
+      return apiResponse.serverError(res, "Failed to process instant disbursement");
     }
   });
 
@@ -24605,7 +24607,7 @@ System Security Data:`;
       res.json({ success: true, data: rates });
     } catch (error) {
       console.error("Error fetching Tata Capital interest rates:", error);
-      res.status(500).json({ error: "Failed to fetch interest rates" });
+      return apiResponse.serverError(res, "Failed to fetch interest rates");
     }
   });
 
@@ -24947,7 +24949,7 @@ System Security Data:`;
       res.json(accounts);
     } catch (error) {
       console.error("Error fetching bank accounts:", error);
-      res.status(500).json({ error: "Failed to fetch bank accounts" });
+      return apiResponse.serverError(res, "Failed to fetch bank accounts");
     }
   });
 
@@ -24990,7 +24992,7 @@ System Security Data:`;
       res.status(201).json(account);
     } catch (error) {
       console.error("Error creating bank account:", error);
-      res.status(500).json({ error: "Failed to create bank account" });
+      return apiResponse.serverError(res, "Failed to create bank account");
     }
   });
 
@@ -25003,7 +25005,7 @@ System Security Data:`;
 
       const account = await storage.getBankAccount(req.params.id);
       if (!account) {
-        return res.status(404).json({ error: "Bank account not found" });
+        return apiResponse.notFound(res, "Bank account not found");
       }
 
       if (account.userId !== req.user.id) {
@@ -25014,7 +25016,7 @@ System Security Data:`;
       res.json(updatedAccount);
     } catch (error) {
       console.error("Error updating bank account:", error);
-      res.status(500).json({ error: "Failed to update bank account" });
+      return apiResponse.serverError(res, "Failed to update bank account");
     }
   });
 
@@ -25027,7 +25029,7 @@ System Security Data:`;
 
       const account = await storage.getBankAccount(req.params.id);
       if (!account) {
-        return res.status(404).json({ error: "Bank account not found" });
+        return apiResponse.notFound(res, "Bank account not found");
       }
 
       if (account.userId !== req.user.id) {
@@ -25038,11 +25040,11 @@ System Security Data:`;
       if (deleted) {
         res.json({ success: true, message: "Bank account deleted successfully" });
       } else {
-        res.status(404).json({ error: "Bank account not found" });
+        return apiResponse.notFound(res, "Bank account not found");
       }
     } catch (error) {
       console.error("Error deleting bank account:", error);
-      res.status(500).json({ error: "Failed to delete bank account" });
+      return apiResponse.serverError(res, "Failed to delete bank account");
     }
   });
 
@@ -25055,7 +25057,7 @@ System Security Data:`;
 
       const account = await storage.getBankAccount(req.params.id);
       if (!account) {
-        return res.status(404).json({ error: "Bank account not found" });
+        return apiResponse.notFound(res, "Bank account not found");
       }
 
       if (account.userId !== req.user.id) {
@@ -25073,11 +25075,11 @@ System Security Data:`;
       if (success) {
         res.json({ success: true, message: "Default account updated successfully" });
       } else {
-        res.status(400).json({ error: "Failed to set default account" });
+        return apiResponse.badRequest(res, "Failed to set default account");
       }
     } catch (error) {
       console.error("Error setting default bank account:", error);
-      res.status(500).json({ error: "Failed to set default bank account" });
+      return apiResponse.serverError(res, "Failed to set default bank account");
     }
   });
 
@@ -25091,12 +25093,12 @@ System Security Data:`;
 
       const { accountId } = req.body;
       if (!accountId) {
-        return res.status(400).json({ error: "Account ID is required" });
+        return apiResponse.badRequest(res, "Account ID is required");
       }
 
       const account = await storage.getBankAccount(accountId);
       if (!account) {
-        return res.status(404).json({ error: "Bank account not found" });
+        return apiResponse.notFound(res, "Bank account not found");
       }
 
       if (account.userId !== req.user.id) {
@@ -25195,7 +25197,7 @@ System Security Data:`;
       }
     } catch (error) {
       console.error("Error in penny drop verification:", error);
-      res.status(500).json({ error: "Failed to verify bank account" });
+      return apiResponse.serverError(res, "Failed to verify bank account");
     }
   });
 
@@ -25208,7 +25210,7 @@ System Security Data:`;
 
       const account = await storage.getBankAccount(req.params.id);
       if (!account) {
-        return res.status(404).json({ error: "Bank account not found" });
+        return apiResponse.notFound(res, "Bank account not found");
       }
 
       if (account.userId !== req.user.id) {
@@ -25232,7 +25234,7 @@ System Security Data:`;
       });
     } catch (error) {
       console.error("Error fetching verification status:", error);
-      res.status(500).json({ error: "Failed to fetch verification status" });
+      return apiResponse.serverError(res, "Failed to fetch verification status");
     }
   });
 
@@ -25248,7 +25250,7 @@ System Security Data:`;
       res.json(accounts);
     } catch (error) {
       console.error("Error fetching demat accounts:", error);
-      res.status(500).json({ error: "Failed to fetch demat accounts" });
+      return apiResponse.serverError(res, "Failed to fetch demat accounts");
     }
   });
 
@@ -25286,7 +25288,7 @@ System Security Data:`;
       res.status(201).json(newAccount);
     } catch (error) {
       console.error("Error creating demat account:", error);
-      res.status(500).json({ error: "Failed to create demat account" });
+      return apiResponse.serverError(res, "Failed to create demat account");
     }
   });
 
@@ -25299,7 +25301,7 @@ System Security Data:`;
 
       const account = await storage.getDematAccount(req.params.id);
       if (!account) {
-        return res.status(404).json({ error: "Demat account not found" });
+        return apiResponse.notFound(res, "Demat account not found");
       }
 
       if (account.userId !== req.user.id) {
@@ -25310,11 +25312,11 @@ System Security Data:`;
       if (updatedAccount) {
         res.json(updatedAccount);
       } else {
-        res.status(404).json({ error: "Demat account not found" });
+        return apiResponse.notFound(res, "Demat account not found");
       }
     } catch (error) {
       console.error("Error updating demat account:", error);
-      res.status(500).json({ error: "Failed to update demat account" });
+      return apiResponse.serverError(res, "Failed to update demat account");
     }
   });
 
@@ -25327,7 +25329,7 @@ System Security Data:`;
 
       const account = await storage.getDematAccount(req.params.id);
       if (!account) {
-        return res.status(404).json({ error: "Demat account not found" });
+        return apiResponse.notFound(res, "Demat account not found");
       }
 
       if (account.userId !== req.user.id) {
@@ -25338,11 +25340,11 @@ System Security Data:`;
       if (deleted) {
         res.json({ success: true, message: "Demat account deleted successfully" });
       } else {
-        res.status(404).json({ error: "Demat account not found" });
+        return apiResponse.notFound(res, "Demat account not found");
       }
     } catch (error) {
       console.error("Error deleting demat account:", error);
-      res.status(500).json({ error: "Failed to delete demat account" });
+      return apiResponse.serverError(res, "Failed to delete demat account");
     }
   });
 
@@ -25355,7 +25357,7 @@ System Security Data:`;
 
       const account = await storage.getDematAccount(req.params.id);
       if (!account) {
-        return res.status(404).json({ error: "Demat account not found" });
+        return apiResponse.notFound(res, "Demat account not found");
       }
 
       if (account.userId !== req.user.id) {
@@ -25373,11 +25375,11 @@ System Security Data:`;
       if (success) {
         res.json({ success: true, message: "Default demat account updated successfully" });
       } else {
-        res.status(400).json({ error: "Failed to set default demat account" });
+        return apiResponse.badRequest(res, "Failed to set default demat account");
       }
     } catch (error) {
       console.error("Error setting default demat account:", error);
-      res.status(500).json({ error: "Failed to set default demat account" });
+      return apiResponse.serverError(res, "Failed to set default demat account");
     }
   });
 
@@ -25394,7 +25396,7 @@ System Security Data:`;
       res.json(preferences);
     } catch (error) {
       console.error("Error fetching product account preferences:", error);
-      res.status(500).json({ error: "Failed to fetch product account preferences" });
+      return apiResponse.serverError(res, "Failed to fetch product account preferences");
     }
   });
 
@@ -25411,13 +25413,13 @@ System Security Data:`;
       );
       
       if (!preference) {
-        return res.status(404).json({ error: "Preference not found for this product type" });
+        return apiResponse.notFound(res, "Preference not found for this product type");
       }
 
       res.json(preference);
     } catch (error) {
       console.error("Error fetching product account preference:", error);
-      res.status(500).json({ error: "Failed to fetch product account preference" });
+      return apiResponse.serverError(res, "Failed to fetch product account preference");
     }
   });
 
@@ -25446,7 +25448,7 @@ System Security Data:`;
       if (error.name === "ZodError") {
         return res.status(400).json({ error: "Invalid request data", details: error.errors });
       }
-      res.status(500).json({ error: "Failed to create product account preference" });
+      return apiResponse.serverError(res, "Failed to create product account preference");
     }
   });
 
@@ -25462,7 +25464,7 @@ System Security Data:`;
       const existingPref = preferences.find(p => p.id === req.params.id);
       
       if (!existingPref) {
-        return res.status(404).json({ error: "Preference not found or access denied" });
+        return apiResponse.notFound(res, "Preference not found or access denied");
       }
 
       // Validate request body (partial schema - only allow specific fields)
@@ -25476,7 +25478,7 @@ System Security Data:`;
       const updated = await storage.updateProductAccountPreference(req.params.id, validatedData);
       
       if (!updated) {
-        return res.status(404).json({ error: "Preference not found" });
+        return apiResponse.notFound(res, "Preference not found");
       }
 
       res.json(updated);
@@ -25485,7 +25487,7 @@ System Security Data:`;
       if (error.name === "ZodError") {
         return res.status(400).json({ error: "Invalid request data", details: error.errors });
       }
-      res.status(500).json({ error: "Failed to update product account preference" });
+      return apiResponse.serverError(res, "Failed to update product account preference");
     }
   });
 
@@ -25501,7 +25503,7 @@ System Security Data:`;
       const existingPref = preferences.find(p => p.id === req.params.id);
       
       if (!existingPref) {
-        return res.status(404).json({ error: "Preference not found or access denied" });
+        return apiResponse.notFound(res, "Preference not found or access denied");
       }
 
       const deleted = await storage.deleteProductAccountPreference(req.params.id);
@@ -25509,11 +25511,11 @@ System Security Data:`;
       if (deleted) {
         res.json({ success: true, message: "Preference deleted successfully" });
       } else {
-        res.status(404).json({ error: "Preference not found" });
+        return apiResponse.notFound(res, "Preference not found");
       }
     } catch (error) {
       console.error("Error deleting product account preference:", error);
-      res.status(500).json({ error: "Failed to delete product account preference" });
+      return apiResponse.serverError(res, "Failed to delete product account preference");
     }
   });
 
@@ -25532,7 +25534,7 @@ System Security Data:`;
       res.json(accounts);
     } catch (error) {
       console.error("Error getting product accounts:", error);
-      res.status(500).json({ error: "Failed to get product accounts" });
+      return apiResponse.serverError(res, "Failed to get product accounts");
     }
   });
 
@@ -25554,7 +25556,7 @@ System Security Data:`;
       // Check if product type is valid
       const requirements = productAccountService.getProductRequirements(req.params.productType);
       if (!requirements) {
-        return res.status(400).json({ error: "Invalid product type" });
+        return apiResponse.badRequest(res, "Invalid product type");
       }
 
       const validation = await productAccountService.validateAccountsForProduct(
@@ -25570,7 +25572,7 @@ System Security Data:`;
       if (error.name === "ZodError") {
         return res.status(400).json({ error: "Invalid request data", details: error.errors });
       }
-      res.status(500).json({ error: "Failed to validate product accounts" });
+      return apiResponse.serverError(res, "Failed to validate product accounts");
     }
   });
 
@@ -25581,7 +25583,7 @@ System Security Data:`;
       res.json(requirements);
     } catch (error) {
       console.error("Error getting product requirements:", error);
-      res.status(500).json({ error: "Failed to get product requirements" });
+      return apiResponse.serverError(res, "Failed to get product requirements");
     }
   });
 
@@ -25604,7 +25606,7 @@ System Security Data:`;
       const { aadhaarNumber } = req.body;
       
       if (!aadhaarNumber || aadhaarNumber.length !== 12) {
-        return res.status(400).json({ error: "Invalid Aadhaar number" });
+        return apiResponse.badRequest(res, "Invalid Aadhaar number");
       }
 
       // Try DigiLocker first (if available)
@@ -25665,7 +25667,7 @@ System Security Data:`;
       res.json(config);
     } catch (error) {
       console.error("Error generating DigiLocker widget config:", error);
-      res.status(500).json({ error: "Failed to generate widget configuration" });
+      return apiResponse.serverError(res, "Failed to generate widget configuration");
     }
   });
 
@@ -25679,7 +25681,7 @@ System Security Data:`;
       const { docId, uri, docType, source, txn, filename, contentType, sharedTill } = req.body;
       
       if (!uri || !docType || !txn) {
-        return res.status(400).json({ error: "Missing required document metadata" });
+        return apiResponse.badRequest(res, "Missing required document metadata");
       }
 
       const metadata = { docId, uri, docType, source, txn, filename, contentType, sharedTill };
@@ -25688,7 +25690,7 @@ System Security Data:`;
       res.json({ success: true, document: sharedDocument });
     } catch (error) {
       console.error("Error handling DigiLocker document sharing:", error);
-      res.status(500).json({ error: "Failed to process document sharing" });
+      return apiResponse.serverError(res, "Failed to process document sharing");
     }
   });
 
@@ -25703,7 +25705,7 @@ System Security Data:`;
       res.json(documents);
     } catch (error) {
       console.error("Error fetching DigiLocker documents:", error);
-      res.status(500).json({ error: "Failed to fetch documents" });
+      return apiResponse.serverError(res, "Failed to fetch documents");
     }
   });
 
@@ -25718,7 +25720,7 @@ System Security Data:`;
       const document = await digilockerService.getDocument(documentId);
       
       if (!document) {
-        return res.status(404).json({ error: "Document not found" });
+        return apiResponse.notFound(res, "Document not found");
       }
 
       // Verify user owns this document
@@ -25729,7 +25731,7 @@ System Security Data:`;
       res.json(document);
     } catch (error) {
       console.error("Error fetching DigiLocker document:", error);
-      res.status(500).json({ error: "Failed to fetch document" });
+      return apiResponse.serverError(res, "Failed to fetch document");
     }
   });
 
@@ -25785,7 +25787,7 @@ System Security Data:`;
       const { panNumber } = req.body;
       
       if (!panNumber) {
-        return res.status(400).json({ error: "PAN number is required" });
+        return apiResponse.badRequest(res, "PAN number is required");
       }
 
       const { bseStarKYCService } = await import('./services/bse-star-kyc-service');
@@ -25807,7 +25809,7 @@ System Security Data:`;
       const { panNumber, name, dob, mobile, email } = req.body;
       
       if (!panNumber) {
-        return res.status(400).json({ error: "PAN number is required" });
+        return apiResponse.badRequest(res, "PAN number is required");
       }
 
       const { bseStarKYCService } = await import('./services/bse-star-kyc-service');
@@ -25835,7 +25837,7 @@ System Security Data:`;
       const { panNumber } = req.body;
       
       if (!panNumber) {
-        return res.status(400).json({ error: "PAN number is required" });
+        return apiResponse.badRequest(res, "PAN number is required");
       }
 
       const { bseStarKYCService } = await import('./services/bse-star-kyc-service');
@@ -25887,7 +25889,7 @@ System Security Data:`;
       const document = await digilockerService.getDocument(documentId);
       
       if (!document) {
-        return res.status(404).json({ error: "Document not found" });
+        return apiResponse.notFound(res, "Document not found");
       }
 
       // Verify user owns this document
@@ -25901,7 +25903,7 @@ System Security Data:`;
       res.json({ success: true, document: updatedDocument });
     } catch (error) {
       console.error("Error fetching DigiLocker document content:", error);
-      res.status(500).json({ error: "Failed to fetch document content" });
+      return apiResponse.serverError(res, "Failed to fetch document content");
     }
   });
 
@@ -25947,7 +25949,7 @@ System Security Data:`;
       res.json({ success: true, document });
     } catch (error) {
       console.error("Error uploading tax document:", error);
-      res.status(500).json({ error: "Failed to upload tax document" });
+      return apiResponse.serverError(res, "Failed to upload tax document");
     }
   });
 
@@ -25964,7 +25966,7 @@ System Security Data:`;
       res.json(documents);
     } catch (error) {
       console.error("Error fetching tax documents:", error);
-      res.status(500).json({ error: "Failed to fetch tax documents" });
+      return apiResponse.serverError(res, "Failed to fetch tax documents");
     }
   });
 
@@ -25979,7 +25981,7 @@ System Security Data:`;
       const document = await storage.getTaxDocument(documentId);
       
       if (!document) {
-        return res.status(404).json({ error: "Document not found" });
+        return apiResponse.notFound(res, "Document not found");
       }
 
       // Verify user owns this document
@@ -26000,7 +26002,7 @@ System Security Data:`;
       res.json(document);
     } catch (error) {
       console.error("Error fetching tax document:", error);
-      res.status(500).json({ error: "Failed to fetch document" });
+      return apiResponse.serverError(res, "Failed to fetch document");
     }
   });
 
@@ -26015,7 +26017,7 @@ System Security Data:`;
       const document = await storage.getTaxDocument(documentId);
       
       if (!document) {
-        return res.status(404).json({ error: "Document not found" });
+        return apiResponse.notFound(res, "Document not found");
       }
 
       // Verify user owns this document
@@ -26038,7 +26040,7 @@ System Security Data:`;
       res.json(result);
     } catch (error) {
       console.error("Error processing tax document:", error);
-      res.status(500).json({ error: "Failed to process document" });
+      return apiResponse.serverError(res, "Failed to process document");
     }
   });
 
@@ -26053,7 +26055,7 @@ System Security Data:`;
       const document = await storage.getTaxDocument(documentId);
       
       if (!document) {
-        return res.status(404).json({ error: "Document not found" });
+        return apiResponse.notFound(res, "Document not found");
       }
 
       // Verify user owns this document
@@ -26065,7 +26067,7 @@ System Security Data:`;
       res.json(structuredData);
     } catch (error) {
       console.error("Error fetching structured tax data:", error);
-      res.status(500).json({ error: "Failed to fetch structured tax data" });
+      return apiResponse.serverError(res, "Failed to fetch structured tax data");
     }
   });
 
@@ -26082,7 +26084,7 @@ System Security Data:`;
       res.json(structuredData);
     } catch (error) {
       console.error("Error fetching user tax data:", error);
-      res.status(500).json({ error: "Failed to fetch tax data" });
+      return apiResponse.serverError(res, "Failed to fetch tax data");
     }
   });
 
@@ -26097,7 +26099,7 @@ System Security Data:`;
       const document = await storage.getTaxDocument(documentId);
       
       if (!document) {
-        return res.status(404).json({ error: "Document not found" });
+        return apiResponse.notFound(res, "Document not found");
       }
 
       // Verify user owns this document
@@ -26109,7 +26111,7 @@ System Security Data:`;
       res.json(validation);
     } catch (error) {
       console.error("Error validating tax data:", error);
-      res.status(500).json({ error: "Failed to validate tax data" });
+      return apiResponse.serverError(res, "Failed to validate tax data");
     }
   });
 
@@ -26138,7 +26140,7 @@ System Security Data:`;
       res.json(calculation);
     } catch (error) {
       console.error("Error calculating tax liability:", error);
-      res.status(500).json({ error: "Failed to calculate tax liability" });
+      return apiResponse.serverError(res, "Failed to calculate tax liability");
     }
   });
 
@@ -26155,7 +26157,7 @@ System Security Data:`;
       res.json(calculations);
     } catch (error) {
       console.error("Error fetching tax calculations:", error);
-      res.status(500).json({ error: "Failed to fetch tax calculations" });
+      return apiResponse.serverError(res, "Failed to fetch tax calculations");
     }
   });
 
@@ -26188,7 +26190,7 @@ System Security Data:`;
       });
     } catch (error) {
       console.error("Error generating ITR JSON:", error);
-      res.status(500).json({ error: "Failed to generate ITR JSON" });
+      return apiResponse.serverError(res, "Failed to generate ITR JSON");
     }
   });
 
@@ -26210,7 +26212,7 @@ System Security Data:`;
       res.send(itrResult.itrJson);
     } catch (error) {
       console.error("Error downloading ITR JSON:", error);
-      res.status(500).json({ error: "Failed to download ITR JSON" });
+      return apiResponse.serverError(res, "Failed to download ITR JSON");
     }
   });
 
@@ -26225,7 +26227,7 @@ System Security Data:`;
       const document = await storage.getTaxDocument(documentId);
       
       if (!document) {
-        return res.status(404).json({ error: "Document not found" });
+        return apiResponse.notFound(res, "Document not found");
       }
 
       // Verify user owns this document
@@ -26243,7 +26245,7 @@ System Security Data:`;
       const deleted = await storage.deleteTaxDocument(documentId);
       
       if (!deleted) {
-        return res.status(500).json({ error: "Failed to delete document" });
+        return apiResponse.serverError(res, "Failed to delete document");
       }
 
       // Log document deletion
@@ -26259,7 +26261,7 @@ System Security Data:`;
       res.json({ success: true, message: "Document deleted successfully" });
     } catch (error) {
       console.error("Error deleting tax document:", error);
-      res.status(500).json({ error: "Failed to delete tax document" });
+      return apiResponse.serverError(res, "Failed to delete tax document");
     }
   });
 
@@ -26274,7 +26276,7 @@ System Security Data:`;
       const document = await storage.getTaxDocument(documentId);
       
       if (!document) {
-        return res.status(404).json({ error: "Document not found" });
+        return apiResponse.notFound(res, "Document not found");
       }
 
       // Verify user owns this document
@@ -26286,7 +26288,7 @@ System Security Data:`;
       res.json(logs);
     } catch (error) {
       console.error("Error fetching document access logs:", error);
-      res.status(500).json({ error: "Failed to fetch access logs" });
+      return apiResponse.serverError(res, "Failed to fetch access logs");
     }
   });
 
@@ -26301,7 +26303,7 @@ System Security Data:`;
       const document = await storage.getTaxDocument(documentId);
       
       if (!document) {
-        return res.status(404).json({ error: "Document not found" });
+        return apiResponse.notFound(res, "Document not found");
       }
 
       // Verify user owns this document
@@ -26325,7 +26327,7 @@ System Security Data:`;
       res.json({ success: true, document: updatedDocument });
     } catch (error) {
       console.error("Error updating tax document:", error);
-      res.status(500).json({ error: "Failed to update tax document" });
+      return apiResponse.serverError(res, "Failed to update tax document");
     }
   });
 
@@ -26338,7 +26340,7 @@ System Security Data:`;
       res.json({ success: true, rules });
     } catch (error) {
       console.error("Error fetching active tax rules:", error);
-      res.status(500).json({ error: "Failed to fetch active tax rules" });
+      return apiResponse.serverError(res, "Failed to fetch active tax rules");
     }
   });
 
@@ -26360,7 +26362,7 @@ System Security Data:`;
       res.json({ success: true, rule });
     } catch (error) {
       console.error("Error fetching tax rule:", error);
-      res.status(500).json({ error: "Failed to fetch tax rule" });
+      return apiResponse.serverError(res, "Failed to fetch tax rule");
     }
   });
 
@@ -26442,7 +26444,7 @@ System Security Data:`;
       });
     } catch (error) {
       console.error("Error calculating capital gains tax:", error);
-      res.status(500).json({ error: "Failed to calculate capital gains tax" });
+      return apiResponse.serverError(res, "Failed to calculate capital gains tax");
     }
   });
 
@@ -26561,7 +26563,7 @@ System Security Data:`;
       });
     } catch (error) {
       console.error("Error calculating income tax:", error);
-      res.status(500).json({ error: "Failed to calculate income tax" });
+      return apiResponse.serverError(res, "Failed to calculate income tax");
     }
   });
 
@@ -26612,7 +26614,7 @@ System Security Data:`;
           pricingTier = 'premium';
           break;
         default:
-          return res.status(400).json({ error: "Invalid ITR form type" });
+          return apiResponse.badRequest(res, "Invalid ITR form type");
       }
       
       // Check if user has expert ITR filing service (would need to check user profile or services)
@@ -26661,7 +26663,7 @@ System Security Data:`;
       });
     } catch (error) {
       console.error("Error creating tax reminder subscription:", error);
-      res.status(500).json({ error: "Failed to create tax reminder subscription" });
+      return apiResponse.serverError(res, "Failed to create tax reminder subscription");
     }
   });
 
@@ -26697,7 +26699,7 @@ System Security Data:`;
       });
     } catch (error) {
       console.error("Error fetching tax reminder subscription:", error);
-      res.status(500).json({ error: "Failed to fetch tax reminder subscription" });
+      return apiResponse.serverError(res, "Failed to fetch tax reminder subscription");
     }
   });
 
@@ -26709,7 +26711,7 @@ System Security Data:`;
       const { userId } = req.params;
       
       if (!userId) {
-        return res.status(400).json({ error: "User ID is required" });
+        return apiResponse.badRequest(res, "User ID is required");
       }
       
       const { capitalGainsCalculator } = await import('./services/capital-gains-calculator');
@@ -26743,7 +26745,7 @@ System Security Data:`;
       const { userId } = req.params;
       
       if (!userId) {
-        return res.status(400).json({ error: "User ID is required" });
+        return apiResponse.badRequest(res, "User ID is required");
       }
       
       const { capitalGainsCalculator } = await import('./services/capital-gains-calculator');
@@ -26787,11 +26789,11 @@ System Security Data:`;
       const { financialYear, subscriptionId } = req.body;
       
       if (!userId) {
-        return res.status(400).json({ error: "User ID is required" });
+        return apiResponse.badRequest(res, "User ID is required");
       }
       
       if (!financialYear) {
-        return res.status(400).json({ error: "Financial year is required (format: YYYY-YY)" });
+        return apiResponse.badRequest(res, "Financial year is required (format: YYYY-YY)");
       }
       
       // Check if user has an active subscription
@@ -26844,7 +26846,7 @@ System Security Data:`;
       const { userId } = req.params;
       
       if (!userId) {
-        return res.status(400).json({ error: "User ID is required" });
+        return apiResponse.badRequest(res, "User ID is required");
       }
       
       // Check if user has expert ITR filing service
@@ -26882,7 +26884,7 @@ System Security Data:`;
       res.json(categories);
     } catch (error) {
       console.error("Error fetching BBPS categories:", error);
-      res.status(500).json({ error: "Failed to fetch categories" });
+      return apiResponse.serverError(res, "Failed to fetch categories");
     }
   });
 
@@ -26894,7 +26896,7 @@ System Security Data:`;
       res.json(billers);
     } catch (error) {
       console.error("Error fetching BBPS billers:", error);
-      res.status(500).json({ error: "Failed to fetch billers" });
+      return apiResponse.serverError(res, "Failed to fetch billers");
     }
   });
 
@@ -26922,7 +26924,7 @@ System Security Data:`;
       res.json(bill);
     } catch (error) {
       console.error("Error fetching bill:", error);
-      res.status(500).json({ error: "Failed to fetch bill details" });
+      return apiResponse.serverError(res, "Failed to fetch bill details");
     }
   });
 
@@ -26972,7 +26974,7 @@ System Security Data:`;
       res.json(transaction);
     } catch (error) {
       console.error("Error processing payment:", error);
-      res.status(500).json({ error: "Failed to process payment" });
+      return apiResponse.serverError(res, "Failed to process payment");
     }
   });
 
@@ -26987,7 +26989,7 @@ System Security Data:`;
       res.json(bills);
     } catch (error) {
       console.error("Error fetching user bills:", error);
-      res.status(500).json({ error: "Failed to fetch bills" });
+      return apiResponse.serverError(res, "Failed to fetch bills");
     }
   });
 
@@ -27002,7 +27004,7 @@ System Security Data:`;
       res.json(transactions);
     } catch (error) {
       console.error("Error fetching transactions:", error);
-      res.status(500).json({ error: "Failed to fetch transactions" });
+      return apiResponse.serverError(res, "Failed to fetch transactions");
     }
   });
 
@@ -27017,7 +27019,7 @@ System Security Data:`;
       const transaction = await BBPSService.getTransactionStatus(transactionId);
       
       if (!transaction) {
-        return res.status(404).json({ error: "Transaction not found" });
+        return apiResponse.notFound(res, "Transaction not found");
       }
 
       // Check if transaction belongs to the authenticated user
@@ -27028,7 +27030,7 @@ System Security Data:`;
       res.json(transaction);
     } catch (error) {
       console.error("Error fetching transaction status:", error);
-      res.status(500).json({ error: "Failed to fetch transaction status" });
+      return apiResponse.serverError(res, "Failed to fetch transaction status");
     }
   });
 
@@ -27353,7 +27355,7 @@ System Security Data:`;
       const { panNumber, consentVersion } = req.body;
       
       if (!panNumber) {
-        return res.status(400).json({ error: "PAN number is required" });
+        return apiResponse.badRequest(res, "PAN number is required");
       }
 
       const consent = await PANConsentService.storePANConsent({
@@ -29167,12 +29169,12 @@ System Security Data:`;
     try {
       const { familyId } = req.params;
       if (!req.user?.id) {
-        return res.status(401).json({ message: "Authentication required" });
+        return apiResponse.unauthorized(res, "Authentication required");
       }
       
       const membership = await storage.checkFamilyMembership(familyId, req.user.id);
       if (!membership) {
-        return res.status(403).json({ message: "Not a member of this family group" });
+        return apiResponse.forbidden(res, "Not a member of this family group");
       }
       
       req.familyMember = membership;
@@ -29189,7 +29191,7 @@ System Security Data:`;
   app.post("/api/families", async (req, res) => {
     try {
       if (!req.user?.id) {
-        return res.status(401).json({ message: "Authentication required" });
+        return apiResponse.unauthorized(res, "Authentication required");
       }
 
       const validatedData = insertFamilyGroupSchema.parse({
@@ -29238,7 +29240,7 @@ System Security Data:`;
   app.get("/api/families", async (req, res) => {
     try {
       if (!req.user?.id) {
-        return res.status(401).json({ message: "Authentication required" });
+        return apiResponse.unauthorized(res, "Authentication required");
       }
 
       const families = await storage.getUserFamilies(req.user.id);
@@ -29291,7 +29293,7 @@ System Security Data:`;
       
       // Only admin can update family group
       if (req.familyMember.role !== 'admin') {
-        return res.status(403).json({ message: "Only admins can update family group" });
+        return apiResponse.forbidden(res, "Only admins can update family group");
       }
 
       const updates = insertFamilyGroupSchema.partial().parse(req.body);
@@ -29333,7 +29335,7 @@ System Security Data:`;
       
       // Only admin can invite members
       if (req.familyMember.role !== 'admin') {
-        return res.status(403).json({ message: "Only admins can invite members" });
+        return apiResponse.forbidden(res, "Only admins can invite members");
       }
 
       const validatedData = insertFamilyMemberSchema.parse({
@@ -29399,7 +29401,7 @@ System Security Data:`;
       const { familyId, memberId } = req.params;
       
       if (!req.user?.id) {
-        return res.status(401).json({ message: "Authentication required" });
+        return apiResponse.unauthorized(res, "Authentication required");
       }
 
       const member = await storage.acceptFamilyInvitation(memberId, req.user.id);
@@ -29436,7 +29438,7 @@ System Security Data:`;
       
       // Only admin can update roles
       if (req.familyMember.role !== 'admin') {
-        return res.status(403).json({ message: "Only admins can update member roles" });
+        return apiResponse.forbidden(res, "Only admins can update member roles");
       }
 
       if (!['admin', 'member', 'viewer'].includes(role)) {
@@ -29476,7 +29478,7 @@ System Security Data:`;
       
       // Only admin can remove members
       if (req.familyMember.role !== 'admin') {
-        return res.status(403).json({ message: "Only admins can remove members" });
+        return apiResponse.forbidden(res, "Only admins can remove members");
       }
 
       await storage.removeFamilyMember(memberId);
@@ -29514,7 +29516,7 @@ System Security Data:`;
       
       // Only admin and members can create goals
       if (req.familyMember.role === 'viewer') {
-        return res.status(403).json({ message: "Viewers cannot create goals" });
+        return apiResponse.forbidden(res, "Viewers cannot create goals");
       }
 
       const validatedData = insertFamilyGoalSchema.parse({
@@ -29581,7 +29583,7 @@ System Security Data:`;
       
       // Only admin and members can contribute
       if (req.familyMember.role === 'viewer') {
-        return res.status(403).json({ message: "Viewers cannot contribute to goals" });
+        return apiResponse.forbidden(res, "Viewers cannot contribute to goals");
       }
 
       const validatedData = insertFamilyGoalContributionSchema.parse({
@@ -29703,7 +29705,7 @@ System Security Data:`;
       
       // Only admin and members can create discussions
       if (req.familyMember.role === 'viewer') {
-        return res.status(403).json({ message: "Viewers cannot create discussions" });
+        return apiResponse.forbidden(res, "Viewers cannot create discussions");
       }
 
       const validatedData = insertFamilyDiscussionSchema.parse({
@@ -29772,7 +29774,7 @@ System Security Data:`;
       
       // Only admin can create budgets
       if (req.familyMember.role !== 'admin') {
-        return res.status(403).json({ message: "Only admins can create budgets" });
+        return apiResponse.forbidden(res, "Only admins can create budgets");
       }
 
       const validatedData = insertFamilyBudgetSchema.parse({

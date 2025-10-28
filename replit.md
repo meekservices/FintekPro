@@ -24,6 +24,22 @@ Key features include real-time portfolio and market data tracking, various finan
 ### System Design Choices
 The platform employs a subdomain-based portal architecture for Admin, Partner, and Client portals, ensuring isolated and customized experiences, security, and role-based access control. All pages maintain a consistent three-part layout: Left Sidebar Navigation, Main Content Area, and Footer, with a collapsible, state-persisted sidebar. The `ScrollableTabsList` pattern is utilized for responsive tabbed navigation. Admin Portal registration is entirely disabled for security. Backend API responses are standardized for consistency, and frontend error handling is updated for backward compatibility. Reusable UI components like `LoadingState` and `EmptyState` are standardized across the platform.
 
+## Recent Improvements (October 2025)
+
+### Platform-Wide UI/UX Consistency
+
+**Loading State Standardization** (Oct 28): Complete migration to standardized LoadingState component across 15+ pages
+- Migrated pages: Admin (whatsapp-setup, aml-monitoring, supplier-management, zoho-dashboard, zoho-logs), Financial services (mlds, ipo, pre-ipo, bonds, insurance, loans, icici-banking), Portfolio & family (family-dashboard, mutual-funds, portfolio)
+- Replaced patterns: Custom Skeleton arrays, Loader2 spinners, animate-pulse divs → LoadingState component with 5 variants (card, list, table, form, stats)
+- Component location: `client/src/components/LoadingState.tsx`
+
+**API Response Standardization** (Oct 28): Major migration of server routes to use consistent apiResponse utilities
+- Status: 705 endpoints migrated from old patterns to apiResponse utilities (`server/utils/responses.ts`)
+- Migrated patterns: `res.status(xxx).json({ error/message })` → `apiResponse.serverError/notFound/badRequest/unauthorized/forbidden(res, message)`
+- Coverage: ~85% of single-line error responses now use standardized format
+- Remaining: ~555 endpoints with multi-line formatting to be migrated incrementally
+- Frontend: Error parser (`client/src/lib/queryClient.ts`) updated with backward compatibility for both old and new response formats
+
 ## External Dependencies
 
 ### Third-Party APIs
