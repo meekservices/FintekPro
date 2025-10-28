@@ -19,7 +19,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubdomain } from "@/hooks/useSubdomain";
 import { SessionConflictDialog } from "@/components/SessionConflictDialog";
-import { Loader2, Eye, EyeOff, Shield, TrendingUp, BarChart3, MessageSquare, CheckCircle2, Mail, Smartphone, User, Info, Clock, RefreshCw } from "lucide-react";
+import { Loader2, Eye, EyeOff, Shield, TrendingUp, BarChart3, MessageSquare, CheckCircle2, Mail, Smartphone, User, Info, Clock, RefreshCw, AlertCircle, Phone, LogIn, Users } from "lucide-react";
 
 const loginSchema = z.object({
   identifier: z.string().min(1, "Email, mobile, or User ID is required"),
@@ -1261,6 +1261,131 @@ export default function AuthPage() {
             >
               Go to Dashboard
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Duplicate Warning Dialog */}
+      <Dialog open={duplicateWarningOpen} onOpenChange={setDuplicateWarningOpen}>
+        <DialogContent className="sm:max-w-lg" data-testid="dialog-duplicate-warning">
+          <DialogHeader>
+            <div className="flex justify-center mb-4">
+              <div className="rounded-full bg-yellow-100 dark:bg-yellow-900/20 p-3">
+                <AlertCircle className="h-8 w-8 text-yellow-600" />
+              </div>
+            </div>
+            <DialogTitle className="text-center">Possible Duplicate Account</DialogTitle>
+            <DialogDescription className="text-center">
+              We found {duplicateWarnings.length} existing {duplicateWarnings.length === 1 ? 'account' : 'accounts'} with similar contact information.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* List of duplicate matches */}
+            <div className="border rounded-lg divide-y dark:border-gray-700">
+              {duplicateWarnings.map((duplicate, index) => (
+                <div key={index} className="p-3 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">{duplicate.name || "Unknown User"}</span>
+                    <Badge variant="outline" className="text-xs">
+                      User ID: {duplicate.userId}
+                    </Badge>
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    {duplicate.emailMatch && (
+                      <Badge variant="secondary" className="text-xs">
+                        <Mail className="h-3 w-3 mr-1" />
+                        Email Match
+                      </Badge>
+                    )}
+                    {duplicate.mobileMatch && (
+                      <Badge variant="secondary" className="text-xs">
+                        <Phone className="h-3 w-3 mr-1" />
+                        Mobile Match
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    {duplicate.message}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription className="text-sm">
+                If this is your existing account, please login instead. If you're a family member, you can link your account to the existing one.
+              </AlertDescription>
+            </Alert>
+
+            {/* Action buttons */}
+            <div className="flex flex-col gap-2">
+              <Button 
+                variant="default"
+                className="w-full" 
+                onClick={() => {
+                  setDuplicateWarningOpen(false);
+                  setAuthMode("login");
+                  toast({
+                    title: "Switched to Login",
+                    description: "Please login with your existing account",
+                  });
+                }}
+                data-testid="button-login-instead"
+              >
+                <LogIn className="h-4 w-4 mr-2" />
+                Login Instead
+              </Button>
+              
+              <Button 
+                variant="outline"
+                className="w-full" 
+                onClick={() => {
+                  setDuplicateWarningOpen(false);
+                  toast({
+                    title: "Family Linking",
+                    description: "This feature will be available after account creation",
+                    variant: "default",
+                  });
+                  // Proceed with OTP flow
+                  if (pendingRegistrationData?.requiresOtp) {
+                    setRegistrationStep("otp");
+                    setRegistrationIdentifier(pendingRegistrationData.identifier || pendingRegistrationData.user?.email);
+                    setRegistrationOtpChannel(pendingRegistrationData.otpSentTo || "your email and mobile");
+                    setRegistrationToken(pendingRegistrationData.registrationToken || "");
+                    setRegistrationOtpTimer(300);
+                    setCanResendRegistrationOtp(false);
+                    setRegistrationOtpDialogOpen(true);
+                  }
+                }}
+                data-testid="button-link-family"
+              >
+                <Users className="h-4 w-4 mr-2" />
+                Link as Family Member
+              </Button>
+              
+              <Button 
+                variant="ghost"
+                className="w-full" 
+                onClick={() => {
+                  setDuplicateWarningOpen(false);
+                  // Proceed with OTP flow
+                  if (pendingRegistrationData?.requiresOtp) {
+                    setRegistrationStep("otp");
+                    setRegistrationIdentifier(pendingRegistrationData.identifier || pendingRegistrationData.user?.email);
+                    setRegistrationOtpChannel(pendingRegistrationData.otpSentTo || "your email and mobile");
+                    setRegistrationToken(pendingRegistrationData.registrationToken || "");
+                    setRegistrationOtpTimer(300);
+                    setCanResendRegistrationOtp(false);
+                    setRegistrationOtpDialogOpen(true);
+                  }
+                }}
+                data-testid="button-continue-anyway"
+              >
+                Continue Anyway
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
