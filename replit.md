@@ -44,16 +44,19 @@ The platform employs a subdomain-based portal architecture for Admin, Partner, a
 
 ### Duplicate Detection & Prevention System
 
-**Production-Ready Backend Implementation** (Oct 28): Complete duplicate client registration detection system
+**Complete End-to-End Implementation** (Oct 28): Production-ready duplicate client registration detection with full frontend-backend integration
 - Service: `server/services/duplicateDetectionService.ts` with SQL-based detection using indexed joins (linear complexity)
-- Features: Levenshtein fuzzy name matching, risk scoring, PAN/email/mobile duplicate detection
+- Features: Levenshtein fuzzy name matching, risk scoring, PAN/email/mobile duplicate detection with explicit boolean flags
 - Database: Indexes added to users table (idx_users_email, idx_users_mobile, idx_users_pan_number) for performance
-- Registration Validation: `/api/clients` endpoint blocks PAN duplicates (409 error) and returns email/mobile warnings in response
+- Registration API: `/api/register` endpoint blocks PAN duplicates (409 error) and returns email/mobile warnings with boolean flags (panNumberMatch, emailMatch, mobileMatch)
+- Agent Client API: `/api/agent/clients` endpoint includes same duplicate detection for agent-created clients
 - Admin APIs: Duplicate listing, stats, check, and merge endpoints at `/api/admin/duplicates`, `/api/admin/duplicate-stats`, `/api/admin/check-duplicates`, `/api/admin/merge-accounts`
 - Admin UI: Duplicate Management dashboard at `client/src/pages/admin/duplicate-management.tsx` with merge functionality
+- Frontend Integration: DuplicateWarningDialog component in `client/src/pages/auth-page.tsx` with 3 actions: Login Instead, Link as Family Member, Continue Anyway
+- Family Linking: POST `/api/users/:userId/link-family` endpoint for post-registration family account linking (after OTP verification)
 - Design Choice: Email/mobile intentionally not unique in schema to allow family member sharing per regulatory requirements
 - Merge Functionality: Deactivates duplicate accounts (does not transfer related data like transactions/portfolios) - honest messaging implemented
-- Status: Backend production-ready, frontend registration warnings and family linking flows pending
+- Status: Production-ready with complete frontend-backend integration
 
 ## External Dependencies
 
