@@ -130,36 +130,66 @@ export default function BBPSPage() {
   const queryClient = useQueryClient();
   const [location] = useLocation();
 
-  // Handle payment callback from Cashfree
+  // Handle payment callback from Cashfree - verify status from backend
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const paymentStatus = urlParams.get('payment');
     const transactionId = urlParams.get('transactionId');
     const message = urlParams.get('message');
 
-    if (paymentStatus) {
-      if (paymentStatus === 'success' && transactionId) {
-        toast({
-          title: "Payment Successful!",
-          description: `Your bill payment was successful. Transaction ID: ${transactionId}`,
-        });
-        queryClient.invalidateQueries({ queryKey: ["/api/bbps/transactions"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/bbps/bills"] });
-      } else if (paymentStatus === 'failed') {
-        toast({
-          title: "Payment Failed",
-          description: message || "Your payment could not be processed. Please try again.",
-          variant: "destructive",
-        });
-      } else if (paymentStatus === 'error') {
-        toast({
-          title: "Payment Error",
-          description: message || "An error occurred during payment processing.",
-          variant: "destructive",
-        });
-      }
+    if (paymentStatus && transactionId) {
+      // Fetch verified status from backend instead of trusting URL params
+      const verifyPaymentStatus = async () => {
+        try {
+          const response = await fetch(`/api/bbps/transactions/${transactionId}/status`);
+          
+          if (!response.ok) {
+            throw new Error('Failed to verify payment status');
+          }
+
+          const verifiedStatus = await response.json();
+
+          // Show toast based on verified status from database
+          if (verifiedStatus.status === 'SUCCESS') {
+            toast({
+              title: "Payment Successful!",
+              description: `Your bill payment was successful. Transaction ID: ${transactionId}`,
+            });
+            queryClient.invalidateQueries({ queryKey: ["/api/bbps/transactions"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/bbps/bills"] });
+          } else if (verifiedStatus.status === 'FAILED') {
+            toast({
+              title: "Payment Failed",
+              description: "Your payment could not be processed. Please try again.",
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "Payment Pending",
+              description: "Your payment is being processed. Please check back shortly.",
+            });
+          }
+        } catch (error) {
+          console.error('Error verifying payment status:', error);
+          toast({
+            title: "Verification Error",
+            description: "Could not verify payment status. Please check your transaction history.",
+            variant: "destructive",
+          });
+        }
+      };
+
+      verifyPaymentStatus();
 
       // Clean up URL parameters
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (paymentStatus === 'error') {
+      // Handle error callback without transaction ID
+      toast({
+        title: "Payment Error",
+        description: message || "An error occurred during payment processing.",
+        variant: "destructive",
+      });
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, [toast, queryClient]);

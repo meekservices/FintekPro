@@ -95,6 +95,9 @@ const authLimiter = rateLimit({
 
 app.use(["/api/login", "/api/register"], authLimiter);
 
+// Raw body capture for webhook signature verification
+app.use('/api/payments/cashfree/webhook', express.raw({ type: 'application/json' }));
+
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: false, limit: "10mb" }));
 
@@ -115,6 +118,11 @@ export const handleValidationErrors = (req: Request, res: Response, next: NextFu
 
 // Input sanitization middleware
 app.use((req: Request, res: Response, next: NextFunction) => {
+  // Skip sanitization for webhook routes that need raw body for signature verification
+  if (req.path === '/api/payments/cashfree/webhook') {
+    return next();
+  }
+
   // Sanitize common injection attempts
   const sanitizeString = (str: string): string => {
     if (typeof str !== 'string') return str;
@@ -144,8 +152,8 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     return obj;
   };
 
-  // Sanitize request body
-  if (req.body) {
+  // Sanitize request body (skip if Buffer for webhook signature verification)
+  if (req.body && !Buffer.isBuffer(req.body)) {
     req.body = sanitizeObject(req.body);
   }
 

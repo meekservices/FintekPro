@@ -28950,23 +28950,42 @@ System Security Data:`;
     try {
       const signature = req.headers['x-webhook-signature'] as string;
       const timestamp = req.headers['x-webhook-timestamp'] as string;
-      const rawBody = JSON.stringify(req.body);
+      
+      // req.body is a Buffer because we use express.raw() middleware for this route
+      const rawBody = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : JSON.stringify(req.body);
 
       if (!signature || !timestamp) {
         return res.status(400).json({ message: 'Missing webhook headers' });
       }
 
+      // Verify webhook signature with raw body
       const isValid = cashfreeService.verifyWebhookSignature(signature, rawBody, timestamp);
       if (!isValid) {
         console.error('Cashfree webhook signature verification failed');
+        complianceMonitor.logEvent({
+          eventType: 'payment',
+          action: 'webhook_signature_failed',
+          outcome: 'failure',
+          riskLevel: 'critical',
+          details: 'Webhook signature verification failed - possible tampering attempt'
+        });
         return res.status(400).json({ message: 'Invalid signature' });
       }
 
-      const webhookData = req.body;
+      // Parse the webhook data from raw body
+      const webhookData = Buffer.isBuffer(req.body) ? JSON.parse(rawBody) : req.body;
       const orderId = webhookData.data?.order?.order_id;
 
       if (!orderId) {
         return res.status(400).json({ message: 'Invalid order ID' });
+      }
+
+      // Verify order status with Cashfree API (don't trust webhook data alone)
+      const verifiedOrderStatus = await cashfreeService.getOrderStatus(orderId);
+      
+      if (!verifiedOrderStatus) {
+        console.error(`Failed to verify order status for ${orderId}`);
+        return res.status(400).json({ message: 'Could not verify order status' });
       }
 
       const transaction = await storage.getCashfreeTransaction(orderId);
@@ -28974,13 +28993,14 @@ System Security Data:`;
         return res.status(404).json({ message: 'Transaction not found' });
       }
 
-      const paymentStatus = webhookData.data?.order?.order_status;
+      // Use verified status from Cashfree API, not webhook data
+      const paymentStatus = verifiedOrderStatus.orderStatus;
       
       await storage.updateCashfreeTransaction(transaction.id, {
         status: paymentStatus || 'FAILED',
-        cashfreeOrderId: webhookData.data?.order?.cf_order_id,
+        cashfreeOrderId: verifiedOrderStatus.cfOrderId,
         paymentMethod: webhookData.data?.payment?.payment_method,
-        gatewayResponse: webhookData as any,
+        gatewayResponse: { webhook: webhookData, verified: verifiedOrderStatus } as any,
         webhookReceivedAt: new Date(),
         completedAt: paymentStatus === 'PAID' ? new Date() : undefined
       });
@@ -28997,10 +29017,10 @@ System Security Data:`;
             orderId: unifiedOrderId,
             paymentStatus: paymentStatus === 'PAID' ? 'success' : paymentStatus === 'FAILED' ? 'failed' : 'pending',
             paymentGateway: 'cashfree',
-            transactionId: webhookData.data?.order?.cf_order_id || transaction.id,
-            amount: webhookData.data?.order?.order_amount || 0,
-            currency: webhookData.data?.order?.order_currency || 'INR',
-            gatewayResponse: webhookData,
+            transactionId: verifiedOrderStatus.cfOrderId || transaction.id,
+            amount: verifiedOrderStatus.orderAmount || 0,
+            currency: verifiedOrderStatus.orderCurrency || 'INR',
+            gatewayResponse: { webhook: webhookData, verified: verifiedOrderStatus },
             timestamp: new Date(),
           });
         } catch (bridgeError) {
@@ -29034,7 +29054,8 @@ System Security Data:`;
         resource: orderId,
         outcome: 'success',
         riskLevel: 'medium',
-        userId: transaction.userId
+        userId: transaction.userId,
+        details: `Order status verified: ${paymentStatus}`
       });
 
       res.json({ success: true, message: 'Webhook processed' });
