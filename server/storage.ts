@@ -798,6 +798,12 @@ export interface IStorage {
   updateInsight(id: string, updates: Partial<ExpenseInsight>): Promise<ExpenseInsight | undefined>;
   dismissInsight(id: string): Promise<void>;
   
+  // BBPS Helper methods
+  getBbpsTransactionByReference(orderId: string): Promise<any | undefined>;
+  getBbpsBillById(billId: string): Promise<any | undefined>;
+  getBbpsBillerById(billerId: string): Promise<any | undefined>;
+  getBbpsCategoryById(categoryId: string): Promise<any | undefined>;
+  
   // KYC Verification Session methods
   createKycVerificationSession(session: InsertKycVerificationSession): Promise<KycVerificationSession>;
   getKycVerificationSession(id: string): Promise<KycVerificationSession | undefined>;
@@ -5634,6 +5640,35 @@ export class DatabaseStorage implements IStorage {
         dismissedAt: new Date()
       })
       .where(eq(schema.expenseInsights.id, id));
+  }
+  
+  // BBPS Helper methods implementation
+  async getBbpsTransactionByReference(orderId: string): Promise<any | undefined> {
+    const [transaction] = await db.select()
+      .from(schema.bbpsTransactions)
+      .where(eq(schema.bbpsTransactions.cashfreeOrderId, orderId));
+    return transaction || undefined;
+  }
+  
+  async getBbpsBillById(billId: string): Promise<any | undefined> {
+    const [bill] = await db.select()
+      .from(schema.bbpsCustomerBills)
+      .where(eq(schema.bbpsCustomerBills.id, billId));
+    return bill || undefined;
+  }
+  
+  async getBbpsBillerById(billerId: string): Promise<any | undefined> {
+    const [biller] = await db.select()
+      .from(schema.bbpsBillers)
+      .where(eq(schema.bbpsBillers.id, billerId));
+    return biller || undefined;
+  }
+  
+  async getBbpsCategoryById(categoryId: string): Promise<any | undefined> {
+    const [category] = await db.select()
+      .from(schema.bbpsCategories)
+      .where(eq(schema.bbpsCategories.id, categoryId));
+    return category || undefined;
   }
   
   // KYC Verification Session implementation

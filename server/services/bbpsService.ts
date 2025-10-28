@@ -342,6 +342,7 @@ export class BBPSService {
         billId,
         billerCode: biller[0].billerCode,
         customerParam: bill[0].customerParam,
+        amount: paymentAmount,
         paymentAmount,
         transactionId,
         paymentStatus: "PENDING",

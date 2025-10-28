@@ -27134,55 +27134,120 @@ System Security Data:`;
   });
 
   // Process bill payment
+  // Process bill payment - Initiate Cashfree payment
   app.post("/api/bbps/pay-bill", async (req, res) => {
     try {
       if (!req.user?.id) {
         return res.status(401).json({ error: "Authentication required" });
       }
 
-      const { billId, paymentAmount, paymentMode } = req.body;
+      const { billId, paymentAmount } = req.body;
       
-      if (!billId || !paymentAmount || !paymentMode) {
+      if (!billId || !paymentAmount) {
         return res.status(400).json({ 
-          error: "billId, paymentAmount, and paymentMode are required" 
+          error: "billId and paymentAmount are required" 
         });
       }
 
-      const transaction = await BBPSService.payBill({
-        billId,
-        paymentAmount,
-        paymentMode,
-        userId: req.user!.id,
-      });
-
-      // Auto-create expense if payment is successful
-      if (transaction.paymentStatus === 'SUCCESS') {
-        try {
-          // Create expense entry for the bill payment
-          // Using generic BBPS category code - will be mapped to correct expense category
-          await bbpsExpenseIntegration.createExpenseFromBbpsPayment({
-            transactionId: transaction.id,
-            userId: req.user!.id,
-            billerCode: transaction.billerCode || 'BBPS',
-            billerName: 'Bill Payment', // Generic name, can be enhanced later
-            categoryCode: 'UTILITIES', // Default to utilities, will be mapped correctly
-            amount: parseFloat(paymentAmount), // Amount is already in rupees
-            transactionDate: transaction.completedAt || new Date(),
-            customerParam: transaction.customerParam,
-          });
-        } catch (expenseError) {
-          console.error('Failed to create expense from BBPS payment:', expenseError);
-          // Don't fail the payment response if expense creation fails
-        }
+      // Get user details for Cashfree
+      const user = await storage.getUser(req.user.id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
       }
 
-      res.json(transaction);
+      // Initiate payment with Cashfree
+      const result = await BBPSService.initiateBillPayment({
+        billId,
+        paymentAmount,
+        userId: req.user.id,
+        userPhone: user.mobile || undefined,
+        userEmail: user.email || undefined,
+        userName: user.name || undefined,
+      });
+
+      // Return payment URL for redirect
+      res.json({
+        success: true,
+        transactionId: result.transaction.transactionId,
+        paymentUrl: result.paymentUrl,
+        message: "Payment initiated successfully. Redirecting to payment gateway...",
+      });
     } catch (error) {
-      console.error("Error processing payment:", error);
-      res.status(500).json({ error: "Failed to process payment" });
+      console.error("Error initiating payment:", error);
+      res.status(500).json({ error: "Failed to initiate payment" });
     }
   });
 
+  // Cashfree payment callback handler
+  app.get("/api/bbps/payment-callback", async (req, res) => {
+    try {
+      const { order_id } = req.query;
+
+      if (!order_id || typeof order_id !== 'string') {
+        return res.redirect('/?payment=error&message=Invalid callback');
+      }
+
+      // Get order status from Cashfree
+      const orderStatus = await cashfreeService.getOrderStatus(order_id);
+
+      if (!orderStatus) {
+        return res.redirect('/?payment=error&message=Order not found');
+      }
+
+      // Get BBPS transaction by Cashfree order ID
+      const transaction = await storage.getBbpsTransactionByReference(order_id);
+
+      if (!transaction) {
+        return res.redirect('/?payment=error&message=Transaction not found');
+      }
+
+      // Update transaction status based on Cashfree response
+      const paymentSuccess = orderStatus.orderStatus === 'PAID';
+      const updatedTransaction = await BBPSService.confirmPayment({
+        transactionId: transaction.transactionId,
+        cashfreeOrderId: order_id,
+        status: paymentSuccess ? 'SUCCESS' : 'FAILED',
+        bbpsTransactionId: orderStatus.transactionId,
+        failureReason: paymentSuccess ? undefined : `Payment ${orderStatus.orderStatus}`,
+      });
+
+      // Create expense if payment is successful
+      if (paymentSuccess) {
+        try {
+          // Get bill and biller details
+          const bill = await storage.getBbpsBillById(transaction.billId);
+          const biller = bill ? await storage.getBbpsBillerById(bill.billerId) : null;
+          const category = biller ? await storage.getBbpsCategoryById(biller.categoryId) : null;
+
+          await bbpsExpenseIntegration.createExpenseFromBbpsPayment({
+            transactionId: updatedTransaction.id,
+            userId: transaction.userId,
+            billerCode: transaction.billerCode,
+            billerName: biller?.billerName || 'Bill Payment',
+            categoryCode: category?.categoryCode || 'UTILITIES',
+            amount: parseFloat(transaction.amount),
+            transactionDate: updatedTransaction.completedAt || new Date(),
+            customerParam: transaction.customerParam,
+          });
+
+          console.log(`✅ Expense created for BBPS payment: ${transaction.transactionId}`);
+        } catch (expenseError) {
+          console.error('Failed to create expense from BBPS payment:', expenseError);
+          // Don't fail the payment callback if expense creation fails
+        }
+      }
+
+      // Redirect to frontend with payment status
+      const redirectUrl = paymentSuccess 
+        ? `/bbps?payment=success&transactionId=${transaction.transactionId}`
+        : `/bbps?payment=failed&transactionId=${transaction.transactionId}&reason=${encodeURIComponent(orderStatus.orderStatus)}`;
+
+      res.redirect(redirectUrl);
+    } catch (error) {
+      console.error("Error handling payment callback:", error);
+      res.redirect('/?payment=error&message=Callback processing failed');
+    }
+  });
   // Get user's bill history
   app.get("/api/bbps/bills", async (req, res) => {
     try {

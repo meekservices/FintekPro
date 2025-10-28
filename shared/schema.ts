@@ -5531,9 +5531,11 @@ export const bbpsTransactions = pgTable("bbps_transactions", {
   billId: varchar("bill_id").references(() => bbpsCustomerBills.id),
   billerCode: varchar("biller_code").notNull(),
   customerParam: varchar("customer_param").notNull(),
-  paymentAmount: varchar("payment_amount").notNull(), // Amount in paise
+  amount: varchar("amount").notNull(), // Amount in rupees (for Cashfree integration)
+  paymentAmount: varchar("payment_amount").notNull(), // Amount in paise (for BBPS API)
   transactionId: varchar("transaction_id").unique(), // Our internal transaction ID
   bbpsTransactionId: varchar("bbps_transaction_id"), // BBPS network transaction ID
+  cashfreeOrderId: varchar("cashfree_order_id"), // Cashfree payment order ID
   paymentStatus: varchar("payment_status").default("PENDING"), // PENDING, SUCCESS, FAILED, INITIATED
   paymentMode: varchar("payment_mode"), // UPI, NETBANKING, DEBITCARD, etc.
   transactionReference: varchar("transaction_reference"), // Bank reference number
