@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -124,10 +125,44 @@ export default function BBPSPage() {
   const [selectedBiller, setSelectedBiller] = useState<BbpsBiller | null>(null);
   const [customerParam, setCustomerParam] = useState("");
   const [fetchedBill, setFetchedBill] = useState<BbpsCustomerBill | null>(null);
-  const [paymentMode, setPaymentMode] = useState("");
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [location] = useLocation();
+
+  // Handle payment callback from Cashfree
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentStatus = urlParams.get('payment');
+    const transactionId = urlParams.get('transactionId');
+    const message = urlParams.get('message');
+
+    if (paymentStatus) {
+      if (paymentStatus === 'success' && transactionId) {
+        toast({
+          title: "Payment Successful!",
+          description: `Your bill payment was successful. Transaction ID: ${transactionId}`,
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/bbps/transactions"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/bbps/bills"] });
+      } else if (paymentStatus === 'failed') {
+        toast({
+          title: "Payment Failed",
+          description: message || "Your payment could not be processed. Please try again.",
+          variant: "destructive",
+        });
+      } else if (paymentStatus === 'error') {
+        toast({
+          title: "Payment Error",
+          description: message || "An error occurred during payment processing.",
+          variant: "destructive",
+        });
+      }
+
+      // Clean up URL parameters
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [toast, queryClient]);
 
   // Fetch categories
   const { data: categories = [] } = useQuery<BbpsCategory[]>({
@@ -186,7 +221,7 @@ export default function BBPSPage() {
 
   // Pay bill mutation
   const payBillMutation = useMutation({
-    mutationFn: async (data: { billId: string; paymentAmount: string; paymentMode: string }) => {
+    mutationFn: async (data: { billId: string; paymentAmount: string }) => {
       const response = await fetch("/api/bbps/pay-bill", {
         method: "POST",
         headers: {
@@ -196,27 +231,32 @@ export default function BBPSPage() {
       });
       
       if (!response.ok) {
-        throw new Error("Failed to process payment");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.details || errorData.error || "Failed to process payment");
       }
       
       return response.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/bbps/transactions"] });
-      setFetchedBill(null);
-      setCustomerParam("");
-      setSelectedBiller(null);
-      setPaymentMode("");
-      
-      toast({
-        title: "Payment initiated",
-        description: `Transaction ID: ${data.transactionId}`,
-      });
+      if (data.success && data.paymentUrl) {
+        // Redirect to Cashfree payment page
+        toast({
+          title: "Redirecting to payment gateway...",
+          description: "Please complete your payment on the secure payment page.",
+        });
+        
+        // Redirect after a short delay to let user see the toast
+        setTimeout(() => {
+          window.location.href = data.paymentUrl;
+        }, 1000);
+      } else {
+        throw new Error(data.message || "Failed to get payment URL");
+      }
     },
     onError: (error: any) => {
       toast({
-        title: "Payment failed",
-        description: error.message || "Failed to process payment.",
+        title: "Payment Initiation Failed",
+        description: error.message || "Failed to initiate payment. Please try again.",
         variant: "destructive",
       });
     },
@@ -239,10 +279,10 @@ export default function BBPSPage() {
   };
 
   const handlePayBill = () => {
-    if (!fetchedBill || !paymentMode) {
+    if (!fetchedBill) {
       toast({
         title: "Missing information",
-        description: "Please select a payment mode.",
+        description: "Please fetch a bill first.",
         variant: "destructive",
       });
       return;
@@ -251,7 +291,6 @@ export default function BBPSPage() {
     payBillMutation.mutate({
       billId: fetchedBill.id,
       paymentAmount: fetchedBill.billAmount || "0",
-      paymentMode,
     });
   };
 
@@ -442,29 +481,21 @@ export default function BBPSPage() {
                     </div>
 
                     <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label data-testid="label-payment-mode">Payment Mode</Label>
-                        <Select value={paymentMode} onValueChange={setPaymentMode}>
-                          <SelectTrigger data-testid="select-payment-mode">
-                            <SelectValue placeholder="Select payment mode" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="UPI" data-testid="payment-mode-upi">UPI</SelectItem>
-                            <SelectItem value="NETBANKING" data-testid="payment-mode-netbanking">Net Banking</SelectItem>
-                            <SelectItem value="DEBITCARD" data-testid="payment-mode-debitcard">Debit Card</SelectItem>
-                            <SelectItem value="CREDITCARD" data-testid="payment-mode-creditcard">Credit Card</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                      <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800">
+                        <AlertDescription className="text-sm">
+                          You'll be redirected to Cashfree payment gateway to complete your payment securely using UPI, Net Banking, Cards, or other payment methods.
+                        </AlertDescription>
+                      </Alert>
 
                       <Button 
                         onClick={handlePayBill}
-                        disabled={payBillMutation.isPending || !paymentMode}
+                        disabled={payBillMutation.isPending}
                         className="w-full"
                         size="lg"
                         data-testid="button-pay-bill"
                       >
-                        {payBillMutation.isPending ? "Processing..." : `Pay ${formatCurrency(fetchedBill.billAmount || "0")}`}
+                        <CreditCard className="mr-2 h-5 w-5" />
+                        {payBillMutation.isPending ? "Initiating Payment..." : `Pay ${formatCurrency(fetchedBill.billAmount || "0")}`}
                       </Button>
                     </div>
                   </>
