@@ -42,6 +42,19 @@ The platform employs a subdomain-based portal architecture for Admin, Partner, a
 - Frontend: Error parser (`client/src/lib/queryClient.ts`) updated with backward compatibility for both old and new response formats
 - Next phase: Incremental migration of remaining complex error handlers while maintaining backward compatibility
 
+### Duplicate Detection & Prevention System
+
+**Production-Ready Backend Implementation** (Oct 28): Complete duplicate client registration detection system
+- Service: `server/services/duplicateDetectionService.ts` with SQL-based detection using indexed joins (linear complexity)
+- Features: Levenshtein fuzzy name matching, risk scoring, PAN/email/mobile duplicate detection
+- Database: Indexes added to users table (idx_users_email, idx_users_mobile, idx_users_pan_number) for performance
+- Registration Validation: `/api/clients` endpoint blocks PAN duplicates (409 error) and returns email/mobile warnings in response
+- Admin APIs: Duplicate listing, stats, check, and merge endpoints at `/api/admin/duplicates`, `/api/admin/duplicate-stats`, `/api/admin/check-duplicates`, `/api/admin/merge-accounts`
+- Admin UI: Duplicate Management dashboard at `client/src/pages/admin/duplicate-management.tsx` with merge functionality
+- Design Choice: Email/mobile intentionally not unique in schema to allow family member sharing per regulatory requirements
+- Merge Functionality: Deactivates duplicate accounts (does not transfer related data like transactions/portfolios) - honest messaging implemented
+- Status: Backend production-ready, frontend registration warnings and family linking flows pending
+
 ## External Dependencies
 
 ### Third-Party APIs
