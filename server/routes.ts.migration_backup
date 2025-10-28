@@ -281,13 +281,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         details: { preferences, timestamp, version }
       });
       
-      res.json({ 
-        success: true, 
-        message: "Consent preferences recorded successfully" 
-      });
+      return apiResponse.success(res, { preferences, timestamp, version }, "Consent preferences recorded successfully");
     } catch (error) {
       console.error("Error recording consent:", error);
-      res.status(500).json({ error: "Failed to record consent preferences" });
+      return apiResponse.serverError(res, "Failed to record consent preferences");
     }
   });
 
@@ -594,13 +591,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const profile = await storage.getUserProfile(userId);
       
       if (!profile) {
-        return res.status(404).json({ error: "Profile not found" });
+        return apiResponse.notFound(res, "Profile not found");
       }
       
-      res.json(profile);
+      return apiResponse.success(res, profile);
     } catch (error) {
       console.error("Error fetching user profile:", error);
-      res.status(500).json({ error: "Failed to fetch profile" });
+      return apiResponse.serverError(res, "Failed to fetch profile");
     }
   });
 
@@ -612,10 +609,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       const profile = await storage.upsertUserProfile(profileData);
-      res.json(profile);
+      return apiResponse.success(res, profile, "Profile updated successfully");
     } catch (error) {
       console.error("Error updating user profile:", error);
-      res.status(500).json({ error: "Failed to update profile" });
+      return apiResponse.serverError(res, "Failed to update profile");
     }
   });
 
@@ -629,22 +626,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const profile = await storage.getUserProfile(userId);
       
       if (!user) {
-        return res.status(404).json({ error: "User not found" });
+        return apiResponse.notFound(res, "User not found");
       }
       
-      res.json({
+      return apiResponse.success(res, {
         ...user,
         ...profile,
         roles: user.roles || ((user as any).role ? [(user as any).role] : []) // Backwards compatibility
       });
     } catch (error) {
       console.error("Error fetching user profile:", error);
-      res.status(500).json({ error: "Failed to fetch profile" });
+      return apiResponse.serverError(res, "Failed to fetch profile");
     }
   });
-
-  app.put("/api/user/profile", requireClientOrHigher, async (req, res) => {
-    try {
       const userId = req.user!.id;
       
       // Clients can only update their own profile
@@ -655,10 +649,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       const profile = await storage.upsertUserProfile(profileData);
-      res.json(profile);
+      return apiResponse.success(res, profile, "Profile updated successfully");
     } catch (error) {
       console.error("Error updating user profile:", error);
-      res.status(500).json({ error: "Failed to update profile" });
+      return apiResponse.serverError(res, "Failed to update profile");
     }
   });
 
@@ -691,7 +685,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const result = await resetReKYCProcess(userId);
       
-      return apiResponse.success(res, result, "Re-KYC process initiated successfully");
+        data: result,
+      });
     } catch (error) {
       console.error("Error triggering Re-KYC:", error);
       return apiResponse.serverError(res, "Failed to trigger Re-KYC process");
@@ -717,7 +712,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       if (!user) {
-        return res.status(404).json({ error: "User not found" });
+        return apiResponse.notFound(res, "User not found");
       }
       
       // Get user profile for KYC tier and net worth information
@@ -922,7 +917,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // TODO: Calculate from expense tracking system
       const recommendedEmergencyFund = 300000; // Placeholder: ₹3L
       
-      return apiResponse.success(res, {
+      res.json({
+        success: true,
+        data: {
           summary: {
             netWorth: parseFloat(netWorth.toFixed(2)),
             totalAssets: parseFloat(totalAssets.toFixed(2)),
@@ -981,7 +978,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error aggregating net worth:", error);
-      return apiResponse.serverError(res, "Failed to calculate net worth");
+      res.status(500).json({
+        success: false,
+        error: "Failed to calculate net worth"
+      });
     }
   });
 
@@ -994,6 +994,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const profile = await storage.getUserProfile(userId);
       if (!profile) {
         return apiResponse.notFound(res, "User profile not found");
+          success: false,
+          error: "User profile not found",
+        });
       }
 
       // Get KYC status to determine verification level
@@ -1041,6 +1044,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       return apiResponse.success(res, {
+        success: true,
+        data: {
           userId,
           clientType: profile.clientType || "individual",
           entityType: profile.entityType,
@@ -1051,9 +1056,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // digilockerVerified: profile.digilockerVerified || false, // Property doesn't exist in schema
             videoKycCompleted: profile.videoKycCompleted || false,
           },
+        },
+      });
     } catch (error) {
       console.error("Error fetching product verification status:", error);
-      return apiResponse.serverError(res, "Failed to fetch product verification status");
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch product verification status",
+      });
     }
   });
 
@@ -1064,10 +1074,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const result = await triggerReKYCRemindersManually();
       
-      return apiResponse.success(res, result, "Re-KYC reminders sent");
+      res.json({
+        success: true,
+        message: "Re-KYC reminders sent",
+        data: result,
+      });
     } catch (error) {
       console.error("Error triggering Re-KYC reminders:", error);
-      return apiResponse.serverError(res, "Failed to send Re-KYC reminders");
+      return apiResponse.serverError(res, "Failed to trigger Re-KYC process");
+        error: "Failed to send Re-KYC reminders",
     }
   });
 
@@ -2772,10 +2787,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       ];
 
-      return apiResponse.success(res, { rates: loanRates, lastUpdated: new Date().toISOString(), ratesTrend: "stable" });
+      res.json({
+        rates: loanRates,
+        lastUpdated: new Date().toISOString(),
+        ratesTrend: "stable" // stable, increasing, decreasing
+      });
     } catch (error) {
       console.error("Error fetching loan rates:", error);
-      return apiResponse.serverError(res, "Failed to fetch loan rates");
+      res.status(500).json({ error: "Failed to fetch loan rates" });
     }
   });
 
@@ -10211,7 +10230,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(result);
     } catch (error: any) {
       console.error("Error checking loan eligibility:", error);
-      return apiResponse.serverError(res, "Failed to check loan eligibility");
+      res.status(500).json({
+        success: false,
+        error: "Failed to check loan eligibility"
+      });
     }
   });
 
@@ -10275,7 +10297,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       console.error("Error fetching loan applications:", error);
-      return apiResponse.serverError(res, "Failed to fetch loan applications");
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch loan applications"
+      });
     }
   });
 
@@ -10559,10 +10584,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const application = await storage.createLoanApplicationMarketplace(applicationData as any);
       
-      return apiResponse.success(res, application);
+      res.json({
+        success: true,
+        data: application
+      });
     } catch (error: any) {
       console.error("Error creating loan application:", error);
-      return apiResponse.serverError(res, "Failed to create loan application");
+      res.status(500).json({
+        success: false,
+        error: "Failed to create loan application"
+      });
     }
   });
 
@@ -10577,7 +10608,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       console.error("Error fetching loan applications:", error);
-      return apiResponse.serverError(res, "Failed to fetch loan applications");
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch loan applications"
+      });
     }
   });
 
@@ -10594,7 +10628,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      return apiResponse.success(res, application);
+      res.json({
+        success: true,
+        data: application
+      });
     } catch (error: any) {
       console.error("Error fetching loan application:", error);
       res.status(500).json({
@@ -10991,7 +11028,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.getUser(userId);
       
       if (!user) {
-        return res.status(404).json({ error: "User not found" });
+        return apiResponse.notFound(res, "User not found");
       }
       
       if (!user.panNumber) {
@@ -17337,7 +17374,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Access denied" });
       }
 
-      return apiResponse.success(res, application);
+      res.json({ success: true, data: application });
     } catch (error) {
       console.error("Error fetching partner application:", error);
       res.status(500).json({ error: "Failed to fetch application" });
@@ -18002,7 +18039,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedUser = await storage.updateUser(userId, updates);
       
       if (!updatedUser) {
-        return res.status(404).json({ error: "User not found" });
+        return apiResponse.notFound(res, "User not found");
       }
       
       await adminService.logActivity({
@@ -18028,7 +18065,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get user info before deletion for logging
       const user = await storage.getUser(userId);
       if (!user) {
-        return res.status(404).json({ error: "User not found" });
+        return apiResponse.notFound(res, "User not found");
       }
       
       // Prevent deletion of admin users by non-super-admin
@@ -23903,7 +23940,10 @@ System Security Data:`;
       const { portfolioId, requestedAmount } = req.body;
       
       if (!portfolioId || !requestedAmount) {
-        return apiResponse.badRequest(res, "Portfolio ID and requested amount are required");
+        return res.status(400).json({
+          success: false,
+          error: "Portfolio ID and requested amount are required"
+        });
       }
 
       // Get portfolio holdings
@@ -23924,10 +23964,16 @@ System Security Data:`;
         eligibleAssets: holdings.filter(h => ['equity', 'mf'].includes(h.assetType))
       };
 
-      return apiResponse.success(res, eligibilityData);
+      res.json({
+        success: true,
+        data: eligibilityData
+      });
     } catch (error) {
       console.error("Error checking loan eligibility:", error);
-      return apiResponse.serverError(res, "Failed to check loan eligibility");
+      res.status(500).json({
+        success: false,
+        error: "Failed to check loan eligibility"
+      });
     }
   });
 
@@ -23945,10 +23991,16 @@ System Security Data:`;
         status: "pending"
       });
 
-      return apiResponse.success(res, application);
+      res.json({
+        success: true,
+        data: application
+      });
     } catch (error) {
       console.error("Error creating loan application:", error);
-      return apiResponse.serverError(res, "Failed to create loan application");
+      res.status(500).json({
+        success: false,
+        error: "Failed to create loan application"
+      });
     }
   });
 
@@ -23958,10 +24010,16 @@ System Security Data:`;
       const { userId } = req.params;
       const loans = await storage.getUserLoans(userId);
       
-      return apiResponse.success(res, loans);
+      res.json({
+        success: true,
+        data: loans
+      });
     } catch (error) {
       console.error("Error fetching user loans:", error);
-      return apiResponse.serverError(res, "Failed to fetch loan applications");
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch loan applications"
+      });
     }
   });
 
@@ -23972,13 +24030,22 @@ System Security Data:`;
       const loan = await storage.getLoanApplication(loanId);
       
       if (!loan) {
-        return apiResponse.notFound(res, "Loan application not found");
+        return res.status(404).json({
+          success: false,
+          error: "Loan application not found"
+        });
       }
       
-      return apiResponse.success(res, loan);
+      res.json({
+        success: true,
+        data: loan
+      });
     } catch (error) {
       console.error("Error fetching loan details:", error);
-      return apiResponse.serverError(res, "Failed to fetch loan details");
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch loan details"
+      });
     }
   });
 
@@ -23996,10 +24063,16 @@ System Security Data:`;
         disbursalDate: status === 'disbursed' ? new Date() : undefined
       });
       
-      return apiResponse.success(res, updatedLoan);
+      res.json({
+        success: true,
+        data: updatedLoan
+      });
     } catch (error) {
       console.error("Error updating loan status:", error);
-      return apiResponse.serverError(res, "Failed to update loan status");
+      res.status(500).json({
+        success: false,
+        error: "Failed to update loan status"
+      });
     }
   });
 
@@ -27067,7 +27140,10 @@ System Security Data:`;
 
     } catch (error) {
       console.error("Error checking loan eligibility:", error);
-      return apiResponse.serverError(res, "Failed to check loan eligibility");
+      res.status(500).json({
+        success: false,
+        error: "Failed to check loan eligibility"
+      });
     }
   });
 

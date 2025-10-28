@@ -1,7 +1,6 @@
 import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-
 // Extend Express Request to include partner property
 declare global {
   namespace Express {
@@ -17,7 +16,7 @@ import { setupAuth as setupLocalAuth } from "./auth";
 import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema, insertCapitalGainsReportSchema, insertTransactionReportSchema, insertTransactionRecordSchema, insertCkycRecordSchema, insertCkycDocumentSchema, userCart, userCartItems, storeProducts, storeCategories, fundComparisons, portfolioComparisons, comparisonHistory, insertFamilyGroupSchema, insertFamilyMemberSchema, insertFamilyGoalSchema, insertFamilyGoalContributionSchema, insertFamilyActivityLogSchema, insertFamilyDiscussionSchema, insertFamilyBudgetSchema, kycFormProgress, insertProductAccountPreferenceSchema } from "@shared/schema";
 import { marketStoryService, type MarketData as StoryMarketData } from "./market-story-service";
 import { generateMarketInsight, analyzePortfolio, generateInvestmentStory, explainFinancialConcept } from "./gemini";
-import { twilioWhatsAppService as whatsappService } from "./twilio-whatsapp";
+import { whatsappService } from "./whatsapp";
 import { marketingService } from "./marketing-automation";
 import { portfolioIntelligence } from "./portfolio-intelligence";
 import { adminService } from "./admin-service";
@@ -66,9 +65,7 @@ import { PANConsentService } from './services/pan-consent-service';
 import { sandboxKYCService } from './services/sandbox-kyc-service';
 import { AadhaarMockService } from './services/aadhaar-mock-service';
 import { CashfreeAadhaarService } from './services/cashfree-aadhaar-service';
-import { CashfreePANService } from './services/cashfree-pan-service';
 import { DemographicProtectionService } from './services/demographic-protection-service';
-import { AutoPopulationOrchestrator } from './services/auto-population-orchestrator';
 import { providerRegistry, type UnifiedApplicationData } from './partner-application-adapters';
 import { insertPartnerApplicationSchema, insertCashfreeTransactionSchema, insertPhonePeTransactionSchema } from '@shared/schema';
 import { cashfreeService } from './cashfree-service';
@@ -86,7 +83,6 @@ import { verifyBankAccountPennyDrop, validateIFSC, validateAccountNumber, isName
 import { lookupIFSC, isValidIFSCFormat } from './ifsc-lookup-service';
 import { ProductAccountService } from './product-account-service';
 import { BSEStarKYCService } from './services/bse-star-kyc-service';
-import { autoPopulationRouter } from "./auto-population-routes";
 import * as schema from "@shared/schema";
 
 // Tax Calculation Request Validation Schemas
@@ -141,12 +137,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize WhatsApp service with secure version
   // DISABLED: WhatsApp QR code generation causes excessive log output
   // Uncomment when needed for WhatsApp authentication features
-  try {
-    await whatsappService.initialize();
-    console.log('✅ WhatsApp service initialized successfully');
-  } catch (error) {
-    console.log('⚠️ WhatsApp service initialization failed (non-critical):', error instanceof Error ? error.message : 'Unknown error');
-  }
+  // try {
+  //   await whatsappService.initialize();
+  //   console.log('✅ WhatsApp service initialized successfully');
+  // } catch (error) {
+  //   console.log('⚠️ WhatsApp service initialization failed (non-critical):', error instanceof Error ? error.message : 'Unknown error');
+  // }
   
   // Start mutual funds background refresh job
   mutualFundsRefreshJob.start();
@@ -566,50 +562,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Phone number is required" });
       }
 
-      // Normalize phone number by extracting last 10 digits for matching
-      const normalizePhone = (phone: string) => {
-        const cleaned = phone.replace(/\D/g, ''); // Remove non-digits
-        // For Indian numbers, get last 10 digits (handles both with/without country code)
-        return cleaned.length >= 10 ? cleaned.slice(-10) : cleaned;
-      };
-
-      const normalizedInput = normalizePhone(phoneNumber);
-
-      // DEBUG LOGGING - START
-      console.log("\n🔍 ===== WhatsApp Login Debug =====");
-      console.log("📱 Input phoneNumber:", phoneNumber);
-      console.log("✨ Normalized input:", normalizedInput);
-      console.log("🔢 Input length:", phoneNumber.length, "| Normalized length:", normalizedInput.length);
-      // DEBUG LOGGING - END
-
-      // Check if user exists with this phone number (flexible matching)
+      // Check if user exists with this phone number
       const users = await storage.getAllUsers();
-      
-      // DEBUG LOGGING - Database users
-      console.log("\n👥 Database users with mobile numbers:");
-      users.forEach((u, idx) => {
-        if (u.mobile) {
-          const normalizedMobile = normalizePhone(u.mobile);
-          const matches = normalizedMobile === normalizedInput;
-          console.log(`  [${idx}] userId: ${u.userId}, mobile: "${u.mobile}", normalized: "${normalizedMobile}", matches: ${matches ? '✅' : '❌'}`);
-        }
-      });
-      console.log("===================================\n");
-      
-      const user = users.find(u => {
-        if (!u.mobile) return false;
-        const normalizedMobile = normalizePhone(u.mobile);
-        return normalizedMobile === normalizedInput;
-      });
+      const user = users.find(u => u.mobile === phoneNumber);
       
       if (!user) {
-        console.log("❌ No user found matching normalized input:", normalizedInput);
         return res.status(404).json({ 
           error: "No account found with this phone number. Please register first." 
         });
       }
-      
-      console.log("✅ User found:", user.userId, user.firstName, user.lastName);
 
       // Create authentication session
       const sessionId = await whatsappService.createAuthSession(phoneNumber);
@@ -721,21 +682,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get verified KYC profile data (name, PAN, tier, verification date)
-  app.get("/api/profile/kyc-verified-data", requireClientOrHigher, async (req, res) => {
-    try {
-      const { getVerifiedKYCProfile } = await import("./services/verified-kyc-profile-service");
-      const userId = req.user!.id;
-      
-      const verifiedData = await getVerifiedKYCProfile(userId);
-      
-      return res.json(apiResponse.success(verifiedData));
-    } catch (error) {
-      console.error("Error fetching verified KYC data:", error);
-      return res.status(500).json(apiResponse.serverError("Failed to fetch verified KYC data"));
-    }
-  });
-
   // Trigger Re-KYC process
   app.post("/api/profile/trigger-rekyc", requireClientOrHigher, async (req, res) => {
     try {
@@ -744,17 +690,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const result = await resetReKYCProcess(userId);
       
-      res.json({
-        success: true,
-        message: "Re-KYC process initiated successfully",
-        data: result,
-      });
+      res.json(result);
     } catch (error) {
       console.error("Error triggering Re-KYC:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to trigger Re-KYC process",
-      });
+      res.status(500).json({ error: "Failed to trigger Re-KYC process" });
     }
   });
 
@@ -983,8 +922,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const recommendedEmergencyFund = 300000; // Placeholder: ₹3L
       
       res.json({
-        success: true,
-        data: {
           summary: {
             netWorth: parseFloat(netWorth.toFixed(2)),
             totalAssets: parseFloat(totalAssets.toFixed(2)),
@@ -1040,13 +977,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             recommendedEmergencyFund: recommendedEmergencyFund
           }
         }
-      });
+      );
     } catch (error) {
       console.error("Error aggregating net worth:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to calculate net worth"
-      });
+      res.status(500).json({ error: "Failed to calculate net worth" });
     }
   });
 
@@ -1058,10 +992,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get user profile to determine client type and entity type
       const profile = await storage.getUserProfile(userId);
       if (!profile) {
-        return res.status(404).json({
-          success: false,
-          error: "User profile not found",
-        });
+        return res.status(404).json({ error: "User profile not found" });
       }
 
       // Get KYC status to determine verification level
@@ -1108,9 +1039,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
       };
 
-      res.json({
-        success: true,
-        data: {
+      return apiResponse.success(res, {
           userId,
           clientType: profile.clientType || "individual",
           entityType: profile.entityType,
@@ -1121,14 +1050,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // digilockerVerified: profile.digilockerVerified || false, // Property doesn't exist in schema
             videoKycCompleted: profile.videoKycCompleted || false,
           },
-        },
       });
-    } catch (error) {
       console.error("Error fetching product verification status:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to fetch product verification status",
-      });
+    } catch (error) {
+      return apiResponse.serverError(res, "Failed to fetch product verification status");
     }
   });
 
@@ -1139,17 +1064,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const result = await triggerReKYCRemindersManually();
       
-      res.json({
-        success: true,
-        message: "Re-KYC reminders sent",
-        data: result,
-      });
+      return apiResponse.success(res, result, "Re-KYC reminders sent");
     } catch (error) {
       console.error("Error triggering Re-KYC reminders:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to send Re-KYC reminders",
-      });
+      return apiResponse.serverError(res, "Failed to send Re-KYC reminders");
     }
   });
 
@@ -1799,15 +1717,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message: "Invalid session"
         });
       }
-      // Verify PAN using Cashfree API
-      const verification = await CashfreePANService.verifyIndividualPAN(panNumber, fullName, dob);
+      
+      // Verify PAN using Sandbox API with name parameter
+      const verification = await sandboxKYCService.verifyIndividualPAN(panNumber, fullName, dob);
       
       
-      // Cashfree returns wrapped response with success/verified/data
-      if (!verification.verified || !verification.data) {
+      // verification returns IndividualPANDetails directly (no success wrapper)
+      if (!verification || !verification.pan) {
         return res.json({
           success: false,
-          message: verification.message || "PAN verification failed"
+          message: "PAN verification failed"
         });
       }
       
@@ -1817,11 +1736,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         panDob: new Date(dob),
         panVerified: true,
         panVerificationData: {
-          name: verification.data.registeredName,
-          fatherName: null, // Cashfree doesn't provide fatherName
-          panType: verification.data.type,
-          nameMatchScore: verification.data.nameMatchScore,
-          aadhaarLinked: verification.data.aadhaarSeedingStatus === 'Y'
+          name: verification.fullName,
+          fatherName: verification.fatherName
         },
         panVerifiedAt: new Date(),
         currentStep: "aadhaar_otp",
@@ -1955,9 +1871,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
       
-      // Transfer verified KYC data to user profile
-      const { transferVerifiedKYCData } = await import("./services/kyc-completion-service");
-      await transferVerifiedKYCData(userId, session, verification.data);
+      // Also update user's verification status
+      await storage.updateUser(userId, {
+        panVerifiedViaSmartKyc: true,
+        panVerificationDate: session.panVerifiedAt,
+        aadhaarVerifiedViaSmartKyc: true,
+        aadhaarVerificationDate: new Date()
+      });
       
       res.json({
         success: true,
@@ -2852,14 +2772,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       ];
 
-      res.json({
-        rates: loanRates,
-        lastUpdated: new Date().toISOString(),
-        ratesTrend: "stable" // stable, increasing, decreasing
-      });
+      return apiResponse.success(res, { rates: loanRates, lastUpdated: new Date().toISOString(), ratesTrend: "stable" });
     } catch (error) {
       console.error("Error fetching loan rates:", error);
-      res.status(500).json({ error: "Failed to fetch loan rates" });
+      return apiResponse.serverError(res, "Failed to fetch loan rates");
     }
   });
 
@@ -10295,10 +10211,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(result);
     } catch (error: any) {
       console.error("Error checking loan eligibility:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to check loan eligibility"
-      });
+      return apiResponse.serverError(res, "Failed to check loan eligibility");
     }
   });
 
@@ -10362,10 +10275,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       console.error("Error fetching loan applications:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to fetch loan applications"
-      });
+      return apiResponse.serverError(res, "Failed to fetch loan applications");
     }
   });
 
@@ -10649,16 +10559,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const application = await storage.createLoanApplicationMarketplace(applicationData as any);
       
-      res.json({
-        success: true,
-        data: application
-      });
+      return apiResponse.success(res, application);
     } catch (error: any) {
       console.error("Error creating loan application:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to create loan application"
-      });
+      return apiResponse.serverError(res, "Failed to create loan application");
     }
   });
 
@@ -10673,10 +10577,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       console.error("Error fetching loan applications:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to fetch loan applications"
-      });
+      return apiResponse.serverError(res, "Failed to fetch loan applications");
     }
   });
 
@@ -10693,10 +10594,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      res.json({
-        success: true,
-        data: application
-      });
+      return apiResponse.success(res, application);
     } catch (error: any) {
       console.error("Error fetching loan application:", error);
       res.status(500).json({
@@ -17439,7 +17337,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Access denied" });
       }
 
-      res.json({ success: true, data: application });
+      return apiResponse.success(res, application);
     } catch (error) {
       console.error("Error fetching partner application:", error);
       res.status(500).json({ error: "Failed to fetch application" });
@@ -18338,74 +18236,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-
-  // Admin Store Management - Get all store products
-  app.get("/api/admin/store-products", requireAdmin, async (req, res) => {
-    try {
-      const products = await storage.getAllStoreProducts();
-      res.json(products);
-    } catch (error) {
-      console.error("Error fetching store products:", error);
-      res.status(500).json({ error: "Failed to fetch store products" });
-    }
-  });
-
-  // Admin Store Management - Update store product status
-  app.patch("/api/admin/store-products/:id", requireAdmin, async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { isActive } = req.body;
-
-      if (typeof isActive !== 'boolean') {
-        return res.status(400).json({ error: "isActive must be a boolean value" });
-      }
-
-      const updated = await storage.updateStoreProductStatus(id, isActive);
-      
-      if (!updated) {
-        return res.status(404).json({ error: "Product not found" });
-      }
-
-      res.json(updated);
-    } catch (error) {
-      console.error("Error updating product status:", error);
-      res.status(500).json({ error: "Failed to update product status" });
-    }
-  });
-
-  // Admin Store Management - Get all store categories
-  app.get("/api/admin/store-categories", requireAdmin, async (req, res) => {
-    try {
-      const categories = await storage.getAllStoreCategories();
-      res.json(categories);
-    } catch (error) {
-      console.error("Error fetching store categories:", error);
-      res.status(500).json({ error: "Failed to fetch store categories" });
-    }
-  });
-
-  // Admin Store Management - Update store category status
-  app.patch("/api/admin/store-categories/:id", requireAdmin, async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { isActive } = req.body;
-
-      if (typeof isActive !== 'boolean') {
-        return res.status(400).json({ error: "isActive must be a boolean value" });
-      }
-
-      const updated = await storage.updateStoreCategoryStatus(id, isActive);
-      
-      if (!updated) {
-        return res.status(404).json({ error: "Category not found" });
-      }
-
-      res.json(updated);
-    } catch (error) {
-      console.error("Error updating category status:", error);
-      res.status(500).json({ error: "Failed to update category status" });
-    }
-  });
   // Admin Activity Feed - Recent system activities
   app.get("/api/admin/activities", requireAdmin, async (req, res) => {
     try {
@@ -24073,10 +23903,7 @@ System Security Data:`;
       const { portfolioId, requestedAmount } = req.body;
       
       if (!portfolioId || !requestedAmount) {
-        return res.status(400).json({
-          success: false,
-          error: "Portfolio ID and requested amount are required"
-        });
+        return apiResponse.badRequest(res, "Portfolio ID and requested amount are required");
       }
 
       // Get portfolio holdings
@@ -24097,16 +23924,10 @@ System Security Data:`;
         eligibleAssets: holdings.filter(h => ['equity', 'mf'].includes(h.assetType))
       };
 
-      res.json({
-        success: true,
-        data: eligibilityData
-      });
+      return apiResponse.success(res, eligibilityData);
     } catch (error) {
       console.error("Error checking loan eligibility:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to check loan eligibility"
-      });
+      return apiResponse.serverError(res, "Failed to check loan eligibility");
     }
   });
 
@@ -24124,16 +23945,10 @@ System Security Data:`;
         status: "pending"
       });
 
-      res.json({
-        success: true,
-        data: application
-      });
+      return apiResponse.success(res, application);
     } catch (error) {
       console.error("Error creating loan application:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to create loan application"
-      });
+      return apiResponse.serverError(res, "Failed to create loan application");
     }
   });
 
@@ -24143,16 +23958,10 @@ System Security Data:`;
       const { userId } = req.params;
       const loans = await storage.getUserLoans(userId);
       
-      res.json({
-        success: true,
-        data: loans
-      });
+      return apiResponse.success(res, loans);
     } catch (error) {
       console.error("Error fetching user loans:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to fetch loan applications"
-      });
+      return apiResponse.serverError(res, "Failed to fetch loan applications");
     }
   });
 
@@ -24163,22 +23972,13 @@ System Security Data:`;
       const loan = await storage.getLoanApplication(loanId);
       
       if (!loan) {
-        return res.status(404).json({
-          success: false,
-          error: "Loan application not found"
-        });
+        return apiResponse.notFound(res, "Loan application not found");
       }
       
-      res.json({
-        success: true,
-        data: loan
-      });
+      return apiResponse.success(res, loan);
     } catch (error) {
       console.error("Error fetching loan details:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to fetch loan details"
-      });
+      return apiResponse.serverError(res, "Failed to fetch loan details");
     }
   });
 
@@ -24196,16 +23996,10 @@ System Security Data:`;
         disbursalDate: status === 'disbursed' ? new Date() : undefined
       });
       
-      res.json({
-        success: true,
-        data: updatedLoan
-      });
+      return apiResponse.success(res, updatedLoan);
     } catch (error) {
       console.error("Error updating loan status:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to update loan status"
-      });
+      return apiResponse.serverError(res, "Failed to update loan status");
     }
   });
 
@@ -24840,7 +24634,6 @@ System Security Data:`;
   app.post("/api/cibil/improvement-tips", CibilAPI.getCreditImprovementTips);
   app.post("/api/cibil/loan-eligibility", CibilAPI.checkLoanEligibility);
   app.post("/api/cibil/card-eligibility", CibilAPI.checkCreditCardEligibility);
-  app.post("/api/cibil/fetch-loan-liabilities", CibilAPI.fetchLoanLiabilities);
   
   // Personalized Loan Recommendations
   app.get("/api/loans/personalized-recommendations", getPersonalizedLoanRecommendations);
@@ -27134,120 +26927,55 @@ System Security Data:`;
   });
 
   // Process bill payment
-  // Process bill payment - Initiate Cashfree payment
   app.post("/api/bbps/pay-bill", async (req, res) => {
     try {
       if (!req.user?.id) {
         return res.status(401).json({ error: "Authentication required" });
       }
 
-      const { billId, paymentAmount } = req.body;
+      const { billId, paymentAmount, paymentMode } = req.body;
       
-      if (!billId || !paymentAmount) {
+      if (!billId || !paymentAmount || !paymentMode) {
         return res.status(400).json({ 
-          error: "billId and paymentAmount are required" 
+          error: "billId, paymentAmount, and paymentMode are required" 
         });
       }
 
-      // Get user details for Cashfree
-      const user = await storage.getUser(req.user.id);
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-
-      // Initiate payment with Cashfree
-      const result = await BBPSService.initiateBillPayment({
+      const transaction = await BBPSService.payBill({
         billId,
         paymentAmount,
-        userId: req.user.id,
-        userPhone: user.mobile || undefined,
-        userEmail: user.email || undefined,
-        userName: user.name || undefined,
+        paymentMode,
+        userId: req.user!.id,
       });
 
-      // Return payment URL for redirect
-      res.json({
-        success: true,
-        transactionId: result.transaction.transactionId,
-        paymentUrl: result.paymentUrl,
-        message: "Payment initiated successfully. Redirecting to payment gateway...",
-      });
-    } catch (error) {
-      console.error("Error initiating payment:", error);
-      res.status(500).json({ error: "Failed to initiate payment" });
-    }
-  });
-
-  // Cashfree payment callback handler
-  app.get("/api/bbps/payment-callback", async (req, res) => {
-    try {
-      const { order_id } = req.query;
-
-      if (!order_id || typeof order_id !== 'string') {
-        return res.redirect('/?payment=error&message=Invalid callback');
-      }
-
-      // Get order status from Cashfree
-      const orderStatus = await cashfreeService.getOrderStatus(order_id);
-
-      if (!orderStatus) {
-        return res.redirect('/?payment=error&message=Order not found');
-      }
-
-      // Get BBPS transaction by Cashfree order ID
-      const transaction = await storage.getBbpsTransactionByReference(order_id);
-
-      if (!transaction) {
-        return res.redirect('/?payment=error&message=Transaction not found');
-      }
-
-      // Update transaction status based on Cashfree response
-      const paymentSuccess = orderStatus.orderStatus === 'PAID';
-      const updatedTransaction = await BBPSService.confirmPayment({
-        transactionId: transaction.transactionId,
-        cashfreeOrderId: order_id,
-        status: paymentSuccess ? 'SUCCESS' : 'FAILED',
-        bbpsTransactionId: orderStatus.transactionId,
-        failureReason: paymentSuccess ? undefined : `Payment ${orderStatus.orderStatus}`,
-      });
-
-      // Create expense if payment is successful
-      if (paymentSuccess) {
+      // Auto-create expense if payment is successful
+      if (transaction.paymentStatus === 'SUCCESS') {
         try {
-          // Get bill and biller details
-          const bill = await storage.getBbpsBillById(transaction.billId);
-          const biller = bill ? await storage.getBbpsBillerById(bill.billerId) : null;
-          const category = biller ? await storage.getBbpsCategoryById(biller.categoryId) : null;
-
+          // Create expense entry for the bill payment
+          // Using generic BBPS category code - will be mapped to correct expense category
           await bbpsExpenseIntegration.createExpenseFromBbpsPayment({
-            transactionId: updatedTransaction.id,
-            userId: transaction.userId,
-            billerCode: transaction.billerCode,
-            billerName: biller?.billerName || 'Bill Payment',
-            categoryCode: category?.categoryCode || 'UTILITIES',
-            amount: parseFloat(transaction.amount),
-            transactionDate: updatedTransaction.completedAt || new Date(),
+            transactionId: transaction.id,
+            userId: req.user!.id,
+            billerCode: transaction.billerCode || 'BBPS',
+            billerName: 'Bill Payment', // Generic name, can be enhanced later
+            categoryCode: 'UTILITIES', // Default to utilities, will be mapped correctly
+            amount: parseFloat(paymentAmount), // Amount is already in rupees
+            transactionDate: transaction.completedAt || new Date(),
             customerParam: transaction.customerParam,
           });
-
-          console.log(`✅ Expense created for BBPS payment: ${transaction.transactionId}`);
         } catch (expenseError) {
           console.error('Failed to create expense from BBPS payment:', expenseError);
-          // Don't fail the payment callback if expense creation fails
+          // Don't fail the payment response if expense creation fails
         }
       }
 
-      // Redirect to frontend with payment status
-      const redirectUrl = paymentSuccess 
-        ? `/bbps?payment=success&transactionId=${transaction.transactionId}`
-        : `/bbps?payment=failed&transactionId=${transaction.transactionId}&reason=${encodeURIComponent(orderStatus.orderStatus)}`;
-
-      res.redirect(redirectUrl);
+      res.json(transaction);
     } catch (error) {
-      console.error("Error handling payment callback:", error);
-      res.redirect('/?payment=error&message=Callback processing failed');
+      console.error("Error processing payment:", error);
+      res.status(500).json({ error: "Failed to process payment" });
     }
   });
+
   // Get user's bill history
   app.get("/api/bbps/bills", async (req, res) => {
     try {
@@ -27339,10 +27067,7 @@ System Security Data:`;
 
     } catch (error) {
       console.error("Error checking loan eligibility:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to check loan eligibility"
-      });
+      return apiResponse.serverError(res, "Failed to check loan eligibility");
     }
   });
 
@@ -28950,42 +28675,23 @@ System Security Data:`;
     try {
       const signature = req.headers['x-webhook-signature'] as string;
       const timestamp = req.headers['x-webhook-timestamp'] as string;
-      
-      // req.body is a Buffer because we use express.raw() middleware for this route
-      const rawBody = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : JSON.stringify(req.body);
+      const rawBody = JSON.stringify(req.body);
 
       if (!signature || !timestamp) {
         return res.status(400).json({ message: 'Missing webhook headers' });
       }
 
-      // Verify webhook signature with raw body
       const isValid = cashfreeService.verifyWebhookSignature(signature, rawBody, timestamp);
       if (!isValid) {
         console.error('Cashfree webhook signature verification failed');
-        complianceMonitor.logEvent({
-          eventType: 'payment',
-          action: 'webhook_signature_failed',
-          outcome: 'failure',
-          riskLevel: 'critical',
-          details: 'Webhook signature verification failed - possible tampering attempt'
-        });
         return res.status(400).json({ message: 'Invalid signature' });
       }
 
-      // Parse the webhook data from raw body
-      const webhookData = Buffer.isBuffer(req.body) ? JSON.parse(rawBody) : req.body;
+      const webhookData = req.body;
       const orderId = webhookData.data?.order?.order_id;
 
       if (!orderId) {
         return res.status(400).json({ message: 'Invalid order ID' });
-      }
-
-      // Verify order status with Cashfree API (don't trust webhook data alone)
-      const verifiedOrderStatus = await cashfreeService.getOrderStatus(orderId);
-      
-      if (!verifiedOrderStatus) {
-        console.error(`Failed to verify order status for ${orderId}`);
-        return res.status(400).json({ message: 'Could not verify order status' });
       }
 
       const transaction = await storage.getCashfreeTransaction(orderId);
@@ -28993,14 +28699,13 @@ System Security Data:`;
         return res.status(404).json({ message: 'Transaction not found' });
       }
 
-      // Use verified status from Cashfree API, not webhook data
-      const paymentStatus = verifiedOrderStatus.orderStatus;
+      const paymentStatus = webhookData.data?.order?.order_status;
       
       await storage.updateCashfreeTransaction(transaction.id, {
         status: paymentStatus || 'FAILED',
-        cashfreeOrderId: verifiedOrderStatus.cfOrderId,
+        cashfreeOrderId: webhookData.data?.order?.cf_order_id,
         paymentMethod: webhookData.data?.payment?.payment_method,
-        gatewayResponse: { webhook: webhookData, verified: verifiedOrderStatus } as any,
+        gatewayResponse: webhookData as any,
         webhookReceivedAt: new Date(),
         completedAt: paymentStatus === 'PAID' ? new Date() : undefined
       });
@@ -29017,10 +28722,10 @@ System Security Data:`;
             orderId: unifiedOrderId,
             paymentStatus: paymentStatus === 'PAID' ? 'success' : paymentStatus === 'FAILED' ? 'failed' : 'pending',
             paymentGateway: 'cashfree',
-            transactionId: verifiedOrderStatus.cfOrderId || transaction.id,
-            amount: verifiedOrderStatus.orderAmount || 0,
-            currency: verifiedOrderStatus.orderCurrency || 'INR',
-            gatewayResponse: { webhook: webhookData, verified: verifiedOrderStatus },
+            transactionId: webhookData.data?.order?.cf_order_id || transaction.id,
+            amount: webhookData.data?.order?.order_amount || 0,
+            currency: webhookData.data?.order?.order_currency || 'INR',
+            gatewayResponse: webhookData,
             timestamp: new Date(),
           });
         } catch (bridgeError) {
@@ -29054,8 +28759,7 @@ System Security Data:`;
         resource: orderId,
         outcome: 'success',
         riskLevel: 'medium',
-        userId: transaction.userId,
-        details: `Order status verified: ${paymentStatus}`
+        userId: transaction.userId
       });
 
       res.json({ success: true, message: 'Webhook processed' });
@@ -30447,160 +30151,4 @@ System Security Data:`;
   });
 
   return server;
-  // ===========================
-  // PRE-APPROVED LOAN OFFERS
-  // ===========================
-  
-  // Get pre-approved loan offers for user
-  app.get("/api/loan-offers", requireAuth, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const offers = await storage.getPreApprovedLoanOffers(userId);
-      
-      complianceMonitor.logEvent({
-        userId,
-        eventType: 'data_access',
-        action: 'GET /api/loan-offers',
-        outcome: 'success',
-        riskLevel: 'low'
-      });
-      
-      res.json(offers);
-    } catch (error) {
-      console.error("Error fetching loan offers:", error);
-      res.status(500).json({ message: "Failed to fetch loan offers" });
-    }
-  });
-  
-  // Proceed with a loan offer (track application start)
-  app.post("/api/loan-offers/:id/proceed", requireAuth, async (req: any, res) => {
-    try {
-      const { id } = req.params;
-      const userId = req.user.id;
-      
-      // Mark offer as viewed and update status to in_progress
-      await storage.markLoanOfferAsViewed(id);
-      const updatedOffer = await storage.updateLoanOfferApplicationStatus(id, 'in_progress');
-      
-      if (!updatedOffer) {
-        return res.status(404).json({ message: "Loan offer not found" });
-      }
-      
-      complianceMonitor.logEvent({
-        userId,
-        eventType: 'loan_application',
-        action: 'POST /api/loan-offers/:id/proceed',
-        resource: `/api/loan-offers/${id}/proceed`,
-        metadata: { lenderName: updatedOffer.lenderName, offerAmount: updatedOffer.offerAmount },
-        outcome: 'success',
-        riskLevel: 'medium'
-      });
-      
-      res.json({
-        message: "Application initiated successfully",
-        offer: updatedOffer,
-        redirectUrl: updatedOffer.partnerApplicationUrl,
-      });
-    } catch (error) {
-      console.error("Error processing loan application:", error);
-      res.status(500).json({ message: "Failed to process loan application" });
-    }
-  });
-
-  // Auto-Population System Routes
-
-  // Admin: Duplicate Account Detection
-  app.get("/api/admin/duplicates", requireAdmin, async (req: any, res: any) => {
-    try {
-      // Find duplicate emails
-      const duplicateEmails = await db
-        .select({
-          email: schema.users.email,
-          count: sql<number>`COUNT(*)::int`,
-        })
-        .from(schema.users)
-        .groupBy(schema.users.email)
-        .having(sql`COUNT(*) > 1`);
-
-      // Find duplicate mobiles
-      const duplicateMobiles = await db
-        .select({
-          mobile: schema.users.mobile,
-          count: sql<number>`COUNT(*)::int`,
-        })
-        .from(schema.users)
-        .groupBy(schema.users.mobile)
-        .having(sql`COUNT(*) > 1`);
-
-      // Get full user details for duplicate emails
-      const emailDuplicateDetails = await Promise.all(
-        duplicateEmails.map(async ({ email }) => {
-          const users = await db.query.users.findMany({
-            where: eq(schema.users.email, email),
-            columns: {
-              id: true,
-              userId: true,
-              email: true,
-              mobile: true,
-              firstName: true,
-              middleName: true,
-              lastName: true,
-              createdAt: true,
-              role: true,
-              isActive: true,
-            },
-            orderBy: schema.users.createdAt,
-          });
-          return { email, count: users.length, users };
-        })
-      );
-
-      // Get full user details for duplicate mobiles
-      const mobileDuplicateDetails = await Promise.all(
-        duplicateMobiles.map(async ({ mobile }) => {
-          const users = await db.query.users.findMany({
-            where: eq(schema.users.mobile, mobile),
-            columns: {
-              id: true,
-              userId: true,
-              email: true,
-              mobile: true,
-              firstName: true,
-              middleName: true,
-              lastName: true,
-              createdAt: true,
-              role: true,
-              isActive: true,
-            },
-            orderBy: schema.users.createdAt,
-          });
-          return { mobile, count: users.length, users };
-        })
-      );
-
-      res.json({
-        success: true,
-        data: {
-          duplicateEmails: emailDuplicateDetails,
-          duplicateMobiles: mobileDuplicateDetails,
-          summary: {
-            totalDuplicateEmails: duplicateEmails.length,
-            totalDuplicateMobiles: duplicateMobiles.length,
-            totalAffectedAccounts: 
-              emailDuplicateDetails.reduce((sum, dup) => sum + dup.count, 0) +
-              mobileDuplicateDetails.reduce((sum, dup) => sum + dup.count, 0),
-          },
-        },
-      });
-    } catch (error) {
-      console.error("Error detecting duplicates:", error);
-      res.status(500).json({ 
-        success: false,
-        error: "Failed to detect duplicate accounts" 
-      });
-    }
-  });
-
-  app.use("/api/auto-populate", autoPopulationRouter);
-
 }
