@@ -230,6 +230,10 @@ app.use((req, res, next) => {
   const { registerMarketingRoutes } = await import('./marketing-routes');
   registerMarketingRoutes(app);
   
+  // Register User Management routes (Admin user CRUD operations)
+  const { registerUserManagementRoutes } = await import('./user-management-routes');
+  registerUserManagementRoutes(app);
+  
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

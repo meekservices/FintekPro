@@ -118,6 +118,7 @@ import WhatsAppCampaigns from "@/pages/admin/whatsapp-campaigns";
 import LeadProspecting from "@/pages/admin/lead-prospecting";
 import ClientIntelligence from "@/pages/admin/client-intelligence";
 import MarketingAnalytics from "@/pages/admin/marketing-analytics";
+import UserManagement from "@/pages/admin/user-management";
 
 function UserProtectedRoutes() {
   return (
@@ -389,10 +390,7 @@ function AdminRoutes() {
       <Route path="/admin/users">
         {() => (
           <AdminLayout>
-            <div className="text-center py-20">
-              <h2 className="text-2xl font-bold text-white mb-4">User Management</h2>
-              <p className="text-gray-400">Coming soon...</p>
-            </div>
+            <UserManagement />
           </AdminLayout>
         )}
       </Route>
