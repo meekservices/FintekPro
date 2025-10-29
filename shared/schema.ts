@@ -9171,3 +9171,295 @@ export const insertAutoPopulationStatusSchema = createInsertSchema(autoPopulatio
 export type AutoPopulationStatus = typeof autoPopulationStatus.$inferSelect;
 export type InsertAutoPopulationStatus = z.infer<typeof insertAutoPopulationStatusSchema>;
 
+// Marketing Campaigns - Email and WhatsApp campaigns using Zoho and AiSensy
+export const marketingCampaigns = pgTable("marketing_campaigns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Campaign details
+  name: varchar("name").notNull(),
+  description: text("description"),
+  campaignType: varchar("campaign_type").notNull(), // email/whatsapp/sms/multi_channel
+  
+  // Channel specific IDs
+  zohoCampaignId: varchar("zoho_campaign_id"), // Zoho Campaigns API campaign ID
+  aisensyBroadcastId: varchar("aisensy_broadcast_id"), // AiSensy broadcast ID
+  
+  // Status
+  status: varchar("status").notNull().default("draft"), // draft/scheduled/sending/sent/failed/cancelled
+  
+  // Audience
+  targetSegment: varchar("target_segment"), // new_users/kyc_pending/active_traders/inactive_users/custom
+  customFilters: jsonb("custom_filters"), // Advanced filtering criteria
+  recipientCount: integer("recipient_count").default(0),
+  
+  // Email specific
+  emailSubject: varchar("email_subject"),
+  emailFromName: varchar("email_from_name"),
+  emailReplyTo: varchar("email_reply_to"),
+  emailHtmlContent: text("email_html_content"),
+  emailTextContent: text("email_text_content"),
+  
+  // WhatsApp specific
+  whatsappTemplateId: varchar("whatsapp_template_id"), // Approved template ID
+  whatsappTemplateName: varchar("whatsapp_template_name"),
+  whatsappMessage: text("whatsapp_message"),
+  whatsappMediaUrl: varchar("whatsapp_media_url"), // Image/video/document URL
+  whatsappButtons: jsonb("whatsapp_buttons"), // Interactive buttons
+  
+  // Scheduling
+  scheduledAt: timestamp("scheduled_at"),
+  sendAt: timestamp("send_at"), // Actual send time
+  
+  // Performance metrics
+  sentCount: integer("sent_count").default(0),
+  deliveredCount: integer("delivered_count").default(0),
+  openedCount: integer("opened_count").default(0),
+  clickedCount: integer("clicked_count").default(0),
+  bouncedCount: integer("bounced_count").default(0),
+  unsubscribedCount: integer("unsubscribed_count").default(0),
+  
+  // Conversion tracking
+  conversionGoal: varchar("conversion_goal"), // kyc_completion/investment/loan_application
+  conversionsCount: integer("conversions_count").default(0),
+  revenue: numeric("revenue", { precision: 15, scale: 2 }),
+  
+  // Creator
+  createdBy: varchar("created_by").references(() => users.id),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+}, (table) => [
+  index("idx_campaign_type").on(table.campaignType),
+  index("idx_campaign_status").on(table.status),
+  index("idx_campaign_created").on(table.createdAt),
+]);
+
+// Campaign Recipients - Track individual campaign sends
+export const campaignRecipients = pgTable("campaign_recipients", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  campaignId: varchar("campaign_id").references(() => marketingCampaigns.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Contact details (denormalized for historical tracking)
+  email: varchar("email"),
+  mobile: varchar("mobile"),
+  fullName: varchar("full_name"),
+  
+  // Status
+  status: varchar("status").notNull().default("pending"), // pending/sent/delivered/opened/clicked/bounced/failed/unsubscribed
+  
+  // Engagement tracking
+  sentAt: timestamp("sent_at"),
+  deliveredAt: timestamp("delivered_at"),
+  openedAt: timestamp("opened_at"),
+  clickedAt: timestamp("clicked_at"),
+  unsubscribedAt: timestamp("unsubscribed_at"),
+  
+  // Conversion tracking
+  converted: boolean("converted").default(false),
+  convertedAt: timestamp("converted_at"),
+  conversionValue: numeric("conversion_value", { precision: 15, scale: 2 }),
+  
+  // Error handling
+  errorMessage: text("error_message"),
+  retryCount: integer("retry_count").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_campaign_recipient_campaign").on(table.campaignId),
+  index("idx_campaign_recipient_user").on(table.userId),
+  index("idx_campaign_recipient_status").on(table.status),
+]);
+
+// Prospect Leads - Companies from Probe42 or other sources
+export const prospectLeads = pgTable("prospect_leads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Company identification
+  cin: varchar("cin"), // Company Identification Number
+  companyName: varchar("company_name").notNull(),
+  registrationNumber: varchar("registration_number"),
+  
+  // Contact details
+  primaryEmail: varchar("primary_email"),
+  primaryMobile: varchar("primary_mobile"),
+  website: varchar("website"),
+  
+  // Address
+  address: text("address"),
+  city: varchar("city"),
+  state: varchar("state"),
+  pincode: varchar("pincode"),
+  
+  // Financial information from Probe42
+  paidUpCapital: numeric("paid_up_capital", { precision: 15, scale: 2 }),
+  authorizedCapital: numeric("authorized_capital", { precision: 15, scale: 2 }),
+  annualRevenue: numeric("annual_revenue", { precision: 15, scale: 2 }),
+  netProfit: numeric("net_profit", { precision: 15, scale: 2 }),
+  ebitda: numeric("ebitda", { precision: 15, scale: 2 }),
+  totalAssets: numeric("total_assets", { precision: 15, scale: 2 }),
+  
+  // Financial metrics
+  debtToEquityRatio: numeric("debt_to_equity_ratio", { precision: 10, scale: 2 }),
+  currentRatio: numeric("current_ratio", { precision: 10, scale: 2 }),
+  roe: numeric("roe", { precision: 10, scale: 2 }), // Return on Equity
+  probe42Score: integer("probe42_score"), // 1-5 financial strength score
+  
+  // Classification
+  industrySegment: varchar("industry_segment"),
+  companyCategory: varchar("company_category"), // msme/large_enterprise/mid_market
+  riskLevel: varchar("risk_level"), // low/medium/high
+  
+  // Directors information
+  directors: jsonb("directors"), // Array of director details from Probe42
+  authorizedSignatories: jsonb("authorized_signatories"),
+  
+  // Lead scoring
+  leadScore: integer("lead_score").default(0), // 0-100 custom scoring
+  leadQuality: varchar("lead_quality"), // hot/warm/cold
+  investableSurplus: numeric("investable_surplus", { precision: 15, scale: 2 }), // Estimated investable cash
+  
+  // Status
+  status: varchar("status").notNull().default("new"), // new/contacted/qualified/converted/rejected/on_hold
+  assignedTo: varchar("assigned_to").references(() => users.id), // Agent/partner assigned
+  
+  // Source tracking
+  source: varchar("source").notNull().default("probe42"), // probe42/manual/referral/import
+  importBatchId: varchar("import_batch_id"), // Batch import tracking
+  
+  // Engagement
+  lastContactedAt: timestamp("last_contacted_at"),
+  nextFollowUpAt: timestamp("next_follow_up_at"),
+  notes: text("notes"),
+  
+  // Conversion
+  convertedToUserId: varchar("converted_to_user_id").references(() => users.id),
+  convertedAt: timestamp("converted_at"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_prospect_cin").on(table.cin),
+  index("idx_prospect_company_name").on(table.companyName),
+  index("idx_prospect_status").on(table.status),
+  index("idx_prospect_score").on(table.leadScore),
+  index("idx_prospect_assigned").on(table.assignedTo),
+  index("idx_prospect_created").on(table.createdAt),
+]);
+
+// Lead Activities - Track all interactions with prospect leads
+export const leadActivities = pgTable("lead_activities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  leadId: varchar("lead_id").references(() => prospectLeads.id).notNull(),
+  
+  // Activity details
+  activityType: varchar("activity_type").notNull(), // call/email/whatsapp/meeting/note/status_change
+  subject: varchar("subject"),
+  description: text("description"),
+  
+  // Outcome
+  outcome: varchar("outcome"), // successful/no_response/callback_requested/not_interested
+  nextAction: varchar("next_action"),
+  nextActionDate: timestamp("next_action_date"),
+  
+  // Performed by
+  performedBy: varchar("performed_by").references(() => users.id),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_lead_activity_lead").on(table.leadId),
+  index("idx_lead_activity_type").on(table.activityType),
+  index("idx_lead_activity_created").on(table.createdAt),
+]);
+
+// Client Intelligence - Probe42 data for existing clients
+export const clientIntelligence = pgTable("client_intelligence", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  
+  // Probe42 company verification (for corporate clients)
+  cin: varchar("cin"),
+  companyVerified: boolean("company_verified").default(false),
+  
+  // Financial health metrics
+  probe42Score: integer("probe42_score"), // 1-5 score
+  financialHealthStatus: varchar("financial_health_status"), // excellent/good/fair/poor/critical
+  
+  // Business metrics
+  annualRevenue: numeric("annual_revenue", { precision: 15, scale: 2 }),
+  netProfit: numeric("net_profit", { precision: 15, scale: 2 }),
+  totalAssets: numeric("total_assets", { precision: 15, scale: 2 }),
+  
+  // Risk indicators
+  riskLevel: varchar("risk_level"), // low/medium/high/critical
+  riskFactors: jsonb("risk_factors"), // Array of identified risk factors
+  legalCases: jsonb("legal_cases"), // Ongoing litigation
+  complianceIssues: jsonb("compliance_issues"),
+  
+  // Opportunity scoring
+  crossSellScore: integer("cross_sell_score").default(0), // 0-100
+  upsellPotential: varchar("upsell_potential"), // high/medium/low
+  recommendedProducts: jsonb("recommended_products"), // AI recommended products
+  
+  // Group company tracking
+  groupCompanies: jsonb("group_companies"), // Related entities
+  totalGroupRevenue: numeric("total_group_revenue", { precision: 15, scale: 2 }),
+  
+  // Refresh tracking
+  lastRefreshedAt: timestamp("last_refreshed_at"),
+  nextRefreshDue: timestamp("next_refresh_due"),
+  refreshFrequency: varchar("refresh_frequency").default("monthly"), // weekly/monthly/quarterly
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_client_intel_user").on(table.userId),
+  index("idx_client_intel_score").on(table.probe42Score),
+  index("idx_client_intel_risk").on(table.riskLevel),
+]);
+
+// Insert schemas and types for marketing tables
+export const insertMarketingCampaignSchema = createInsertSchema(marketingCampaigns).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type MarketingCampaign = typeof marketingCampaigns.$inferSelect;
+export type InsertMarketingCampaign = z.infer<typeof insertMarketingCampaignSchema>;
+
+export const insertCampaignRecipientSchema = createInsertSchema(campaignRecipients).omit({
+  id: true,
+  createdAt: true,
+});
+export type CampaignRecipient = typeof campaignRecipients.$inferSelect;
+export type InsertCampaignRecipient = z.infer<typeof insertCampaignRecipientSchema>;
+
+export const insertProspectLeadSchema = createInsertSchema(prospectLeads).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type ProspectLead = typeof prospectLeads.$inferSelect;
+export type InsertProspectLead = z.infer<typeof insertProspectLeadSchema>;
+
+export const insertLeadActivitySchema = createInsertSchema(leadActivities).omit({
+  id: true,
+  createdAt: true,
+});
+export type LeadActivity = typeof leadActivities.$inferSelect;
+export type InsertLeadActivity = z.infer<typeof insertLeadActivitySchema>;
+
+export const insertClientIntelligenceSchema = createInsertSchema(clientIntelligence).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type ClientIntelligence = typeof clientIntelligence.$inferSelect;
+export type InsertClientIntelligence = z.infer<typeof insertClientIntelligenceSchema>;
+
