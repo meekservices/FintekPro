@@ -6,39 +6,33 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Mail, Plus, Send, Eye, MousePointerClick, Calendar, RefreshCw } from 'lucide-react';
+import { MessageSquare, Plus, Send, Eye, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { LoadingState } from '@/components/LoadingState';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 
-interface EmailCampaign {
+interface WhatsAppCampaign {
   id: string;
   name: string;
-  emailSubject: string;
-  emailFromName: string;
-  emailReplyTo: string | null;
-  emailHtmlContent: string;
+  whatsappTemplateName: string | null;
+  whatsappMessage: string | null;
   status: string;
   sentCount: number;
   deliveredCount: number;
   openedCount: number;
-  clickedCount: number;
   recipientCount: number;
   createdAt: string;
-  scheduledAt: string | null;
 }
 
-export default function EmailCampaigns() {
+export default function WhatsAppCampaigns() {
   const { toast } = useToast();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [selectedCampaign, setSelectedCampaign] = useState<EmailCampaign | null>(null);
 
-  const { data: campaigns, isLoading } = useQuery<EmailCampaign[]>({
-    queryKey: ['/api/admin/marketing/campaigns'],
+  const { data: campaigns, isLoading } = useQuery<WhatsAppCampaign[]>({
+    queryKey: ['/api/admin/marketing/campaigns', 'whatsapp'],
     queryFn: async () => {
-      const response = await fetch('/api/admin/marketing/campaigns?type=email');
+      const response = await fetch('/api/admin/marketing/campaigns?type=whatsapp');
       if (!response.ok) throw new Error('Failed to fetch campaigns');
       return response.json();
     }
@@ -49,9 +43,9 @@ export default function EmailCampaigns() {
       return apiRequest('/api/admin/marketing/campaigns', 'POST', data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/marketing/campaigns'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/marketing/campaigns', 'whatsapp'] });
       setIsCreateOpen(false);
-      toast({ title: 'Campaign created successfully' });
+      toast({ title: 'WhatsApp campaign created successfully' });
     },
     onError: () => {
       toast({ 
@@ -63,7 +57,7 @@ export default function EmailCampaigns() {
 
   const sendCampaignMutation = useMutation({
     mutationFn: async ({ campaignId, sendNow }: { campaignId: string; sendNow: boolean }) => {
-      const response = await fetch(`/api/admin/marketing/campaigns/${campaignId}/send-email`, {
+      const response = await fetch(`/api/admin/marketing/campaigns/${campaignId}/send-whatsapp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sendNow })
@@ -72,12 +66,12 @@ export default function EmailCampaigns() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/marketing/campaigns'] });
-      toast({ title: 'Campaign sent successfully' });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/marketing/campaigns', 'whatsapp'] });
+      toast({ title: 'WhatsApp broadcast initiated successfully' });
     },
     onError: () => {
       toast({
-        title: 'Failed to send campaign',
+        title: 'Failed to send broadcast',
         variant: 'destructive'
       });
     }
@@ -88,7 +82,7 @@ export default function EmailCampaigns() {
       return apiRequest(`/api/admin/marketing/campaigns/${campaignId}/sync-analytics`, 'POST');
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/marketing/campaigns'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/marketing/campaigns', 'whatsapp'] });
       toast({ title: 'Analytics synced successfully' });
     }
   });
@@ -100,12 +94,10 @@ export default function EmailCampaigns() {
     createCampaignMutation.mutate({
       name: formData.get('name'),
       description: formData.get('description'),
-      campaignType: 'email',
-      emailSubject: formData.get('emailSubject'),
-      emailFromName: formData.get('emailFromName'),
-      emailReplyTo: formData.get('emailReplyTo'),
-      emailHtmlContent: formData.get('emailHtmlContent'),
-      emailTextContent: formData.get('emailTextContent')
+      campaignType: 'whatsapp',
+      whatsappTemplateName: formData.get('whatsappTemplateName'),
+      whatsappMessage: formData.get('whatsappMessage'),
+      whatsappMediaUrl: formData.get('whatsappMediaUrl')
     });
   };
 
@@ -118,23 +110,23 @@ export default function EmailCampaigns() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Email Campaigns</h1>
+          <h1 className="text-3xl font-bold tracking-tight">WhatsApp Campaigns</h1>
           <p className="text-muted-foreground">
-            Create and manage email campaigns via Zoho Campaigns
+            Send template-based WhatsApp broadcasts via AiSensy Business API
           </p>
         </div>
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
-            <Button data-testid="button-create-campaign">
+            <Button data-testid="button-create-whatsapp-campaign">
               <Plus className="mr-2 h-4 w-4" />
-              Create Campaign
+              Create WhatsApp Campaign
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Create Email Campaign</DialogTitle>
+              <DialogTitle>Create WhatsApp Campaign</DialogTitle>
               <DialogDescription>
-                Design your email campaign. Content will be sent via Zoho Campaigns.
+                Create a WhatsApp broadcast using approved templates from AiSensy
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleCreateCampaign} className="space-y-4">
@@ -143,7 +135,7 @@ export default function EmailCampaigns() {
                 <Input
                   id="name"
                   name="name"
-                  placeholder="Q4 2025 Investment Newsletter"
+                  placeholder="Q4 Investment Opportunities WhatsApp Blast"
                   required
                   data-testid="input-campaign-name"
                 />
@@ -159,66 +151,46 @@ export default function EmailCampaigns() {
                 />
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="emailFromName">From Name</Label>
-                  <Input
-                    id="emailFromName"
-                    name="emailFromName"
-                    placeholder="FintekPro Team"
-                    required
-                    data-testid="input-from-name"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="emailReplyTo">Reply-To Email</Label>
-                  <Input
-                    id="emailReplyTo"
-                    name="emailReplyTo"
-                    type="email"
-                    placeholder="support@fintekpro.in"
-                    data-testid="input-reply-to"
-                  />
-                </div>
-              </div>
-
               <div className="space-y-2">
-                <Label htmlFor="emailSubject">Email Subject</Label>
+                <Label htmlFor="whatsappTemplateName">WhatsApp Template Name</Label>
                 <Input
-                  id="emailSubject"
-                  name="emailSubject"
-                  placeholder="Maximize Your Returns with Our Investment Strategies"
+                  id="whatsappTemplateName"
+                  name="whatsappTemplateName"
+                  placeholder="investment_alert_v2"
                   required
-                  data-testid="input-subject"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="emailHtmlContent">HTML Content</Label>
-                <Textarea
-                  id="emailHtmlContent"
-                  name="emailHtmlContent"
-                  placeholder="<html><body><h1>Hello!</h1><p>Your email content here...</p></body></html>"
-                  rows={10}
-                  required
-                  data-testid="input-html-content"
-                  className="font-mono text-sm"
+                  data-testid="input-template-name"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Use HTML for rich formatting. Variables: {'{{firstName}}'}, {'{{email}}'}
+                  Use an approved template from your AiSensy account. Templates must be pre-approved by WhatsApp.
                 </p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="emailTextContent">Plain Text (Optional)</Label>
+                <Label htmlFor="whatsappMessage">Message Preview</Label>
                 <Textarea
-                  id="emailTextContent"
-                  name="emailTextContent"
-                  placeholder="Plain text fallback version of your email"
-                  rows={4}
-                  data-testid="input-text-content"
+                  id="whatsappMessage"
+                  name="whatsappMessage"
+                  placeholder="Hello! Check out our latest investment opportunities..."
+                  rows={5}
+                  data-testid="input-message"
                 />
+                <p className="text-xs text-muted-foreground">
+                  This is for preview only. Actual message will use the approved template.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="whatsappMediaUrl">Media URL (Optional)</Label>
+                <Input
+                  id="whatsappMediaUrl"
+                  name="whatsappMediaUrl"
+                  type="url"
+                  placeholder="https://example.com/image.jpg"
+                  data-testid="input-media-url"
+                />
+                <p className="text-xs text-muted-foreground">
+                  URL for image, video, or document attachment (if template supports media)
+                </p>
               </div>
 
               <div className="flex justify-end gap-2">
@@ -269,12 +241,12 @@ export default function EmailCampaigns() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Avg Open Rate</CardTitle>
+            <CardTitle className="text-sm font-medium">Delivery Rate</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-avg-open-rate">
+            <div className="text-2xl font-bold" data-testid="text-delivery-rate">
               {campaigns && campaigns.length > 0
-                ? ((campaigns.reduce((sum, c) => sum + (c.sentCount > 0 ? (c.openedCount / c.sentCount) : 0), 0) / campaigns.length) * 100).toFixed(1)
+                ? ((campaigns.reduce((sum, c) => sum + (c.sentCount > 0 ? (c.deliveredCount / c.sentCount) : 0), 0) / campaigns.length) * 100).toFixed(1)
                 : 0}%
             </div>
           </CardContent>
@@ -282,12 +254,12 @@ export default function EmailCampaigns() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Avg Click Rate</CardTitle>
+            <CardTitle className="text-sm font-medium">Read Rate</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-avg-click-rate">
+            <div className="text-2xl font-bold" data-testid="text-read-rate">
               {campaigns && campaigns.length > 0
-                ? ((campaigns.reduce((sum, c) => sum + (c.sentCount > 0 ? (c.clickedCount / c.sentCount) : 0), 0) / campaigns.length) * 100).toFixed(1)
+                ? ((campaigns.reduce((sum, c) => sum + (c.sentCount > 0 ? (c.openedCount / c.sentCount) : 0), 0) / campaigns.length) * 100).toFixed(1)
                 : 0}%
             </div>
           </CardContent>
@@ -297,14 +269,14 @@ export default function EmailCampaigns() {
       {/* Campaigns List */}
       <Card>
         <CardHeader>
-          <CardTitle>All Email Campaigns</CardTitle>
-          <CardDescription>Manage and track your email marketing campaigns</CardDescription>
+          <CardTitle>All WhatsApp Campaigns</CardTitle>
+          <CardDescription>Manage and track your WhatsApp broadcasts</CardDescription>
         </CardHeader>
         <CardContent>
           {!campaigns || campaigns.length === 0 ? (
             <div className="text-center py-12">
-              <Mail className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <p className="text-muted-foreground mb-4">No email campaigns yet</p>
+              <MessageSquare className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+              <p className="text-muted-foreground mb-4">No WhatsApp campaigns yet</p>
               <Button onClick={() => setIsCreateOpen(true)} data-testid="button-create-first">
                 <Plus className="mr-2 h-4 w-4" />
                 Create Your First Campaign
@@ -334,10 +306,10 @@ export default function EmailCampaigns() {
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground mb-2">
-                        Subject: {campaign.emailSubject}
+                        Template: {campaign.whatsappTemplateName || 'Not set'}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        From: {campaign.emailFromName} • Recipients: {campaign.recipientCount}
+                        Recipients: {campaign.recipientCount}
                       </p>
                     </div>
 
@@ -373,36 +345,31 @@ export default function EmailCampaigns() {
 
                   {/* Performance Metrics */}
                   {campaign.sentCount > 0 && (
-                    <div className="mt-4 grid grid-cols-4 gap-4 pt-4 border-t">
+                    <div className="mt-4 grid grid-cols-3 gap-4 pt-4 border-t">
                       <div className="text-center">
                         <Send className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
                         <p className="text-lg font-semibold">{campaign.sentCount}</p>
                         <p className="text-xs text-muted-foreground">Sent</p>
                       </div>
                       <div className="text-center">
-                        <Mail className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
-                        <p className="text-lg font-semibold">{campaign.deliveredCount}</p>
+                        <MessageSquare className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
+                        <p className="text-lg font-semibold">
+                          {campaign.deliveredCount} 
+                          <span className="text-xs text-muted-foreground ml-1">
+                            ({campaign.sentCount > 0 ? ((campaign.deliveredCount / campaign.sentCount) * 100).toFixed(1) : 0}%)
+                          </span>
+                        </p>
                         <p className="text-xs text-muted-foreground">Delivered</p>
                       </div>
                       <div className="text-center">
                         <Eye className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
                         <p className="text-lg font-semibold">
-                          {campaign.openedCount} 
+                          {campaign.openedCount}
                           <span className="text-xs text-muted-foreground ml-1">
                             ({campaign.sentCount > 0 ? ((campaign.openedCount / campaign.sentCount) * 100).toFixed(1) : 0}%)
                           </span>
                         </p>
-                        <p className="text-xs text-muted-foreground">Opened</p>
-                      </div>
-                      <div className="text-center">
-                        <MousePointerClick className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
-                        <p className="text-lg font-semibold">
-                          {campaign.clickedCount}
-                          <span className="text-xs text-muted-foreground ml-1">
-                            ({campaign.sentCount > 0 ? ((campaign.clickedCount / campaign.sentCount) * 100).toFixed(1) : 0}%)
-                          </span>
-                        </p>
-                        <p className="text-xs text-muted-foreground">Clicked</p>
+                        <p className="text-xs text-muted-foreground">Read</p>
                       </div>
                     </div>
                   )}
