@@ -88,13 +88,13 @@ export default function MarketingDashboard() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Link href="/admin/marketing/email-campaigns">
+          <Link href="/admin/email-campaigns">
             <Button data-testid="button-create-email-campaign">
               <Mail className="mr-2 h-4 w-4" />
               New Email Campaign
             </Button>
           </Link>
-          <Link href="/admin/marketing/whatsapp-campaigns">
+          <Link href="/admin/whatsapp-campaigns">
             <Button variant="outline" data-testid="button-create-whatsapp-campaign">
               <MessageSquare className="mr-2 h-4 w-4" />
               New WhatsApp Broadcast
@@ -172,7 +172,7 @@ export default function MarketingDashboard() {
 
       {/* Quick Actions */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Link href="/admin/marketing/email-campaigns">
+        <Link href="/admin/email-campaigns">
           <Card className="cursor-pointer hover:border-primary transition-colors" data-testid="card-email-campaigns">
             <CardHeader>
               <div className="flex items-center gap-2">
@@ -186,7 +186,7 @@ export default function MarketingDashboard() {
           </Card>
         </Link>
 
-        <Link href="/admin/marketing/whatsapp-campaigns">
+        <Link href="/admin/whatsapp-campaigns">
           <Card className="cursor-pointer hover:border-primary transition-colors" data-testid="card-whatsapp-campaigns">
             <CardHeader>
               <div className="flex items-center gap-2">
@@ -200,7 +200,7 @@ export default function MarketingDashboard() {
           </Card>
         </Link>
 
-        <Link href="/admin/marketing/lead-prospecting">
+        <Link href="/admin/lead-prospecting">
           <Card className="cursor-pointer hover:border-primary transition-colors" data-testid="card-lead-prospecting">
             <CardHeader>
               <div className="flex items-center gap-2">

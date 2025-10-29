@@ -17,7 +17,13 @@ import {
   Bell,
   AlertCircle,
   DollarSign,
-  Workflow
+  Workflow,
+  TrendingUp,
+  Mail,
+  MessageSquare,
+  Building2,
+  Target,
+  PieChart
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -76,6 +82,42 @@ const adminNavItems = [
     href: "/admin/zoho-dashboard",
     icon: Workflow,
     description: "CRM, Books, Desk & WorkDrive"
+  },
+  {
+    title: "Marketing Dashboard",
+    href: "/admin/marketing-dashboard",
+    icon: TrendingUp,
+    description: "Campaign overview & performance"
+  },
+  {
+    title: "Email Campaigns",
+    href: "/admin/email-campaigns",
+    icon: Mail,
+    description: "Zoho Campaigns integration"
+  },
+  {
+    title: "WhatsApp Campaigns",
+    href: "/admin/whatsapp-campaigns",
+    icon: MessageSquare,
+    description: "AiSensy Business API broadcasts"
+  },
+  {
+    title: "Lead Prospecting",
+    href: "/admin/lead-prospecting",
+    icon: Building2,
+    description: "Probe42 B2B company search"
+  },
+  {
+    title: "Client Intelligence",
+    href: "/admin/client-intelligence",
+    icon: Target,
+    description: "Client financial health analysis"
+  },
+  {
+    title: "Marketing Analytics",
+    href: "/admin/marketing-analytics",
+    icon: PieChart,
+    description: "Cross-channel performance tracking"
   },
   {
     title: "Production Readiness",

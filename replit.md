@@ -69,6 +69,34 @@ The platform employs a subdomain-based portal architecture for Admin, Partner, a
 - Design enforcement: No user can complete authentication without verifying OTP, strengthening platform security
 - Status: Production-ready, all login flows now require mandatory two-factor verification
 
+### Marketing Automation System
+
+**Complete Implementation** (Oct 29): Advanced marketing automation platform with B2B lead prospecting, email campaigns, and WhatsApp broadcasts
+- **Database Schema**: 6 new tables created via SQL (marketing_campaigns, marketing_contacts, campaign_analytics, prospect_leads, lead_activities, client_intelligence)
+- **Backend Services**: Three external API integrations with singleton pattern and error handling
+  - Probe42 Service (`server/probe42-service.ts`): B2B company search with 2.8M Indian companies, financial data enrichment, lead scoring, Probe42 Score integration
+  - Zoho Campaigns Service (`server/zoho-campaigns-service.ts`): Email marketing platform integration, list management, campaign creation, analytics sync
+  - AiSensy Service (`server/aisensy-service.ts`): WhatsApp Business API for template-based broadcasts, delivery tracking, contact management
+- **Backend Routes**: Comprehensive API at `server/marketing-routes.ts` with 25+ endpoints for campaigns, leads, contacts, analytics, and intelligence
+  - Campaign CRUD operations, email/WhatsApp sending, scheduling, analytics sync
+  - Lead prospecting with Probe42 filters (revenue, profit, score, location)
+  - Contact management and segmentation
+  - Client intelligence scoring and financial health analysis
+- **Admin Frontend Pages**: 6 complete pages integrated into admin portal
+  - Marketing Dashboard (`/admin/marketing-dashboard`): Campaign overview, performance stats, recent activity
+  - Email Campaigns (`/admin/email-campaigns`): Zoho Campaigns integration, list management, send/schedule
+  - WhatsApp Campaigns (`/admin/whatsapp-campaigns`): AiSensy template management, broadcast sending
+  - Lead Prospecting (`/admin/lead-prospecting`): Probe42 company search with financial filters, lead import
+  - Client Intelligence (`/admin/client-intelligence`): Verified client financial health from Probe42, investment potential scoring
+  - Marketing Analytics (`/admin/marketing-analytics`): Cross-channel performance tracking with Recharts visualizations
+- **Navigation**: Integrated into admin sidebar with 6 new menu items (TrendingUp, Mail, MessageSquare, Building2, Target, PieChart icons)
+- **Known Technical Debt** (for future optimization):
+  - Backend: apiResponse utilities not consistently applied (~23 instances), Zod validation not implemented for marketing routes
+  - Frontend: QueryKey hierarchies need refinement (email/WhatsApp campaigns should include type suffix), forms lack zodResolver validation, some data-testid attributes missing
+  - Shared types: Ad-hoc interfaces in pages instead of centralized schema types
+  - Services: Error normalization could be improved, logging context for debugging
+- **Status**: Functional and deployed with working navigation, all features operational. Technical debt items documented for incremental improvement.
+
 ## External Dependencies
 
 ### Third-Party APIs

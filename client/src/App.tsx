@@ -112,6 +112,12 @@ import CreditCardsPage from "@/pages/credit-cards";
 import ProfessionalServicesPage from "@/pages/professional-services";
 import ExpensesBudgets from "@/pages/expenses-budgets";
 import AutoPopulationDashboard from "@/pages/auto-population-dashboard";
+import MarketingDashboard from "@/pages/admin/marketing-dashboard";
+import EmailCampaigns from "@/pages/admin/email-campaigns";
+import WhatsAppCampaigns from "@/pages/admin/whatsapp-campaigns";
+import LeadProspecting from "@/pages/admin/lead-prospecting";
+import ClientIntelligence from "@/pages/admin/client-intelligence";
+import MarketingAnalytics from "@/pages/admin/marketing-analytics";
 
 function UserProtectedRoutes() {
   return (
@@ -318,6 +324,48 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <ZohoLogsPage />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/marketing-dashboard">
+        {() => (
+          <AdminLayout>
+            <MarketingDashboard />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/email-campaigns">
+        {() => (
+          <AdminLayout>
+            <EmailCampaigns />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/whatsapp-campaigns">
+        {() => (
+          <AdminLayout>
+            <WhatsAppCampaigns />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/lead-prospecting">
+        {() => (
+          <AdminLayout>
+            <LeadProspecting />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/client-intelligence">
+        {() => (
+          <AdminLayout>
+            <ClientIntelligence />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/marketing-analytics">
+        {() => (
+          <AdminLayout>
+            <MarketingAnalytics />
           </AdminLayout>
         )}
       </Route>
