@@ -226,6 +226,10 @@ app.use((req, res, next) => {
   const { registerKYCVaultRoutes } = await import('./kyc-vault-routes');
   registerKYCVaultRoutes(app);
   
+  // Register Marketing Automation routes (Zoho Campaigns, AiSensy, Probe42)
+  const { registerMarketingRoutes } = await import('./marketing-routes');
+  registerMarketingRoutes(app);
+  
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
