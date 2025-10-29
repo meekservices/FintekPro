@@ -170,10 +170,10 @@ export function registerMarketingRoutes(app: any) {
         name: campaign.name,
         subject: campaign.emailSubject!,
         fromEmail: campaign.emailFromName!,
-        fromName: campaign.emailFromName,
-        replyTo: campaign.emailReplyTo,
+        fromName: campaign.emailFromName || undefined,
+        replyTo: campaign.emailReplyTo || undefined,
         htmlContent: campaign.emailHtmlContent!,
-        textContent: campaign.emailTextContent
+        textContent: campaign.emailTextContent || undefined
       });
 
       if (!zohoCampaignKey) {
@@ -244,7 +244,7 @@ export function registerMarketingRoutes(app: any) {
         template: {
           templateName: campaign.whatsappTemplateName!,
           bodyParams: req.body.bodyParams || [],
-          mediaUrl: campaign.whatsappMediaUrl
+          mediaUrl: campaign.whatsappMediaUrl || undefined
         },
         recipients: recipients.map(r => ({
           phone: aisensy.formatPhoneNumber(r.mobile!),
@@ -380,10 +380,10 @@ export function registerMarketingRoutes(app: any) {
             targetUsers = await db.select().from(users);
             break;
           case 'kyc_pending':
-            targetUsers = await db.select().from(users).where(eq(users.kycStatus, 'pending'));
+            targetUsers = await db.select().from(users).where(eq(users.kycVerified, false));
             break;
           case 'kyc_verified':
-            targetUsers = await db.select().from(users).where(eq(users.kycStatus, 'verified'));
+            targetUsers = await db.select().from(users).where(eq(users.kycVerified, true));
             break;
           // Add more segments as needed
         }
@@ -497,31 +497,31 @@ export function registerMarketingRoutes(app: any) {
       const [lead] = await db
         .insert(prospectLeads)
         .values({
-          cin: company.cin,
+          cin: company.cin || null,
           companyName: company.companyName,
-          registrationNumber: company.registrationNumber,
-          primaryEmail: company.email,
-          primaryMobile: company.phone,
-          website: company.website,
-          address: company.registeredAddress,
-          city: company.city,
-          state: company.state,
-          pincode: company.pincode,
-          paidUpCapital: company.paidUpCapital,
-          authorizedCapital: company.authorizedCapital,
-          annualRevenue: company.financials?.[0]?.revenue,
-          netProfit: company.financials?.[0]?.netProfit,
-          ebitda: company.financials?.[0]?.ebitda,
-          totalAssets: company.financials?.[0]?.totalAssets,
-          debtToEquityRatio: company.financials?.[0]?.debtToEquityRatio,
-          currentRatio: company.financials?.[0]?.currentRatio,
-          roe: company.financials?.[0]?.roe,
-          probe42Score: company.probe42Score?.score,
+          registrationNumber: company.registrationNumber || null,
+          primaryEmail: company.email || null,
+          primaryMobile: company.phone || null,
+          website: company.website || null,
+          address: company.registeredAddress || null,
+          city: company.city || null,
+          state: company.state || null,
+          pincode: company.pincode || null,
+          paidUpCapital: company.paidUpCapital?.toString() || null,
+          authorizedCapital: company.authorizedCapital?.toString() || null,
+          annualRevenue: company.financials?.[0]?.revenue?.toString() || null,
+          netProfit: company.financials?.[0]?.netProfit?.toString() || null,
+          ebitda: company.financials?.[0]?.ebitda?.toString() || null,
+          totalAssets: company.financials?.[0]?.totalAssets?.toString() || null,
+          debtToEquityRatio: company.financials?.[0]?.debtToEquityRatio?.toString() || null,
+          currentRatio: company.financials?.[0]?.currentRatio?.toString() || null,
+          roe: company.financials?.[0]?.roe?.toString() || null,
+          probe42Score: company.probe42Score?.score || null,
           directors: company.directors as any,
           authorizedSignatories: company.authorizedSignatories as any,
           leadScore,
           leadQuality,
-          investableSurplus,
+          investableSurplus: investableSurplus.toString(),
           source: 'probe42',
           assignedTo: req.body.assignedTo || null
         })
@@ -659,18 +659,19 @@ export function registerMarketingRoutes(app: any) {
 
       // Determine financial health status
       let healthStatus = 'fair';
-      if (company.probe42Score) {
-        if (company.probe42Score.score >= 4) healthStatus = 'excellent';
-        else if (company.probe42Score.score === 3) healthStatus = 'good';
-        else if (company.probe42Score.score === 2) healthStatus = 'fair';
+      const scoreValue = company.probe42Score?.score;
+      if (scoreValue) {
+        if (scoreValue >= 4) healthStatus = 'excellent';
+        else if (scoreValue === 3) healthStatus = 'good';
+        else if (scoreValue === 2) healthStatus = 'fair';
         else healthStatus = 'poor';
       }
 
       // Determine risk level
       let riskLevel = 'medium';
-      if (verification.riskFlags.length === 0 && company.probe42Score?.score >= 4) {
+      if (verification.riskFlags.length === 0 && scoreValue && scoreValue >= 4) {
         riskLevel = 'low';
-      } else if (verification.riskFlags.length >= 3 || company.probe42Score?.score <= 2) {
+      } else if (verification.riskFlags.length >= 3 || (scoreValue && scoreValue <= 2)) {
         riskLevel = 'high';
       }
 
@@ -679,13 +680,13 @@ export function registerMarketingRoutes(app: any) {
         .insert(clientIntelligence)
         .values({
           userId: req.params.userId,
-          cin,
+          cin: cin || null,
           companyVerified: true,
-          probe42Score: company.probe42Score?.score,
+          probe42Score: scoreValue || null,
           financialHealthStatus: healthStatus,
-          annualRevenue: company.financials?.[0]?.revenue,
-          netProfit: company.financials?.[0]?.netProfit,
-          totalAssets: company.financials?.[0]?.totalAssets,
+          annualRevenue: company.financials?.[0]?.revenue?.toString() || null,
+          netProfit: company.financials?.[0]?.netProfit?.toString() || null,
+          totalAssets: company.financials?.[0]?.totalAssets?.toString() || null,
           riskLevel,
           riskFactors: verification.riskFlags as any,
           legalCases: company.legalCases as any,
@@ -695,13 +696,13 @@ export function registerMarketingRoutes(app: any) {
         .onConflictDoUpdate({
           target: clientIntelligence.userId,
           set: {
-            cin,
+            cin: cin || null,
             companyVerified: true,
-            probe42Score: company.probe42Score?.score,
+            probe42Score: scoreValue || null,
             financialHealthStatus: healthStatus,
-            annualRevenue: company.financials?.[0]?.revenue,
-            netProfit: company.financials?.[0]?.netProfit,
-            totalAssets: company.financials?.[0]?.totalAssets,
+            annualRevenue: company.financials?.[0]?.revenue?.toString() || null,
+            netProfit: company.financials?.[0]?.netProfit?.toString() || null,
+            totalAssets: company.financials?.[0]?.totalAssets?.toString() || null,
             riskLevel,
             riskFactors: verification.riskFlags as any,
             legalCases: company.legalCases as any,
