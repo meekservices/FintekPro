@@ -260,27 +260,29 @@ export default function AuthPage() {
       return response;
     },
     onSuccess: (data) => {
-      if (data.requiresOtp) {
-        setLoginStep("otp");
-        setLoginIdentifier(data.identifier || loginForm.getValues("identifier"));
-        setOtpChannel(data.otpSentTo || "your registered email/mobile");
-        otpForm.setValue("identifier", data.identifier || loginForm.getValues("identifier"));
-        setOtpTimer(300); // Reset timer to 5 minutes
-        setCanResendOtp(false);
-        setOtpDialogOpen(true);
+      // /api/login ALWAYS requires OTP verification (no bypass allowed)
+      if (!data.requiresOtp) {
+        console.error("Security Error: Login response missing requiresOtp flag");
         toast({
-          title: "OTP Sent",
-          description: `Verification code sent to ${data.otpSentTo || "your registered email/mobile"}`,
+          title: "Login Error",
+          description: "Invalid login response. Please try again.",
+          variant: "destructive",
         });
-      } else {
-        setLoginStep("complete");
-        queryClient.setQueryData(["/api/user"], data);
-        toast({
-          title: "Login successful",
-          description: "Welcome back!",
-        });
-        navigate("/");
+        return;
       }
+      
+      // Proceed to OTP verification step
+      setLoginStep("otp");
+      setLoginIdentifier(data.identifier || loginForm.getValues("identifier"));
+      setOtpChannel(data.otpSentTo || "your registered email/mobile");
+      otpForm.setValue("identifier", data.identifier || loginForm.getValues("identifier"));
+      setOtpTimer(300); // Reset timer to 5 minutes
+      setCanResendOtp(false);
+      setOtpDialogOpen(true);
+      toast({
+        title: "OTP Sent",
+        description: `Verification code sent to ${data.otpSentTo || "your registered email/mobile"}`,
+      });
     },
     onError: (error: Error) => {
       toast({

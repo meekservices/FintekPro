@@ -58,6 +58,17 @@ The platform employs a subdomain-based portal architecture for Admin, Partner, a
 - Merge Functionality: Deactivates duplicate accounts (does not transfer related data like transactions/portfolios) - honest messaging implemented
 - Status: Production-ready with complete frontend-backend integration
 
+### Authentication Security Enhancement
+
+**Mandatory OTP Enforcement** (Oct 29): Critical security fix to ensure all login attempts require two-factor OTP verification
+- Removed `/api/login/email` endpoint that allowed password-only login without OTP (security vulnerability)
+- Removed `/api/login/mobile` endpoint that allowed password-only login without OTP (security vulnerability)
+- All authentication now flows through `/api/login` (credentials validation + OTP sending) and `/api/login/verify-otp` (OTP verification + session creation)
+- Unified login endpoint accepts email, mobile, or userId as identifier with automatic OTP delivery to appropriate channel
+- OTP delivery channels: Email (via Nodemailer), SMS (via Twilio), WhatsApp (via whatsapp-web.js) with fallback logic
+- Design enforcement: No user can complete authentication without verifying OTP, strengthening platform security
+- Status: Production-ready, all login flows now require mandatory two-factor verification
+
 ## External Dependencies
 
 ### Third-Party APIs

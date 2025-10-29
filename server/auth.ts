@@ -587,64 +587,6 @@ export function setupAuth(app: Express) {
     }
   });
 
-  // Login with email
-  app.post("/api/login/email", (req, res, next) => {
-    passport.authenticate("email-local", (err: any, user: any, info: any) => {
-      if (err) {
-        console.error("Login error:", err);
-        return apiResponse.serverError(res, "Login failed");
-      }
-      if (!user) {
-        return apiResponse.unauthorized(res, info?.message || "Invalid credentials");
-      }
-      req.login(user, (loginErr) => {
-        if (loginErr) {
-          console.error("Login session error:", loginErr);
-          return apiResponse.serverError(res, "Login failed");
-        }
-        return apiResponse.success(res, {
-          id: user.id,
-          email: user.email,
-          mobile: user.mobile,
-          firstName: user.firstName,
-          middleName: user.middleName,
-          lastName: user.lastName,
-          isEmailVerified: user.isEmailVerified,
-          isMobileVerified: user.isMobileVerified
-        });
-      });
-    })(req, res, next);
-  });
-
-  // Login with mobile
-  app.post("/api/login/mobile", (req, res, next) => {
-    passport.authenticate("mobile-local", (err: any, user: any, info: any) => {
-      if (err) {
-        console.error("Login error:", err);
-        return apiResponse.serverError(res, "Login failed");
-      }
-      if (!user) {
-        return apiResponse.unauthorized(res, info?.message || "Invalid credentials");
-      }
-      req.login(user, (loginErr) => {
-        if (loginErr) {
-          console.error("Login session error:", loginErr);
-          return apiResponse.serverError(res, "Login failed");
-        }
-        return apiResponse.success(res, {
-          id: user.id,
-          email: user.email,
-          mobile: user.mobile,
-          firstName: user.firstName,
-          middleName: user.middleName,
-          lastName: user.lastName,
-          isEmailVerified: user.isEmailVerified,
-          isMobileVerified: user.isMobileVerified
-        });
-      });
-    })(req, res, next);
-  });
-
   // Unified login endpoint - accepts email, mobile, or userId as identifier
   // This endpoint validates credentials and sends OTP for second-layer authentication
   app.post("/api/login", async (req, res, next) => {
