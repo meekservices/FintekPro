@@ -1927,6 +1927,62 @@ export const partnerSettlements = pgTable("partner_settlements", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Agents table for managing agent/distributor accounts
+export const agents = pgTable("agents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id), // Optional link to user account
+  
+  // Personal Information
+  fullName: varchar("full_name").notNull(),
+  email: varchar("email").unique().notNull(),
+  phone: varchar("phone"),
+  address: text("address"),
+  
+  // Agent Identification
+  employeeId: varchar("employee_id").unique(), // Internal employee/agent ID
+  arnCode: varchar("arn_code"), // AMFI Registration Number for MF distributors
+  euinNumber: varchar("euin_number"), // Employee Unique Identification Number
+  pospNumber: varchar("posp_number"), // Point of Sales Person for insurance
+  dsaCode: varchar("dsa_code"), // Direct Selling Agent code for loans
+  
+  // KYC & Bank Details
+  panNumber: varchar("pan_number"),
+  aadharNumber: varchar("aadhar_number"),
+  bankAccountNumber: varchar("bank_account_number"),
+  ifscCode: varchar("ifsc_code"),
+  upiId: varchar("upi_id"),
+  
+  // Agent Type and Status
+  agentType: varchar("agent_type").default("individual"), // individual, corporate, sub_broker
+  status: varchar("status").default("active"), // active, inactive, suspended, terminated
+  isActive: boolean("is_active").default(true),
+  
+  // Performance Metrics
+  activeClients: integer("active_clients").default(0),
+  totalClients: integer("total_clients").default(0),
+  totalRevenue: decimal("total_revenue", { precision: 15, scale: 2 }).default("0.00"),
+  monthlyRevenue: decimal("monthly_revenue", { precision: 15, scale: 2 }).default("0.00"),
+  totalCommissionsEarned: decimal("total_commissions_earned", { precision: 15, scale: 2 }).default("0.00"),
+  
+  // Hierarchy and Reporting
+  reportingTo: varchar("reporting_to").references(() => agents.id), // Manager/supervisor agent ID
+  teamSize: integer("team_size").default(0), // Number of agents reporting to this agent
+  hierarchyLevel: integer("hierarchy_level").default(1), // 1 = frontline, 2 = team lead, 3 = manager, etc.
+  
+  // Joining and Contract Details
+  joiningDate: timestamp("joining_date"),
+  terminationDate: timestamp("termination_date"),
+  contractType: varchar("contract_type").default("full_time"), // full_time, part_time, freelance, commission_only
+  
+  // Commission Structure
+  commissionTier: varchar("commission_tier").default("standard"), // standard, silver, gold, platinum
+  baseCommissionRate: decimal("base_commission_rate", { precision: 5, scale: 2 }).default("0.00"), // Base % commission
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Zoho OAuth Connections - Store OAuth tokens for Zoho integrations
 export const zohoConnections = pgTable("zoho_connections", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -2792,6 +2848,15 @@ export const insertPartnerSettlementSchema = createInsertSchema(partnerSettlemen
 });
 export type InsertPartnerSettlement = z.infer<typeof insertPartnerSettlementSchema>;
 export type PartnerSettlement = typeof partnerSettlements.$inferSelect;
+
+// Agent schemas
+export const insertAgentSchema = createInsertSchema(agents).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertAgent = z.infer<typeof insertAgentSchema>;
+export type Agent = typeof agents.$inferSelect;
 
 // Zoho Connections schemas
 export const insertZohoConnectionSchema = createInsertSchema(zohoConnections).omit({

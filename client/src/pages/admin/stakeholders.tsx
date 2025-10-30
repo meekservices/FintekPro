@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { 
   Users, 
   Building2, 
@@ -17,13 +17,18 @@ import {
   MapPin,
   Check,
   X,
-  RefreshCw
+  RefreshCw,
+  Pencil,
+  Trash2
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,8 +52,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { z } from "zod";
+import { insertPartnerSchema, insertAgentSchema, insertSupplierSchema } from "@shared/schema";
 
 type StakeholderType = "clients" | "partners" | "agents" | "suppliers";
 
@@ -72,6 +80,8 @@ interface Partner {
   partnerType: string;
   status: string;
   revenueShare: string | null;
+  commissionRate: string | null;
+  isActive: boolean;
   createdAt: string;
 }
 
@@ -81,7 +91,11 @@ interface Agent {
   email: string;
   phone: string | null;
   employeeId: string | null;
+  arnCode: string | null;
+  euinNumber: string | null;
+  agentType: string;
   status: string;
+  isActive: boolean;
   activeClients: number;
   totalRevenue: string;
   createdAt: string;
@@ -90,13 +104,31 @@ interface Agent {
 interface Supplier {
   id: string;
   name: string;
-  email: string | null;
-  contactPerson: string | null;
-  phone: string | null;
-  category: string;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  address: string | null;
+  productCategories: string[];
+  commissionRate: string | null;
+  isActive: boolean;
   status: string;
   createdAt: string;
 }
+
+// Validation schemas - using shared insert schemas from @shared/schema
+// Partner schema: extend shared schema with password requirement for creation
+const partnerSchema = insertPartnerSchema.extend({
+  password: z.string().min(8, "Password must be at least 8 characters"),
+});
+
+const partnerEditSchema = insertPartnerSchema.partial().extend({
+  password: z.string().min(8).optional().or(z.literal("")),
+});
+
+// Agent schema: use shared insert schema directly
+const agentSchema = insertAgentSchema;
+
+// Supplier schema: use shared insert schema directly
+const supplierSchema = insertSupplierSchema;
 
 export default function StakeholdersPage() {
   const [activeTab, setActiveTab] = useState<StakeholderType>("clients");
@@ -105,6 +137,15 @@ export default function StakeholdersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const pageLimit = 20;
   const { toast } = useToast();
+
+  // Dialog states
+  const [isAddPartnerOpen, setIsAddPartnerOpen] = useState(false);
+  const [isAddAgentOpen, setIsAddAgentOpen] = useState(false);
+  const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
+  const [editingPartner, setEditingPartner] = useState<Partner | null>(null);
+  const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
+  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+  const [deletingItem, setDeletingItem] = useState<{ id: string; type: StakeholderType; name: string } | null>(null);
 
   // Fetch stakeholders based on active tab
   const { data: clientsData, isLoading: loadingClients, refetch: refetchClients } = useQuery<any>({
@@ -125,6 +166,142 @@ export default function StakeholdersPage() {
   const { data: suppliersData, isLoading: loadingSuppiers, refetch: refetchSuppliers } = useQuery<any>({
     queryKey: ["/api/admin/suppliers", { search: searchQuery, status: statusFilter === "all" ? undefined : statusFilter, page: currentPage, limit: pageLimit }],
     enabled: activeTab === "suppliers",
+  });
+
+  // Partner mutations
+  const createPartnerMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof partnerSchema>) => {
+      return apiRequest("/api/admin/partners", "POST", { body: data });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/partners"] });
+      setIsAddPartnerOpen(false);
+      toast({ title: "Partner created successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to create partner",
+        description: error.message || "An error occurred",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const updatePartnerMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      return apiRequest(`/api/admin/partners/${id}`, "PATCH", { body: data });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/partners"] });
+      setEditingPartner(null);
+      toast({ title: "Partner updated successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to update partner",
+        description: error.message || "An error occurred",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Agent mutations
+  const createAgentMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof agentSchema>) => {
+      return apiRequest("/api/admin/agents", "POST", { body: data });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/agents"] });
+      setIsAddAgentOpen(false);
+      toast({ title: "Agent created successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to create agent",
+        description: error.message || "An error occurred",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const updateAgentMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      return apiRequest(`/api/admin/agents/${id}`, "PATCH", { body: data });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/agents"] });
+      setEditingAgent(null);
+      toast({ title: "Agent updated successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to update agent",
+        description: error.message || "An error occurred",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Supplier mutations
+  const createSupplierMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest("/api/admin/suppliers", "POST", { body: data });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/suppliers"] });
+      setIsAddSupplierOpen(false);
+      toast({ title: "Supplier created successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to create supplier",
+        description: error.message || "An error occurred",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const updateSupplierMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      return apiRequest(`/api/admin/suppliers/${id}`, "PATCH", { body: data });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/suppliers"] });
+      setEditingSupplier(null);
+      toast({ title: "Supplier updated successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to update supplier",
+        description: error.message || "An error occurred",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async ({ id, type }: { id: string; type: StakeholderType }) => {
+      const endpoint = type === "partners" ? `/api/admin/partners/${id}` :
+                      type === "agents" ? `/api/admin/agents/${id}` :
+                      `/api/admin/suppliers/${id}`;
+      return apiRequest(endpoint, "DELETE");
+    },
+    onSuccess: (_, variables) => {
+      const queryKey = variables.type === "partners" ? ["/api/admin/partners"] :
+                      variables.type === "agents" ? ["/api/admin/agents"] :
+                      ["/api/admin/suppliers"];
+      queryClient.invalidateQueries({ queryKey });
+      setDeletingItem(null);
+      toast({ title: "Deleted successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to delete",
+        description: error.message || "An error occurred",
+        variant: "destructive"
+      });
+    }
   });
 
   // Get current data based on active tab
@@ -169,7 +346,7 @@ export default function StakeholdersPage() {
                       type === "agents" ? `/api/admin/agents/${id}/status` :
                       `/api/admin/suppliers/${id}/status`;
 
-      await apiRequest("PATCH", endpoint, { body: { status: newStatus } });
+      await apiRequest(endpoint, "PATCH", { body: { status: newStatus } });
 
       toast({
         title: "Status Updated",
@@ -184,6 +361,163 @@ export default function StakeholdersPage() {
         variant: "destructive",
       });
     }
+  };
+
+  const handleAddNew = () => {
+    switch (activeTab) {
+      case "partners":
+        setIsAddPartnerOpen(true);
+        break;
+      case "agents":
+        setIsAddAgentOpen(true);
+        break;
+      case "suppliers":
+        setIsAddSupplierOpen(true);
+        break;
+    }
+  };
+
+  // Form handlers
+  const handleCreatePartner = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    
+    const data = {
+      companyName: formData.get("companyName") as string,
+      contactEmail: formData.get("contactEmail") as string,
+      contactPhone: formData.get("contactPhone") as string || undefined,
+      password: formData.get("password") as string,
+      partnerType: formData.get("partnerType") as string,
+      commissionRate: formData.get("commissionRate") as string || "0.00",
+      isActive: formData.get("isActive") === "true",
+    };
+
+    try {
+      partnerSchema.parse(data);
+      createPartnerMutation.mutate(data as any);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast({
+          title: "Validation Error",
+          description: error.errors[0].message,
+          variant: "destructive"
+        });
+      }
+    }
+  };
+
+  const handleUpdatePartner = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingPartner) return;
+
+    const formData = new FormData(e.currentTarget);
+    
+    const data: any = {
+      companyName: formData.get("companyName") as string,
+      contactEmail: formData.get("contactEmail") as string,
+      contactPhone: formData.get("contactPhone") as string || undefined,
+      partnerType: formData.get("partnerType") as string,
+      commissionRate: formData.get("commissionRate") as string || "0.00",
+      isActive: formData.get("isActive") === "true",
+    };
+
+    const password = formData.get("password") as string;
+    if (password) {
+      data.password = password;
+    }
+
+    updatePartnerMutation.mutate({ id: editingPartner.id, data });
+  };
+
+  const handleCreateAgent = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    
+    const data = {
+      fullName: formData.get("fullName") as string,
+      email: formData.get("email") as string,
+      phone: formData.get("phone") as string || undefined,
+      employeeId: formData.get("employeeId") as string || undefined,
+      arnCode: formData.get("arnCode") as string || undefined,
+      euinNumber: formData.get("euinNumber") as string || undefined,
+      agentType: formData.get("agentType") as string,
+      status: formData.get("status") as string,
+    };
+
+    try {
+      agentSchema.parse(data);
+      createAgentMutation.mutate(data as any);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast({
+          title: "Validation Error",
+          description: error.errors[0].message,
+          variant: "destructive"
+        });
+      }
+    }
+  };
+
+  const handleUpdateAgent = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingAgent) return;
+
+    const formData = new FormData(e.currentTarget);
+    
+    const data = {
+      fullName: formData.get("fullName") as string,
+      email: formData.get("email") as string,
+      phone: formData.get("phone") as string || undefined,
+      employeeId: formData.get("employeeId") as string || undefined,
+      arnCode: formData.get("arnCode") as string || undefined,
+      euinNumber: formData.get("euinNumber") as string || undefined,
+      agentType: formData.get("agentType") as string,
+      status: formData.get("status") as string,
+    };
+
+    updateAgentMutation.mutate({ id: editingAgent.id, data });
+  };
+
+  const handleCreateSupplier = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    
+    const categoriesStr = formData.get("productCategories") as string;
+    const categories = categoriesStr ? categoriesStr.split(",").map(c => c.trim()) : [];
+
+    const data = {
+      name: formData.get("name") as string,
+      contactEmail: formData.get("contactEmail") as string || undefined,
+      contactPhone: formData.get("contactPhone") as string || undefined,
+      address: formData.get("address") as string || undefined,
+      productCategories: categories,
+      commissionRate: formData.get("commissionRate") as string || "0.00",
+      isActive: formData.get("isActive") === "true",
+    };
+
+    createSupplierMutation.mutate(data);
+  };
+
+  const handleUpdateSupplier = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingSupplier) return;
+
+    const formData = new FormData(e.currentTarget);
+    
+    const categoriesStr = formData.get("productCategories") as string;
+    const categories = categoriesStr ? categoriesStr.split(",").map(c => c.trim()) : [];
+
+    const data = {
+      name: formData.get("name") as string,
+      contactEmail: formData.get("contactEmail") as string || undefined,
+      contactPhone: formData.get("contactPhone") as string || undefined,
+      address: formData.get("address") as string || undefined,
+      productCategories: categories,
+      commissionRate: formData.get("commissionRate") as string || "0.00",
+      isActive: formData.get("isActive") === "true",
+    };
+
+    updateSupplierMutation.mutate({ id: editingSupplier.id, data });
   };
 
   const currentData = getCurrentData();
@@ -313,10 +647,12 @@ export default function StakeholdersPage() {
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
-          <Button data-testid="button-add-stakeholder">
-            <Plus className="h-4 w-4 mr-2" />
-            Add New
-          </Button>
+          {activeTab !== "clients" && (
+            <Button onClick={handleAddNew} data-testid="button-add-stakeholder">
+              <Plus className="h-4 w-4 mr-2" />
+              Add New
+            </Button>
+          )}
         </div>
       </div>
 
@@ -461,7 +797,7 @@ export default function StakeholdersPage() {
                     <TableHead>Company Name</TableHead>
                     <TableHead>Contact</TableHead>
                     <TableHead>Partner Type</TableHead>
-                    <TableHead>Revenue Share</TableHead>
+                    <TableHead>Commission Rate</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
@@ -500,7 +836,7 @@ export default function StakeholdersPage() {
                         <TableCell>
                           <Badge variant="outline">{partner.partnerType}</Badge>
                         </TableCell>
-                        <TableCell>{partner.revenueShare || "N/A"}%</TableCell>
+                        <TableCell>{partner.commissionRate || partner.revenueShare || "0.00"}%</TableCell>
                         <TableCell>
                           <Badge variant={partner.status === "active" ? "default" : "secondary"}>
                             {partner.status}
@@ -517,14 +853,24 @@ export default function StakeholdersPage() {
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem>View Details</DropdownMenuItem>
-                              <DropdownMenuItem>Edit Partner</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setEditingPartner(partner)} data-testid={`button-edit-partner-${partner.id}`}>
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Edit Partner
+                              </DropdownMenuItem>
                               <DropdownMenuItem 
                                 onClick={() => handleStatusToggle(partner.id, "partners", partner.status)}
                               >
                                 {partner.status === "active" ? "Deactivate" : "Activate"}
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
+                              <DropdownMenuItem 
+                                className="text-red-600" 
+                                onClick={() => setDeletingItem({ id: partner.id, type: "partners", name: partner.companyName })}
+                                data-testid={`button-delete-partner-${partner.id}`}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -607,7 +953,10 @@ export default function StakeholdersPage() {
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem>View Details</DropdownMenuItem>
-                              <DropdownMenuItem>Edit Agent</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setEditingAgent(agent)} data-testid={`button-edit-agent-${agent.id}`}>
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Edit Agent
+                              </DropdownMenuItem>
                               <DropdownMenuItem>Assign Clients</DropdownMenuItem>
                               <DropdownMenuItem 
                                 onClick={() => handleStatusToggle(agent.id, "agents", agent.status)}
@@ -615,7 +964,14 @@ export default function StakeholdersPage() {
                                 {agent.status === "active" ? "Deactivate" : "Activate"}
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
+                              <DropdownMenuItem 
+                                className="text-red-600" 
+                                onClick={() => setDeletingItem({ id: agent.id, type: "agents", name: agent.fullName })}
+                                data-testid={`button-delete-agent-${agent.id}`}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -636,9 +992,9 @@ export default function StakeholdersPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
-                    <TableHead>Contact Person</TableHead>
                     <TableHead>Contact Info</TableHead>
-                    <TableHead>Category</TableHead>
+                    <TableHead>Categories</TableHead>
+                    <TableHead>Commission Rate</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
@@ -660,26 +1016,36 @@ export default function StakeholdersPage() {
                     items.map((supplier: Supplier) => (
                       <TableRow key={supplier.id} data-testid={`row-supplier-${supplier.id}`}>
                         <TableCell className="font-medium">{supplier.name}</TableCell>
-                        <TableCell>{supplier.contactPerson || "N/A"}</TableCell>
                         <TableCell>
                           <div className="space-y-1 text-sm">
-                            {supplier.email && (
+                            {supplier.contactEmail && (
                               <div className="flex items-center text-gray-600 dark:text-gray-400">
                                 <Mail className="h-3 w-3 mr-2" />
-                                {supplier.email}
+                                {supplier.contactEmail}
                               </div>
                             )}
-                            {supplier.phone && (
+                            {supplier.contactPhone && (
                               <div className="flex items-center text-gray-600 dark:text-gray-400">
                                 <Phone className="h-3 w-3 mr-2" />
-                                {supplier.phone}
+                                {supplier.contactPhone}
                               </div>
                             )}
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline">{supplier.category}</Badge>
+                          <div className="flex flex-wrap gap-1">
+                            {supplier.productCategories && supplier.productCategories.length > 0 ? (
+                              supplier.productCategories.map((category, idx) => (
+                                <Badge key={idx} variant="outline" className="text-xs">
+                                  {category}
+                                </Badge>
+                              ))
+                            ) : (
+                              <span className="text-gray-400 text-sm">N/A</span>
+                            )}
+                          </div>
                         </TableCell>
+                        <TableCell>{supplier.commissionRate || "0.00"}%</TableCell>
                         <TableCell>
                           <Badge variant={supplier.status === "active" ? "default" : "secondary"}>
                             {supplier.status}
@@ -696,7 +1062,10 @@ export default function StakeholdersPage() {
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem>View Details</DropdownMenuItem>
-                              <DropdownMenuItem>Edit Supplier</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setEditingSupplier(supplier)} data-testid={`button-edit-supplier-${supplier.id}`}>
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Edit Supplier
+                              </DropdownMenuItem>
                               <DropdownMenuItem>View Products</DropdownMenuItem>
                               <DropdownMenuItem 
                                 onClick={() => handleStatusToggle(supplier.id, "suppliers", supplier.status)}
@@ -704,7 +1073,14 @@ export default function StakeholdersPage() {
                                 {supplier.status === "active" ? "Deactivate" : "Activate"}
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
+                              <DropdownMenuItem 
+                                className="text-red-600" 
+                                onClick={() => setDeletingItem({ id: supplier.id, type: "suppliers", name: supplier.name })}
+                                data-testid={`button-delete-supplier-${supplier.id}`}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -746,6 +1122,449 @@ export default function StakeholdersPage() {
           </div>
         </div>
       )}
+
+      {/* Add Partner Dialog */}
+      <Dialog open={isAddPartnerOpen} onOpenChange={setIsAddPartnerOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add New Partner</DialogTitle>
+            <DialogDescription>Create a new partner account with login credentials</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleCreatePartner} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2 col-span-2">
+                <Label htmlFor="companyName">Company Name *</Label>
+                <Input id="companyName" name="companyName" required data-testid="input-partner-companyName" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="contactEmail">Contact Email *</Label>
+                <Input id="contactEmail" name="contactEmail" type="email" required data-testid="input-partner-contactEmail" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="contactPhone">Contact Phone</Label>
+                <Input id="contactPhone" name="contactPhone" data-testid="input-partner-contactPhone" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password *</Label>
+                <Input id="password" name="password" type="password" required minLength={8} data-testid="input-partner-password" />
+                <p className="text-xs text-muted-foreground">Minimum 8 characters</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="partnerType">Partner Type *</Label>
+                <Select name="partnerType" required defaultValue="product_provider">
+                  <SelectTrigger data-testid="select-partner-partnerType">
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="product_provider">Product Provider</SelectItem>
+                    <SelectItem value="service_provider">Service Provider</SelectItem>
+                    <SelectItem value="both">Both</SelectItem>
+                    <SelectItem value="distributor">Distributor</SelectItem>
+                    <SelectItem value="agent">Agent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="commissionRate">Commission Rate (%)</Label>
+                <Input id="commissionRate" name="commissionRate" type="number" step="0.01" defaultValue="0.00" data-testid="input-partner-commissionRate" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="isActive">Active Status</Label>
+                <Select name="isActive" defaultValue="true">
+                  <SelectTrigger data-testid="select-partner-isActive">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="true">Active</SelectItem>
+                    <SelectItem value="false">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setIsAddPartnerOpen(false)} data-testid="button-cancel-partner">
+                Cancel
+              </Button>
+              <Button type="submit" disabled={createPartnerMutation.isPending} data-testid="button-submit-partner">
+                {createPartnerMutation.isPending ? "Creating..." : "Create Partner"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Partner Dialog */}
+      <Dialog open={!!editingPartner} onOpenChange={(open) => !open && setEditingPartner(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Partner</DialogTitle>
+            <DialogDescription>Update partner information</DialogDescription>
+          </DialogHeader>
+          {editingPartner && (
+            <form onSubmit={handleUpdatePartner} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2 col-span-2">
+                  <Label htmlFor="edit-companyName">Company Name *</Label>
+                  <Input id="edit-companyName" name="companyName" required defaultValue={editingPartner.companyName} data-testid="input-edit-partner-companyName" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-contactEmail">Contact Email *</Label>
+                  <Input id="edit-contactEmail" name="contactEmail" type="email" required defaultValue={editingPartner.contactEmail} data-testid="input-edit-partner-contactEmail" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-contactPhone">Contact Phone</Label>
+                  <Input id="edit-contactPhone" name="contactPhone" defaultValue={editingPartner.contactPhone || ""} data-testid="input-edit-partner-contactPhone" />
+                </div>
+                <div className="space-y-2 col-span-2">
+                  <Label htmlFor="edit-password">Password</Label>
+                  <Input id="edit-password" name="password" type="password" placeholder="Leave empty to keep current password" data-testid="input-edit-partner-password" />
+                  <p className="text-xs text-muted-foreground">Minimum 8 characters (leave empty to keep current)</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-partnerType">Partner Type *</Label>
+                  <Select name="partnerType" required defaultValue={editingPartner.partnerType}>
+                    <SelectTrigger data-testid="select-edit-partner-partnerType">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="product_provider">Product Provider</SelectItem>
+                      <SelectItem value="service_provider">Service Provider</SelectItem>
+                      <SelectItem value="both">Both</SelectItem>
+                      <SelectItem value="distributor">Distributor</SelectItem>
+                      <SelectItem value="agent">Agent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-commissionRate">Commission Rate (%)</Label>
+                  <Input id="edit-commissionRate" name="commissionRate" type="number" step="0.01" defaultValue={editingPartner.commissionRate || editingPartner.revenueShare || "0.00"} data-testid="input-edit-partner-commissionRate" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-isActive">Active Status</Label>
+                  <Select name="isActive" defaultValue={editingPartner.isActive ? "true" : "false"}>
+                    <SelectTrigger data-testid="select-edit-partner-isActive">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="true">Active</SelectItem>
+                      <SelectItem value="false">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setEditingPartner(null)} data-testid="button-cancel-edit-partner">
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={updatePartnerMutation.isPending} data-testid="button-submit-edit-partner">
+                  {updatePartnerMutation.isPending ? "Updating..." : "Update Partner"}
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Agent Dialog */}
+      <Dialog open={isAddAgentOpen} onOpenChange={setIsAddAgentOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add New Agent</DialogTitle>
+            <DialogDescription>Create a new agent account</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleCreateAgent} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2 col-span-2">
+                <Label htmlFor="fullName">Full Name *</Label>
+                <Input id="fullName" name="fullName" required data-testid="input-agent-fullName" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email *</Label>
+                <Input id="email" name="email" type="email" required data-testid="input-agent-email" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone</Label>
+                <Input id="phone" name="phone" data-testid="input-agent-phone" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="employeeId">Employee ID</Label>
+                <Input id="employeeId" name="employeeId" data-testid="input-agent-employeeId" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="arnCode">ARN Code</Label>
+                <Input id="arnCode" name="arnCode" data-testid="input-agent-arnCode" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="euinNumber">EUIN Number</Label>
+                <Input id="euinNumber" name="euinNumber" data-testid="input-agent-euinNumber" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="agentType">Agent Type *</Label>
+                <Select name="agentType" required defaultValue="individual">
+                  <SelectTrigger data-testid="select-agent-agentType">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="individual">Individual</SelectItem>
+                    <SelectItem value="corporate">Corporate</SelectItem>
+                    <SelectItem value="sub_broker">Sub Broker</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="status">Status *</Label>
+                <Select name="status" required defaultValue="active">
+                  <SelectTrigger data-testid="select-agent-status">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                    <SelectItem value="suspended">Suspended</SelectItem>
+                    <SelectItem value="terminated">Terminated</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setIsAddAgentOpen(false)} data-testid="button-cancel-agent">
+                Cancel
+              </Button>
+              <Button type="submit" disabled={createAgentMutation.isPending} data-testid="button-submit-agent">
+                {createAgentMutation.isPending ? "Creating..." : "Create Agent"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Agent Dialog */}
+      <Dialog open={!!editingAgent} onOpenChange={(open) => !open && setEditingAgent(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Agent</DialogTitle>
+            <DialogDescription>Update agent information</DialogDescription>
+          </DialogHeader>
+          {editingAgent && (
+            <form onSubmit={handleUpdateAgent} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2 col-span-2">
+                  <Label htmlFor="edit-fullName">Full Name *</Label>
+                  <Input id="edit-fullName" name="fullName" required defaultValue={editingAgent.fullName} data-testid="input-edit-agent-fullName" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-email">Email *</Label>
+                  <Input id="edit-email" name="email" type="email" required defaultValue={editingAgent.email} data-testid="input-edit-agent-email" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-phone">Phone</Label>
+                  <Input id="edit-phone" name="phone" defaultValue={editingAgent.phone || ""} data-testid="input-edit-agent-phone" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-employeeId">Employee ID</Label>
+                  <Input id="edit-employeeId" name="employeeId" defaultValue={editingAgent.employeeId || ""} data-testid="input-edit-agent-employeeId" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-arnCode">ARN Code</Label>
+                  <Input id="edit-arnCode" name="arnCode" defaultValue={editingAgent.arnCode || ""} data-testid="input-edit-agent-arnCode" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-euinNumber">EUIN Number</Label>
+                  <Input id="edit-euinNumber" name="euinNumber" defaultValue={editingAgent.euinNumber || ""} data-testid="input-edit-agent-euinNumber" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-agentType">Agent Type *</Label>
+                  <Select name="agentType" required defaultValue={editingAgent.agentType}>
+                    <SelectTrigger data-testid="select-edit-agent-agentType">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="individual">Individual</SelectItem>
+                      <SelectItem value="corporate">Corporate</SelectItem>
+                      <SelectItem value="sub_broker">Sub Broker</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-status">Status *</Label>
+                  <Select name="status" required defaultValue={editingAgent.status}>
+                    <SelectTrigger data-testid="select-edit-agent-status">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                      <SelectItem value="suspended">Suspended</SelectItem>
+                      <SelectItem value="terminated">Terminated</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setEditingAgent(null)} data-testid="button-cancel-edit-agent">
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={updateAgentMutation.isPending} data-testid="button-submit-edit-agent">
+                  {updateAgentMutation.isPending ? "Updating..." : "Update Agent"}
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Supplier Dialog */}
+      <Dialog open={isAddSupplierOpen} onOpenChange={setIsAddSupplierOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add New Supplier</DialogTitle>
+            <DialogDescription>Create a new supplier account</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleCreateSupplier} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2 col-span-2">
+                <Label htmlFor="name">Supplier Name *</Label>
+                <Input id="name" name="name" required data-testid="input-supplier-name" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="contactEmail">Contact Email</Label>
+                <Input id="contactEmail" name="contactEmail" type="email" data-testid="input-supplier-contactEmail" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="contactPhone">Contact Phone</Label>
+                <Input id="contactPhone" name="contactPhone" data-testid="input-supplier-contactPhone" />
+              </div>
+              <div className="space-y-2 col-span-2">
+                <Label htmlFor="address">Address</Label>
+                <Input id="address" name="address" data-testid="input-supplier-address" />
+              </div>
+              <div className="space-y-2 col-span-2">
+                <Label htmlFor="productCategories">Product Categories (comma-separated)</Label>
+                <Input id="productCategories" name="productCategories" placeholder="e.g., Electronics, Furniture, Clothing" data-testid="input-supplier-productCategories" />
+                <p className="text-xs text-muted-foreground">Separate multiple categories with commas</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="commissionRate">Commission Rate (%)</Label>
+                <Input id="commissionRate" name="commissionRate" type="number" step="0.01" defaultValue="0.00" data-testid="input-supplier-commissionRate" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="isActive">Active Status</Label>
+                <Select name="isActive" defaultValue="true">
+                  <SelectTrigger data-testid="select-supplier-isActive">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="true">Active</SelectItem>
+                    <SelectItem value="false">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setIsAddSupplierOpen(false)} data-testid="button-cancel-supplier">
+                Cancel
+              </Button>
+              <Button type="submit" disabled={createSupplierMutation.isPending} data-testid="button-submit-supplier">
+                {createSupplierMutation.isPending ? "Creating..." : "Create Supplier"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Supplier Dialog */}
+      <Dialog open={!!editingSupplier} onOpenChange={(open) => !open && setEditingSupplier(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Supplier</DialogTitle>
+            <DialogDescription>Update supplier information</DialogDescription>
+          </DialogHeader>
+          {editingSupplier && (
+            <form onSubmit={handleUpdateSupplier} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2 col-span-2">
+                  <Label htmlFor="edit-name">Supplier Name *</Label>
+                  <Input id="edit-name" name="name" required defaultValue={editingSupplier.name} data-testid="input-edit-supplier-name" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-contactEmail">Contact Email</Label>
+                  <Input id="edit-contactEmail" name="contactEmail" type="email" defaultValue={editingSupplier.contactEmail || ""} data-testid="input-edit-supplier-contactEmail" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-contactPhone">Contact Phone</Label>
+                  <Input id="edit-contactPhone" name="contactPhone" defaultValue={editingSupplier.contactPhone || ""} data-testid="input-edit-supplier-contactPhone" />
+                </div>
+                <div className="space-y-2 col-span-2">
+                  <Label htmlFor="edit-address">Address</Label>
+                  <Input id="edit-address" name="address" defaultValue={editingSupplier.address || ""} data-testid="input-edit-supplier-address" />
+                </div>
+                <div className="space-y-2 col-span-2">
+                  <Label htmlFor="edit-productCategories">Product Categories (comma-separated)</Label>
+                  <Input 
+                    id="edit-productCategories" 
+                    name="productCategories" 
+                    placeholder="e.g., Electronics, Furniture, Clothing" 
+                    defaultValue={editingSupplier.productCategories?.join(", ") || ""}
+                    data-testid="input-edit-supplier-productCategories"
+                  />
+                  <p className="text-xs text-muted-foreground">Separate multiple categories with commas</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-commissionRate">Commission Rate (%)</Label>
+                  <Input id="edit-commissionRate" name="commissionRate" type="number" step="0.01" defaultValue={editingSupplier.commissionRate || "0.00"} data-testid="input-edit-supplier-commissionRate" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-isActive">Active Status</Label>
+                  <Select name="isActive" defaultValue={editingSupplier.isActive ? "true" : "false"}>
+                    <SelectTrigger data-testid="select-edit-supplier-isActive">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="true">Active</SelectItem>
+                      <SelectItem value="false">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setEditingSupplier(null)} data-testid="button-cancel-edit-supplier">
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={updateSupplierMutation.isPending} data-testid="button-submit-edit-supplier">
+                  {updateSupplierMutation.isPending ? "Updating..." : "Update Supplier"}
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deletingItem} onOpenChange={(open) => !open && setDeletingItem(null)}>
+        <AlertDialogContent data-testid="dialog-delete-confirmation">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the {deletingItem?.type.slice(0, -1)} "{deletingItem?.name}".
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deletingItem) {
+                  deleteMutation.mutate({ id: deletingItem.id, type: deletingItem.type });
+                }
+              }}
+              disabled={deleteMutation.isPending}
+              className="bg-red-600 hover:bg-red-700"
+              data-testid="button-confirm-delete"
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

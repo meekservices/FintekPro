@@ -1,0 +1,603 @@
+import { Router, type Express } from 'express';
+import { db } from './db';
+import { partners, agents, suppliers, insertPartnerSchema, insertAgentSchema, insertSupplierSchema } from '@shared/schema';
+import { eq, ilike, or, sql, and } from 'drizzle-orm';
+import { z } from 'zod';
+import { apiResponse } from './utils/responses';
+
+const router = Router();
+
+// Middleware to check if user is admin
+const requireAdmin = (req: any, res: any, next: any) => {
+  if (!req.isAuthenticated()) {
+    return apiResponse.unauthorized(res, 'Authentication required');
+  }
+
+  const userRoles = req.user?.roles || [];
+  if (!userRoles.includes('admin') && !userRoles.includes('superadmin')) {
+    return apiResponse.forbidden(res, 'Admin access required');
+  }
+
+  next();
+};
+
+// ===================================
+// PARTNER ROUTES
+// ===================================
+
+// Use shared insert schemas with password requirement for creation
+const createPartnerSchema = insertPartnerSchema.extend({
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+});
+
+const updatePartnerSchema = insertPartnerSchema.partial().extend({
+  password: z.string().min(8).optional().nullable(),
+});
+
+// GET /api/admin/partners - List all partners with pagination and search
+router.get('/api/admin/partners', requireAdmin, async (req, res) => {
+  try {
+    const { search, status, partnerType, page = '1', limit = '20' } = req.query;
+    
+    const pageNum = parseInt(page as string) || 1;
+    const limitNum = parseInt(limit as string) || 20;
+    const offset = (pageNum - 1) * limitNum;
+
+    const conditions = [];
+
+    if (search && typeof search === 'string') {
+      conditions.push(
+        or(
+          ilike(partners.companyName, `%${search}%`),
+          ilike(partners.contactEmail, `%${search}%`),
+          ilike(partners.contactPhone, `%${search}%`)
+        )
+      );
+    }
+
+    if (status === 'active') {
+      conditions.push(eq(partners.isActive, true));
+    } else if (status === 'inactive') {
+      conditions.push(eq(partners.isActive, false));
+    }
+
+    if (partnerType && typeof partnerType === 'string') {
+      conditions.push(eq(partners.partnerType, partnerType));
+    }
+
+    const whereClause = conditions.length > 0 ? sql`${sql.join(conditions, sql` AND `)}` : undefined;
+
+    const countQuery = whereClause
+      ? db.select({ count: sql<number>`count(*)` }).from(partners).where(whereClause)
+      : db.select({ count: sql<number>`count(*)` }).from(partners);
+    
+    const [{ count: totalCount }] = await countQuery;
+
+    const query = db.select({
+      id: partners.id,
+      companyName: partners.companyName,
+      contactEmail: partners.contactEmail,
+      contactPhone: partners.contactPhone,
+      partnerType: partners.partnerType,
+      commissionRate: partners.commissionRate,
+      isActive: partners.isActive,
+      totalClientsReferred: partners.totalClientsReferred,
+      totalCommissionsEarned: partners.totalCommissionsEarned,
+      createdAt: partners.createdAt,
+    }).from(partners);
+
+    const results = whereClause
+      ? await query.where(whereClause).limit(limitNum).offset(offset).orderBy(sql`${partners.createdAt} DESC`)
+      : await query.limit(limitNum).offset(offset).orderBy(sql`${partners.createdAt} DESC`);
+
+    const data = results.map((partner) => ({
+      ...partner,
+      status: partner.isActive ? 'active' : 'inactive',
+      revenueShare: partner.commissionRate,
+    }));
+
+    return apiResponse.success(res, { data, total: totalCount, page: pageNum, limit: limitNum });
+  } catch (error: any) {
+    console.error('Error fetching partners:', error);
+    return apiResponse.error(res, 'Failed to fetch partners', error.message);
+  }
+});
+
+// GET /api/admin/partners/:id - Get single partner
+router.get('/api/admin/partners/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [partner] = await db.select().from(partners).where(eq(partners.id, id)).limit(1);
+
+    if (!partner) {
+      return apiResponse.notFound(res, 'Partner not found');
+    }
+
+    return apiResponse.success(res, partner);
+  } catch (error: any) {
+    console.error('Error fetching partner:', error);
+    return apiResponse.error(res, 'Failed to fetch partner', error.message);
+  }
+});
+
+// POST /api/admin/partners - Create new partner
+router.post('/api/admin/partners', requireAdmin, async (req, res) => {
+  try {
+    const validatedData = createPartnerSchema.parse(req.body);
+
+    // Check for duplicate email
+    const [existing] = await db.select().from(partners).where(eq(partners.contactEmail, validatedData.contactEmail)).limit(1);
+    if (existing) {
+      return apiResponse.badRequest(res, 'Partner with this email already exists');
+    }
+
+    // Hash password
+    const { hashPassword } = await import('./auth');
+    const hashedPassword = await hashPassword(validatedData.password);
+
+    const [newPartner] = await db.insert(partners).values({
+      ...validatedData,
+      password: hashedPassword,
+    }).returning();
+
+    return apiResponse.created(res, newPartner, 'Partner created successfully');
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return apiResponse.badRequest(res, 'Validation error', error.errors);
+    }
+    console.error('Error creating partner:', error);
+    return apiResponse.error(res, 'Failed to create partner', error.message);
+  }
+});
+
+// PATCH /api/admin/partners/:id - Update partner
+router.patch('/api/admin/partners/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const validatedData = updatePartnerSchema.parse(req.body);
+
+    const [existing] = await db.select().from(partners).where(eq(partners.id, id)).limit(1);
+    if (!existing) {
+      return apiResponse.notFound(res, 'Partner not found');
+    }
+
+    // Check email uniqueness if email is being updated
+    if (validatedData.contactEmail && validatedData.contactEmail !== existing.contactEmail) {
+      const [duplicate] = await db.select().from(partners).where(eq(partners.contactEmail, validatedData.contactEmail)).limit(1);
+      if (duplicate) {
+        return apiResponse.badRequest(res, 'Partner with this email already exists');
+      }
+    }
+
+    const updateData: any = { ...validatedData };
+
+    // Hash password if provided
+    if (validatedData.password) {
+      const { hashPassword } = await import('./auth');
+      updateData.password = await hashPassword(validatedData.password);
+    }
+
+    const [updated] = await db.update(partners)
+      .set({ ...updateData, updatedAt: new Date() })
+      .where(eq(partners.id, id))
+      .returning();
+
+    return apiResponse.success(res, updated, 'Partner updated successfully');
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return apiResponse.badRequest(res, 'Validation error', error.errors);
+    }
+    console.error('Error updating partner:', error);
+    return apiResponse.error(res, 'Failed to update partner', error.message);
+  }
+});
+
+// DELETE /api/admin/partners/:id - Delete partner
+router.delete('/api/admin/partners/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [existing] = await db.select().from(partners).where(eq(partners.id, id)).limit(1);
+    if (!existing) {
+      return apiResponse.notFound(res, 'Partner not found');
+    }
+
+    await db.delete(partners).where(eq(partners.id, id));
+
+    return apiResponse.success(res, null, 'Partner deleted successfully');
+  } catch (error: any) {
+    console.error('Error deleting partner:', error);
+    return apiResponse.error(res, 'Failed to delete partner', error.message);
+  }
+});
+
+// PATCH /api/admin/partners/:id/status - Toggle partner status
+router.patch('/api/admin/partners/:id/status', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const [existing] = await db.select().from(partners).where(eq(partners.id, id)).limit(1);
+    if (!existing) {
+      return apiResponse.notFound(res, 'Partner not found');
+    }
+
+    const [updated] = await db.update(partners)
+      .set({ isActive: status === 'active', updatedAt: new Date() })
+      .where(eq(partners.id, id))
+      .returning();
+
+    return apiResponse.success(res, updated, 'Partner status updated');
+  } catch (error: any) {
+    console.error('Error updating partner status:', error);
+    return apiResponse.error(res, 'Failed to update partner status', error.message);
+  }
+});
+
+// ===================================
+// AGENT ROUTES
+// ===================================
+
+// Validation schemas for Agents
+// Use shared insert schemas from shared/schema.ts
+const createAgentSchema = insertAgentSchema;
+const updateAgentSchema = insertAgentSchema.partial();
+
+// GET /api/admin/agents - List all agents with pagination and search
+router.get('/api/admin/agents', requireAdmin, async (req, res) => {
+  try {
+    const { search, status, agentType, page = '1', limit = '20' } = req.query;
+    
+    const pageNum = parseInt(page as string) || 1;
+    const limitNum = parseInt(limit as string) || 20;
+    const offset = (pageNum - 1) * limitNum;
+
+    const conditions = [];
+
+    if (search && typeof search === 'string') {
+      conditions.push(
+        or(
+          ilike(agents.fullName, `%${search}%`),
+          ilike(agents.email, `%${search}%`),
+          ilike(agents.employeeId, `%${search}%`),
+          ilike(agents.phone, `%${search}%`)
+        )
+      );
+    }
+
+    if (status === 'active') {
+      conditions.push(eq(agents.isActive, true));
+    } else if (status === 'inactive') {
+      conditions.push(eq(agents.isActive, false));
+    }
+
+    if (agentType && typeof agentType === 'string') {
+      conditions.push(eq(agents.agentType, agentType));
+    }
+
+    const whereClause = conditions.length > 0 ? sql`${sql.join(conditions, sql` AND `)}` : undefined;
+
+    const countQuery = whereClause
+      ? db.select({ count: sql<number>`count(*)` }).from(agents).where(whereClause)
+      : db.select({ count: sql<number>`count(*)` }).from(agents);
+    
+    const [{ count: totalCount }] = await countQuery;
+
+    const query = db.select({
+      id: agents.id,
+      fullName: agents.fullName,
+      email: agents.email,
+      phone: agents.phone,
+      employeeId: agents.employeeId,
+      agentType: agents.agentType,
+      status: agents.status,
+      isActive: agents.isActive,
+      activeClients: agents.activeClients,
+      totalRevenue: agents.totalRevenue,
+      createdAt: agents.createdAt,
+    }).from(agents);
+
+    const results = whereClause
+      ? await query.where(whereClause).limit(limitNum).offset(offset).orderBy(sql`${agents.createdAt} DESC`)
+      : await query.limit(limitNum).offset(offset).orderBy(sql`${agents.createdAt} DESC`);
+
+    return apiResponse.success(res, { data: results, total: totalCount, page: pageNum, limit: limitNum });
+  } catch (error: any) {
+    console.error('Error fetching agents:', error);
+    return apiResponse.error(res, 'Failed to fetch agents', error.message);
+  }
+});
+
+// GET /api/admin/agents/:id - Get single agent
+router.get('/api/admin/agents/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [agent] = await db.select().from(agents).where(eq(agents.id, id)).limit(1);
+
+    if (!agent) {
+      return apiResponse.notFound(res, 'Agent not found');
+    }
+
+    return apiResponse.success(res, agent);
+  } catch (error: any) {
+    console.error('Error fetching agent:', error);
+    return apiResponse.error(res, 'Failed to fetch agent', error.message);
+  }
+});
+
+// POST /api/admin/agents - Create new agent
+router.post('/api/admin/agents', requireAdmin, async (req, res) => {
+  try {
+    const validatedData = createAgentSchema.parse(req.body);
+
+    // Check for duplicate email
+    const [existing] = await db.select().from(agents).where(eq(agents.email, validatedData.email)).limit(1);
+    if (existing) {
+      return apiResponse.badRequest(res, 'Agent with this email already exists');
+    }
+
+    const [newAgent] = await db.insert(agents).values(validatedData).returning();
+
+    return apiResponse.created(res, newAgent, 'Agent created successfully');
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return apiResponse.badRequest(res, 'Validation error', error.errors);
+    }
+    console.error('Error creating agent:', error);
+    return apiResponse.error(res, 'Failed to create agent', error.message);
+  }
+});
+
+// PATCH /api/admin/agents/:id - Update agent
+router.patch('/api/admin/agents/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const validatedData = updateAgentSchema.parse(req.body);
+
+    const [existing] = await db.select().from(agents).where(eq(agents.id, id)).limit(1);
+    if (!existing) {
+      return apiResponse.notFound(res, 'Agent not found');
+    }
+
+    // Check email uniqueness if email is being updated
+    if (validatedData.email && validatedData.email !== existing.email) {
+      const [duplicate] = await db.select().from(agents).where(eq(agents.email, validatedData.email)).limit(1);
+      if (duplicate) {
+        return apiResponse.badRequest(res, 'Agent with this email already exists');
+      }
+    }
+
+    const [updated] = await db.update(agents)
+      .set({ ...validatedData, updatedAt: new Date() })
+      .where(eq(agents.id, id))
+      .returning();
+
+    return apiResponse.success(res, updated, 'Agent updated successfully');
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return apiResponse.badRequest(res, 'Validation error', error.errors);
+    }
+    console.error('Error updating agent:', error);
+    return apiResponse.error(res, 'Failed to update agent', error.message);
+  }
+});
+
+// DELETE /api/admin/agents/:id - Delete agent
+router.delete('/api/admin/agents/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [existing] = await db.select().from(agents).where(eq(agents.id, id)).limit(1);
+    if (!existing) {
+      return apiResponse.notFound(res, 'Agent not found');
+    }
+
+    await db.delete(agents).where(eq(agents.id, id));
+
+    return apiResponse.success(res, null, 'Agent deleted successfully');
+  } catch (error: any) {
+    console.error('Error deleting agent:', error);
+    return apiResponse.error(res, 'Failed to delete agent', error.message);
+  }
+});
+
+// PATCH /api/admin/agents/:id/status - Toggle agent status
+router.patch('/api/admin/agents/:id/status', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const [existing] = await db.select().from(agents).where(eq(agents.id, id)).limit(1);
+    if (!existing) {
+      return apiResponse.notFound(res, 'Agent not found');
+    }
+
+    const [updated] = await db.update(agents)
+      .set({ 
+        status: status,
+        isActive: status === 'active',
+        updatedAt: new Date() 
+      })
+      .where(eq(agents.id, id))
+      .returning();
+
+    return apiResponse.success(res, updated, 'Agent status updated');
+  } catch (error: any) {
+    console.error('Error updating agent status:', error);
+    return apiResponse.error(res, 'Failed to update agent status', error.message);
+  }
+});
+
+// ===================================
+// SUPPLIER ROUTES
+// ===================================
+
+// Validation schemas for Suppliers
+// Use shared insert schemas from shared/schema.ts
+const createSupplierSchema = insertSupplierSchema;
+const updateSupplierSchema = insertSupplierSchema.partial();
+
+// GET /api/admin/suppliers - List all suppliers with pagination and search
+router.get('/api/admin/suppliers', requireAdmin, async (req, res) => {
+  try {
+    const { search, status, category, page = '1', limit = '20' } = req.query;
+    
+    const pageNum = parseInt(page as string) || 1;
+    const limitNum = parseInt(limit as string) || 20;
+    const offset = (pageNum - 1) * limitNum;
+
+    const conditions = [];
+
+    if (search && typeof search === 'string') {
+      conditions.push(
+        or(
+          ilike(suppliers.name, `%${search}%`),
+          ilike(suppliers.contactEmail, `%${search}%`),
+          ilike(suppliers.contactPhone, `%${search}%`)
+        )
+      );
+    }
+
+    if (status === 'active') {
+      conditions.push(eq(suppliers.isActive, true));
+    } else if (status === 'inactive') {
+      conditions.push(eq(suppliers.isActive, false));
+    }
+
+    if (category && typeof category === 'string') {
+      conditions.push(sql`${category} = ANY(${suppliers.productCategories})`);
+    }
+
+    const whereClause = conditions.length > 0 ? sql`${sql.join(conditions, sql` AND `)}` : undefined;
+
+    const countQuery = whereClause
+      ? db.select({ count: sql<number>`count(*)` }).from(suppliers).where(whereClause)
+      : db.select({ count: sql<number>`count(*)` }).from(suppliers);
+    
+    const [{ count: totalCount }] = await countQuery;
+
+    const query = db.select().from(suppliers);
+
+    const results = whereClause
+      ? await query.where(whereClause).limit(limitNum).offset(offset).orderBy(sql`${suppliers.createdAt} DESC`)
+      : await query.limit(limitNum).offset(offset).orderBy(sql`${suppliers.createdAt} DESC`);
+
+    const data = results.map((supplier) => ({
+      ...supplier,
+      status: supplier.isActive ? 'active' : 'inactive',
+      contactPerson: null, // Can be added to schema if needed
+    }));
+
+    return apiResponse.success(res, { data, total: totalCount, page: pageNum, limit: limitNum });
+  } catch (error: any) {
+    console.error('Error fetching suppliers:', error);
+    return apiResponse.error(res, 'Failed to fetch suppliers', error.message);
+  }
+});
+
+// GET /api/admin/suppliers/:id - Get single supplier
+router.get('/api/admin/suppliers/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [supplier] = await db.select().from(suppliers).where(eq(suppliers.id, id)).limit(1);
+
+    if (!supplier) {
+      return apiResponse.notFound(res, 'Supplier not found');
+    }
+
+    return apiResponse.success(res, supplier);
+  } catch (error: any) {
+    console.error('Error fetching supplier:', error);
+    return apiResponse.error(res, 'Failed to fetch supplier', error.message);
+  }
+});
+
+// POST /api/admin/suppliers - Create new supplier
+router.post('/api/admin/suppliers', requireAdmin, async (req, res) => {
+  try {
+    const validatedData = createSupplierSchema.parse(req.body);
+
+    const [newSupplier] = await db.insert(suppliers).values(validatedData).returning();
+
+    return apiResponse.created(res, newSupplier, 'Supplier created successfully');
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return apiResponse.badRequest(res, 'Validation error', error.errors);
+    }
+    console.error('Error creating supplier:', error);
+    return apiResponse.error(res, 'Failed to create supplier', error.message);
+  }
+});
+
+// PATCH /api/admin/suppliers/:id - Update supplier
+router.patch('/api/admin/suppliers/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const validatedData = updateSupplierSchema.parse(req.body);
+
+    const [existing] = await db.select().from(suppliers).where(eq(suppliers.id, id)).limit(1);
+    if (!existing) {
+      return apiResponse.notFound(res, 'Supplier not found');
+    }
+
+    const [updated] = await db.update(suppliers)
+      .set({ ...validatedData, updatedAt: new Date() })
+      .where(eq(suppliers.id, id))
+      .returning();
+
+    return apiResponse.success(res, updated, 'Supplier updated successfully');
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return apiResponse.badRequest(res, 'Validation error', error.errors);
+    }
+    console.error('Error updating supplier:', error);
+    return apiResponse.error(res, 'Failed to update supplier', error.message);
+  }
+});
+
+// DELETE /api/admin/suppliers/:id - Delete supplier
+router.delete('/api/admin/suppliers/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [existing] = await db.select().from(suppliers).where(eq(suppliers.id, id)).limit(1);
+    if (!existing) {
+      return apiResponse.notFound(res, 'Supplier not found');
+    }
+
+    await db.delete(suppliers).where(eq(suppliers.id, id));
+
+    return apiResponse.success(res, null, 'Supplier deleted successfully');
+  } catch (error: any) {
+    console.error('Error deleting supplier:', error);
+    return apiResponse.error(res, 'Failed to delete supplier', error.message);
+  }
+});
+
+// PATCH /api/admin/suppliers/:id/status - Toggle supplier status
+router.patch('/api/admin/suppliers/:id/status', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const [existing] = await db.select().from(suppliers).where(eq(suppliers.id, id)).limit(1);
+    if (!existing) {
+      return apiResponse.notFound(res, 'Supplier not found');
+    }
+
+    const [updated] = await db.update(suppliers)
+      .set({ isActive: status === 'active', updatedAt: new Date() })
+      .where(eq(suppliers.id, id))
+      .returning();
+
+    return apiResponse.success(res, updated, 'Supplier status updated');
+  } catch (error: any) {
+    console.error('Error updating supplier status:', error);
+    return apiResponse.error(res, 'Failed to update supplier status', error.message);
+  }
+});
+
+export function registerStakeholderRoutes(app: Express) {
+  app.use(router);
+  console.log('✅ Stakeholder routes registered');
+}

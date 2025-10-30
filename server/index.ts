@@ -234,6 +234,10 @@ app.use((req, res, next) => {
   const { registerUserManagementRoutes } = await import('./user-management-routes');
   registerUserManagementRoutes(app);
   
+  // Register Stakeholder routes (Partners, Agents, Suppliers)
+  const { registerStakeholderRoutes } = await import('./stakeholder-routes');
+  registerStakeholderRoutes(app);
+  
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
