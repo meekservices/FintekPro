@@ -15,7 +15,8 @@ import {
   Sparkles,
   ArrowRight,
   ArrowLeft,
-  Clock
+  Clock,
+  Info
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -455,6 +456,13 @@ export default function SmartKYCOnboarding() {
           </Alert>
         )}
         
+        <Alert className="bg-blue-50 border-blue-200">
+          <Info className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="text-blue-800 text-sm">
+            <strong>Important:</strong> OTP will be sent by UIDAI to the mobile number linked with your Aadhaar card, not the number you registered with on FintekPro. Please ensure you have access to your Aadhaar-registered mobile.
+          </AlertDescription>
+        </Alert>
+        
         <div className="space-y-2">
           <Label htmlFor="aadhaar">Aadhaar Number</Label>
           <Input
@@ -466,7 +474,7 @@ export default function SmartKYCOnboarding() {
             maxLength={12}
           />
           <p className="text-sm text-muted-foreground">
-            OTP will be sent to your registered mobile number
+            Enter your 12-digit Aadhaar number (without spaces)
           </p>
         </div>
         
