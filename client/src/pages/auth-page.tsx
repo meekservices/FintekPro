@@ -259,7 +259,10 @@ export default function AuthPage() {
       });
       return response;
     },
-    onSuccess: (data) => {
+    onSuccess: (response) => {
+      // Backend wraps response in { success: true, data: {...} }
+      const data = response.data || response;
+      
       // /api/login ALWAYS requires OTP verification (no bypass allowed)
       if (!data.requiresOtp) {
         console.error("Security Error: Login response missing requiresOtp flag");
@@ -304,7 +307,8 @@ export default function AuthPage() {
       });
       return response;
     },
-    onSuccess: (data) => {
+    onSuccess: (response) => {
+      const data = response.data || response;
       setOtpSending(false);
       setOtpTimer(300); // Reset timer to 5 minutes
       setCanResendOtp(false);
@@ -333,7 +337,8 @@ export default function AuthPage() {
       });
       return response;
     },
-    onSuccess: (data) => {
+    onSuccess: (response) => {
+      const data = response.data || response;
       setLoginStep("complete");
       queryClient.setQueryData(["/api/user"], data);
       setOtpDialogOpen(false);
