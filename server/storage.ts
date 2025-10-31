@@ -1053,6 +1053,16 @@ export interface IStorage {
   getAllStoreCategories(): Promise<any[]>;
   updateStoreProductStatus(productId: string, isActive: boolean): Promise<any | undefined>;
   updateStoreCategoryStatus(categoryId: string, isActive: boolean): Promise<any | undefined>;
+  
+  // Predictive Analytics Methods
+  getPortfolioPredictions(userId: string, portfolioId?: string): Promise<any[]>;
+  getAssetForecasts(userId: string, holdingId?: string): Promise<any[]>;
+  getRiskAnalysis(userId: string, portfolioId?: string): Promise<any[]>;
+  getPredictionAccuracy(predictionId?: string): Promise<any[]>;
+  createPortfolioPrediction(prediction: any): Promise<any>;
+  createAssetForecast(forecast: any): Promise<any>;
+  createRiskAnalysis(analysis: any): Promise<any>;
+  createPredictionAccuracy(accuracy: any): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -7335,6 +7345,110 @@ export class DatabaseStorage implements IStorage {
       .returning();
     
     return updated || undefined;
+  }
+  
+  // Predictive Analytics Methods Implementation
+  async getPortfolioPredictions(userId: string, portfolioId?: string): Promise<any[]> {
+    let query = db.select()
+      .from(schema.portfolioPredictions)
+      .where(eq(schema.portfolioPredictions.userId, userId));
+    
+    if (portfolioId) {
+      const predictions = await db.select()
+        .from(schema.portfolioPredictions)
+        .where(and(
+          eq(schema.portfolioPredictions.userId, userId),
+          eq(schema.portfolioPredictions.portfolioId, portfolioId)
+        ))
+        .orderBy(desc(schema.portfolioPredictions.predictionDate));
+      return predictions;
+    }
+    
+    const predictions = await query.orderBy(desc(schema.portfolioPredictions.predictionDate));
+    return predictions;
+  }
+  
+  async getAssetForecasts(userId: string, holdingId?: string): Promise<any[]> {
+    let query = db.select()
+      .from(schema.assetForecasts)
+      .where(eq(schema.assetForecasts.userId, userId));
+    
+    if (holdingId) {
+      const forecasts = await db.select()
+        .from(schema.assetForecasts)
+        .where(and(
+          eq(schema.assetForecasts.userId, userId),
+          eq(schema.assetForecasts.holdingId, holdingId)
+        ))
+        .orderBy(desc(schema.assetForecasts.forecastDate));
+      return forecasts;
+    }
+    
+    const forecasts = await query.orderBy(desc(schema.assetForecasts.forecastDate));
+    return forecasts;
+  }
+  
+  async getRiskAnalysis(userId: string, portfolioId?: string): Promise<any[]> {
+    let query = db.select()
+      .from(schema.riskAnalysis)
+      .where(eq(schema.riskAnalysis.userId, userId));
+    
+    if (portfolioId) {
+      const analysis = await db.select()
+        .from(schema.riskAnalysis)
+        .where(and(
+          eq(schema.riskAnalysis.userId, userId),
+          eq(schema.riskAnalysis.portfolioId, portfolioId)
+        ))
+        .orderBy(desc(schema.riskAnalysis.analysisDate));
+      return analysis;
+    }
+    
+    const analysis = await query.orderBy(desc(schema.riskAnalysis.analysisDate));
+    return analysis;
+  }
+  
+  async getPredictionAccuracy(predictionId?: string): Promise<any[]> {
+    if (predictionId) {
+      const accuracy = await db.select()
+        .from(schema.predictionAccuracy)
+        .where(eq(schema.predictionAccuracy.predictionId, predictionId))
+        .orderBy(desc(schema.predictionAccuracy.actualDate));
+      return accuracy;
+    }
+    
+    const accuracy = await db.select()
+      .from(schema.predictionAccuracy)
+      .orderBy(desc(schema.predictionAccuracy.actualDate));
+    return accuracy;
+  }
+  
+  async createPortfolioPrediction(prediction: any): Promise<any> {
+    const [newPrediction] = await db.insert(schema.portfolioPredictions)
+      .values(prediction)
+      .returning();
+    return newPrediction;
+  }
+  
+  async createAssetForecast(forecast: any): Promise<any> {
+    const [newForecast] = await db.insert(schema.assetForecasts)
+      .values(forecast)
+      .returning();
+    return newForecast;
+  }
+  
+  async createRiskAnalysis(analysis: any): Promise<any> {
+    const [newAnalysis] = await db.insert(schema.riskAnalysis)
+      .values(analysis)
+      .returning();
+    return newAnalysis;
+  }
+  
+  async createPredictionAccuracy(accuracy: any): Promise<any> {
+    const [newAccuracy] = await db.insert(schema.predictionAccuracy)
+      .values(accuracy)
+      .returning();
+    return newAccuracy;
   }
 }
 

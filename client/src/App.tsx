@@ -119,6 +119,7 @@ import LeadProspecting from "@/pages/admin/lead-prospecting";
 import ClientIntelligence from "@/pages/admin/client-intelligence";
 import MarketingAnalytics from "@/pages/admin/marketing-analytics";
 import UserManagement from "@/pages/admin/user-management";
+import PredictiveAnalytics from "@/pages/PredictiveAnalytics";
 
 function UserProtectedRoutes() {
   return (
@@ -127,6 +128,7 @@ function UserProtectedRoutes() {
         <Route path="/" component={Home} />
         <Route path="/dashboard" component={Home} />
         <Route path="/portfolio" component={Portfolio} />
+        <Route path="/analytics" component={PredictiveAnalytics} />
         <Route path="/comprehensive-portfolio">{() => {
           const ComprehensivePortfolio = lazy(() => import("@/pages/comprehensive-portfolio"));
           return <ComprehensivePortfolio />;

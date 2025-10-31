@@ -9528,3 +9528,210 @@ export const insertClientIntelligenceSchema = createInsertSchema(clientIntellige
 export type ClientIntelligence = typeof clientIntelligence.$inferSelect;
 export type InsertClientIntelligence = z.infer<typeof insertClientIntelligenceSchema>;
 
+// ============ PREDICTIVE ANALYTICS TABLES ============
+
+// Portfolio performance predictions
+export const portfolioPredictions = pgTable("portfolio_predictions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  portfolioId: varchar("portfolio_id").references(() => portfolios.id),
+  
+  // Prediction period
+  predictionDate: timestamp("prediction_date").notNull(),
+  predictionHorizon: varchar("prediction_horizon").notNull(), // '1M', '3M', '6M', '1Y', '3Y', '5Y'
+  
+  // Performance predictions
+  expectedReturn: decimal("expected_return", { precision: 10, scale: 4 }), // Percentage
+  expectedValue: decimal("expected_value", { precision: 20, scale: 2 }),
+  lowerBound: decimal("lower_bound", { precision: 20, scale: 2 }), // 95% confidence
+  upperBound: decimal("upper_bound", { precision: 20, scale: 2 }), // 95% confidence
+  
+  // Risk metrics
+  volatility: decimal("volatility", { precision: 10, scale: 4 }), // Standard deviation
+  sharpeRatio: decimal("sharpe_ratio", { precision: 10, scale: 4 }),
+  beta: decimal("beta", { precision: 10, scale: 4 }), // Market correlation
+  varValue: decimal("var_value", { precision: 20, scale: 2 }), // Value at Risk
+  maxDrawdown: decimal("max_drawdown", { precision: 10, scale: 4 }), // Maximum expected loss
+  
+  // Trend analysis
+  trendDirection: varchar("trend_direction"), // 'bullish', 'bearish', 'neutral'
+  trendStrength: decimal("trend_strength", { precision: 5, scale: 2 }), // 0-100
+  momentum: decimal("momentum", { precision: 10, scale: 4 }),
+  
+  // Statistical indicators
+  cagr: decimal("cagr", { precision: 10, scale: 4 }), // Compound Annual Growth Rate
+  movingAverage50Day: decimal("moving_average_50day", { precision: 20, scale: 2 }),
+  movingAverage200Day: decimal("moving_average_200day", { precision: 20, scale: 2 }),
+  rsi: decimal("rsi", { precision: 5, scale: 2 }), // Relative Strength Index (0-100)
+  
+  // Prediction confidence
+  confidenceScore: decimal("confidence_score", { precision: 5, scale: 2 }), // 0-100
+  modelVersion: varchar("model_version"),
+  dataQualityScore: decimal("data_quality_score", { precision: 5, scale: 2 }),
+  
+  // Historical comparison
+  historicalAccuracy: decimal("historical_accuracy", { precision: 5, scale: 2 }), // % accuracy from past predictions
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_portfolio_predictions_user").on(table.userId),
+  index("idx_portfolio_predictions_portfolio").on(table.portfolioId),
+  index("idx_portfolio_predictions_date").on(table.predictionDate),
+]);
+
+// Asset-level performance forecasts
+export const assetForecasts = pgTable("asset_forecasts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  holdingId: varchar("holding_id").references(() => portfolioHoldings.id),
+  
+  // Asset identification
+  symbol: varchar("symbol").notNull(),
+  assetType: varchar("asset_type").notNull(), // 'stock', 'mutual_fund', 'bond', 'crypto'
+  
+  // Forecast period
+  forecastDate: timestamp("forecast_date").notNull(),
+  horizon: varchar("horizon").notNull(), // '1M', '3M', '6M', '1Y'
+  
+  // Price predictions
+  currentPrice: decimal("current_price", { precision: 20, scale: 2 }),
+  predictedPrice: decimal("predicted_price", { precision: 20, scale: 2 }),
+  priceChange: decimal("price_change", { precision: 10, scale: 4 }), // Percentage
+  
+  // Performance metrics
+  expectedReturn: decimal("expected_return", { precision: 10, scale: 4 }),
+  volatility: decimal("volatility", { precision: 10, scale: 4 }),
+  beta: decimal("beta", { precision: 10, scale: 4 }),
+  
+  // Technical indicators
+  supportLevel: decimal("support_level", { precision: 20, scale: 2 }),
+  resistanceLevel: decimal("resistance_level", { precision: 20, scale: 2 }),
+  trendSignal: varchar("trend_signal"), // 'buy', 'sell', 'hold'
+  
+  // Risk assessment
+  riskRating: varchar("risk_rating"), // 'low', 'medium', 'high', 'very_high'
+  probabilityOfLoss: decimal("probability_of_loss", { precision: 5, scale: 2 }), // 0-100
+  
+  // Recommendations
+  recommendation: varchar("recommendation"), // 'strong_buy', 'buy', 'hold', 'sell', 'strong_sell'
+  recommendationReason: text("recommendation_reason"),
+  
+  // Confidence metrics
+  confidenceLevel: decimal("confidence_level", { precision: 5, scale: 2 }), // 0-100
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_asset_forecasts_user").on(table.userId),
+  index("idx_asset_forecasts_symbol").on(table.symbol),
+  index("idx_asset_forecasts_holding").on(table.holdingId),
+]);
+
+// Risk analysis and scenarios
+export const riskAnalysis = pgTable("risk_analysis", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  portfolioId: varchar("portfolio_id").references(() => portfolios.id),
+  
+  // Analysis metadata
+  analysisDate: timestamp("analysis_date").notNull(),
+  analysisType: varchar("analysis_type").notNull(), // 'portfolio', 'asset', 'market'
+  
+  // Overall risk metrics
+  overallRiskScore: decimal("overall_risk_score", { precision: 5, scale: 2 }), // 0-100
+  riskCategory: varchar("risk_category"), // 'conservative', 'moderate', 'aggressive'
+  
+  // Diversification metrics
+  diversificationScore: decimal("diversification_score", { precision: 5, scale: 2 }), // 0-100
+  concentrationRisk: decimal("concentration_risk", { precision: 5, scale: 2 }),
+  correlationRisk: decimal("correlation_risk", { precision: 5, scale: 2 }),
+  
+  // Market risk
+  marketRisk: decimal("market_risk", { precision: 10, scale: 4 }),
+  sectorRisk: decimal("sector_risk", { precision: 10, scale: 4 }),
+  geographicRisk: decimal("geographic_risk", { precision: 10, scale: 4 }),
+  
+  // Stress test scenarios
+  marketCrashScenario: jsonb("market_crash_scenario"), // Impact of 20% market drop
+  recessionScenario: jsonb("recession_scenario"), // Economic recession impact
+  interestRateRise: jsonb("interest_rate_rise"), // Interest rate increase impact
+  inflationScenario: jsonb("inflation_scenario"), // High inflation impact
+  
+  // VaR calculations
+  var1Day: decimal("var_1day", { precision: 20, scale: 2 }), // Value at Risk 1 day
+  var1Week: decimal("var_1week", { precision: 20, scale: 2 }),
+  var1Month: decimal("var_1month", { precision: 20, scale: 2 }),
+  
+  // Recommendations
+  riskMitigationSuggestions: jsonb("risk_mitigation_suggestions"),
+  rebalancingRecommendations: jsonb("rebalancing_recommendations"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_risk_analysis_user").on(table.userId),
+  index("idx_risk_analysis_portfolio").on(table.portfolioId),
+  index("idx_risk_analysis_date").on(table.analysisDate),
+]);
+
+// Prediction accuracy tracking
+export const predictionAccuracy = pgTable("prediction_accuracy", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  predictionId: varchar("prediction_id").references(() => portfolioPredictions.id),
+  assetForecastId: varchar("asset_forecast_id").references(() => assetForecasts.id),
+  
+  // Prediction details
+  predictionDate: timestamp("prediction_date").notNull(),
+  targetDate: timestamp("target_date").notNull(),
+  actualDate: timestamp("actual_date").notNull(), // When actual result was measured
+  
+  // Accuracy metrics
+  predictedValue: decimal("predicted_value", { precision: 20, scale: 2 }),
+  actualValue: decimal("actual_value", { precision: 20, scale: 2 }),
+  errorPercentage: decimal("error_percentage", { precision: 10, scale: 4 }),
+  absoluteError: decimal("absolute_error", { precision: 20, scale: 2 }),
+  
+  // Evaluation
+  accuracyScore: decimal("accuracy_score", { precision: 5, scale: 2 }), // 0-100
+  predictionQuality: varchar("prediction_quality"), // 'excellent', 'good', 'fair', 'poor'
+  
+  // Model feedback
+  modelVersion: varchar("model_version"),
+  improvementNotes: text("improvement_notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Zod schemas for predictive analytics
+export const insertPortfolioPredictionSchema = createInsertSchema(portfolioPredictions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type PortfolioPrediction = typeof portfolioPredictions.$inferSelect;
+export type InsertPortfolioPrediction = z.infer<typeof insertPortfolioPredictionSchema>;
+
+export const insertAssetForecastSchema = createInsertSchema(assetForecasts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type AssetForecast = typeof assetForecasts.$inferSelect;
+export type InsertAssetForecast = z.infer<typeof insertAssetForecastSchema>;
+
+export const insertRiskAnalysisSchema = createInsertSchema(riskAnalysis).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type RiskAnalysis = typeof riskAnalysis.$inferSelect;
+export type InsertRiskAnalysis = z.infer<typeof insertRiskAnalysisSchema>;
+
+export const insertPredictionAccuracySchema = createInsertSchema(predictionAccuracy).omit({
+  id: true,
+  createdAt: true,
+});
+export type PredictionAccuracy = typeof predictionAccuracy.$inferSelect;
+export type InsertPredictionAccuracy = z.infer<typeof insertPredictionAccuracySchema>;
+
