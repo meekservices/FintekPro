@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle, TrendingUp, TrendingDown, Activity, Shield, Target, Brain } from "lucide-react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import LoadingState from "@/components/LoadingState";
+import { LoadingState } from "@/components/LoadingState";
 import { useToast } from "@/hooks/use-toast";
 
 export default function PredictiveAnalytics() {
