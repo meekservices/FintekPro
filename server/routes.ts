@@ -18376,96 +18376,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin Agent Management - Get all agents
-  app.get("/api/admin/agents", requireAdmin, async (req, res) => {
-    try {
-      const agents = await storage.getAllCustomerCareAgents();
-      res.json(agents);
-    } catch (error) {
-      console.error("Error fetching agents:", error);
-      return apiResponse.serverError(res, "Failed to fetch agents");
-    }
-  });
-
-  // Admin Agent Management - Create new agent
-  app.post("/api/admin/agents", requireAdmin, async (req, res) => {
-    try {
-      const agentData = req.body;
-      const newAgent = await storage.createCustomerCareAgent(agentData);
-      
-      await adminService.logActivity({
-        userId: req.user?.id || 'unknown',
-        action: 'admin_agent_created',
-        resource: `agent:${newAgent.id}`,
-        details: { fullName: newAgent.fullName, email: newAgent.email },
-        ipAddress: req.ip
-      });
-      
-      res.status(201).json(newAgent);
-    } catch (error) {
-      console.error("Error creating agent:", error);
-      return apiResponse.serverError(res, "Failed to create agent");
-    }
-  });
-
-  // Admin Agent Management - Update agent
-  app.patch("/api/admin/agents/:id", requireAdmin, async (req, res) => {
-    try {
-      const { id } = req.params;
-      const updates = req.body;
-      const updatedAgent = await storage.updateCustomerCareAgent(id, updates);
-      
-      if (!updatedAgent) {
-        return apiResponse.notFound(res, "Agent not found");
-      }
-      
-      await adminService.logActivity({
-        userId: req.user?.id || 'unknown',
-        action: 'admin_agent_updated',
-        resource: `agent:${id}`,
-        details: updates,
-        ipAddress: req.ip
-      });
-      
-      res.json(updatedAgent);
-    } catch (error) {
-      console.error("Error updating agent:", error);
-      return apiResponse.serverError(res, "Failed to update agent");
-    }
-  });
-
-  // Admin Agent Management - Delete agent
-  app.delete("/api/admin/agents/:id", requireAdmin, async (req, res) => {
-    try {
-      const { id } = req.params;
-      
-      // Get agent info before deletion for logging
-      const agent = await storage.getCustomerCareAgent(id);
-      if (!agent) {
-        return apiResponse.notFound(res, "Agent not found");
-      }
-      
-      const deleted = await storage.deleteCustomerCareAgent(id);
-      
-      if (!deleted) {
-        return apiResponse.notFound(res, "Agent not found or could not be deleted");
-      }
-      
-      await adminService.logActivity({
-        userId: req.user?.id || 'unknown',
-        action: 'admin_agent_deleted',
-        resource: `agent:${id}`,
-        details: { fullName: agent.fullName, email: agent.email },
-        ipAddress: req.ip
-      });
-      
-      res.json({ success: true, message: "Agent deleted successfully" });
-    } catch (error) {
-      console.error("Error deleting agent:", error);
-      return apiResponse.serverError(res, "Failed to delete agent");
-    }
-  });
-
   // Admin System Monitoring - Get platform insights
   app.get("/api/admin/insights", requireAdmin, async (req, res) => {
     try {
@@ -20086,6 +19996,202 @@ System Security Data:`;
     }
   });
 
+
+  // ============ PARTNER MANAGEMENT ROUTES ============
+
+  // Get all partners with filtering and pagination
+  app.get("/api/admin/partners", requireAdmin, async (req, res) => {
+    try {
+      const {
+        page = "1",
+        limit = "20",
+        search,
+        status,
+        partnerType
+      } = req.query as any;
+
+      const result = await storage.getAllPartners({
+        search,
+        status,
+        partnerType,
+        page: parseInt(page),
+        limit: parseInt(limit)
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching partners:", error);
+      return apiResponse.serverError(res, "Failed to fetch partners");
+    }
+  });
+
+  // Create new partner
+  app.post("/api/admin/partners", requireAdmin, async (req, res) => {
+    try {
+      const partner = await storage.createPartner(req.body);
+      
+      await adminService.logActivity({
+        userId: req.user?.id || 'unknown',
+        action: 'admin_partner_created',
+        resource: `partner:${partner.id}`,
+        details: { companyName: partner.companyName, contactEmail: partner.contactEmail },
+        ipAddress: req.ip
+      });
+
+      res.status(201).json(partner);
+    } catch (error) {
+      console.error("Error creating partner:", error);
+      return apiResponse.serverError(res, "Failed to create partner");
+    }
+  });
+
+  // Update partner
+  app.patch("/api/admin/partners/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updated = await storage.updatePartner(id, req.body);
+      
+      if (!updated) {
+        return apiResponse.notFound(res, "Partner not found");
+      }
+
+      await adminService.logActivity({
+        userId: req.user?.id || 'unknown',
+        action: 'admin_partner_updated',
+        resource: `partner:${id}`,
+        details: req.body,
+        ipAddress: req.ip
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating partner:", error);
+      return apiResponse.serverError(res, "Failed to update partner");
+    }
+  });
+
+  // Delete partner
+  app.delete("/api/admin/partners/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const deleted = await storage.deletePartner(id);
+      
+      if (!deleted) {
+        return apiResponse.notFound(res, "Partner not found");
+      }
+
+      await adminService.logActivity({
+        userId: req.user?.id || 'unknown',
+        action: 'admin_partner_deleted',
+        resource: `partner:${id}`,
+        details: {},
+        ipAddress: req.ip
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting partner:", error);
+      return apiResponse.serverError(res, "Failed to delete partner");
+    }
+  });
+
+  // ============ SUPPLIER MANAGEMENT ROUTES ============
+
+  // Get all suppliers with filtering and pagination
+  app.get("/api/admin/suppliers", requireAdmin, async (req, res) => {
+    try {
+      const {
+        page = "1",
+        limit = "20",
+        search,
+        status,
+        category
+      } = req.query as any;
+
+      const result = await storage.getAllSuppliers({
+        search,
+        status,
+        category,
+        page: parseInt(page),
+        limit: parseInt(limit)
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching suppliers:", error);
+      return apiResponse.serverError(res, "Failed to fetch suppliers");
+    }
+  });
+
+  // Create new supplier
+  app.post("/api/admin/suppliers", requireAdmin, async (req, res) => {
+    try {
+      const supplier = await storage.createSupplier(req.body);
+      
+      await adminService.logActivity({
+        userId: req.user?.id || 'unknown',
+        action: 'admin_supplier_created',
+        resource: `supplier:${supplier.id}`,
+        details: { name: supplier.name, contactEmail: supplier.contactEmail },
+        ipAddress: req.ip
+      });
+
+      res.status(201).json(supplier);
+    } catch (error) {
+      console.error("Error creating supplier:", error);
+      return apiResponse.serverError(res, "Failed to create supplier");
+    }
+  });
+
+  // Update supplier
+  app.patch("/api/admin/suppliers/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updated = await storage.updateSupplier(id, req.body);
+      
+      if (!updated) {
+        return apiResponse.notFound(res, "Supplier not found");
+      }
+
+      await adminService.logActivity({
+        userId: req.user?.id || 'unknown',
+        action: 'admin_supplier_updated',
+        resource: `supplier:${id}`,
+        details: req.body,
+        ipAddress: req.ip
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating supplier:", error);
+      return apiResponse.serverError(res, "Failed to update supplier");
+    }
+  });
+
+  // Delete supplier
+  app.delete("/api/admin/suppliers/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const deleted = await storage.deleteSupplier(id);
+      
+      if (!deleted) {
+        return apiResponse.notFound(res, "Supplier not found");
+      }
+
+      await adminService.logActivity({
+        userId: req.user?.id || 'unknown',
+        action: 'admin_supplier_deleted',
+        resource: `supplier:${id}`,
+        details: {},
+        ipAddress: req.ip
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting supplier:", error);
+      return apiResponse.serverError(res, "Failed to delete supplier");
+    }
+  });
   // ============ CLIENT-AGENT RELATIONSHIP ROUTES (EUIN/ARN Integration) ============
   
   // Get all client-agent relationships

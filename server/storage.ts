@@ -3,7 +3,7 @@ import { type CashfreeTransaction, type InsertCashfreeTransaction, type PhonePeT
 import { type Product, type InsertProduct, type ApplicationDocument, type InsertApplicationDocument, type ProductAccountPreference, type InsertProductAccountPreference, type ICICILoanApplication, type InsertICICILoanApplication, type ICICICreditScore, type InsertICICICreditScore, type PortfolioComparison, type InsertPortfolioComparison, type ChatSession, type InsertChatSession, type ChatMessage, type InsertChatMessage, type ChatAction, type InsertChatAction, type ChatFunction, type InsertChatFunction, type CurrencyRate, type InsertCurrencyRate, type CkycNotificationTrigger, type InsertCkycNotificationTrigger, type KycVerificationSession, type InsertKycVerificationSession, type ManualKycSubmission, type InsertManualKycSubmission, type ManualKycDocument, type InsertManualKycDocument } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
-import { eq, and, desc, asc, gte, lte, like, sql } from "drizzle-orm";
+import { eq, and, or, desc, asc, gte, lte, like, ilike, sql } from "drizzle-orm";
 import * as schema from "@shared/schema";
 import { generateUniqueUserId } from "./auth";
 
@@ -2448,8 +2448,53 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Partner methods implementation
-  async getAllPartners(): Promise<any[]> {
-    return await db.select().from(schema.partners).orderBy(desc(schema.partners.createdAt));
+  async getAllPartners(filters?: { search?: string; status?: string; partnerType?: string; page?: number; limit?: number }): Promise<{ data: Partner[]; total: number }> {
+    const page = filters?.page || 1;
+    const limit = filters?.limit || 50;
+    const offset = (page - 1) * limit;
+
+    let query = db.select().from(schema.partners);
+    const conditions = [];
+
+    if (filters?.search) {
+      conditions.push(
+        or(
+          ilike(schema.partners.companyName, `%${filters.search}%`),
+          ilike(schema.partners.contactEmail, `%${filters.search}%`),
+          ilike(schema.partners.contactPhone, `%${filters.search}%`)
+        )
+      );
+    }
+
+    if (filters?.status) {
+      // Map status to isActive boolean
+      const isActive = filters.status === 'active';
+      conditions.push(eq(schema.partners.isActive, isActive));
+    }
+
+    if (filters?.partnerType) {
+      conditions.push(eq(schema.partners.partnerType, filters.partnerType));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+
+    const data = await query
+      .orderBy(desc(schema.partners.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    const countQuery = conditions.length > 0
+      ? db.select({ count: sql`count(*)` }).from(schema.partners).where(and(...conditions))
+      : db.select({ count: sql`count(*)` }).from(schema.partners);
+
+    const [{ count }] = await countQuery as any;
+    
+    return {
+      data,
+      total: parseInt(count)
+    };
   }
 
   async getPartner(id: string): Promise<any | undefined> {
@@ -2501,8 +2546,49 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Supplier methods implementation
-  async getAllSuppliers(): Promise<Supplier[]> {
-    return await db.select().from(schema.suppliers).orderBy(desc(schema.suppliers.createdAt));
+  async getAllSuppliers(filters?: { search?: string; status?: string; category?: string; page?: number; limit?: number }): Promise<{ data: Supplier[]; total: number }> {
+    const page = filters?.page || 1;
+    const limit = filters?.limit || 50;
+    const offset = (page - 1) * limit;
+
+    let query = db.select().from(schema.suppliers);
+    const conditions = [];
+
+    if (filters?.search) {
+      conditions.push(
+        or(
+          ilike(schema.suppliers.name, `%${filters.search}%`),
+          ilike(schema.suppliers.contactEmail, `%${filters.search}%`),
+          ilike(schema.suppliers.contactPhone, `%${filters.search}%`)
+        )
+      );
+    }
+
+    if (filters?.status) {
+      // Map status to isActive boolean
+      const isActive = filters.status === 'active';
+      conditions.push(eq(schema.suppliers.isActive, isActive));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+
+    const data = await query
+      .orderBy(desc(schema.suppliers.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    const countQuery = conditions.length > 0
+      ? db.select({ count: sql`count(*)` }).from(schema.suppliers).where(and(...conditions))
+      : db.select({ count: sql`count(*)` }).from(schema.suppliers);
+
+    const [{ count }] = await countQuery as any;
+    
+    return {
+      data,
+      total: parseInt(count)
+    };
   }
 
   async getSupplier(id: string): Promise<Supplier | undefined> {
