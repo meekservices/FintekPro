@@ -1811,13 +1811,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Start or get active KYC verification session
   app.post("/api/kyc/wizard/start", requireClientOrHigher, async (req: any, res) => {
+    const userId = req.user?.id;
+    const ipAddress = req.ip;
+    const userAgent = req.headers['user-agent'] || 'unknown';
+    
     try {
-      const userId = req.user!.id;
+      if (!userId) {
+        console.error('[KYC Wizard] Start session failed: User not authenticated');
+        console.log('[COMPLIANCE] kyc_session_start: POST /api/kyc/wizard/start', {
+          userId: null,
+          outcome: 'failure',
+          reason: 'unauthorized',
+          riskLevel: 'high'
+        });
+        return res.status(401).json({
+          success: false,
+          message: 'User not authenticated'
+        });
+      }
+      
+      // Regulatory Compliance: Log KYC session initiation attempt
+      console.log('[COMPLIANCE] kyc_session_start: POST /api/kyc/wizard/start', {
+        userId,
+        ipAddress,
+        userAgent: userAgent.substring(0, 100), // Truncate for logging
+        outcome: 'initiated',
+        riskLevel: 'medium'
+      });
       
       // Check for existing active session
       const existingSession = await storage.getActiveKycSession(userId);
       
       if (existingSession) {
+        console.log(`[KYC Wizard] Resuming existing session for user ${userId}, session ${existingSession.id}`);
+        console.log('[COMPLIANCE] kyc_session_resumed:', {
+          userId,
+          sessionId: existingSession.id,
+          currentStep: existingSession.currentStep,
+          outcome: 'success',
+          riskLevel: 'low'
+        });
         return res.json({
           success: true,
           session: existingSession,
@@ -1826,6 +1859,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Create new session
+      console.log(`[KYC Wizard] Creating new KYC session for user ${userId}`);
       const session = await storage.createKycVerificationSession({
         userId,
         sessionType: "smart_kyc_wizard",
@@ -1841,8 +1875,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         aadhaarOtpVerified: false,
         isActive: true,
         expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes
-        ipAddress: req.ip,
-        userAgent: req.headers['user-agent'] || 'unknown'
+        ipAddress,
+        userAgent
+      });
+      
+      console.log(`[KYC Wizard] Session created successfully: ${session.id}`);
+      console.log('[COMPLIANCE] kyc_session_created:', {
+        userId,
+        sessionId: session.id,
+        sessionType: session.sessionType,
+        expiresAt: session.expiresAt,
+        outcome: 'success',
+        riskLevel: 'low'
       });
       
       res.json({
@@ -1850,11 +1894,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         session,
         message: "KYC session started successfully"
       });
-    } catch (error) {
-      console.error('Error starting KYC session:', error);
+    } catch (error: any) {
+      console.error('[KYC Wizard] Error starting KYC session:', {
+        userId,
+        error: error.message,
+        stack: error.stack,
+        code: error.code
+      });
+      
+      // Regulatory Compliance: Log KYC session failure
+      console.log('[COMPLIANCE] kyc_session_start_failed:', {
+        userId,
+        errorType: error.name || 'Unknown',
+        errorMessage: error.message || 'Unknown error',
+        outcome: 'failure',
+        riskLevel: 'high'
+      });
+      
       res.status(500).json({
         success: false,
-        message: 'Failed to start KYC session'
+        message: 'Failed to start KYC session. Please try again later.',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
   });
