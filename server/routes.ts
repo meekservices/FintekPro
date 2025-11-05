@@ -11781,10 +11781,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { portfolioId } = req.params;
       const { targetAllocations } = req.body;
+      const userId = (req as any).user.id;
+      
+      // Get user preferences
+      const preferences = await storage.getRebalancingPreferences(userId);
+      const minTransactionAmount = parseFloat(preferences?.minimumTransactionAmount || "1000");
+      // Convert percentage to decimal (e.g., 0.10% becomes 0.001)
+      const transactionCostPct = parseFloat(preferences?.transactionCostPercentage || "0.10") / 100;
+      const toleranceThreshold = parseFloat(preferences?.toleranceThreshold || "5");
       
       // Calculate rebalancing requirements
       const holdings = await storage.getPortfolioHoldings(portfolioId);
       const portfolio = await storage.getPortfolio(portfolioId);
+      
       
       if (!portfolio) {
         return apiResponse.notFound(res, "Portfolio not found");
@@ -11793,6 +11802,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Calculate current allocation and rebalance amounts
       const totalValue = parseFloat(portfolio.totalValue || "0");
       const rebalanceCalculations = [];
+      const filteredCalculations = [];
 
       for (const target of targetAllocations) {
         const targetValue = totalValue * (parseFloat(target.percentage) / 100);
@@ -11801,29 +11811,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return sum + (parseFloat(h.quantity) * parseFloat(h.avgPrice));
         }, 0);
         
+        const targetPercentage = parseFloat(target.percentage);
+        const currentPercentage = (currentValue / totalValue) * 100;
+        const drift = Math.abs(currentPercentage - targetPercentage);
         const rebalanceAmount = targetValue - currentValue;
+        const absRebalanceAmount = Math.abs(rebalanceAmount);
         
-        rebalanceCalculations.push({
+        const calculation = {
           assetType: target.assetType,
           targetValue,
           currentValue,
+          currentPercentage,
+          targetPercentage,
+          drift,
           rebalanceAmount,
-          action: rebalanceAmount > 0 ? "BUY" : "SELL"
-        });
+          absRebalanceAmount,
+          transactionCost: absRebalanceAmount * transactionCostPct,
+          action: rebalanceAmount > 0 ? "BUY" : "SELL",
+          shouldRebalance: drift > toleranceThreshold && absRebalanceAmount >= minTransactionAmount
+        };
+        
+        rebalanceCalculations.push(calculation);
+        
+        // Only include transactions that meet threshold criteria
+        if (calculation.shouldRebalance) {
+          filteredCalculations.push(calculation);
+        }
 
         // Store allocation data
         await storage.upsertAssetAllocation({
           portfolioId,
           assetType: target.assetType,
           targetPercentage: target.percentage,
-          currentPercentage: ((currentValue / totalValue) * 100).toString(),
+          currentPercentage: currentPercentage.toString(),
           targetValue: targetValue.toString(),
           currentValue: currentValue.toString(),
           rebalanceAmount: rebalanceAmount.toString()
         });
       }
 
-      res.json({ rebalanceCalculations });
+      res.json({ 
+        rebalanceCalculations: filteredCalculations,
+        allCalculations: rebalanceCalculations,
+        preferences: {
+          minTransactionAmount,
+          transactionCostPct,
+          toleranceThreshold
+        }
+      });
     } catch (error) {
       console.error("Error calculating rebalance:", error);
       return apiResponse.serverError(res, "Failed to calculate rebalance");
@@ -11980,7 +12015,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           userId,
           toleranceThreshold: "5.00",
           minimumTransactionAmount: "1000.00",
-          transactionCostPercentage: "0.0010",
+          transactionCostPercentage: "0.10",
           autoRebalanceEnabled: false,
           rebalanceFrequency: "quarterly",
           notifyOnDrift: true,

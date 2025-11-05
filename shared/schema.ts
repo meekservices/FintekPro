@@ -1048,7 +1048,7 @@ export const rebalancingPreferences = pgTable("rebalancing_preferences", {
   userId: varchar("user_id").references(() => users.id).notNull().unique(),
   toleranceThreshold: decimal("tolerance_threshold", { precision: 5, scale: 2 }).default("5.00"), // Percentage deviation before rebalancing (default 5%)
   minimumTransactionAmount: decimal("minimum_transaction_amount", { precision: 15, scale: 2 }).default("1000.00"), // Skip transactions below this amount (default ₹1000)
-  transactionCostPercentage: decimal("transaction_cost_percentage", { precision: 5, scale: 4 }).default("0.0010"), // Transaction cost as decimal (default 0.1%)
+  transactionCostPercentage: decimal("transaction_cost_percentage", { precision: 5, scale: 2 }).default("0.10"), // Transaction cost as percentage (default 0.10%)
   autoRebalanceEnabled: boolean("auto_rebalance_enabled").default(false),
   rebalanceFrequency: varchar("rebalance_frequency").default("quarterly"), // 'monthly', 'quarterly', 'semi_annually', 'annually', 'manual'
   notifyOnDrift: boolean("notify_on_drift").default(true), // Send alert when portfolio drifts beyond threshold
