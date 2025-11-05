@@ -111,7 +111,7 @@ export function AssetAllocation({ portfolioId }: AssetAllocationProps) {
                 Rebalance Portfolio
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
               <DialogHeader>
                 <DialogTitle>Portfolio Rebalancing</DialogTitle>
               </DialogHeader>

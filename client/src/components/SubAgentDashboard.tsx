@@ -235,7 +235,7 @@ export function SubAgentDashboard({ agentId }: SubAgentDashboardProps) {
                     Refer New Client
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-2xl">
+                <DialogContent className="max-w-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
                   <DialogHeader>
                     <DialogTitle>Refer New Client</DialogTitle>
                     <DialogDescription>

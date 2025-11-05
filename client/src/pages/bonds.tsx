@@ -750,7 +750,7 @@ export default function Bonds() {
                           Compare ({selectedBonds.length})
                         </Button>
                       </DialogTrigger>
-                      <DialogContent className="max-w-4xl">
+                      <DialogContent className="max-w-4xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
                         <DialogHeader>
                           <DialogTitle>Bond Comparison</DialogTitle>
                           <DialogDescription>

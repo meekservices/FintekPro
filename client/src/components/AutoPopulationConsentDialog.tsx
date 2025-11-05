@@ -151,7 +151,7 @@ export function AutoPopulationConsentDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" data-testid="dialog-auto-population-consent">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800" data-testid="dialog-auto-population-consent">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2" data-testid="text-auto-pop-consent-title">
             <Shield className="h-5 w-5 text-blue-600" />

@@ -273,7 +273,7 @@ export default function AdminProposalsPage() {
               Create Proposal
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
             <DialogHeader>
               <DialogTitle>Create New Proposal</DialogTitle>
               <DialogDescription>
@@ -541,7 +541,7 @@ export default function AdminProposalsPage() {
 
       {/* View Proposal Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />

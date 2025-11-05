@@ -91,7 +91,7 @@ export function ConsentDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl" data-testid="dialog-consent">
+      <DialogContent className="max-w-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800" data-testid="dialog-consent">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2" data-testid="text-consent-title">
             <Shield className="h-5 w-5 text-blue-600" />

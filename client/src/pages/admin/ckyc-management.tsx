@@ -336,7 +336,7 @@ export default function CkycManagement() {
                                 View Details
                               </Button>
                             </DialogTrigger>
-                            <DialogContent className="max-w-2xl">
+                            <DialogContent className="max-w-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
                               <DialogHeader>
                                 <DialogTitle>CKYC Record Details</DialogTitle>
                                 <DialogDescription>
@@ -593,7 +593,7 @@ function NotificationDialog({ open, onOpenChange, selectedRecord, onSubmit, isLo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
         <DialogHeader>
           <DialogTitle>Send Notification</DialogTitle>
           <DialogDescription>
@@ -734,7 +734,7 @@ function ProgressStepDialog({ open, onOpenChange, selectedRecord, onSubmit, isLo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
         <DialogHeader>
           <DialogTitle>Add Progress Step</DialogTitle>
           <DialogDescription>

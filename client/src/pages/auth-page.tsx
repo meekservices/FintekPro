@@ -783,7 +783,7 @@ export default function AuthPage() {
                                   Forgot Password?
                                 </Button>
                               </DialogTrigger>
-                              <DialogContent className="sm:max-w-md" data-testid="dialog-forgot-password">
+                              <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800" data-testid="dialog-forgot-password">
                                 <DialogHeader>
                                   <DialogTitle>
                                     {resetPasswordStep === "request" ? "Reset Password" : "Enter OTP & New Password"}
@@ -1006,7 +1006,7 @@ export default function AuthPage() {
 
       {/* Enhanced OTP Verification Dialog */}
       <Dialog open={otpDialogOpen} onOpenChange={setOtpDialogOpen}>
-        <DialogContent className="sm:max-w-md" data-testid="dialog-otp-verification">
+        <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800" data-testid="dialog-otp-verification">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-blue-600" />
@@ -1105,7 +1105,7 @@ export default function AuthPage() {
 
       {/* Registration OTP Verification Dialog */}
       <Dialog open={registrationOtpDialogOpen} onOpenChange={setRegistrationOtpDialogOpen}>
-        <DialogContent className="sm:max-w-md" data-testid="dialog-registration-otp">
+        <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800" data-testid="dialog-registration-otp">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-blue-600" />
@@ -1206,7 +1206,7 @@ export default function AuthPage() {
 
       {/* User ID Success Dialog */}
       <Dialog open={showUserIdDialog} onOpenChange={setShowUserIdDialog}>
-        <DialogContent className="sm:max-w-md" data-testid="dialog-user-id-success">
+        <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800" data-testid="dialog-user-id-success">
           <DialogHeader>
             <div className="flex justify-center mb-4">
               <div className="rounded-full bg-green-100 dark:bg-green-900/20 p-3">
@@ -1255,7 +1255,7 @@ export default function AuthPage() {
 
       {/* Duplicate Warning Dialog */}
       <Dialog open={duplicateWarningOpen} onOpenChange={setDuplicateWarningOpen}>
-        <DialogContent className="sm:max-w-lg" data-testid="dialog-duplicate-warning">
+        <DialogContent className="sm:max-w-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800" data-testid="dialog-duplicate-warning">
           <DialogHeader>
             <div className="flex justify-center mb-4">
               <div className="rounded-full bg-yellow-100 dark:bg-yellow-900/20 p-3">

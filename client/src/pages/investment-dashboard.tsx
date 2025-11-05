@@ -900,7 +900,7 @@ export default function InvestmentDashboard() {
         {/* Selected Investment Idea Detail Modal */}
         {selectedIdea && (
           <Dialog open={!!selectedIdea} onOpenChange={() => setSelectedIdea(null)}>
-            <DialogContent className="max-w-2xl" data-testid="dialog-idea-detail">
+            <DialogContent className="max-w-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800" data-testid="dialog-idea-detail">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <Target className="h-5 w-5" />

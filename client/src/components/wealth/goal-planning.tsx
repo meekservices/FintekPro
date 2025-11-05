@@ -213,7 +213,7 @@ export function GoalPlanning() {
               Add New Goal
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="sm:max-w-[500px] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
             <DialogHeader>
               <DialogTitle>Create Financial Goal</DialogTitle>
             </DialogHeader>

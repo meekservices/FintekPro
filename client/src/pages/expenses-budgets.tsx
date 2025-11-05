@@ -205,7 +205,7 @@ export default function ExpensesBudgetsPage() {
                 Add Expense
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
               <DialogHeader>
                 <DialogTitle>Add New Expense</DialogTitle>
               </DialogHeader>
@@ -344,7 +344,7 @@ export default function ExpensesBudgetsPage() {
                 Create Budget
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
               <DialogHeader>
                 <DialogTitle>Create Budget</DialogTitle>
               </DialogHeader>

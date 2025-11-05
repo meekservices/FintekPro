@@ -122,7 +122,7 @@ export default function WhatsAppCampaigns() {
               Create WhatsApp Campaign
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
             <DialogHeader>
               <DialogTitle>Create WhatsApp Campaign</DialogTitle>
               <DialogDescription>

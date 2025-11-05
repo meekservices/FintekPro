@@ -684,7 +684,7 @@ function AIBusinessIntelligenceDashboard() {
 
       {/* Detailed Insight Dialog */}
       <Dialog open={!!selectedInsight} onOpenChange={(open) => !open && setSelectedInsight(null)}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
           {selectedInsight && allInsights.find((i: any) => i.id === selectedInsight) && (
             <div>
               <DialogHeader>

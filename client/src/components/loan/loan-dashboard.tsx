@@ -129,7 +129,7 @@ export function LoanDashboard() {
                 Calculator
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-3xl">
+            <DialogContent className="max-w-3xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
               <LoanEligibilityCalculator />
             </DialogContent>
           </Dialog>
@@ -141,7 +141,7 @@ export function LoanDashboard() {
                 Apply for Loan
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
               <LoanApplicationForm onClose={() => setShowApplicationForm(false)} />
             </DialogContent>
           </Dialog>
@@ -208,7 +208,7 @@ export function LoanDashboard() {
                       Apply for Your First Loan
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+                  <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
                     <LoanApplicationForm onClose={() => setShowApplicationForm(false)} />
                   </DialogContent>
                 </Dialog>
