@@ -13,6 +13,7 @@ import { eq, sql } from "drizzle-orm";
 import { smsService } from "./services/sms-service";
 import { whatsappService } from "./whatsapp";
 import { apiResponse } from "./utils/responses";
+import { z } from "zod";
 
 import { duplicateDetectionService } from "./services/duplicateDetectionService";
 declare global {
@@ -1726,12 +1727,24 @@ export function setupAuth(app: Express) {
       }
 
       const user = req.user;
-      const { otpPreferenceEmail, otpPreferenceSms, otpPreferenceWhatsapp } = req.body;
+      
+      // Zod validation schema
+      const otpPreferencesSchema = z.object({
+        otpPreferenceEmail: z.boolean().optional(),
+        otpPreferenceSms: z.boolean().optional(),
+        otpPreferenceWhatsapp: z.boolean().optional(),
+      }).refine(
+        (data) => data.otpPreferenceEmail || data.otpPreferenceSms || data.otpPreferenceWhatsapp,
+        { message: "At least one OTP delivery method must be enabled" }
+      );
 
-      // Validate that at least one channel is enabled
-      if (!otpPreferenceEmail && !otpPreferenceSms && !otpPreferenceWhatsapp) {
-        return apiResponse.badRequest(res, "At least one OTP delivery method must be enabled");
+      // Validate request body
+      const validation = otpPreferencesSchema.safeParse(req.body);
+      if (!validation.success) {
+        return apiResponse.badRequest(res, validation.error.errors[0].message);
       }
+
+      const { otpPreferenceEmail, otpPreferenceSms, otpPreferenceWhatsapp } = validation.data;
 
       // Update user preferences
       await storage.updateUser(user.id, {
