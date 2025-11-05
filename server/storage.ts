@@ -1117,6 +1117,20 @@ export interface IStorage {
   createAssetForecast(forecast: any): Promise<any>;
   createRiskAnalysis(analysis: any): Promise<any>;
   createPredictionAccuracy(accuracy: any): Promise<any>;
+  
+  // AI Chat Methods
+  createChatSession(session: any): Promise<any>;
+  getChatSessions(userId: string): Promise<any[]>;
+  getChatSession(sessionId: string): Promise<any | undefined>;
+  updateChatSession(sessionId: string, updates: any): Promise<any | undefined>;
+  
+  createChatMessage(message: any): Promise<any>;
+  getChatMessages(sessionId: string): Promise<any[]>;
+  
+  createChatAction(action: any): Promise<any>;
+  getChatActions(sessionId: string, status?: string): Promise<any[]>;
+  getPendingChatActions(userId: string): Promise<any[]>;
+  updateChatAction(actionId: string, updates: any): Promise<any | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -8014,6 +8028,106 @@ export class DatabaseStorage implements IStorage {
       .values(accuracy)
       .returning();
     return newAccuracy;
+  }
+  
+  // AI Chat Methods Implementation
+  async createChatSession(session: any): Promise<any> {
+    const [newSession] = await db.insert(schema.chatSessions)
+      .values(session)
+      .returning();
+    return newSession;
+  }
+  
+  async getChatSessions(userId: string): Promise<any[]> {
+    const sessions = await db.select()
+      .from(schema.chatSessions)
+      .where(eq(schema.chatSessions.userId, userId))
+      .orderBy(desc(schema.chatSessions.lastMessageAt));
+    return sessions;
+  }
+  
+  async getChatSession(sessionId: string): Promise<any | undefined> {
+    const [session] = await db.select()
+      .from(schema.chatSessions)
+      .where(eq(schema.chatSessions.id, sessionId));
+    return session;
+  }
+  
+  async updateChatSession(sessionId: string, updates: any): Promise<any | undefined> {
+    const [updated] = await db.update(schema.chatSessions)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.chatSessions.id, sessionId))
+      .returning();
+    return updated;
+  }
+  
+  async createChatMessage(message: any): Promise<any> {
+    const [newMessage] = await db.insert(schema.chatMessages)
+      .values(message)
+      .returning();
+    
+    // Update session's lastMessageAt and increment messageCount
+    await db.update(schema.chatSessions)
+      .set({
+        lastMessageAt: new Date(),
+        messageCount: sql`${schema.chatSessions.messageCount} + 1`,
+        updatedAt: new Date()
+      })
+      .where(eq(schema.chatSessions.id, message.sessionId));
+    
+    return newMessage;
+  }
+  
+  async getChatMessages(sessionId: string): Promise<any[]> {
+    const messages = await db.select()
+      .from(schema.chatMessages)
+      .where(eq(schema.chatMessages.sessionId, sessionId))
+      .orderBy(schema.chatMessages.createdAt);
+    return messages;
+  }
+  
+  async createChatAction(action: any): Promise<any> {
+    const [newAction] = await db.insert(schema.chatActions)
+      .values(action)
+      .returning();
+    return newAction;
+  }
+  
+  async getChatActions(sessionId: string, status?: string): Promise<any[]> {
+    let query = db.select()
+      .from(schema.chatActions)
+      .where(eq(schema.chatActions.sessionId, sessionId));
+    
+    if (status) {
+      query = db.select()
+        .from(schema.chatActions)
+        .where(and(
+          eq(schema.chatActions.sessionId, sessionId),
+          eq(schema.chatActions.status, status)
+        ));
+    }
+    
+    const actions = await query.orderBy(desc(schema.chatActions.createdAt));
+    return actions;
+  }
+  
+  async getPendingChatActions(userId: string): Promise<any[]> {
+    const actions = await db.select()
+      .from(schema.chatActions)
+      .where(and(
+        eq(schema.chatActions.userId, userId),
+        eq(schema.chatActions.status, 'pending_confirmation')
+      ))
+      .orderBy(desc(schema.chatActions.createdAt));
+    return actions;
+  }
+  
+  async updateChatAction(actionId: string, updates: any): Promise<any | undefined> {
+    const [updated] = await db.update(schema.chatActions)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.chatActions.id, actionId))
+      .returning();
+    return updated;
   }
 }
 
