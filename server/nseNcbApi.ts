@@ -26,9 +26,9 @@ const API_CONFIG = IS_PRODUCTION ? NSE_NCB_CONFIG.production : NSE_NCB_CONFIG.de
 
 // NSE Credentials
 const NSE_CREDENTIALS = {
-  userId: process.env.NSE_USER_ID || 'demo_user',
-  password: process.env.NSE_PASSWORD || 'demo_password',
-  memberId: process.env.NSE_MEMBER_ID || 'demo_member'
+  userId: process.env.NSE_USER_ID || '',
+  password: process.env.NSE_PASSWORD || '',
+  memberId: process.env.NSE_MEMBER_ID || ''
 };
 
 export interface GSecurityAuction {

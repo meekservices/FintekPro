@@ -26,9 +26,9 @@ const API_CONFIG = IS_PRODUCTION ? BSE_BOND_CONFIG.production : BSE_BOND_CONFIG.
 
 // BSE Bond Credentials
 const BSE_BOND_CREDENTIALS = {
-  userId: process.env.BSE_BOND_USER_ID || 'demo_user',
-  password: process.env.BSE_BOND_PASSWORD || 'demo_password',
-  memberId: process.env.BSE_BOND_MEMBER_ID || 'demo_member'
+  userId: process.env.BSE_BOND_USER_ID || '',
+  password: process.env.BSE_BOND_PASSWORD || '',
+  memberId: process.env.BSE_BOND_MEMBER_ID || ''
 };
 
 export interface CorporateBond {

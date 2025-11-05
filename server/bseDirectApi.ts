@@ -25,9 +25,9 @@ const API_CONFIG = IS_PRODUCTION ? BSE_DIRECT_CONFIG.production : BSE_DIRECT_CON
 
 // BSE Direct Credentials
 const BSE_DIRECT_CREDENTIALS = {
-  userId: process.env.BSE_DIRECT_USER_ID || 'demo_user',
-  password: process.env.BSE_DIRECT_PASSWORD || 'demo_password',
-  memberId: process.env.BSE_DIRECT_MEMBER_ID || 'demo_member'
+  userId: process.env.BSE_DIRECT_USER_ID || '',
+  password: process.env.BSE_DIRECT_PASSWORD || '',
+  memberId: process.env.BSE_DIRECT_MEMBER_ID || ''
 };
 
 export interface DirectOrderRequest {
