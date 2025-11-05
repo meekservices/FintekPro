@@ -16,7 +16,7 @@ import { setupAuth as setupReplitAuth } from "./replitAuth";
 import { setupAuth as setupLocalAuth } from "./auth";
 import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema, insertCapitalGainsReportSchema, insertTransactionReportSchema, insertTransactionRecordSchema, insertCkycRecordSchema, insertCkycDocumentSchema, userCart, userCartItems, storeProducts, storeCategories, fundComparisons, portfolioComparisons, comparisonHistory, insertFamilyGroupSchema, insertFamilyMemberSchema, insertFamilyGoalSchema, insertFamilyGoalContributionSchema, insertFamilyActivityLogSchema, insertFamilyDiscussionSchema, insertFamilyBudgetSchema, kycFormProgress, insertProductAccountPreferenceSchema, familyMembers } from "@shared/schema";
 import { marketStoryService, type MarketData as StoryMarketData } from "./market-story-service";
-import { generateMarketInsight, analyzePortfolio, generateInvestmentStory, explainFinancialConcept } from "./gemini";
+import { generateMarketInsight, analyzePortfolio, generateInvestmentStory, explainFinancialConcept, generateFinancialChatResponse } from "./gemini-service";
 import { whatsappService } from "./whatsapp";
 import { marketingService } from "./marketing-automation";
 import { portfolioIntelligence } from "./portfolio-intelligence";
@@ -31821,7 +31821,6 @@ System Security Data:`;
       return apiResponse.serverError(res, "Failed to fetch client summary");
     }
   });
-}
 
   // ============================================================================
   // AI CHAT ASSISTANT API ENDPOINTS
@@ -31886,7 +31885,7 @@ System Security Data:`;
   app.post("/api/chat/sessions/:sessionId/messages", requireAuth, async (req: any, res: any) => {
     try {
       const { sessionId } = req.params;
-      const { content, provider, model } = req.body;
+      const { content } = req.body;
       const userId = req.user.id;
 
       // Verify session exists and user owns it
@@ -31905,13 +31904,28 @@ System Security Data:`;
         content,
       });
 
-      // TODO: Call Gemini AI to get response
-      // For now, return a placeholder response
+      // Get conversation history
+      const allMessages = await storage.getChatMessages(sessionId);
+      const conversationHistory = allMessages
+        .filter(m => m.id !== userMessage.id) // Exclude the just-added message
+        .map(m => ({
+          role: m.role as 'user' | 'assistant',
+          content: m.content
+        }));
+
+      // Call Gemini AI to get response
+      const aiResponse = await generateFinancialChatResponse(
+        content,
+        conversationHistory,
+        { userId, portfolioId: session.contextPortfolioId || undefined }
+      );
+
+      // Create AI message
       const aiMessage = await storage.createChatMessage({
         sessionId,
         role: 'assistant',
-        content: 'AI response will be implemented with Gemini integration.',
-        model: model || 'gemini-1.5-flash'
+        content: aiResponse.text || 'I apologize, but I couldn\'t generate a response. Please try again.',
+        model: 'gemini-1.5-flash'
       });
 
       return apiResponse.success(res, {
@@ -31976,4 +31990,4 @@ System Security Data:`;
       return apiResponse.serverError(res, "Failed to confirm action");
     }
   });
-
+}
