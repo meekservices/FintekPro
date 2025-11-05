@@ -1719,9 +1719,13 @@ export function setupAuth(app: Express) {
   });
 
   // Save OTP delivery preferences
-  app.post("/api/user/otp-preferences", requireAuth, async (req, res) => {
+  app.post("/api/user/otp-preferences", async (req, res) => {
     try {
-      const user = (req as any).user;
+      if (!req.isAuthenticated() || !req.user) {
+        return apiResponse.unauthorized(res);
+      }
+
+      const user = req.user;
       const { otpPreferenceEmail, otpPreferenceSms, otpPreferenceWhatsapp } = req.body;
 
       // Validate that at least one channel is enabled
