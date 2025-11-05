@@ -160,6 +160,41 @@ export function useRebalancePortfolio() {
   });
 }
 
+export function useExecuteRebalance() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ portfolioId, rebalanceCalculations, portfolioValueBefore }: { 
+      portfolioId: string; 
+      rebalanceCalculations: any[];
+      portfolioValueBefore: number;
+    }) => {
+      const response = await apiRequest("POST", `/api/portfolios/${portfolioId}/rebalance/execute`, {
+        body: { rebalanceCalculations, portfolioValueBefore }
+      });
+      return response.json();
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/portfolios', variables.portfolioId, 'allocation'] 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/portfolios', variables.portfolioId, 'holdings'] 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/portfolios', variables.portfolioId, 'rebalance', 'history'] 
+      });
+    },
+  });
+}
+
+export function useRebalanceHistory(portfolioId: string | null) {
+  return useQuery<any[]>({
+    queryKey: ['/api/portfolios', portfolioId, 'rebalance', 'history'],
+    enabled: !!portfolioId,
+  });
+}
+
 // Portfolio-specific rebalancing suggestions
 export function usePortfolioRebalancingSuggestions(portfolioId: string | null) {
   return useQuery<any[]>({

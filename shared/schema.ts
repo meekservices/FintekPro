@@ -1003,6 +1003,45 @@ export const assetAllocation = pgTable("asset_allocation", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Rebalance execution history
+export const rebalanceExecutions = pgTable("rebalance_executions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  portfolioId: varchar("portfolio_id").references(() => portfolios.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  executionDate: timestamp("execution_date").defaultNow(),
+  status: varchar("status").notNull().default("pending"), // 'pending', 'executing', 'completed', 'failed', 'partially_completed'
+  portfolioValueBefore: decimal("portfolio_value_before", { precision: 15, scale: 2 }),
+  portfolioValueAfter: decimal("portfolio_value_after", { precision: 15, scale: 2 }),
+  transactionCount: integer("transaction_count").default(0),
+  successfulTransactions: integer("successful_transactions").default(0),
+  failedTransactions: integer("failed_transactions").default(0),
+  totalTransactionCost: decimal("total_transaction_cost", { precision: 15, scale: 2 }).default("0"),
+  rebalanceDetails: jsonb("rebalance_details"), // Store the full rebalance calculation
+  executionNotes: text("execution_notes"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Rebalance transaction details (individual buy/sell transactions from rebalance)
+export const rebalanceTransactions = pgTable("rebalance_transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  rebalanceExecutionId: varchar("rebalance_execution_id").references(() => rebalanceExecutions.id).notNull(),
+  portfolioId: varchar("portfolio_id").references(() => portfolios.id).notNull(),
+  assetType: varchar("asset_type").notNull(),
+  symbol: varchar("symbol"),
+  action: varchar("action").notNull(), // 'BUY' or 'SELL'
+  quantity: decimal("quantity", { precision: 15, scale: 4 }),
+  price: decimal("price", { precision: 15, scale: 4 }),
+  amount: decimal("amount", { precision: 15, scale: 2 }),
+  transactionCost: decimal("transaction_cost", { precision: 15, scale: 2 }),
+  status: varchar("status").notNull().default("pending"), // 'pending', 'executed', 'failed'
+  orderId: varchar("order_id"), // External order reference if applicable
+  errorMessage: text("error_message"),
+  executedAt: timestamp("executed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Portfolio snapshots for date-specific portfolio views
 export const portfolioSnapshots = pgTable("portfolio_snapshots", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -2693,6 +2732,17 @@ export const insertAssetAllocationSchema = createInsertSchema(assetAllocation).o
   updatedAt: true,
 });
 
+export const insertRebalanceExecutionSchema = createInsertSchema(rebalanceExecutions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertRebalanceTransactionSchema = createInsertSchema(rebalanceTransactions).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertPortfolioSnapshotSchema = createInsertSchema(portfolioSnapshots).omit({
   id: true,
   createdAt: true,
@@ -3169,6 +3219,10 @@ export type Watchlist = typeof watchlists.$inferSelect;
 export type MarketData = typeof marketData.$inferSelect;
 export type AssetAllocation = typeof assetAllocation.$inferSelect;
 export type InsertAssetAllocation = z.infer<typeof insertAssetAllocationSchema>;
+export type RebalanceExecution = typeof rebalanceExecutions.$inferSelect;
+export type InsertRebalanceExecution = z.infer<typeof insertRebalanceExecutionSchema>;
+export type RebalanceTransaction = typeof rebalanceTransactions.$inferSelect;
+export type InsertRebalanceTransaction = z.infer<typeof insertRebalanceTransactionSchema>;
 export type PortfolioSnapshot = typeof portfolioSnapshots.$inferSelect;
 export type InsertPortfolioSnapshot = z.infer<typeof insertPortfolioSnapshotSchema>;
 export type ComprehensiveHolding = typeof comprehensiveHoldings.$inferSelect;

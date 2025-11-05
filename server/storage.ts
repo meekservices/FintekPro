@@ -1,5 +1,5 @@
 import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Partner, type InsertPartner, type Agent, type InsertAgent, type Supplier, type InsertSupplier, type EpfHolding, type PpfHolding, type EpsHolding, type GovernmentSchemeConsent, type InsertGovernmentSchemeConsent, type InsuranceHolding, type InsertInsuranceHolding, type UserBankAccount, type InsertUserBankAccount, type UserDematAccount, type InsertUserDematAccount, type AchievementCategory, type InsertAchievementCategory, type Achievement, type InsertAchievement, type UserAchievement, type InsertUserAchievement, type LearningProgress, type InsertLearningProgress, type SocialShare, type InsertSocialShare, type FinancialGoal, type InsertFinancialGoal, type TaxDocument, type InsertTaxDocument, type StructuredTaxData, type InsertStructuredTaxData, type UserAlert, type InsertUserAlert, type AlertHistory, type InsertAlertHistory, type AlertTemplate, type InsertAlertTemplate, type FamilyGroup, type InsertFamilyGroup, type FamilyMember, type InsertFamilyMember, type FamilyGoal, type InsertFamilyGoal, type FamilyGoalContribution, type InsertFamilyGoalContribution, type FamilyActivityLog, type InsertFamilyActivityLog, type FamilyDiscussion, type InsertFamilyDiscussion, type FamilyBudget, type InsertFamilyBudget, type FamilyPortfolioPermission, type InsertFamilyPortfolioPermission, type TaxCalculation, type InsertTaxCalculation, type TaxDocumentAccessLog, type InsertTaxDocumentAccessLog, type TaxSession, type InsertTaxSession, type TaxDataSource, type InsertTaxDataSource, type ValidationIssue, type InsertValidationIssue, type FilingRecord, type InsertFilingRecord, type AiOptimizationSuggestion, type InsertAiOptimizationSuggestion, type FundExtended, type Provenance, type FundSearchParams, type FundListResponse, type SourceStatus, type MultiSourceStatus, type LoanProduct, type InsertLoanProduct, type LoanProvider, type InsertLoanProvider, type ProviderProduct, type InsertProviderProduct, type CreditProfile, type InsertCreditProfile, type LoanRequest, type InsertLoanRequest, type LoanOffer, type InsertLoanOffer, type LoanApplicationMarketplace, type InsertLoanApplicationMarketplace, type ProviderIntegration, type InsertProviderIntegration, type PartnerApplicationDocument, type InsertPartnerApplicationDocument, type InvestmentIdea, type InsertInvestmentIdea, type InvestmentIdeaTracking, type InsertInvestmentIdeaTracking, type InvestmentIdeaAlert, type InsertInvestmentIdeaAlert, type YieldTracker, type InsertYieldTracker, type PartnerApplication, type InsertPartnerApplication, type TaxRule, type InsertTaxRule, type TaxReminderSubscription, type InsertTaxReminderSubscription, type CapitalGainsTaxReminder, type InsertCapitalGainsTaxReminder, type UserExpense, type InsertUserExpense, type UserBudget, type InsertUserBudget, type ExpenseInsight, type InsertExpenseInsight } from "@shared/schema";
-import { type CashfreeTransaction, type InsertCashfreeTransaction, type PhonePeTransaction, type InsertPhonePeTransaction, type AgentDocument, type InsertAgentDocument, type AgentCommissionSplit, type InsertAgentCommissionSplit, type AgentCommission, type InsertAgentCommission, type AmfiVerificationLog, type InsertAmfiVerificationLog } from "@shared/schema";
+import { type CashfreeTransaction, type InsertCashfreeTransaction, type PhonePeTransaction, type InsertPhonePeTransaction, type AgentDocument, type InsertAgentDocument, type AgentCommissionSplit, type InsertAgentCommissionSplit, type AgentCommission, type InsertAgentCommission, type AmfiVerificationLog, type InsertAmfiVerificationLog, type RebalanceExecution, type InsertRebalanceExecution, type RebalanceTransaction, type InsertRebalanceTransaction } from "@shared/schema";
 import { type Product, type InsertProduct, type ApplicationDocument, type InsertApplicationDocument, type ProductAccountPreference, type InsertProductAccountPreference, type ICICILoanApplication, type InsertICICILoanApplication, type ICICICreditScore, type InsertICICICreditScore, type PortfolioComparison, type InsertPortfolioComparison, type ChatSession, type InsertChatSession, type ChatMessage, type InsertChatMessage, type ChatAction, type InsertChatAction, type ChatFunction, type InsertChatFunction, type CurrencyRate, type InsertCurrencyRate, type CkycNotificationTrigger, type InsertCkycNotificationTrigger, type KycVerificationSession, type InsertKycVerificationSession, type ManualKycSubmission, type InsertManualKycSubmission, type ManualKycDocument, type InsertManualKycDocument } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
@@ -101,6 +101,13 @@ export interface IStorage {
   
   // Portfolio Rebalancing methods
   getRebalancingSuggestions(portfolioId: string): Promise<any>;
+  createRebalanceExecution(execution: InsertRebalanceExecution): Promise<RebalanceExecution>;
+  updateRebalanceExecution(id: string, updates: Partial<RebalanceExecution>): Promise<RebalanceExecution | undefined>;
+  getRebalanceExecution(id: string): Promise<RebalanceExecution | undefined>;
+  getRebalanceExecutionsByPortfolio(portfolioId: string): Promise<RebalanceExecution[]>;
+  createRebalanceTransaction(transaction: InsertRebalanceTransaction): Promise<RebalanceTransaction>;
+  updateRebalanceTransaction(id: string, updates: Partial<RebalanceTransaction>): Promise<RebalanceTransaction | undefined>;
+  getRebalanceTransactionsByExecution(executionId: string): Promise<RebalanceTransaction[]>;
   
   // Mutual Fund methods
   getAllMutualFunds(): Promise<MutualFund[]>;
@@ -1452,6 +1459,57 @@ export class DatabaseStorage implements IStorage {
 
   async getRebalancingSuggestions(portfolioId: string): Promise<any> {
     return null;
+  }
+
+  async createRebalanceExecution(execution: InsertRebalanceExecution): Promise<RebalanceExecution> {
+    const [result] = await db.insert(schema.rebalanceExecutions).values(execution).returning();
+    return result;
+  }
+
+  async updateRebalanceExecution(id: string, updates: Partial<RebalanceExecution>): Promise<RebalanceExecution | undefined> {
+    const [result] = await db
+      .update(schema.rebalanceExecutions)
+      .set({ ...updates, updatedAt: sql`now()` })
+      .where(eq(schema.rebalanceExecutions.id, id))
+      .returning();
+    return result;
+  }
+
+  async getRebalanceExecution(id: string): Promise<RebalanceExecution | undefined> {
+    const [result] = await db
+      .select()
+      .from(schema.rebalanceExecutions)
+      .where(eq(schema.rebalanceExecutions.id, id));
+    return result;
+  }
+
+  async getRebalanceExecutionsByPortfolio(portfolioId: string): Promise<RebalanceExecution[]> {
+    return await db
+      .select()
+      .from(schema.rebalanceExecutions)
+      .where(eq(schema.rebalanceExecutions.portfolioId, portfolioId))
+      .orderBy(desc(schema.rebalanceExecutions.executionDate));
+  }
+
+  async createRebalanceTransaction(transaction: InsertRebalanceTransaction): Promise<RebalanceTransaction> {
+    const [result] = await db.insert(schema.rebalanceTransactions).values(transaction).returning();
+    return result;
+  }
+
+  async updateRebalanceTransaction(id: string, updates: Partial<RebalanceTransaction>): Promise<RebalanceTransaction | undefined> {
+    const [result] = await db
+      .update(schema.rebalanceTransactions)
+      .set(updates)
+      .where(eq(schema.rebalanceTransactions.id, id))
+      .returning();
+    return result;
+  }
+
+  async getRebalanceTransactionsByExecution(executionId: string): Promise<RebalanceTransaction[]> {
+    return await db
+      .select()
+      .from(schema.rebalanceTransactions)
+      .where(eq(schema.rebalanceTransactions.rebalanceExecutionId, executionId));
   }
 
   async getAllMutualFunds(): Promise<MutualFund[]> {
