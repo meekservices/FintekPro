@@ -667,23 +667,6 @@ export default function AuthPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Tabs defaultValue="social" className="space-y-4">
-                  <ScrollableTabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="social" data-testid="tab-social-login">Social Login</TabsTrigger>
-                    <TabsTrigger value="traditional" data-testid="tab-traditional-login">Traditional</TabsTrigger>
-                  </ScrollableTabsList>
-
-                  {/* Social Login Tab */}
-                  <TabsContent value="social" className="space-y-4">
-                    <div className="space-y-3">
-                      <p className="text-sm text-center text-gray-500 dark:text-gray-400 py-8">
-                        Social login options are currently unavailable. Please use traditional login.
-                      </p>
-                    </div>
-                  </TabsContent>
-
-                  {/* Traditional Login Tab */}
-                  <TabsContent value="traditional">
                     <Tabs value={authMode} onValueChange={(v) => setAuthMode(v as "login" | "register")} className="space-y-4">
                       <ScrollableTabsList className={`grid w-full ${isAdminPortal ? 'grid-cols-1' : 'grid-cols-2'}`}>
                         <TabsTrigger value="login" data-testid="tab-login">Login</TabsTrigger>
@@ -1015,8 +998,6 @@ export default function AuthPage() {
                         </form>
                       </TabsContent>
                     </Tabs>
-                  </TabsContent>
-                </Tabs>
               </CardContent>
             </Card>
           </div>

@@ -1718,6 +1718,35 @@ export function setupAuth(app: Express) {
     }
   });
 
+  // Save OTP delivery preferences
+  app.post("/api/user/otp-preferences", requireAuth, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const { otpPreferenceEmail, otpPreferenceSms, otpPreferenceWhatsapp } = req.body;
+
+      // Validate that at least one channel is enabled
+      if (!otpPreferenceEmail && !otpPreferenceSms && !otpPreferenceWhatsapp) {
+        return apiResponse.badRequest(res, "At least one OTP delivery method must be enabled");
+      }
+
+      // Update user preferences
+      await storage.updateUser(user.id, {
+        otpPreferenceEmail: otpPreferenceEmail ?? true,
+        otpPreferenceSms: otpPreferenceSms ?? false,
+        otpPreferenceWhatsapp: otpPreferenceWhatsapp ?? false,
+      });
+
+      console.log(`✅ OTP preferences updated for user: ${user.userId}`);
+
+      return apiResponse.success(res, {
+        message: "OTP delivery preferences updated successfully",
+      });
+    } catch (error) {
+      console.error("Error updating OTP preferences:", error);
+      return apiResponse.serverError(res, "Failed to update OTP preferences");
+    }
+  });
+
   // Cleanup expired OTPs periodically
   setInterval(async () => {
     try {

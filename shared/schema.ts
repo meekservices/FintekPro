@@ -501,6 +501,11 @@ export const users = pgTable("users", {
   aadhaarVerificationDate: timestamp("aadhaar_verification_date"),
   smartKycCompletedAt: timestamp("smart_kyc_completed_at"),
   
+  // OTP Delivery Preferences
+  otpPreferenceEmail: boolean("otp_preference_email").default(true), // Email OTP enabled by default
+  otpPreferenceSms: boolean("otp_preference_sms").default(false), // SMS OTP disabled by default
+  otpPreferenceWhatsapp: boolean("otp_preference_whatsapp").default(true), // WhatsApp OTP enabled by default
+  
   // Admin and system fields - supports multiple roles
   roles: varchar("roles").array().default(sql`ARRAY['user']`), // Array of roles: 'user', 'admin', 'superadmin', 'business_client', etc.
   isActive: boolean("is_active").default(true),

@@ -28,6 +28,8 @@ import {
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ProductAccountPreferences } from "@/components/ProductAccountPreferences";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 const accountFormSchema = z.object({
   firstName: z.string().min(2, "First name must be at least 2 characters"),
@@ -59,6 +61,11 @@ export default function SettingsPage() {
   const [marketAlerts, setMarketAlerts] = useState(true);
   const [portfolioUpdates, setPortfolioUpdates] = useState(true);
   const [newsAlerts, setNewsAlerts] = useState(false);
+  
+  // OTP Delivery Preferences
+  const [otpEmail, setOtpEmail] = useState(user?.otpPreferenceEmail ?? true);
+  const [otpSms, setOtpSms] = useState(user?.otpPreferenceSms ?? false);
+  const [otpWhatsapp, setOtpWhatsapp] = useState(user?.otpPreferenceWhatsapp ?? true);
 
   const accountForm = useForm<z.infer<typeof accountFormSchema>>({
     resolver: zodResolver(accountFormSchema),
@@ -81,6 +88,33 @@ export default function SettingsPage() {
     },
   });
 
+  const saveOtpPreferencesMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/user/otp-preferences", {
+        body: {
+          otpPreferenceEmail: otpEmail,
+          otpPreferenceSms: otpSms,
+          otpPreferenceWhatsapp: otpWhatsapp,
+        }
+      });
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      toast({
+        title: "OTP Preferences Updated",
+        description: "Your OTP delivery preferences have been saved successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to save preferences",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const onAccountSubmit = (values: z.infer<typeof accountFormSchema>) => {
     toast({
       title: "Account Updated",
@@ -94,6 +128,11 @@ export default function SettingsPage() {
       description: "Your password has been updated successfully.",
     });
     securityForm.reset();
+  };
+  
+  const handleSaveNotifications = () => {
+    // Save OTP preferences
+    saveOtpPreferencesMutation.mutate();
   };
 
   return (
@@ -304,6 +343,44 @@ export default function SettingsPage() {
               </div>
 
               <div className="space-y-4 pt-6 border-t">
+                <h3 className="text-lg font-semibold">OTP Delivery Preferences</h3>
+                <p className="text-sm text-muted-foreground">Choose how you want to receive verification codes (OTP) for login and transactions</p>
+                
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Mail className="h-5 w-5 text-muted-foreground" />
+                    <div>
+                      <p className="font-medium">Email OTP</p>
+                      <p className="text-sm text-muted-foreground">Receive verification codes via email</p>
+                    </div>
+                  </div>
+                  <Switch checked={otpEmail} onCheckedChange={setOtpEmail} data-testid="switch-otp-email" />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Smartphone className="h-5 w-5 text-muted-foreground" />
+                    <div>
+                      <p className="font-medium">SMS OTP</p>
+                      <p className="text-sm text-muted-foreground">Receive verification codes via SMS</p>
+                    </div>
+                  </div>
+                  <Switch checked={otpSms} onCheckedChange={setOtpSms} data-testid="switch-otp-sms" />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Smartphone className="h-5 w-5 text-muted-foreground" />
+                    <div>
+                      <p className="font-medium">WhatsApp OTP</p>
+                      <p className="text-sm text-muted-foreground">Receive verification codes via WhatsApp</p>
+                    </div>
+                  </div>
+                  <Switch checked={otpWhatsapp} onCheckedChange={setOtpWhatsapp} data-testid="switch-otp-whatsapp" />
+                </div>
+              </div>
+
+              <div className="space-y-4 pt-6 border-t">
                 <h3 className="text-lg font-semibold">Alert Types</h3>
                 
                 <div className="flex items-center justify-between">
@@ -331,9 +408,13 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              <Button data-testid="button-save-notifications">
+              <Button 
+                onClick={handleSaveNotifications}
+                disabled={saveOtpPreferencesMutation.isPending}
+                data-testid="button-save-notifications"
+              >
                 <Check className="h-4 w-4 mr-2" />
-                Save Notification Settings
+                {saveOtpPreferencesMutation.isPending ? "Saving..." : "Save Notification Settings"}
               </Button>
             </CardContent>
           </Card>
