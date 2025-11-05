@@ -1983,6 +1983,30 @@ export const agents = pgTable("agents", {
   commissionTier: varchar("commission_tier").default("standard"), // standard, silver, gold, platinum
   baseCommissionRate: decimal("base_commission_rate", { precision: 5, scale: 2 }).default("0.00"), // Base % commission
   
+  // NISM-V-A Certification (Required for Mutual Fund Distribution)
+  nismCertificateNumber: varchar("nism_certificate_number"), // NISM Series V-A certificate number
+  nismValidTill: timestamp("nism_valid_till"), // Certificate expiry date
+  nismCertificateUrl: text("nism_certificate_url"), // Document URL in object storage
+  nismStatus: varchar("nism_status").default("pending"), // pending, verified, expired, rejected
+  
+  // KYD Verification (Know Your Distributor - Biometric & Identity)
+  kydVerificationStatus: varchar("kyd_verification_status").default("pending"), // pending, verified, failed, expired
+  kydVerifiedAt: timestamp("kyd_verified_at"),
+  kydReferenceNumber: varchar("kyd_reference_number"), // KYD verification reference ID
+  kydDocumentUrl: text("kyd_document_url"), // KYD proof document URL
+  
+  // ARN & EUIN Validity Tracking
+  arnValidTill: timestamp("arn_valid_till"), // ARN (AMFI Registration Number) validity
+  euinValidTill: timestamp("euin_valid_till"), // EUIN validity
+  arnStatus: varchar("arn_status").default("pending"), // pending, active, expired, suspended, cancelled
+  euinStatus: varchar("euin_status").default("pending"), // pending, active, expired, suspended
+  
+  // Compliance Status and Documents
+  complianceStatus: varchar("compliance_status").default("incomplete"), // incomplete, compliant, non_compliant, under_review
+  certificationDocuments: jsonb("certification_documents"), // Store all certification docs metadata
+  lastComplianceCheckAt: timestamp("last_compliance_check_at"),
+  complianceRemarks: text("compliance_remarks"), // Admin remarks on compliance status
+  
   // Timestamps
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
