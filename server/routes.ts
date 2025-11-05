@@ -20146,46 +20146,40 @@ System Security Data:`;
   // Get all agents
   app.get("/api/admin/agents", requireAdmin, async (req, res) => {
     try {
-      const agents = await storage.getAllCustomerCareAgents();
+      const { search, status, agentType, page, limit } = req.query;
       
-      // Get partner mappings and mapping counts for each agent
-      const agentsWithMappings = await Promise.all(agents.map(async (agent) => {
-        const [mappings, mappingCounts] = await Promise.all([
-          storage.getAgentPartnerMappings(agent.id),
-          storage.getAgentMappingCounts(agent.id)
-        ]);
-        
-        return {
-          ...agent,
-          partnerMappings: mappings,
-          partnerCount: mappingCounts.partnerCount,
-          clientCount: mappingCounts.clientCount
-        };
-      }));
+      const filters = {
+        search: search as string | undefined,
+        status: status as string | undefined,
+        agentType: agentType as string | undefined,
+        page: page ? parseInt(page as string) : 1,
+        limit: limit ? parseInt(limit as string) : 50
+      };
       
-      res.json(agentsWithMappings);
+      const result = await storage.getAllAgents(filters);
+      res.json(result);
     } catch (error) {
       console.error("Error fetching agents:", error);
       return apiResponse.serverError(res, "Failed to fetch agents");
     }
   });
 
-  // Create new customer care agent
+  // Create new financial agent
   app.post("/api/admin/agents", requireAdmin, async (req, res) => {
     try {
-      const agent = await storage.createCustomerCareAgent(req.body);
+      const agent = await storage.createAgent(req.body);
       res.status(201).json(agent);
     } catch (error) {
-      console.error("Error creating customer care agent:", error);
+      console.error("Error creating agent:", error);
       return apiResponse.serverError(res, "Failed to create agent");
     }
   });
 
-  // Update customer care agent
+  // Update financial agent
   app.patch("/api/admin/agents/:agentId", requireAdmin, async (req, res) => {
     try {
       const { agentId } = req.params;
-      const updated = await storage.updateCustomerCareAgent(agentId, req.body);
+      const updated = await storage.updateAgent(agentId, req.body);
       
       if (!updated) {
         return apiResponse.notFound(res, "Agent not found");
@@ -20193,28 +20187,24 @@ System Security Data:`;
       
       res.json(updated);
     } catch (error) {
-      console.error("Error updating customer care agent:", error);
+      console.error("Error updating agent:", error);
       return apiResponse.serverError(res, "Failed to update agent");
     }
   });
 
-  // Delete customer care agent
+  // Delete financial agent
   app.delete("/api/admin/agents/:agentId", requireAdmin, async (req, res) => {
     try {
       const { agentId } = req.params;
-      const deleted = await storage.deleteCustomerCareAgent(agentId);
+      const deleted = await storage.deleteAgent(agentId);
       
       if (!deleted) {
         return apiResponse.notFound(res, "Agent not found");
       }
       
-      // Also delete all partner mappings for this agent
-      const mappings = await storage.getAgentPartnerMappings(agentId);
-      await Promise.all(mappings.map(m => storage.deleteAgentPartnerMapping(m.id)));
-      
       res.json({ success: true });
     } catch (error) {
-      console.error("Error deleting customer care agent:", error);
+      console.error("Error deleting agent:", error);
       return apiResponse.serverError(res, "Failed to delete agent");
     }
   });
