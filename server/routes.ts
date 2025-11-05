@@ -608,11 +608,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // User Registration endpoint with duplicate detection
   app.post("/api/register", async (req, res) => {
     try {
-      const { email, mobile, password, name } = req.body;
+      const { email, mobile, password, name, referralCode } = req.body;
+      const queryReferralCode = req.query.agent_id as string || req.query.agentId as string || req.query.referralCode as string;
+      const finalReferralCode = referralCode || queryReferralCode;
 
       // Validate required fields
       if (!email || !mobile || !password) {
         return apiResponse.badRequest(res, "Email, mobile, and password are required");
+      }
+
+      // Validate agent referral code if provided
+      let referralAgent = null;
+      if (finalReferralCode) {
+        referralAgent = await storage.getAgentByReferralCode(finalReferralCode);
+        if (!referralAgent) {
+          return apiResponse.badRequest(res, "Invalid referral code");
+        }
+        if (referralAgent.status !== 'active') {
+          return apiResponse.badRequest(res, "Referral agent is not active");
+        }
       }
 
       // Extract name parts if provided, otherwise use email prefix
@@ -681,6 +695,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastLoginAt: null
       } as any);
 
+      // Create agent-client mapping if referral code was used
+      if (referralAgent) {
+        await storage.createAgentClientMapping({
+          clientId: user.id,
+          agentId: referralAgent.id,
+          productType: null, // Applies to all products
+          assignmentType: 'referral',
+          referralSource: 'web',
+          isActive: true,
+          status: 'active',
+          startDate: new Date()
+        });
+      }
+
       console.log("User registered:", user);
 
       // Return response with duplicate warnings if any
@@ -696,6 +724,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         identifier: email,
         otpSentTo: `${email} and ${mobile}`,
         registrationToken: "temp-token-" + Date.now(), // Temporary token for OTP flow
+        referredBy: referralAgent ? {
+          agentId: referralAgent.id,
+          agentName: referralAgent.fullName,
+          arnCode: referralAgent.arnCode
+        } : null,
         warnings: contactDuplicates.length > 0 ? {
           hasDuplicates: true,
           duplicates: contactDuplicates.map(d => ({
@@ -714,7 +747,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return apiResponse.serverError(res, "Registration failed");
     }
   });
-
   // Link user to family group (for duplicate prevention during registration)
   app.post("/api/users/:userId/link-family", async (req, res) => {
     try {

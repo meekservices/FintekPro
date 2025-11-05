@@ -352,6 +352,14 @@ export interface IStorage {
   deleteAgent(id: string): Promise<boolean>;
   getAgentStats(): Promise<{ total: number; active: number; inactive: number; byType: Record<string, number> }>;
   
+  // Agent Referral System methods
+  generateReferralCodeForAgent(agentId: string): Promise<string>;
+  getAgentByReferralCode(referralCode: string): Promise<Agent | undefined>;
+  createAgentClientMapping(mapping: InsertAgentClientMapping): Promise<AgentClientMapping>;
+  getAgentClientMappings(filters?: { agentId?: string; clientId?: string; productType?: string; isActive?: boolean }): Promise<AgentClientMapping[]>;
+  getActiveAgentForClient(clientId: string, productType?: string): Promise<AgentClientMapping | undefined>;
+  switchClientAgent(clientId: string, newAgentId: string, productType: string | null, switchReason: string, switchedBy: string): Promise<AgentClientMapping>;
+  
   // Supplier methods
   getAllSuppliers(filters?: { search?: string; status?: string; category?: string; page?: number; limit?: number }): Promise<{ data: Supplier[]; total: number }>;
   getSupplier(id: string): Promise<Supplier | undefined>;
@@ -2839,6 +2847,154 @@ export class DatabaseStorage implements IStorage {
     });
     
     return { total, active, inactive, byType };
+  }
+
+  // Agent Referral System Methods
+  async generateReferralCodeForAgent(agentId: string): Promise<string> {
+    const agent = await this.getAgent(agentId);
+    if (!agent) {
+      throw new Error("Agent not found");
+    }
+
+    // Generate unique referral code (format: AG + random 6 alphanumeric)
+    let referralCode: string;
+    let isUnique = false;
+    let attempts = 0;
+
+    while (!isUnique && attempts < 10) {
+      referralCode = "AG" + Math.random().toString(36).substring(2, 8).toUpperCase();
+      
+      // Check if code already exists
+      const existing = await db.select()
+        .from(schema.agents)
+        .where(eq(schema.agents.referralCode, referralCode))
+        .limit(1);
+      
+      if (existing.length === 0) {
+        isUnique = true;
+      }
+      attempts++;
+    }
+
+    if (!isUnique) {
+      throw new Error("Failed to generate unique referral code");
+    }
+
+    // Update agent with referral code
+    await this.updateAgent(agentId, { referralCode: referralCode! });
+    
+    return referralCode!;
+  }
+
+  async getAgentByReferralCode(referralCode: string): Promise<Agent | undefined> {
+    const [result] = await db.select()
+      .from(schema.agents)
+      .where(eq(schema.agents.referralCode, referralCode));
+    return result;
+  }
+
+  async createAgentClientMapping(mapping: InsertAgentClientMapping): Promise<AgentClientMapping> {
+    const [result] = await db.insert(schema.agentClientMapping).values(mapping).returning();
+    
+    // Update agent's referral count
+    if (mapping.assignmentType === 'referral') {
+      await db.update(schema.agents)
+        .set({ 
+          referralCount: sql`${schema.agents.referralCount} + 1`,
+          totalClients: sql`${schema.agents.totalClients} + 1`,
+          activeClients: sql`${schema.agents.activeClients} + 1`
+        })
+        .where(eq(schema.agents.id, mapping.agentId));
+    }
+    
+    return result;
+  }
+
+  async getAgentClientMappings(filters?: {
+    agentId?: string;
+    clientId?: string;
+    productType?: string;
+    isActive?: boolean;
+  }): Promise<AgentClientMapping[]> {
+    const conditions: any[] = [];
+    
+    if (filters?.agentId) {
+      conditions.push(eq(schema.agentClientMapping.agentId, filters.agentId));
+    }
+    if (filters?.clientId) {
+      conditions.push(eq(schema.agentClientMapping.clientId, filters.clientId));
+    }
+    if (filters?.productType) {
+      conditions.push(eq(schema.agentClientMapping.productType, filters.productType));
+    }
+    if (filters?.isActive !== undefined) {
+      conditions.push(eq(schema.agentClientMapping.isActive, filters.isActive));
+    }
+    
+    if (conditions.length === 0) {
+      return await db.select().from(schema.agentClientMapping);
+    }
+    
+    return await db.select()
+      .from(schema.agentClientMapping)
+      .where(and(...conditions));
+  }
+
+  async getActiveAgentForClient(clientId: string, productType?: string): Promise<AgentClientMapping | undefined> {
+    const conditions: any[] = [
+      eq(schema.agentClientMapping.clientId, clientId),
+      eq(schema.agentClientMapping.isActive, true),
+      isNull(schema.agentClientMapping.endDate)
+    ];
+    
+    if (productType) {
+      conditions.push(eq(schema.agentClientMapping.productType, productType));
+    }
+    
+    const [result] = await db.select()
+      .from(schema.agentClientMapping)
+      .where(and(...conditions))
+      .limit(1);
+    
+    return result;
+  }
+
+  async switchClientAgent(
+    clientId: string,
+    newAgentId: string,
+    productType: string | null,
+    switchReason: string,
+    switchedBy: string
+  ): Promise<AgentClientMapping> {
+    // Deactivate current mapping
+    const currentMapping = await this.getActiveAgentForClient(clientId, productType || undefined);
+    
+    if (currentMapping) {
+      await db.update(schema.agentClientMapping)
+        .set({
+          isActive: false,
+          endDate: new Date(),
+          status: 'replaced',
+          updatedAt: new Date()
+        })
+        .where(eq(schema.agentClientMapping.id, currentMapping.id));
+    }
+    
+    // Create new mapping
+    const newMapping = await this.createAgentClientMapping({
+      clientId,
+      agentId: newAgentId,
+      productType,
+      assignmentType: 'transferred',
+      assignedBy: switchedBy,
+      isActive: true,
+      status: 'active',
+      replacedByMappingId: currentMapping?.id || null,
+      replacementReason: switchReason,
+      notes: `Switched from agent ${currentMapping?.agentId || 'none'}: ${switchReason}`
+    });
+    
+    return newMapping;
   }
 
   // Product Marketplace implementations

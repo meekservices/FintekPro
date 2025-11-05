@@ -2025,7 +2025,7 @@ export const agents = pgTable("agents", {
   totalCommissionsEarned: decimal("total_commissions_earned", { precision: 15, scale: 2 }).default("0.00"),
   
   // Hierarchy and Reporting
-  reportingTo: varchar("reporting_to").references(() => agents.id), // Manager/supervisor agent ID
+  reportingTo: varchar("reporting_to"), // Manager/supervisor agent ID
   teamSize: integer("team_size").default(0), // Number of agents reporting to this agent
   hierarchyLevel: integer("hierarchy_level").default(1), // 1 = frontline, 2 = team lead, 3 = manager, etc.
   
@@ -2062,10 +2062,138 @@ export const agents = pgTable("agents", {
   lastComplianceCheckAt: timestamp("last_compliance_check_at"),
   complianceRemarks: text("compliance_remarks"), // Admin remarks on compliance status
   
+  // Referral System
+  referralCode: varchar("referral_code").unique(), // Unique code for agent referral links (e.g., "AG123")
+  referralCount: integer("referral_count").default(0), // Total clients referred
+  
   // Timestamps
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+// Agent-Client Mapping - Track which agent is assigned to which client with product-level granularity
+export const agentClientMapping = pgTable("agent_client_mapping", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Relationship
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  agentId: varchar("agent_id").references(() => agents.id).notNull(),
+  
+  // Product-level assignment (allows different agents for different products)
+  productType: varchar("product_type"), // null = all products, or specific: 'mutual_funds', 'pms', 'aif', 'insurance', 'loans', 'bonds', 'equity'
+  
+  // Assignment period
+  startDate: timestamp("start_date").defaultNow().notNull(),
+  endDate: timestamp("end_date"), // null = currently active
+  
+  // Assignment metadata
+  assignmentType: varchar("assignment_type").default("referral"), // referral, admin_assigned, client_selected, transferred
+  referralSource: varchar("referral_source"), // web, mobile, agent_link, call_center
+  assignedBy: varchar("assigned_by").references(() => users.id), // Admin who made the assignment
+  
+  // Status
+  status: varchar("status").default("active"), // active, inactive, replaced
+  isActive: boolean("is_active").default(true),
+  
+  // Transfer/replacement tracking
+  replacedByMappingId: varchar("replaced_by_mapping_id"), // If this assignment was replaced
+  replacementReason: text("replacement_reason"), // Why agent was changed
+  
+  // Audit trail
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_agent_client_client").on(table.clientId),
+  index("idx_agent_client_agent").on(table.agentId),
+  index("idx_agent_client_product").on(table.productType),
+  index("idx_agent_client_active").on(table.isActive),
+]);
+
+// Commissions - Track commission calculations and payouts for agents
+export const commissions = pgTable("commissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Agent and Client
+  agentId: varchar("agent_id").references(() => agents.id).notNull(),
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  
+  // Transaction reference
+  orderId: varchar("order_id"), // Reference to order/transaction
+  transactionType: varchar("transaction_type"), // 'purchase', 'sip', 'redemption', 'switch'
+  
+  // Product details
+  productType: varchar("product_type").notNull(), // mutual_funds, pms, aif, insurance, loans
+  schemeCode: varchar("scheme_code"), // For mutual funds
+  schemeName: varchar("scheme_name"),
+  
+  // Commission calculation
+  transactionAmount: decimal("transaction_amount", { precision: 20, scale: 2 }).notNull(),
+  units: decimal("units", { precision: 20, scale: 4 }), // For funds
+  nav: decimal("nav", { precision: 20, scale: 4 }), // Net Asset Value at transaction
+  
+  // Commission rates and amounts
+  commissionType: varchar("commission_type").notNull(), // 'upfront', 'trail', 'performance', 'referral_bonus'
+  commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }).notNull(), // Percentage
+  commissionAmount: decimal("commission_amount", { precision: 15, scale: 2 }).notNull(),
+  
+  // Trail commission specifics
+  trailMonth: varchar("trail_month"), // YYYY-MM format for trail commissions
+  trailFrequency: varchar("trail_frequency"), // monthly, quarterly, annually
+  
+  // TDS and taxes
+  tdsAmount: decimal("tds_amount", { precision: 15, scale: 2 }).default("0.00"),
+  tdsRate: decimal("tds_rate", { precision: 5, scale: 2 }).default("0.00"),
+  gstAmount: decimal("gst_amount", { precision: 15, scale: 2 }).default("0.00"),
+  netCommission: decimal("net_commission", { precision: 15, scale: 2 }).notNull(), // After TDS & GST
+  
+  // RTA/AMC information
+  rtaReportDate: timestamp("rta_report_date"), // Date from RTA report (CAMS/KFintech)
+  rtaReferenceNumber: varchar("rta_reference_number"), // Reference from RTA
+  amcName: varchar("amc_name"), // Asset Management Company name
+  
+  // Payout tracking
+  payoutStatus: varchar("payout_status").default("pending"), // pending, approved, processing, paid, failed, cancelled
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  
+  // Payout execution
+  payoutRequestId: varchar("payout_request_id"), // Link to payout batch
+  payoutMethod: varchar("payout_method"), // bank_transfer, upi, cheque
+  payoutDate: timestamp("payout_date"),
+  payoutReferenceNumber: varchar("payout_reference_number"), // UTR/transaction ref
+  payoutAmount: decimal("payout_amount", { precision: 15, scale: 2 }), // Actual amount paid
+  
+  // Cashfree Payout Integration
+  cashfreeTransferId: varchar("cashfree_transfer_id"), // Cashfree payout ID
+  cashfreeUtr: varchar("cashfree_utr"), // Bank UTR from Cashfree
+  cashfreeStatus: varchar("cashfree_status"), // Cashfree payout status
+  
+  // Reconciliation
+  isReconciled: boolean("is_reconciled").default(false),
+  reconciledAt: timestamp("reconciled_at"),
+  reconciledBy: varchar("reconciled_by").references(() => users.id),
+  reconciliationNotes: text("reconciliation_notes"),
+  
+  // Error handling
+  failureReason: text("failure_reason"),
+  retryCount: integer("retry_count").default(0),
+  
+  // Audit
+  calculatedAt: timestamp("calculated_at").defaultNow(),
+  calculationMethod: varchar("calculation_method"), // rta_report, manual, automated
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_commissions_agent").on(table.agentId),
+  index("idx_commissions_client").on(table.clientId),
+  index("idx_commissions_status").on(table.payoutStatus),
+  index("idx_commissions_month").on(table.trailMonth),
+  index("idx_commissions_product").on(table.productType),
+]);
 
 // Zoho OAuth Connections - Store OAuth tokens for Zoho integrations
 export const zohoConnections = pgTable("zoho_connections", {
@@ -2958,6 +3086,24 @@ export const insertAgentSchema = createInsertSchema(agents).omit({
 });
 export type InsertAgent = z.infer<typeof insertAgentSchema>;
 export type Agent = typeof agents.$inferSelect;
+
+// Agent-Client Mapping schemas
+export const insertAgentClientMappingSchema = createInsertSchema(agentClientMapping).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertAgentClientMapping = z.infer<typeof insertAgentClientMappingSchema>;
+export type AgentClientMapping = typeof agentClientMapping.$inferSelect;
+
+// Commission schemas
+export const insertCommissionSchema = createInsertSchema(commissions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertCommission = z.infer<typeof insertCommissionSchema>;
+export type Commission = typeof commissions.$inferSelect;
 
 // Zoho Connections schemas
 export const insertZohoConnectionSchema = createInsertSchema(zohoConnections).omit({
