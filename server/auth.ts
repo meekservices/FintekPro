@@ -278,27 +278,30 @@ export function setupAuth(app: Express) {
         }
       });
 
-      // Send OTP via email (primary channel)
+      // Send OTP via enabled channels (defaults for new user: Email + WhatsApp enabled, SMS disabled)
+      const deliveryChannels: string[] = [];
+      
+      // Email (default: enabled)
       const emailSent = await emailService.sendRegistrationOTP(email, otp);
       if (emailSent) {
         console.log(`✅ Registration OTP sent to email: ${email}`);
+        deliveryChannels.push('email');
       } else {
         console.log(`⚠️ Email delivery failed for ${email}`);
       }
 
-      // Also try sending via SMS to mobile as backup
-      const smsSent = await smsService.sendOTP(mobile, otp);
-      if (smsSent) {
-        console.log(`✅ Registration OTP sent via SMS to: ${mobile}`);
+      // SMS (default: disabled, so we skip it)
+      // WhatsApp (default: enabled)
+      const whatsappSent = await whatsappService.sendLoginOTP(mobile, otp);
+      if (whatsappSent) {
+        console.log(`✅ Registration OTP sent via WhatsApp to: ${mobile}`);
+        deliveryChannels.push('whatsapp');
       } else {
-        console.log(`⚠️ SMS delivery failed for ${mobile}, trying WhatsApp...`);
-        // Try WhatsApp as fallback
-        const whatsappSent = await whatsappService.sendLoginOTP(mobile, otp);
-        if (whatsappSent) {
-          console.log(`✅ Registration OTP sent via WhatsApp to: ${mobile}`);
-        } else {
-          console.log(`⚠️ All delivery channels failed for registration. Please check service configuration.`);
-        }
+        console.log(`⚠️ WhatsApp delivery failed for ${mobile}`);
+      }
+
+      if (deliveryChannels.length === 0) {
+        console.log(`⚠️ All delivery channels failed for registration. Please check service configuration.`);
       }
 
       // Return success response indicating OTP is required
@@ -559,22 +562,26 @@ export function setupAuth(app: Express) {
         })
         .where(eq(schema.otpVerifications.id, otpRecord.id));
 
-      // Send new OTP via email (primary channel)
+      // Send new OTP via enabled channels (defaults: Email + WhatsApp enabled, SMS disabled)
+      const deliveryChannels: string[] = [];
+
+      // Email (default: enabled)
       const emailSent = await emailService.sendRegistrationOTP(metadata.email, newOtp);
       if (emailSent) {
         console.log(`✅ Resend OTP sent to email: ${metadata.email}`);
+        deliveryChannels.push('email');
+      } else {
+        console.log(`⚠️ Email delivery failed for ${metadata.email}`);
       }
 
-      // Also try sending via SMS
-      const smsSent = await smsService.sendOTP(metadata.mobile, newOtp);
-      if (smsSent) {
-        console.log(`✅ Resend OTP sent via SMS to: ${metadata.mobile}`);
+      // SMS (default: disabled, so we skip it)
+      // WhatsApp (default: enabled)
+      const whatsappSent = await whatsappService.sendLoginOTP(metadata.mobile, newOtp);
+      if (whatsappSent) {
+        console.log(`✅ Resend OTP sent via WhatsApp to: ${metadata.mobile}`);
+        deliveryChannels.push('whatsapp');
       } else {
-        console.log(`⚠️ SMS delivery failed for ${metadata.mobile}, trying WhatsApp...`);
-        const whatsappSent = await whatsappService.sendLoginOTP(metadata.mobile, newOtp);
-        if (whatsappSent) {
-          console.log(`✅ Resend OTP sent via WhatsApp to: ${metadata.mobile}`);
-        }
+        console.log(`⚠️ WhatsApp delivery failed for ${metadata.mobile}`);
       }
 
       return apiResponse.success(res, {
@@ -677,25 +684,47 @@ export function setupAuth(app: Express) {
           verified: false,
         });
 
-        // Send OTP via appropriate channels (email/SMS/WhatsApp)
-        if (otpType === "email") {
+        // Send OTP via channels based on user preferences
+        const deliveryChannels: string[] = [];
+        
+        // Fetch user preferences (defaults: email + WhatsApp enabled, SMS disabled)
+        const otpPreferenceEmail = user.otpPreferenceEmail ?? true;
+        const otpPreferenceSms = user.otpPreferenceSms ?? false;
+        const otpPreferenceWhatsapp = user.otpPreferenceWhatsapp ?? true;
+        
+        if (otpType === "email" && otpPreferenceEmail) {
           const emailSent = await emailService.sendLoginOTP(otpDestination, otp);
           if (emailSent) {
             console.log(`✅ Login OTP sent to email: ${otpDestination}`);
+            deliveryChannels.push('email');
           } else {
-            console.log(`⚠️ Email failed, Login OTP for ${otpDestination}: ${otp}`);
+            console.log(`⚠️ Email delivery failed for ${otpDestination}`);
           }
-        } else {
-          // For mobile, try SMS first, then WhatsApp as fallback
-          const smsSent = await smsService.sendOTP(otpDestination, otp);
-          if (smsSent) {
-            console.log(`✅ Login OTP sent via SMS to: ${otpDestination}`);
-          } else {
-            // Try WhatsApp as fallback
-            const whatsappSent = await whatsappService.sendLoginOTP(otpDestination, otp);
-            if (!whatsappSent) {
-              console.log(`📱 Login OTP for ${otpDestination}: ${otp} (SMS and WhatsApp unavailable)`);
+        } else if (otpType === "mobile") {
+          // Send via SMS if enabled
+          if (otpPreferenceSms) {
+            const smsSent = await smsService.sendOTP(otpDestination, otp);
+            if (smsSent) {
+              console.log(`✅ Login OTP sent via SMS to: ${otpDestination}`);
+              deliveryChannels.push('sms');
+            } else {
+              console.log(`⚠️ SMS delivery failed for ${otpDestination}`);
             }
+          }
+          
+          // Send via WhatsApp if enabled
+          if (otpPreferenceWhatsapp) {
+            const whatsappSent = await whatsappService.sendLoginOTP(otpDestination, otp);
+            if (whatsappSent) {
+              console.log(`✅ Login OTP sent via WhatsApp to: ${otpDestination}`);
+              deliveryChannels.push('whatsapp');
+            } else {
+              console.log(`⚠️ WhatsApp delivery failed for ${otpDestination}`);
+            }
+          }
+          
+          if (deliveryChannels.length === 0) {
+            console.log(`📱 Login OTP for ${otpDestination}: ${otp} (All enabled channels failed)`);
           }
         }
 
@@ -1617,25 +1646,44 @@ export function setupAuth(app: Express) {
         }
       });
 
-      // Send OTP via email (primary)
-      if (user.email) {
+      // Send OTP via channels based on user preferences
+      const deliveryChannels: string[] = [];
+      
+      // Fetch user preferences (defaults: email + WhatsApp enabled, SMS disabled)
+      const otpPreferenceEmail = user.otpPreferenceEmail ?? true;
+      const otpPreferenceSms = user.otpPreferenceSms ?? false;
+      const otpPreferenceWhatsapp = user.otpPreferenceWhatsapp ?? true;
+      
+      // Send via email if enabled and available
+      if (user.email && otpPreferenceEmail) {
         const emailSent = await emailService.sendPasswordResetOTP(user.email, otp);
         if (emailSent) {
           console.log(`✅ Password reset OTP sent to email: ${user.email}`);
+          deliveryChannels.push('email');
+        } else {
+          console.log(`⚠️ Email delivery failed for ${user.email}`);
         }
       }
 
-      // Also try SMS
-      if (user.mobile) {
+      // Send via SMS if enabled and available
+      if (user.mobile && otpPreferenceSms) {
         const smsSent = await smsService.sendOTP(user.mobile, otp);
         if (smsSent) {
           console.log(`✅ Password reset OTP sent via SMS to: ${user.mobile}`);
+          deliveryChannels.push('sms');
         } else {
-          console.log(`⚠️ SMS delivery failed for ${user.mobile}, trying WhatsApp...`);
-          const whatsappSent = await whatsappService.sendLoginOTP(user.mobile, otp);
-          if (whatsappSent) {
-            console.log(`✅ Password reset OTP sent via WhatsApp to: ${user.mobile}`);
-          }
+          console.log(`⚠️ SMS delivery failed for ${user.mobile}`);
+        }
+      }
+      
+      // Send via WhatsApp if enabled and available
+      if (user.mobile && otpPreferenceWhatsapp) {
+        const whatsappSent = await whatsappService.sendLoginOTP(user.mobile, otp);
+        if (whatsappSent) {
+          console.log(`✅ Password reset OTP sent via WhatsApp to: ${user.mobile}`);
+          deliveryChannels.push('whatsapp');
+        } else {
+          console.log(`⚠️ WhatsApp delivery failed for ${user.mobile}`);
         }
       }
 
