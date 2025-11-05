@@ -31558,4 +31558,183 @@ System Security Data:`;
   });
 
   return server;
+
+  // ===========================
+  // Commission API Endpoints
+  // ===========================
+
+  // Upload and process RTA/CAMS commission report (Admin only)
+  app.post("/api/commissions/upload-report", requireAuth, async (req, res) => {
+    try {
+      // Check admin permission
+      if (!req.user?.roles?.includes('admin')) {
+        return apiResponse.forbidden(res, "Only admins can upload commission reports");
+      }
+
+      const { csvContent, reportDate } = req.body;
+
+      if (!csvContent) {
+        return apiResponse.badRequest(res, "CSV content is required");
+      }
+
+      // Parse commission report
+      const { parseCommissionReport } = await import('./commissionService');
+      const parsedCommissions = parseCommissionReport(csvContent);
+
+      // Match commissions to agents and clients by ARN/PAN
+      const commissionsToInsert = [];
+      const errors = [];
+
+      for (const parsed of parsedCommissions) {
+        // Find agent by ARN code
+        const agent = await storage.getAgentByArnCode(parsed.arnNo);
+        if (!agent) {
+          errors.push(`Agent with ARN ${parsed.arnNo} not found`);
+          continue;
+        }
+
+        // Find client by PAN
+        const client = await storage.getUserByPan(parsed.clientPan);
+        if (!client) {
+          errors.push(`Client with PAN ${parsed.clientPan} not found`);
+          continue;
+        }
+
+        commissionsToInsert.push({
+          agentId: agent.id,
+          clientId: client.id,
+          productType: 'mutual_funds',
+          schemeCode: parsed.schemeCode,
+          schemeName: parsed.schemeName,
+          transactionAmount: parsed.transactionAmount.toString(),
+          units: parsed.units.toString(),
+          nav: parsed.nav.toString(),
+          commissionType: parsed.commissionType,
+          commissionRate: parsed.commissionRate.toString(),
+          commissionAmount: parsed.commissionAmount.toString(),
+          tdsAmount: parsed.tdsAmount.toString(),
+          tdsRate: parsed.tdsRate.toString(),
+          gstAmount: parsed.gstAmount.toString(),
+          netCommission: parsed.netCommission.toString(),
+          trailMonth: parsed.trailMonth,
+          rtaReportDate: reportDate ? new Date(reportDate) : new Date(),
+          rtaReferenceNumber: parsed.rtaReferenceNumber,
+          amcName: parsed.amcName,
+          payoutStatus: 'pending',
+          calculationMethod: 'rta_report',
+        });
+      }
+
+      // Bulk insert commissions
+      const inserted = await storage.bulkCreateCommissions(commissionsToInsert);
+
+      return apiResponse.success(res, {
+        inserted: inserted.length,
+        errors: errors.length > 0 ? errors : undefined,
+        total: parsedCommissions.length
+      }, `Successfully processed ${inserted.length} commissions`);
+    } catch (error) {
+      console.error("Error uploading commission report:", error);
+      return apiResponse.serverError(res, "Failed to process commission report");
+    }
+  });
+
+  // Get agent commissions with filters
+  app.get("/api/agents/:agentId/commissions", requireAuth, async (req, res) => {
+    try {
+      const { agentId } = req.params;
+      const { commissionType, payoutStatus, trailMonth, startDate, endDate, limit } = req.query;
+
+      // Verify agent exists
+      const agent = await storage.getAgent(agentId);
+      if (!agent) {
+        return apiResponse.notFound(res, "Agent not found");
+      }
+
+      // Authorization: Only agent themselves or admin
+      const isAdmin = req.user?.roles?.includes('admin');
+      const isOwnAgent = agent.userId === req.user?.id;
+      if (!isAdmin && !isOwnAgent) {
+        return apiResponse.forbidden(res, "Not authorized to view this agent's commissions");
+      }
+
+      const commissions = await storage.getCommissions({
+        agentId,
+        commissionType: commissionType,
+        payoutStatus: payoutStatus,
+        trailMonth: trailMonth,
+        startDate: startDate ? new Date(startDate) : undefined,
+        endDate: endDate ? new Date(endDate) : undefined,
+        limit: limit ? parseInt(limit) : 1000
+      });
+
+      return apiResponse.success(res, { 
+        commissions,
+        total: commissions.length
+      }, "Commissions retrieved successfully");
+    } catch (error) {
+      console.error("Error fetching commissions:", error);
+      return apiResponse.serverError(res, "Failed to fetch commissions");
+    }
+  });
+
+  // Get agent earnings summary
+  app.get("/api/agents/:agentId/earnings-summary", requireAuth, async (req, res) => {
+    try {
+      const { agentId } = req.params;
+      const { startDate, endDate, productType } = req.query;
+
+      // Verify agent exists
+      const agent = await storage.getAgent(agentId);
+      if (!agent) {
+        return apiResponse.notFound(res, "Agent not found");
+      }
+
+      // Authorization: Only agent themselves or admin
+      const isAdmin = req.user?.roles?.includes('admin');
+      const isOwnAgent = agent.userId === req.user?.id;
+      if (!isAdmin && !isOwnAgent) {
+        return apiResponse.forbidden(res, "Not authorized to view this agent's earnings");
+      }
+
+      const summary = await storage.getAgentEarningsSummary(agentId, {
+        startDate: startDate ? new Date(startDate) : undefined,
+        endDate: endDate ? new Date(endDate) : undefined,
+        productType: productType
+      });
+
+      return apiResponse.success(res, summary, "Earnings summary retrieved successfully");
+    } catch (error) {
+      console.error("Error fetching earnings summary:", error);
+      return apiResponse.serverError(res, "Failed to fetch earnings summary");
+    }
+  });
+
+  // Get agent clients summary (for dashboard)
+  app.get("/api/agents/:agentId/clients-summary", requireAuth, async (req, res) => {
+    try {
+      const { agentId } = req.params;
+      const { productType } = req.query;
+
+      // Verify agent exists
+      const agent = await storage.getAgent(agentId);
+      if (!agent) {
+        return apiResponse.notFound(res, "Agent not found");
+      }
+
+      // Authorization: Only agent themselves or admin
+      const isAdmin = req.user?.roles?.includes('admin');
+      const isOwnAgent = agent.userId === req.user?.id;
+      if (!isAdmin && !isOwnAgent) {
+        return apiResponse.forbidden(res, "Not authorized to view this agent's client summary");
+      }
+
+      const summary = await storage.getAgentClientsSummary(agentId, productType);
+
+      return apiResponse.success(res, summary, "Client summary retrieved successfully");
+    } catch (error) {
+      console.error("Error fetching client summary:", error);
+      return apiResponse.serverError(res, "Failed to fetch client summary");
+    }
+  });
 }

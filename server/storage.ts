@@ -1,9 +1,9 @@
-import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Partner, type InsertPartner, type Agent, type InsertAgent, type Supplier, type InsertSupplier, type EpfHolding, type PpfHolding, type EpsHolding, type GovernmentSchemeConsent, type InsertGovernmentSchemeConsent, type InsuranceHolding, type InsertInsuranceHolding, type UserBankAccount, type InsertUserBankAccount, type UserDematAccount, type InsertUserDematAccount, type AchievementCategory, type InsertAchievementCategory, type Achievement, type InsertAchievement, type UserAchievement, type InsertUserAchievement, type LearningProgress, type InsertLearningProgress, type SocialShare, type InsertSocialShare, type FinancialGoal, type InsertFinancialGoal, type TaxDocument, type InsertTaxDocument, type StructuredTaxData, type InsertStructuredTaxData, type UserAlert, type InsertUserAlert, type AlertHistory, type InsertAlertHistory, type AlertTemplate, type InsertAlertTemplate, type FamilyGroup, type InsertFamilyGroup, type FamilyMember, type InsertFamilyMember, type FamilyGoal, type InsertFamilyGoal, type FamilyGoalContribution, type InsertFamilyGoalContribution, type FamilyActivityLog, type InsertFamilyActivityLog, type FamilyDiscussion, type InsertFamilyDiscussion, type FamilyBudget, type InsertFamilyBudget, type FamilyPortfolioPermission, type InsertFamilyPortfolioPermission, type TaxCalculation, type InsertTaxCalculation, type TaxDocumentAccessLog, type InsertTaxDocumentAccessLog, type TaxSession, type InsertTaxSession, type TaxDataSource, type InsertTaxDataSource, type ValidationIssue, type InsertValidationIssue, type FilingRecord, type InsertFilingRecord, type AiOptimizationSuggestion, type InsertAiOptimizationSuggestion, type FundExtended, type Provenance, type FundSearchParams, type FundListResponse, type SourceStatus, type MultiSourceStatus, type LoanProduct, type InsertLoanProduct, type LoanProvider, type InsertLoanProvider, type ProviderProduct, type InsertProviderProduct, type CreditProfile, type InsertCreditProfile, type LoanRequest, type InsertLoanRequest, type LoanOffer, type InsertLoanOffer, type LoanApplicationMarketplace, type InsertLoanApplicationMarketplace, type ProviderIntegration, type InsertProviderIntegration, type PartnerApplicationDocument, type InsertPartnerApplicationDocument, type InvestmentIdea, type InsertInvestmentIdea, type InvestmentIdeaTracking, type InsertInvestmentIdeaTracking, type InvestmentIdeaAlert, type InsertInvestmentIdeaAlert, type YieldTracker, type InsertYieldTracker, type PartnerApplication, type InsertPartnerApplication, type TaxRule, type InsertTaxRule, type TaxReminderSubscription, type InsertTaxReminderSubscription, type CapitalGainsTaxReminder, type InsertCapitalGainsTaxReminder, type UserExpense, type InsertUserExpense, type UserBudget, type InsertUserBudget, type ExpenseInsight, type InsertExpenseInsight } from "@shared/schema";
+import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Partner, type InsertPartner, type Agent, type InsertAgent, type Supplier, type InsertSupplier, type EpfHolding, type PpfHolding, type EpsHolding, type GovernmentSchemeConsent, type InsertGovernmentSchemeConsent, type InsuranceHolding, type InsertInsuranceHolding, type UserBankAccount, type InsertUserBankAccount, type UserDematAccount, type InsertUserDematAccount, type AchievementCategory, type InsertAchievementCategory, type Achievement, type InsertAchievement, type UserAchievement, type InsertUserAchievement, type LearningProgress, type InsertLearningProgress, type SocialShare, type InsertSocialShare, type FinancialGoal, type InsertFinancialGoal, type TaxDocument, type InsertTaxDocument, type StructuredTaxData, type InsertStructuredTaxData, type UserAlert, type InsertUserAlert, type AlertHistory, type InsertAlertHistory, type AlertTemplate, type InsertAlertTemplate, type FamilyGroup, type InsertFamilyGroup, type FamilyMember, type InsertFamilyMember, type FamilyGoal, type InsertFamilyGoal, type FamilyGoalContribution, type InsertFamilyGoalContribution, type FamilyActivityLog, type InsertFamilyActivityLog, type FamilyDiscussion, type InsertFamilyDiscussion, type FamilyBudget, type InsertFamilyBudget, type FamilyPortfolioPermission, type InsertFamilyPortfolioPermission, type TaxCalculation, type InsertTaxCalculation, type TaxDocumentAccessLog, type InsertTaxDocumentAccessLog, type TaxSession, type InsertTaxSession, type TaxDataSource, type InsertTaxDataSource, type ValidationIssue, type InsertValidationIssue, type FilingRecord, type InsertFilingRecord, type AiOptimizationSuggestion, type InsertAiOptimizationSuggestion, type FundExtended, type Provenance, type FundSearchParams, type FundListResponse, type SourceStatus, type MultiSourceStatus, type LoanProduct, type InsertLoanProduct, type LoanProvider, type InsertLoanProvider, type ProviderProduct, type InsertProviderProduct, type CreditProfile, type InsertCreditProfile, type LoanRequest, type InsertLoanRequest, type LoanOffer, type InsertLoanOffer, type LoanApplicationMarketplace, type InsertLoanApplicationMarketplace, type ProviderIntegration, type InsertProviderIntegration, type PartnerApplicationDocument, type InsertPartnerApplicationDocument, type InvestmentIdea, type InsertInvestmentIdea, type InvestmentIdeaTracking, type InsertInvestmentIdeaTracking, type InvestmentIdeaAlert, type InsertInvestmentIdeaAlert, type YieldTracker, type InsertYieldTracker, type PartnerApplication, type InsertPartnerApplication, type TaxRule, type InsertTaxRule, type TaxReminderSubscription, type InsertTaxReminderSubscription, type CapitalGainsTaxReminder, type InsertCapitalGainsTaxReminder, type UserExpense, type InsertUserExpense, type UserBudget, type InsertUserBudget, type ExpenseInsight, type InsertExpenseInsight, type AgentClientMapping, type InsertAgentClientMapping, type Commission, type InsertCommission } from "@shared/schema";
 import { type CashfreeTransaction, type InsertCashfreeTransaction, type PhonePeTransaction, type InsertPhonePeTransaction, type AgentDocument, type InsertAgentDocument, type AgentCommissionSplit, type InsertAgentCommissionSplit, type AgentCommission, type InsertAgentCommission, type AmfiVerificationLog, type InsertAmfiVerificationLog, type RebalanceExecution, type InsertRebalanceExecution, type RebalanceTransaction, type InsertRebalanceTransaction, type RebalancingPreferences, type InsertRebalancingPreferences } from "@shared/schema";
 import { type Product, type InsertProduct, type ApplicationDocument, type InsertApplicationDocument, type ProductAccountPreference, type InsertProductAccountPreference, type ICICILoanApplication, type InsertICICILoanApplication, type ICICICreditScore, type InsertICICICreditScore, type PortfolioComparison, type InsertPortfolioComparison, type ChatSession, type InsertChatSession, type ChatMessage, type InsertChatMessage, type ChatAction, type InsertChatAction, type ChatFunction, type InsertChatFunction, type CurrencyRate, type InsertCurrencyRate, type CkycNotificationTrigger, type InsertCkycNotificationTrigger, type KycVerificationSession, type InsertKycVerificationSession, type ManualKycSubmission, type InsertManualKycSubmission, type ManualKycDocument, type InsertManualKycDocument } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
-import { eq, and, or, desc, asc, gte, lte, like, ilike, sql } from "drizzle-orm";
+import { eq, and, or, desc, asc, gte, lte, like, ilike, sql, isNull } from "drizzle-orm";
 import * as schema from "@shared/schema";
 import { generateUniqueUserId } from "./auth";
 
@@ -355,10 +355,47 @@ export interface IStorage {
   // Agent Referral System methods
   generateReferralCodeForAgent(agentId: string): Promise<string>;
   getAgentByReferralCode(referralCode: string): Promise<Agent | undefined>;
+  getAgentByArnCode(arnCode: string): Promise<Agent | undefined>;
   createAgentClientMapping(mapping: InsertAgentClientMapping): Promise<AgentClientMapping>;
   getAgentClientMappings(filters?: { agentId?: string; clientId?: string; productType?: string; isActive?: boolean }): Promise<AgentClientMapping[]>;
   getActiveAgentForClient(clientId: string, productType?: string): Promise<AgentClientMapping | undefined>;
   switchClientAgent(clientId: string, newAgentId: string, productType: string | null, switchReason: string, switchedBy: string): Promise<AgentClientMapping>;
+  
+  // Commission methods (for new commissions table)
+  createCommission(commission: InsertCommission): Promise<Commission>;
+  getCommissions(filters?: { 
+    agentId?: string; 
+    clientId?: string; 
+    productType?: string; 
+    commissionType?: string;
+    payoutStatus?: string;
+    trailMonth?: string;
+    startDate?: Date;
+    endDate?: Date;
+    limit?: number;
+  }): Promise<Commission[]>;
+  getAgentEarningsSummary(agentId: string, filters?: { 
+    startDate?: Date; 
+    endDate?: Date; 
+    productType?: string 
+  }): Promise<{
+    totalGross: number;
+    totalNet: number;
+    totalTds: number;
+    totalGst: number;
+    upfrontTotal: number;
+    trailTotal: number;
+    pendingPayout: number;
+    paidPayout: number;
+  }>;
+  getAgentClientsSummary(agentId: string, productType?: string): Promise<{
+    totalClients: number;
+    activeClients: number;
+    totalAUM: number;
+    activeSIPValue: number;
+  }>;
+  updateCommissionPayoutStatus(commissionId: string, status: string, updates?: Partial<Commission>): Promise<Commission | undefined>;
+  bulkCreateCommissions(commissions: InsertCommission[]): Promise<Commission[]>;
   
   // Supplier methods
   getAllSuppliers(filters?: { search?: string; status?: string; category?: string; page?: number; limit?: number }): Promise<{ data: Supplier[]; total: number }>;
@@ -2893,6 +2930,13 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
+  async getAgentByArnCode(arnCode: string): Promise<Agent | undefined> {
+    const [result] = await db.select()
+      .from(schema.agents)
+      .where(eq(schema.agents.arnCode, arnCode));
+    return result;
+  }
+
   async createAgentClientMapping(mapping: InsertAgentClientMapping): Promise<AgentClientMapping> {
     const [result] = await db.insert(schema.agentClientMapping).values(mapping).returning();
     
@@ -2995,6 +3039,198 @@ export class DatabaseStorage implements IStorage {
     });
     
     return newMapping;
+  }
+
+  // Commission implementations
+  async createCommission(commission: InsertCommission): Promise<Commission> {
+    const [result] = await db.insert(schema.commissions)
+      .values(commission)
+      .returning();
+    return result;
+  }
+
+  async getCommissions(filters?: {
+    agentId?: string;
+    clientId?: string;
+    productType?: string;
+    commissionType?: string;
+    payoutStatus?: string;
+    trailMonth?: string;
+    startDate?: Date;
+    endDate?: Date;
+    limit?: number;
+  }): Promise<Commission[]> {
+    const conditions: any[] = [];
+
+    if (filters?.agentId) {
+      conditions.push(eq(schema.commissions.agentId, filters.agentId));
+    }
+    if (filters?.clientId) {
+      conditions.push(eq(schema.commissions.clientId, filters.clientId));
+    }
+    if (filters?.productType) {
+      conditions.push(eq(schema.commissions.productType, filters.productType));
+    }
+    if (filters?.commissionType) {
+      conditions.push(eq(schema.commissions.commissionType, filters.commissionType));
+    }
+    if (filters?.payoutStatus) {
+      conditions.push(eq(schema.commissions.payoutStatus, filters.payoutStatus));
+    }
+    if (filters?.trailMonth) {
+      conditions.push(eq(schema.commissions.trailMonth, filters.trailMonth));
+    }
+    if (filters?.startDate) {
+      conditions.push(gte(schema.commissions.calculatedAt, filters.startDate));
+    }
+    if (filters?.endDate) {
+      conditions.push(lte(schema.commissions.calculatedAt, filters.endDate));
+    }
+
+    let query = db.select().from(schema.commissions);
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+
+    const results = await query
+      .orderBy(desc(schema.commissions.calculatedAt))
+      .limit(filters?.limit || 1000);
+
+    return results;
+  }
+
+  async getAgentEarningsSummary(agentId: string, filters?: {
+    startDate?: Date;
+    endDate?: Date;
+    productType?: string;
+  }): Promise<{
+    totalGross: number;
+    totalNet: number;
+    totalTds: number;
+    totalGst: number;
+    upfrontTotal: number;
+    trailTotal: number;
+    pendingPayout: number;
+    paidPayout: number;
+  }> {
+    const conditions: any[] = [eq(schema.commissions.agentId, agentId)];
+
+    if (filters?.startDate) {
+      conditions.push(gte(schema.commissions.calculatedAt, filters.startDate));
+    }
+    if (filters?.endDate) {
+      conditions.push(lte(schema.commissions.calculatedAt, filters.endDate));
+    }
+    if (filters?.productType) {
+      conditions.push(eq(schema.commissions.productType, filters.productType));
+    }
+
+    const commissions = await db.select()
+      .from(schema.commissions)
+      .where(and(...conditions));
+
+    let totalGross = 0;
+    let totalNet = 0;
+    let totalTds = 0;
+    let totalGst = 0;
+    let upfrontTotal = 0;
+    let trailTotal = 0;
+    let pendingPayout = 0;
+    let paidPayout = 0;
+
+    for (const comm of commissions) {
+      const gross = parseFloat(comm.commissionAmount || '0');
+      const net = parseFloat(comm.netCommission || '0');
+      const tds = parseFloat(comm.tdsAmount || '0');
+      const gst = parseFloat(comm.gstAmount || '0');
+
+      totalGross += gross;
+      totalNet += net;
+      totalTds += tds;
+      totalGst += gst;
+
+      if (comm.commissionType === 'upfront') {
+        upfrontTotal += gross;
+      } else if (comm.commissionType === 'trail') {
+        trailTotal += gross;
+      }
+
+      if (comm.payoutStatus === 'paid') {
+        paidPayout += net;
+      } else if (comm.payoutStatus === 'pending' || comm.payoutStatus === 'approved') {
+        pendingPayout += net;
+      }
+    }
+
+    return {
+      totalGross: parseFloat(totalGross.toFixed(2)),
+      totalNet: parseFloat(totalNet.toFixed(2)),
+      totalTds: parseFloat(totalTds.toFixed(2)),
+      totalGst: parseFloat(totalGst.toFixed(2)),
+      upfrontTotal: parseFloat(upfrontTotal.toFixed(2)),
+      trailTotal: parseFloat(trailTotal.toFixed(2)),
+      pendingPayout: parseFloat(pendingPayout.toFixed(2)),
+      paidPayout: parseFloat(paidPayout.toFixed(2)),
+    };
+  }
+
+  async getAgentClientsSummary(agentId: string, productType?: string): Promise<{
+    totalClients: number;
+    activeClients: number;
+    totalAUM: number;
+    activeSIPValue: number;
+  }> {
+    const conditions: any[] = [
+      eq(schema.agentClientMapping.agentId, agentId),
+    ];
+
+    if (productType) {
+      conditions.push(eq(schema.agentClientMapping.productType, productType));
+    }
+
+    const mappings = await db.select()
+      .from(schema.agentClientMapping)
+      .where(and(...conditions));
+
+    const totalClients = mappings.length;
+    const activeClients = mappings.filter(m => m.isActive).length;
+
+    // TODO: Calculate actual AUM and SIP values from portfolio holdings
+    // For now, returning placeholder values
+    return {
+      totalClients,
+      activeClients,
+      totalAUM: 0,
+      activeSIPValue: 0,
+    };
+  }
+
+  async updateCommissionPayoutStatus(
+    commissionId: string,
+    status: string,
+    updates?: Partial<Commission>
+  ): Promise<Commission | undefined> {
+    const [result] = await db.update(schema.commissions)
+      .set({
+        payoutStatus: status,
+        ...updates,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.commissions.id, commissionId))
+      .returning();
+    return result;
+  }
+
+  async bulkCreateCommissions(commissions: InsertCommission[]): Promise<Commission[]> {
+    if (commissions.length === 0) {
+      return [];
+    }
+
+    const results = await db.insert(schema.commissions)
+      .values(commissions)
+      .returning();
+    return results;
   }
 
   // Product Marketplace implementations
