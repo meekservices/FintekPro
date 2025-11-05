@@ -1042,6 +1042,22 @@ export const rebalanceTransactions = pgTable("rebalance_transactions", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// User rebalancing preferences
+export const rebalancingPreferences = pgTable("rebalancing_preferences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  toleranceThreshold: decimal("tolerance_threshold", { precision: 5, scale: 2 }).default("5.00"), // Percentage deviation before rebalancing (default 5%)
+  minimumTransactionAmount: decimal("minimum_transaction_amount", { precision: 15, scale: 2 }).default("1000.00"), // Skip transactions below this amount (default ₹1000)
+  transactionCostPercentage: decimal("transaction_cost_percentage", { precision: 5, scale: 4 }).default("0.0010"), // Transaction cost as decimal (default 0.1%)
+  autoRebalanceEnabled: boolean("auto_rebalance_enabled").default(false),
+  rebalanceFrequency: varchar("rebalance_frequency").default("quarterly"), // 'monthly', 'quarterly', 'semi_annually', 'annually', 'manual'
+  notifyOnDrift: boolean("notify_on_drift").default(true), // Send alert when portfolio drifts beyond threshold
+  lastRebalanceDate: timestamp("last_rebalance_date"),
+  nextScheduledRebalance: timestamp("next_scheduled_rebalance"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Portfolio snapshots for date-specific portfolio views
 export const portfolioSnapshots = pgTable("portfolio_snapshots", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -2743,6 +2759,12 @@ export const insertRebalanceTransactionSchema = createInsertSchema(rebalanceTran
   createdAt: true,
 });
 
+export const insertRebalancingPreferencesSchema = createInsertSchema(rebalancingPreferences).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertPortfolioSnapshotSchema = createInsertSchema(portfolioSnapshots).omit({
   id: true,
   createdAt: true,
@@ -3223,6 +3245,8 @@ export type RebalanceExecution = typeof rebalanceExecutions.$inferSelect;
 export type InsertRebalanceExecution = z.infer<typeof insertRebalanceExecutionSchema>;
 export type RebalanceTransaction = typeof rebalanceTransactions.$inferSelect;
 export type InsertRebalanceTransaction = z.infer<typeof insertRebalanceTransactionSchema>;
+export type RebalancingPreferences = typeof rebalancingPreferences.$inferSelect;
+export type InsertRebalancingPreferences = z.infer<typeof insertRebalancingPreferencesSchema>;
 export type PortfolioSnapshot = typeof portfolioSnapshots.$inferSelect;
 export type InsertPortfolioSnapshot = z.infer<typeof insertPortfolioSnapshotSchema>;
 export type ComprehensiveHolding = typeof comprehensiveHoldings.$inferSelect;
