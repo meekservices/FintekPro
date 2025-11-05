@@ -31,6 +31,8 @@ import InvestSmart from "@/pages/wealth-management";
 import Achievements from "@/pages/achievements";
 import CapitalGainsReports from "@/pages/capital-gains-reports";
 import AgentDashboard from "@/pages/agent-dashboard";
+import AgentDashboardNew from "@/pages/agent/dashboard";
+import AgentClients from "@/pages/agent/clients";
 import IBTradingPage from "@/pages/ib-trading";
 import StorePage from "@/pages/store";
 import GiftCity from "@/pages/gift-city";
@@ -476,6 +478,8 @@ function Router() {
         <Route path="/admin/proposals" component={AdminProposalsPage} />
         <Route path="/admin/whatsapp-setup" component={AdminWhatsAppSetup} />
         <Route path="/agent" component={AgentDashboard} />
+        <Route path="/agent/dashboard" component={AgentDashboardNew} />
+        <Route path="/agent/clients" component={AgentClients} />
         
         {/* User routes - require both authentication and profile completion */}
         <Route component={UserProtectedRoutes} />

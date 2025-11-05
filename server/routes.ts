@@ -31559,6 +31559,90 @@ System Security Data:`;
 
   return server;
 
+
+  // Get current user's agent profile
+  app.get("/api/agents/my-agent", requireAuth, async (req, res) => {
+    try {
+      if (!req.user) {
+        return apiResponse.unauthorized(res, "Authentication required");
+      }
+
+      // Find agent by userId
+      const agents = await storage.getAgents({ userId: req.user.id });
+      const agent = agents[0];
+
+      if (!agent) {
+        return apiResponse.notFound(res, "No agent profile found for this user");
+      }
+
+      return apiResponse.success(res, agent, "Agent profile retrieved successfully");
+    } catch (error) {
+      console.error("Error fetching agent profile:", error);
+      return apiResponse.serverError(res, "Failed to fetch agent profile");
+    }
+  });
+
+  // Get agent client mappings
+  app.get("/api/agents/:agentId/client-mappings", requireAuth, async (req, res) => {
+    try {
+      const { agentId } = req.params;
+
+      // Verify agent exists
+      const agent = await storage.getAgent(agentId);
+      if (!agent) {
+        return apiResponse.notFound(res, "Agent not found");
+      }
+
+      // Authorization check
+      const isAdmin = req.user?.roles?.includes('admin');
+      const isOwnAgent = agent.userId === req.user?.id;
+      if (!isAdmin && !isOwnAgent) {
+        return apiResponse.forbidden(res, "Not authorized to view this agent's clients");
+      }
+
+      const mappings = await storage.getAgentClientMappings({ agentId });
+
+      // Fetch client details and portfolio value for each mapping
+      const mappingsWithClients = await Promise.all(
+        mappings.map(async (mapping) => {
+          const client = await storage.getUserById(mapping.clientId);
+          
+          // Get client's portfolio total value
+          let portfolioValue = "0";
+          try {
+            const portfolios = await db.select()
+              .from(schema.portfolios)
+              .where(eq(schema.portfolios.userId, mapping.clientId));
+            
+            if (portfolios.length > 0) {
+              const total = portfolios.reduce((sum, p) => sum + parseFloat(p.totalValue || "0"), 0);
+              portfolioValue = total.toString();
+            }
+          } catch (error) {
+            console.error("Error fetching portfolio for client", mapping.clientId, error);
+          }
+          
+          return {
+            ...mapping,
+            portfolioValue,
+            client: client ? {
+              id: client.id,
+              firstName: client.firstName,
+              lastName: client.lastName,
+              email: client.email,
+              mobile: client.mobile,
+              panNumber: client.panNumber
+            } : undefined
+          };
+        })
+      );
+
+      return apiResponse.success(res, mappingsWithClients, "Client mappings retrieved successfully");
+    } catch (error) {
+      console.error("Error fetching client mappings:", error);
+      return apiResponse.serverError(res, "Failed to fetch client mappings");
+    }
+  });
   // ===========================
   // Commission API Endpoints
   // ===========================
