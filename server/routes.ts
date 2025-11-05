@@ -86,6 +86,7 @@ import { lookupIFSC, isValidIFSCFormat } from './ifsc-lookup-service';
 import { ProductAccountService } from './product-account-service';
 import { BSEStarKYCService } from './services/bse-star-kyc-service';
 import * as schema from "@shared/schema";
+import { sanitizeError } from "./utils/pii-sanitizer";
 
 // Tax Calculation Request Validation Schemas
 const calculateCapitalGainsSchema = z.object({
@@ -1895,18 +1896,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: "KYC session started successfully"
       });
     } catch (error: any) {
+      // Sanitize error to prevent PII leakage (PAN/Aadhaar/Email/Phone)
+      const sanitizedError = sanitizeError(error);
+      
       console.error('[KYC Wizard] Error starting KYC session:', {
         userId,
-        error: error.message,
-        stack: error.stack,
-        code: error.code
+        error: sanitizedError.message,
+        stack: sanitizedError.stack,
+        code: sanitizedError.code
       });
       
       // Regulatory Compliance: Log KYC session failure
       console.log('[COMPLIANCE] kyc_session_start_failed:', {
         userId,
-        errorType: error.name || 'Unknown',
-        errorMessage: error.message || 'Unknown error',
+        errorType: sanitizedError.name || 'Unknown',
+        errorMessage: sanitizedError.message || 'Unknown error',
         outcome: 'failure',
         riskLevel: 'high'
       });
