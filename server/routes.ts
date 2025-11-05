@@ -16140,6 +16140,375 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  // ==================== AGENT-CLIENT MAPPING APIS ====================
+  
+  // Generate or regenerate referral code for an agent (Admin only)
+  app.post("/api/admin/agents/:agentId/referral-code", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { agentId } = req.params;
+      const { regenerate } = req.body;
+
+      const agent = await storage.getAgent(agentId);
+      if (!agent) {
+        return apiResponse.notFound(res, "Agent not found");
+      }
+
+      // If agent already has a referral code and regenerate is not requested, return existing
+      if (agent.referralCode && !regenerate) {
+        return apiResponse.success(res, { referralCode: agent.referralCode }, "Referral code already exists");
+      }
+
+      // Generate new referral code
+      const referralCode = await storage.generateReferralCodeForAgent(agentId);
+      
+      return apiResponse.success(res, { referralCode }, "Referral code generated successfully");
+    } catch (error) {
+      console.error("Error generating referral code:", error);
+      return apiResponse.serverError(res, "Failed to generate referral code");
+    }
+  });
+
+  // Get agent's referral link and statistics
+  app.get("/api/agents/:agentId/referral-info", requireAuth, async (req, res) => {
+    try {
+      const { agentId } = req.params;
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+
+      const agent = await storage.getAgent(agentId);
+      if (!agent) {
+        return apiResponse.notFound(res, "Agent not found");
+      }
+
+      // Authorization check: Only the agent themselves or admins can view referral info
+      const isAdmin = req.user?.roles?.includes('admin');
+      const isOwnAgent = agent.userId === req.user?.id;
+      
+      if (!isAdmin && !isOwnAgent) {
+        return apiResponse.forbidden(res, "Not authorized to view this agent's referral information");
+      }
+      const mappings = await storage.getAgentClientMappings({ 
+        agentId, 
+        isActive: true 
+      });
+
+      const referralInfo = {
+        referralCode: agent.referralCode,
+        referralLink: agent.referralCode ? `${baseUrl}/signup?agent_id=${agent.referralCode}` : null,
+        totalReferrals: agent.referralCount || 0,
+        activeClients: mappings.length,
+        totalClients: agent.totalClients || 0
+      };
+
+      return apiResponse.success(res, referralInfo, "Referral information retrieved");
+    } catch (error) {
+      console.error("Error fetching referral info:", error);
+      return apiResponse.serverError(res, "Failed to fetch referral information");
+    }
+  });
+
+  // Get all clients assigned to an agent
+  app.get("/api/agents/:agentId/clients", requireAuth, async (req, res) => {
+    try {
+      const { agentId } = req.params;
+      const { productType, status = 'active' } = req.query;
+
+      // Verify agent exists
+      const agent = await storage.getAgent(agentId);
+      if (!agent) {
+        return apiResponse.notFound(res, "Agent not found");
+      }
+
+      // Authorization check: Only the agent themselves or admins can view client list
+      const isAdmin = req.user?.roles?.includes('admin');
+      const isOwnAgent = agent.userId === req.user?.id;
+      
+      if (!isAdmin && !isOwnAgent) {
+        return apiResponse.forbidden(res, "Not authorized to view this agent's clients");
+      }
+
+      // Get agent-client mappings
+      const mappings = await storage.getAgentClientMappings({
+        agentId,
+        productType: productType as string,
+        isActive: status === 'active'
+      });
+
+      // Fetch client details for each mapping
+      const clientsWithDetails = await Promise.all(
+        mappings.map(async (mapping) => {
+          const client = await storage.getUser(mapping.clientId);
+          return {
+            mapping: {
+              id: mapping.id,
+              productType: mapping.productType,
+              assignmentType: mapping.assignmentType,
+              referralSource: mapping.referralSource,
+              startDate: mapping.startDate,
+              status: mapping.status
+            },
+            client: client ? {
+              id: client.id,
+              firstName: client.firstName,
+              lastName: client.lastName,
+              email: client.email,
+              mobile: client.mobile,
+              panNumber: client.panNumber
+            } : null
+          };
+        })
+      );
+
+      return apiResponse.success(res, { 
+        agent: {
+          id: agent.id,
+          fullName: agent.fullName,
+          arnCode: agent.arnCode
+        },
+        clients: clientsWithDetails,
+        total: clientsWithDetails.length
+      }, "Agent clients retrieved successfully");
+    } catch (error) {
+      console.error("Error fetching agent clients:", error);
+      return apiResponse.serverError(res, "Failed to fetch agent clients");
+    }
+  });
+
+  // Get agent assignments for a client
+  app.get("/api/clients/:clientId/agents", requireAuth, async (req, res) => {
+    try {
+      const { clientId } = req.params;
+      const { productType } = req.query;
+
+      // Verify client exists
+      const client = await storage.getUser(clientId);
+      if (!client) {
+        return apiResponse.notFound(res, "Client not found");
+      }
+
+      // Get all active agent assignments for this client
+      const mappings = await storage.getAgentClientMappings({
+        clientId,
+        productType: productType as string,
+        isActive: true
+      });
+
+      // Fetch agent details for each mapping
+      const agentsWithDetails = await Promise.all(
+        mappings.map(async (mapping) => {
+          const agent = await storage.getAgent(mapping.agentId);
+          return {
+            mapping: {
+              id: mapping.id,
+              productType: mapping.productType,
+              assignmentType: mapping.assignmentType,
+              referralSource: mapping.referralSource,
+              startDate: mapping.startDate,
+              status: mapping.status
+            },
+            agent: agent ? {
+              id: agent.id,
+              fullName: agent.fullName,
+              arnCode: agent.arnCode,
+              euinCode: agent.euinCode,
+              email: agent.email,
+              mobile: agent.mobile,
+              status: agent.status
+            } : null
+          };
+        })
+      );
+
+      return apiResponse.success(res, { 
+        client: {
+          id: client.id,
+          name: `${client.firstName} ${client.lastName}`.trim(),
+          email: client.email
+        },
+        agents: agentsWithDetails,
+        total: agentsWithDetails.length
+      }, "Client agent assignments retrieved successfully");
+    } catch (error) {
+      console.error("Error fetching client agents:", error);
+      return apiResponse.serverError(res, "Failed to fetch client agent assignments");
+    }
+  });
+
+  // Admin: Manually assign agent to client
+  app.post("/api/admin/agent-client-mapping", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { clientId, agentId, productType, assignmentType = 'admin_assigned' } = req.body;
+      const adminUserId = req.user?.id;
+
+      // Validate required fields
+      if (!clientId || !agentId) {
+        return apiResponse.badRequest(res, "Client ID and Agent ID are required");
+      }
+
+      // Verify client exists
+      const client = await storage.getUser(clientId);
+      if (!client) {
+        return apiResponse.notFound(res, "Client not found");
+      }
+
+      // Verify agent exists and is active
+      const agent = await storage.getAgent(agentId);
+      if (!agent) {
+        return apiResponse.notFound(res, "Agent not found");
+      }
+      if (agent.status !== 'active') {
+        return apiResponse.badRequest(res, "Agent is not active");
+      }
+
+      // Check if there's already an active assignment for this product type
+      const existingMapping = await storage.getActiveAgentForClient(clientId, productType);
+      if (existingMapping) {
+        return apiResponse.badRequest(res, 
+          `Client already has an active agent for ${productType || 'all products'}. Use switch endpoint to change agents.`
+        );
+      }
+
+      // Create the mapping
+      const mapping = await storage.createAgentClientMapping({
+        clientId,
+        agentId,
+        productType: productType || null,
+        assignmentType,
+        referralSource: 'admin_portal',
+        assignedBy: adminUserId,
+        isActive: true,
+        status: 'active',
+        startDate: new Date()
+      });
+
+      return apiResponse.created(res, {
+        mapping,
+        client: { id: client.id, name: `${client.firstName} ${client.lastName}`.trim() },
+        agent: { id: agent.id, fullName: agent.fullName, arnCode: agent.arnCode }
+      }, "Agent assigned to client successfully");
+    } catch (error) {
+      console.error("Error assigning agent to client:", error);
+      return apiResponse.serverError(res, "Failed to assign agent to client");
+    }
+  });
+
+  // Admin: Switch client's agent
+  app.post("/api/admin/agent-client-mapping/switch", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { clientId, newAgentId, productType, switchReason } = req.body;
+      const adminUserId = req.user?.id;
+
+      // Validate required fields
+      if (!clientId || !newAgentId || !switchReason) {
+        return apiResponse.badRequest(res, "Client ID, new Agent ID, and switch reason are required");
+      }
+
+      // Verify client exists
+      const client = await storage.getUser(clientId);
+      if (!client) {
+        return apiResponse.notFound(res, "Client not found");
+      }
+
+      // Verify new agent exists and is active
+      const newAgent = await storage.getAgent(newAgentId);
+      if (!newAgent) {
+        return apiResponse.notFound(res, "New agent not found");
+      }
+      if (newAgent.status !== 'active') {
+        return apiResponse.badRequest(res, "New agent is not active");
+      }
+
+      // Check if there's an existing assignment to switch from
+      const existingMapping = await storage.getActiveAgentForClient(clientId, productType);
+      if (!existingMapping) {
+        return apiResponse.badRequest(res, 
+          `No active agent assignment found for ${productType || 'all products'}. Use assign endpoint instead.`
+        );
+      }
+
+      if (existingMapping.agentId === newAgentId) {
+        return apiResponse.badRequest(res, "Client is already assigned to this agent");
+      }
+
+      // Switch the agent
+      const newMapping = await storage.switchClientAgent(
+        clientId, 
+        newAgentId, 
+        productType || null, 
+        switchReason,
+        adminUserId || 'system'
+      );
+
+      const oldAgent = await storage.getAgent(existingMapping.agentId);
+
+      return apiResponse.success(res, {
+        newMapping,
+        client: { id: client.id, name: `${client.firstName} ${client.lastName}`.trim() },
+        oldAgent: oldAgent ? { id: oldAgent.id, fullName: oldAgent.fullName } : null,
+        newAgent: { id: newAgent.id, fullName: newAgent.fullName, arnCode: newAgent.arnCode },
+        switchReason
+      }, "Agent switched successfully");
+    } catch (error) {
+      console.error("Error switching agent:", error);
+      return apiResponse.serverError(res, "Failed to switch agent");
+    }
+  });
+
+  // Get agent-client mapping history (audit trail)
+  app.get("/api/admin/agent-client-mapping/history/:clientId", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { clientId } = req.params;
+      const { productType } = req.query;
+
+      // Verify client exists
+      const client = await storage.getUser(clientId);
+      if (!client) {
+        return apiResponse.notFound(res, "Client not found");
+      }
+
+      // Get all mappings (active and inactive) for audit trail
+      const allMappings = await storage.getAgentClientMappings({
+        clientId,
+        productType: productType as string
+        // Don't filter by isActive - we want full history
+      });
+
+      // Fetch agent details for each mapping
+      const historyWithDetails = await Promise.all(
+        allMappings.map(async (mapping) => {
+          const agent = await storage.getAgent(mapping.agentId);
+          const assignedByUser = mapping.assignedBy ? await storage.getUser(mapping.assignedBy) : null;
+          
+          return {
+            ...mapping,
+            agentDetails: agent ? {
+              fullName: agent.fullName,
+              arnCode: agent.arnCode,
+              email: agent.email
+            } : null,
+            assignedByDetails: assignedByUser ? {
+              name: `${assignedByUser.firstName} ${assignedByUser.lastName}`.trim(),
+              email: assignedByUser.email
+            } : null
+          };
+        })
+      );
+
+      // Sort by start date descending (most recent first)
+      historyWithDetails.sort((a, b) => 
+        new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
+      );
+
+      return apiResponse.success(res, {
+        client: { id: client.id, name: `${client.firstName} ${client.lastName}`.trim() },
+        history: historyWithDetails,
+        total: historyWithDetails.length
+      }, "Agent-client mapping history retrieved successfully");
+    } catch (error) {
+      console.error("Error fetching mapping history:", error);
+      return apiResponse.serverError(res, "Failed to fetch mapping history");
+    }
+  });
   // Marketing Automation API endpoints
   app.post("/api/marketing/campaign", async (req, res) => {
     try {
@@ -21569,11 +21938,37 @@ System Security Data:`;
           return res.status(400).json({ error: 'No items found in proposal' });
         }
 
+        // Look up the agent assigned to this client for mutual funds
+        let agentArn: string | undefined;
+        let agentEuin: string | undefined;
+        let euinDeclaration: string | undefined;
+
+        try {
+          const agentMapping = await storage.getActiveAgentForClient(userId, 'mutual_funds');
+          if (agentMapping) {
+            const agent = await storage.getAgent(agentMapping.agentId);
+            if (agent && agent.status === 'active') {
+              agentArn = agent.arnCode || undefined;
+              agentEuin = agent.euinCode || undefined;
+              euinDeclaration = agent.euinCode ? 'Y' : 'N';
+              console.log(`[BSE Order] Using agent ARN: ${agentArn}, EUIN: ${agentEuin} for client ${userId}`);
+            }
+          } else {
+            console.log(`[BSE Order] No agent assigned for client ${userId} - proceeding with direct order`);
+          }
+        } catch (error) {
+          console.error('[BSE Order] Error looking up agent:', error);
+          // Continue without agent info if lookup fails
+        }
+
       // Prepare BSE order request
       const bseOrderRequest = {
         proposalId,
         clientCode: userId, // Using user ID as client code for demo
         orderType: orderType as 'LUMPSUM' | 'SIP',
+        agentArn,
+        agentEuin,
+        euinDeclaration,
         items: proposalItems.map(item => ({
           schemeCode: item.schemeCode,
           amount: item.amount,
@@ -21584,8 +21979,6 @@ System Security Data:`;
           sipEndDate: item.sipEndDate
         }))
       };
-
-      // Import BSE API service
       const { bseStarApi } = await import('./bseStarApi');
       
       // Complete order through BSE Star API

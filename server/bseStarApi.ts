@@ -53,6 +53,9 @@ interface BSEOrderRequest {
   mintUnit?: string;
   maxAmount?: string;
   maxUnit?: string;
+  ArnNo?: string;
+  Euin?: string;
+  EuinVal?: string;
   password: string;
   passKey: string;
 }
@@ -71,8 +74,9 @@ interface BSESIPOrderRequest {
   sipEndDate?: string;
   regId?: string;
   subBrokerCode?: string;
-  euin?: string;
-  euinVal?: string;
+  ArnNo?: string;
+  Euin?: string;
+  EuinVal?: string;
   password: string;
   passKey: string;
 }
@@ -81,6 +85,9 @@ export interface OrderCompletionRequest {
   proposalId: string;
   clientCode: string;
   orderType: 'LUMPSUM' | 'SIP';
+  agentArn?: string;
+  agentEuin?: string;
+  euinDeclaration?: string;
   items: Array<{
     schemeCode: string;
     amount: number;
@@ -129,9 +136,25 @@ export class BSEStarApiService {
         let result;
         
         if (request.orderType === 'SIP') {
-          result = await this.processSIPOrder(transNo, orderId, request.clientCode, item);
+          result = await this.processSIPOrder(
+            transNo, 
+            orderId, 
+            request.clientCode, 
+            item,
+            request.agentArn,
+            request.agentEuin,
+            request.euinDeclaration
+          );
         } else {
-          result = await this.processLumpsumOrder(transNo, orderId, request.clientCode, item);
+          result = await this.processLumpsumOrder(
+            transNo, 
+            orderId, 
+            request.clientCode, 
+            item,
+            request.agentArn,
+            request.agentEuin,
+            request.euinDeclaration
+          );
         }
         
         results.push(result);
@@ -171,7 +194,15 @@ export class BSEStarApiService {
   /**
    * Process lumpsum order through BSE API
    */
-  private async processLumpsumOrder(transNo: string, orderId: string, clientCode: string, item: any) {
+  private async processLumpsumOrder(
+    transNo: string, 
+    orderId: string, 
+    clientCode: string, 
+    item: any,
+    agentArn?: string,
+    agentEuin?: string,
+    euinDeclaration?: string
+  ) {
     try {
       const orderRequest: BSEOrderRequest = {
         transCode: item.transactionType, // 'P' for Purchase, 'R' for Redeem
@@ -184,6 +215,9 @@ export class BSEStarApiService {
         buyAmount: item.amount,
         folioNo: item.folioNo || '',
         remarks: 'FintekPro Order',
+        ArnNo: agentArn,
+        Euin: agentEuin,
+        EuinVal: euinDeclaration || (agentEuin ? 'Y' : 'N'),
         password: BSE_CREDENTIALS.password,
         passKey: BSE_CREDENTIALS.passKey
       };
@@ -215,7 +249,15 @@ export class BSEStarApiService {
   /**
    * Process SIP order through BSE API
    */
-  private async processSIPOrder(transNo: string, orderId: string, clientCode: string, item: any) {
+  private async processSIPOrder(
+    transNo: string, 
+    orderId: string, 
+    clientCode: string, 
+    item: any,
+    agentArn?: string,
+    agentEuin?: string,
+    euinDeclaration?: string
+  ) {
     try {
       const sipRequest: BSESIPOrderRequest = {
         transCode: 'NEW', // Always NEW for SIP
@@ -229,6 +271,9 @@ export class BSEStarApiService {
         sipFreq: item.sipFreq || 'MONTHLY',
         sipStartDate: item.sipStartDate || this.getNextBusinessDay(),
         sipEndDate: item.sipEndDate,
+        ArnNo: agentArn,
+        Euin: agentEuin,
+        EuinVal: euinDeclaration || (agentEuin ? 'Y' : 'N'),
         password: BSE_CREDENTIALS.password,
         passKey: BSE_CREDENTIALS.passKey
       };
