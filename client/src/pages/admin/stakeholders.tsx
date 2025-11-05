@@ -1229,7 +1229,7 @@ export default function StakeholdersPage() {
 
       {/* Add Partner Dialog */}
       <Dialog open={isAddPartnerOpen} onOpenChange={setIsAddPartnerOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
           <DialogHeader>
             <DialogTitle>Add New Partner</DialogTitle>
             <DialogDescription>Create a new partner account with login credentials</DialogDescription>
@@ -1299,7 +1299,7 @@ export default function StakeholdersPage() {
 
       {/* Edit Partner Dialog */}
       <Dialog open={!!editingPartner} onOpenChange={(open) => !open && setEditingPartner(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
           <DialogHeader>
             <DialogTitle>Edit Partner</DialogTitle>
             <DialogDescription>Update partner information</DialogDescription>
@@ -1371,7 +1371,7 @@ export default function StakeholdersPage() {
 
       {/* Add Agent Dialog */}
       <Dialog open={isAddAgentOpen} onOpenChange={setIsAddAgentOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
           <DialogHeader>
             <DialogTitle>Add New Agent</DialogTitle>
             <DialogDescription>Create a new agent account</DialogDescription>
@@ -1494,7 +1494,7 @@ export default function StakeholdersPage() {
 
       {/* Edit Agent Dialog */}
       <Dialog open={!!editingAgent} onOpenChange={(open) => !open && setEditingAgent(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
           <DialogHeader>
             <DialogTitle>Edit Agent</DialogTitle>
             <DialogDescription>Update agent information</DialogDescription>
@@ -1619,7 +1619,7 @@ export default function StakeholdersPage() {
 
       {/* Add Supplier Dialog */}
       <Dialog open={isAddSupplierOpen} onOpenChange={setIsAddSupplierOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
           <DialogHeader>
             <DialogTitle>Add New Supplier</DialogTitle>
             <DialogDescription>Create a new supplier account</DialogDescription>
@@ -1678,7 +1678,7 @@ export default function StakeholdersPage() {
 
       {/* Edit Supplier Dialog */}
       <Dialog open={!!editingSupplier} onOpenChange={(open) => !open && setEditingSupplier(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
           <DialogHeader>
             <DialogTitle>Edit Supplier</DialogTitle>
             <DialogDescription>Update supplier information</DialogDescription>
