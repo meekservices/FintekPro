@@ -11967,6 +11967,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  // Get user rebalancing preferences
+  app.get("/api/user/rebalance-preferences", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const preferences = await storage.getRebalancingPreferences(userId);
+      
+      if (!preferences) {
+        // Return default preferences if none exist
+        return res.json({
+          userId,
+          toleranceThreshold: "5.00",
+          minimumTransactionAmount: "1000.00",
+          transactionCostPercentage: "0.0010",
+          autoRebalanceEnabled: false,
+          rebalanceFrequency: "quarterly",
+          notifyOnDrift: true,
+        });
+      }
+      
+      res.json(preferences);
+    } catch (error: any) {
+      logger.error("Error fetching rebalancing preferences:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Save/update user rebalancing preferences
+  app.post("/api/user/rebalance-preferences", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const preferences = await storage.upsertRebalancingPreferences({
+        userId,
+        toleranceThreshold: req.body.toleranceThreshold,
+        minimumTransactionAmount: req.body.minimumTransactionAmount,
+        transactionCostPercentage: req.body.transactionCostPercentage,
+        autoRebalanceEnabled: req.body.autoRebalanceEnabled,
+        rebalanceFrequency: req.body.rebalanceFrequency,
+        notifyOnDrift: req.body.notifyOnDrift,
+      });
+      
+      res.json(preferences);
+    } catch (error: any) {
+      logger.error("Error saving rebalancing preferences:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
   // Get rebalancing suggestions for a portfolio - personalized for the specific user
   app.get("/api/portfolios/:portfolioId/rebalancing-suggestions", requireOwnPortfolio, async (req, res) => {
     try {
