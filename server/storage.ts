@@ -2751,6 +2751,96 @@ export class DatabaseStorage implements IStorage {
   //   return false;
   // }
 
+  // Agent methods implementation
+  async getAllAgents(filters?: { search?: string; status?: string; agentType?: string; page?: number; limit?: number }): Promise<{ data: Agent[]; total: number }> {
+    const page = filters?.page || 1;
+    const limit = filters?.limit || 50;
+    const offset = (page - 1) * limit;
+
+    let query = db.select().from(schema.agents);
+    const conditions = [];
+
+    if (filters?.search) {
+      conditions.push(
+        or(
+          ilike(schema.agents.fullName, `%${filters.search}%`),
+          ilike(schema.agents.email, `%${filters.search}%`),
+          ilike(schema.agents.phone, `%${filters.search}%`),
+          ilike(schema.agents.arnCode, `%${filters.search}%`),
+          ilike(schema.agents.euinNumber, `%${filters.search}%`)
+        )
+      );
+    }
+
+    if (filters?.status) {
+      conditions.push(eq(schema.agents.status, filters.status));
+    }
+
+    if (filters?.agentType) {
+      conditions.push(eq(schema.agents.agentType, filters.agentType));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+
+    const data = await query
+      .orderBy(desc(schema.agents.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    const countQuery = conditions.length > 0
+      ? db.select({ count: sql`count(*)` }).from(schema.agents).where(and(...conditions))
+      : db.select({ count: sql`count(*)` }).from(schema.agents);
+
+    const [{ count }] = await countQuery as any;
+    
+    return {
+      data,
+      total: parseInt(count)
+    };
+  }
+
+  async getAgent(id: string): Promise<Agent | undefined> {
+    const [result] = await db.select().from(schema.agents).where(eq(schema.agents.id, id));
+    return result;
+  }
+
+  async createAgent(agent: InsertAgent): Promise<Agent> {
+    const [result] = await db.insert(schema.agents).values(agent).returning();
+    return result;
+  }
+
+  async updateAgent(id: string, updates: Partial<Agent>): Promise<Agent | undefined> {
+    const [result] = await db
+      .update(schema.agents)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.agents.id, id))
+      .returning();
+    return result;
+  }
+
+  async deleteAgent(id: string): Promise<boolean> {
+    const result = await db.delete(schema.agents).where(eq(schema.agents.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  async getAgentStats(): Promise<{ total: number; active: number; inactive: number; byType: Record<string, number> }> {
+    const allAgents = await db.select().from(schema.agents);
+    
+    const total = allAgents.length;
+    const active = allAgents.filter(a => a.status === 'active').length;
+    const inactive = allAgents.filter(a => a.status !== 'active').length;
+    
+    const byType: Record<string, number> = {};
+    allAgents.forEach(agent => {
+      const type = agent.agentType || 'individual';
+      byType[type] = (byType[type] || 0) + 1;
+    });
+    
+    return { total, active, inactive, byType };
+  }
+
   // Product Marketplace implementations
   async getProducts(filters?: {
     category?: string;
