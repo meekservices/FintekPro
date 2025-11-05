@@ -31822,3 +31822,158 @@ System Security Data:`;
     }
   });
 }
+
+  // ============================================================================
+  // AI CHAT ASSISTANT API ENDPOINTS
+  // ============================================================================
+
+  // Create a new chat session
+  app.post("/api/chat/sessions", requireAuth, async (req: any, res: any) => {
+    try {
+      const { sessionType } = req.body;
+      const userId = req.user.id;
+
+      const newSession = await storage.createChatSession({
+        userId,
+        title: `${sessionType.replace('_', ' ')} session`,
+        sessionType: sessionType || 'general'
+      });
+
+      return apiResponse.success(res, { session: newSession }, "Chat session created successfully");
+    } catch (error) {
+      console.error("Error creating chat session:", error);
+      return apiResponse.serverError(res, "Failed to create chat session");
+    }
+  });
+
+  // Get all chat sessions for the current user
+  app.get("/api/chat/sessions", requireAuth, async (req: any, res: any) => {
+    try {
+      const userId = req.user.id;
+      const sessions = await storage.getChatSessions(userId);
+
+      return apiResponse.success(res, { sessions }, "Chat sessions retrieved successfully");
+    } catch (error) {
+      console.error("Error fetching chat sessions:", error);
+      return apiResponse.serverError(res, "Failed to fetch chat sessions");
+    }
+  });
+
+  // Get messages for a specific chat session
+  app.get("/api/chat/sessions/:sessionId/messages", requireAuth, async (req: any, res: any) => {
+    try {
+      const { sessionId } = req.params;
+      const userId = req.user.id;
+
+      // Verify user owns this session
+      const session = await storage.getChatSession(sessionId);
+      if (!session) {
+        return apiResponse.notFound(res, "Chat session not found");
+      }
+      if (session.userId !== userId) {
+        return apiResponse.forbidden(res, "Not authorized to access this session");
+      }
+
+      const messages = await storage.getChatMessages(sessionId);
+      return apiResponse.success(res, { messages }, "Messages retrieved successfully");
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+      return apiResponse.serverError(res, "Failed to fetch messages");
+    }
+  });
+
+  // Send a message and get AI response
+  app.post("/api/chat/sessions/:sessionId/messages", requireAuth, async (req: any, res: any) => {
+    try {
+      const { sessionId } = req.params;
+      const { content, provider, model } = req.body;
+      const userId = req.user.id;
+
+      // Verify session exists and user owns it
+      const session = await storage.getChatSession(sessionId);
+      if (!session) {
+        return apiResponse.notFound(res, "Chat session not found");
+      }
+      if (session.userId !== userId) {
+        return apiResponse.forbidden(res, "Not authorized to access this session");
+      }
+
+      // Create user message
+      const userMessage = await storage.createChatMessage({
+        sessionId,
+        role: 'user',
+        content,
+      });
+
+      // TODO: Call Gemini AI to get response
+      // For now, return a placeholder response
+      const aiMessage = await storage.createChatMessage({
+        sessionId,
+        role: 'assistant',
+        content: 'AI response will be implemented with Gemini integration.',
+        model: model || 'gemini-1.5-flash'
+      });
+
+      return apiResponse.success(res, {
+        userMessage,
+        aiMessage
+      }, "Message sent successfully");
+    } catch (error) {
+      console.error("Error sending message:", error);
+      return apiResponse.serverError(res, "Failed to send message");
+    }
+  });
+
+  // Get pending actions for the user
+  app.get("/api/chat/actions/pending", requireAuth, async (req: any, res: any) => {
+    try {
+      const userId = req.user.id;
+      const pendingActions = await storage.getPendingChatActions(userId);
+
+      return apiResponse.success(res, pendingActions, "Pending actions retrieved successfully");
+    } catch (error) {
+      console.error("Error fetching pending actions:", error);
+      return apiResponse.serverError(res, "Failed to fetch pending actions");
+    }
+  });
+
+  // Confirm or reject a pending action
+  app.post("/api/chat/actions/:actionId/confirm", requireAuth, async (req: any, res: any) => {
+    try {
+      const { actionId } = req.params;
+      const { confirmed } = req.body;
+      const userId = req.user.id;
+
+      // Get the action and verify ownership
+      const actions = await storage.getChatActions('', ''); // Get by ID
+      const action = actions.find((a: any) => a.id === actionId);
+
+      if (!action) {
+        return apiResponse.notFound(res, "Action not found");
+      }
+      if (action.userId !== userId) {
+        return apiResponse.forbidden(res, "Not authorized to confirm this action");
+      }
+
+      if (confirmed) {
+        // TODO: Execute the action based on functionName
+        await storage.updateChatAction(actionId, {
+          status: 'confirmed',
+          userConfirmedAt: new Date()
+        });
+
+        return apiResponse.success(res, null, "Action confirmed successfully");
+      } else {
+        await storage.updateChatAction(actionId, {
+          status: 'rejected',
+          userConfirmedAt: new Date()
+        });
+
+        return apiResponse.success(res, null, "Action rejected");
+      }
+    } catch (error) {
+      console.error("Error confirming action:", error);
+      return apiResponse.serverError(res, "Failed to confirm action");
+    }
+  });
+
