@@ -7,7 +7,8 @@ import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
-import { generateUniqueUserId } from "./auth";
+import { generateUniqueUserId, hashPassword } from "./auth";
+import { randomBytes } from "crypto";
 
 if (!process.env.REPLIT_DOMAINS) {
   throw new Error("Environment variable REPLIT_DOMAINS not provided");
