@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle, TrendingUp, TrendingDown, Activity, Shield, Target, Brain } from "lucide-react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import LoadingState from "@/components/LoadingState";
+import { LoadingState } from "@/components/LoadingState";
 import { useToast } from "@/hooks/use-toast";
 
 export default function PredictiveAnalytics() {
@@ -42,7 +42,7 @@ export default function PredictiveAnalytics() {
   // Generate predictions mutation
   const generatePredictions = useMutation({
     mutationFn: async (data: { portfolioId: string; horizon: string }) =>
-      apiRequest("/api/analytics/generate-predictions", "POST", data),
+      apiRequest("/api/analytics/generate-predictions", "POST", { body: data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/analytics/predictions"] });
       toast({
@@ -62,7 +62,7 @@ export default function PredictiveAnalytics() {
   // Generate risk analysis mutation
   const generateRiskAnalysis = useMutation({
     mutationFn: async (portfolioId: string) =>
-      apiRequest("/api/analytics/generate-risk-analysis", "POST", { portfolioId }),
+      apiRequest("/api/analytics/generate-risk-analysis", "POST", { body: { portfolioId } }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/analytics/risk"] });
       toast({
@@ -79,11 +79,11 @@ export default function PredictiveAnalytics() {
     },
   });
 
-  const latestPrediction = predictions && predictions.length > 0 ? predictions[0] : null;
-  const latestRisk = riskAnalysis && riskAnalysis.length > 0 ? riskAnalysis[0] : null;
+  const latestPrediction = Array.isArray(predictions) && predictions.length > 0 ? predictions[0] : null;
+  const latestRisk = Array.isArray(riskAnalysis) && riskAnalysis.length > 0 ? riskAnalysis[0] : null;
 
   if (portfoliosLoading) {
-    return <LoadingState message="Loading portfolios..." />;
+    return <LoadingState variant="card" count={3} />;
   }
 
   return (
@@ -113,7 +113,7 @@ export default function PredictiveAnalytics() {
                 <SelectValue placeholder="Select portfolio" />
               </SelectTrigger>
               <SelectContent>
-                {portfolios?.map((portfolio: any) => (
+                {Array.isArray(portfolios) && portfolios.map((portfolio: any) => (
                   <SelectItem key={portfolio.id} value={portfolio.id}>
                     {portfolio.name}
                   </SelectItem>
@@ -168,7 +168,7 @@ export default function PredictiveAnalytics() {
           {/* Performance Predictions Tab */}
           <TabsContent value="predictions" className="space-y-4">
             {predictionsLoading ? (
-              <LoadingState message="Loading predictions..." />
+              <LoadingState variant="card" count={2} />
             ) : latestPrediction ? (
               <>
                 {/* Key Metrics */}
@@ -313,7 +313,7 @@ export default function PredictiveAnalytics() {
           {/* Risk Analysis Tab */}
           <TabsContent value="risk" className="space-y-4">
             {riskLoading ? (
-              <LoadingState message="Loading risk analysis..." />
+              <LoadingState variant="card" count={3} />
             ) : latestRisk ? (
               <>
                 {/* Overall Risk Score */}
@@ -487,8 +487,8 @@ export default function PredictiveAnalytics() {
           {/* Asset Forecasts Tab */}
           <TabsContent value="forecasts" className="space-y-4">
             {forecastsLoading ? (
-              <LoadingState message="Loading forecasts..." />
-            ) : forecasts && forecasts.length > 0 ? (
+              <LoadingState variant="card" count={4} />
+            ) : Array.isArray(forecasts) && forecasts.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {forecasts.map((forecast: any) => (
                   <Card key={forecast.id}>
