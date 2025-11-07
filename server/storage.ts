@@ -2140,7 +2140,7 @@ export class DatabaseStorage implements IStorage {
   // Supplier Product methods
   async createSupplierProduct(product: any): Promise<any> {
     try {
-      const [result] = await db.insert(schema.productPerformance).values(product).returning();
+      const [result] = await db.insert(schema.supplierProducts).values(product).returning();
       return result;
     } catch (error) {
       console.error('Error creating supplier product:', error);
@@ -2152,10 +2152,10 @@ export class DatabaseStorage implements IStorage {
     try {
       if (supplierId) {
         return await db.select()
-          .from(schema.productPerformance)
-          .where(eq(schema.productPerformance.supplierId, supplierId));
+          .from(schema.supplierProducts)
+          .where(eq(schema.supplierProducts.supplierId, supplierId));
       }
-      return await db.select().from(schema.productPerformance);
+      return await db.select().from(schema.supplierProducts);
     } catch (error) {
       console.error('Error getting supplier products:', error);
       return [];
@@ -2164,9 +2164,9 @@ export class DatabaseStorage implements IStorage {
 
   async updateSupplierProduct(id: string, updates: any): Promise<any | undefined> {
     try {
-      const [result] = await db.update(schema.productPerformance)
+      const [result] = await db.update(schema.supplierProducts)
         .set({ ...updates, updatedAt: new Date() })
-        .where(eq(schema.productPerformance.id, id))
+        .where(eq(schema.supplierProducts.id, id))
         .returning();
       return result;
     } catch (error) {
@@ -2177,8 +2177,8 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSupplierProduct(id: string): Promise<boolean> {
     try {
-      await db.delete(schema.productPerformance)
-        .where(eq(schema.productPerformance.id, id));
+      await db.delete(schema.supplierProducts)
+        .where(eq(schema.supplierProducts.id, id));
       return true;
     } catch (error) {
       console.error('Error deleting supplier product:', error);

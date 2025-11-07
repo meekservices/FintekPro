@@ -4802,6 +4802,19 @@ export const suppliers = pgTable("suppliers", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const supplierProducts = pgTable("supplier_products", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  supplierId: varchar("supplier_id").references(() => suppliers.id).notNull(),
+  productName: varchar("product_name").notNull(),
+  description: text("description"),
+  price: decimal("price", { precision: 15, scale: 2 }).notNull(),
+  profitMargin: decimal("profit_margin", { precision: 5, scale: 2 }).notNull(),
+  category: varchar("category"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const productPerformance = pgTable("product_performance", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   productId: varchar("product_id").references(() => storeProducts.id).notNull(),
