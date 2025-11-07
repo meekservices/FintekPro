@@ -61,6 +61,18 @@ The platform employs a subdomain-based portal architecture for Admin, Partner, a
 - **Breaking Change**: In-progress Cashfree verification sessions will fail (acceptable since Cashfree API is inactive)
 - **Status Tracking**: Verification source changed from 'cashfree_okyc' to 'sandbox_okyc' for audit trail
 
+#### Database Maintenance (November 2025)
+**Schema Reconciliation Work**:
+- **Schema Mismatches Fixed**: Corrected user_budgets (period_type → periodType, spent_amount → spentAmount) and cashfree_transactions (webhookReceivedAt type) to match database state
+- **Manual Table Creation**: Created comprehensive_holdings and portfolio_snapshots tables via SQL (November 7, 2025) to unblock auto-population features for urgent republishing
+- **Unique Constraints**: Temporarily removed `.unique()` from bbps_categories.categoryCode and bbps_billers.billerCode in schema.ts to bypass Drizzle migration prompts
+- **Follow-up Required** (Post-Republish):
+  - Reconcile 30+ missing unique constraints across schema.ts
+  - Add back unique constraints to bbps_categories.categoryCode and bbps_billers.billerCode
+  - Audit all table data for uniqueness violations before adding constraints
+  - Re-enable full Drizzle db:push workflow for routine migrations
+  - Consider generating SQL migration scripts for constraint additions to avoid interactive prompts
+
 ### Database Services
 - **Neon Database**: Serverless PostgreSQL hosting.
 
