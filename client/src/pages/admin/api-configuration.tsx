@@ -8,7 +8,7 @@ interface ServiceConfig {
   name: string;
   description: string;
   environment: 'sandbox' | 'production';
-  status: 'configured' | 'missing' | 'error';
+  status: 'configured' | 'missing' | 'error' | 'warning';
   envVars: string[];
 }
 
@@ -57,10 +57,17 @@ const services: ServiceConfig[] = [
   },
   {
     name: 'Sandbox API',
-    description: 'Bank account verification',
-    environment: 'sandbox',
+    description: 'Primary KYC provider (PAN, Aadhaar, Bank, UPI verification)',
+    environment: 'production',
     status: 'configured',
     envVars: ['SANDBOX_API_KEY', 'SANDBOX_API_SECRET']
+  },
+  {
+    name: 'Cashfree Verification',
+    description: '⚠️ DEPRECATED - Migrated to Sandbox API',
+    environment: 'sandbox',
+    status: 'warning',
+    envVars: ['CASHFREE_CLIENT_ID', 'CASHFREE_CLIENT_SECRET']
   },
 ];
 
@@ -79,6 +86,8 @@ export default function APIConfiguration() {
       case 'missing':
         return <X className="h-4 w-4 text-red-400" />;
       case 'error':
+        return <AlertCircle className="h-4 w-4 text-red-400" />;
+      case 'warning':
         return <AlertCircle className="h-4 w-4 text-yellow-400" />;
     }
   };
@@ -87,7 +96,8 @@ export default function APIConfiguration() {
     const variants = {
       configured: 'bg-green-500/20 text-green-400 border-green-500/50',
       missing: 'bg-red-500/20 text-red-400 border-red-500/50',
-      error: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50'
+      error: 'bg-red-500/20 text-red-400 border-red-500/50',
+      warning: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50'
     };
     
     return (
