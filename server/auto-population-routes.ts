@@ -14,8 +14,40 @@ import { CibilAPI } from './cibil-api';
 import { db } from './db';
 import { dataSourceConsents } from '@shared/schema';
 import { eq } from 'drizzle-orm';
+import rateLimit from 'express-rate-limit';
 
 const router = Router();
+
+// Per-user rate limiting for sensitive data fetch endpoints
+// Applied after session middleware so req.session.user is available
+const loanFetchLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes  
+  max: 10, // Limit each user to 10 requests per 15 minutes
+  message: { 
+    success: false,
+    error: "Too many loan fetch attempts. Please try again in 15 minutes."
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  // CRITICAL: Key by authenticated user ID to prevent DOB brute-force per user
+  keyGenerator: (req: Request) => {
+    const userId = req.session?.user?.id;
+    if (!userId) {
+      console.warn('⚠️ Rate limiter: No user session found, falling back to IP');
+      return `ip:${req.ip || 'unknown'}`;
+    }
+    return `user:${userId}`;
+  },
+  // Log when rate limit is hit for security monitoring
+  handler: (req: Request, res: Response) => {
+    const userId = req.session?.user?.id || 'anonymous';
+    console.warn(`🚨 RATE LIMIT: User ${userId} exceeded loan fetch limit from IP ${req.ip}`);
+    res.status(429).json({
+      success: false,
+      error: "Too many loan fetch attempts. Please try again in 15 minutes."
+    });
+  }
+});
 
 // Authentication middleware - ensure user is logged in
 const requireAuth = (req: Request, res: Response, next: Function) => {
@@ -494,17 +526,60 @@ router.get("/summary/:userId", requireOwnership('userId'), async (req: Request, 
 
 // Fetch loan liabilities from CIBIL
 // Security: This endpoint accepts PAN/name/DOB, so we must ensure the user can only fetch their own data
-router.post("/fetch/loans", async (req: Request, res: Response) => {
+// Rate limited to prevent DOB brute-force attacks (10 requests per 15 min per user)
+router.post("/fetch/loans", loanFetchLimiter, async (req: Request, res: Response) => {
   try {
     const sessionUserId = req.session.user.id;
+    const { panNumber, dateOfBirth } = req.body;
     
-    // TODO: Verify that the provided PAN/DOB belongs to the authenticated user
-    // This should query kycVault to confirm ownership before making CIBIL API call
-    // For now, we're passing through to CIBIL API (accepts any PAN - NOT production ready)
+    if (!panNumber || !dateOfBirth) {
+      return res.status(400).json({
+        success: false,
+        error: 'PAN number and Date of Birth are required'
+      });
+    }
     
-    console.warn(`⚠️ SECURITY WARNING: CIBIL loan fetch for user ${sessionUserId} without PAN ownership verification`);
+    // SECURITY: Verify that the provided PAN/DOB belongs to the authenticated user
+    const { kycVaultDecryptionService } = await import('./services/kyc-vault-decryption-service');
     
-    // Pass through to CIBIL API
+    const decryptResult = await kycVaultDecryptionService.decryptVaultData(sessionUserId, {
+      purpose: 'auto_population',
+      requestId: `loan-fetch-${Date.now()}`,
+      externalParty: 'CIBIL',
+      fieldsRequired: ['pan', 'dateOfBirth'],
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent']
+    });
+    
+    if (!decryptResult.success || !decryptResult.data) {
+      console.error(`❌ KYC vault access failed for user ${sessionUserId}`);
+      return res.status(403).json({
+        success: false,
+        error: 'Unable to verify KYC data. Please complete KYC verification first.'
+      });
+    }
+    
+    // Verify PAN ownership
+    if (decryptResult.data.pan !== panNumber.toUpperCase()) {
+      console.warn(`🚨 SECURITY ALERT: User ${sessionUserId} attempted to fetch loans with non-owned PAN: ${panNumber}`);
+      return res.status(403).json({
+        success: false,
+        error: 'The provided PAN number does not match your verified KYC records.'
+      });
+    }
+    
+    // Verify DOB ownership
+    if (decryptResult.data.dateOfBirth !== dateOfBirth) {
+      console.warn(`🚨 SECURITY ALERT: User ${sessionUserId} attempted to fetch loans with incorrect DOB`);
+      return res.status(403).json({
+        success: false,
+        error: 'The provided Date of Birth does not match your verified KYC records.'
+      });
+    }
+    
+    console.log(`✅ PAN/DOB ownership verified for user ${sessionUserId}`);
+    
+    // Pass through to CIBIL API after verification
     return CibilAPI.fetchLoanLiabilities(req, res);
   } catch (error: any) {
     console.error('Error fetching loans:', error);

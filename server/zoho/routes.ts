@@ -5,8 +5,65 @@ import { db } from '../db';
 import { zohoConnections, zohoEntityMappings, zohoSyncLogs, zohoWebhookEvents } from '@shared/schema';
 import { eq, desc, and, gte, lte, sql } from 'drizzle-orm';
 import { zohoRateLimiter } from './rate-limiter';
+import crypto from 'crypto';
 
 const router = Router();
+
+// Webhook secret for HMAC validation (should be set in environment variables)
+const ZOHO_WEBHOOK_SECRET = process.env.ZOHO_WEBHOOK_SECRET || '';
+
+/**
+ * Verify Zoho webhook HMAC signature
+ * Zoho uses HMAC-SHA256 with base64 encoding
+ * 
+ * Security Notes:
+ * - Uses timing-safe comparison to prevent timing attacks
+ * - Validates buffer lengths before comparison
+ * - Trims signature header to prevent whitespace issues
+ * - Fails closed when secret is not configured in production
+ */
+function verifyZohoWebhookSignature(
+  rawPayload: string,
+  signatureFromHeader: string | undefined,
+  secret: string
+): boolean {
+  // Trim and validate signature header
+  const trimmedSignature = signatureFromHeader?.trim();
+  
+  if (!trimmedSignature) {
+    console.warn('⚠️ Missing or empty webhook signature header');
+    return false;
+  }
+
+  if (!secret) {
+    const isProduction = process.env.NODE_ENV === 'production';
+    console.error(`❌ ZOHO_WEBHOOK_SECRET not configured${isProduction ? ' (PRODUCTION)' : ''}`);
+    // Fail closed in production - reject webhooks without secret
+    return isProduction ? false : true; // Allow in dev/test for convenience
+  }
+
+  try {
+    // Compute HMAC-SHA256 hash of raw payload
+    const hmac = crypto.createHmac('sha256', secret);
+    const computedSignature = hmac.update(rawPayload).digest('base64');
+
+    // Convert to buffers for timing-safe comparison
+    const computedBuffer = Buffer.from(computedSignature);
+    const receivedBuffer = Buffer.from(trimmedSignature);
+    
+    // Validate buffer lengths match (prevents Buffer.compare crashes)
+    if (computedBuffer.length !== receivedBuffer.length) {
+      console.warn(`⚠️ Signature length mismatch: computed=${computedBuffer.length}, received=${receivedBuffer.length}`);
+      return false;
+    }
+
+    // Timing-safe comparison to prevent timing attacks
+    return crypto.timingSafeEqual(computedBuffer, receivedBuffer);
+  } catch (error) {
+    console.error('❌ Webhook signature verification error:', error);
+    return false;
+  }
+}
 
 /**
  * GET /api/zoho/auth/url
@@ -317,13 +374,38 @@ router.get('/sync-logs', async (req, res) => {
 
 /**
  * POST /api/zoho/webhooks/crm
- * Webhook receiver for Zoho CRM events
+ * Webhook receiver for Zoho CRM events with HMAC signature validation
  */
 router.post('/webhooks/crm', async (req, res) => {
   try {
     const payload = req.body;
     
-    // TODO: Implement webhook signature validation
+    // SECURITY: Verify webhook signature
+    if (ZOHO_WEBHOOK_SECRET) {
+      const signature = req.headers['x-zoho-webhook-signature'] as string | undefined;
+      
+      // Get raw body for HMAC validation
+      // Note: Raw body should be captured by middleware like express.json({ verify: ... })
+      const rawBody = (req as any).rawBody || JSON.stringify(payload);
+      
+      const isValid = verifyZohoWebhookSignature(rawBody, signature, ZOHO_WEBHOOK_SECRET);
+      
+      if (!isValid) {
+        console.error('🚨 SECURITY ALERT: Invalid webhook signature for CRM webhook');
+        await db.insert(zohoWebhookEvents).values({
+          zohoService: 'CRM',
+          zohoModule: 'unknown',
+          eventType: 'security_violation',
+          webhookPayload: { error: 'Invalid signature', headers: req.headers },
+          status: 'rejected'
+        });
+        return res.status(401).json({ message: 'Invalid webhook signature' });
+      }
+      
+      console.log('✅ CRM webhook signature verified');
+    } else {
+      console.warn('⚠️ ZOHO_WEBHOOK_SECRET not configured - webhook validation disabled');
+    }
     
     // Log webhook event
     await db.insert(zohoWebhookEvents).values({
@@ -343,11 +425,33 @@ router.post('/webhooks/crm', async (req, res) => {
 
 /**
  * POST /api/zoho/webhooks/books
- * Webhook receiver for Zoho Books events
+ * Webhook receiver for Zoho Books events with HMAC signature validation
  */
 router.post('/webhooks/books', async (req, res) => {
   try {
     const payload = req.body;
+    
+    // SECURITY: Verify webhook signature
+    if (ZOHO_WEBHOOK_SECRET) {
+      const signature = req.headers['x-zoho-webhook-signature'] as string | undefined;
+      const rawBody = (req as any).rawBody || JSON.stringify(payload);
+      
+      const isValid = verifyZohoWebhookSignature(rawBody, signature, ZOHO_WEBHOOK_SECRET);
+      
+      if (!isValid) {
+        console.error('🚨 SECURITY ALERT: Invalid webhook signature for Books webhook');
+        await db.insert(zohoWebhookEvents).values({
+          zohoService: 'Books',
+          zohoModule: 'unknown',
+          eventType: 'security_violation',
+          webhookPayload: { error: 'Invalid signature', headers: req.headers },
+          status: 'rejected'
+        });
+        return res.status(401).json({ message: 'Invalid webhook signature' });
+      }
+      
+      console.log('✅ Books webhook signature verified');
+    }
     
     await db.insert(zohoWebhookEvents).values({
       zohoService: 'Books',
@@ -366,11 +470,33 @@ router.post('/webhooks/books', async (req, res) => {
 
 /**
  * POST /api/zoho/webhooks/desk
- * Webhook receiver for Zoho Desk events
+ * Webhook receiver for Zoho Desk events with HMAC signature validation
  */
 router.post('/webhooks/desk', async (req, res) => {
   try {
     const payload = req.body;
+    
+    // SECURITY: Verify webhook signature
+    if (ZOHO_WEBHOOK_SECRET) {
+      const signature = req.headers['x-zoho-webhook-signature'] as string | undefined;
+      const rawBody = (req as any).rawBody || JSON.stringify(payload);
+      
+      const isValid = verifyZohoWebhookSignature(rawBody, signature, ZOHO_WEBHOOK_SECRET);
+      
+      if (!isValid) {
+        console.error('🚨 SECURITY ALERT: Invalid webhook signature for Desk webhook');
+        await db.insert(zohoWebhookEvents).values({
+          zohoService: 'Desk',
+          zohoModule: 'unknown',
+          eventType: 'security_violation',
+          webhookPayload: { error: 'Invalid signature', headers: req.headers },
+          status: 'rejected'
+        });
+        return res.status(401).json({ message: 'Invalid webhook signature' });
+      }
+      
+      console.log('✅ Desk webhook signature verified');
+    }
     
     await db.insert(zohoWebhookEvents).values({
       zohoService: 'Desk',

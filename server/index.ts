@@ -98,6 +98,15 @@ app.use(["/api/login", "/api/register"], authLimiter);
 // Raw body capture for webhook signature verification
 app.use('/api/payments/cashfree/webhook', express.raw({ type: 'application/json' }));
 
+// Raw body capture for Zoho webhook signature verification (HMAC-SHA256)
+// CRITICAL: Must be before express.json() to capture the raw payload
+app.use('/api/zoho/webhooks/*', express.json({
+  verify: (req: any, _res, buf) => {
+    // Store raw body for HMAC verification
+    req.rawBody = buf.toString('utf8');
+  }
+}));
+
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: false, limit: "10mb" }));
 
