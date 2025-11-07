@@ -7393,30 +7393,13 @@ export const cashfreeTransactions = pgTable("cashfree_transactions", {
   
   // Transaction Status
   status: varchar("status").default("PENDING").notNull(), // PENDING, SUCCESS, FAILED, ACTIVE
-  orderStatus: varchar("order_status"), // Cashfree order status
-  responseMessage: text("response_message"), // Cashfree response message
-  
-  // URLs and Redirects
-  returnUrl: text("return_url"),
-  paymentUrl: text("payment_url"), // Cashfree payment page URL
-  
-  // Related Entities
-  cartId: varchar("cart_id").references(() => userCart.id), // If payment for cart checkout
-  itemType: varchar("item_type"), // mutual_fund, product, proposal, loan
-  itemId: varchar("item_id"), // ID of the item being purchased
   
   // Cashfree Gateway Response
   gatewayResponse: jsonb("gateway_response"), // Full response from Cashfree
   
-  // Metadata
-  metadata: jsonb("metadata"), // Additional transaction data
-  failureReason: text("failure_reason"),
-  retryCount: integer("retry_count").default(0),
-  
   // Timestamps
-  initiatedAt: timestamp("initiated_at").defaultNow(),
+  webhookReceivedAt: timestamp("webhook_received_at"),
   completedAt: timestamp("completed_at"),
-  callbackReceivedAt: timestamp("callback_received_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
