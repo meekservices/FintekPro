@@ -21,6 +21,12 @@ interface StepProps {
   isLast: boolean;
 }
 
+interface NRIKYCProgress {
+  isCompleted: boolean;
+  currentStep: number;
+  [key: string]: any;
+}
+
 const steps = [
   { id: 1, name: "Passport & PAN", icon: Plane, description: "Identity verification" },
   { id: 2, name: "Overseas Address", icon: MapPin, description: "Address proof" },
@@ -672,7 +678,7 @@ export function NRIKYCWizard() {
   const [formData, setFormData] = useState<any>({});
 
   // Load progress on mount
-  const { data: progress } = useQuery({
+  const { data: progress } = useQuery<NRIKYCProgress>({
     queryKey: ["/api/kyc/nri/progress"],
   });
 
