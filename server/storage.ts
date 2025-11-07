@@ -225,18 +225,35 @@ export interface IStorage {
   getCkycNotificationTriggers(ckycRecordId?: string, status?: string): Promise<any[]>;
   updateCkycNotificationStatus(id: string, status: string, sentAt?: Date, failureReason?: string): Promise<CkycNotificationTrigger | undefined>;
 
-  // CKYC Progress Steps methods - temporarily commented due to schema inconsistencies
-  // createCkycProgressStep(step: InsertCkycProgressStep): Promise<CkycProgressStep>;
-  // getCkycProgressSteps(ckycRecordId: string): Promise<CkycProgressStep[]>;
-  // updateCkycProgressStep(id: string, updates: Partial<CkycProgressStep>): Promise<CkycProgressStep | undefined>;
+  // CKYC Progress Steps methods
+  createCkycProgressStep(step: any): Promise<any>;
+  getCkycProgressSteps(ckycRecordId: string): Promise<any[]>;
+  updateCkycProgressStep(id: string, updates: any): Promise<any | undefined>;
   
-  // CKYC Action Log methods - temporarily commented due to schema inconsistencies
-  // createCkycActionLog(log: InsertCkycActionLog): Promise<CkycActionLog>;
-  // getCkycActionLogs(ckycRecordId?: string, actionBy?: string): Promise<CkycActionLog[]>;
+  // CKYC Action Log methods
+  createCkycActionLog(log: any): Promise<any>;
+  getCkycActionLogs(ckycRecordId?: string, actionBy?: string): Promise<any[]>;
 
-  // CKYC Notification Service methods - temporarily commented due to schema inconsistencies
-  // sendNotification(trigger: CkycNotificationTrigger): Promise<boolean>;
-  // processPendingNotifications(): Promise<void>;
+  // CKYC Notification Service methods
+  createNotificationTrigger(trigger: any): Promise<any>;
+  getNotificationTriggers(agentId?: string, status?: string): Promise<any[]>;
+  updateNotificationTrigger(id: string, updates: any): Promise<any | undefined>;
+  processPendingNotifications(): Promise<void>;
+  
+  // Supplier Product methods
+  createSupplierProduct(product: any): Promise<any>;
+  getSupplierProducts(supplierId?: string): Promise<any[]>;
+  updateSupplierProduct(id: string, updates: any): Promise<any | undefined>;
+  deleteSupplierProduct(id: string): Promise<boolean>;
+  
+  // Product Performance methods
+  createProductPerformanceMetric(metric: any): Promise<any>;
+  getProductPerformanceMetrics(productId?: string, supplierId?: string): Promise<any[]>;
+  
+  // Helper methods
+  getAgents(options?: { isActive?: boolean; page?: number; limit?: number }): Promise<Agent[]>;
+  getUserById(userId: string): Promise<User | undefined>;
+  initializeUserPasswords(): Promise<void>;
 
   // Client-Agent relationship methods for EUIN/ARN integration
   getClientAgentRelationships(clientId?: string, agentId?: string): Promise<ClientAgentRelationship[]>;
@@ -1990,9 +2007,253 @@ export class DatabaseStorage implements IStorage {
 
   // General Notification Triggers method implementation
   async getNotificationTriggers(agentId?: string, status?: string): Promise<any[]> {
-    // Return empty array for now - this method is called by agent notifications API
-    // In a full implementation, this would query a notification_triggers table
-    return [];
+    try {
+      let query = db.select().from(schema.ckycNotificationTriggers);
+      const conditions = [];
+      
+      if (status) {
+        conditions.push(eq(schema.ckycNotificationTriggers.status, status));
+      }
+      
+      if (conditions.length > 0) {
+        const results = await query.where(and(...conditions));
+        return results;
+      }
+      
+      return await query;
+    } catch (error) {
+      console.error('Error getting notification triggers:', error);
+      return [];
+    }
+  }
+
+  // CKYC Action Log methods
+  async createCkycActionLog(log: any): Promise<any> {
+    try {
+      const [result] = await db.insert(schema.ckycActionLogs).values(log).returning();
+      return result;
+    } catch (error) {
+      console.error('Error creating CKYC action log:', error);
+      throw error;
+    }
+  }
+
+  async getCkycActionLogs(ckycRecordId?: string, actionBy?: string): Promise<any[]> {
+    try {
+      let query = db.select().from(schema.ckycActionLogs);
+      const conditions = [];
+      
+      if (ckycRecordId) {
+        conditions.push(eq(schema.ckycActionLogs.ckycRecordId, ckycRecordId));
+      }
+      if (actionBy) {
+        conditions.push(eq(schema.ckycActionLogs.actionBy, actionBy));
+      }
+      
+      if (conditions.length > 0) {
+        return await query.where(and(...conditions)).orderBy(desc(schema.ckycActionLogs.actionAt));
+      }
+      
+      return await query.orderBy(desc(schema.ckycActionLogs.actionAt));
+    } catch (error) {
+      console.error('Error getting CKYC action logs:', error);
+      return [];
+    }
+  }
+
+  // CKYC Progress Step methods
+  async createCkycProgressStep(step: any): Promise<any> {
+    try {
+      const [result] = await db.insert(schema.ckycProgressSteps).values(step).returning();
+      return result;
+    } catch (error) {
+      console.error('Error creating CKYC progress step:', error);
+      throw error;
+    }
+  }
+
+  async getCkycProgressSteps(ckycRecordId: string): Promise<any[]> {
+    try {
+      return await db.select()
+        .from(schema.ckycProgressSteps)
+        .where(and(
+          eq(schema.ckycProgressSteps.ckycRecordId, ckycRecordId),
+          eq(schema.ckycProgressSteps.isActive, true)
+        ))
+        .orderBy(asc(schema.ckycProgressSteps.stepOrder));
+    } catch (error) {
+      console.error('Error getting CKYC progress steps:', error);
+      return [];
+    }
+  }
+
+  async updateCkycProgressStep(id: string, updates: any): Promise<any | undefined> {
+    try {
+      const [result] = await db.update(schema.ckycProgressSteps)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(schema.ckycProgressSteps.id, id))
+        .returning();
+      return result;
+    } catch (error) {
+      console.error('Error updating CKYC progress step:', error);
+      return undefined;
+    }
+  }
+
+  // Notification Service methods
+  async createNotificationTrigger(trigger: any): Promise<any> {
+    try {
+      const [result] = await db.insert(schema.ckycNotificationTriggers).values(trigger).returning();
+      return result;
+    } catch (error) {
+      console.error('Error creating notification trigger:', error);
+      throw error;
+    }
+  }
+
+  async updateNotificationTrigger(id: string, updates: any): Promise<any | undefined> {
+    try {
+      const [result] = await db.update(schema.ckycNotificationTriggers)
+        .set(updates)
+        .where(eq(schema.ckycNotificationTriggers.id, id))
+        .returning();
+      return result;
+    } catch (error) {
+      console.error('Error updating notification trigger:', error);
+      return undefined;
+    }
+  }
+
+  async processPendingNotifications(): Promise<void> {
+    try {
+      const pending = await db.select()
+        .from(schema.ckycNotificationTriggers)
+        .where(eq(schema.ckycNotificationTriggers.status, 'pending'));
+      
+      console.log(`Processing ${pending.length} pending notifications`);
+      // Actual notification sending would be implemented here
+    } catch (error) {
+      console.error('Error processing pending notifications:', error);
+    }
+  }
+
+  // Supplier Product methods
+  async createSupplierProduct(product: any): Promise<any> {
+    try {
+      const [result] = await db.insert(schema.productPerformance).values(product).returning();
+      return result;
+    } catch (error) {
+      console.error('Error creating supplier product:', error);
+      throw error;
+    }
+  }
+
+  async getSupplierProducts(supplierId?: string): Promise<any[]> {
+    try {
+      if (supplierId) {
+        return await db.select()
+          .from(schema.productPerformance)
+          .where(eq(schema.productPerformance.supplierId, supplierId));
+      }
+      return await db.select().from(schema.productPerformance);
+    } catch (error) {
+      console.error('Error getting supplier products:', error);
+      return [];
+    }
+  }
+
+  async updateSupplierProduct(id: string, updates: any): Promise<any | undefined> {
+    try {
+      const [result] = await db.update(schema.productPerformance)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(schema.productPerformance.id, id))
+        .returning();
+      return result;
+    } catch (error) {
+      console.error('Error updating supplier product:', error);
+      return undefined;
+    }
+  }
+
+  async deleteSupplierProduct(id: string): Promise<boolean> {
+    try {
+      await db.delete(schema.productPerformance)
+        .where(eq(schema.productPerformance.id, id));
+      return true;
+    } catch (error) {
+      console.error('Error deleting supplier product:', error);
+      return false;
+    }
+  }
+
+  // Product Performance methods
+  async createProductPerformanceMetric(metric: any): Promise<any> {
+    try {
+      const [result] = await db.insert(schema.productPerformance).values(metric).returning();
+      return result;
+    } catch (error) {
+      console.error('Error creating product performance metric:', error);
+      throw error;
+    }
+  }
+
+  async getProductPerformanceMetrics(productId?: string, supplierId?: string): Promise<any[]> {
+    try {
+      let query = db.select().from(schema.productPerformance);
+      const conditions = [];
+      
+      if (productId) {
+        conditions.push(eq(schema.productPerformance.productId, productId));
+      }
+      if (supplierId) {
+        conditions.push(eq(schema.productPerformance.supplierId, supplierId));
+      }
+      
+      if (conditions.length > 0) {
+        return await query.where(and(...conditions));
+      }
+      
+      return await query;
+    } catch (error) {
+      console.error('Error getting product performance metrics:', error);
+      return [];
+    }
+  }
+
+  // Helper methods
+  async getAgents(options?: { isActive?: boolean; page?: number; limit?: number }): Promise<Agent[]> {
+    try {
+      let query = db.select().from(schema.agents);
+      
+      if (options?.isActive !== undefined) {
+        query = query.where(eq(schema.agents.isActive, options.isActive));
+      }
+      
+      if (options?.limit) {
+        query = query.limit(options.limit);
+      }
+      if (options?.page && options?.limit) {
+        query = query.offset((options.page - 1) * options.limit);
+      }
+      
+      return await query;
+    } catch (error) {
+      console.error('Error getting agents:', error);
+      return [];
+    }
+  }
+
+  async getUserById(userId: string): Promise<User | undefined> {
+    try {
+      const [user] = await db.select()
+        .from(schema.users)
+        .where(eq(schema.users.id, userId))
+        .limit(1);
+      return user;
+    } catch (error) {
+      console.error('Error getting user by ID:', error);
+      return undefined;
+    }
   }
 
   async getClientAgentRelationships(clientId?: string, agentId?: string): Promise<ClientAgentRelationship[]> {
