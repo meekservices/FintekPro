@@ -31991,7 +31991,6 @@ System Security Data:`;
       return apiResponse.serverError(res, "Failed to confirm action");
     }
   });
-}
 
   // ==================================================================================
   // ADMIN MARKUP MANAGEMENT APIs
