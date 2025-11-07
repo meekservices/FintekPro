@@ -27,6 +27,8 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { AutoPopulationProgressIndicator } from '@/components/AutoPopulationProgressIndicator';
+import { ConsentDetailsModal } from '@/components/ConsentDetailsModal';
+import { ExpiredConsentsBanner } from '@/components/ExpiredConsentsBanner';
 import { useAuth } from '@/hooks/useAuth';
 
 // Types
@@ -79,6 +81,8 @@ export default function AutoPopulationDashboard() {
   const { toast } = useToast();
   const { user } = useAuth();
   const [selectedWorkflow, setSelectedWorkflow] = useState<string | null>(null);
+  const [selectedConsent, setSelectedConsent] = useState<ConsentRecord | null>(null);
+  const [consentModalOpen, setConsentModalOpen] = useState(false);
 
   // Get actual user ID from auth context
   const userId = user?.id;
@@ -218,9 +222,59 @@ export default function AutoPopulationDashboard() {
     }
   });
 
+  // Mutation: Revoke consent
+  const revokeConsentMutation = useMutation({
+    mutationFn: async (consentId: string) => {
+      return apiRequest('POST', `/api/auto-populate/consent/revoke`, {
+        body: { userId, consentId, reason: 'User manually revoked consent from dashboard' }
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Consent revoked',
+        description: 'Data source access has been revoked. Holdings will be deleted after 90 days.'
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/auto-populate/consent/user', userId] });
+      setConsentModalOpen(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to revoke consent',
+        description: error.message,
+        variant: 'destructive'
+      });
+    }
+  });
+
+  // Mutation: Renew all expired consents
+  const renewAllConsentsMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('POST', `/api/auto-populate/consent/renew-all`, {
+        body: { userId }
+      });
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: 'Consents renewed',
+        description: `Successfully renewed ${data.renewedCount} expired consent(s)`
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/auto-populate/consent/user', userId] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to renew consents',
+        description: error.message,
+        variant: 'destructive'
+      });
+    }
+  });
+
   const consents = consentsData?.consents || [];
   const workflows = workflowsData?.workflows || [];
   const currentStatus = statusData?.status || workflows.find(w => w.id === selectedWorkflow);
+  
+  // Count expired consents
+  const expiredConsents = consents.filter(c => c.status === 'expired');
 
   // Calculate overall progress
   const getOverallProgress = () => {
@@ -277,6 +331,13 @@ export default function AutoPopulationDashboard() {
           </Button>
         </div>
       </div>
+
+      {/* Expired Consents Banner */}
+      <ExpiredConsentsBanner
+        expiredCount={expiredConsents.length}
+        onRenewAll={() => renewAllConsentsMutation.mutate()}
+        isRenewing={renewAllConsentsMutation.isPending}
+      />
 
       {/* Portfolio Summary Card */}
       {summaryData?.summary && (
@@ -508,7 +569,11 @@ export default function AutoPopulationDashboard() {
                     return (
                       <div
                         key={consent.id}
-                        className="flex items-center justify-between p-4 border rounded-lg"
+                        className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-muted/50"
+                        onClick={() => {
+                          setSelectedConsent(consent);
+                          setConsentModalOpen(true);
+                        }}
                         data-testid={`consent-item-${consent.dataSource}`}
                       >
                         <div className="flex items-center gap-4">
@@ -546,15 +611,7 @@ export default function AutoPopulationDashboard() {
                           >
                             {consent.status}
                           </Badge>
-                          {consent.status === 'active' && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              data-testid={`button-manage-${consent.dataSource}`}
-                            >
-                              <Settings className="h-4 w-4" />
-                            </Button>
-                          )}
+                          <Settings className="h-4 w-4 text-muted-foreground" />
                         </div>
                       </div>
                     );
@@ -635,6 +692,17 @@ export default function AutoPopulationDashboard() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Consent Details Modal */}
+      <ConsentDetailsModal
+        open={consentModalOpen}
+        onOpenChange={setConsentModalOpen}
+        consent={selectedConsent}
+        onGrant={selectedConsent?.status === 'expired' ? () => grantConsentMutation.mutate(selectedConsent.dataSource) : undefined}
+        onRevoke={selectedConsent?.status === 'active' ? () => revokeConsentMutation.mutate(selectedConsent.id) : undefined}
+        isGranting={grantConsentMutation.isPending}
+        isRevoking={revokeConsentMutation.isPending}
+      />
     </div>
   );
 }

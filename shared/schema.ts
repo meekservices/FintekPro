@@ -1137,6 +1137,7 @@ export const comprehensiveHoldings = pgTable("comprehensive_holdings", {
   lastUpdated: timestamp("last_updated").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+  deletedAt: timestamp("deleted_at"), // Soft delete timestamp (set 90 days after consent revocation)
 });
 
 // EPF Holdings table for tracking Employee Provident Fund data
@@ -9381,6 +9382,7 @@ export const dataSourceConsents = pgTable("data_source_consents", {
   lastSyncedAt: timestamp("last_synced_at"), // Last successful data fetch
   nextSyncDue: timestamp("next_sync_due"), // Next scheduled sync
   syncFrequency: varchar("sync_frequency").default("weekly"), // daily/weekly/monthly/manual
+  deletionWarningSentAt: timestamp("deletion_warning_sent_at"), // Track when 30-day deletion warning was sent
   
   // Audit metadata
   consentVersion: varchar("consent_version").default("v1.0"), // Track consent text versions

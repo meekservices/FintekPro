@@ -328,5 +328,16 @@ app.use((req, res, next) => {
     } catch (error) {
       console.error('❌ Error importing session cleanup cron:', error);
     }
+
+    // Initialize Data Cleanup Cron Job
+    try {
+      import('./data-cleanup-cron').then(({ startDataCleanupCron }) => {
+        startDataCleanupCron();
+      }).catch(error => {
+        console.error('❌ Failed to initialize data cleanup cron:', error);
+      });
+    } catch (error) {
+      console.error('❌ Error importing data cleanup cron:', error);
+    }
   });
 })();

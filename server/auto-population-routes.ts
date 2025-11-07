@@ -11,6 +11,9 @@ import { Router, Request, Response } from 'express';
 import { consentManagementService } from './services/consent-management-service';
 import { autoPopulationOrchestrator } from './services/auto-population-orchestrator';
 import { CibilAPI } from './cibil-api';
+import { db } from './db';
+import { dataSourceConsents } from '@shared/schema';
+import { eq } from 'drizzle-orm';
 
 const router = Router();
 
@@ -190,6 +193,65 @@ router.post("/consent/grant-all", requireOwnership('userId'), async (req: Reques
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to grant all consents'
+    });
+  }
+});
+
+// Renew all expired consents
+router.post("/consent/renew-all", requireOwnership('userId'), async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.body;
+    
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        error: "userId is required"
+      });
+    }
+
+    // Get all consents for this user (including expired)
+    const allConsents = await db
+      .select()
+      .from(dataSourceConsents)
+      .where(eq(dataSourceConsents.userId, userId));
+    
+    // Filter for expired consents
+    const now = new Date();
+    const expiredConsents = allConsents.filter(consent => {
+      const isExpired = consent.expiresAt && new Date(consent.expiresAt) < now;
+      return isExpired;
+    });
+    
+    if (expiredConsents.length === 0) {
+      return res.json({
+        success: true,
+        message: 'No expired consents to renew',
+        renewedCount: 0
+      });
+    }
+
+    // Renew each expired consent (extend expiry by 90 days)
+    const renewedConsents = [];
+    for (const consent of expiredConsents) {
+      const renewed = await consentManagementService.renewConsent(
+        userId,
+        consent.id,
+        90 // Default 90 days validity
+      );
+      renewedConsents.push(renewed);
+    }
+
+    res.json({
+      success: true,
+      message: `Successfully renewed ${renewedConsents.length} consent(s)`,
+      renewedCount: renewedConsents.length,
+      consents: renewedConsents
+    });
+  } catch (error: any) {
+    console.error('Error renewing consents:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to renew consents'
     });
   }
 });
