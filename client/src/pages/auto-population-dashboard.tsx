@@ -169,6 +169,29 @@ export default function AutoPopulationDashboard() {
     }
   });
 
+  // Mutation: Grant all consents (batch operation)
+  const grantAllConsentsMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('POST', `/api/auto-populate/consent/grant-all`, {
+        body: { userId }
+      });
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: 'All consents granted',
+        description: `Successfully granted consent for ${data.totalConsents} data sources`
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/auto-populate/consent/user', userId] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to grant consents',
+        description: error.message,
+        variant: 'destructive'
+      });
+    }
+  });
+
   const consents = consentsData?.consents || [];
   const workflows = workflowsData?.workflows || [];
   const currentStatus = statusData?.status || workflows.find(w => w.id === selectedWorkflow);
@@ -200,6 +223,15 @@ export default function AutoPopulationDashboard() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button
+            onClick={() => grantAllConsentsMutation.mutate()}
+            disabled={grantAllConsentsMutation.isPending || consents.length === 8}
+            variant="secondary"
+            data-testid="button-grant-all-consents"
+          >
+            <CheckCircle2 className="mr-2 h-4 w-4" />
+            {consents.length === 8 ? 'All Consents Granted' : 'Grant All Consents'}
+          </Button>
           <Button
             onClick={() => refreshMutation.mutate()}
             disabled={refreshMutation.isPending}

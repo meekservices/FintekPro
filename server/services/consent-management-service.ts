@@ -343,7 +343,10 @@ export class ConsentManagementService {
       'demat',
       'bank',
       'loans',
-      'insurance'
+      'insurance',
+      'epf',
+      'nps',
+      'apy'
     ];
 
     const consents: DataSourceConsent[] = [];
