@@ -68,7 +68,6 @@ import { taxOrchestrator } from './services/tax-orchestrator';
 import { PANConsentService } from './services/pan-consent-service';
 import { sandboxKYCService } from './services/sandbox-kyc-service';
 import { AadhaarMockService } from './services/aadhaar-mock-service';
-import { CashfreeAadhaarService } from './services/cashfree-aadhaar-service';
 import { DemographicProtectionService } from './services/demographic-protection-service';
 import { providerRegistry, type UnifiedApplicationData } from './partner-application-adapters';
 import { insertPartnerApplicationSchema, insertCashfreeTransactionSchema, insertPhonePeTransactionSchema } from '@shared/schema';
@@ -2077,8 +2076,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Send OTP using Cashfree API
-      const otpResponse = await CashfreeAadhaarService.generateOTP(aadhaarNumber);
+      // Send OTP using Sandbox API
+      const otpResponse = await sandboxKYCService.generateAadhaarOTP(aadhaarNumber);
       
       if (!otpResponse.success) {
         return res.json(otpResponse);
@@ -2098,7 +2097,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
         // Store ref_id from Cashfree in session metadata
         aadhaarVerificationData: {
-          transactionId: otpResponse.ref_id // Cashfree uses ref_id
+          transactionId: otpResponse.refId // Sandbox uses refId
         }
       });
       
@@ -2140,8 +2139,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Verify OTP using Cashfree API
-      const verification = await CashfreeAadhaarService.verifyOTP(otp, transactionId);
+      // Verify OTP using Sandbox API
+      const verification = await sandboxKYCService.verifyAadhaarOTP(otp, transactionId);
       
       if (!verification.success || !verification.verified) {
         return res.json(verification);
@@ -26755,7 +26754,7 @@ System Security Data:`;
   
   // Initialize DigiLocker app configuration (non-blocking, optional service)
   digilockerService.initializeDigiLockerApp().catch(err => {
-    console.warn('⚠️ DigiLocker optional service unavailable, using Cashfree OKYC fallback');
+    console.warn('⚠️ DigiLocker optional service unavailable, using Sandbox API fallback');
   });
 
   // ==================== DigiLocker Integration Routes ====================
@@ -26781,27 +26780,27 @@ System Security Data:`;
           });
         }
       } catch (digilockerError: any) {
-        console.warn('DigiLocker unavailable, trying Cashfree OKYC fallback:',  digilockerError.message);
+        console.warn('DigiLocker unavailable, trying Sandbox API fallback:',  digilockerError.message);
       }
 
-      // Fallback to Cashfree OKYC
+      // Fallback to Sandbox API
       try {
-        const otpResponse = await cashfreeAadhaarService.generateOTP(aadhaarNumber);
+        const otpResponse = await sandboxKYCService.generateAadhaarOTP(aadhaarNumber);
         
-        if (otpResponse.status === 'success' && otpResponse.data?.ref_id) {
+        if (otpResponse.success && otpResponse.refId) {
           // Store ref_id in session or return to frontend for OTP verification
           return res.json({
             success: true,
-            source: 'cashfree_okyc',
+            source: 'sandbox_okyc',
             requiresOtp: true,
-            ref_id: otpResponse.data.ref_id,
+            refId: otpResponse.refId,
             message: 'OTP sent to Aadhaar-linked mobile. Please verify to fetch details.'
           });
         } else {
           throw new Error(otpResponse.message || 'Failed to generate OTP');
         }
       } catch (cashfreeError: any) {
-        console.error('Cashfree OKYC also failed:',  cashfreeError);
+        console.error('Sandbox API also failed:',  cashfreeError);
         return res.status(503).json({
           success: false,
           error: 'All verification services temporarily unavailable. Please enter details manually.',
