@@ -27970,10 +27970,11 @@ System Security Data:`;
           return apiResponse.badRequest(res, "Invalid ITR form type");
       }
       
-      // Check if user has expert ITR filing service (would need to check user profile or services)
-      // For now, we'll assume this would be checked against user's purchased services
-      const userProfile = await storage.getUserProfile(userId);
-      const hasExpertService = false; // TODO: Implement actual check for expert ITR filing service
+      // Check if user has expert ITR filing service
+      // Users with expert service (isFree=true or free_expert_tier) get complimentary tax filing
+      const taxSubscription = await storage.getUserTaxReminderSubscription(userId);
+      const hasExpertService = taxSubscription?.isFree === true || 
+                               taxSubscription?.subscriptionStatus === 'free_expert_tier';
       
       const isFree = hasExpertService;
       if (isFree) {

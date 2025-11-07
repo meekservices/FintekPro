@@ -12,6 +12,17 @@ import { orderManagementService } from "./order-management-service";
 import { db } from "./db";
 import { unifiedOrders } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import { BSEStarApiService } from "./bseStarApi";
+import { LoanProcessingService } from "./loan-processing-service";
+import { BSEBondApiService } from "./bseBondApi";
+
+// Feature flags for beta execution services
+const FEATURE_FLAGS = {
+  ENABLE_BOND_EXECUTION: process.env.ENABLE_BOND_EXECUTION === 'true',
+  ENABLE_EQUITY_EXECUTION: process.env.ENABLE_EQUITY_EXECUTION === 'true',
+  ENABLE_IPO_EXECUTION: process.env.ENABLE_IPO_EXECUTION === 'true',
+  ENABLE_FD_EXECUTION: process.env.ENABLE_FD_EXECUTION === 'true',
+};
 
 export interface PaymentCallbackData {
   orderId: string;
@@ -315,9 +326,10 @@ class PaymentExecutionBridge {
   
   /**
    * Execute Mutual Fund order via BSE Star API
+   * Integrates with BSE Star MF platform for automated order processing
    */
   private async executeMutualFundOrder(order: any): Promise<ExecutionResult> {
-    const { id: orderId, metadata } = order;
+    const { id: orderId, userId, metadata } = order;
     
     try {
       // Update to processing
@@ -329,34 +341,127 @@ class PaymentExecutionBridge {
         actorType: 'system',
       });
       
-      // TODO: Call BSE Star API to execute MF order
-      // const bseResponse = await bseStarService.placeOrder(...);
+      // Extract MF-specific metadata
+      const {
+        schemeCode,
+        schemeName,
+        folioNumber,
+        transactionType = 'P', // P = Purchase, R = Redeem
+        orderType = 'LUMPSUM', // LUMPSUM or SIP
+        clientCode,
+        agentArn,
+        agentEuin,
+        euinDeclaration,
+        sipFreq,
+        sipStartDate,
+        sipEndDate,
+        amount: metadataAmount
+      } = metadata || {};
       
-      // For now, simulate success
-      const externalOrderId = `BSE-${Date.now()}`;
+      // Validate required fields
+      if (!schemeCode) {
+        throw new Error('Scheme code is required for MF order execution');
+      }
       
-      await orderManagementService.updateOrderStatus({
-        orderId,
-        status: 'executed',
-        executionStatus: 'completed',
-        externalOrderId,
-        executionPrice: order.amount,
-        executedQuantity: metadata?.quantity || 1,
-        actorId: 'system',
-        actorType: 'system',
-      });
+      if (!clientCode) {
+        throw new Error('Client code (BSE client ID) is required for MF order execution');
+      }
       
-      console.log(`[PaymentBridge] Mutual fund order ${orderId} executed successfully`);
+      // Use BSE Star API service
+      const bseService = new BSEStarApiService();
       
-      return {
-        success: true,
-        orderId,
-        executionStatus: 'completed',
-        message: 'Mutual fund order executed successfully',
-        externalOrderId,
+      // Determine payment amount - prioritize total paid amount over order amount
+      const totalPaidAmount = metadata?.totalPaidAmount || metadata?.paidAmount || order.amount;
+      
+      // Build BSE order request
+      const bseRequest = {
+        proposalId: orderId,
+        clientCode,
+        orderType: orderType as 'LUMPSUM' | 'SIP',
+        agentArn,
+        agentEuin,
+        euinDeclaration,
+        items: [{
+          schemeCode,
+          amount: metadataAmount || totalPaidAmount,
+          transactionType: transactionType as 'P' | 'R',
+          folioNo: folioNumber,
+          sipFreq: sipFreq as 'MONTHLY' | 'QUARTERLY' | 'DAILY',
+          sipStartDate,
+          sipEndDate
+        }]
       };
       
+      console.log(`[PaymentBridge] Executing MF order ${orderId} via BSE Star API`, {
+        schemeCode,
+        orderType,
+        amount: bseRequest.items[0].amount,
+        clientCode
+      });
+      
+      // Execute order through BSE Star API
+      const bseResponse = await bseService.completeOrder(bseRequest);
+      
+      if (bseResponse.success) {
+        // BSE order executed successfully
+        const externalOrderId = bseResponse.orderId || bseResponse.transNo || `BSE-${Date.now()}`;
+        
+        await orderManagementService.updateOrderStatus({
+          orderId,
+          status: 'executed',
+          executionStatus: 'completed',
+          externalOrderId,
+          executionPrice: bseRequest.items[0].amount,
+          executedQuantity: metadata?.units || 1,
+          metadata: {
+            ...metadata,
+            bseOrderId: bseResponse.orderId,
+            bseTransNo: bseResponse.transNo,
+            bseReference: bseResponse.bseReference,
+            bsePaymentUrl: bseResponse.paymentUrl,
+            executedAt: new Date().toISOString()
+          },
+          actorId: 'system',
+          actorType: 'system',
+        });
+        
+        console.log(`[PaymentBridge] MF order ${orderId} executed successfully on BSE`, {
+          externalOrderId,
+          bseOrderId: bseResponse.orderId,
+          bseTransNo: bseResponse.transNo
+        });
+        
+        return {
+          success: true,
+          orderId,
+          executionStatus: 'completed',
+          message: bseResponse.message || 'Mutual fund order executed successfully via BSE Star',
+          externalOrderId,
+        };
+      } else {
+        // BSE execution failed
+        console.error(`[PaymentBridge] BSE execution failed for order ${orderId}:`, bseResponse.message);
+        
+        await orderManagementService.updateOrderStatus({
+          orderId,
+          status: 'execution_failed',
+          executionStatus: 'failed',
+          metadata: {
+            ...metadata,
+            bseError: bseResponse.message,
+            failedAt: new Date().toISOString()
+          },
+          actorId: 'system',
+          actorType: 'system',
+        });
+        
+        throw new Error(`BSE execution failed: ${bseResponse.message}`);
+      }
+      
     } catch (error) {
+      console.error(`[PaymentBridge] MF execution error for order ${orderId}:`, error);
+      
+      // Log execution error but let caller handle status update
       throw new Error(`MF execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -457,118 +562,618 @@ class PaymentExecutionBridge {
   }
   
   /**
-   * Execute Bond order
+   * Execute Bond order via BSE Bond API (Feature Flagged)
+   * Supports corporate bonds, NCDs, and debentures
    */
   private async executeBondOrder(order: any): Promise<ExecutionResult> {
-    const { id: orderId } = order;
+    const { id: orderId, userId, amount, metadata } = order;
     
-    // TODO: Implement bond execution
-    await orderManagementService.updateOrderStatus({
-      orderId,
-      status: 'pending_manual_processing',
-      notes: 'Bond order requires manual processing',
-      actorId: 'system',
-      actorType: 'system',
-    });
+    // Check feature flag
+    if (!FEATURE_FLAGS.ENABLE_BOND_EXECUTION) {
+      console.log(`[PaymentBridge] Bond execution disabled (feature flag), queueing for manual processing`);
+      await orderManagementService.updateOrderStatus({
+        orderId,
+        status: 'pending_manual_processing',
+        notes: 'Bond execution is currently disabled. Order queued for manual processing.',
+        actorId: 'system',
+        actorType: 'system',
+      });
+      
+      return {
+        success: true,
+        orderId,
+        executionStatus: 'pending',
+        message: 'Bond order queued for manual processing (automated execution disabled)',
+      };
+    }
     
-    return {
-      success: true,
-      orderId,
-      executionStatus: 'pending',
-      message: 'Bond order queued for processing',
-    };
+    try {
+      // Update to processing
+      await orderManagementService.updateOrderStatus({
+        orderId,
+        status: 'processing',
+        executionStatus: 'initiated',
+        actorId: 'system',
+        actorType: 'system',
+      });
+      
+      // Extract bond-specific metadata
+      const {
+        isin,
+        bondCode,
+        bondName,
+        quantity,
+        orderType = 'buy',
+        orderCategory = 'limit',
+        limitPrice,
+        clientCode,
+        dematAccountNumber
+      } = metadata || {};
+      
+      // Validate required fields
+      if (!isin && !bondCode) {
+        throw new Error('ISIN or Bond Code is required for bond execution');
+      }
+      
+      if (!clientCode) {
+        throw new Error('Client code is required for bond execution');
+      }
+      
+      if (!dematAccountNumber) {
+        throw new Error('Demat account number is required for bond execution');
+      }
+      
+      if (!quantity) {
+        throw new Error('Quantity is required for bond execution');
+      }
+      
+      // Use BSE Bond API Service
+      const bondService = new BSEBondApiService();
+      
+      // Build bond order request
+      const bondRequest = {
+        userId: clientCode, // BSE Bond service handles userId internally
+        clientCode,
+        isin: isin || bondCode,
+        bondType: 'corporate' as const,
+        orderType: orderType as 'buy' | 'sell',
+        quantity: Number(quantity),
+        orderCategory: orderCategory as 'market' | 'limit',
+        limitPrice: limitPrice ? Number(limitPrice) : undefined,
+        dematAccountNumber
+      };
+      
+      console.log(`[PaymentBridge] Executing bond order ${orderId} via BSE Bond API`, {
+        isin: bondRequest.isin,
+        orderType,
+        quantity,
+        clientCode
+      });
+      
+      // Execute bond order through BSE Bond API
+      const bondResponse = await bondService.placeBondOrder(bondRequest);
+      
+      if (bondResponse.success) {
+        // Bond order executed successfully
+        const externalOrderId = bondResponse.orderId || bondResponse.orderNumber || `BOND-${Date.now()}`;
+        
+        await orderManagementService.updateOrderStatus({
+          orderId,
+          status: 'executed',
+          executionStatus: 'completed',
+          externalOrderId,
+          executionPrice: bondResponse.executionDetails?.executionPrice || limitPrice || 0,
+          executedQuantity: quantity,
+          metadata: {
+            ...metadata,
+            bondOrderId: bondResponse.orderId,
+            bondOrderNumber: bondResponse.orderNumber,
+            executionDetails: bondResponse.executionDetails,
+            executedAt: new Date().toISOString()
+          },
+          actorId: 'system',
+          actorType: 'system',
+        });
+        
+        console.log(`[PaymentBridge] Bond order ${orderId} executed successfully on BSE`, {
+          externalOrderId,
+          executionPrice: bondResponse.executionDetails?.executionPrice
+        });
+        
+        return {
+          success: true,
+          orderId,
+          executionStatus: 'completed',
+          message: bondResponse.message || 'Bond order executed successfully via BSE',
+          externalOrderId,
+        };
+      } else {
+        // Bond execution failed
+        console.error(`[PaymentBridge] BSE bond execution failed for order ${orderId}:`, bondResponse.message);
+        
+        await orderManagementService.updateOrderStatus({
+          orderId,
+          status: 'execution_failed',
+          executionStatus: 'failed',
+          metadata: {
+            ...metadata,
+            bondError: bondResponse.message,
+            failedAt: new Date().toISOString()
+          },
+          actorId: 'system',
+          actorType: 'system',
+        });
+        
+        throw new Error(`Bond execution failed: ${bondResponse.message}`);
+      }
+      
+    } catch (error) {
+      console.error(`[PaymentBridge] Bond execution error for order ${orderId}:`, error);
+      throw new Error(`Bond execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
   
   /**
-   * Execute Equity order
+   * Execute Equity order (Feature Flagged - Beta)
+   * Note: Requires broker integration (e.g., Zerodha Kite, Angel One, ICICI Direct)
    */
   private async executeEquityOrder(order: any): Promise<ExecutionResult> {
-    const { id: orderId } = order;
+    const { id: orderId, userId, amount, metadata } = order;
     
-    // TODO: Implement equity execution
-    await orderManagementService.updateOrderStatus({
-      orderId,
-      status: 'pending_manual_processing',
-      notes: 'Equity order requires manual processing',
-      actorId: 'system',
-      actorType: 'system',
-    });
+    // Check feature flag
+    if (!FEATURE_FLAGS.ENABLE_EQUITY_EXECUTION) {
+      console.log(`[PaymentBridge] Equity execution disabled (feature flag), queueing for manual processing`);
+      await orderManagementService.updateOrderStatus({
+        orderId,
+        status: 'pending_manual_processing',
+        notes: 'Equity execution is currently in beta. Order queued for manual processing.',
+        actorId: 'system',
+        actorType: 'system',
+      });
+      
+      return {
+        success: true,
+        orderId,
+        executionStatus: 'pending',
+        message: 'Equity order queued for manual processing (automated execution in beta)',
+      };
+    }
     
-    return {
-      success: true,
-      orderId,
-      executionStatus: 'pending',
-      message: 'Equity order queued for processing',
-    };
+    try {
+      // Update to processing
+      await orderManagementService.updateOrderStatus({
+        orderId,
+        status: 'processing',
+        executionStatus: 'initiated',
+        actorId: 'system',
+        actorType: 'system',
+      });
+      
+      // Extract equity-specific metadata
+      const {
+        symbol,
+        exchange = 'NSE',
+        quantity,
+        orderType = 'market', // market, limit, sl, sl-m
+        price,
+        triggerPrice,
+        clientCode,
+        tradingAccountId
+      } = metadata || {};
+      
+      // Validate required fields
+      if (!symbol) {
+        throw new Error('Stock symbol is required for equity execution');
+      }
+      
+      if (!quantity) {
+        throw new Error('Quantity is required for equity execution');
+      }
+      
+      if (!tradingAccountId) {
+        throw new Error('Trading account ID is required for equity execution');
+      }
+      
+      // TODO: Integrate with broker API (Zerodha Kite, Angel One, etc.)
+      // const brokerService = new BrokerApiService();
+      // const equityResponse = await brokerService.placeOrder({...});
+      
+      // For now, simulate placeholder
+      const externalOrderId = `EQ-${Date.now()}`;
+      
+      await orderManagementService.updateOrderStatus({
+        orderId,
+        status: 'pending_manual_processing',
+        executionStatus: 'pending',
+        metadata: {
+          ...metadata,
+          pendingReason: 'Awaiting broker API integration',
+          queuedAt: new Date().toISOString()
+        },
+        notes: 'Equity order pending broker integration - requires manual placement',
+        actorId: 'system',
+        actorType: 'system',
+      });
+      
+      console.log(`[PaymentBridge] Equity order ${orderId} queued (broker integration pending)`, {
+        symbol,
+        quantity,
+        exchange
+      });
+      
+      return {
+        success: true,
+        orderId,
+        executionStatus: 'pending',
+        message: 'Equity order queued for manual processing (broker integration pending)',
+        externalOrderId,
+      };
+      
+    } catch (error) {
+      console.error(`[PaymentBridge] Equity execution error for order ${orderId}:`, error);
+      throw new Error(`Equity execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
   
   /**
-   * Execute IPO application
+   * Execute IPO application (Feature Flagged - Beta)
+   * Note: Requires ASBA (Application Supported by Blocked Amount) integration
    */
   private async executeIPOOrder(order: any): Promise<ExecutionResult> {
-    const { id: orderId } = order;
+    const { id: orderId, userId, amount, metadata } = order;
     
-    // TODO: Implement IPO execution
-    await orderManagementService.updateOrderStatus({
-      orderId,
-      status: 'pending_manual_processing',
-      notes: 'IPO application requires manual processing',
-      actorId: 'system',
-      actorType: 'system',
-    });
+    // Check feature flag
+    if (!FEATURE_FLAGS.ENABLE_IPO_EXECUTION) {
+      console.log(`[PaymentBridge] IPO execution disabled (feature flag), queueing for manual processing`);
+      await orderManagementService.updateOrderStatus({
+        orderId,
+        status: 'pending_manual_processing',
+        notes: 'IPO execution is currently in beta. Application queued for manual processing.',
+        actorId: 'system',
+        actorType: 'system',
+      });
+      
+      return {
+        success: true,
+        orderId,
+        executionStatus: 'pending',
+        message: 'IPO application queued for manual processing (automated execution in beta)',
+      };
+    }
     
-    return {
-      success: true,
-      orderId,
-      executionStatus: 'pending',
-      message: 'IPO application queued for processing',
-    };
+    try {
+      // Update to processing
+      await orderManagementService.updateOrderStatus({
+        orderId,
+        status: 'processing',
+        executionStatus: 'initiated',
+        actorId: 'system',
+        actorType: 'system',
+      });
+      
+      // Extract IPO-specific metadata
+      const {
+        ipoName,
+        ipoCode,
+        category = 'retail', // retail, hni, qib
+        lotSize,
+        bids, // Array of bid details
+        upiId,
+        dpId,
+        clientId,
+        panNumber,
+        bankAccountNumber
+      } = metadata || {};
+      
+      // Validate required fields
+      if (!ipoCode) {
+        throw new Error('IPO code is required for IPO execution');
+      }
+      
+      if (!lotSize && !bids) {
+        throw new Error('Lot size or bid details required for IPO execution');
+      }
+      
+      if (!upiId) {
+        throw new Error('UPI ID is required for ASBA IPO execution');
+      }
+      
+      // TODO: Integrate with IPO ASBA system (BSE IPO, NSE IPO, Bank ASBA)
+      // const ipoService = new IPOApplicationService();
+      // const ipoResponse = await ipoService.submitApplication({...});
+      
+      // For now, simulate placeholder
+      const externalOrderId = `IPO-${Date.now()}`;
+      
+      await orderManagementService.updateOrderStatus({
+        orderId,
+        status: 'pending_manual_processing',
+        executionStatus: 'pending',
+        metadata: {
+          ...metadata,
+          pendingReason: 'Awaiting ASBA integration',
+          queuedAt: new Date().toISOString()
+        },
+        notes: 'IPO application pending ASBA integration - requires manual submission',
+        actorId: 'system',
+        actorType: 'system',
+      });
+      
+      console.log(`[PaymentBridge] IPO order ${orderId} queued (ASBA integration pending)`, {
+        ipoName,
+        category,
+        lotSize
+      });
+      
+      return {
+        success: true,
+        orderId,
+        executionStatus: 'pending',
+        message: 'IPO application queued for manual processing (ASBA integration pending)',
+        externalOrderId,
+      };
+      
+    } catch (error) {
+      console.error(`[PaymentBridge] IPO execution error for order ${orderId}:`, error);
+      throw new Error(`IPO execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
   
   /**
-   * Execute FD order
+   * Execute FD (Fixed Deposit) order (Feature Flagged - Beta)
+   * Note: Requires bank FD API integration (ICICI, HDFC, SBI, etc.)
    */
   private async executeFDOrder(order: any): Promise<ExecutionResult> {
-    const { id: orderId } = order;
+    const { id: orderId, userId, amount, metadata } = order;
     
-    // TODO: Implement FD execution
-    await orderManagementService.updateOrderStatus({
-      orderId,
-      status: 'pending_manual_processing',
-      notes: 'FD order requires manual processing',
-      actorId: 'system',
-      actorType: 'system',
-    });
+    // Check feature flag
+    if (!FEATURE_FLAGS.ENABLE_FD_EXECUTION) {
+      console.log(`[PaymentBridge] FD execution disabled (feature flag), queueing for manual processing`);
+      await orderManagementService.updateOrderStatus({
+        orderId,
+        status: 'pending_manual_processing',
+        notes: 'FD execution is currently in beta. Order queued for manual processing.',
+        actorId: 'system',
+        actorType: 'system',
+      });
+      
+      return {
+        success: true,
+        orderId,
+        executionStatus: 'pending',
+        message: 'FD order queued for manual processing (automated execution in beta)',
+      };
+    }
     
-    return {
-      success: true,
-      orderId,
-      executionStatus: 'pending',
-      message: 'FD order queued for processing',
-    };
+    try {
+      // Update to processing
+      await orderManagementService.updateOrderStatus({
+        orderId,
+        status: 'processing',
+        executionStatus: 'initiated',
+        actorId: 'system',
+        actorType: 'system',
+      });
+      
+      // Extract FD-specific metadata
+      const {
+        bankName,
+        fdSchemeCode,
+        tenure, // in months
+        interestRate,
+        maturityAmount,
+        payoutMode = 'maturity', // maturity, monthly, quarterly
+        nomineeDetails,
+        bankAccountNumber,
+        panNumber
+      } = metadata || {};
+      
+      // Validate required fields
+      if (!bankName) {
+        throw new Error('Bank name is required for FD execution');
+      }
+      
+      if (!tenure) {
+        throw new Error('FD tenure is required for FD execution');
+      }
+      
+      if (!bankAccountNumber) {
+        throw new Error('Bank account number is required for FD execution');
+      }
+      
+      // TODO: Integrate with Bank FD APIs (ICICI, HDFC, SBI, etc.)
+      // const fdService = new BankFDService();
+      // const fdResponse = await fdService.createFD({...});
+      
+      // For now, simulate placeholder
+      const externalOrderId = `FD-${Date.now()}`;
+      
+      await orderManagementService.updateOrderStatus({
+        orderId,
+        status: 'pending_manual_processing',
+        executionStatus: 'pending',
+        metadata: {
+          ...metadata,
+          pendingReason: 'Awaiting bank FD API integration',
+          queuedAt: new Date().toISOString()
+        },
+        notes: 'FD order pending bank integration - requires manual processing',
+        actorId: 'system',
+        actorType: 'system',
+      });
+      
+      console.log(`[PaymentBridge] FD order ${orderId} queued (bank integration pending)`, {
+        bankName,
+        amount,
+        tenure
+      });
+      
+      return {
+        success: true,
+        orderId,
+        executionStatus: 'pending',
+        message: 'FD order queued for manual processing (bank integration pending)',
+        externalOrderId,
+      };
+      
+    } catch (error) {
+      console.error(`[PaymentBridge] FD execution error for order ${orderId}:`, error);
+      throw new Error(`FD execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
   
   /**
-   * Execute Loan application
+   * Execute Loan application via Loan Processing Service
+   * Submits loan application to preferred lender (ICICI, HDFC, Tata Capital, Bajaj Finance)
    */
   private async executeLoanOrder(order: any): Promise<ExecutionResult> {
-    const { id: orderId } = order;
+    const { id: orderId, userId, amount, metadata } = order;
     
-    // TODO: Implement loan execution
-    await orderManagementService.updateOrderStatus({
-      orderId,
-      status: 'pending_manual_processing',
-      notes: 'Loan application requires manual processing',
-      actorId: 'system',
-      actorType: 'system',
-    });
-    
-    return {
-      success: true,
-      orderId,
-      executionStatus: 'pending',
-      message: 'Loan application queued for processing',
-    };
+    try {
+      // Update to processing
+      await orderManagementService.updateOrderStatus({
+        orderId,
+        status: 'processing',
+        executionStatus: 'initiated',
+        actorId: 'system',
+        actorType: 'system',
+      });
+      
+      // Extract loan-specific metadata
+      const {
+        loanType = 'personal',
+        tenure,
+        purpose,
+        employmentType,
+        monthlyIncome,
+        cibilScore,
+        existingLoans,
+        collateralValue,
+        applicantName,
+        applicantEmail,
+        applicantPhone,
+        applicantPan,
+        applicantAddress,
+        applicantAge,
+        preferredLender
+      } = metadata || {};
+      
+      // Validate required fields
+      if (!tenure) {
+        throw new Error('Loan tenure is required for loan execution');
+      }
+      
+      if (!applicantPan) {
+        throw new Error('Applicant PAN is required for loan execution');
+      }
+      
+      if (!monthlyIncome) {
+        throw new Error('Monthly income is required for loan execution');
+      }
+      
+      // Use Loan Processing Service
+      const loanService = new LoanProcessingService();
+      
+      // Build loan application request
+      const loanApplication = {
+        id: orderId,
+        applicantId: userId,
+        loanType: loanType as any,
+        amount: Number(amount),
+        tenure: Number(tenure),
+        purpose: purpose || 'Personal use',
+        employmentType: employmentType as any || 'salaried',
+        monthlyIncome: Number(monthlyIncome),
+        cibilScore: cibilScore ? Number(cibilScore) : undefined,
+        existingLoans: existingLoans ? Number(existingLoans) : undefined,
+        collateralValue: collateralValue ? Number(collateralValue) : undefined,
+        applicantDetails: {
+          name: applicantName || 'Unknown',
+          email: applicantEmail || '',
+          phone: applicantPhone || '',
+          pan: applicantPan,
+          address: applicantAddress || '',
+          age: applicantAge ? Number(applicantAge) : 25
+        },
+        preferredLender: preferredLender as any,
+        status: 'pending' as const,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      console.log(`[PaymentBridge] Executing loan order ${orderId} via Loan Processing Service`, {
+        loanType,
+        amount,
+        tenure,
+        preferredLender
+      });
+      
+      // Submit loan application
+      const loanResponse = await loanService.applyForLoan(loanApplication);
+      
+      if (loanResponse.success) {
+        // Loan application submitted successfully
+        const externalOrderId = loanResponse.applicationId || `LOAN-${Date.now()}`;
+        
+        await orderManagementService.updateOrderStatus({
+          orderId,
+          status: 'executed',
+          executionStatus: 'completed',
+          externalOrderId,
+          executionPrice: amount,
+          metadata: {
+            ...metadata,
+            loanApplicationId: loanResponse.applicationId,
+            loanMessage: loanResponse.message,
+            estimatedProcessingDays: loanResponse.estimatedProcessingDays,
+            submittedAt: new Date().toISOString(),
+            lender: preferredLender || 'auto_selected'
+          },
+          notes: loanResponse.message,
+          actorId: 'system',
+          actorType: 'system',
+        });
+        
+        console.log(`[PaymentBridge] Loan order ${orderId} submitted successfully`, {
+          externalOrderId,
+          applicationId: loanResponse.applicationId,
+          estimatedDays: loanResponse.estimatedProcessingDays
+        });
+        
+        return {
+          success: true,
+          orderId,
+          executionStatus: 'completed',
+          message: loanResponse.message || 'Loan application submitted successfully',
+          externalOrderId,
+        };
+      } else {
+        // Loan application failed
+        console.error(`[PaymentBridge] Loan submission failed for order ${orderId}:`, loanResponse.message);
+        
+        await orderManagementService.updateOrderStatus({
+          orderId,
+          status: 'execution_failed',
+          executionStatus: 'failed',
+          metadata: {
+            ...metadata,
+            loanError: loanResponse.message,
+            failedAt: new Date().toISOString()
+          },
+          notes: loanResponse.message,
+          actorId: 'system',
+          actorType: 'system',
+        });
+        
+        throw new Error(`Loan submission failed: ${loanResponse.message}`);
+      }
+      
+    } catch (error) {
+      console.error(`[PaymentBridge] Loan execution error for order ${orderId}:`, error);
+      
+      // Log execution error but let caller handle status update
+      throw new Error(`Loan execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 }
 
