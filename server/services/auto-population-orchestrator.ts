@@ -25,6 +25,7 @@ import {
   apyAccounts,
   kycVault,
   portfolios,
+  users,
   type InsertAutoPopulationStatus,
   type AutoPopulationStatus,
   type InsertComprehensiveHolding,
@@ -42,6 +43,8 @@ import { dematHoldingsService, type DematFetchRequest } from './demat-holdings-s
 import { epfoService, type EPFFetchRequest } from './epfo-service';
 import { NPSService, type NPSFetchRequest } from './nps-service';
 import { APYService, type APYFetchRequest } from './apy-service';
+import { emailService } from '../email-service';
+import { whatsappService } from '../whatsapp';
 import axios from 'axios';
 
 interface KYCData {
@@ -147,6 +150,21 @@ export class AutoPopulationOrchestrator {
       });
 
       console.log(`✅ Auto-population completed: ${workflowId} - ${successfulSources}/${results.length} sources successful`);
+
+      // Step 7: Send completion notification
+      await this.sendCompletionNotification(userId, {
+        workflowId,
+        status: finalStatus,
+        totalDataSources: results.length,
+        successfulSources,
+        failedSources,
+        totalRecordsFetched,
+        totalHoldingsValue,
+        sourceResults: results,
+        durationMs
+      }).catch(err => {
+        console.error(`⚠️  Failed to send notification for workflow ${workflowId}:`, err);
+      });
 
       return {
         workflowId,
@@ -1119,6 +1137,152 @@ export class AutoPopulationOrchestrator {
       .from(autoPopulationStatus)
       .where(eq(autoPopulationStatus.userId, userId))
       .orderBy(desc(autoPopulationStatus.initiatedAt));
+  }
+
+  /**
+   * Send completion notification to user via email and WhatsApp
+   */
+  private async sendCompletionNotification(
+    userId: string,
+    result: Omit<AutoPopulationResult, 'userId'>
+  ): Promise<void> {
+    try {
+      // Get user details
+      const userResult = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      if (userResult.length === 0) {
+        console.error(`⚠️  User ${userId} not found, skipping notification`);
+        return;
+      }
+
+      const user = userResult[0];
+      const userName = user.firstName 
+        ? `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`
+        : 'Valued Customer';
+      const userEmail = user.email;
+      const userMobile = user.mobile;
+
+      // Format duration
+      const durationSeconds = (result.durationMs / 1000).toFixed(1);
+
+      // Format total value
+      const formattedValue = new Intl.NumberFormat('en-IN', {
+        style: 'currency',
+        currency: 'INR',
+        maximumFractionDigits: 0
+      }).format(result.totalHoldingsValue);
+
+      // Build status indicator
+      const statusEmoji = result.status === 'completed' ? '✅' : 
+                         result.status === 'partial_success' ? '⚠️' : '❌';
+
+      // Build source summary
+      const sourceSummary = result.sourceResults
+        .map(r => `  ${r.success ? '✓' : '✗'} ${this.formatDataSourceName(r.source)}: ${r.recordsFetched} records${r.totalValue ? ` (${new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(r.totalValue)})` : ''}`)
+        .join('\n');
+
+      const failedSources = result.sourceResults
+        .filter(r => !r.success)
+        .map(r => `  • ${this.formatDataSourceName(r.source)}: ${r.error || 'Unknown error'}`)
+        .join('\n');
+
+      // Email notification
+      const emailSubject = `${statusEmoji} Portfolio Sync ${result.status === 'completed' ? 'Completed' : result.status === 'partial_success' ? 'Partially Completed' : 'Failed'} - FintekPro`;
+      
+      const emailBody = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>${statusEmoji} Portfolio Sync ${result.status === 'completed' ? 'Completed' : result.status === 'partial_success' ? 'Partially Completed' : 'Failed'}</h2>
+          <p>Dear ${userName},</p>
+          
+          <p>Your portfolio synchronization has ${result.status === 'completed' ? 'completed successfully' : result.status === 'partial_success' ? 'partially completed' : 'failed'}.</p>
+          
+          <div style="background-color: #f8f9fa; border-left: 4px solid ${result.status === 'completed' ? '#28a745' : result.status === 'partial_success' ? '#ffc107' : '#dc3545'}; padding: 15px; margin: 20px 0;">
+            <h3 style="margin-top: 0;">Sync Summary</h3>
+            <ul style="list-style: none; padding: 0;">
+              <li><strong>Total Portfolio Value:</strong> ${formattedValue}</li>
+              <li><strong>Records Fetched:</strong> ${result.totalRecordsFetched}</li>
+              <li><strong>Successful Sources:</strong> ${result.successfulSources}/${result.totalDataSources}</li>
+              <li><strong>Duration:</strong> ${durationSeconds}s</li>
+              <li><strong>Workflow ID:</strong> ${result.workflowId}</li>
+            </ul>
+          </div>
+
+          <h3>Data Sources</h3>
+          <pre style="background-color: #f8f9fa; padding: 10px; border-radius: 5px; font-size: 14px;">${sourceSummary}</pre>
+
+          ${failedSources ? `
+          <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0;">
+            <h3 style="margin-top: 0;">⚠️ Failed Sources</h3>
+            <pre style="font-size: 14px;">${failedSources}</pre>
+          </div>
+          ` : ''}
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.REPLIT_DEV_DOMAIN || 'https://app.fintekpro.com'}/auto-population" 
+               style="background-color: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
+              View Portfolio Dashboard
+            </a>
+          </div>
+          
+          <p style="color: #666; font-size: 12px;">
+            This is an automated notification from FintekPro.<br>
+            Your data is encrypted and secure. You can manage sync settings in your dashboard.
+          </p>
+        </div>
+      `;
+
+      // WhatsApp message (shorter version)
+      const whatsappMessage = `${statusEmoji} *FintekPro Portfolio Sync ${result.status === 'completed' ? 'Completed' : result.status === 'partial_success' ? 'Partially Completed' : 'Failed'}*\n\n` +
+        `Portfolio Value: ${formattedValue}\n` +
+        `Records: ${result.totalRecordsFetched}\n` +
+        `Sources: ${result.successfulSources}/${result.totalDataSources} successful\n` +
+        `Duration: ${durationSeconds}s\n\n` +
+        `${failedSources ? `⚠️ Some sources failed. Check dashboard for details.\n\n` : ''}` +
+        `View details: ${process.env.REPLIT_DEV_DOMAIN || 'app.fintekpro.com'}/auto-population`;
+
+      // Send email
+      if (userEmail) {
+        try {
+          await emailService.sendNotificationEmail(userEmail, emailSubject, emailBody);
+          console.log(`📧 Sync notification email sent to ${userEmail}`);
+        } catch (error) {
+          console.error(`❌ Failed to send email notification:`, error);
+        }
+      }
+
+      // Send WhatsApp
+      if (userMobile && whatsappService.isClientReady()) {
+        try {
+          await whatsappService.sendMessage(userMobile, whatsappMessage);
+          console.log(`📲 Sync notification WhatsApp sent to ${userMobile}`);
+        } catch (error) {
+          console.error(`❌ Failed to send WhatsApp notification:`, error);
+        }
+      }
+    } catch (error) {
+      console.error(`❌ Error sending completion notification:`, error);
+    }
+  }
+
+  /**
+   * Format data source name for display
+   */
+  private formatDataSourceName(source: DataSourceType): string {
+    const names: Record<DataSourceType, string> = {
+      'mutual_funds': 'Mutual Funds',
+      'demat': 'Demat Holdings',
+      'bank': 'Bank Accounts',
+      'loans': 'Loans',
+      'insurance': 'Insurance',
+      'epf': 'EPF',
+      'nps': 'NPS',
+      'apy': 'APY'
+    };
+    return names[source] || source;
   }
 }
 

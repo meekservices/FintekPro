@@ -108,6 +108,32 @@ export default function AutoPopulationDashboard() {
     }
   });
 
+  // Query: Get portfolio summary
+  const { data: summaryData, isLoading: summaryLoading } = useQuery<{
+    success: boolean;
+    summary: {
+      totalMarketValue: number;
+      totalInvestedValue: number;
+      totalGainLoss: number;
+      gainLossPercent: number;
+      totalHoldings: number;
+      assetTypeBreakdown: Record<string, { value: number; count: number }>;
+      dataSourceBreakdown: Record<string, { value: number; count: number }>;
+      lastSync: {
+        workflowId: string;
+        status: string;
+        completedAt: string;
+        totalRecordsFetched: number;
+        successfulSources: number;
+        totalDataSources: number;
+        durationMs: number;
+      } | null;
+    };
+  }>({
+    queryKey: ['/api/auto-populate/summary', userId],
+    enabled: !!userId
+  });
+
   // Mutation: Initiate auto-population
   const initiateMutation = useMutation({
     mutationFn: async () => {
@@ -251,6 +277,106 @@ export default function AutoPopulationDashboard() {
           </Button>
         </div>
       </div>
+
+      {/* Portfolio Summary Card */}
+      {summaryData?.summary && (
+        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 border-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-6 w-6 text-blue-600" />
+              Portfolio Summary
+            </CardTitle>
+            <CardDescription>
+              Your complete portfolio overview across all data sources
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              {/* Total Portfolio Value */}
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">Total Portfolio Value</p>
+                <p className="text-3xl font-bold text-blue-600">
+                  ₹{summaryData.summary.totalMarketValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                </p>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <FileText className="h-3 w-3" />
+                  {summaryData.summary.totalHoldings} holdings
+                </div>
+              </div>
+
+              {/* Total Invested */}
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">Total Invested</p>
+                <p className="text-2xl font-semibold">
+                  ₹{summaryData.summary.totalInvestedValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                </p>
+              </div>
+
+              {/* Gain/Loss */}
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">Total Gain/Loss</p>
+                <div className={`text-2xl font-semibold ${summaryData.summary.totalGainLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {summaryData.summary.totalGainLoss >= 0 ? '+' : ''}₹{summaryData.summary.totalGainLoss.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                  <span className="text-sm ml-2">
+                    ({summaryData.summary.gainLossPercent >= 0 ? '+' : ''}{summaryData.summary.gainLossPercent.toFixed(2)}%)
+                  </span>
+                </div>
+              </div>
+
+              {/* Last Sync */}
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">Last Sync</p>
+                {summaryData.summary.lastSync ? (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={summaryData.summary.lastSync.status === 'completed' ? 'default' : 'destructive'}>
+                        {summaryData.summary.lastSync.status}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {new Date(summaryData.summary.lastSync.completedAt).toLocaleDateString('en-IN', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {summaryData.summary.lastSync.totalRecordsFetched} records from {summaryData.summary.lastSync.successfulSources}/{summaryData.summary.lastSync.totalDataSources} sources
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No sync yet</p>
+                )}
+              </div>
+            </div>
+
+            {/* Asset Allocation Breakdown */}
+            {Object.keys(summaryData.summary.assetTypeBreakdown).length > 0 && (
+              <div className="mt-6 space-y-3">
+                <h4 className="text-sm font-semibold">Asset Allocation</h4>
+                <div className="grid gap-2 md:grid-cols-2">
+                  {Object.entries(summaryData.summary.assetTypeBreakdown).map(([assetType, data]) => {
+                    const percentage = (data.value / summaryData.summary.totalMarketValue) * 100;
+                    return (
+                      <div key={assetType} className="space-y-1">
+                        <div className="flex justify-between text-sm">
+                          <span className="capitalize">{assetType.replace('_', ' ')}</span>
+                          <span className="font-medium">
+                            ₹{data.value.toLocaleString('en-IN', { maximumFractionDigits: 0 })} ({percentage.toFixed(1)}%)
+                          </span>
+                        </div>
+                        <Progress value={percentage} className="h-2" />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Main Content */}
       <Tabs defaultValue="overview" className="w-full">

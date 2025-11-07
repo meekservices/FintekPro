@@ -333,6 +333,101 @@ router.post("/refresh", requireOwnership('userId'), async (req: Request, res: Re
   }
 });
 
+// ===== PORTFOLIO SUMMARY ENDPOINT =====
+
+// Get portfolio summary for user
+router.get("/summary/:userId", requireOwnership('userId'), async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    
+    // Import db and schema
+    const { db } = await import('./db');
+    const { comprehensiveHoldings, autoPopulationStatus } = await import('@shared/schema');
+    const { eq, desc, sql } = await import('drizzle-orm');
+    
+    // Get last sync status
+    const lastSync = await db
+      .select()
+      .from(autoPopulationStatus)
+      .where(eq(autoPopulationStatus.userId, userId))
+      .orderBy(desc(autoPopulationStatus.completedAt))
+      .limit(1);
+    
+    const lastSyncData = lastSync.length > 0 ? lastSync[0] : null;
+    
+    // Get portfolio holdings with aggregations
+    const holdings = await db
+      .select()
+      .from(comprehensiveHoldings)
+      .where(eq(comprehensiveHoldings.userId, userId));
+    
+    // Calculate totals and asset allocation
+    let totalMarketValue = 0;
+    let totalInvestedValue = 0;
+    let totalGainLoss = 0;
+    const assetTypeBreakdown: Record<string, { value: number; count: number }> = {};
+    const dataSourceBreakdown: Record<string, { value: number; count: number }> = {};
+    
+    holdings.forEach(holding => {
+      const marketValue = holding.marketValue ? parseFloat(holding.marketValue.toString()) : 0;
+      const investedValue = holding.investedValue ? parseFloat(holding.investedValue.toString()) : 0;
+      const gainLoss = holding.gainLoss ? parseFloat(holding.gainLoss.toString()) : 0;
+      
+      totalMarketValue += marketValue;
+      totalInvestedValue += investedValue;
+      totalGainLoss += gainLoss;
+      
+      // Asset type breakdown
+      const assetType = holding.assetType || 'other';
+      if (!assetTypeBreakdown[assetType]) {
+        assetTypeBreakdown[assetType] = { value: 0, count: 0 };
+      }
+      assetTypeBreakdown[assetType].value += marketValue;
+      assetTypeBreakdown[assetType].count += 1;
+      
+      // Data source breakdown
+      const dataSource = holding.dataSource || 'unknown';
+      if (!dataSourceBreakdown[dataSource]) {
+        dataSourceBreakdown[dataSource] = { value: 0, count: 0 };
+      }
+      dataSourceBreakdown[dataSource].value += marketValue;
+      dataSourceBreakdown[dataSource].count += 1;
+    });
+    
+    const gainLossPercent = totalInvestedValue > 0 
+      ? ((totalGainLoss / totalInvestedValue) * 100) 
+      : 0;
+    
+    res.json({
+      success: true,
+      summary: {
+        totalMarketValue,
+        totalInvestedValue,
+        totalGainLoss,
+        gainLossPercent,
+        totalHoldings: holdings.length,
+        assetTypeBreakdown,
+        dataSourceBreakdown,
+        lastSync: lastSyncData ? {
+          workflowId: lastSyncData.workflowId,
+          status: lastSyncData.status,
+          completedAt: lastSyncData.completedAt,
+          totalRecordsFetched: lastSyncData.totalRecordsFetched,
+          successfulSources: lastSyncData.successfulSources,
+          totalDataSources: lastSyncData.totalDataSources,
+          durationMs: lastSyncData.durationMs
+        } : null
+      }
+    });
+  } catch (error: any) {
+    console.error('Error fetching portfolio summary:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch portfolio summary'
+    });
+  }
+});
+
 // ===== DATA SOURCE SPECIFIC ENDPOINTS =====
 
 // Fetch loan liabilities from CIBIL
