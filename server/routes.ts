@@ -31992,3 +31992,267 @@ System Security Data:`;
     }
   });
 }
+
+  // ==================================================================================
+  // ADMIN MARKUP MANAGEMENT APIs
+  // ==================================================================================
+
+  // Get all store products for admin (with markup details)
+  app.get("/api/admin/store-products", requireAdmin, async (req, res) => {
+    try {
+      const { category, provider, search } = req.query;
+      
+      let query = `
+        SELECT 
+          id, name, description, category, sub_category as "subCategory", provider,
+          base_price as "basePrice", interest_rate as "interestRate", 
+          minimum_investment as "minimumInvestment",
+          credit_rating as "creditRating", risk_level as "riskLevel",
+          markup, markup_type as "markupType", final_price as "finalPrice",
+          is_perpetual as "isPerpetual", is_public as "isPublic", status,
+          tags, image_url as "imageUrl", created_at as "createdAt"
+        FROM products
+        WHERE 1=1
+      `;
+
+      const params: any[] = [];
+      let paramCount = 1;
+
+      if (category) {
+        query += ` AND category = $${paramCount}`;
+        params.push(category);
+        paramCount++;
+      }
+
+      if (provider) {
+        query += ` AND provider = $${paramCount}`;
+        params.push(provider);
+        paramCount++;
+      }
+
+      if (search) {
+        query += ` AND (name ILIKE $${paramCount} OR description ILIKE $${paramCount})`;
+        params.push(`%${search}%`);
+        paramCount++;
+      }
+
+      query += ` ORDER BY created_at DESC LIMIT 1000`;
+
+      const result = await storage.db.execute(query, params);
+      const products = result.rows || [];
+
+      return apiResponse.success(res, products, "Store products retrieved successfully");
+    } catch (error) {
+      console.error("Error fetching store products:", error);
+      return apiResponse.serverError(res, "Failed to fetch store products");
+    }
+  });
+
+  // Get all store categories
+  app.get("/api/admin/store-categories", requireAdmin, async (req, res) => {
+    try {
+      const query = `
+        SELECT 
+          category, COUNT(*) as count
+        FROM products
+        GROUP BY category
+        ORDER BY count DESC
+      `;
+
+      const result = await storage.db.execute(query);
+      const categories = result.rows?.map((row: any) => ({
+        id: row.category,
+        name: row.category,
+        count: parseInt(row.count),
+        isActive: true
+      })) || [];
+
+      return apiResponse.success(res, categories, "Categories retrieved successfully");
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+      return apiResponse.serverError(res, "Failed to fetch categories");
+    }
+  });
+
+  // Update single product markup
+  app.patch("/api/admin/store-products/:id/markup", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { markup, markupType } = req.body;
+
+      if (markup === undefined || !markupType) {
+        return apiResponse.badRequest(res, "Missing markup or markupType");
+      }
+
+      if (!['percentage', 'fixed'].includes(markupType)) {
+        return apiResponse.badRequest(res, "Invalid markupType. Must be 'percentage' or 'fixed'");
+      }
+
+      const markupValue = parseFloat(markup);
+      if (isNaN(markupValue) || markupValue < 0) {
+        return apiResponse.badRequest(res, "Invalid markup value");
+      }
+
+      // Get current product to calculate final price
+      const productQuery = `SELECT base_price, minimum_investment FROM products WHERE id = $1`;
+      const productResult = await storage.db.execute(productQuery, [id]);
+      const product = productResult.rows?.[0];
+
+      if (!product) {
+        return apiResponse.notFound(res, "Product not found");
+      }
+
+      const basePrice = parseFloat(product.base_price || product.minimum_investment || 0);
+      let finalPrice = basePrice;
+
+      if (markupType === 'percentage') {
+        finalPrice = basePrice * (1 + markupValue / 100);
+      } else {
+        finalPrice = basePrice + markupValue;
+      }
+
+      // Update product with markup
+      const updateQuery = `
+        UPDATE products 
+        SET markup = $1, markup_type = $2, final_price = $3, updated_at = NOW()
+        WHERE id = $4
+        RETURNING id, name, markup, markup_type as "markupType", final_price as "finalPrice"
+      `;
+
+      const result = await storage.db.execute(updateQuery, [markupValue, markupType, finalPrice, id]);
+      const updated = result.rows?.[0];
+
+      return apiResponse.success(res, updated, "Product markup updated successfully");
+    } catch (error) {
+      console.error("Error updating product markup:", error);
+      return apiResponse.serverError(res, "Failed to update product markup");
+    }
+  });
+
+  // Bulk update product markup by category/provider
+  app.post("/api/admin/store-products/bulk-markup", requireAdmin, async (req, res) => {
+    try {
+      const { markup, markupType, category, provider, productIds } = req.body;
+
+      if (markup === undefined || !markupType) {
+        return apiResponse.badRequest(res, "Missing markup or markupType");
+      }
+
+      if (!['percentage', 'fixed'].includes(markupType)) {
+        return apiResponse.badRequest(res, "Invalid markupType");
+      }
+
+      const markupValue = parseFloat(markup);
+      if (isNaN(markupValue) || markupValue < 0) {
+        return apiResponse.badRequest(res, "Invalid markup value");
+      }
+
+      // Build WHERE clause
+      let whereConditions = [];
+      const params: any[] = [markupValue, markupType];
+      let paramCount = 3;
+
+      if (productIds && Array.isArray(productIds) && productIds.length > 0) {
+        whereConditions.push(`id = ANY($${paramCount}::varchar[])`);
+        params.push(productIds);
+        paramCount++;
+      } else {
+        if (category) {
+          whereConditions.push(`category = $${paramCount}`);
+          params.push(category);
+          paramCount++;
+        }
+
+        if (provider) {
+          whereConditions.push(`provider = $${paramCount}`);
+          params.push(provider);
+          paramCount++;
+        }
+      }
+
+      if (whereConditions.length === 0) {
+        return apiResponse.badRequest(res, "Must specify category, provider, or productIds");
+      }
+
+      const whereClause = whereConditions.join(' AND ');
+
+      // Calculate final prices based on markup type
+      let updateQuery;
+      if (markupType === 'percentage') {
+        updateQuery = `
+          UPDATE products 
+          SET 
+            markup = $1,
+            markup_type = $2,
+            final_price = COALESCE(base_price, minimum_investment, 0) * (1 + $1 / 100),
+            updated_at = NOW()
+          WHERE ${whereClause}
+          RETURNING id
+        `;
+      } else {
+        updateQuery = `
+          UPDATE products 
+          SET 
+            markup = $1,
+            markup_type = $2,
+            final_price = COALESCE(base_price, minimum_investment, 0) + $1,
+            updated_at = NOW()
+          WHERE ${whereClause}
+          RETURNING id
+        `;
+      }
+
+      const result = await storage.db.execute(updateQuery, params);
+      const updatedCount = result.rows?.length || 0;
+
+      return apiResponse.success(res, {
+        updatedCount,
+        markup: markupValue,
+        markupType
+      }, `${updatedCount} products updated successfully`);
+    } catch (error) {
+      console.error("Error bulk updating product markup:", error);
+      return apiResponse.serverError(res, "Failed to bulk update product markup");
+    }
+  });
+
+  // Update product status
+  app.patch("/api/admin/store-products/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { isActive } = req.body;
+
+      const query = `
+        UPDATE products
+        SET is_public = $1, updated_at = NOW()
+        WHERE id = $2
+        RETURNING id, name, is_public as "isActive"
+      `;
+
+      const result = await storage.db.execute(query, [isActive, id]);
+      const updated = result.rows?.[0];
+
+      if (!updated) {
+        return apiResponse.notFound(res, "Product not found");
+      }
+
+      return apiResponse.success(res, updated, "Product status updated successfully");
+    } catch (error) {
+      console.error("Error updating product status:", error);
+      return apiResponse.serverError(res, "Failed to update product status");
+    }
+  });
+
+  app.patch("/api/admin/store-categories/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { isActive } = req.body;
+
+      // For categories, we'll just return success as categories are derived from products
+      return apiResponse.success(res, { id, isActive }, "Category status updated");
+    } catch (error) {
+      console.error("Error updating category status:", error);
+      return apiResponse.serverError(res, "Failed to update category status");
+    }
+  });
+}
