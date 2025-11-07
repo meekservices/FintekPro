@@ -30,6 +30,7 @@ function AutoPopulatedBadge({ source }: { source?: string }) {
   if (!source) return null;
   
   const sourceConfig = {
+    sandbox: { label: "Sandbox KYC", className: "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20" },
     digilocker: { label: "DigiLocker", className: "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20" },
     bse_star: { label: "BSE Star", className: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20" }
   };
@@ -57,21 +58,32 @@ const steps = [
 function PersonalDetailsStep({ data, onChange, onNext, isFirst, onAutoPopulate, autoPopulatedFields }: StepProps) {
   const { toast } = useToast();
   const [isVerifying, setIsVerifying] = useState(false);
+  const [panVerified, setPanVerified] = useState(false);
 
-  const handlePANBlur = async () => {
-    if (!data.pan || data.pan.length !== 10) return;
+  const handleVerifyPAN = async () => {
+    if (!data.pan || data.pan.length !== 10 || !data.dateOfBirth) {
+      toast({
+        title: "Missing Information",
+        description: "Please enter both PAN number and Date of Birth",
+        variant: "destructive"
+      });
+      return;
+    }
     
     setIsVerifying(true);
     try {
-      const response = await apiRequest("POST", "/api/bse-star-kyc/verify-pan", {
-        body: { panNumber: data.pan }
+      const response = await apiRequest("POST", "/api/kyc/wizard/verify-pan", {
+        body: { 
+          sessionId: data.sessionId || "temp-session",
+          panNumber: data.pan,
+          dob: data.dateOfBirth
+        }
       });
       const result = await response.json();
       
       if (result.success && result.data) {
         const autoData: Record<string, any> = {
           fullName: result.data.name || data.fullName,
-          dateOfBirth: result.data.dob || data.dateOfBirth,
           fatherName: result.data.fatherName || data.fatherName
         };
         
@@ -82,16 +94,29 @@ function PersonalDetailsStep({ data, onChange, onNext, isFirst, onAutoPopulate, 
         });
         
         if (onAutoPopulate) {
-          onAutoPopulate('bse_star', autoData);
+          onAutoPopulate('sandbox', autoData);
         }
         
+        setPanVerified(true);
+        
         toast({
-          title: "✨ Auto-filled from BSE Star",
-          description: "Personal details populated successfully",
+          title: "✅ PAN Verified Successfully",
+          description: "Personal details populated from government records",
+        });
+      } else {
+        toast({
+          title: "Verification Failed",
+          description: result.message || "Unable to verify PAN details",
+          variant: "destructive"
         });
       }
     } catch (error) {
       console.error("PAN verification failed:", error);
+      toast({
+        title: "Verification Error",
+        description: "Failed to verify PAN. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setIsVerifying(false);
     }
@@ -108,46 +133,77 @@ function PersonalDetailsStep({ data, onChange, onNext, isFirst, onAutoPopulate, 
               data-testid="input-pan"
               placeholder="ABCDE1234F"
               value={data.pan || ""}
-              onChange={(e) => onChange("pan", e.target.value.toUpperCase())}
-              onBlur={handlePANBlur}
+              onChange={(e) => {
+                onChange("pan", e.target.value.toUpperCase());
+                setPanVerified(false);
+              }}
               maxLength={10}
               className="uppercase transition-all"
-            />
-            {isVerifying && (
-              <p className="text-sm text-muted-foreground flex items-center gap-2 animate-in fade-in-50">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Fetching details from BSE Star...
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center">
-              <Label htmlFor="fullName">Full Name *</Label>
-              <AutoPopulatedBadge source={autoPopulatedFields?.fullName} />
-            </div>
-            <Input
-              id="fullName"
-              data-testid="input-fullname"
-              placeholder="As per PAN card"
-              value={data.fullName || ""}
-              onChange={(e) => onChange("fullName", e.target.value)}
-              className={cn("transition-all", autoPopulatedFields?.fullName && "border-blue-500/50")}
+              disabled={panVerified}
             />
           </div>
 
           <div className="space-y-2">
             <div className="flex items-center">
               <Label htmlFor="dateOfBirth">Date of Birth *</Label>
-              <AutoPopulatedBadge source={autoPopulatedFields?.dateOfBirth} />
             </div>
             <Input
               id="dateOfBirth"
               data-testid="input-dob"
               type="date"
               value={data.dateOfBirth || ""}
-              onChange={(e) => onChange("dateOfBirth", e.target.value)}
-              className={cn("transition-all", autoPopulatedFields?.dateOfBirth && "border-blue-500/50")}
+              onChange={(e) => {
+                onChange("dateOfBirth", e.target.value);
+                setPanVerified(false);
+              }}
+              disabled={panVerified}
+            />
+          </div>
+
+          {!panVerified && (
+            <Button
+              onClick={handleVerifyPAN}
+              disabled={!data.pan || data.pan.length !== 10 || !data.dateOfBirth || isVerifying}
+              className="w-full"
+              data-testid="button-verify-pan"
+              variant="secondary"
+            >
+              {isVerifying ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Verifying with Sandbox API...
+                </>
+              ) : (
+                <>
+                  <Shield className="mr-2 h-4 w-4" />
+                  Verify PAN
+                </>
+              )}
+            </Button>
+          )}
+
+          {panVerified && (
+            <div className="p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg">
+              <p className="text-sm text-green-700 dark:text-green-400 flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4" />
+                PAN verified successfully with government records
+              </p>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <div className="flex items-center">
+              <Label htmlFor="fullName">Full Name {panVerified && '*'}</Label>
+              <AutoPopulatedBadge source={autoPopulatedFields?.fullName} />
+            </div>
+            <Input
+              id="fullName"
+              data-testid="input-fullname"
+              placeholder={panVerified ? "Auto-populated from PAN verification" : "Will be auto-populated after verification"}
+              value={data.fullName || ""}
+              onChange={(e) => onChange("fullName", e.target.value)}
+              className={cn("transition-all", autoPopulatedFields?.fullName && "border-green-500/50 bg-green-50/50 dark:bg-green-950/20")}
+              readOnly={!!autoPopulatedFields?.fullName}
             />
           </div>
 
@@ -159,10 +215,11 @@ function PersonalDetailsStep({ data, onChange, onNext, isFirst, onAutoPopulate, 
             <Input
               id="fatherName"
               data-testid="input-fathername"
-              placeholder="Father's full name"
+              placeholder={panVerified ? "Auto-populated from PAN verification" : "Will be auto-populated after verification"}
               value={data.fatherName || ""}
               onChange={(e) => onChange("fatherName", e.target.value)}
-              className={cn("transition-all", autoPopulatedFields?.fatherName && "border-blue-500/50")}
+              className={cn("transition-all", autoPopulatedFields?.fatherName && "border-green-500/50 bg-green-50/50 dark:bg-green-950/20")}
+              readOnly={!!autoPopulatedFields?.fatherName}
             />
           </div>
 
@@ -184,7 +241,7 @@ function PersonalDetailsStep({ data, onChange, onNext, isFirst, onAutoPopulate, 
 
       <Button
         onClick={onNext}
-        disabled={!data.pan || !data.fullName || !data.dateOfBirth || !data.gender}
+        disabled={!panVerified || !data.fullName || !data.gender}
         className="w-full"
         data-testid="button-next-personal"
       >
