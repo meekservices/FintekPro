@@ -29005,10 +29005,10 @@ System Security Data:`;
 
       const { pan, companyName } = req.body;
 
-      if (!pan || !companyName) {
+      if (!pan) {
         return res.status(400).json({ 
           success: false,
-          message: 'PAN and company name are required' 
+          message: 'PAN is required' 
         });
       }
 

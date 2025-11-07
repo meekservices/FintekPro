@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle2, Circle, Loader2, ArrowRight, ArrowLeft, Building2, FileText, User, Landmark, Eye } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
@@ -35,9 +36,9 @@ function CorporatePANStep({ data, onChange, onNext, isFirst }: StepProps) {
   const [isVerifying, setIsVerifying] = useState(false);
 
   const verifyPAN = useMutation({
-    mutationFn: async (params: { pan: string; companyName: string }) => {
+    mutationFn: async (params: { pan: string }) => {
       const response = await apiRequest("POST", "/api/kyc/corporate/verify-pan", {
-        body: { pan: params.pan, companyName: params.companyName }
+        body: { pan: params.pan }
       });
       return response.json();
     },
@@ -70,28 +71,14 @@ function CorporatePANStep({ data, onChange, onNext, isFirst }: StepProps) {
   });
 
   const handleVerifyPAN = () => {
-    if (data.corporatePan?.length === 10 && data.companyName) {
-      verifyPAN.mutate({ pan: data.corporatePan, companyName: data.companyName });
+    if (data.corporatePan?.length === 10) {
+      verifyPAN.mutate({ pan: data.corporatePan });
     }
   };
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-500">
       <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="companyName">Company Name (as per PAN) *</Label>
-          <Input
-            id="companyName"
-            data-testid="input-company-name"
-            placeholder="Enter company name"
-            value={data.companyName || ""}
-            onChange={(e) => onChange("companyName", e.target.value)}
-          />
-          <p className="text-sm text-muted-foreground">
-            Enter the company name exactly as it appears on the PAN card
-          </p>
-        </div>
-        
         <div className="space-y-2">
           <Label htmlFor="corporatePan">Corporate PAN Number *</Label>
           <div className="flex gap-2">
@@ -107,12 +94,15 @@ function CorporatePANStep({ data, onChange, onNext, isFirst }: StepProps) {
             <Button
               type="button"
               onClick={handleVerifyPAN}
-              disabled={!data.corporatePan || data.corporatePan.length !== 10 || !data.companyName || verifyPAN.isPending}
+              disabled={!data.corporatePan || data.corporatePan.length !== 10 || verifyPAN.isPending}
               data-testid="button-verify-pan"
             >
               {verifyPAN.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify"}
             </Button>
           </div>
+          <p className="text-sm text-muted-foreground">
+            Company name will be automatically fetched from government records
+          </p>
         </div>
 
         {data.panVerified && (
@@ -228,6 +218,7 @@ function CompanyDocumentsStep({ data, onChange, onNext, onBack }: StepProps) {
 // Step 3: Authorized Signatory Verification
 function SignatoryVerificationStep({ data, onChange, onNext, onBack }: StepProps) {
   const { toast } = useToast();
+  const [consentGiven, setConsentGiven] = useState(false);
   
   const verifySignatory = useMutation({
     mutationFn: async () => {
@@ -236,7 +227,8 @@ function SignatoryVerificationStep({ data, onChange, onNext, onBack }: StepProps
           name: data.signatoryName,
           designation: data.signatoryDesignation,
           digilockerSessionId: data.digilockerSessionId,
-          aadhaarData: data.aadhaarData
+          aadhaarData: data.aadhaarData,
+          consentGiven
         }
       });
       return response.json();
@@ -289,6 +281,26 @@ function SignatoryVerificationStep({ data, onChange, onNext, onBack }: StepProps
             Launch DigiLocker
           </Button>
         </div>
+
+        <div className="flex items-start space-x-2 p-4 border rounded-lg bg-blue-50 dark:bg-blue-950/20">
+          <Checkbox
+            id="consent-signatory"
+            data-testid="checkbox-consent"
+            checked={consentGiven}
+            onCheckedChange={(checked) => setConsentGiven(checked as boolean)}
+          />
+          <div className="grid gap-1.5 leading-none">
+            <label
+              htmlFor="consent-signatory"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+            >
+              I consent to KYC data sharing
+            </label>
+            <p className="text-sm text-muted-foreground">
+              I hereby consent to share authorized signatory KYC data with authorized financial institutions for corporate account opening, investment processing, and regulatory compliance.
+            </p>
+          </div>
+        </div>
       </div>
 
       <div className="flex justify-between">
@@ -297,7 +309,7 @@ function SignatoryVerificationStep({ data, onChange, onNext, onBack }: StepProps
         </Button>
         <Button
           onClick={() => verifySignatory.mutate()}
-          disabled={!data.signatoryName || !data.signatoryDesignation}
+          disabled={!data.signatoryName || !data.signatoryDesignation || !consentGiven}
           data-testid="button-next"
         >
           {verifySignatory.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}

@@ -44,11 +44,18 @@ export class CorporateKYCService {
   /**
    * Step 1: Verify Corporate PAN
    * Uses Sandbox.co.in API for PAN verification (replaces Cashfree)
+   * Auto-fetches company name if not provided
    */
-  async verifyCorporatePAN(userId: string, pan: string, companyName: string): Promise<CorporatePanVerificationResult> {
+  async verifyCorporatePAN(userId: string, pan: string, companyName?: string): Promise<CorporatePanVerificationResult> {
     try {
-      // Verify PAN using Sandbox API
-      const verification = await sandboxKYCService.verifyCorporatePAN(pan, companyName);
+      // If company name not provided, fetch it using Basic PAN API
+      let verification;
+      if (!companyName) {
+        verification = await sandboxKYCService.fetchPANBasic(pan);
+      } else {
+        // Verify PAN with provided company name
+        verification = await sandboxKYCService.verifyCorporatePAN(pan, companyName);
+      }
 
       // Sandbox returns a different structure, so we adapt it
       const data = verification;

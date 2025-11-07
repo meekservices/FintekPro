@@ -281,6 +281,61 @@ export class SandboxKYCService {
   }
 
   /**
+   * Fetch PAN details (Basic API) - Returns registered name without requiring input
+   * Uses GET endpoint to retrieve PAN details by PAN number only
+   * @param pan - PAN number
+   */
+  async fetchPANBasic(pan: string): Promise<CorporatePANDetails> {
+    const token = await this.authenticate();
+
+    try {
+      const response = await axios.get(
+        `${SANDBOX_BASE_URL}/pans/${pan}/verify`,
+        {
+          params: {
+            consent: 'y',
+            reason: 'For KYC verification',
+          },
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'x-api-key': process.env.SANDBOX_API_KEY || '',
+            'x-api-version': '1.0',
+            'Accept': 'application/json',
+          },
+        }
+      );
+
+      if (response.data.code !== 200) {
+        throw new Error(response.data.message || 'PAN lookup failed');
+      }
+
+      const data = response.data.data;
+
+      return {
+        pan: data.pan,
+        name: data.name,
+        entityType: data.entity_type || data.category,
+        status: data.status,
+        lastUpdated: data.last_updated,
+        category: data.category,
+      };
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.message || error.message;
+      const statusCode = error.response?.status;
+      
+      console.error(`Sandbox PAN Basic API Error (${statusCode}):`, errorMsg);
+      
+      if (statusCode === 400) {
+        throw new Error(`Invalid PAN format: ${errorMsg}`);
+      } else if (statusCode === 401) {
+        throw new Error('Authentication failed. Verify SANDBOX_API_KEY and SANDBOX_API_SECRET.');
+      }
+      
+      throw new Error(`PAN lookup failed: ${errorMsg}`);
+    }
+  }
+
+  /**
    * Verify Corporate PAN details
    * @param pan - PAN number
    * @param name - Company/Entity name as per PAN
