@@ -20,16 +20,20 @@ import {
   Building,
   CreditCard,
   FileText,
-  Settings
+  Settings,
+  Briefcase,
+  PiggyBank,
+  Award
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { AutoPopulationProgressIndicator } from '@/components/AutoPopulationProgressIndicator';
+import { useAuth } from '@/hooks/useAuth';
 
 // Types
 interface ConsentRecord {
   id: string;
   userId: string;
-  dataSource: 'mutual_funds' | 'demat' | 'bank' | 'loans' | 'insurance';
+  dataSource: 'mutual_funds' | 'demat' | 'bank' | 'loans' | 'insurance' | 'epf' | 'nps' | 'apy';
   provider?: string;
   status: 'active' | 'revoked' | 'expired';
   consentPurpose: string;
@@ -65,15 +69,19 @@ const DATA_SOURCE_CONFIG = {
   demat: { icon: Wallet, label: 'Demat Holdings', color: 'text-green-600' },
   bank: { icon: Building, label: 'Bank Accounts', color: 'text-purple-600' },
   loans: { icon: CreditCard, label: 'Loan Liabilities', color: 'text-orange-600' },
-  insurance: { icon: Shield, label: 'Insurance Policies', color: 'text-indigo-600' }
+  insurance: { icon: Shield, label: 'Insurance Policies', color: 'text-indigo-600' },
+  epf: { icon: Briefcase, label: 'EPF/VPF Accounts', color: 'text-teal-600' },
+  nps: { icon: PiggyBank, label: 'National Pension System', color: 'text-cyan-600' },
+  apy: { icon: Award, label: 'Atal Pension Yojana', color: 'text-amber-600' }
 };
 
 export default function AutoPopulationDashboard() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [selectedWorkflow, setSelectedWorkflow] = useState<string | null>(null);
 
-  // Fetch user ID from session (demo for now)
-  const userId = 'demo-user-1'; // TODO: Get from auth context
+  // Get actual user ID from auth context
+  const userId = user?.id;
 
   // Query: Get all consents
   const { data: consentsData, isLoading: consentsLoading } = useQuery<{ consents: ConsentRecord[] }>({
