@@ -2397,6 +2397,12 @@ export const products = pgTable("products", {
   // Data freshness
   lastPerformanceUpdate: timestamp("last_performance_update"),
   dataSource: varchar("data_source"), // 'api', 'manual', 'calculated'
+  // Markup and pricing
+  markup: decimal("markup", { precision: 8, scale: 4 }).default("0"), // Markup amount or percentage
+  markupType: varchar("markup_type").default("percentage"), // 'percentage' or 'fixed'
+  finalPrice: decimal("final_price", { precision: 15, scale: 2 }), // Calculated: basePrice + markup
+  // Bond specific flags
+  isPerpetual: boolean("is_perpetual").default(false), // For perpetual bonds (no maturity date)
   // Timestamps
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -7806,6 +7812,13 @@ export const governmentSecurities = pgTable("government_securities", {
   eligibilityCriteria: text("eligibility_criteria"),
   lockinPeriod: varchar("lockin_period"), // Lock-in period if any
   
+  // Markup and pricing
+  markup: decimal("markup", { precision: 8, scale: 4 }).default("0"), // Markup amount or percentage
+  markupType: varchar("markup_type").default("percentage"), // 'percentage' or 'fixed'
+  finalPrice: decimal("final_price", { precision: 15, scale: 4 }), // Calculated: currentPrice + markup
+  // Perpetual bond flag
+  isPerpetual: boolean("is_perpetual").default(false), // True for perpetual bonds with no maturity date
+  
   // Metadata
   dataSource: varchar("data_source").default("nse_ncb"), // 'nse_ncb', 'rbi', 'manual'
   lastUpdated: timestamp("last_updated").defaultNow(),
@@ -7897,6 +7910,12 @@ export const corporateBonds = pgTable("corporate_bonds", {
   specialFeatures: jsonb("special_features").default([]),
   lockinPeriod: varchar("lockin_period"),
   
+  // Markup and pricing
+  markup: decimal("markup", { precision: 8, scale: 4 }).default("0"), // Markup amount or percentage
+  markupType: varchar("markup_type").default("percentage"), // 'percentage' or 'fixed'
+  finalPrice: decimal("final_price", { precision: 15, scale: 4 }), // Calculated: currentPrice + markup
+  // Perpetual bond flag
+  isPerpetual: boolean("is_perpetual").default(false), // True for perpetual bonds with no maturity date
   // Metadata
   dataSource: varchar("data_source").default("bse_bond"), // 'bse_bond', 'manual'
   lastUpdated: timestamp("last_updated").defaultNow(),
