@@ -408,6 +408,10 @@ export default function StakeholdersPage() {
       partnerType: formData.get("partnerType") as string,
       commissionRate: formData.get("commissionRate") as string || "0.00",
       isActive: formData.get("isActive") === "true",
+      panNumber: formData.get("panNumber") as string || undefined,
+      bankAccountNumber: formData.get("bankAccountNumber") as string || undefined,
+      ifscCode: formData.get("ifscCode") as string || undefined,
+      upiId: formData.get("upiId") as string || undefined,
     };
 
     try {
@@ -437,6 +441,10 @@ export default function StakeholdersPage() {
       partnerType: formData.get("partnerType") as string,
       commissionRate: formData.get("commissionRate") as string || "0.00",
       isActive: formData.get("isActive") === "true",
+      panNumber: formData.get("panNumber") as string || undefined,
+      bankAccountNumber: formData.get("bankAccountNumber") as string || undefined,
+      ifscCode: formData.get("ifscCode") as string || undefined,
+      upiId: formData.get("upiId") as string || undefined,
     };
 
     const password = formData.get("password") as string;
@@ -460,6 +468,12 @@ export default function StakeholdersPage() {
       euinNumber: formData.get("euinNumber") as string || undefined,
       agentType: formData.get("agentType") as string,
       status: formData.get("status") as string,
+      
+      // Payout Details (Required for Cashfree payouts)
+      panNumber: formData.get("panNumber") as string || undefined,
+      bankAccountNumber: formData.get("bankAccountNumber") as string || undefined,
+      ifscCode: formData.get("ifscCode") as string || undefined,
+      upiId: formData.get("upiId") as string || undefined,
       
       // NISM Certification
       nismCertificateNumber: formData.get("nismCertificateNumber") as string || undefined,
@@ -507,6 +521,12 @@ export default function StakeholdersPage() {
       euinNumber: formData.get("euinNumber") as string || undefined,
       agentType: formData.get("agentType") as string,
       status: formData.get("status") as string,
+      
+      // Payout Details (Required for Cashfree payouts)
+      panNumber: formData.get("panNumber") as string || undefined,
+      bankAccountNumber: formData.get("bankAccountNumber") as string || undefined,
+      ifscCode: formData.get("ifscCode") as string || undefined,
+      upiId: formData.get("upiId") as string || undefined,
       
       // NISM Certification
       nismCertificateNumber: formData.get("nismCertificateNumber") as string || undefined,
@@ -1284,6 +1304,28 @@ export default function StakeholdersPage() {
                   </SelectContent>
                 </Select>
               </div>
+              
+              {/* Payout Details Section */}
+              <div className="space-y-2 col-span-2">
+                <h4 className="font-medium text-sm text-muted-foreground border-b pb-2">Payout Details (Required for Commission Payments)</h4>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="panNumber">PAN Number</Label>
+                <Input id="panNumber" name="panNumber" placeholder="e.g., ABCDE1234F" maxLength={10} data-testid="input-partner-panNumber" />
+                <p className="text-xs text-muted-foreground">Required for receiving payouts</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="bankAccountNumber">Bank Account Number</Label>
+                <Input id="bankAccountNumber" name="bankAccountNumber" placeholder="Bank account number" data-testid="input-partner-bankAccountNumber" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ifscCode">IFSC Code</Label>
+                <Input id="ifscCode" name="ifscCode" placeholder="e.g., HDFC0000123" data-testid="input-partner-ifscCode" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="upiId">UPI ID (Optional)</Label>
+                <Input id="upiId" name="upiId" placeholder="yourname@upi" data-testid="input-partner-upiId" />
+              </div>
             </div>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setIsAddPartnerOpen(false)} data-testid="button-cancel-partner">
@@ -1355,6 +1397,28 @@ export default function StakeholdersPage() {
                     </SelectContent>
                   </Select>
                 </div>
+                
+                {/* Payout Details Section */}
+                <div className="space-y-2 col-span-2">
+                  <h4 className="font-medium text-sm text-muted-foreground border-b pb-2">Payout Details (Required for Commission Payments)</h4>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-panNumber">PAN Number</Label>
+                  <Input id="edit-panNumber" name="panNumber" placeholder="e.g., ABCDE1234F" maxLength={10} defaultValue={(editingPartner as any).panNumber || ""} data-testid="input-edit-partner-panNumber" />
+                  <p className="text-xs text-muted-foreground">Required for receiving payouts</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-bankAccountNumber">Bank Account Number</Label>
+                  <Input id="edit-bankAccountNumber" name="bankAccountNumber" placeholder="Bank account number" defaultValue={(editingPartner as any).bankAccountNumber || ""} data-testid="input-edit-partner-bankAccountNumber" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-ifscCode">IFSC Code</Label>
+                  <Input id="edit-ifscCode" name="ifscCode" placeholder="e.g., HDFC0000123" defaultValue={(editingPartner as any).ifscCode || ""} data-testid="input-edit-partner-ifscCode" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-upiId">UPI ID (Optional)</Label>
+                  <Input id="edit-upiId" name="upiId" placeholder="yourname@upi" defaultValue={(editingPartner as any).upiId || ""} data-testid="input-edit-partner-upiId" />
+                </div>
               </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setEditingPartner(null)} data-testid="button-cancel-edit-partner">
@@ -1401,6 +1465,28 @@ export default function StakeholdersPage() {
               <div className="space-y-2">
                 <Label htmlFor="euinNumber">EUIN Number</Label>
                 <Input id="euinNumber" name="euinNumber" data-testid="input-agent-euinNumber" />
+              </div>
+              
+              {/* Payout Details Section */}
+              <div className="space-y-2 col-span-2">
+                <h4 className="font-medium text-sm text-muted-foreground border-b pb-2">Payout Details (Required for Commission Payments)</h4>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="panNumber">PAN Number</Label>
+                <Input id="panNumber" name="panNumber" placeholder="e.g., ABCDE1234F" maxLength={10} data-testid="input-agent-panNumber" />
+                <p className="text-xs text-muted-foreground">Required for receiving payouts</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="bankAccountNumber">Bank Account Number</Label>
+                <Input id="bankAccountNumber" name="bankAccountNumber" placeholder="Bank account number" data-testid="input-agent-bankAccountNumber" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ifscCode">IFSC Code</Label>
+                <Input id="ifscCode" name="ifscCode" placeholder="e.g., HDFC0000123" data-testid="input-agent-ifscCode" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="upiId">UPI ID (Optional)</Label>
+                <Input id="upiId" name="upiId" placeholder="yourname@upi" data-testid="input-agent-upiId" />
               </div>
               
               {/* NISM-V-A Certification Section */}
@@ -1525,6 +1611,28 @@ export default function StakeholdersPage() {
                 <div className="space-y-2">
                   <Label htmlFor="edit-euinNumber">EUIN Number</Label>
                   <Input id="edit-euinNumber" name="euinNumber" defaultValue={editingAgent.euinNumber || ""} data-testid="input-edit-agent-euinNumber" />
+                </div>
+                
+                {/* Payout Details Section */}
+                <div className="space-y-2 col-span-2">
+                  <h4 className="font-medium text-sm text-muted-foreground border-b pb-2">Payout Details (Required for Commission Payments)</h4>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-panNumber">PAN Number</Label>
+                  <Input id="edit-panNumber" name="panNumber" placeholder="e.g., ABCDE1234F" maxLength={10} defaultValue={(editingAgent as any).panNumber || ""} data-testid="input-edit-agent-panNumber" />
+                  <p className="text-xs text-muted-foreground">Required for receiving payouts</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-bankAccountNumber">Bank Account Number</Label>
+                  <Input id="edit-bankAccountNumber" name="bankAccountNumber" placeholder="Bank account number" defaultValue={(editingAgent as any).bankAccountNumber || ""} data-testid="input-edit-agent-bankAccountNumber" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-ifscCode">IFSC Code</Label>
+                  <Input id="edit-ifscCode" name="ifscCode" placeholder="e.g., HDFC0000123" defaultValue={(editingAgent as any).ifscCode || ""} data-testid="input-edit-agent-ifscCode" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-upiId">UPI ID (Optional)</Label>
+                  <Input id="edit-upiId" name="upiId" placeholder="yourname@upi" defaultValue={(editingAgent as any).upiId || ""} data-testid="input-edit-agent-upiId" />
                 </div>
                 
                 {/* NISM-V-A Certification Section */}
