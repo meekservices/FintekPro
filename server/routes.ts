@@ -86,6 +86,7 @@ import { verifyBankAccountPennyDrop, validateIFSC, validateAccountNumber, isName
 import { lookupIFSC, isValidIFSCFormat } from './ifsc-lookup-service';
 import { ProductAccountService } from './product-account-service';
 import { BSEStarKYCService } from './services/bse-star-kyc-service';
+import { autoPopulationOrchestrator } from './services/auto-population-orchestrator';
 import * as schema from "@shared/schema";
 import { sanitizeError } from "./utils/pii-sanitizer";
 import { validatePayoutFields } from "./payout-validation";
@@ -2314,6 +2315,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         smartKycCompletedAt: new Date()
       });
       
+      
+      // Auto-trigger portfolio auto-population after KYC completion (non-blocking)
+      setTimeout(async () => {
+        try {
+          console.log(`🚀 Auto-triggering portfolio sync for user ${userId} after KYC completion`);
+          await autoPopulationOrchestrator.initiateFromKYC(userId, 'kyc_completion');
+        } catch (error) {
+          console.error('Failed to auto-trigger portfolio sync after KYC:', error);
+          // Don't fail KYC completion if auto-population fails
+        }
+      }, 0);
       res.json({
         success: true,
         message: "Smart KYC completed successfully"
