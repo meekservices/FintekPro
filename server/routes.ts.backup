@@ -20527,7 +20527,7 @@ System Security Data:`;
   // Create new financial agent
   app.post("/api/admin/agents", requireAdmin, async (req, res) => {
     try {
-      const validationError = validatePayoutFields(req.body, true);
+      const validationError = validatePayoutFields(req.body);
       if (validationError) {
         return apiResponse.badRequest(res, validationError);
       }
@@ -20543,7 +20543,7 @@ System Security Data:`;
   // Update financial agent
   app.patch("/api/admin/agents/:agentId", requireAdmin, async (req, res) => {
     try {
-      const validationError = validatePayoutFields(req.body, false);
+      const validationError = validatePayoutFields(req.body);
       if (validationError) {
         return apiResponse.badRequest(res, validationError);
       }
@@ -20671,7 +20671,7 @@ System Security Data:`;
   // Create new partner
   app.post("/api/admin/partners", requireAdmin, async (req, res) => {
     try {
-      const validationError = validatePayoutFields(req.body, true);
+      const validationError = validatePayoutFields(req.body);
       if (validationError) {
         return apiResponse.badRequest(res, validationError);
       }
@@ -20696,7 +20696,7 @@ System Security Data:`;
   // Update partner
   app.patch("/api/admin/partners/:id", requireAdmin, async (req, res) => {
     try {
-      const validationError = validatePayoutFields(req.body, false);
+      const validationError = validatePayoutFields(req.body);
       if (validationError) {
         return apiResponse.badRequest(res, validationError);
       }
