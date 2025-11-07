@@ -843,6 +843,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Current user endpoint - returns authenticated user with KYC status (or null if not logged in)
+  app.get("/api/user", async (req, res) => {
+    try {
+      // If no user is authenticated, return null (for useAuth hook)
+      if (!req.user) {
+        return res.json(null);
+      }
+      
+      const userId = req.user.id;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.json(null);
+      }
+      
+      // Determine KYC completion status
+      const kycCompleted = !!(user.smartKycCompletedAt);
+      const kycTier = user.kycTier || 'basic';
+      
+      // Return user with KYC status
+      res.json({
+        id: user.id,
+        userId: user.userId,
+        email: user.email,
+        mobile: user.mobile,
+        firstName: user.firstName,
+        middleName: user.middleName,
+        lastName: user.lastName,
+        profileImageUrl: user.profileImageUrl,
+        roles: user.roles || ['user'],
+        isActive: user.isActive,
+        kycCompleted,
+        kycTier,
+        smartKycCompletedAt: user.smartKycCompletedAt,
+        panNumber: user.panNumber,
+        isEmailVerified: user.isEmailVerified,
+        isMobileVerified: user.isMobileVerified,
+      });
+    } catch (error) {
+      console.error("Error fetching current user:", error);
+      return res.status(500).json({ error: "Failed to fetch user" });
+    }
+  });
+
   // User profile endpoint for clients - allows self-service profile updates
   app.get("/api/user/profile", requireClientOrHigher, async (req, res) => {
     try {
@@ -11460,9 +11504,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error revoking consent:", error);
       return apiResponse.serverError(res, "Failed to revoke consent");
+    }
+  });
+
   app.get("/api/portfolios/by-pan/holdings", async (req: any, res) => {
     try {
-      const userId = req.user?.id || 'demo-user-1';
+      // Require authentication - no demo user fallback
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          message: "Authentication required. Please log in to view your portfolio holdings.",
+          authRequired: true
+        });
+      }
+      
+      const userId = req.user.id;
       
       // Get user's PAN from database
       const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
@@ -11483,20 +11539,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Decrypt PAN for API calls (in the future, this would call external API)
-      let decryptedPAN: string;
-      try {
-        decryptedPAN = await PANConsentService.decryptPAN(user.panNumber);
-      } catch (error) {
-        console.error('Error decrypting PAN:', error);
-        return res.status(500).json({
-          success: false,
-          message: "Failed to retrieve PAN information"
-        });
-      }
-      
       // Fetch actual holdings from user's portfolios
-      // Get user's portfolio(s)
       const userPortfolios = await storage.getPortfolios(userId);
       
       // Aggregate holdings from all user portfolios
@@ -11506,23 +11549,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         allHoldings = allHoldings.concat(portfolioHoldings);
       }
       
-      // Check if holdings exist
-      if (allHoldings.length === 0) {
-        return res.json({
-          success: true,
-          holdings: [],
-          message: `No portfolio holdings found for PAN ${decryptedPAN.substring(0, 4)}XXX${decryptedPAN.substring(9)}. Holdings will be displayed here once they are linked to your PAN.`,
-          panNumber: `${decryptedPAN.substring(0, 4)}XXX${decryptedPAN.substring(9)}`, // Masked PAN
-          panVerified: true,
-          holdingsCount: 0
-        });
-      }
-      
+      // Return holdings
       res.json({
         success: true,
         holdings: allHoldings,
-        panNumber: `${decryptedPAN.substring(0, 4)}XXX${decryptedPAN.substring(9)}`, // Masked PAN
-        panVerified: true,
         holdingsCount: allHoldings.length
       });
     } catch (error) {
@@ -11530,9 +11560,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return apiResponse.serverError(res, "Failed to fetch portfolio holdings");
     }
   });
-    }
-  });
-
   // Insurance Holdings Routes
   app.get("/api/insurance-holdings", requireAuth, async (req: any, res) => {
     try {
