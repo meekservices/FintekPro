@@ -67,6 +67,13 @@ The platform employs a subdomain-based portal architecture for Admin, Partner, a
 - **Manual Table Creation**: Created comprehensive_holdings and portfolio_snapshots tables via SQL (November 7, 2025) to unblock auto-population features for urgent republishing
 - **Unique Constraints**: Temporarily removed `.unique()` from bbps_categories.categoryCode and bbps_billers.billerCode in schema.ts to bypass Drizzle migration prompts
 - **Critical Bug Fix (November 7, 2025)**: Fixed production-breaking method name mismatch in server/routes.ts line 11559 - corrected `storage.getPortfolios(userId)` to `storage.getPortfoliosByUserId(userId)`. This bug caused 500 errors on `/api/portfolios/by-pan/holdings` endpoint in production. Bug was only detected after publishing since development environment worked correctly.
+- **Missing Storage Methods Implementation (November 7, 2025)**: Discovered and resolved 19 missing storage methods that were called in routes but not implemented, which would have caused 500 errors when features were accessed:
+  - **Tables Created**: Manually created 5 critical tables via SQL (ckyc_action_logs, ckyc_progress_steps, ckyc_notification_triggers, suppliers, product_performance) to avoid interactive db:push prompts
+  - **CKYC Methods** (5): createCkycActionLog, getCkycActionLogs, createCkycProgressStep, getCkycProgressSteps, updateCkycProgressStep
+  - **Notification Methods** (4): createNotificationTrigger, getNotificationTriggers, updateNotificationTrigger, processPendingNotifications
+  - **Supplier/Product Methods** (6): createSupplierProduct, getSupplierProducts, updateSupplierProduct, deleteSupplierProduct, createProductPerformanceMetric, getProductPerformanceMetrics
+  - **Helper Methods** (3): getAgents, getUserById (existing initializeUserPasswords was reused)
+  - **Implementation**: All methods use proper Drizzle ORM queries with error handling, support filtering/pagination where appropriate, and follow existing storage patterns
 - **Follow-up Required** (Post-Republish):
   - Reconcile 30+ missing unique constraints across schema.ts
   - Add back unique constraints to bbps_categories.categoryCode and bbps_billers.billerCode
