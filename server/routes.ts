@@ -29050,6 +29050,177 @@ System Security Data:`;
     }
   });
 
+  // Corporate KYC - Verify Authorized Signatory
+  app.post('/api/kyc/corporate/verify-signatory', async (req, res) => {
+    try {
+      if (!req.session?.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const { name, designation, digilockerSessionId, aadhaarData, consentGiven } = req.body;
+
+      if (!name || !designation) {
+        return res.status(400).json({ 
+          success: false,
+          message: 'Name and designation are required' 
+        });
+      }
+
+      const result = await corporateKYCService.verifyAuthorizedSignatory(
+        req.session.user.id,
+        {
+          name,
+          designation,
+          digilockerSessionId: digilockerSessionId || '',
+          aadhaarData: aadhaarData || {}
+        }
+      );
+
+      // Record consent if provided
+      if (consentGiven && result.success) {
+        const consentService = new PANConsentService();
+        await consentService.recordKYCConsent({
+          userId: req.session.user.id,
+          consentType: 'corporate_kyc_signatory',
+          consentGiven: true,
+          ipAddress: req.ip || 'unknown',
+          userAgent: req.get('User-Agent') || 'unknown',
+          verificationType: 'digilocker_aadhaar',
+          dataShared: {
+            signatoryName: name,
+            designation,
+            aadhaarLastFour: result.aadhaarLastFour
+          }
+        });
+
+        // Auto-generate KYC token for Corporate entity
+        const kycToken = await consentService.generateKYCToken(req.session.user.id, 'Corporate');
+        (result as any).kycToken = kycToken;
+      }
+
+      complianceMonitor.logEvent({
+        eventType: 'kyc_verification',
+        action: 'corporate_signatory_verification',
+        resource: name,
+        userId: req.session.user.id,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        outcome: result.success ? 'success' : 'failure',
+        riskLevel: 'medium',
+        details: {
+          signatoryName: name,
+          designation,
+          consentGiven: consentGiven || false
+        }
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error('Corporate signatory verification error:', error);
+      complianceMonitor.logEvent({
+        eventType: 'kyc_verification',
+        action: 'corporate_signatory_verification',
+        userId: req.session?.user?.id,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        outcome: 'failure',
+        riskLevel: 'high',
+        details: { error: error instanceof Error ? error.message : 'Unknown error' }
+      });
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Signatory verification failed'
+      });
+    }
+  });
+
+  // NRI KYC - Verify Passport and PAN
+  app.post('/api/kyc/nri/verify-passport', async (req, res) => {
+    try {
+      if (!req.session?.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const { passportNumber, passportName, passportExpiry, countryOfResidence, pan, dob, consentGiven } = req.body;
+
+      if (!passportNumber || !passportName || !passportExpiry || !countryOfResidence) {
+        return res.status(400).json({ 
+          success: false,
+          message: 'Passport details are required' 
+        });
+      }
+      const { NRIKYCService } = await import("./services/nri-kyc-service");
+      const nriService = new NRIKYCService();
+      const result = await nriService.verifyPassportAndPAN(
+        req.session.user.id,
+        passportNumber,
+        passportName,
+        passportExpiry,
+        countryOfResidence,
+        pan,
+        dob
+      );
+
+      // Record consent if provided
+      if (consentGiven && result.success) {
+        const consentService = new PANConsentService();
+        await consentService.recordKYCConsent({
+          userId: req.session.user.id,
+          consentType: 'nri_kyc_passport',
+          consentGiven: true,
+          ipAddress: req.ip || 'unknown',
+          userAgent: req.get('User-Agent') || 'unknown',
+          verificationType: 'passport',
+          dataShared: {
+            passportNumber,
+            name: passportName,
+            countryOfResidence,
+            pan: pan || 'not_provided'
+          }
+        });
+
+        // Auto-generate KYC token for NRI
+        const kycToken = await consentService.generateKYCToken(req.session.user.id, 'NRI');
+        (result as any).kycToken = kycToken;
+      }
+
+      complianceMonitor.logEvent({
+        eventType: 'kyc_verification',
+        action: 'nri_passport_verification',
+        resource: passportNumber,
+        userId: req.session.user.id,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        outcome: result.success ? 'success' : 'failure',
+        riskLevel: 'medium',
+        details: {
+          passportNumber,
+          countryOfResidence,
+          hasPAN: !!pan,
+          consentGiven: consentGiven || false
+        }
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error('NRI passport verification error:', error);
+      complianceMonitor.logEvent({
+        eventType: 'kyc_verification',
+        action: 'nri_passport_verification',
+        userId: req.session?.user?.id,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        outcome: 'failure',
+        riskLevel: 'high',
+        details: { error: error instanceof Error ? error.message : 'Unknown error' }
+      });
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Passport verification failed'
+      });
+    }
+  });
+
 
   // Verify corporate entity using Sandbox APIs
   app.post('/api/corporate-kyc/verify-entity', async (req, res) => {

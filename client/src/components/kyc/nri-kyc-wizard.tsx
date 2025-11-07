@@ -32,7 +32,31 @@ const steps = [
 // Step 1: Passport & PAN Verification
 function PassportPANStep({ data, onChange, onNext, isFirst }: StepProps) {
   const { toast } = useToast();
+  const [consentGiven, setConsentGiven] = useState(false);
   
+  const verifyPAN = useMutation({
+    mutationFn: async ({ pan, dob }: { pan: string; dob: string }) => {
+      const response = await apiRequest("POST", "/api/kyc/verify-pan", {
+        body: { pan, dob }
+      });
+      return response.json();
+    },
+    onSuccess: (result) => {
+      if (result.fullName) {
+        onChange("passportName", result.fullName);
+        onChange("panVerified", true);
+        toast({ title: "✅ PAN Verified - Name Auto-filled" });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "PAN Verification Failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
   const verifyPassport = useMutation({
     mutationFn: async () => {
       const response = await apiRequest("POST", "/api/kyc/nri/verify-passport", {
@@ -42,7 +66,8 @@ function PassportPANStep({ data, onChange, onNext, isFirst }: StepProps) {
           passportExpiry: data.passportExpiry,
           countryOfResidence: data.countryOfResidence,
           pan: data.pan,
-          dob: data.dob
+          dob: data.dob,
+          consentGiven
         }
       });
       return response.json();
@@ -59,6 +84,12 @@ function PassportPANStep({ data, onChange, onNext, isFirst }: StepProps) {
       });
     }
   });
+
+  const handleVerifyPAN = () => {
+    if (data.pan?.length === 10 && data.dob) {
+      verifyPAN.mutate({ pan: data.pan, dob: data.dob });
+    }
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-500">
@@ -79,8 +110,20 @@ function PassportPANStep({ data, onChange, onNext, isFirst }: StepProps) {
             id="passportName"
             value={data.passportName || ""}
             onChange={(e) => onChange("passportName", e.target.value)}
+            readOnly={data.panVerified}
+            className={data.panVerified ? "bg-muted" : ""}
             data-testid="input-passport-name"
           />
+          {data.panVerified && (
+            <p className="text-sm text-green-600 dark:text-green-400">
+              ✓ Auto-filled from verified PAN
+            </p>
+          )}
+          {!data.pan && (
+            <p className="text-sm text-muted-foreground">
+              Enter PAN below to auto-fill name from government records
+            </p>
+          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="passportExpiry">Passport Expiry Date *</Label>
@@ -109,15 +152,35 @@ function PassportPANStep({ data, onChange, onNext, isFirst }: StepProps) {
           </Select>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="pan">PAN Number (Optional)</Label>
-          <Input
-            id="pan"
-            placeholder="ABCDE1234F"
-            value={data.pan || ""}
-            onChange={(e) => onChange("pan", e.target.value.toUpperCase())}
-            maxLength={10}
-            data-testid="input-pan"
-          />
+          <Label htmlFor="pan">PAN Number (Optional - for auto-fill)</Label>
+          <div className="flex gap-2">
+            <Input
+              id="pan"
+              placeholder="ABCDE1234F"
+              value={data.pan || ""}
+              onChange={(e) => {
+                onChange("pan", e.target.value.toUpperCase());
+                if (e.target.value.length !== 10) {
+                  onChange("panVerified", false);
+                }
+              }}
+              maxLength={10}
+              data-testid="input-pan"
+            />
+            {data.pan && data.pan.length === 10 && data.dob && !data.panVerified && (
+              <Button
+                type="button"
+                onClick={handleVerifyPAN}
+                disabled={verifyPAN.isPending}
+                data-testid="button-verify-pan"
+              >
+                {verifyPAN.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify"}
+              </Button>
+            )}
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Verify your PAN to auto-fill name from government records
+          </p>
         </div>
         {data.pan && (
           <div className="space-y-2">
@@ -131,12 +194,32 @@ function PassportPANStep({ data, onChange, onNext, isFirst }: StepProps) {
             />
           </div>
         )}
+
+        <div className="flex items-start space-x-2 p-4 border rounded-lg bg-blue-50 dark:bg-blue-950/20">
+          <Checkbox
+            id="consent-nri"
+            data-testid="checkbox-consent"
+            checked={consentGiven}
+            onCheckedChange={(checked) => setConsentGiven(checked as boolean)}
+          />
+          <div className="grid gap-1.5 leading-none">
+            <label
+              htmlFor="consent-nri"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+            >
+              I consent to KYC data sharing
+            </label>
+            <p className="text-sm text-muted-foreground">
+              I hereby consent to share my KYC data (Passport, PAN, and personal information) with authorized financial institutions for NRI account opening, investment processing, and regulatory compliance.
+            </p>
+          </div>
+        </div>
       </div>
 
       <div className="flex justify-end">
         <Button
           onClick={() => verifyPassport.mutate()}
-          disabled={!data.passportNumber || !data.passportName || !data.passportExpiry || !data.countryOfResidence}
+          disabled={!data.passportNumber || !data.passportName || !data.passportExpiry || !data.countryOfResidence || !consentGiven}
           data-testid="button-next"
         >
           {verifyPassport.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
