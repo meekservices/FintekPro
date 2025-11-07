@@ -75,6 +75,7 @@ import { cashfreeService } from './cashfree-service';
 import { phonePeService } from './phonepe-service';
 import { mutualFundsRefreshJob } from './mutual-funds-refresh-job';
 import { initReKYCCron } from './rekyc-cron';
+import { initAutoPopulationSyncCron } from './auto-population-sync-cron';
 import { seedProducts } from './seed-products';
 import { seedDefaultAgent } from './seed-default-agent';
 import { nseNcbApi } from './nseNcbApi';
@@ -155,6 +156,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Start Re-KYC reminder cron job (runs daily at 9:00 AM)
   initReKYCCron();
+  
+  // Start Auto-Population scheduled sync cron job (runs every 6 hours)
+  initAutoPopulationSyncCron();
   
   // Auto-seed products if database is empty
   try {
