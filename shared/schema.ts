@@ -5815,7 +5815,7 @@ export type InsertZohoCommerceSyncLog = z.infer<typeof insertZohoCommerceSyncLog
 export const bbpsCategories = pgTable("bbps_categories", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   categoryName: varchar("category_name").notNull(), // Electricity, Gas, Telecom, etc.
-  categoryCode: varchar("category_code").notNull().unique(), // ELECTRICITY_BILL, GAS_BILL, etc.
+  categoryCode: varchar("category_code").notNull(), // ELECTRICITY_BILL, GAS_BILL, etc. - TODO: Add unique constraint after republish
   description: text("description"),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
@@ -5825,7 +5825,7 @@ export const bbpsCategories = pgTable("bbps_categories", {
 export const bbpsBillers = pgTable("bbps_billers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   billerName: varchar("biller_name").notNull(), // BSES, Airtel, etc.
-  billerCode: varchar("biller_code").notNull().unique(), // BSES001, AIRTEL001, etc.
+  billerCode: varchar("biller_code").notNull(), // BSES001, AIRTEL001, etc. - TODO: Add unique constraint after republish
   categoryId: varchar("category_id").references(() => bbpsCategories.id).notNull(),
   billerAliasName: varchar("biller_alias_name"),
   billerCoverage: varchar("biller_coverage"), // ALL_INDIA, STATE_WISE, etc.
@@ -7409,7 +7409,6 @@ export const insertCashfreeTransactionSchema = createInsertSchema(cashfreeTransa
   id: true,
   createdAt: true,
   updatedAt: true,
-  initiatedAt: true,
 });
 
 // Cashfree Transaction Types
