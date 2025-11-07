@@ -66,6 +66,7 @@ The platform employs a subdomain-based portal architecture for Admin, Partner, a
 - **Schema Mismatches Fixed**: Corrected user_budgets (period_type → periodType, spent_amount → spentAmount) and cashfree_transactions (webhookReceivedAt type) to match database state
 - **Manual Table Creation**: Created comprehensive_holdings and portfolio_snapshots tables via SQL (November 7, 2025) to unblock auto-population features for urgent republishing
 - **Unique Constraints**: Temporarily removed `.unique()` from bbps_categories.categoryCode and bbps_billers.billerCode in schema.ts to bypass Drizzle migration prompts
+- **Critical Bug Fix (November 7, 2025)**: Fixed production-breaking method name mismatch in server/routes.ts line 11559 - corrected `storage.getPortfolios(userId)` to `storage.getPortfoliosByUserId(userId)`. This bug caused 500 errors on `/api/portfolios/by-pan/holdings` endpoint in production. Bug was only detected after publishing since development environment worked correctly.
 - **Follow-up Required** (Post-Republish):
   - Reconcile 30+ missing unique constraints across schema.ts
   - Add back unique constraints to bbps_categories.categoryCode and bbps_billers.billerCode
