@@ -11542,19 +11542,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Fetch actual holdings from user's portfolios
-      // Get user's portfolio(s)
-      const userPortfolios = await storage.getPortfolios(userId);
-      
-      // Aggregate holdings from all user portfolios
-      let allHoldings: any[] = [];
-      for (const portfolio of userPortfolios) {
-        const portfolioHoldings = await storage.getPortfolioHoldings(portfolio.id);
-        allHoldings = allHoldings.concat(portfolioHoldings);
-      }
+      // TODO: In the future, integrate with external API to fetch holdings by PAN
+      // For now, return empty holdings with appropriate message
+      const holdings: any[] = [];
       
       // Check if holdings exist
-      if (allHoldings.length === 0) {
+      if (holdings.length === 0) {
         return res.json({
           success: true,
           holdings: [],
@@ -11567,10 +11560,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({
         success: true,
-        holdings: allHoldings,
+        holdings,
         panNumber: `${decryptedPAN.substring(0, 4)}XXX${decryptedPAN.substring(9)}`, // Masked PAN
         panVerified: true,
-        holdingsCount: allHoldings.length
+        holdingsCount: holdings.length
       });
     } catch (error) {
       console.error("Error fetching holdings by PAN:", error);

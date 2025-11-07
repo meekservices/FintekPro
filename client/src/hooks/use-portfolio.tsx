@@ -53,6 +53,22 @@ export function usePortfoliosByPan() {
   });
 }
 
+// Fetch holdings by user's PAN number (new approach)
+export function useHoldingsByPan() {
+  return useQuery<{
+    success: boolean;
+    holdings: PortfolioHolding[];
+    message?: string;
+    panNumber?: string;
+    panVerified?: boolean;
+    holdingsCount?: number;
+    kycRequired?: boolean;
+  }>({
+    queryKey: ['/api/portfolios/by-pan/holdings'],
+    retry: false,
+  });
+}
+
 export function usePortfolioHoldings(portfolioId: string | null) {
   return useQuery<PortfolioHolding[]>({
     queryKey: ['/api/portfolios', portfolioId, 'holdings'],

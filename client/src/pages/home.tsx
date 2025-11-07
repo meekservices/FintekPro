@@ -41,6 +41,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useHoldingsByPan } from "@/hooks/use-portfolio";
 
 export default function Home() {
   const [activeFeature, setActiveFeature] = useState(0);
@@ -96,13 +97,16 @@ export default function Home() {
     enabled: !!userId && isAuthenticated,
   });
   
-  const { data: holdings } = useQuery({
-    queryKey: ["/api/portfolios", portfolioId, "holdings"],
-    enabled: !!portfolioId && isAuthenticated,
-  });
+  // Use PAN-based holdings (new approach)
+  const { data: holdingsResponse, isLoading: isLoadingHoldings, error: holdingsError } = useHoldingsByPan();
+  
+  // Extract holdings from the new response structure
+  const holdings = holdingsResponse?.holdings || [];
+  const hasKycRequired = holdingsResponse?.kycRequired === true;
+  const holdingsMessage = holdingsResponse?.message || "";
   
   // Calculate total value from actual holdings
-  const totalValue = Array.isArray(holdings) ? holdings.reduce((sum: number, holding: any) => {
+  const totalValue = Array.isArray(holdings) && holdings.length > 0 ? holdings.reduce((sum: number, holding: any) => {
     return sum + (holding.currentValue || 0);
   }, 0) : 2850000; // Updated realistic fallback
 
