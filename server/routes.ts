@@ -11556,7 +11556,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Fetch actual holdings from user's portfolios
-      const userPortfolios = await storage.getPortfolios(userId);
+      const userPortfolios = await storage.getPortfoliosByUserId(userId);
       
       // Aggregate holdings from all user portfolios
       let allHoldings: any[] = [];
