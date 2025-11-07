@@ -2,6 +2,7 @@ import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { apiResponse } from "./utils/responses";
+import { applyBulkProductMarkup, applyProductMarkup } from "./utils/pricing";
 // Extend Express Request to include partner property
 declare global {
   namespace Express {
@@ -2829,7 +2830,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (limit) filters.limit = parseInt(limit as string);
       
       const products = await storage.getProducts(filters);
-      res.json(products);
+      res.json(applyBulkProductMarkup(products));
     } catch (error) {
       console.error("Error fetching products:", error);
       return apiResponse.serverError(res, "Failed to fetch products");
@@ -2845,8 +2846,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!product) {
         return apiResponse.notFound(res, "Product not found");
       }
-      
-      res.json(product);
+      res.json(applyProductMarkup(product));
     } catch (error) {
       console.error("Error fetching product:", error);
       return apiResponse.serverError(res, "Failed to fetch product");
@@ -2862,8 +2862,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!product) {
         return apiResponse.notFound(res, "Product not found");
       }
-      
-      res.json(product);
+      res.json(applyProductMarkup(product));
     } catch (error) {
       console.error("Error fetching product:", error);
       return apiResponse.serverError(res, "Failed to fetch product");
@@ -2880,8 +2879,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         period as any,
         limit ? parseInt(limit as string) : undefined
       );
-      
-      res.json(products);
+      res.json(applyBulkProductMarkup(products));
     } catch (error) {
       console.error("Error fetching top performers:", error);
       return apiResponse.serverError(res, "Failed to fetch top performers");
@@ -2898,8 +2896,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         category,
         subcategory as string | undefined
       );
-      
-      res.json(products);
+      res.json(applyBulkProductMarkup(products));
     } catch (error) {
       console.error("Error fetching products by category:", error);
       return apiResponse.serverError(res, "Failed to fetch products by category");
@@ -2917,7 +2914,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         limit ? parseInt(limit as string) : undefined
       );
       
-      res.json(products);
+      res.json(applyBulkProductMarkup(products));
     } catch (error) {
       console.error("Error fetching products by theme:", error);
       return apiResponse.serverError(res, "Failed to fetch products by theme");
@@ -2931,7 +2928,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const products = await storage.getFeaturedProducts(
         limit ? parseInt(limit as string) : undefined
       );
-      res.json(products);
+      res.json(applyBulkProductMarkup(products));
     } catch (error) {
       console.error("Error fetching featured products:", error);
       return apiResponse.serverError(res, "Failed to fetch featured products");
@@ -2945,7 +2942,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const products = await storage.getNewProducts(
         limit ? parseInt(limit as string) : undefined
       );
-      res.json(products);
+      res.json(applyBulkProductMarkup(products));
     } catch (error) {
       console.error("Error fetching new products:", error);
       return apiResponse.serverError(res, "Failed to fetch new products");
@@ -2962,7 +2959,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const products = await storage.searchProducts(q as string);
-      res.json(products);
+      res.json(applyBulkProductMarkup(products));
     } catch (error) {
       console.error("Error searching products:", error);
       return apiResponse.serverError(res, "Failed to search products");
