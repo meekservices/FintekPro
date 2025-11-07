@@ -4905,149 +4905,110 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Bonds API endpoints
   
-  // Get government bonds data
+  // Get government bonds data with markup applied
   app.get("/api/bonds/government", async (req, res) => {
     try {
-      const governmentBonds = [
-        {
-          id: "gsec-1",
-          name: "7.17% GS 2028",
-          type: "Government Security",
-          issuer: "Government of India",
-          maturityDate: "2028-01-08",
-          couponRate: 7.17,
-          currentYield: 7.05,
-          ytm: 7.12,
-          rating: "AAA",
-          faceValue: 100,
-          currentPrice: 101.25,
-          minInvestment: 10000,
-          tradingVolume: "₹2,450 Cr",
-          duration: "4.2 years",
-          accrued: 1.25,
-          segment: "Government"
-        },
-        {
-          id: "gsec-2", 
-          name: "6.54% GS 2032",
-          type: "Government Security",
-          issuer: "Government of India",
-          maturityDate: "2032-01-01",
-          couponRate: 6.54,
-          currentYield: 6.48,
-          ytm: 6.52,
-          rating: "AAA",
-          faceValue: 100,
-          currentPrice: 100.85,
-          minInvestment: 10000,
-          tradingVolume: "₹1,890 Cr",
-          duration: "6.8 years",
-          accrued: 0.85,
-          segment: "Government"
-        },
-        {
-          id: "treasury-1",
-          name: "91 Day T-Bill",
-          type: "Treasury Bill",
-          issuer: "Government of India", 
-          maturityDate: "2025-04-15",
-          couponRate: 0,
-          currentYield: 6.95,
-          ytm: 6.95,
-          rating: "AAA",
-          faceValue: 100,
-          currentPrice: 98.23,
-          minInvestment: 25000,
-          tradingVolume: "₹8,750 Cr",
-          duration: "0.25 years",
-          accrued: 0,
-          segment: "Treasury"
-        }
-      ];
+      // Fetch government securities from database
+      const securities = await db.select().from(governmentSecurities);
 
-      res.json({
-        status: "success",
-        data: governmentBonds
+      // Map to response format with markup applied
+      const governmentBonds = securities.map((sec: any) => {
+        const currentPrice = parseFloat(sec.currentPrice || '100');
+        const markup = parseFloat(sec.markup || '0');
+        const markupType = sec.markupType || 'percentage';
+
+        let finalPrice = currentPrice;
+        if (markupType === 'percentage') {
+          finalPrice = currentPrice * (1 + markup / 100);
+        } else {
+          finalPrice = currentPrice + markup;
+        }
+
+        return {
+          id: sec.isin,
+          name: sec.securityName,
+          type: sec.securityType,
+          issuer: sec.issuer,
+          maturityDate: sec.maturityDate,
+          couponRate: parseFloat(sec.couponRate || '0'),
+          currentYield: parseFloat(sec.yieldToMaturity || '0'),
+          ytm: parseFloat(sec.yieldToMaturity || '0'),
+          rating: sec.creditRating || 'AAA',
+          faceValue: parseFloat(sec.faceValue || '100'),
+          currentPrice: currentPrice,
+          finalPrice: finalPrice,
+          markup: markup,
+          markupType: markupType,
+          minInvestment: parseFloat(sec.minimumInvestment || '10000'),
+          tradingStatus: sec.tradingStatus,
+          segment: sec.securityType === 'T-Bill' ? 'Treasury' : 'Government'
+        };
       });
+
+      return apiResponse.success(res, governmentBonds, "Government bonds retrieved successfully");
     } catch (error) {
       console.error("Error fetching government bonds:", error);
-      res.status(500).json({
-        status: "error",
-        error: "Failed to fetch government bonds data"
-      });
+      return apiResponse.serverError(res, "Failed to fetch government bonds data");
     }
   });
 
-  // Get corporate bonds data
+  // Get corporate bonds data with markup applied
   app.get("/api/bonds/corporate", async (req, res) => {
     try {
-      const corporateBonds = [
-        {
-          id: "corp-1",
-          name: "HDFC Bank 8.25% 2027",
-          type: "Corporate Bond",
-          issuer: "HDFC Bank Ltd",
-          maturityDate: "2027-03-15",
-          couponRate: 8.25,
-          currentYield: 8.12,
-          ytm: 8.18,
-          rating: "AAA",
-          faceValue: 1000,
-          currentPrice: 1025.50,
-          minInvestment: 100000,
-          tradingVolume: "₹945 Cr",
-          duration: "2.8 years",
-          accrued: 12.50,
-          segment: "Banking"
-        },
-        {
-          id: "corp-2",
-          name: "Reliance Industries 7.95% 2030",
-          type: "Corporate Bond",
-          issuer: "Reliance Industries Ltd",
-          maturityDate: "2030-06-20",
-          couponRate: 7.95,
-          currentYield: 7.88,
-          ytm: 7.91,
-          rating: "AAA",
-          faceValue: 1000,
-          currentPrice: 1018.75,
-          minInvestment: 100000,
-          tradingVolume: "₹1,230 Cr",
-          duration: "5.1 years",
-          accrued: 8.75,
-          segment: "Energy"
-        },
-        {
-          id: "corp-3",
-          name: "TCS 7.50% 2029",
-          type: "Corporate Bond",
-          issuer: "Tata Consultancy Services",
-          maturityDate: "2029-09-10",
-          couponRate: 7.50,
-          currentYield: 7.42,
-          ytm: 7.46,
-          rating: "AAA",
-          faceValue: 1000,
-          currentPrice: 1012.25,
-          minInvestment: 100000,
-          tradingVolume: "₹675 Cr",
-          duration: "4.6 years",
-          accrued: 6.25,
-          segment: "IT Services"
-        }
-      ];
+      // Fetch corporate bonds from database
+      const bonds = await db.select().from(corporateBonds);
 
-      res.json({
-        status: "success",
-        data: corporateBonds
+      // Map to response format with markup applied
+      const corporateBondsData = bonds.map((bond: any) => {
+        const currentPrice = parseFloat(bond.currentPrice || '1000');
+        const markup = parseFloat(bond.markup || '0');
+        const markupType = bond.markupType || 'percentage';
+
+        let finalPrice = currentPrice;
+        if (markupType === 'percentage') {
+          finalPrice = currentPrice * (1 + markup / 100);
+        } else {
+          finalPrice = currentPrice + markup;
+        }
+
+        // Map bond type to display segment
+        const segmentMap: Record<string, string> = {
+          'corporate_bond': 'Corporate',
+          'ncd': 'NCD',
+          'debenture': 'Debenture',
+          'perpetual': 'Perpetual Bond',
+          'infrastructure': 'Infrastructure',
+          'tax_free': 'Tax Free'
+        };
+
+        return {
+          id: bond.isin,
+          name: bond.bondName,
+          type: segmentMap[bond.bondType] || 'Corporate Bond',
+          issuer: bond.issuer,
+          maturityDate: bond.maturityDate,
+          couponRate: parseFloat(bond.couponRate || '0'),
+          currentYield: parseFloat(bond.yieldToMaturity || '0'),
+          ytm: parseFloat(bond.yieldToMaturity || '0'),
+          rating: bond.creditRating || 'AA+',
+          faceValue: parseFloat(bond.faceValue || '1000'),
+          currentPrice: currentPrice,
+          finalPrice: finalPrice,
+          markup: markup,
+          markupType: markupType,
+          minInvestment: parseFloat(bond.minimumLotSize || '1') * parseFloat(bond.faceValue || '1000'),
+          tradingStatus: bond.tradingStatus,
+          volume: bond.volume,
+          isPerpetual: bond.isPerpetual || false,
+          segment: bond.bondType,
+          lastTradedPrice: parseFloat(bond.lastTradedPrice || currentPrice)
+        };
       });
+
+      return apiResponse.success(res, corporateBondsData, "Corporate bonds retrieved successfully");
     } catch (error) {
       console.error("Error fetching corporate bonds:", error);
-      res.status(500).json({
-        status: "error",
-        error: "Failed to fetch corporate bonds data"
-      });
+      return apiResponse.serverError(res, "Failed to fetch corporate bonds data");
     }
   });
 
@@ -32041,6 +32002,29 @@ System Security Data:`;
     } catch (error) {
       console.error("Error fetching store products:", error);
       return apiResponse.serverError(res, "Failed to fetch store products");
+    }
+  });
+
+
+  // Populate bonds data from external APIs (admin only)
+  app.post("/api/admin/bonds/populate", requireAdmin, async (req, res) => {
+    try {
+      const { bondCatalogService } = await import('./bond-catalog-service');
+      const catalog = new bondCatalogService.BondCatalogService();
+      
+      console.log('Starting bond data population...');
+      
+      // Refresh all bond types
+      await catalog.refreshGovernmentSecurities();
+      await catalog.refreshCorporateBonds();
+      await catalog.refreshSovereignGoldBonds();
+      await catalog.refreshTaxFreeBonds();
+      await catalog.refreshInfrastructureBonds();
+      
+      return apiResponse.success(res, { message: 'Bond data populated successfully' });
+    } catch (error) {
+      console.error("Error populating bond data:", error);
+      return apiResponse.serverError(res, "Failed to populate bond data");
     }
   });
 
