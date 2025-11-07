@@ -11426,76 +11426,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error revoking consent:", error);
       return apiResponse.serverError(res, "Failed to revoke consent");
-  app.get("/api/portfolios/by-pan/holdings", async (req: any, res) => {
-    try {
-      const userId = req.user?.id || 'demo-user-1';
-      
-      // Get user's PAN from database
-      const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-      
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: "User not found"
-        });
-      }
-      
-      // Check if PAN is verified
-      if (!user.panNumber) {
-        return res.status(400).json({
-          success: false,
-          message: "KYC not completed. Please complete PAN verification to view your portfolio holdings.",
-          kycRequired: true
-        });
-      }
-      
-      // Decrypt PAN for API calls (in the future, this would call external API)
-      let decryptedPAN: string;
-      try {
-        decryptedPAN = await PANConsentService.decryptPAN(user.panNumber);
-      } catch (error) {
-        console.error('Error decrypting PAN:', error);
-        return res.status(500).json({
-          success: false,
-          message: "Failed to retrieve PAN information"
-        });
-      }
-      
-      // Fetch actual holdings from user's portfolios
-      // Get user's portfolio(s)
-      const userPortfolios = await storage.getPortfolios(userId);
-      
-      // Aggregate holdings from all user portfolios
-      let allHoldings: any[] = [];
-      for (const portfolio of userPortfolios) {
-        const portfolioHoldings = await storage.getPortfolioHoldings(portfolio.id);
-        allHoldings = allHoldings.concat(portfolioHoldings);
-      }
-      
-      // Check if holdings exist
-      if (allHoldings.length === 0) {
-        return res.json({
-          success: true,
-          holdings: [],
-          message: `No portfolio holdings found for PAN ${decryptedPAN.substring(0, 4)}XXX${decryptedPAN.substring(9)}. Holdings will be displayed here once they are linked to your PAN.`,
-          panNumber: `${decryptedPAN.substring(0, 4)}XXX${decryptedPAN.substring(9)}`, // Masked PAN
-          panVerified: true,
-          holdingsCount: 0
-        });
-      }
-      
-      res.json({
-        success: true,
-        holdings: allHoldings,
-        panNumber: `${decryptedPAN.substring(0, 4)}XXX${decryptedPAN.substring(9)}`, // Masked PAN
-        panVerified: true,
-        holdingsCount: allHoldings.length
-      });
-    } catch (error) {
-      console.error("Error fetching holdings by PAN:", error);
-      return apiResponse.serverError(res, "Failed to fetch portfolio holdings");
-    }
-  });
     }
   });
 
@@ -11577,6 +11507,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get portfolio holdings by PAN number (for authenticated user)
+  app.get("/api/portfolios/by-pan/holdings", async (req: any, res) => {
+    try {
+      const userId = req.user?.id || 'demo-user-1';
+      
+      // Get user's PAN from database
+      const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found"
+        });
+      }
+      
+      // Check if PAN is verified
+      if (!user.panNumber) {
+        return res.status(400).json({
+          success: false,
+          message: "KYC not completed. Please complete PAN verification to view your portfolio holdings.",
+          kycRequired: true
+        });
+      }
+      
+      // Decrypt PAN for API calls (in the future, this would call external API)
+      let decryptedPAN: string;
+      try {
+        decryptedPAN = await PANConsentService.decryptPAN(user.panNumber);
+      } catch (error) {
+        console.error('Error decrypting PAN:', error);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to retrieve PAN information"
+        });
+      }
+      
+      // Fetch actual holdings from user's portfolios
+      // Get user's portfolio(s)
+      const userPortfolios = await storage.getPortfolios(userId);
+      
+      // Aggregate holdings from all user portfolios
+      let allHoldings: any[] = [];
+      for (const portfolio of userPortfolios) {
+        const portfolioHoldings = await storage.getPortfolioHoldings(portfolio.id);
+        allHoldings = allHoldings.concat(portfolioHoldings);
+      }
+      
+      // Check if holdings exist
+      if (allHoldings.length === 0) {
+        return res.json({
+          success: true,
+          holdings: [],
+          message: `No portfolio holdings found for PAN ${decryptedPAN.substring(0, 4)}XXX${decryptedPAN.substring(9)}. Holdings will be displayed here once they are linked to your PAN.`,
+          panNumber: `${decryptedPAN.substring(0, 4)}XXX${decryptedPAN.substring(9)}`, // Masked PAN
+          panVerified: true,
+          holdingsCount: 0
+        });
+      }
+      
+      res.json({
+        success: true,
+        holdings: allHoldings,
+        panNumber: `${decryptedPAN.substring(0, 4)}XXX${decryptedPAN.substring(9)}`, // Masked PAN
+        panVerified: true,
+        holdingsCount: allHoldings.length
+      });
+    } catch (error) {
+      console.error("Error fetching holdings by PAN:", error);
+      return apiResponse.serverError(res, "Failed to fetch portfolio holdings");
+    }
+  });
 
   app.post("/api/portfolios/:portfolioId/holdings", async (req, res) => {
     try {
