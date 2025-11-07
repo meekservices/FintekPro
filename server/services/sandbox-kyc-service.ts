@@ -91,6 +91,58 @@ interface IndividualPANDetails {
   lastUpdated: string;
 }
 
+interface AadhaarOTPResponse {
+  success: boolean;
+  message: string;
+  ref_id?: string;
+  status?: string;
+  maskedAadhaar?: string;
+}
+
+interface AadhaarVerificationResponse {
+  success: boolean;
+  message: string;
+  verified: boolean;
+  data?: {
+    aadhaarNumber: string;
+    name: string;
+    dob: string;
+    gender: string;
+    fatherName?: string;
+    address: {
+      house: string;
+      street: string;
+      landmark: string;
+      locality: string;
+      city: string;
+      state: string;
+      pincode: string;
+      country: string;
+    };
+    mobile?: string;
+    email?: string;
+    photoUrl?: string;
+  };
+}
+
+interface BankAccountDetails {
+  accountNumber: string;
+  ifscCode: string;
+  bankName: string;
+  branchName: string;
+  accountHolderName: string;
+  accountType: string; // Savings, Current, etc.
+  verified: boolean;
+  nameMatchScore?: number;
+}
+
+interface UPIVerificationDetails {
+  upiId: string;
+  verified: boolean;
+  name?: string;
+  status: string;
+}
+
 export class SandboxKYCService {
   private accessToken: string | null = null;
   private tokenExpiry: number = 0;
@@ -467,6 +519,239 @@ export class SandboxKYCService {
   }
 
   /**
+   * Step 1: Generate OTP for Aadhaar OKYC verification
+   * OTP is sent to the mobile number linked with Aadhaar
+   * Replaces Cashfree Aadhaar OTP generation
+   */
+  async generateAadhaarOTP(aadhaarNumber: string): Promise<AadhaarOTPResponse> {
+    try {
+      // Validate Aadhaar number format (12 digits)
+      if (!/^\d{12}$/.test(aadhaarNumber)) {
+        return {
+          success: false,
+          message: "Invalid Aadhaar number format. Must be 12 digits."
+        };
+      }
+
+      const token = await this.authenticate();
+
+      const response = await axios.post(
+        `${SANDBOX_BASE_URL}/kyc/aadhaar/okyc/otp`,
+        { aadhaar_number: aadhaarNumber },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.data && response.data.ref_id) {
+        // Mask Aadhaar number (show only last 4 digits)
+        const maskedAadhaar = `XXXX XXXX ${aadhaarNumber.slice(-4)}`;
+        
+        return {
+          success: true,
+          message: `OTP sent successfully to registered mobile number`,
+          ref_id: response.data.ref_id,
+          status: response.data.status || 'SUCCESS',
+          maskedAadhaar
+        };
+      }
+      
+      return {
+        success: false,
+        message: response.data?.message || "Failed to send OTP"
+      };
+      
+    } catch (error: any) {
+      console.error('Sandbox Aadhaar OTP generation error:', error.response?.data || error.message);
+      
+      // Handle specific Sandbox error responses
+      if (error.response?.data?.message) {
+        return {
+          success: false,
+          message: error.response.data.message
+        };
+      }
+      
+      return {
+        success: false,
+        message: "Failed to generate OTP. Please try again."
+      };
+    }
+  }
+
+  /**
+   * Step 2: Verify OTP and retrieve Aadhaar holder details (OKYC)
+   * Returns comprehensive user information from UIDAI
+   * Replaces Cashfree Aadhaar OTP verification
+   */
+  async verifyAadhaarOTP(otp: string, refId: string): Promise<AadhaarVerificationResponse> {
+    try {
+      if (!otp || !refId) {
+        return {
+          success: false,
+          message: "OTP and Reference ID are required",
+          verified: false
+        };
+      }
+
+      const token = await this.authenticate();
+
+      const response = await axios.post(
+        `${SANDBOX_BASE_URL}/kyc/aadhaar/okyc/verify`,
+        {
+          ref_id: refId,
+          otp: otp
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.data && response.data.verified === true) {
+        const data = response.data.data || response.data;
+        
+        return {
+          success: true,
+          message: "Aadhaar verified successfully",
+          verified: true,
+          data: {
+            aadhaarNumber: data.aadhaar_number || data.uid,
+            name: data.name || data.full_name,
+            dob: data.dob || data.date_of_birth,
+            gender: data.gender,
+            fatherName: data.father_name || data.care_of,
+            address: {
+              house: data.address?.house || data.house || '',
+              street: data.address?.street || data.street || '',
+              landmark: data.address?.landmark || data.landmark || '',
+              locality: data.address?.locality || data.locality || data.loc || '',
+              city: data.address?.city || data.city || data.dist || '',
+              state: data.address?.state || data.state || '',
+              pincode: data.address?.pincode || data.pin || data.zip || '',
+              country: data.address?.country || data.country || 'India'
+            },
+            mobile: data.mobile || data.phone,
+            email: data.email,
+            photoUrl: data.photo_url || data.photo
+          }
+        };
+      }
+
+      return {
+        success: false,
+        message: response.data?.message || "Aadhaar verification failed",
+        verified: false
+      };
+
+    } catch (error: any) {
+      console.error('Sandbox Aadhaar OTP verification error:', error.response?.data || error.message);
+      
+      return {
+        success: false,
+        message: error.response?.data?.message || "OTP verification failed. Please try again.",
+        verified: false
+      };
+    }
+  }
+
+  /**
+   * Verify Bank Account using penny drop method
+   * Validates account number, IFSC, and account holder name
+   */
+  async verifyBankAccount(
+    accountNumber: string,
+    ifscCode: string,
+    accountHolderName: string
+  ): Promise<BankAccountDetails> {
+    try {
+      const token = await this.authenticate();
+
+      const response = await axios.post(
+        `${SANDBOX_BASE_URL}/kyc/bank_account/verify`,
+        {
+          account_number: accountNumber,
+          ifsc_code: ifscCode,
+          name: accountHolderName
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.data && response.data.verified === true) {
+        const data = response.data.data || response.data;
+        
+        return {
+          accountNumber: data.account_number || accountNumber,
+          ifscCode: data.ifsc_code || data.ifsc || ifscCode,
+          bankName: data.bank_name || '',
+          branchName: data.branch_name || data.branch || '',
+          accountHolderName: data.account_holder_name || data.name || accountHolderName,
+          accountType: data.account_type || 'Unknown',
+          verified: true,
+          nameMatchScore: data.name_match_score || data.match_score
+        };
+      }
+
+      throw new Error(response.data?.message || 'Bank account verification failed');
+
+    } catch (error: any) {
+      console.error('Sandbox Bank Account verification error:', error.response?.data || error.message);
+      throw new Error(`Bank verification failed: ${error.response?.data?.message || error.message}`);
+    }
+  }
+
+  /**
+   * Verify UPI ID
+   * Validates UPI address and retrieves linked account holder name
+   */
+  async verifyUPI(upiId: string): Promise<UPIVerificationDetails> {
+    try {
+      // Validate UPI ID format (name@bank)
+      if (!/^[\w.-]+@[\w]+$/.test(upiId)) {
+        throw new Error('Invalid UPI ID format. Must be in format: name@bank');
+      }
+
+      const token = await this.authenticate();
+
+      const response = await axios.post(
+        `${SANDBOX_BASE_URL}/kyc/upi/verify`,
+        { upi_id: upiId },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.data && response.data.verified === true) {
+        return {
+          upiId: upiId,
+          verified: true,
+          name: response.data.name || response.data.account_holder_name,
+          status: response.data.status || 'ACTIVE'
+        };
+      }
+
+      throw new Error(response.data?.message || 'UPI verification failed');
+
+    } catch (error: any) {
+      console.error('Sandbox UPI verification error:', error.response?.data || error.message);
+      throw new Error(`UPI verification failed: ${error.response?.data?.message || error.message}`);
+    }
+  }
+
+  /**
    * Simple fuzzy name matching for cross-verification
    */
   private fuzzyNameMatch(name1: string, name2: string): number {
@@ -490,6 +775,26 @@ export class SandboxKYCService {
 
     return matches / longer.length;
   }
+
+  /**
+   * Check if Sandbox credentials are configured
+   */
+  static isConfigured(): boolean {
+    return Boolean(SANDBOX_API_KEY && SANDBOX_API_SECRET);
+  }
 }
 
 export const sandboxKYCService = new SandboxKYCService();
+
+// Export interfaces for external use
+export type {
+  MCACompanyDetails,
+  GSTINDetails,
+  CorporatePANDetails,
+  TANDetails,
+  IndividualPANDetails,
+  AadhaarOTPResponse,
+  AadhaarVerificationResponse,
+  BankAccountDetails,
+  UPIVerificationDetails
+};
