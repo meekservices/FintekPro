@@ -8842,20 +8842,14 @@ export const userBudgets = pgTable("user_budgets", {
   
   // Budget amount and period
   budgetAmount: decimal("budget_amount", { precision: 15, scale: 2 }).notNull(),
-  period: varchar("period").notNull(), // daily, weekly, monthly, quarterly, yearly
+  periodType: varchar("period_type").notNull(), // daily, weekly, monthly, quarterly, yearly
   currency: varchar("currency").default("INR").notNull(),
   
   // Tracking
-  currentSpend: decimal("current_spend", { precision: 15, scale: 2 }).default("0"),
-  lastResetDate: timestamp("last_reset_date").defaultNow(),
-  
-  // AI suggestions
-  aiSuggested: boolean("ai_suggested").default(false),
-  aiReasoning: text("ai_reasoning"), // Why AI suggested this budget
+  spentAmount: decimal("spent_amount", { precision: 15, scale: 2 }).default("0"),
   
   // Alerts
   alertThreshold: decimal("alert_threshold", { precision: 5, scale: 2 }).default("80"), // Percentage
-  alertEnabled: boolean("alert_enabled").default(true),
   
   // Status
   isActive: boolean("is_active").default(true),
@@ -8868,8 +8862,8 @@ export const userBudgets = pgTable("user_budgets", {
 }, (table) => [
   index("idx_user_budgets_user").on(table.userId),
   index("idx_user_budgets_category").on(table.category),
-  index("idx_user_budgets_period").on(table.period),
-  sql`UNIQUE(user_id, category, subcategory, period)`,
+  index("idx_user_budgets_period").on(table.periodType),
+  sql`UNIQUE(user_id, category, subcategory, period_type)`,
 ]);
 
 // Expense Insights - AI-generated spending insights and recommendations
