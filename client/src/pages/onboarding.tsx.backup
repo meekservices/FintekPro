@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -73,7 +72,6 @@ export default function SmartKYCOnboarding() {
   const [aadhaarMasked, setAadhaarMasked] = useState('');
   const [aadhaarOtp, setAadhaarOtp] = useState('');
   const [aadhaarData, setAadhaarData] = useState<any>(null);
-  const [consentGiven, setConsentGiven] = useState(false);
   
   // Start or resume session
   const startSessionMutation = useMutation({
@@ -129,7 +127,7 @@ export default function SmartKYCOnboarding() {
         body: {
           sessionId,
           panNumber: panNumber.toUpperCase(),
-          
+          fullName: panFullName,
           dob: panDob
         }
       });
@@ -202,8 +200,7 @@ export default function SmartKYCOnboarding() {
         body: {
           sessionId,
           transactionId: aadhaarTransactionId,
-          otp: aadhaarOtp,
-          consentGiven
+          otp: aadhaarOtp
         }
       });
     },
@@ -418,7 +415,7 @@ export default function SmartKYCOnboarding() {
         <Button
           data-testid="button-verify-pan"
           onClick={() => verifyPanMutation.mutate()}
-          disabled={!sessionId || !panNumber || !panDob || verifyPanMutation.isPending}
+          disabled={!sessionId || !panNumber || !panFullName || !panDob || verifyPanMutation.isPending}
           className="w-full"
         >
           {verifyPanMutation.isPending ? (
@@ -536,26 +533,6 @@ export default function SmartKYCOnboarding() {
           />
         </div>
         
-        <div className="flex items-start space-x-2 p-4 border rounded-lg bg-blue-50 dark:bg-blue-950/20">
-          <Checkbox
-            id="consent"
-            data-testid="checkbox-consent"
-            checked={consentGiven}
-            onCheckedChange={(checked) => setConsentGiven(checked as boolean)}
-          />
-          <div className="grid gap-1.5 leading-none">
-            <label
-              htmlFor="consent"
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-            >
-              I consent to KYC data sharing
-            </label>
-            <p className="text-sm text-muted-foreground">
-              I hereby consent to share my KYC data with authorized financial institutions for account opening, investment processing, and regulatory compliance.
-            </p>
-          </div>
-        </div>
-        
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -571,7 +548,7 @@ export default function SmartKYCOnboarding() {
           <Button
             data-testid="button-verify-otp"
             onClick={() => verifyAadhaarOtpMutation.mutate()}
-            disabled={aadhaarOtp.length !== 6 || !consentGiven || verifyAadhaarOtpMutation.isPending}
+            disabled={aadhaarOtp.length !== 6 || verifyAadhaarOtpMutation.isPending}
             className="flex-1"
           >
             {verifyAadhaarOtpMutation.isPending ? (

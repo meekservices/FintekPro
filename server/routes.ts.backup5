@@ -1986,13 +1986,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Step 1: Verify PAN with DOB
   app.post("/api/kyc/wizard/verify-pan", requireClientOrHigher, async (req: any, res) => {
     try {
-      const { sessionId, panNumber, dob } = req.body;
+      const { sessionId, panNumber, fullName, dob } = req.body;
       const userId = req.user!.id;
       
-      if (!sessionId || !panNumber || !dob) {
+      if (!sessionId || !panNumber || !fullName || !dob) {
         return res.status(400).json({
           success: false,
-          message: "Session ID, PAN number, and date of birth are required"
+          message: "Session ID, PAN number, full name, and date of birth are required"
         });
       }
       
@@ -2007,7 +2007,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Verify PAN using Sandbox API with name parameter
-      const verification = await sandboxKYCService.verifyIndividualPAN(panNumber, "", dob);
+      const verification = await sandboxKYCService.verifyIndividualPAN(panNumber, fullName, dob);
       
       
       // verification returns IndividualPANDetails directly (no success wrapper)
@@ -2143,7 +2143,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Step 3: Verify Aadhaar OTP
   app.post("/api/kyc/wizard/verify-aadhaar-otp", requireClientOrHigher, async (req: any, res) => {
     try {
-      const { sessionId, transactionId, otp, consentGiven } = req.body;
+      const { sessionId, transactionId, otp } = req.body;
       const userId = req.user!.id;
       
       if (!sessionId || !transactionId || !otp) {
@@ -2170,29 +2170,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json(verification);
       }
       
-      // Record KYC consent if given
-      if (consentGiven) {
-        const consentText = `I hereby consent to share my KYC data with authorized financial institutions and service providers for the purpose of account opening, investment processing, and regulatory compliance. I understand that my data will be encrypted and stored securely.`;
-        
-        const crypto = require('crypto');
-        const consentSignature = crypto
-          .createHmac('sha256', process.env.ENCRYPTION_MASTER_KEY || 'fallback-key')
-          .update(JSON.stringify({ userId, consentText, timestamp: Date.now() }))
-          .digest('hex');
-        
-        await db.insert(kycConsentLogs).values({
-          userId,
-          consentType: 'kyc_reuse',
-          consentGiven: true,
-          consentText,
-          purpose: 'Enable KYC data sharing for financial services',
-          ipAddress: req.ip || req.connection.remoteAddress,
-          userAgent: req.headers['user-agent'],
-          consentSignature,
-          expiresAt: null
-        });
-      }
-      
       // Update session with Aadhaar data
       await storage.updateKycVerificationSession(sessionId, {
         aadhaarOtpVerified: true,
@@ -2212,17 +2189,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         aadhaarVerifiedViaSmartKyc: true,
         aadhaarVerificationDate: new Date()
       });
-      
-      // Auto-generate KYC reuse token silently in background
-      if (consentGiven) {
-        kycReuseTokenService.generateToken(userId, {
-          purpose: 'Financial services KYC reuse',
-          issuedTo: 'FintekPro Platform',
-          expiryDays: 365
-        }).catch(err => {
-          console.error('Failed to generate KYC reuse token:', err);
-        });
-      }
       
       res.json({
         success: true,
