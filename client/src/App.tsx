@@ -56,6 +56,7 @@ import { AppLayout } from "@/components/layout/app-layout";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { useSubdomain } from "@/hooks/useSubdomain";
 import { useAuth } from "@/hooks/useAuth";
+import { KycGate } from "@/components/kyc/kyc-gate";
 import AdminDashboard from "@/pages/admin/dashboard";
 import StakeholdersPage from "@/pages/admin/stakeholders";
 import KycCompliancePage from "@/pages/admin/kyc-compliance";
@@ -129,24 +130,24 @@ function UserProtectedRoutes() {
       <Switch>
         <Route path="/" component={Home} />
         <Route path="/dashboard" component={Home} />
-        <Route path="/portfolio" component={Portfolio} />
-        <Route path="/analytics" component={PredictiveAnalytics} />
+        <Route path="/portfolio">{() => <KycGate><Portfolio /></KycGate>}</Route>
+        <Route path="/analytics">{() => <KycGate><PredictiveAnalytics /></KycGate>}</Route>
         <Route path="/comprehensive-portfolio">{() => {
           const ComprehensivePortfolio = lazy(() => import("@/pages/comprehensive-portfolio"));
-          return <ComprehensivePortfolio />;
+          return <KycGate><ComprehensivePortfolio /></KycGate>;
         }}</Route>
-        <Route path="/broking" component={BrokingPage} />
+        <Route path="/broking">{() => <KycGate><BrokingPage /></KycGate>}</Route>
         <Route path="/markets" component={Markets} />
-        <Route path="/ipo" component={IPO} />
-        <Route path="/pre-ipo" component={PreIPO} />
-        <Route path="/mutual-funds" component={MutualFunds} />
-        <Route path="/fund-comparison" component={FundComparison} />
-        <Route path="/portfolio-comparison" component={PortfolioComparison} />
-        <Route path="/unlisted" component={Unlisted} />
-        <Route path="/bonds" component={Bonds} />
-        <Route path="/mlds" component={MLDs} />
-        <Route path="/insurance" component={Insurance} />
-        <Route path="/banking-products" component={BankingProducts} />
+        <Route path="/ipo">{() => <KycGate><IPO /></KycGate>}</Route>
+        <Route path="/pre-ipo">{() => <KycGate><PreIPO /></KycGate>}</Route>
+        <Route path="/mutual-funds">{() => <KycGate><MutualFunds /></KycGate>}</Route>
+        <Route path="/fund-comparison">{() => <KycGate><FundComparison /></KycGate>}</Route>
+        <Route path="/portfolio-comparison">{() => <KycGate><PortfolioComparison /></KycGate>}</Route>
+        <Route path="/unlisted">{() => <KycGate><Unlisted /></KycGate>}</Route>
+        <Route path="/bonds">{() => <KycGate><Bonds /></KycGate>}</Route>
+        <Route path="/mlds">{() => <KycGate><MLDs /></KycGate>}</Route>
+        <Route path="/insurance">{() => <KycGate><Insurance /></KycGate>}</Route>
+        <Route path="/banking-products">{() => <KycGate><BankingProducts /></KycGate>}</Route>
         <Route path="/loans" component={Loans} />
         <Route path="/nsdl-services" component={NSDLServices} />
         <Route path="/cdsl-services" component={CDSLServices} />
@@ -159,10 +160,10 @@ function UserProtectedRoutes() {
         <Route path="/wealth" component={InvestSmart} />
         <Route path="/investsmart" component={InvestSmart} />
         <Route path="/wealth-management" component={InvestSmart} />
-        <Route path="/proposals" component={ProposalsPage} />
-        <Route path="/my-proposals" component={ClientProposalsPage} />
+        <Route path="/proposals">{() => <KycGate><ProposalsPage /></KycGate>}</Route>
+        <Route path="/my-proposals">{() => <KycGate><ClientProposalsPage /></KycGate>}</Route>
         <Route path="/achievements" component={Achievements} />
-        <Route path="/capital-gains" component={CapitalGainsReports} />
+        <Route path="/capital-gains">{() => <KycGate><CapitalGainsReports /></KycGate>}</Route>
         {/* Unified Tax Services - Primary Route */}
         <Route path="/tax-hub" component={IntelligentTaxHub} />
         <Route path="/tax" component={TaxSmartFiling} />
@@ -184,16 +185,16 @@ function UserProtectedRoutes() {
         <Route path="/loan-recommendations" component={LoanRecommendations} />
         <Route path="/partner-application/:lender" component={PartnerApplication} />
         <Route path="/investment-dashboard" component={InvestmentDashboard} />
-        <Route path="/ib-trading" component={IBTradingPage} />
-        <Route path="/store" component={StorePage} />
+        <Route path="/ib-trading">{() => <KycGate><IBTradingPage /></KycGate>}</Route>
+        <Route path="/store">{() => <KycGate><StorePage /></KycGate>}</Route>
         <Route path="/chat" component={AIChat} />
         <Route path="/alerts" component={AlertsPage} />
-        <Route path="/gift-city" component={GiftCity} />
-        <Route path="/nri-services" component={NRIServices} />
-        <Route path="/itr-tax-services" component={ITRTaxServices} />
-        <Route path="/domestic-trading" component={DomesticTrading} />
-        <Route path="/global-trading" component={GlobalTrading} />
-        <Route path="/cart" component={Cart} />
+        <Route path="/gift-city">{() => <KycGate><GiftCity /></KycGate>}</Route>
+        <Route path="/nri-services">{() => <KycGate><NRIServices /></KycGate>}</Route>
+        <Route path="/itr-tax-services">{() => <KycGate><ITRTaxServices /></KycGate>}</Route>
+        <Route path="/domestic-trading">{() => <KycGate><DomesticTrading /></KycGate>}</Route>
+        <Route path="/global-trading">{() => <KycGate><GlobalTrading /></KycGate>}</Route>
+        <Route path="/cart">{() => <KycGate><Cart /></KycGate>}</Route>
         <Route path="/api-monitor" component={ApiMonitorDemo} />
         <Route path="/icici-loans" component={ICICILoans} />
         <Route path="/hdfc-loans" component={HDFCLoans} />
