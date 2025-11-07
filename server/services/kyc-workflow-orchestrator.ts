@@ -4,17 +4,19 @@
  * Coordinates the complete KYC verification and vault storage workflow:
  * 1. User Registration
  * 2. CKYC Lookup (check if KYC already exists)
- * 3. Cashfree OKYC (if CKYC not found - Aadhaar verification)
+ * 3. Sandbox OKYC (if CKYC not found - Aadhaar verification)
  * 4. CKYC Creation (submit to registry if needed)
  * 5. Vault Storage (encrypt & tokenize data)
  * 6. KYC Reuse Token Generation
  * 
  * This service ensures compliance with SEBI/RBI/PMLA KYC norms.
+ * 
+ * Migration Note: Migrated from Cashfree to Sandbox.co.in for all KYC verifications
  */
 
 import { db } from '../db';
 import { kycVault, kycConsentLogs, users } from '../../shared/schema';
-import { CashfreeAadhaarService } from './cashfree-aadhaar-service';
+import { sandboxKYCService, type AadhaarOTPResponse, type AadhaarVerificationResponse } from './sandbox-kyc-service';
 import { CKYCService } from '../ckyc-service';
 import { tokenizationService } from './tokenization-service';
 import { faceHashingService } from './face-hashing-service';
@@ -56,22 +58,23 @@ interface WorkflowResult {
 }
 
 export class KYCWorkflowOrchestrator {
-  private cashfreeService: typeof CashfreeAadhaarService;
+  private sandboxService: typeof sandboxKYCService;
   private ckycService: CKYCService;
 
   constructor() {
-    this.cashfreeService = CashfreeAadhaarService;
+    this.sandboxService = sandboxKYCService;
     this.ckycService = new CKYCService();
   }
 
   /**
    * Step 1: Initiate OKYC - Generate OTP for Aadhaar verification
+   * Uses Sandbox.co.in API for Aadhaar OKYC (replaces Cashfree)
    */
   async initiateOKYC(aadhaarNumber: string): Promise<WorkflowResult> {
     try {
-      console.log('🔄 Step 1: Initiating Cashfree OKYC...');
+      console.log('🔄 Step 1: Initiating Sandbox OKYC...');
 
-      const result = await this.cashfreeService.generateOTP(aadhaarNumber);
+      const result = await this.sandboxService.generateAadhaarOTP(aadhaarNumber);
 
       if (!result.success) {
         return {
@@ -102,12 +105,13 @@ export class KYCWorkflowOrchestrator {
 
   /**
    * Step 2: Verify OTP and retrieve Aadhaar data
+   * Uses Sandbox.co.in API for Aadhaar OKYC verification (replaces Cashfree)
    */
   async verifyOKYC(otp: string, refId: string): Promise<WorkflowResult> {
     try {
       console.log('🔄 Step 2: Verifying OTP and fetching Aadhaar data...');
 
-      const result = await this.cashfreeService.verifyOTP(otp, refId);
+      const result = await this.sandboxService.verifyAadhaarOTP(otp, refId);
 
       if (!result.success || !result.verified || !result.data) {
         return {
@@ -230,7 +234,7 @@ export class KYCWorkflowOrchestrator {
     okycData: OKYCData,
     panNumber: string,
     ckycKinNumber: string,
-    cashfreeRefId: string
+    sandboxRefId: string
   ): Promise<WorkflowResult> {
     try {
       console.log('🔄 Step 5: Storing KYC data in secure vault...');
@@ -306,7 +310,7 @@ export class KYCWorkflowOrchestrator {
         // Plain text status
         kycStatus: 'verified',
         ckycStatus: 'created',
-        source: 'cashfree_okyc',
+        source: 'sandbox_okyc',
         verificationMethod: 'aadhaar_otp',
         isReusable: false, // Will be set to true after consent
         // CKYC metadata
@@ -314,7 +318,7 @@ export class KYCWorkflowOrchestrator {
         ckycExpiryDate: kycExpiryDate,
         ckycVerificationLevel: 'enhanced',
         // Verification metadata
-        cashfreeRefId,
+        cashfreeRefId: sandboxRefId, // Keep column name for backwards compatibility
         aadhaarVerifiedAt: new Date(),
         panVerifiedAt: new Date(),
         addressVerifiedAt: new Date(),
@@ -528,7 +532,7 @@ export class KYCWorkflowOrchestrator {
     userId: string,
     panNumber: string,
     okycData: OKYCData,
-    cashfreeRefId: string,
+    sandboxRefId: string,
     ipAddress?: string,
     userAgent?: string
   ): Promise<WorkflowResult> {
@@ -559,7 +563,7 @@ export class KYCWorkflowOrchestrator {
         okycData,
         panNumber,
         ckycKinNumber,
-        cashfreeRefId
+        sandboxRefId
       );
       
       if (!vaultResult.success) {
