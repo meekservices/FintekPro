@@ -46,6 +46,7 @@ import { APYService, type APYFetchRequest } from './apy-service';
 import { emailService } from '../email-service';
 import { whatsappService } from '../whatsapp';
 import axios from 'axios';
+import { logger } from '../logger';
 
 interface KYCData {
   userId: string;
@@ -90,7 +91,7 @@ export class AutoPopulationOrchestrator {
     const startTime = Date.now();
     const workflowId = `AUTO_POP_${nanoid(16)}`;
 
-    console.log(`🚀 Initiating auto-population workflow: ${workflowId} for user ${userId}`);
+    logger.info(`🚀 Initiating auto-population workflow: ${workflowId} for user ${userId}`);
 
     // Create initial status record
     const statusRecord: InsertAutoPopulationStatus = {
@@ -117,7 +118,7 @@ export class AutoPopulationOrchestrator {
 
       // Step 2: Check consents for each data source
       const consents = await this.checkAllConsents(userId);
-      console.log(`📋 Consent status:`, consents);
+      logger.info(`📋 Consent status:`, consents);
 
       // Step 3: Fetch data from all sources in parallel
       const results = await this.fetchAllDataSources(kycData, consents);
@@ -149,7 +150,7 @@ export class AutoPopulationOrchestrator {
         sourceErrors: Object.fromEntries(results.filter(r => r.error).map(r => [r.source, r.error!]))
       });
 
-      console.log(`✅ Auto-population completed: ${workflowId} - ${successfulSources}/${results.length} sources successful`);
+      logger.info(`✅ Auto-population completed: ${workflowId} - ${successfulSources}/${results.length} sources successful`);
 
       // Step 7: Send completion notification
       await this.sendCompletionNotification(userId, {
@@ -163,7 +164,7 @@ export class AutoPopulationOrchestrator {
         sourceResults: results,
         durationMs
       }).catch(err => {
-        console.error(`⚠️  Failed to send notification for workflow ${workflowId}:`, err);
+        logger.error(`⚠️  Failed to send notification for workflow ${workflowId}:`, err);
       });
 
       return {
@@ -189,7 +190,7 @@ export class AutoPopulationOrchestrator {
         durationMs
       });
 
-      console.error(`❌ Auto-population failed: ${workflowId} -`, error.message);
+      logger.error(`❌ Auto-population failed: ${workflowId} -`, { message: error.message });
       throw error;
     }
   }
@@ -205,7 +206,7 @@ export class AutoPopulationOrchestrator {
    */
   private async getKYCData(userId: string): Promise<KYCData | null> {
     try {
-      console.log(`🔐 Fetching KYC data from vault for user ${userId}`);
+      logger.info(`🔐 Fetching KYC data from vault for user ${userId}`);
 
       // Decrypt vault data with full audit logging
       const decryptionResult = await kycVaultDecryptionService.decryptVaultData(userId, {
@@ -215,7 +216,7 @@ export class AutoPopulationOrchestrator {
       });
 
       if (!decryptionResult.success || !decryptionResult.data) {
-        console.error(`❌ KYC vault decryption failed for user ${userId}: ${decryptionResult.error}`);
+        logger.error(`❌ KYC vault decryption failed for user ${userId}: ${decryptionResult.error}`);
         return null;
       }
 
@@ -231,12 +232,12 @@ export class AutoPopulationOrchestrator {
         email: decrypted.email
       };
 
-      console.log(`✅ KYC data decrypted successfully for user ${userId} (Audit: ${decryptionResult.auditLogId})`);
+      logger.info(`✅ KYC data decrypted successfully for user ${userId} (Audit: ${decryptionResult.auditLogId})`);
 
       return kycData;
 
     } catch (error: any) {
-      console.error(`❌ Error fetching KYC data for user ${userId}:`, error.message);
+      logger.error(`❌ Error fetching KYC data for user ${userId}:`, { message: error.message });
       return null;
     }
   }
@@ -264,7 +265,7 @@ export class AutoPopulationOrchestrator {
     kycData: KYCData,
     consents: Record<DataSourceType, boolean>
   ): Promise<DataSourceResult[]> {
-    console.log(`📊 Fetching data from ${Object.keys(consents).length} sources in parallel with Promise.allSettled...`);
+    logger.info(`📊 Fetching data from ${Object.keys(consents).length} sources in parallel with Promise.allSettled...`);
 
     // Execute ALL fetches in parallel using Promise.allSettled for graceful error handling
     const fetchPromises = [
@@ -291,7 +292,7 @@ export class AutoPopulationOrchestrator {
         return result.value;
       } else {
         // Log error for debugging
-        console.error(`❌ Failed to fetch ${source}:`, result.reason?.message);
+        logger.error(`❌ Failed to fetch ${source}:`, { message: result.reason?.message });
         return {
           source,
           success: false,
@@ -316,7 +317,7 @@ export class AutoPopulationOrchestrator {
     }
 
     try {
-      console.log(`🔍 Fetching mutual funds from BSE STAR CAS`);
+      logger.info(`🔍 Fetching mutual funds from BSE STAR CAS`);
       
       // Call BSE STAR CAS API to fetch consolidated holdings
       const casRequest: CASFetchRequest = {
@@ -338,7 +339,7 @@ export class AutoPopulationOrchestrator {
         };
       }
 
-      console.log(`✅ Fetched ${casResponse.totalHoldings} mutual fund holdings across ${casResponse.rtaSummary.camsHoldings + casResponse.rtaSummary.karvyHoldings + casResponse.rtaSummary.franklinHoldings} RTAs`);
+      logger.info(`✅ Fetched ${casResponse.totalHoldings} mutual fund holdings across ${casResponse.rtaSummary.camsHoldings + casResponse.rtaSummary.karvyHoldings + casResponse.rtaSummary.franklinHoldings} RTAs`);
 
       return {
         source: 'mutual_funds',
@@ -348,7 +349,7 @@ export class AutoPopulationOrchestrator {
         data: casResponse.holdings
       };
     } catch (error: any) {
-      console.error('❌ Mutual funds fetch error:', error.message);
+      logger.error('❌ Mutual funds fetch error:', { message: error.message });
       return {
         source: 'mutual_funds',
         success: false,
@@ -372,7 +373,7 @@ export class AutoPopulationOrchestrator {
     }
 
     try {
-      console.log(`🔍 Fetching demat holdings from NSDL/CDSL via Account Aggregator`);
+      logger.info(`🔍 Fetching demat holdings from NSDL/CDSL via Account Aggregator`);
       
       // Call demat holdings service
       const dematRequest: DematFetchRequest = {
@@ -387,7 +388,7 @@ export class AutoPopulationOrchestrator {
       const dematResponse = await dematHoldingsService.fetchHoldings(dematRequest);
 
       if (!dematResponse.success) {
-        console.error(`❌ Demat holdings fetch failed: ${dematResponse.message}`);
+        logger.error(`❌ Demat holdings fetch failed: ${dematResponse.message}`);
         return {
           source: 'demat',
           success: false,
@@ -399,7 +400,7 @@ export class AutoPopulationOrchestrator {
       // Demat holdings will be stored via the storeHoldings method which is called by the main workflow
       // No need to store inline here - it will be handled in the data source results loop
 
-      console.log(`✅ Fetched ${dematResponse.totalHoldings} demat holdings across ${dematResponse.accounts.length} accounts (NSDL: ${dematResponse.nsdlHoldings}, CDSL: ${dematResponse.cdslHoldings})`);
+      logger.info(`✅ Fetched ${dematResponse.totalHoldings} demat holdings across ${dematResponse.accounts.length} accounts (NSDL: ${dematResponse.nsdlHoldings}, CDSL: ${dematResponse.cdslHoldings})`);
 
       return {
         source: 'demat',
@@ -409,7 +410,7 @@ export class AutoPopulationOrchestrator {
         data: dematResponse.holdings
       };
     } catch (error: any) {
-      console.error('❌ Demat holdings fetch error:', error.message);
+      logger.error('❌ Demat holdings fetch error:', { message: error.message });
       return {
         source: 'demat',
         success: false,
@@ -444,7 +445,7 @@ export class AutoPopulationOrchestrator {
     }
 
     try {
-      console.log(`🔍 Fetching bank accounts via Account Aggregator for user: ${kycData.userId}`);
+      logger.info(`🔍 Fetching bank accounts via Account Aggregator for user: ${kycData.userId}`);
       
       // Mock data - in production, call Account Aggregator API
       const mockAccounts = [
@@ -495,7 +496,7 @@ export class AutoPopulationOrchestrator {
     }
 
     try {
-      console.log(`🔍 Fetching loan liabilities from CIBIL`);
+      logger.info(`🔍 Fetching loan liabilities from CIBIL`);
       
       // Call internal CIBIL API
       const response = await axios.post('http://localhost:5000/api/cibil/fetch-loan-liabilities', {
@@ -515,7 +516,7 @@ export class AutoPopulationOrchestrator {
         data: loanData.loanAccounts || []
       };
     } catch (error: any) {
-      console.error('CIBIL fetch error:', error.message);
+      logger.error('CIBIL fetch error:', { message: error.message });
       return {
         source: 'loans',
         success: false,
@@ -539,7 +540,7 @@ export class AutoPopulationOrchestrator {
     }
 
     try {
-      console.log(`🔍 Fetching insurance policies from Turtlefin`);
+      logger.info(`🔍 Fetching insurance policies from Turtlefin`);
       
       const policies = await turtlefinAPI.searchPoliciesByKYC({
         pan: kycData.pan,
@@ -582,7 +583,7 @@ export class AutoPopulationOrchestrator {
     }
 
     try {
-      console.log(`🔍 Fetching EPF/VPF accounts from EPFO`);
+      logger.info(`🔍 Fetching EPF/VPF accounts from EPFO`);
       
       // Call EPFO service
       const epfRequest: EPFFetchRequest = {
@@ -596,7 +597,7 @@ export class AutoPopulationOrchestrator {
       const epfResponse = await epfoService.fetchEPFAccounts(epfRequest);
 
       if (!epfResponse.success) {
-        console.error(`❌ EPF fetch failed: ${epfResponse.message}`);
+        logger.error(`❌ EPF fetch failed: ${epfResponse.message}`);
         return {
           source: 'epf',
           success: false,
@@ -608,7 +609,7 @@ export class AutoPopulationOrchestrator {
       // EPF accounts will be stored via the storeHoldings method which is called by the main workflow
       // No need to store inline here - it will be handled in the data source results loop
 
-      console.log(`✅ Fetched ${epfResponse.totalAccounts} EPF accounts (Total Balance: ₹${epfResponse.totalBalance.toFixed(2)})`);
+      logger.info(`✅ Fetched ${epfResponse.totalAccounts} EPF accounts (Total Balance: ₹${epfResponse.totalBalance.toFixed(2)})`);
 
       return {
         source: 'epf',
@@ -618,7 +619,7 @@ export class AutoPopulationOrchestrator {
         data: epfResponse.accounts
       };
     } catch (error: any) {
-      console.error('❌ EPF accounts fetch error:', error.message);
+      logger.error('❌ EPF accounts fetch error:', { message: error.message });
       return {
         source: 'epf',
         success: false,
@@ -642,7 +643,7 @@ export class AutoPopulationOrchestrator {
     }
 
     try {
-      console.log(`🔍 Fetching NPS accounts from NPS CRA`);
+      logger.info(`🔍 Fetching NPS accounts from NPS CRA`);
       
       // Call NPS service
       const npsService = new NPSService();
@@ -656,7 +657,7 @@ export class AutoPopulationOrchestrator {
       const npsResponse = await npsService.fetchNPSAccounts(npsRequest);
 
       if (!npsResponse.success) {
-        console.error(`❌ NPS fetch failed: ${npsResponse.message}`);
+        logger.error(`❌ NPS fetch failed: ${npsResponse.message}`);
         return {
           source: 'nps',
           success: false,
@@ -668,7 +669,7 @@ export class AutoPopulationOrchestrator {
       // NPS accounts will be stored via the storeHoldings method which is called by the main workflow
       // No need to store inline here - it will be handled in the data source results loop
 
-      console.log(`✅ Fetched ${npsResponse.accounts.length} NPS accounts (Total Balance: ₹${npsResponse.totalBalance.toFixed(2)})`);
+      logger.info(`✅ Fetched ${npsResponse.accounts.length} NPS accounts (Total Balance: ₹${npsResponse.totalBalance.toFixed(2)})`);
 
       return {
         source: 'nps',
@@ -678,7 +679,7 @@ export class AutoPopulationOrchestrator {
         data: npsResponse.holdings
       };
     } catch (error: any) {
-      console.error('❌ NPS accounts fetch error:', error.message);
+      logger.error('❌ NPS accounts fetch error:', { message: error.message });
       return {
         source: 'nps',
         success: false,
@@ -702,7 +703,7 @@ export class AutoPopulationOrchestrator {
     }
 
     try {
-      console.log(`🔍 Fetching APY accounts via Account Aggregator`);
+      logger.info(`🔍 Fetching APY accounts via Account Aggregator`);
       
       // Call APY service
       const apyService = new APYService();
@@ -716,7 +717,7 @@ export class AutoPopulationOrchestrator {
       const apyResponse = await apyService.fetchAPYAccounts(apyRequest);
 
       if (!apyResponse.success) {
-        console.error(`❌ APY fetch failed: ${apyResponse.message}`);
+        logger.error(`❌ APY fetch failed: ${apyResponse.message}`);
         return {
           source: 'apy',
           success: false,
@@ -728,7 +729,7 @@ export class AutoPopulationOrchestrator {
       // APY accounts will be stored via the storeHoldings method which is called by the main workflow
       // No need to store inline here - it will be handled in the data source results loop
 
-      console.log(`✅ Fetched ${apyResponse.accounts.length} APY accounts (Total Balance: ₹${apyResponse.totalBalance.toFixed(2)})`);
+      logger.info(`✅ Fetched ${apyResponse.accounts.length} APY accounts (Total Balance: ₹${apyResponse.totalBalance.toFixed(2)})`);
 
       return {
         source: 'apy',
@@ -738,7 +739,7 @@ export class AutoPopulationOrchestrator {
         data: apyResponse.holdings
       };
     } catch (error: any) {
-      console.error('❌ APY accounts fetch error:', error.message);
+      logger.error('❌ APY accounts fetch error:', { message: error.message });
       return {
         source: 'apy',
         success: false,
@@ -752,7 +753,7 @@ export class AutoPopulationOrchestrator {
    * Store fetched holdings in database
    */
   private async storeHoldings(userId: string, results: DataSourceResult[]): Promise<void> {
-    console.log(`💾 Storing ${results.length} data source results in database...`);
+    logger.info(`💾 Storing ${results.length} data source results in database...`);
 
     // Get or create default portfolio for user
     const portfolio = await this.getOrCreateDefaultPortfolio(userId);
@@ -789,9 +790,9 @@ export class AutoPopulationOrchestrator {
             break;
         }
 
-        console.log(`  ✓ Stored ${result.recordsFetched} records from ${result.source}`);
+        logger.info(`  ✓ Stored ${result.recordsFetched} records from ${result.source}`);
       } catch (error: any) {
-        console.error(`  ✗ Failed to store ${result.source}:`, error.message);
+        logger.error(`  ✗ Failed to store ${result.source}:`, { message: error.message });
       }
     }
   }
@@ -826,7 +827,7 @@ export class AutoPopulationOrchestrator {
       })
       .returning();
 
-    console.log(`📁 Created default portfolio for user ${userId}`);
+    logger.info(`📁 Created default portfolio for user ${userId}`);
     return newPortfolio[0];
   }
 
@@ -957,7 +958,7 @@ export class AutoPopulationOrchestrator {
    */
   private async storeBankAccounts(userId: string, portfolioId: string, accounts: any[]): Promise<void> {
     // Bank accounts are stored separately, not in comprehensive holdings
-    console.log(`  ℹ️ Bank accounts storage - handled separately`);
+    logger.info(`  ℹ️ Bank accounts storage - handled separately`);
   }
 
   /**
@@ -965,7 +966,7 @@ export class AutoPopulationOrchestrator {
    */
   private async storeLoanLiabilities(userId: string, portfolioId: string, loans: any[]): Promise<void> {
     // Loans are stored separately, not in comprehensive holdings
-    console.log(`  ℹ️ Loan liabilities storage - handled separately`);
+    logger.info(`  ℹ️ Loan liabilities storage - handled separately`);
   }
 
   /**
@@ -973,7 +974,7 @@ export class AutoPopulationOrchestrator {
    */
   private async storeInsurancePolicies(userId: string, portfolioId: string, policies: any[]): Promise<void> {
     // Insurance is stored separately, not in comprehensive holdings
-    console.log(`  ℹ️ Insurance policies storage - handled separately`);
+    logger.info(`  ℹ️ Insurance policies storage - handled separately`);
   }
 
   /**
@@ -1003,9 +1004,9 @@ export class AutoPopulationOrchestrator {
       // Insert EPF holdings (upsert logic can be added later)
       await db.insert(epfHoldings).values(holdingsToInsert);
 
-      console.log(`  ✓ Stored ${holdingsToInsert.length} EPF accounts in epfHoldings table`);
+      logger.info(`  ✓ Stored ${holdingsToInsert.length} EPF accounts in epfHoldings table`);
     } catch (error: any) {
-      console.error(`  ✗ Error storing EPF holdings:`, error.message);
+      logger.error(`  ✗ Error storing EPF holdings:`, { message: error.message });
       // Don't throw - this is not critical for the workflow
     }
   }
@@ -1050,9 +1051,9 @@ export class AutoPopulationOrchestrator {
       // Insert NPS accounts (upsert logic can be added later)
       await db.insert(npsAccounts).values(accountsToInsert);
 
-      console.log(`  ✓ Stored ${accountsToInsert.length} NPS accounts in npsAccounts table`);
+      logger.info(`  ✓ Stored ${accountsToInsert.length} NPS accounts in npsAccounts table`);
     } catch (error: any) {
-      console.error(`  ✗ Error storing NPS accounts:`, error.message);
+      logger.error(`  ✗ Error storing NPS accounts:`, { message: error.message });
       // Don't throw - this is not critical for the workflow
     }
   }
@@ -1098,9 +1099,9 @@ export class AutoPopulationOrchestrator {
       // Insert APY accounts (upsert logic can be added later)
       await db.insert(apyAccounts).values(accountsToInsert);
 
-      console.log(`  ✓ Stored ${accountsToInsert.length} APY accounts in apyAccounts table`);
+      logger.info(`  ✓ Stored ${accountsToInsert.length} APY accounts in apyAccounts table`);
     } catch (error: any) {
-      console.error(`  ✗ Error storing APY accounts:`, error.message);
+      logger.error(`  ✗ Error storing APY accounts:`, { message: error.message });
       // Don't throw - this is not critical for the workflow
     }
   }
@@ -1155,7 +1156,7 @@ export class AutoPopulationOrchestrator {
         .limit(1);
 
       if (userResult.length === 0) {
-        console.error(`⚠️  User ${userId} not found, skipping notification`);
+        logger.error(`⚠️  User ${userId} not found, skipping notification`);
         return;
       }
 
@@ -1248,9 +1249,9 @@ export class AutoPopulationOrchestrator {
       if (userEmail) {
         try {
           await emailService.sendNotificationEmail(userEmail, emailSubject, emailBody);
-          console.log(`📧 Sync notification email sent to ${userEmail}`);
+          logger.info(`📧 Sync notification email sent to ${userEmail}`);
         } catch (error) {
-          console.error(`❌ Failed to send email notification:`, error);
+          logger.error(`❌ Failed to send email notification:`, error instanceof Error ? error : new Error(String(error)));
         }
       }
 
@@ -1258,13 +1259,13 @@ export class AutoPopulationOrchestrator {
       if (userMobile && whatsappService.isClientReady()) {
         try {
           await whatsappService.sendMessage(userMobile, whatsappMessage);
-          console.log(`📲 Sync notification WhatsApp sent to ${userMobile}`);
+          logger.info(`📲 Sync notification WhatsApp sent to ${userMobile}`);
         } catch (error) {
-          console.error(`❌ Failed to send WhatsApp notification:`, error);
+          logger.error(`❌ Failed to send WhatsApp notification:`, error instanceof Error ? error : new Error(String(error)));
         }
       }
     } catch (error) {
-      console.error(`❌ Error sending completion notification:`, error);
+      logger.error(`❌ Error sending completion notification:`, error instanceof Error ? error : new Error(String(error)));
     }
   }
 

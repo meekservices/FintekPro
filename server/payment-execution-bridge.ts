@@ -15,6 +15,7 @@ import { eq } from "drizzle-orm";
 import { BSEStarApiService } from "./bseStarApi";
 import { LoanProcessingService } from "./loan-processing-service";
 import { BSEBondApiService } from "./bseBondApi";
+import { logger } from './logger';
 
 // Feature flags for beta execution services
 const FEATURE_FLAGS = {
@@ -52,7 +53,7 @@ class PaymentExecutionBridge {
   async processPaymentCallback(callbackData: PaymentCallbackData): Promise<ExecutionResult> {
     const { orderId, paymentStatus, paymentGateway, transactionId, amount, gatewayResponse } = callbackData;
     
-    console.log(`[PaymentBridge] Processing payment callback for order ${orderId}, status: ${paymentStatus}`);
+    logger.info(`[PaymentBridge] Processing payment callback for order ${orderId}, status: ${paymentStatus}`);
     
     try {
       // 1. Fetch order details
@@ -63,7 +64,7 @@ class PaymentExecutionBridge {
       
       // 2. Enhanced idempotency check: Don't process if already completed
       if (order.paymentStatus === 'completed' || ['executed', 'settled', 'completed'].includes(order.status)) {
-        console.log(`[PaymentBridge] Order ${orderId} already processed (paymentStatus: ${order.paymentStatus}, status: ${order.status}), skipping`);
+        logger.info(`[PaymentBridge] Order ${orderId} already processed (paymentStatus: ${order.paymentStatus}, status: ${order.status}), skipping`);
         return {
           success: true,
           orderId,
@@ -87,16 +88,16 @@ class PaymentExecutionBridge {
           // For balance payments, verify against balance amount
           expectedAmount = Number(orderMetadata.balanceAmount || 0);
           paymentType = 'balance';
-          console.log(`[PaymentBridge] Processing BALANCE payment for order ${orderId}, expected: ₹${expectedAmount.toLocaleString()}, received: ₹${amount.toLocaleString()}`);
+          logger.info(`[PaymentBridge] Processing BALANCE payment for order ${orderId}, expected: ₹${expectedAmount.toLocaleString()}, received: ₹${amount.toLocaleString()}`);
         } else if (orderMetadata.isPartialPayment) {
           // For initial partial payments, verify against initial payment amount
           expectedAmount = Number(orderMetadata.initialPaymentAmount || orderMetadata.paidAmount || order.amount);
           paymentType = 'initial';
-          console.log(`[PaymentBridge] Processing INITIAL partial payment for order ${orderId}, expected: ₹${expectedAmount.toLocaleString()}, received: ₹${amount.toLocaleString()}`);
+          logger.info(`[PaymentBridge] Processing INITIAL partial payment for order ${orderId}, expected: ₹${expectedAmount.toLocaleString()}, received: ₹${amount.toLocaleString()}`);
         }
         
         if (Math.abs(expectedAmount - Number(amount)) > 0.01) {  // Use floating point tolerance
-          console.error(`[PaymentBridge] SECURITY ALERT: ${paymentType} payment amount mismatch for order ${orderId}. Expected: ${expectedAmount}, Received: ${amount}, Gateway: ${paymentGateway}, TxnID: ${transactionId}`);
+          logger.error(`[PaymentBridge] SECURITY ALERT: ${paymentType} payment amount mismatch for order ${orderId}. Expected: ${expectedAmount}, Received: ${amount}, Gateway: ${paymentGateway}, TxnID: ${transactionId}`);
           
           await orderManagementService.updateOrderStatus({
             orderId,
@@ -119,7 +120,7 @@ class PaymentExecutionBridge {
         }
 
         if (order.currency !== callbackData.currency) {
-          console.error(`[PaymentBridge] SECURITY ALERT: Payment currency mismatch for order ${orderId}. Expected: ${order.currency}, Received: ${callbackData.currency}, Gateway: ${paymentGateway}, TxnID: ${transactionId}`);
+          logger.error(`[PaymentBridge] SECURITY ALERT: Payment currency mismatch for order ${orderId}. Expected: ${order.currency}, Received: ${callbackData.currency}, Gateway: ${paymentGateway}, TxnID: ${transactionId}`);
           
           await orderManagementService.updateOrderStatus({
             orderId,
@@ -160,7 +161,7 @@ class PaymentExecutionBridge {
           const initialPaid = orderMetadata.initialPaymentAmount || orderMetadata.paidAmount || 0;
           totalPaidAmount = initialPaid + amount;
           updatedMetadata.totalPaidAmount = totalPaidAmount;
-          console.log(`[PaymentBridge] Balance payment completed for order ${orderId}, initial: ₹${initialPaid.toLocaleString()}, balance: ₹${amount.toLocaleString()}, total paid: ₹${totalPaidAmount.toLocaleString()}`);
+          logger.info(`[PaymentBridge] Balance payment completed for order ${orderId}, initial: ₹${initialPaid.toLocaleString()}, balance: ₹${amount.toLocaleString()}, total paid: ₹${totalPaidAmount.toLocaleString()}`);
         } else if (orderMetadata.isPartialPayment) {
           // For initial partial payments, mark as balance_pending
           updatedMetadata.paymentStage = 'balance_pending';
@@ -170,7 +171,7 @@ class PaymentExecutionBridge {
           updatedMetadata.initialPaymentTransactionId = transactionId;
           updatedMetadata.paidAmount = amount; // Track initial payment
           totalPaidAmount = amount;
-          console.log(`[PaymentBridge] Initial partial payment completed for order ${orderId}, paid: ₹${amount.toLocaleString()}, balance pending: ₹${orderMetadata.balanceAmount?.toLocaleString()}`);
+          logger.info(`[PaymentBridge] Initial partial payment completed for order ${orderId}, paid: ₹${amount.toLocaleString()}, balance pending: ₹${orderMetadata.balanceAmount?.toLocaleString()}`);
         }
         
         await orderManagementService.updateOrderStatus({
@@ -185,7 +186,7 @@ class PaymentExecutionBridge {
           actorType: 'system',
         });
         
-        console.log(`[PaymentBridge] ${paymentType.toUpperCase()} payment completed for order ${orderId}, amount: ₹${amount.toLocaleString()}`);
+        logger.info(`[PaymentBridge] ${paymentType.toUpperCase()} payment completed for order ${orderId}, amount: ₹${amount.toLocaleString()}`);
         
         // 4. Trigger execution based on product type
         return await this.triggerExecution(order);
@@ -232,7 +233,7 @@ class PaymentExecutionBridge {
       }
       
     } catch (error) {
-      console.error(`[PaymentBridge] Error processing payment callback:`, error);
+      logger.error(`[PaymentBridge] Error processing payment callback:`, error);
       
       // Update order with error status
       try {
@@ -247,7 +248,7 @@ class PaymentExecutionBridge {
           actorType: 'system',
         });
       } catch (updateError) {
-        console.error(`[PaymentBridge] Failed to update order status:`, updateError);
+        logger.error(`[PaymentBridge] Failed to update order status:`, updateError);
       }
       
       return {
@@ -266,7 +267,7 @@ class PaymentExecutionBridge {
   private async triggerExecution(order: any): Promise<ExecutionResult> {
     const { id: orderId, productType, userId, amount } = order;
     
-    console.log(`[PaymentBridge] Triggering execution for ${productType} order ${orderId}`);
+    logger.info(`[PaymentBridge] Triggering execution for ${productType} order ${orderId}`);
     
     try {
       switch (productType) {
@@ -299,7 +300,7 @@ class PaymentExecutionBridge {
       }
       
     } catch (error) {
-      console.error(`[PaymentBridge] Execution failed for order ${orderId}:`, error);
+      logger.error(`[PaymentBridge] Execution failed for order ${orderId}:`, error);
       
       // Update order with execution error
       await orderManagementService.updateOrderStatus({
@@ -392,7 +393,7 @@ class PaymentExecutionBridge {
         }]
       };
       
-      console.log(`[PaymentBridge] Executing MF order ${orderId} via BSE Star API`, {
+      logger.info(`[PaymentBridge] Executing MF order ${orderId} via BSE Star API`, {
         schemeCode,
         orderType,
         amount: bseRequest.items[0].amount,
@@ -425,7 +426,7 @@ class PaymentExecutionBridge {
           actorType: 'system',
         });
         
-        console.log(`[PaymentBridge] MF order ${orderId} executed successfully on BSE`, {
+        logger.info(`[PaymentBridge] MF order ${orderId} executed successfully on BSE`, {
           externalOrderId,
           bseOrderId: bseResponse.orderId,
           bseTransNo: bseResponse.transNo
@@ -440,7 +441,7 @@ class PaymentExecutionBridge {
         };
       } else {
         // BSE execution failed
-        console.error(`[PaymentBridge] BSE execution failed for order ${orderId}:`, bseResponse.message);
+        logger.error(`[PaymentBridge] BSE execution failed for order ${orderId}:`, { message: bseResponse.message });
         
         await orderManagementService.updateOrderStatus({
           orderId,
@@ -459,7 +460,7 @@ class PaymentExecutionBridge {
       }
       
     } catch (error) {
-      console.error(`[PaymentBridge] MF execution error for order ${orderId}:`, error);
+      logger.error(`[PaymentBridge] MF execution error for order ${orderId}:`, error);
       
       // Log execution error but let caller handle status update
       throw new Error(`MF execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -570,7 +571,7 @@ class PaymentExecutionBridge {
     
     // Check feature flag
     if (!FEATURE_FLAGS.ENABLE_BOND_EXECUTION) {
-      console.log(`[PaymentBridge] Bond execution disabled (feature flag), queueing for manual processing`);
+      logger.info(`[PaymentBridge] Bond execution disabled (feature flag), queueing for manual processing`);
       await orderManagementService.updateOrderStatus({
         orderId,
         status: 'pending_manual_processing',
@@ -1002,7 +1003,7 @@ class PaymentExecutionBridge {
         actorType: 'system',
       });
       
-      console.log(`[PaymentBridge] FD order ${orderId} queued (bank integration pending)`, {
+      logger.info(`[PaymentBridge] FD order ${orderId} queued (bank integration pending)`, {
         bankName,
         amount,
         tenure
@@ -1017,7 +1018,7 @@ class PaymentExecutionBridge {
       };
       
     } catch (error) {
-      console.error(`[PaymentBridge] FD execution error for order ${orderId}:`, error);
+      logger.error(`[PaymentBridge] FD execution error for order ${orderId}:`, error);
       throw new Error(`FD execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -1101,7 +1102,7 @@ class PaymentExecutionBridge {
         updatedAt: new Date()
       };
       
-      console.log(`[PaymentBridge] Executing loan order ${orderId} via Loan Processing Service`, {
+      logger.info(`[PaymentBridge] Executing loan order ${orderId} via Loan Processing Service`, {
         loanType,
         amount,
         tenure,
@@ -1134,7 +1135,7 @@ class PaymentExecutionBridge {
           actorType: 'system',
         });
         
-        console.log(`[PaymentBridge] Loan order ${orderId} submitted successfully`, {
+        logger.info(`[PaymentBridge] Loan order ${orderId} submitted successfully`, {
           externalOrderId,
           applicationId: loanResponse.applicationId,
           estimatedDays: loanResponse.estimatedProcessingDays
@@ -1149,7 +1150,7 @@ class PaymentExecutionBridge {
         };
       } else {
         // Loan application failed
-        console.error(`[PaymentBridge] Loan submission failed for order ${orderId}:`, loanResponse.message);
+        logger.error(`[PaymentBridge] Loan submission failed for order ${orderId}:`, { message: loanResponse.message });
         
         await orderManagementService.updateOrderStatus({
           orderId,
@@ -1169,7 +1170,7 @@ class PaymentExecutionBridge {
       }
       
     } catch (error) {
-      console.error(`[PaymentBridge] Loan execution error for order ${orderId}:`, error);
+      logger.error(`[PaymentBridge] Loan execution error for order ${orderId}:`, error);
       
       // Log execution error but let caller handle status update
       throw new Error(`Loan execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);

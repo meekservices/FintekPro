@@ -21,6 +21,7 @@ import crypto from 'crypto';
 import { db } from '../db';
 import { aaConsents, aaDataFetchLogs, aaDiscoveredAccounts } from '../../shared/schema';
 import { eq, and, desc } from 'drizzle-orm';
+import { logger } from '../logger';
 
 // ==================== TYPES ====================
 
@@ -171,7 +172,7 @@ export class AccountAggregatorService {
       }
     });
 
-    console.log(`✅ Account Aggregator Service initialized (Provider: ${providerConfig.name}, Environment: ${this.isProduction ? 'Production' : 'Sandbox'})`);
+    logger.info(`✅ Account Aggregator Service initialized (Provider: ${providerConfig.name}, Environment: ${this.isProduction ? 'Production' : 'Sandbox'})`);
   }
 
   // ==================== CONSENT MANAGEMENT ====================
@@ -181,7 +182,7 @@ export class AccountAggregatorService {
    */
   async createConsent(request: ConsentCreateRequest): Promise<ConsentCreateResponse> {
     try {
-      console.log(`🔐 Creating AA consent for user ${request.userId} (Purpose: ${request.purpose})`);
+      logger.info(`🔐 Creating AA consent for user ${request.userId} (Purpose: ${request.purpose})`);
 
       // Validate FI types
       const invalidTypes = request.fiTypes.filter(type => !this.SUPPORTED_FI_TYPES.includes(type));
@@ -191,7 +192,7 @@ export class AccountAggregatorService {
 
       // Use mock flow in development
       if (!this.isProduction || !this.aaApiKey) {
-        console.log('📋 Using mock consent creation (production API not configured)');
+        logger.info('📋 Using mock consent creation (production API not configured)');
         return await this.createMockConsent(request);
       }
 
@@ -264,7 +265,7 @@ export class AccountAggregatorService {
         requestedAt: new Date()
       }).returning();
 
-      console.log(`✅ Consent created: ${consentHandle} (Redirect: ${redirectUrl})`);
+      logger.info(`✅ Consent created: ${consentHandle} (Redirect: ${redirectUrl})`);
 
       return {
         success: true,
@@ -276,7 +277,7 @@ export class AccountAggregatorService {
       };
 
     } catch (error: any) {
-      console.error('❌ Consent creation failed:', error.message);
+      logger.error('❌ Consent creation failed:', { message: error.message });
       return {
         success: false,
         consentId: '',
@@ -293,7 +294,7 @@ export class AccountAggregatorService {
    */
   async getConsentStatus(consentId: string): Promise<ConsentStatusResponse | null> {
     try {
-      console.log(`🔍 Fetching consent status: ${consentId}`);
+      logger.info(`🔍 Fetching consent status: ${consentId}`);
 
       // Get from database
       const [consent] = await db
@@ -323,7 +324,7 @@ export class AccountAggregatorService {
       return this.formatConsentStatus(consent);
 
     } catch (error: any) {
-      console.error('❌ Consent status fetch failed:', error.message);
+      logger.error('❌ Consent status fetch failed:', { message: error.message });
       return null;
     }
   }
@@ -333,7 +334,7 @@ export class AccountAggregatorService {
    */
   async approveConsent(consentId: string): Promise<boolean> {
     try {
-      console.log(`✅ Approving consent: ${consentId}`);
+      logger.info(`✅ Approving consent: ${consentId}`);
 
       await db
         .update(aaConsents)
@@ -345,7 +346,7 @@ export class AccountAggregatorService {
 
       return true;
     } catch (error: any) {
-      console.error('❌ Consent approval failed:', error.message);
+      logger.error('❌ Consent approval failed:', { message: error.message });
       return false;
     }
   }
@@ -355,7 +356,7 @@ export class AccountAggregatorService {
    */
   async activateConsent(consentId: string): Promise<boolean> {
     try {
-      console.log(`🔓 Activating consent: ${consentId}`);
+      logger.info(`🔓 Activating consent: ${consentId}`);
 
       await db
         .update(aaConsents)
@@ -367,7 +368,7 @@ export class AccountAggregatorService {
 
       return true;
     } catch (error: any) {
-      console.error('❌ Consent activation failed:', error.message);
+      logger.error('❌ Consent activation failed:', { message: error.message });
       return false;
     }
   }
@@ -377,7 +378,7 @@ export class AccountAggregatorService {
    */
   async revokeConsent(consentId: string, revokedBy: 'user' | 'system' | 'admin', reason?: string): Promise<boolean> {
     try {
-      console.log(`🚫 Revoking consent: ${consentId} (By: ${revokedBy})`);
+      logger.info(`🚫 Revoking consent: ${consentId} (By: ${revokedBy})`);
 
       // Call AA provider to revoke
       if (this.isProduction && this.aaApiKey) {
@@ -400,11 +401,11 @@ export class AccountAggregatorService {
         })
         .where(eq(aaConsents.consentId, consentId));
 
-      console.log(`✅ Consent revoked: ${consentId}`);
+      logger.info(`✅ Consent revoked: ${consentId}`);
       return true;
 
     } catch (error: any) {
-      console.error('❌ Consent revocation failed:', error.message);
+      logger.error('❌ Consent revocation failed:', { message: error.message });
       return false;
     }
   }
@@ -414,7 +415,7 @@ export class AccountAggregatorService {
    */
   async pauseConsent(consentId: string): Promise<boolean> {
     try {
-      console.log(`⏸️ Pausing consent: ${consentId}`);
+      logger.info(`⏸️ Pausing consent: ${consentId}`);
 
       await db
         .update(aaConsents)
@@ -426,7 +427,7 @@ export class AccountAggregatorService {
 
       return true;
     } catch (error: any) {
-      console.error('❌ Consent pause failed:', error.message);
+      logger.error('❌ Consent pause failed:', { message: error.message });
       return false;
     }
   }
@@ -436,7 +437,7 @@ export class AccountAggregatorService {
    */
   async resumeConsent(consentId: string): Promise<boolean> {
     try {
-      console.log(`▶️ Resuming consent: ${consentId}`);
+      logger.info(`▶️ Resuming consent: ${consentId}`);
 
       await db
         .update(aaConsents)
@@ -448,7 +449,7 @@ export class AccountAggregatorService {
 
       return true;
     } catch (error: any) {
-      console.error('❌ Consent resume failed:', error.message);
+      logger.error('❌ Consent resume failed:', { message: error.message });
       return false;
     }
   }
@@ -460,7 +461,7 @@ export class AccountAggregatorService {
    */
   async fetchFIData(request: DataFetchRequest): Promise<DataFetchResponse> {
     try {
-      console.log(`📥 Fetching FI data for consent: ${request.consentId}`);
+      logger.info(`📥 Fetching FI data for consent: ${request.consentId}`);
 
       // Verify consent is active
       const [consent] = await db
@@ -482,7 +483,7 @@ export class AccountAggregatorService {
 
       // Use mock data in development
       if (!this.isProduction || !this.aaApiKey) {
-        console.log('📋 Using mock FI data fetch (production API not configured)');
+        logger.info('📋 Using mock FI data fetch (production API not configured)');
         return await this.fetchMockFIData(request, sessionId, correlationId);
       }
 
@@ -516,6 +517,7 @@ export class AccountAggregatorService {
         userId: request.userId,
         sessionId: aaSessionId,
         correlationId,
+        fetchType: 'on_demand',
         fetchStatus: 'initiated',
         initiatedAt: new Date()
       });
@@ -526,7 +528,7 @@ export class AccountAggregatorService {
         .set({ lastDataFetchAt: new Date() })
         .where(eq(aaConsents.id, consent.id));
 
-      console.log(`✅ FI data fetch initiated: ${aaSessionId}`);
+      logger.info(`✅ FI data fetch initiated: ${aaSessionId}`);
 
       return {
         success: true,
@@ -538,7 +540,7 @@ export class AccountAggregatorService {
       };
 
     } catch (error: any) {
-      console.error('❌ FI data fetch failed:', error.message);
+      logger.error('❌ FI data fetch failed:', { message: error.message });
       return {
         success: false,
         sessionId: request.sessionId || '',
@@ -555,7 +557,7 @@ export class AccountAggregatorService {
    */
   async getFetchStatus(sessionId: string): Promise<any> {
     try {
-      console.log(`🔍 Fetching session status: ${sessionId}`);
+      logger.info(`🔍 Fetching session status: ${sessionId}`);
 
       const [fetchLog] = await db
         .select()
@@ -584,7 +586,7 @@ export class AccountAggregatorService {
       return fetchLog;
 
     } catch (error: any) {
-      console.error('❌ Fetch status retrieval failed:', error.message);
+      logger.error('❌ Fetch status retrieval failed:', { message: error.message });
       return null;
     }
   }
@@ -596,7 +598,7 @@ export class AccountAggregatorService {
    */
   async handleWebhook(payload: WebhookPayload): Promise<boolean> {
     try {
-      console.log(`🪝 Processing AA webhook: ${payload.event}`);
+      logger.info(`🪝 Processing AA webhook: ${payload.event}`);
 
       // Verify webhook signature
       if (!this.verifyWebhookSignature(payload)) {
@@ -622,13 +624,13 @@ export class AccountAggregatorService {
           break;
 
         default:
-          console.warn(`⚠️ Unknown webhook event: ${payload.event}`);
+          logger.warn(`⚠️ Unknown webhook event: ${payload.event}`);
       }
 
       return true;
 
     } catch (error: any) {
-      console.error('❌ Webhook processing failed:', error.message);
+      logger.error('❌ Webhook processing failed:', { message: error.message });
       return false;
     }
   }
@@ -685,6 +687,7 @@ export class AccountAggregatorService {
       userId: request.userId,
       sessionId,
       correlationId,
+      fetchType: 'full',
       fetchStatus: 'completed',
       accountsRequested: 5,
       accountsFetched: 5,
@@ -821,7 +824,7 @@ export class AccountAggregatorService {
         .where(eq(aaConsents.consentId, consentId));
 
     } catch (error: any) {
-      console.error('❌ AA consent status sync failed:', error.message);
+      logger.error('❌ AA consent status sync failed:', { message: error.message });
     }
   }
 
@@ -838,13 +841,13 @@ export class AccountAggregatorService {
         .where(eq(aaDataFetchLogs.sessionId, sessionId));
 
     } catch (error: any) {
-      console.error('❌ AA fetch status sync failed:', error.message);
+      logger.error('❌ AA fetch status sync failed:', { message: error.message });
     }
   }
 
   private async processFIDataReady(payload: WebhookPayload): Promise<void> {
     try {
-      console.log(`📦 Processing FI data for session: ${payload.sessionId}`);
+      logger.info(`📦 Processing FI data for session: ${payload.sessionId}`);
 
       // Get fetch log to retrieve consent and user information
       const [fetchLog] = await db
@@ -900,22 +903,21 @@ export class AccountAggregatorService {
               .set({
                 currentBalance: account.currentBalance,
                 balanceAsOf: account.balanceAsOf,
-                lastSyncedAt: new Date(),
                 accountStatus: 'discovered'
               })
               .where(eq(aaDiscoveredAccounts.id, existing.id));
             
-            console.log(`♻️ Updated existing account: ${account.fipName} - ${account.maskedAccountNumber}`);
+            logger.info(`♻️ Updated existing account: ${account.fipName} - ${account.maskedAccountNumber}`);
           } else {
             // Insert new discovered account
             await db.insert(aaDiscoveredAccounts).values(account);
-            console.log(`✨ Discovered new account: ${account.fipName} - ${account.maskedAccountNumber}`);
+            logger.info(`✨ Discovered new account: ${account.fipName} - ${account.maskedAccountNumber}`);
           }
           
           accountsStored++;
           recordsProcessed += account.recordCount || 1;
         } catch (error: any) {
-          console.error(`❌ Failed to store account ${account.fipId}:`, error.message);
+          logger.error(`❌ Failed to store account ${account.fipId}:`, { message: error.message });
         }
       }
 
@@ -933,10 +935,10 @@ export class AccountAggregatorService {
         })
         .where(eq(aaDataFetchLogs.sessionId, payload.sessionId!));
 
-      console.log(`✅ FI data processing complete: ${accountsStored} accounts discovered, ${recordsProcessed} records processed`);
+      logger.info(`✅ FI data processing complete: ${accountsStored} accounts discovered, ${recordsProcessed} records processed`);
 
     } catch (error: any) {
-      console.error(`❌ FI data processing failed for session ${payload.sessionId}:`, error.message);
+      logger.error(`❌ FI data processing failed for session ${payload.sessionId}:`, { message: error.message });
       
       // Mark session as failed
       await db
@@ -944,7 +946,7 @@ export class AccountAggregatorService {
         .set({
           fetchStatus: 'failed',
           completedAt: new Date(),
-          errorMessage: error.message
+          errorSummary: error.message
         })
         .where(eq(aaDataFetchLogs.sessionId, payload.sessionId!));
       
@@ -967,7 +969,7 @@ export class AccountAggregatorService {
 
       // Check if data is already decrypted (mock/sandbox mode)
       if (typeof encryptedData === 'object' && !encryptedData.jwe) {
-        console.log('📋 Using unencrypted FI data (sandbox mode)');
+        logger.info('📋 Using unencrypted FI data (sandbox mode)');
         return encryptedData;
       }
 
@@ -978,7 +980,7 @@ export class AccountAggregatorService {
       // }
       
       if (encryptedData.jwe) {
-        console.log('🔐 Decrypting JWE encrypted FI data');
+        logger.info('🔐 Decrypting JWE encrypted FI data');
         
         // In production, you would:
         // 1. Import your RSA private key
@@ -992,7 +994,7 @@ export class AccountAggregatorService {
       return encryptedData;
 
     } catch (error: any) {
-      console.error('❌ FI data decryption failed:', error.message);
+      logger.error('❌ FI data decryption failed:', { message: error.message });
       throw new Error(`Failed to decrypt FI data: ${error.message}`);
     }
   }
@@ -1007,7 +1009,7 @@ export class AccountAggregatorService {
     consentId: string
   ): Promise<any[]> {
     try {
-      console.log('🔍 Parsing FI data to extract accounts');
+      logger.info('🔍 Parsing FI data to extract accounts');
 
       const discoveredAccounts: any[] = [];
 
@@ -1040,15 +1042,15 @@ export class AccountAggregatorService {
       }
       // Fallback: Generate mock accounts if no data structure matches
       else {
-        console.log('⚠️ FI data format not recognized, using mock accounts');
+        logger.info('⚠️ FI data format not recognized, using mock accounts');
         return this.getMockDiscoveredAccounts(userId, consentId);
       }
 
-      console.log(`📊 Parsed ${discoveredAccounts.length} accounts from FI data`);
+      logger.info(`📊 Parsed ${discoveredAccounts.length} accounts from FI data`);
       return discoveredAccounts;
 
     } catch (error: any) {
-      console.error('❌ FI data parsing failed:', error.message);
+      logger.error('❌ FI data parsing failed:', { message: error.message });
       throw new Error(`Failed to parse FI data: ${error.message}`);
     }
   }
@@ -1093,7 +1095,7 @@ export class AccountAggregatorService {
         });
       }
     } catch (error: any) {
-      console.error(`❌ Failed to extract accounts from FIP ${fip.fipId}:`, error.message);
+      logger.error(`❌ Failed to extract accounts from FIP ${fip.fipId}:`, { message: error.message });
     }
 
     return accounts;
@@ -1121,7 +1123,7 @@ export class AccountAggregatorService {
         recordCount: account.recordCount || 1
       };
     } catch (error: any) {
-      console.error('❌ Failed to map account to schema:', error.message);
+      logger.error('❌ Failed to map account to schema:', { message: error.message });
       return null;
     }
   }

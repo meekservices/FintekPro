@@ -24,6 +24,7 @@ import { kycReuseTokenService } from './kyc-reuse-token-service';
 import { encryptionService } from '../encryption-service';
 import { kycVaultDecryptionService } from './kyc-vault-decryption-service';
 import { eq } from 'drizzle-orm';
+import { logger } from '../logger';
 
 interface OKYCData {
   aadhaarNumber: string;
@@ -72,7 +73,7 @@ export class KYCWorkflowOrchestrator {
    */
   async initiateOKYC(aadhaarNumber: string): Promise<WorkflowResult> {
     try {
-      console.log('🔄 Step 1: Initiating Sandbox OKYC...');
+      logger.info('🔄 Step 1: Initiating Sandbox OKYC...');
 
       const result = await this.sandboxService.generateAadhaarOTP(aadhaarNumber);
 
@@ -94,7 +95,7 @@ export class KYCWorkflowOrchestrator {
         }
       };
     } catch (error: any) {
-      console.error('OKYC initiation error:', error);
+      logger.error('OKYC initiation error:', error);
       return {
         success: false,
         step: 'okyc_initiate',
@@ -109,7 +110,7 @@ export class KYCWorkflowOrchestrator {
    */
   async verifyOKYC(otp: string, refId: string): Promise<WorkflowResult> {
     try {
-      console.log('🔄 Step 2: Verifying OTP and fetching Aadhaar data...');
+      logger.info('🔄 Step 2: Verifying OTP and fetching Aadhaar data...');
 
       const result = await this.sandboxService.verifyAadhaarOTP(otp, refId);
 
@@ -128,7 +129,7 @@ export class KYCWorkflowOrchestrator {
         data: result.data
       };
     } catch (error: any) {
-      console.error('OKYC verification error:', error);
+      logger.error('OKYC verification error:', error);
       return {
         success: false,
         step: 'okyc_verify',
@@ -143,7 +144,7 @@ export class KYCWorkflowOrchestrator {
    */
   async checkCKYC(panNumber: string, aadhaarNumber?: string): Promise<WorkflowResult> {
     try {
-      console.log('🔄 Step 3: Checking CKYC Registry...');
+      logger.info('🔄 Step 3: Checking CKYC Registry...');
 
       const searchResult = await this.ckycService.searchCKYC({
         panNumber,
@@ -167,7 +168,7 @@ export class KYCWorkflowOrchestrator {
         data: { found: false }
       };
     } catch (error: any) {
-      console.error('CKYC lookup error:', error);
+      logger.error('CKYC lookup error:', error);
       return {
         success: false,
         step: 'ckyc_lookup',
@@ -181,7 +182,7 @@ export class KYCWorkflowOrchestrator {
    */
   async createCKYC(okycData: OKYCData, panNumber: string): Promise<WorkflowResult> {
     try {
-      console.log('🔄 Step 4: Creating CKYC record...');
+      logger.info('🔄 Step 4: Creating CKYC record...');
 
       const registrationResult = await this.ckycService.registerCKYC({
         firstName: okycData.name.split(' ')[0] || '',
@@ -217,7 +218,7 @@ export class KYCWorkflowOrchestrator {
         data: registrationResult
       };
     } catch (error: any) {
-      console.error('CKYC creation error:', error);
+      logger.error('CKYC creation error:', error);
       return {
         success: false,
         step: 'ckyc_create',
@@ -237,7 +238,7 @@ export class KYCWorkflowOrchestrator {
     sandboxRefId: string
   ): Promise<WorkflowResult> {
     try {
-      console.log('🔄 Step 5: Storing KYC data in secure vault...');
+      logger.info('🔄 Step 5: Storing KYC data in secure vault...');
 
       // Encrypt personal data
       const encryptedFullName = encryptionService.encrypt(okycData.name);
@@ -329,7 +330,7 @@ export class KYCWorkflowOrchestrator {
         isExpired: false
       });
 
-      console.log('✅ KYC data stored securely in vault');
+      logger.info('✅ KYC data stored securely in vault');
 
       return {
         success: true,
@@ -339,7 +340,7 @@ export class KYCWorkflowOrchestrator {
         ckycKinNumber
       };
     } catch (error: any) {
-      console.error('Vault storage error:', error);
+      logger.error('Vault storage error:', error);
       return {
         success: false,
         step: 'vault_storage',
@@ -358,7 +359,7 @@ export class KYCWorkflowOrchestrator {
     expectedName: string
   ): Promise<WorkflowResult> {
     try {
-      console.log('🔍 Validating vault storage for user:', userId);
+      logger.info('🔍 Validating vault storage for user:', { userId });
 
       // Read back vault data with decryption
       const decryptionResult = await kycVaultDecryptionService.decryptVaultData(userId, {
@@ -403,7 +404,7 @@ export class KYCWorkflowOrchestrator {
         };
       }
 
-      console.log(`✅ Vault validation successful for user ${userId} (Audit: ${decryptionResult.auditLogId})`);
+      logger.info(`✅ Vault validation successful for user ${userId} (Audit: ${decryptionResult.auditLogId})`);
 
       return {
         success: true,
@@ -412,7 +413,7 @@ export class KYCWorkflowOrchestrator {
       };
 
     } catch (error: any) {
-      console.error('Vault validation error:', error);
+      logger.error('Vault validation error:', error);
       return {
         success: false,
         step: 'vault_validation',
@@ -430,7 +431,7 @@ export class KYCWorkflowOrchestrator {
     userAgent?: string
   ): Promise<WorkflowResult> {
     try {
-      console.log('🔄 Step 6: Recording user consent...');
+      logger.info('🔄 Step 6: Recording user consent...');
 
       const consentText = `I hereby consent to share my KYC data with authorized financial institutions and service providers for the purpose of account opening, investment processing, and regulatory compliance. I understand that my data will be encrypted and stored securely.`;
 
@@ -459,7 +460,7 @@ export class KYCWorkflowOrchestrator {
         .set({ isReusable: true })
         .where(eq(kycVault.userId, userId));
 
-      console.log('✅ User consent recorded');
+      logger.info('✅ User consent recorded');
 
       return {
         success: true,
@@ -467,7 +468,7 @@ export class KYCWorkflowOrchestrator {
         message: 'Consent recorded successfully'
       };
     } catch (error: any) {
-      console.error('Consent recording error:', error);
+      logger.error('Consent recording error:', error);
       return {
         success: false,
         step: 'consent_recording',
@@ -485,7 +486,7 @@ export class KYCWorkflowOrchestrator {
     issuedTo?: string
   ): Promise<WorkflowResult> {
     try {
-      console.log('🔄 Step 7: Generating KYC Reuse Token...');
+      logger.info('🔄 Step 7: Generating KYC Reuse Token...');
 
       const tokenResult = await kycReuseTokenService.generateToken(userId, {
         purpose,
@@ -501,7 +502,7 @@ export class KYCWorkflowOrchestrator {
         };
       }
 
-      console.log(`✅ KYC Reuse Token generated: ${tokenResult.tokenId}`);
+      logger.info(`✅ KYC Reuse Token generated: ${tokenResult.tokenId}`);
 
       return {
         success: true,
@@ -514,7 +515,7 @@ export class KYCWorkflowOrchestrator {
         }
       };
     } catch (error: any) {
-      console.error('Token generation error:', error);
+      logger.error('Token generation error:', error);
       return {
         success: false,
         step: 'token_generation',
@@ -537,7 +538,7 @@ export class KYCWorkflowOrchestrator {
     userAgent?: string
   ): Promise<WorkflowResult> {
     try {
-      console.log('🚀 Starting pre-verified KYC storage workflow for user:', userId);
+      logger.info('🚀 Starting pre-verified KYC storage workflow for user:', { userId });
 
       // Step 1: Check CKYC Registry
       const ckycCheckResult = await this.checkCKYC(panNumber, okycData.aadhaarNumber);
@@ -546,7 +547,7 @@ export class KYCWorkflowOrchestrator {
 
       if (ckycCheckResult.data?.found && ckycCheckResult.ckycKinNumber) {
         // CKYC exists
-        console.log('✅ Existing CKYC record found:', ckycCheckResult.ckycKinNumber);
+        logger.info('✅ Existing CKYC record found:', { ckycKinNumber: ckycCheckResult.ckycKinNumber });
         ckycKinNumber = ckycCheckResult.ckycKinNumber;
       } else {
         // Step 2: Create new CKYC record
@@ -573,19 +574,19 @@ export class KYCWorkflowOrchestrator {
       // Step 3.5: Validate Vault Storage (prevent silent failures)
       const validationResult = await this.validateVaultStorage(userId, panNumber, okycData.name);
       if (!validationResult.success) {
-        console.error(`❌ Vault validation failed: ${validationResult.error}`);
+        logger.error(`❌ Vault validation failed: ${validationResult.error}`);
         return {
           success: false,
           step: 'vault_validation_failed',
           error: `Data stored but validation failed: ${validationResult.error}. Please contact support.`
         };
       }
-      console.log('✅ Vault storage validated successfully');
+      logger.info('✅ Vault storage validated successfully');
 
       // Step 4: Record Consent
       const consentResult = await this.recordConsent(userId, ipAddress, userAgent);
       if (!consentResult.success) {
-        console.warn('⚠️  Consent recording failed, but continuing...');
+        logger.warn('⚠️  Consent recording failed, but continuing...');
       }
 
       // Step 5: Generate Reuse Token
@@ -595,7 +596,7 @@ export class KYCWorkflowOrchestrator {
         'FintekPro Platform'
       );
 
-      console.log('🎉 Pre-verified KYC storage completed successfully!');
+      logger.info('🎉 Pre-verified KYC storage completed successfully!');
 
       return {
         success: true,
@@ -612,7 +613,7 @@ export class KYCWorkflowOrchestrator {
         }
       };
     } catch (error: any) {
-      console.error('❌ Pre-verified KYC storage error:', error);
+      logger.error('❌ Pre-verified KYC storage error:', error);
       return {
         success: false,
         step: 'vault_storage_error',
@@ -635,7 +636,7 @@ export class KYCWorkflowOrchestrator {
     userAgent?: string
   ): Promise<WorkflowResult> {
     try {
-      console.log('🚀 Starting complete KYC workflow for user:', userId);
+      logger.info('🚀 Starting complete KYC workflow for user:', { userId });
 
       // Step 1 & 2: Verify OKYC (already initiated, just verify)
       const okycResult = await this.verifyOKYC(otp, refId);
@@ -652,7 +653,7 @@ export class KYCWorkflowOrchestrator {
 
       if (ckycCheckResult.data?.found && ckycCheckResult.ckycKinNumber) {
         // CKYC exists
-        console.log('✅ Existing CKYC record found:', ckycCheckResult.ckycKinNumber);
+        logger.info('✅ Existing CKYC record found:', { ckycKinNumber: ckycCheckResult.ckycKinNumber });
         ckycKinNumber = ckycCheckResult.ckycKinNumber;
       } else {
         // Step 4: Create new CKYC record
@@ -679,19 +680,19 @@ export class KYCWorkflowOrchestrator {
       // Step 5.5: Validate Vault Storage (prevent silent failures)
       const validationResult = await this.validateVaultStorage(userId, panNumber, okycData.name);
       if (!validationResult.success) {
-        console.error(`❌ Vault validation failed: ${validationResult.error}`);
+        logger.error(`❌ Vault validation failed: ${validationResult.error}`);
         return {
           success: false,
           step: 'vault_validation_failed',
           error: `Data stored but validation failed: ${validationResult.error}. Please contact support.`
         };
       }
-      console.log('✅ Vault storage validated successfully');
+      logger.info('✅ Vault storage validated successfully');
 
       // Step 6: Record Consent
       const consentResult = await this.recordConsent(userId, ipAddress, userAgent);
       if (!consentResult.success) {
-        console.warn('⚠️  Consent recording failed, but continuing...');
+        logger.warn('⚠️  Consent recording failed, but continuing...');
       }
 
       // Step 7: Generate Reuse Token
@@ -701,7 +702,7 @@ export class KYCWorkflowOrchestrator {
         'FintekPro Platform'
       );
 
-      console.log('🎉 KYC workflow completed successfully!');
+      logger.info('🎉 KYC workflow completed successfully!');
 
       return {
         success: true,
@@ -718,7 +719,7 @@ export class KYCWorkflowOrchestrator {
         }
       };
     } catch (error: any) {
-      console.error('❌ Complete workflow error:', error);
+      logger.error('❌ Complete workflow error:', error);
       return {
         success: false,
         step: 'workflow_error',
