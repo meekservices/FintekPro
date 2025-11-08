@@ -1,0 +1,55 @@
+System Monitoring & Errors (Live Observability Panel)
+Goal
+Promoter sees system health at a glance, without reading raw logs.
+Section Layout
+[SYSTEM STATUS]
+ MF Engine (BSE STAR)      🟢 Healthy
+ Cashfree Payments         🟢 Healthy
+ eMudhra eSign             🟡 Slow Response
+ Demat Sync (CDSL/NSDL)    🔴 Failing
+ AA (Finvu)                🟢 Active
+ API Latency (P95)         210ms
+ Error Rate (last hour)    0.8%
+ Uptime (Last 7 days)      99.95%
+Below that → Error Stream
+Timestamp      Endpoint                             Status   Root Cause           AI Summary
+2025-11-10     GET /holdings/portfolio-xxxx         404      Null portfolio ID    Fix: add fallback loader
+2025-11-10     POST /kyc/verify                     500      Vendor timeout       Fix: implement retry
+Filters: Time, service, status code, severity
+2) 📋 Audit & Compliance Ledger (Regulator-Safe Audit Trail)
+Goal: Maintain tamper-evident audit logs for SEBI | AMFI | RBI | UIDAI.
+Tabs inside Audit Ledger:
+⦿ Data Access Trail (KYC / Portfolio / Holdings)
+⦿ MF Order Execution Trail (incl. ARN/EUIN mapping)
+⦿ Consent Ledger (AA, eSign, KYC Reuse)
+⦿ Third Party API Ledger (BSE, Cashfree, eMudhra)
+⦿ Hash Chain Integrity Check  ✅ / ❌
+Sample Record Display
+Event: ORDER.CREATE
+Client: CL10228
+Agent: AG778
+ARN/EUIN: ARN-172992 / E42345
+Timestamp: 14:09:45 IST
+Trace: Request → BSE API → RTA Confirm → Portfolio Updated
+Integrity: Hash Verified ✅
+Export Options
+Export for Regulator:
+ [AMFI Format]  [SEBI Format]  [Internal CSV]  [Download as PDF]
+3) 🤖 AI Fix Suggestions (Auto-Debug Assistant)
+Goal: You & the promoter don’t chase developers — the AI guides the fix.
+Interface Example
+AI Detected Issue:
+GET /portfolio/holdings returning 404 for some users.
+
+Cause (Confidence 92%):
+Portfolio ID missing in UI state during page reload.
+
+Recommended Fix:
+Add null-check + auto-fetch portfolio list on dashboard load.
+
+Apply Patch?   [Preview Code] [Test in Sandbox] [Deploy to Production]
+AI also does:
+Classifies error severity
+Suggests rollback if new build caused issue
+Detects if vendor (BSE / Cashfree / AA) is the cause
+Generates nightly stability report for promoter
