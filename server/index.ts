@@ -311,6 +311,10 @@ app.use((req, res, next) => {
   const { registerAdminAIFixesRoutes } = await import('./admin-ai-fixes-routes');
   registerAdminAIFixesRoutes(app);
   
+  // Register Financial Goal routes (Goal planning with contribution tracking)
+  const { registerGoalRoutes } = await import('./goal-routes');
+  registerGoalRoutes(app);
+  
   const server = await registerRoutes(app);
 
   // Production HTTP server timeout configurations

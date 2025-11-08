@@ -10566,3 +10566,35 @@ export const insertAuditHashChainSchema = createInsertSchema(auditHashChain).omi
 export type AuditHashChain = typeof auditHashChain.$inferSelect;
 export type InsertAuditHashChain = z.infer<typeof insertAuditHashChainSchema>;
 
+// Goal Contributions - Track all contributions made towards financial goals
+export const goalContributions = pgTable("goal_contributions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  goalId: varchar("goal_id").references(() => financialGoals.id, { onDelete: 'cascade' }).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Contribution details
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
+  contributionDate: date("contribution_date").notNull(),
+  contributionType: varchar("contribution_type").notNull().default("manual"), // 'manual', 'sip', 'lumpsum', 'bonus', 'other'
+  
+  // Optional metadata
+  notes: text("notes"),
+  source: varchar("source"), // e.g., 'salary', 'bonus', 'gift', 'investment_return'
+  transactionId: varchar("transaction_id"), // Link to actual transaction if applicable
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_contribution_goal").on(table.goalId),
+  index("idx_contribution_user").on(table.userId),
+  index("idx_contribution_date").on(table.contributionDate),
+]);
+
+// Zod schema for Goal Contributions
+export const insertGoalContributionSchema = createInsertSchema(goalContributions).omit({
+  id: true,
+  createdAt: true,
+});
+export type GoalContribution = typeof goalContributions.$inferSelect;
+export type InsertGoalContribution = z.infer<typeof insertGoalContributionSchema>;
+
