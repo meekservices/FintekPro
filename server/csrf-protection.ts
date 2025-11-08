@@ -1,6 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import { randomBytes } from 'crypto';
 
+// Extend express-session to include csrfToken
+declare module 'express-session' {
+  interface SessionData {
+    csrfToken?: string;
+  }
+}
+
 /**
  * Generate a cryptographically secure CSRF token
  */

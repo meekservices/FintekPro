@@ -1,5 +1,26 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+// CSRF Token Management
+let csrfToken: string | null = null;
+
+async function fetchCsrfToken(): Promise<string> {
+  try {
+    const res = await fetch('/api/csrf-token', { credentials: 'include' });
+    if (!res.ok) {
+      throw new Error('Failed to fetch CSRF token');
+    }
+    const data = await res.json();
+    csrfToken = data.csrfToken;
+    return csrfToken || '';
+  } catch (error) {
+    console.error('CSRF token fetch failed:', error);
+    return '';
+  }
+}
+
+// Initialize CSRF token on app load
+fetchCsrfToken();
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     try {
@@ -22,12 +43,54 @@ export async function apiRequest(
   // Don't send body for GET requests
   const shouldSendBody = method !== "GET" && body !== undefined;
   
+  // Add CSRF token for state-changing requests
+  const requestHeaders = { ...headers };
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase())) {
+    // If token is not available, fetch it
+    if (!csrfToken) {
+      await fetchCsrfToken();
+    }
+    if (csrfToken) {
+      requestHeaders['x-csrf-token'] = csrfToken;
+    }
+  }
+  
+  if (shouldSendBody) {
+    requestHeaders['Content-Type'] = 'application/json';
+  }
+  
   const res = await fetch(url, {
     method,
-    headers: shouldSendBody ? { "Content-Type": "application/json", ...headers } : headers,
+    headers: requestHeaders,
     body: shouldSendBody ? JSON.stringify(body) : undefined,
     credentials: "include",
   });
+
+  // If we get a CSRF error, refresh token and retry once
+  if (res.status === 403) {
+    try {
+      const error = await res.json();
+      if (error.code === 'CSRF_VALIDATION_FAILED') {
+        await fetchCsrfToken();
+        // Retry the request with new token
+        requestHeaders['x-csrf-token'] = csrfToken || '';
+        const retryRes = await fetch(url, {
+          method,
+          headers: requestHeaders,
+          body: shouldSendBody ? JSON.stringify(body) : undefined,
+          credentials: "include",
+        });
+        await throwIfResNotOk(retryRes);
+        const contentType = retryRes.headers.get("content-type");
+        if (contentType?.includes("application/json")) {
+          return await retryRes.json();
+        }
+        return retryRes;
+      }
+    } catch (e) {
+      // If parsing fails, continue to normal error handling
+    }
+  }
 
   await throwIfResNotOk(res);
   

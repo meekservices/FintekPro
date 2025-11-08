@@ -301,6 +301,13 @@ app.use((req, res, next) => {
   
   const server = await registerRoutes(app);
 
+  // Production HTTP server timeout configurations
+  if (process.env.NODE_ENV === 'production') {
+    server.keepAliveTimeout = 65000; // 65 seconds (must be > load balancer timeout)
+    server.headersTimeout = 66000; // 66 seconds (must be > keepAliveTimeout)
+    server.requestTimeout = 120000; // 120 seconds for long-running requests
+  }
+
   app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
