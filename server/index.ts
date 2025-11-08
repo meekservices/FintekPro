@@ -16,6 +16,19 @@ import { requestCorrelationMiddleware } from "./middleware/request-correlation";
 import { initializeCsrfToken, validateCsrfToken, getCsrfToken } from "./csrf-protection";
 import "./services/sms-service"; // Initialize SMS service
 
+// CRITICAL: Process-level error handlers to prevent silent crashes
+process.on('uncaughtException', (error: Error) => {
+  console.error('💥 UNCAUGHT EXCEPTION - Process will exit:', error);
+  logger.error('Uncaught exception', { error: error.message, stack: error.stack });
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
+  console.error('💥 UNHANDLED REJECTION:', reason);
+  logger.error('Unhandled rejection', { reason: reason instanceof Error ? reason.message : String(reason), stack: reason instanceof Error ? reason.stack : undefined });
+  process.exit(1);
+});
+
 const app = express();
 
 // Trust proxy configuration for Replit environment
@@ -288,12 +301,21 @@ app.use((req, res, next) => {
   
   const server = await registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
+    // Log error instead of re-throwing to prevent silent process crashes
+    logger.error('Express error middleware caught error', {
+      error: err.message || String(err),
+      stack: err.stack,
+      status,
+      path: req.path,
+      method: req.method
+    });
+    console.error('❌ Express error:', { path: req.path, method: req.method, error: err.message, stack: err.stack });
+
     res.status(status).json({ message });
-    throw err;
   });
 
   // importantly only setup vite in development and after
