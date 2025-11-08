@@ -12,6 +12,7 @@ import { storage } from "./storage";
 import { setupAuth as setupReplitAuth } from "./replitAuth";
 import { setupAuth as setupLocalAuth } from "./auth";
 import { subdomainDetection } from "./subdomain-middleware";
+import { requestCorrelationMiddleware } from "./middleware/request-correlation";
 import "./services/sms-service"; // Initialize SMS service
 
 const app = express();
@@ -174,6 +175,9 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
+// Request correlation middleware for request ID tracking
+app.use(requestCorrelationMiddleware);
+
 // Subdomain detection middleware - must come early to be available in all routes
 app.use(subdomainDetection);
 
@@ -203,7 +207,11 @@ app.use((req, res, next) => {
         logLine = logLine.slice(0, 79) + "…";
       }
 
-      logger.http(req.method, path, res.statusCode, duration, capturedJsonResponse ? { response: capturedJsonResponse } : undefined);
+      const logContext = {
+        requestId: req.requestId,
+        ...(capturedJsonResponse ? { response: capturedJsonResponse } : {})
+      };
+      logger.http(req.method, path, res.statusCode, duration, logContext);
     }
   });
 
