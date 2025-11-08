@@ -9,6 +9,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, CheckCircle, AlertCircle, User, CreditCard, Building, Briefcase } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/useAuth";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface MinimalClientData {
   // Essential identifiers only
@@ -29,6 +31,7 @@ interface AutoPopulatedData {
 }
 
 export default function ClientAutoPopulatePage() {
+  const { user, isLoading: authLoading } = useAuth();
   const [formData, setFormData] = useState<MinimalClientData>({
     panNumber: '',
     mobile: '',
@@ -97,6 +100,33 @@ export default function ClientAutoPopulatePage() {
   };
 
   const isLoading = autoPopulateMutation.isPending;
+
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-muted-foreground">Checking authentication...</p>
+      </div>
+    );
+  }
+
+  // Redirect if not authenticated
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4 px-4">
+        <Alert variant="destructive" className="max-w-md">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            You need to be logged in to access client onboarding. Please login to continue.
+          </AlertDescription>
+        </Alert>
+        <Button onClick={() => window.location.href = '/login'}>
+          Go to Login
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4">

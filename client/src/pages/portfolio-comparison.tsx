@@ -7,10 +7,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, TrendingUp, TrendingDown, Star, Plus, X, BarChart3, PieChart, Target, AlertCircle, CheckCircle, ArrowUpRight, ArrowDownRight, Shuffle, FolderOpen } from "lucide-react";
+import { Search, TrendingUp, TrendingDown, Star, Plus, X, BarChart3, PieChart, Target, AlertCircle, CheckCircle, ArrowUpRight, ArrowDownRight, Shuffle, FolderOpen, Loader2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface PortfolioData {
   id: string;
@@ -490,6 +492,7 @@ function ComparisonResults({ comparison }: { comparison: PortfolioComparisonResu
 }
 
 export default function PortfolioComparison() {
+  const { user, isLoading: authLoading } = useAuth();
   const [selectedPortfolios, setSelectedPortfolios] = useState<PortfolioData[]>([]);
   const [timePeriod, setTimePeriod] = useState("1Y");
   const [benchmarkIndex, setBenchmarkIndex] = useState("NIFTY_50");
@@ -549,6 +552,33 @@ export default function PortfolioComparison() {
   const handlePortfolioRemove = (portfolioId: string) => {
     setSelectedPortfolios(selectedPortfolios.filter(p => p.id !== portfolioId));
   };
+
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-muted-foreground">Checking authentication...</p>
+      </div>
+    );
+  }
+
+  // Redirect if not authenticated
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4 px-4">
+        <Alert variant="destructive" className="max-w-md">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            You need to be logged in to compare portfolios. Please login to continue.
+          </AlertDescription>
+        </Alert>
+        <Button onClick={() => window.location.href = '/login'}>
+          Go to Login
+        </Button>
+      </div>
+    );
+  }
 
   const handleCompare = () => {
     if (selectedPortfolios.length < 2) {

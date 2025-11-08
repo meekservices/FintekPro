@@ -6,19 +6,23 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, TrendingUp, TrendingDown, Activity, Shield, Target, Brain } from "lucide-react";
+import { AlertCircle, TrendingUp, TrendingDown, Activity, Shield, Target, Brain, Loader2 } from "lucide-react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { LoadingState } from "@/components/LoadingState";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function PredictiveAnalytics() {
+  const { user, isLoading: authLoading } = useAuth();
   const [selectedPortfolio, setSelectedPortfolio] = useState<string>("");
   const [selectedHorizon, setSelectedHorizon] = useState<string>("1Y");
   const { toast } = useToast();
 
-  // Fetch user portfolios
+  // Fetch user portfolios - only when authenticated
   const { data: portfolios, isLoading: portfoliosLoading } = useQuery({
     queryKey: ["/api/portfolios"],
+    enabled: !!user,
   });
 
   // Fetch predictions
@@ -81,6 +85,33 @@ export default function PredictiveAnalytics() {
 
   const latestPrediction = Array.isArray(predictions) && predictions.length > 0 ? predictions[0] : null;
   const latestRisk = Array.isArray(riskAnalysis) && riskAnalysis.length > 0 ? riskAnalysis[0] : null;
+
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-muted-foreground">Checking authentication...</p>
+      </div>
+    );
+  }
+
+  // Redirect if not authenticated
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4 px-4">
+        <Alert variant="destructive" className="max-w-md">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            You need to be logged in to access predictive analytics. Please login to continue.
+          </AlertDescription>
+        </Alert>
+        <Button onClick={() => window.location.href = '/login'}>
+          Go to Login
+        </Button>
+      </div>
+    );
+  }
 
   if (portfoliosLoading) {
     return <LoadingState variant="card" count={3} />;
