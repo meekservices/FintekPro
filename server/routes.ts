@@ -19040,15 +19040,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return apiResponse.notFound(res, "One or both users not found");
       }
       
-      // TODO: Implement comprehensive merge logic
-      // For now, just deactivate the merge user
-      await db.update(users)
-        .set({ 
-          isActive: false,
-          email: mergeUser.email ? `${mergeUser.email}.merged.${Date.now()}` : null,
-          mobile: mergeUser.mobile ? `${mergeUser.mobile}.merged.${Date.now()}` : null
-        })
-        .where(eq(users.id, mergeUserId));
+      // Comprehensive CKYC merge logic - consolidate all user data
+      console.log(`[CKYC Merge] Merging user ${mergeUserId} into ${keepUserId}`);
+      
+      try {
+        // 1. Transfer unified orders
+        await db.update(unifiedOrders)
+          .set({ userId: keepUserId })
+          .where(eq(unifiedOrders.userId, mergeUserId));
+        console.log(`[CKYC Merge] Transferred orders`);
+        
+        // 2. Transfer portfolios
+        await db.update(portfolios)
+          .set({ userId: keepUserId })
+          .where(eq(portfolios.userId, mergeUserId));
+        console.log(`[CKYC Merge] Transferred portfolios`);
+        
+        // 3. Transfer holdings
+        await db.update(holdings)
+          .set({ userId: keepUserId })
+          .where(eq(holdings.userId, mergeUserId));
+        console.log(`[CKYC Merge] Transferred holdings`);
+        
+        // 4. Transfer KYC records (keep most recent)
+        const mergeKycRecords = await db.select()
+          .from(kycRecords)
+          .where(eq(kycRecords.userId, mergeUserId));
+        
+        if (mergeKycRecords.length > 0) {
+          await db.update(kycRecords)
+            .set({ userId: keepUserId })
+            .where(eq(kycRecords.userId, mergeUserId));
+          console.log(`[CKYC Merge] Transferred ${mergeKycRecords.length} KYC records`);
+        }
+        
+        // 5. Update user profile - merge data, keeping most complete info
+        const [keepProfile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, keepUserId));
+        const [mergeProfile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, mergeUserId));
+        
+        if (mergeProfile) {
+          if (!keepProfile) {
+            // Transfer profile to keep user
+            await db.update(userProfiles)
+              .set({ userId: keepUserId })
+              .where(eq(userProfiles.userId, mergeUserId));
+          } else {
+            // Merge profile data, keeping non-null values from merge user
+            const mergedData: any = {};
+            if (!keepProfile.dateOfBirth && mergeProfile.dateOfBirth) mergedData.dateOfBirth = mergeProfile.dateOfBirth;
+            if (!keepProfile.address && mergeProfile.address) mergedData.address = mergeProfile.address;
+            if (!keepProfile.panNumber && mergeProfile.panNumber) mergedData.panNumber = mergeProfile.panNumber;
+            if (!keepProfile.aadhaarNumber && mergeProfile.aadhaarNumber) mergedData.aadhaarNumber = mergeProfile.aadhaarNumber;
+            
+            if (Object.keys(mergedData).length > 0) {
+              await db.update(userProfiles)
+                .set(mergedData)
+                .where(eq(userProfiles.userId, keepUserId));
+            }
+            
+            // Delete duplicate profile
+            await db.delete(userProfiles).where(eq(userProfiles.userId, mergeUserId));
+          }
+          console.log(`[CKYC Merge] Merged user profiles`);
+        }
+        
+        // 6. Transfer sessions (logout merged user)
+        await db.delete(sessions).where(eq(sessions.userId, mergeUserId));
+        console.log(`[CKYC Merge] Cleared sessions for merged user`);
+        
+        // 7. Deactivate the merged user account
+        await db.update(users)
+          .set({ 
+            isActive: false,
+            email: mergeUser.email ? `${mergeUser.email}.merged.${Date.now()}` : null,
+            mobile: mergeUser.mobile ? `${mergeUser.mobile}.merged.${Date.now()}` : null
+          })
+          .where(eq(users.id, mergeUserId));
+        console.log(`[CKYC Merge] Deactivated merged user account`);
+        
+      } catch (mergeError) {
+        console.error(`[CKYC Merge] Error during data consolidation:`, mergeError);
+        throw new Error(`Data consolidation failed: ${mergeError instanceof Error ? mergeError.message : 'Unknown error'}`);
+      }
       
       await adminService.logActivity({
         userId: req.user!.id,
