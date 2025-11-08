@@ -14,7 +14,6 @@ import { smsService } from "./services/sms-service";
 import { whatsappService } from "./whatsapp";
 import { apiResponse } from "./utils/responses";
 import { z } from "zod";
-
 import { duplicateDetectionService } from "./services/duplicateDetectionService";
 declare global {
   namespace Express {
@@ -97,16 +96,17 @@ export function setupAuth(app: Express) {
           const users = await db.select().from(schema.users).where(eq(schema.users.email, email));
           
           if (users.length === 0) {
-            return done(null, false, { message: "Invalid email or password" });
+            return done(null, false, { message: "Invalid credentials" });
           }
           
+          // SECURITY FIX: Return identical message for multiple accounts (no enumeration)
           if (users.length > 1) {
-            return done(null, false, { message: "Multiple accounts found with this email. Please log in using your User ID instead." });
+            return done(null, false, { message: "Invalid credentials" });
           }
           
           const user = users[0];
           if (!(await comparePasswords(password, user.password))) {
-            return done(null, false, { message: "Incorrect password. Please try again or use Forgot Password." });
+            return done(null, false, { message: "Invalid credentials" });
           }
           
           // Normalize user data for Express
@@ -137,16 +137,17 @@ export function setupAuth(app: Express) {
           const users = await db.select().from(schema.users).where(eq(schema.users.mobile, mobile));
           
           if (users.length === 0) {
-            return done(null, false, { message: "Invalid mobile number or password" });
+            return done(null, false, { message: "Invalid credentials" });
           }
           
+          // SECURITY FIX: Return identical message for multiple accounts (no enumeration)
           if (users.length > 1) {
-            return done(null, false, { message: "Multiple accounts found with this mobile number. Please log in using your User ID instead." });
+            return done(null, false, { message: "Invalid credentials" });
           }
           
           const user = users[0];
           if (!(await comparePasswords(password, user.password))) {
-            return done(null, false, { message: "Incorrect password. Please try again or use Forgot Password." });
+            return done(null, false, { message: "Invalid credentials" });
           }
           
           // Normalize user data for Express
@@ -174,11 +175,12 @@ export function setupAuth(app: Express) {
       async (userId, password, done) => {
         try {
           const user = await storage.getUserByUserId(userId);
+          // SECURITY FIX: Don't reveal that User ID doesn't exist
           if (!user) {
-            return done(null, false, { message: "User ID not found" });
+            return done(null, false, { message: "Invalid credentials" });
           }
           if (!(await comparePasswords(password, user.password))) {
-            return done(null, false, { message: "Incorrect password. Please try again or use Forgot Password." });
+            return done(null, false, { message: "Invalid credentials" });
           }
           // Normalize user data for Express
           const normalizedUser = {
@@ -263,10 +265,13 @@ export function setupAuth(app: Express) {
       await db.delete(schema.otpVerifications)
         .where(eq(schema.otpVerifications.identifier, mobile));
 
-      // Store OTP with registration data in metadata
+      // SECURITY FIX: Hash OTP before storing
+      const hashedOtp = await hashPassword(otp);
+
+      // Store hashed OTP with registration data in metadata
       await storage.createOtpVerification({
         identifier: email, // Use email as primary identifier for registration
-        otp,
+        otp: hashedOtp,
         type: "registration",
         expiresAt,
         verified: false,
@@ -490,23 +495,37 @@ export function setupAuth(app: Express) {
       await db.delete(schema.otpVerifications)
         .where(eq(schema.otpVerifications.id, otpRecord.id));
 
-      // Auto-login the user
-      req.login(user, (err) => {
-        if (err) {
-          console.error("Login error:", err);
-          return apiResponse.serverError(res, "Registration successful but login failed");
+      // SECURITY FIX: Regenerate session to prevent session fixation
+      req.session.regenerate((regenerateErr) => {
+        if (regenerateErr) {
+          console.error("Session regeneration error:", regenerateErr);
+          return apiResponse.serverError(res, "Registration successful but session creation failed");
         }
-        return apiResponse.created(res, {
-          id: user.id,
-          userId: user.userId,
-          email: user.email,
-          mobile: user.mobile,
-          firstName: user.firstName,
-          middleName: user.middleName,
-          lastName: user.lastName,
-          isEmailVerified: user.isEmailVerified,
-          isMobileVerified: user.isMobileVerified
-        }, "Registration successful");
+        
+        // Auto-login the user with the new session
+        req.login(user, (loginErr) => {
+          if (loginErr) {
+            console.error("Login error:", loginErr);
+            return apiResponse.serverError(res, "Registration successful but login failed");
+          }
+          
+          // Regenerate CSRF token as well
+          if (req.session) {
+            req.session.csrfToken = randomBytes(32).toString('hex');
+          }
+          
+          return apiResponse.created(res, {
+            id: user.id,
+            userId: user.userId,
+            email: user.email,
+            mobile: user.mobile,
+            firstName: user.firstName,
+            middleName: user.middleName,
+            lastName: user.lastName,
+            isEmailVerified: user.isEmailVerified,
+            isMobileVerified: user.isMobileVerified
+          }, "Registration successful");
+        });
       });
 
     } catch (error) {
@@ -554,12 +573,16 @@ export function setupAuth(app: Express) {
       const newOtp = generateOtp();
       const newExpiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
-      // Update OTP record with new OTP and expiry
+      // SECURITY FIX: Hash new OTP before storing
+      const hashedNewOtp = await hashPassword(newOtp);
+
+      // Update OTP record with new hashed OTP, reset attempt counter, and new expiry
       await db.update(schema.otpVerifications)
         .set({
-          otp: newOtp,
+          otp: hashedNewOtp,
           expiresAt: newExpiresAt,
-          verified: false
+          verified: false,
+          attemptCount: 0 // Reset attempt counter on resend
         })
         .where(eq(schema.otpVerifications.id, otpRecord.id));
 
@@ -676,10 +699,13 @@ export function setupAuth(app: Express) {
           return apiResponse.badRequest(res, "No valid OTP destination found for this account");
         }
 
-        // Store OTP for verification
+        // SECURITY FIX: Hash OTP before storing
+        const hashedOtp = await hashPassword(otp);
+
+        // Store hashed OTP for verification
         await storage.createOtpVerification({
           identifier: otpDestination,
-          otp,
+          otp: hashedOtp,
           type: otpType,
           expiresAt,
           verified: false,
@@ -770,8 +796,9 @@ export function setupAuth(app: Express) {
         user = await storage.getUserByMobile(identifier);
       }
 
+      // SECURITY FIX: Use generic error message (this should rarely happen as OTP was valid)
       if (!user) {
-        return apiResponse.notFound(res, "User not found");
+        return apiResponse.badRequest(res, "Authentication failed. Please try logging in again.");
       }
 
       // Update verification status and login timestamps
@@ -798,41 +825,54 @@ export function setupAuth(app: Express) {
         return apiResponse.serverError(res, "Failed to retrieve updated user data");
       }
 
-      // Complete login by creating session with updated user data
-      req.login(updatedUser, (loginErr) => {
-        if (loginErr) {
-          console.error("❌ Login session error:", loginErr);
-          return apiResponse.serverError(res, "Login failed");
+      // SECURITY FIX: Regenerate session to prevent session fixation
+      req.session.regenerate((regenerateErr) => {
+        if (regenerateErr) {
+          console.error("❌ Session regeneration error:", regenerateErr);
+          return apiResponse.serverError(res, "Login failed - session creation error");
         }
         
-        // Explicitly save session to ensure it persists
-        req.session.save((saveErr) => {
-          if (saveErr) {
-            console.error("❌ Session save error:", saveErr);
-            return apiResponse.serverError(res, "Session save failed");
+        // Complete login by creating session with updated user data
+        req.login(updatedUser, (loginErr) => {
+          if (loginErr) {
+            console.error("❌ Login session error:", loginErr);
+            return apiResponse.serverError(res, "Login failed");
           }
           
-          // Log session details for debugging
-          console.log("✅ Session created and saved for user:", updatedUser.email || updatedUser.mobile);
-          console.log("📝 Session ID:", req.sessionID);
-          console.log("🔑 User roles:", updatedUser.roles);
-          console.log("🍪 Session cookie:", req.session.cookie);
+          // Regenerate CSRF token as well
+          if (req.session) {
+            req.session.csrfToken = randomBytes(32).toString('hex');
+          }
           
-          return apiResponse.success(res, {
-            id: updatedUser.id,
-            userId: updatedUser.userId,
-            email: updatedUser.email,
-            mobile: updatedUser.mobile,
-            firstName: updatedUser.firstName,
-            middleName: updatedUser.middleName,
-            lastName: updatedUser.lastName,
-            roles: updatedUser.roles,
-            isEmailVerified: updatedUser.isEmailVerified,
-            isMobileVerified: updatedUser.isMobileVerified,
-            lastLoginAt: updatedUser.lastLoginAt,
-            previousLoginAt: updatedUser.previousLoginAt,
-            loginCount: updatedUser.loginCount
-          }, "Login successful");
+          // Explicitly save session to ensure it persists
+          req.session.save((saveErr) => {
+            if (saveErr) {
+              console.error("❌ Session save error:", saveErr);
+              return apiResponse.serverError(res, "Session save failed");
+            }
+            
+            // Log session details for debugging
+            console.log("✅ Session created and saved for user:", updatedUser.email || updatedUser.mobile);
+            console.log("📝 Session ID:", req.sessionID);
+            console.log("🔑 User roles:", updatedUser.roles);
+            console.log("🍪 Session cookie:", req.session.cookie);
+            
+            return apiResponse.success(res, {
+              id: updatedUser.id,
+              userId: updatedUser.userId,
+              email: updatedUser.email,
+              mobile: updatedUser.mobile,
+              firstName: updatedUser.firstName,
+              middleName: updatedUser.middleName,
+              lastName: updatedUser.lastName,
+              roles: updatedUser.roles,
+              isEmailVerified: updatedUser.isEmailVerified,
+              isMobileVerified: updatedUser.isMobileVerified,
+              lastLoginAt: updatedUser.lastLoginAt,
+              previousLoginAt: updatedUser.previousLoginAt,
+              loginCount: updatedUser.loginCount
+            }, "Login successful");
+          });
         });
       });
     } catch (error) {
@@ -857,9 +897,12 @@ export function setupAuth(app: Express) {
       const otp = generateOtp();
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
+      // SECURITY FIX: Hash OTP before storing
+      const hashedOtp = await hashPassword(otp);
+
       await storage.createOtpVerification({
         identifier,
-        otp,
+        otp: hashedOtp,
         type,
         expiresAt,
         verified: false,
@@ -1634,10 +1677,13 @@ export function setupAuth(app: Express) {
       await db.delete(schema.otpVerifications)
         .where(eq(schema.otpVerifications.identifier, user.email || user.mobile || user.userId));
 
-      // Store OTP for password reset
+      // SECURITY FIX: Hash OTP before storing
+      const hashedOtp = await hashPassword(otp);
+
+      // Store hashed OTP for password reset
       await storage.createOtpVerification({
         identifier: user.email || user.mobile || user.userId,
-        otp,
+        otp: hashedOtp,
         type: "password_reset",
         expiresAt,
         verified: false,

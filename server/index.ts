@@ -95,7 +95,18 @@ const authLimiter = rateLimit({
   // Skip proxy configuration here - handled by app.set('trust proxy', 1)
 });
 
-app.use(["/api/login", "/api/register"], authLimiter);
+// SECURITY FIX: Apply rate limiting to all authentication-related endpoints
+app.use([
+  "/api/login",
+  "/api/login/verify-otp",
+  "/api/register",
+  "/api/register/verify-otp",
+  "/api/register/resend-otp",
+  "/api/otp/send",
+  "/api/otp/verify",
+  "/api/auth/forgot-password",
+  "/api/auth/reset-password"
+], authLimiter);
 
 // Raw body capture for webhook signature verification
 app.use('/api/payments/cashfree/webhook', express.raw({ type: 'application/json' }));

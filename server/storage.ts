@@ -1,13 +1,28 @@
 import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Partner, type InsertPartner, type Agent, type InsertAgent, type Supplier, type InsertSupplier, type EpfHolding, type PpfHolding, type EpsHolding, type GovernmentSchemeConsent, type InsertGovernmentSchemeConsent, type InsuranceHolding, type InsertInsuranceHolding, type UserBankAccount, type InsertUserBankAccount, type UserDematAccount, type InsertUserDematAccount, type AchievementCategory, type InsertAchievementCategory, type Achievement, type InsertAchievement, type UserAchievement, type InsertUserAchievement, type LearningProgress, type InsertLearningProgress, type SocialShare, type InsertSocialShare, type FinancialGoal, type InsertFinancialGoal, type TaxDocument, type InsertTaxDocument, type StructuredTaxData, type InsertStructuredTaxData, type UserAlert, type InsertUserAlert, type AlertHistory, type InsertAlertHistory, type AlertTemplate, type InsertAlertTemplate, type FamilyGroup, type InsertFamilyGroup, type FamilyMember, type InsertFamilyMember, type FamilyGoal, type InsertFamilyGoal, type FamilyGoalContribution, type InsertFamilyGoalContribution, type FamilyActivityLog, type InsertFamilyActivityLog, type FamilyDiscussion, type InsertFamilyDiscussion, type FamilyBudget, type InsertFamilyBudget, type FamilyPortfolioPermission, type InsertFamilyPortfolioPermission, type TaxCalculation, type InsertTaxCalculation, type TaxDocumentAccessLog, type InsertTaxDocumentAccessLog, type TaxSession, type InsertTaxSession, type TaxDataSource, type InsertTaxDataSource, type ValidationIssue, type InsertValidationIssue, type FilingRecord, type InsertFilingRecord, type AiOptimizationSuggestion, type InsertAiOptimizationSuggestion, type FundExtended, type Provenance, type FundSearchParams, type FundListResponse, type SourceStatus, type MultiSourceStatus, type LoanProduct, type InsertLoanProduct, type LoanProvider, type InsertLoanProvider, type ProviderProduct, type InsertProviderProduct, type CreditProfile, type InsertCreditProfile, type LoanRequest, type InsertLoanRequest, type LoanOffer, type InsertLoanOffer, type LoanApplicationMarketplace, type InsertLoanApplicationMarketplace, type ProviderIntegration, type InsertProviderIntegration, type PartnerApplicationDocument, type InsertPartnerApplicationDocument, type InvestmentIdea, type InsertInvestmentIdea, type InvestmentIdeaTracking, type InsertInvestmentIdeaTracking, type InvestmentIdeaAlert, type InsertInvestmentIdeaAlert, type YieldTracker, type InsertYieldTracker, type PartnerApplication, type InsertPartnerApplication, type TaxRule, type InsertTaxRule, type TaxReminderSubscription, type InsertTaxReminderSubscription, type CapitalGainsTaxReminder, type InsertCapitalGainsTaxReminder, type UserExpense, type InsertUserExpense, type UserBudget, type InsertUserBudget, type ExpenseInsight, type InsertExpenseInsight, type AgentClientMapping, type InsertAgentClientMapping, type Commission, type InsertCommission } from "@shared/schema";
 import { type CashfreeTransaction, type InsertCashfreeTransaction, type PhonePeTransaction, type InsertPhonePeTransaction, type AgentDocument, type InsertAgentDocument, type AgentCommissionSplit, type InsertAgentCommissionSplit, type AgentCommission, type InsertAgentCommission, type AmfiVerificationLog, type InsertAmfiVerificationLog, type RebalanceExecution, type InsertRebalanceExecution, type RebalanceTransaction, type InsertRebalanceTransaction, type RebalancingPreferences, type InsertRebalancingPreferences } from "@shared/schema";
 import { type Product, type InsertProduct, type ApplicationDocument, type InsertApplicationDocument, type ProductAccountPreference, type InsertProductAccountPreference, type ICICILoanApplication, type InsertICICILoanApplication, type ICICICreditScore, type InsertICICICreditScore, type PortfolioComparison, type InsertPortfolioComparison, type ChatSession, type InsertChatSession, type ChatMessage, type InsertChatMessage, type ChatAction, type InsertChatAction, type ChatFunction, type InsertChatFunction, type CurrencyRate, type InsertCurrencyRate, type CkycNotificationTrigger, type InsertCkycNotificationTrigger, type KycVerificationSession, type InsertKycVerificationSession, type ManualKycSubmission, type InsertManualKycSubmission, type ManualKycDocument, type InsertManualKycDocument } from "@shared/schema";
-import { randomUUID } from "crypto";
+import { randomUUID, scrypt, timingSafeEqual } from "crypto";
+import { promisify } from "util";
 import { db } from "./db";
 import { eq, and, or, desc, asc, gte, lte, like, ilike, sql, isNull } from "drizzle-orm";
 import * as schema from "@shared/schema";
 import { generateUniqueUserId } from "./auth";
 
-// We'll import hashPassword later to avoid circular dependency
+// Duplicate hash functions to avoid circular dependency with auth.ts
+const scryptAsync = promisify(scrypt);
+
+async function comparePasswords(supplied: string, stored: string): Promise<boolean> {
+  try {
+    const [hashed, salt] = stored.split(".");
+    const hashedBuf = Buffer.from(hashed, "hex");
+    const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
+    return timingSafeEqual(hashedBuf, suppliedBuf);
+  } catch {
+    return false;
+  }
+}
+
+const MAX_OTP_ATTEMPTS = 5;
 
 export interface IStorage {
   // User methods for mobile/email authentication
@@ -1248,10 +1263,38 @@ export class DatabaseStorage implements IStorage {
     const verification = await this.getOtpVerification(identifier, type);
     if (!verification) return false;
     
+    // SECURITY FIX: Server-side expiration check
     const isExpired = new Date() > new Date(verification.expiresAt);
-    if (isExpired) return false;
+    if (isExpired) {
+      // Delete expired OTP
+      await db.delete(schema.otpVerifications)
+        .where(eq(schema.otpVerifications.id, verification.id));
+      return false;
+    }
     
-    return verification.otp === otp;
+    // SECURITY FIX: Check if max attempts exceeded
+    if (verification.attemptCount >= MAX_OTP_ATTEMPTS) {
+      // Delete OTP after max attempts
+      await db.delete(schema.otpVerifications)
+        .where(eq(schema.otpVerifications.id, verification.id));
+      return false;
+    }
+    
+    // SECURITY FIX: Increment attempt counter before verification
+    await db.update(schema.otpVerifications)
+      .set({ attemptCount: verification.attemptCount + 1 })
+      .where(eq(schema.otpVerifications.id, verification.id));
+    
+    // SECURITY FIX: Use comparePasswords to verify hashed OTP
+    const isValid = await comparePasswords(otp, verification.otp);
+    
+    // SECURITY FIX: Delete OTP after successful verification
+    if (isValid) {
+      await db.delete(schema.otpVerifications)
+        .where(eq(schema.otpVerifications.id, verification.id));
+    }
+    
+    return isValid;
   }
 
   async cleanupExpiredOtps(retries = 2): Promise<void> {

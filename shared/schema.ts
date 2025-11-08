@@ -603,10 +603,11 @@ export const complianceAuditTrail = pgTable("compliance_audit_trail", {
 export const otpVerifications = pgTable("otp_verifications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   identifier: varchar("identifier").notNull(), // email or mobile
-  otp: varchar("otp", { length: 6 }).notNull(),
+  otp: varchar("otp").notNull(), // Hashed OTP (bcrypt)
   type: varchar("type").notNull(), // 'email' or 'mobile'
   expiresAt: timestamp("expires_at").notNull(),
   verified: boolean("verified").default(false),
+  attemptCount: integer("attempt_count").default(0).notNull(), // Track verification attempts
   metadata: jsonb("metadata"), // Store additional data like pending registration info
   createdAt: timestamp("created_at").defaultNow(),
 });
