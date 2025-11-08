@@ -29,6 +29,7 @@ import { useToast } from '@/hooks/use-toast';
 import { AutoPopulationProgressIndicator } from '@/components/AutoPopulationProgressIndicator';
 import { ConsentDetailsModal } from '@/components/ConsentDetailsModal';
 import { ExpiredConsentsBanner } from '@/components/ExpiredConsentsBanner';
+import { AAIntegrationCard } from '@/components/aa/AAIntegrationCard';
 import { useAuth } from '@/hooks/useAuth';
 
 // Types
@@ -533,6 +534,9 @@ export default function AutoPopulationDashboard() {
                     </Card>
                   );
                 })}
+                
+                {/* Account Aggregator Integration Card */}
+                <AAIntegrationCard />
               </div>
             </CardContent>
           </Card>

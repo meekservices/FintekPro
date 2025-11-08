@@ -363,6 +363,22 @@ export function EnhancedNavigation() {
       ]
     },
     {
+      title: "Data & Sync",
+      items: [
+        {
+          name: "Account Aggregator",
+          icon: Shield,
+          description: "RBI-regulated secure data fetching",
+          badge: "NEW",
+          subItems: [
+            { name: "Manage Consents", href: "/aa-consents", description: "Create and manage AA consents" },
+            { name: "Discovered Accounts", href: "/aa-accounts", description: "View and link fetched accounts" },
+            { name: "Auto-Population", href: "/auto-populate", description: "Portfolio data synchronization" }
+          ]
+        }
+      ]
+    },
+    {
       title: "Settings & Support",
       items: [
         {

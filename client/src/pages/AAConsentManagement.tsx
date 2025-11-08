@@ -189,6 +189,29 @@ export default function AAConsentManagement() {
     },
   });
 
+  const fetchDataMutation = useMutation({
+    mutationFn: async (consentId: string) => {
+      return await apiRequest('/api/aa/data/fetch', {
+        method: 'POST',
+        body: JSON.stringify({ consentId }),
+      });
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/aa/discovered-accounts'] });
+      toast({
+        title: 'Data Fetch Initiated',
+        description: `Fetching financial data. Session ID: ${data.sessionId || 'N/A'}`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to fetch data',
+        variant: 'destructive',
+      });
+    },
+  });
+
   const approveMutation = useMutation({
     mutationFn: async (consentId: string) => {
       return await apiRequest(`/api/aa/consent/${consentId}/approve`, {
@@ -334,16 +357,27 @@ export default function AAConsentManagement() {
                       </>
                     )}
                     {consent.consentStatus === 'active' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => pauseMutation.mutate(consent.consentId)}
-                        disabled={pauseMutation.isPending}
-                        data-testid={`button-pause-${consent.consentId}`}
-                      >
-                        <PauseCircle className="mr-2 h-4 w-4" />
-                        Pause
-                      </Button>
+                      <>
+                        <Button
+                          size="sm"
+                          onClick={() => fetchDataMutation.mutate(consent.consentId)}
+                          disabled={fetchDataMutation.isPending}
+                          data-testid={`button-fetch-${consent.consentId}`}
+                        >
+                          <RefreshCw className="mr-2 h-4 w-4" />
+                          Fetch Data
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => pauseMutation.mutate(consent.consentId)}
+                          disabled={pauseMutation.isPending}
+                          data-testid={`button-pause-${consent.consentId}`}
+                        >
+                          <PauseCircle className="mr-2 h-4 w-4" />
+                          Pause
+                        </Button>
+                      </>
                     )}
                     {consent.consentStatus === 'paused' && (
                       <Button
