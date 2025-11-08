@@ -10407,3 +10407,162 @@ export const insertAaDiscoveredAccountSchema = createInsertSchema(aaDiscoveredAc
 export type AaDiscoveredAccount = typeof aaDiscoveredAccounts.$inferSelect;
 export type InsertAaDiscoveredAccount = z.infer<typeof insertAaDiscoveredAccountSchema>;
 
+// ============================================================================
+// ADMIN MONITORING & OBSERVABILITY
+// ============================================================================
+
+// System Health Logs - Track service health and performance metrics over time
+export const systemHealthLogs = pgTable("system_health_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Service identification
+  serviceName: varchar("service_name").notNull(), // 'bse_star', 'cashfree', 'emudhra', 'demat_sync', 'aa_finvu', etc.
+  serviceCategory: varchar("service_category").notNull(), // 'payment', 'kyc', 'trading', 'market_data', 'communication'
+  
+  // Health status
+  status: varchar("status").notNull(), // 'healthy', 'degraded', 'failing', 'offline'
+  statusCode: integer("status_code"), // HTTP status code if applicable
+  
+  // Performance metrics
+  latencyMs: integer("latency_ms"), // Response time in milliseconds
+  errorRate: decimal("error_rate", { precision: 5, scale: 2 }), // Error percentage
+  uptime: decimal("uptime", { precision: 5, scale: 2 }), // Uptime percentage
+  
+  // Detailed information
+  endpoint: varchar("endpoint"), // Specific endpoint checked
+  errorMessage: text("error_message"), // Error details if failing
+  metadata: jsonb("metadata"), // Additional context (headers, response body, etc.)
+  
+  // Timestamps
+  checkedAt: timestamp("checked_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_health_service").on(table.serviceName),
+  index("idx_health_status").on(table.status),
+  index("idx_health_checked").on(table.checkedAt),
+]);
+
+// AI Fix Suggestions - AI-generated error analysis and fix recommendations
+export const aiFixSuggestions = pgTable("ai_fix_suggestions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Error identification
+  errorType: varchar("error_type").notNull(), // 'api_error', 'database_error', 'validation_error', 'timeout', 'null_pointer', etc.
+  endpoint: varchar("endpoint"), // API endpoint where error occurred
+  errorMessage: text("error_message").notNull(), // Original error message
+  stackTrace: text("stack_trace"), // Full stack trace
+  
+  // Error context
+  affectedUsers: integer("affected_users").default(0), // Number of users impacted
+  occurrenceCount: integer("occurrence_count").default(1), // How many times this error occurred
+  severity: varchar("severity").notNull(), // 'critical', 'high', 'medium', 'low'
+  firstSeenAt: timestamp("first_seen_at").notNull(),
+  lastSeenAt: timestamp("last_seen_at").notNull(),
+  
+  // AI Analysis
+  aiRootCause: text("ai_root_cause"), // AI-determined root cause
+  aiConfidence: integer("ai_confidence"), // Confidence score (0-100)
+  aiSummary: text("ai_summary"), // Brief AI summary of the issue
+  
+  // Fix suggestion
+  suggestedFix: text("suggested_fix").notNull(), // AI-generated fix description
+  suggestedCode: text("suggested_code"), // Code patch if applicable
+  fixCategory: varchar("fix_category"), // 'code_patch', 'config_change', 'dependency_update', 'rollback', 'vendor_issue'
+  
+  // Workflow status
+  status: varchar("status").default("pending"), // 'pending', 'reviewed', 'approved', 'testing', 'deployed', 'rejected', 'resolved'
+  reviewedBy: varchar("reviewed_by").references(() => users.id), // Admin who reviewed
+  reviewedAt: timestamp("reviewed_at"),
+  reviewNotes: text("review_notes"),
+  
+  // Deployment tracking
+  deployedBy: varchar("deployed_by").references(() => users.id),
+  deployedAt: timestamp("deployed_at"),
+  deploymentStatus: varchar("deployment_status"), // 'success', 'failed', 'partial'
+  deploymentNotes: text("deployment_notes"),
+  
+  // Resolution tracking
+  resolvedAt: timestamp("resolved_at"),
+  resolutionMethod: varchar("resolution_method"), // 'ai_fix_applied', 'manual_fix', 'vendor_resolved', 'false_positive'
+  
+  // Metadata
+  relatedLogs: jsonb("related_logs"), // Array of related log entries
+  metadata: jsonb("metadata"), // Additional context
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_fix_status").on(table.status),
+  index("idx_fix_severity").on(table.severity),
+  index("idx_fix_created").on(table.createdAt),
+  index("idx_fix_endpoint").on(table.endpoint),
+]);
+
+// Audit Hash Chain - Tamper-evident audit trail with cryptographic verification
+export const auditHashChain = pgTable("audit_hash_chain", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Chain information
+  sequenceNumber: bigint("sequence_number", { mode: "number" }).notNull(), // Sequential number in the chain
+  previousHash: varchar("previous_hash", { length: 64 }), // SHA-256 hash of previous record
+  currentHash: varchar("current_hash", { length: 64 }).notNull(), // SHA-256 hash of this record
+  
+  // Audit record reference
+  auditType: varchar("audit_type").notNull(), // 'kyc_verification', 'mf_order', 'consent', 'api_call', 'data_access'
+  auditRecordId: varchar("audit_record_id").notNull(), // ID of the actual audit record
+  auditTable: varchar("audit_table").notNull(), // Table name where audit record exists
+  
+  // Record snapshot (for verification)
+  recordSnapshot: jsonb("record_snapshot").notNull(), // Immutable snapshot of the audit record
+  recordHash: varchar("record_hash", { length: 64 }).notNull(), // Hash of the record snapshot
+  
+  // Chain metadata
+  userId: varchar("user_id").references(() => users.id), // User associated with the audit event
+  agentId: varchar("agent_id").references(() => agents.id), // Agent if applicable
+  clientId: varchar("client_id"), // Client identifier if applicable
+  
+  // Regulatory context
+  regulatoryCategory: varchar("regulatory_category"), // 'sebi', 'amfi', 'rbi', 'uidai', 'irdai'
+  complianceEvent: varchar("compliance_event"), // Specific compliance event type
+  
+  // Verification status
+  isVerified: boolean("is_verified").default(true), // Whether hash chain is intact
+  verifiedAt: timestamp("verified_at"),
+  verificationStatus: varchar("verification_status"), // 'valid', 'broken', 'pending'
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  
+  // Metadata
+  metadata: jsonb("metadata"), // Additional context
+}, (table) => [
+  index("idx_chain_sequence").on(table.sequenceNumber),
+  index("idx_chain_type").on(table.auditType),
+  index("idx_chain_record").on(table.auditRecordId),
+  index("idx_chain_user").on(table.userId),
+  index("idx_chain_created").on(table.createdAt),
+]);
+
+// Zod schemas for Admin Monitoring
+export const insertSystemHealthLogSchema = createInsertSchema(systemHealthLogs).omit({
+  id: true,
+  createdAt: true,
+});
+export type SystemHealthLog = typeof systemHealthLogs.$inferSelect;
+export type InsertSystemHealthLog = z.infer<typeof insertSystemHealthLogSchema>;
+
+export const insertAiFixSuggestionSchema = createInsertSchema(aiFixSuggestions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type AiFixSuggestion = typeof aiFixSuggestions.$inferSelect;
+export type InsertAiFixSuggestion = z.infer<typeof insertAiFixSuggestionSchema>;
+
+export const insertAuditHashChainSchema = createInsertSchema(auditHashChain).omit({
+  id: true,
+  createdAt: true,
+});
+export type AuditHashChain = typeof auditHashChain.$inferSelect;
+export type InsertAuditHashChain = z.infer<typeof insertAuditHashChainSchema>;
+
