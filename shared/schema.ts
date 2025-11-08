@@ -10181,3 +10181,228 @@ export const insertPredictionAccuracySchema = createInsertSchema(predictionAccur
 export type PredictionAccuracy = typeof predictionAccuracy.$inferSelect;
 export type InsertPredictionAccuracy = z.infer<typeof insertPredictionAccuracySchema>;
 
+// Account Aggregator (AA) Consents - User consent management for financial data sharing
+export const aaConsents = pgTable("aa_consents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Consent identification
+  consentId: varchar("consent_id").notNull().unique(), // AA ecosystem consent ID
+  consentHandle: varchar("consent_handle").unique(), // Short handle for consent
+  
+  // Consent metadata
+  purpose: varchar("purpose").notNull(), // 'portfolio_sync', 'loan_application', 'wealth_management'
+  consentMode: varchar("consent_mode").default("view"), // 'view', 'store', 'query', 'stream'
+  
+  // Financial Information Types requested
+  fiTypes: text("fi_types").array().notNull(), // ['deposit', 'mutual_funds', 'insurance_policies', 'securities', 'term_deposit', 'recurring_deposit', 'sip', 'cp', 'govt_securities', 'equities', 'bonds', 'debentures', 'etf', 'idr', 'cis', 'aif']
+  
+  // Data range
+  dataRangeFrom: timestamp("data_range_from").notNull(), // Start date for data fetch
+  dataRangeTo: timestamp("data_range_to").notNull(), // End date for data fetch
+  
+  // Consent lifecycle
+  consentStatus: varchar("consent_status").default("requested").notNull(), // 'requested', 'pending', 'approved', 'active', 'paused', 'revoked', 'expired', 'rejected'
+  consentExpiry: timestamp("consent_expiry").notNull(), // When consent expires
+  
+  // Frequency of data fetch
+  frequency: jsonb("frequency").notNull(), // { unit: 'hour'|'day'|'month'|'year', value: number }
+  dataLifePeriod: jsonb("data_life_period"), // How long FIU can store data { unit: 'month'|'year', value: number }
+  
+  // FIU (Financial Information User) details
+  fiuId: varchar("fiu_id").default("FintekPro-FIU"), // Our FIU identifier
+  fiuName: varchar("fiu_name").default("FintekPro"),
+  
+  // Account Aggregator details
+  aaId: varchar("aa_id"), // AA entity ID (Anumati, Finvu, NADL, etc.)
+  aaName: varchar("aa_name"), // AA entity name
+  
+  // Consent artifacts
+  consentArtefact: jsonb("consent_artefact"), // Signed consent artifact from AA
+  digitalSignature: text("digital_signature"), // Digital signature of consent
+  
+  // Customer VUA (Virtual User Address)
+  customerVua: varchar("customer_vua"), // user@aa-identifier format
+  
+  // Account discovery and linking
+  discoveredAccounts: jsonb("discovered_accounts").default([]), // Accounts discovered through AA
+  linkedAccountIds: text("linked_account_ids").array(), // Internal account IDs linked to this consent
+  
+  // Audit trail
+  requestedAt: timestamp("requested_at").defaultNow(),
+  approvedAt: timestamp("approved_at"),
+  activatedAt: timestamp("activated_at"),
+  pausedAt: timestamp("paused_at"),
+  revokedAt: timestamp("revoked_at"),
+  expiredAt: timestamp("expired_at"),
+  
+  // Revocation details
+  revocationReason: text("revocation_reason"),
+  revokedBy: varchar("revoked_by"), // 'user', 'system', 'admin'
+  
+  // Metadata
+  lastDataFetchAt: timestamp("last_data_fetch_at"),
+  totalDataFetches: integer("total_data_fetches").default(0),
+  metadata: jsonb("metadata"), // Additional consent-specific data
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_aa_consents_user_id").on(table.userId),
+  index("idx_aa_consents_status").on(table.consentStatus),
+  index("idx_aa_consents_expiry").on(table.consentExpiry),
+  index("idx_aa_consents_consent_id").on(table.consentId),
+]);
+
+// AA Data Fetch Logs - Audit trail for all data fetch operations
+export const aaDataFetchLogs = pgTable("aa_data_fetch_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Consent and user reference (both mandatory for audit trail)
+  consentId: varchar("consent_id").references(() => aaConsents.id, { onDelete: 'cascade' }).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  aaConsentHandle: varchar("aa_consent_handle"), // AA ecosystem consent handle
+  
+  // Session tracking
+  sessionId: varchar("session_id").notNull(), // AA session ID for this fetch
+  correlationId: varchar("correlation_id"), // Correlation ID for tracking across services
+  
+  // Fetch details
+  fetchType: varchar("fetch_type").notNull(), // 'full', 'incremental', 'on_demand'
+  fiTypes: text("fi_types").array(), // FI types fetched in this session
+  
+  // Account information
+  accountsRequested: integer("accounts_requested"), // Number of accounts requested
+  accountsFetched: integer("accounts_fetched"), // Number of accounts successfully fetched
+  accountsFailed: integer("accounts_failed"), // Number of accounts that failed
+  
+  // Data range for this fetch
+  dataRangeFrom: timestamp("data_range_from"),
+  dataRangeTo: timestamp("data_range_to"),
+  
+  // Fetch status
+  fetchStatus: varchar("fetch_status").notNull(), // 'initiated', 'pending', 'partial', 'completed', 'failed'
+  
+  // Response details
+  responseCode: varchar("response_code"), // AA response code
+  responseMessage: text("response_message"),
+  
+  // Data quality metrics
+  recordsReceived: integer("records_received").default(0),
+  recordsProcessed: integer("records_processed").default(0),
+  recordsFailed: integer("records_failed").default(0),
+  dataCompleteness: decimal("data_completeness", { precision: 5, scale: 2 }), // 0-100%
+  
+  // Performance metrics
+  initiatedAt: timestamp("initiated_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  latencyMs: integer("latency_ms"), // Time taken in milliseconds
+  
+  // Error tracking
+  errors: jsonb("errors"), // Array of errors encountered
+  errorSummary: text("error_summary"),
+  
+  // Encryption and security
+  encryptionKeyId: varchar("encryption_key_id"), // ID of encryption key used
+  isDataEncrypted: boolean("is_data_encrypted").default(true),
+  
+  // Data storage reference
+  dataStorageRef: varchar("data_storage_ref"), // Reference to where encrypted FI data is stored
+  dataRetentionUntil: timestamp("data_retention_until"), // When to delete this data
+  
+  // Metadata
+  metadata: jsonb("metadata"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_aa_fetch_logs_consent").on(table.consentId),
+  index("idx_aa_fetch_logs_user").on(table.userId),
+  index("idx_aa_fetch_logs_session").on(table.sessionId),
+  index("idx_aa_fetch_logs_status").on(table.fetchStatus),
+  index("idx_aa_fetch_logs_date").on(table.initiatedAt),
+]);
+
+// AA Discovered Accounts - Financial accounts discovered through AA
+export const aaDiscoveredAccounts = pgTable("aa_discovered_accounts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // User and consent reference
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  consentId: varchar("consent_id").references(() => aaConsents.id),
+  
+  // Account identification
+  fiuAccountId: varchar("fiu_account_id"), // Our internal account ID if linked
+  aaAccountId: varchar("aa_account_id").notNull(), // AA ecosystem account ID
+  maskedAccountNumber: varchar("masked_account_number"), // Masked account number (e.g., XXXX1234)
+  
+  // Financial Institution details
+  fipId: varchar("fip_id").notNull(), // Financial Information Provider ID
+  fipName: varchar("fip_name").notNull(), // Bank/AMC/Insurance company name
+  
+  // Account details
+  accountType: varchar("account_type").notNull(), // 'savings', 'current', 'mutual_fund', 'demat', 'insurance_policy', 'term_deposit', etc.
+  fiType: varchar("fi_type").notNull(), // 'deposit', 'mutual_funds', 'insurance_policies', 'securities'
+  
+  // Account status
+  accountStatus: varchar("account_status").default("discovered"), // 'discovered', 'linked', 'active', 'dormant', 'closed', 'unlinked'
+  isLinked: boolean("is_linked").default(false), // Whether linked to portfolio
+  
+  // Account metadata
+  accountName: varchar("account_name"), // Account nickname or title
+  accountHolderName: varchar("account_holder_name"),
+  currency: varchar("currency").default("INR"),
+  
+  // Balance information (from latest fetch)
+  currentBalance: decimal("current_balance", { precision: 15, scale: 2 }),
+  availableBalance: decimal("available_balance", { precision: 15, scale: 2 }),
+  balanceAsOf: timestamp("balance_as_of"),
+  
+  // Linking details
+  linkedAt: timestamp("linked_at"),
+  linkedToPortfolioId: varchar("linked_to_portfolio_id").references(() => portfolios.id),
+  
+  // Data freshness
+  lastDataFetchAt: timestamp("last_data_fetch_at"),
+  lastSuccessfulFetchAt: timestamp("last_successful_fetch_at"),
+  
+  // Discovery details
+  discoveredAt: timestamp("discovered_at").defaultNow(),
+  discoverySource: varchar("discovery_source").default("account_aggregator"), // 'account_aggregator', 'manual', 'auto_population'
+  
+  // Metadata
+  accountMetadata: jsonb("account_metadata"), // Additional account-specific data
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_aa_accounts_user").on(table.userId),
+  index("idx_aa_accounts_consent").on(table.consentId),
+  index("idx_aa_accounts_type").on(table.accountType),
+  index("idx_aa_accounts_status").on(table.accountStatus),
+  index("idx_aa_accounts_linked").on(table.isLinked),
+]);
+
+// Zod schemas for Account Aggregator
+export const insertAaConsentSchema = createInsertSchema(aaConsents).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type AaConsent = typeof aaConsents.$inferSelect;
+export type InsertAaConsent = z.infer<typeof insertAaConsentSchema>;
+
+export const insertAaDataFetchLogSchema = createInsertSchema(aaDataFetchLogs).omit({
+  id: true,
+  createdAt: true,
+});
+export type AaDataFetchLog = typeof aaDataFetchLogs.$inferSelect;
+export type InsertAaDataFetchLog = z.infer<typeof insertAaDataFetchLogSchema>;
+
+export const insertAaDiscoveredAccountSchema = createInsertSchema(aaDiscoveredAccounts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type AaDiscoveredAccount = typeof aaDiscoveredAccounts.$inferSelect;
+export type InsertAaDiscoveredAccount = z.infer<typeof insertAaDiscoveredAccountSchema>;
+
