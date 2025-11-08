@@ -161,7 +161,7 @@ export function EnhancedNavigation() {
               name: "NRI KYC", 
               description: "For Non-Resident Indians",
               subItems: [
-                { name: "Smart Mode", href: "#", description: "NRI-specific intelligent wizard", badge: "COMING SOON" },
+                { name: "Smart Mode", href: "/nri-kyc", description: "NRI-specific intelligent wizard" },
                 { name: "Manual Mode", href: "/manual-kyc?type=nri", description: "Passport & OCI verification via BSE Star API" }
               ]
             },

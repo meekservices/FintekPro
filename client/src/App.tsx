@@ -105,6 +105,7 @@ import FamilyList from "@/pages/family-list";
 import FamilyDashboard from "@/pages/family-dashboard";
 import AIChat from "@/pages/ai-chat";
 import CorporateKYCPage from "@/pages/CorporateKYCPage";
+import NRIKYCPage from "@/pages/nri-kyc";
 import AlertsPage from "@/pages/alerts";
 import SettingsPage from "@/pages/settings";
 import CreditReportPage from "@/pages/credit-report";
@@ -486,6 +487,8 @@ function Router() {
         <Route path="/profile" component={Profile} />
         <Route path="/onboarding" component={OnboardingPage} />
         <Route path="/manual-kyc" component={ManualKYCPage} />
+        <Route path="/nri-kyc" component={NRIKYCPage} />
+        <Route path="/corporate-kyc" component={CorporateKYCPage} />
         <Route path="/kyc-dashboard" component={KYCDashboard} />
         <Route path="/net-worth" component={NetWorthPage} />
         <Route path="/privacy" component={Privacy} />
