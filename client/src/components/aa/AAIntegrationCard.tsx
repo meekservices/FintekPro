@@ -112,7 +112,7 @@ export function AAIntegrationCard() {
             size="sm" 
             variant="outline" 
             className="flex-1" 
-            onClick={() => navigate('/aa-accounts')}
+            onClick={() => navigate('/aa-discovered-accounts')}
             data-testid="button-view-aa-accounts"
           >
             <Building2 className="mr-2 h-3 w-3" />

@@ -30,6 +30,7 @@ import { AutoPopulationProgressIndicator } from '@/components/AutoPopulationProg
 import { ConsentDetailsModal } from '@/components/ConsentDetailsModal';
 import { ExpiredConsentsBanner } from '@/components/ExpiredConsentsBanner';
 import { AAIntegrationCard } from '@/components/aa/AAIntegrationCard';
+import { RecentFetchesWidget } from '@/components/aa/RecentFetchesWidget';
 import { useAuth } from '@/hooks/useAuth';
 
 // Types
@@ -540,6 +541,9 @@ export default function AutoPopulationDashboard() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Recent AA Data Fetches */}
+          <RecentFetchesWidget />
         </TabsContent>
 
         {/* Consents Tab */}

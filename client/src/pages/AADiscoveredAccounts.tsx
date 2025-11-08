@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { useLocation } from 'wouter';
 import {
   Building2,
   Landmark,
@@ -24,6 +25,7 @@ import {
   AlertCircle,
   Eye,
   EyeOff,
+  ArrowRight,
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
@@ -82,6 +84,7 @@ const FI_TYPE_LABELS: Record<string, string> = {
 export default function AADiscoveredAccounts() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
   const [fiTypeFilter, setFiTypeFilter] = useState<string>('all');
   const [linkFilter, setLinkFilter] = useState<string>('all');
   const [showBalances, setShowBalances] = useState(false);
@@ -301,19 +304,105 @@ export default function AADiscoveredAccounts() {
           ))}
         </div>
       ) : filteredAccounts.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Building2 className="h-16 w-16 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2" data-testid="text-no-accounts">
-              No accounts found
-            </h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              {accounts?.data.length === 0
-                ? 'Create a consent and fetch data to discover your financial accounts'
-                : 'No accounts match the selected filters'}
-            </p>
-          </CardContent>
-        </Card>
+        accounts?.data.length === 0 ? (
+          // Guided empty state for first-time users
+          <Card>
+            <CardContent className="py-12">
+              <div className="flex flex-col items-center text-center mb-8">
+                <div className="p-4 rounded-full bg-primary/10 mb-4">
+                  <Building2 className="h-12 w-12 text-primary" />
+                </div>
+                <h3 className="text-2xl font-bold mb-2" data-testid="text-no-accounts">
+                  No Accounts Discovered Yet
+                </h3>
+                <p className="text-muted-foreground max-w-md">
+                  Follow these steps to securely fetch your financial data through Account Aggregator
+                </p>
+              </div>
+
+              {/* Step-by-step guide */}
+              <div className="max-w-2xl mx-auto space-y-4">
+                <div className="flex gap-4 p-4 border rounded-lg">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">
+                    1
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold mb-1">Create a Consent</h4>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Grant permission to fetch your financial data from banks, mutual funds, and insurance providers
+                    </p>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => navigate('/aa-consents')}
+                      data-testid="button-go-to-consents"
+                    >
+                      <Shield className="mr-2 h-4 w-4" />
+                      Go to Consent Management
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 p-4 border rounded-lg opacity-60">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted text-muted-foreground flex items-center justify-center font-bold">
+                    2
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold mb-1">Approve Your Consent</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Approve the consent request through your financial institution's portal or use the development approval button
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 p-4 border rounded-lg opacity-60">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted text-muted-foreground flex items-center justify-center font-bold">
+                    3
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold mb-1">Fetch Your Data</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Click the "Fetch Data" button on your active consent to discover all your financial accounts
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 p-4 border rounded-lg opacity-60">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted text-muted-foreground flex items-center justify-center font-bold">
+                    4
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold mb-1">Link to Portfolio</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Return here to link discovered accounts to your portfolio for unified tracking
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-8 p-4 bg-accent/50 rounded-lg max-w-2xl mx-auto">
+                <div className="flex items-start gap-2">
+                  <Shield className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                  <div className="text-sm text-muted-foreground">
+                    <strong className="text-foreground">Secure & RBI-Regulated:</strong> Account Aggregator framework is regulated by the Reserve Bank of India, ensuring your financial data is accessed securely with your explicit consent.
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          // Filter-based empty state
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <Building2 className="h-16 w-16 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No accounts match filters</h3>
+              <p className="text-sm text-muted-foreground">
+                Try adjusting your filter criteria to see more accounts
+              </p>
+            </CardContent>
+          </Card>
+        )
       ) : (
         <div className="space-y-6">
           {Object.entries(groupedAccounts).map(([fipName, fipAccounts]) => (

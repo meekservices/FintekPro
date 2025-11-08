@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { ConsentRequestModal } from '@/components/aa/ConsentRequestModal';
+import { FetchStatusTracker } from '@/components/aa/FetchStatusTracker';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -116,6 +117,7 @@ export default function AAConsentManagement() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [actionConsent, setActionConsent] = useState<{ id: string; action: string } | null>(null);
+  const [activeFetchSession, setActiveFetchSession] = useState<string | null>(null);
 
   const { data: consents, isLoading } = useQuery<{ data: Consent[] }>({
     queryKey: ['/api/aa/consents', statusFilter !== 'all' ? statusFilter : undefined],
@@ -198,9 +200,15 @@ export default function AAConsentManagement() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/aa/discovered-accounts'] });
+      
+      // Store the session ID to track progress
+      if (data.sessionId) {
+        setActiveFetchSession(data.sessionId);
+      }
+      
       toast({
         title: 'Data Fetch Initiated',
-        description: `Fetching financial data. Session ID: ${data.sessionId || 'N/A'}`,
+        description: 'Fetching your financial data from providers...',
       });
     },
     onError: (error: any) => {
@@ -254,6 +262,25 @@ export default function AAConsentManagement() {
           New Consent
         </Button>
       </div>
+
+      {/* Active Fetch Status Tracker */}
+      {activeFetchSession && (
+        <FetchStatusTracker
+          sessionId={activeFetchSession}
+          onComplete={(status) => {
+            // Refresh discovered accounts when fetch completes
+            queryClient.invalidateQueries({ queryKey: ['/api/aa/discovered-accounts'] });
+            
+            if (status.status === 'completed' && status.accountsDiscovered > 0) {
+              toast({
+                title: 'Data Fetch Completed!',
+                description: `Successfully discovered ${status.accountsDiscovered} account${status.accountsDiscovered !== 1 ? 's' : ''}. View them in Discovered Accounts.`,
+              });
+            }
+          }}
+          onDismiss={() => setActiveFetchSession(null)}
+        />
+      )}
 
       {/* Filters */}
       <Card>
