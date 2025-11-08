@@ -304,7 +304,6 @@ export function EnhancedNavigation() {
           subItems: [
             { name: "One-Click Tax Filing", href: "/one-click-tax-filing", description: "File ITR in minutes with auto-population", badge: "⚡ NEW" },
             { name: "Smart Tax Hub", href: "/tax-hub", description: "Unified AI-powered dashboard", badge: "NEW" },
-            { name: "Tax Smart Filing", href: "/tax", description: "Intelligent ITR filing" },
             { name: "ITR Services", href: "/itr-tax-services", description: "ITR-1 to ITR-7 filing" },
             { name: "Tax Data Center", href: "/tax-data-center", description: "AIS, 26AS, mutual fund data" },
             { name: "Tax Documents", href: "/tax-documents", description: "Form 16, 26AS, TDS certificates" },
