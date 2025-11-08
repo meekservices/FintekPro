@@ -362,5 +362,16 @@ app.use((req, res, next) => {
     } catch (error) {
       console.error('❌ Error importing data cleanup cron:', error);
     }
+
+    // Initialize Portfolio Valuation Cron Job
+    try {
+      import('./valuation-cron').then(({ initValuationCron }) => {
+        initValuationCron();
+      }).catch(error => {
+        console.error('❌ Failed to initialize valuation cron:', error);
+      });
+    } catch (error) {
+      console.error('❌ Error importing valuation cron:', error);
+    }
   });
 })();
