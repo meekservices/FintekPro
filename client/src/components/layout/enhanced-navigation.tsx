@@ -200,9 +200,7 @@ export function EnhancedNavigation() {
             { name: "Expenses & Budgets", href: "/expenses-budgets", description: "AI-powered expense tracking and budgeting", badge: "AI POWERED" },
             { name: "SIP Calculator", href: "/calculators?tool=sip", description: "Systematic investment planning" },
             { name: "EMI Calculator", href: "/calculators?tool=emi", description: "Loan EMI and eligibility" },
-            { name: "Tax Calculator", href: "/calculators?tool=tax", description: "Tax planning and optimization" },
             { name: "Retirement Planner", href: "/calculators?tool=retirement", description: "Retirement corpus planning" },
-            { name: "Goal Planner", href: "/calculators?tool=goals", description: "Financial goal achievement" },
             { name: "All Calculators", href: "/calculators", description: "Complete calculator suite" }
           ]
         }
@@ -242,7 +240,6 @@ export function EnhancedNavigation() {
           subItems: [
             { name: "NSE/BSE Trading", href: "/broking", description: "Equity and derivatives trading" },
             { name: "Global Markets", href: "/global-trading", description: "US, Europe, Asia stocks" },
-            { name: "IPO Center", href: "/ipo", description: "Current and pre-IPO opportunities" },
             { name: "F&O Trading", href: "/derivatives", description: "Futures and options" },
             { name: "Commodities", href: "/commodities", description: "MCX and NCDEX trading" },
             { name: "Portfolio", href: "/portfolio", description: "Holdings and performance" }
@@ -304,6 +301,7 @@ export function EnhancedNavigation() {
           subItems: [
             { name: "One-Click Tax Filing", href: "/one-click-tax-filing", description: "File ITR in minutes with auto-population", badge: "⚡ NEW" },
             { name: "Smart Tax Hub", href: "/tax-hub", description: "Unified AI-powered dashboard", badge: "NEW" },
+            { name: "Tax Calculator", href: "/calculators?tool=tax", description: "Tax planning and optimization" },
             { name: "ITR Services", href: "/itr-tax-services", description: "ITR-1 to ITR-7 filing" },
             { name: "Tax Data Center", href: "/tax-data-center", description: "AIS, 26AS, mutual fund data" },
             { name: "Tax Documents", href: "/tax-documents", description: "Form 16, 26AS, TDS certificates" },
@@ -323,8 +321,7 @@ export function EnhancedNavigation() {
           subItems: [
             { name: "Pay Bills", href: "/bbps", description: "Electricity, water, gas, mobile, DTH, broadband" },
             { name: "Bill History", href: "/bbps?tab=history", description: "Transaction history and receipts" },
-            { name: "Recurring Payments", href: "/bbps?tab=recurring", description: "Set up auto-pay for bills" },
-            { name: "My Expenses", href: "/expenses-budgets", description: "Track all expenses including bills", badge: "AI POWERED" }
+            { name: "Recurring Payments", href: "/bbps?tab=recurring", description: "Set up auto-pay for bills" }
           ]
         }
       ]
