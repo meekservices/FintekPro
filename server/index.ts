@@ -299,6 +299,18 @@ app.use((req, res, next) => {
   const { registerAARoutes } = await import('./aa-routes');
   registerAARoutes(app);
   
+  // Register Admin Monitoring routes (System Health, AI Fixes, Audit Ledger)
+  const { registerAdminMonitoringRoutes } = await import('./admin-monitoring-routes');
+  registerAdminMonitoringRoutes(app);
+  
+  // Register Admin Audit routes (Audit & Compliance Ledger)
+  const { registerAdminAuditRoutes } = await import('./admin-audit-routes');
+  registerAdminAuditRoutes(app);
+  
+  // Register Admin AI Fixes routes (AI-powered error analysis and fix suggestions)
+  const { registerAdminAIFixesRoutes } = await import('./admin-ai-fixes-routes');
+  registerAdminAIFixesRoutes(app);
+  
   const server = await registerRoutes(app);
 
   // Production HTTP server timeout configurations
