@@ -13,6 +13,7 @@ import { setupAuth as setupReplitAuth } from "./replitAuth";
 import { setupAuth as setupLocalAuth } from "./auth";
 import { subdomainDetection } from "./subdomain-middleware";
 import { requestCorrelationMiddleware } from "./middleware/request-correlation";
+import { initializeCsrfToken, validateCsrfToken, getCsrfToken } from "./csrf-protection";
 import "./services/sms-service"; // Initialize SMS service
 
 const app = express();
@@ -66,7 +67,7 @@ app.use(cors({
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"]
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "X-CSRF-Token"]
 }));
 
 // Rate limiting with proper proxy configuration
@@ -230,7 +231,16 @@ app.use((req, res, next) => {
   // Initialize authentication (Passport & sessions must be set up first)
   await setupReplitAuth(app);
   
-  // Then add local email/mobile authentication routes
+  // SECURITY: Initialize CSRF protection (must be after session, before routes)
+  app.use(initializeCsrfToken());
+  
+  // SECURITY: Add CSRF token endpoint for SPA clients
+  app.get('/api/csrf-token', getCsrfToken);
+  
+  // SECURITY: Validate CSRF tokens on state-changing requests (BEFORE route registration)
+  app.use(validateCsrfToken());
+  
+  // Then add local email/mobile authentication routes (AFTER CSRF validation)
   setupLocalAuth(app);
   
   // Register Zoho integration routes
