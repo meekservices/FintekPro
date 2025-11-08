@@ -9425,6 +9425,71 @@ export const autoPopulationStatus = pgTable("auto_population_status", {
   index("idx_auto_pop_initiated").on(table.initiatedAt),
 ]);
 
+// CAS Request Tracking - Track CAS generation/parsing/import workflow state
+export const casRequests = pgTable("cas_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // User information
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  portfolioId: varchar("portfolio_id").references(() => portfolios.id),
+  
+  // CAS provider details
+  provider: varchar("provider").notNull(), // CAMS/KFin
+  requestId: varchar("request_id").notNull().unique(), // External CAS provider request ID
+  
+  // Workflow status
+  status: varchar("status").notNull().default("requested"), // requested/generating/ready/parsed/imported/failed
+  currentStep: varchar("current_step").default("generation"), // generation/polling/parsing/importing
+  
+  // Request parameters
+  panNumber: varchar("pan_number"),
+  email: varchar("email"),
+  fromDate: date("from_date"),
+  toDate: date("to_date"),
+  
+  // Generation tracking
+  pdfUrl: text("pdf_url"), // URL to download generated PDF
+  pdfSize: integer("pdf_size"), // PDF file size in bytes
+  generatedAt: timestamp("generated_at"), // When PDF was ready
+  
+  // Parsed data
+  parsedData: jsonb("parsed_data"), // Full parsed CAS JSON
+  totalFolios: integer("total_folios").default(0),
+  totalValue: numeric("total_value", { precision: 15, scale: 2 }),
+  parsedAt: timestamp("parsed_at"),
+  
+  // Import results
+  importedAt: timestamp("imported_at"),
+  insertedHoldings: integer("inserted_holdings").default(0),
+  updatedHoldings: integer("updated_holdings").default(0),
+  skippedDuplicates: integer("skipped_duplicates").default(0),
+  
+  // Error handling
+  errorMessage: text("error_message"),
+  errorStep: varchar("error_step"), // Which step failed
+  
+  // Timestamps
+  requestedAt: timestamp("requested_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  
+  // Metadata
+  metadata: jsonb("metadata"), // Additional workflow context
+}, (table) => [
+  index("idx_cas_req_user").on(table.userId),
+  index("idx_cas_req_status").on(table.status),
+  index("idx_cas_req_provider").on(table.provider),
+  index("idx_cas_req_external_id").on(table.requestId),
+  index("idx_cas_req_requested_at").on(table.requestedAt),
+]);
+
+export const insertCasRequestSchema = createInsertSchema(casRequests).omit({
+  id: true,
+  requestedAt: true,
+  completedAt: true,
+});
+export type CasRequest = typeof casRequests.$inferSelect;
+export type InsertCasRequest = z.infer<typeof insertCasRequestSchema>;
+
 // Insert schemas and types for KYC Vault System
 export const insertKycVaultSchema = createInsertSchema(kycVault).omit({
   id: true,

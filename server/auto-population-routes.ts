@@ -12,7 +12,7 @@ import { consentManagementService } from './services/consent-management-service'
 import { autoPopulationOrchestrator } from './services/auto-population-orchestrator';
 import { CibilAPI } from './cibil-api';
 import { db } from './db';
-import { dataSourceConsents } from '@shared/schema';
+import { dataSourceConsents, casRequests, type InsertCasRequest } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import rateLimit from 'express-rate-limit';
 
@@ -586,6 +586,402 @@ router.post("/fetch/loans", loanFetchLimiter, async (req: Request, res: Response
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to fetch loan liabilities'
+    });
+  }
+});
+
+/**
+ * CAS (Consolidated Account Statement) Auto-Population Routes
+ */
+
+// Request CAS generation from CAMS/KFin
+router.post('/api/auto-populate/cas/generate', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const sessionUserId = req.session.user.id;
+    const { provider, portfolioId, fromDate, toDate, password } = req.body;
+
+    if (!provider || !fromDate || !toDate) {
+      return res.status(400).json({
+        success: false,
+        error: 'Provider, fromDate, and toDate are required'
+      });
+    }
+
+    const { kycVaultDecryptionService } = await import('./services/kyc-vault-decryption-service');
+    const decryptResult = await kycVaultDecryptionService.decryptVaultData(sessionUserId, {
+      purpose: 'auto_population',
+      requestId: `cas-gen-${Date.now()}`,
+      externalParty: provider,
+      fieldsRequired: ['pan', 'email'],
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent']
+    });
+
+    if (!decryptResult.success || !decryptResult.data) {
+      return res.status(403).json({
+        success: false,
+        error: 'Unable to verify KYC data. Please complete KYC verification first.'
+      });
+    }
+
+    const { casGeneratorService } = await import('./services/cas-generator-service');
+    
+    const result = await casGeneratorService.requestCAS({
+      provider,
+      panNumber: decryptResult.data.pan,
+      email: decryptResult.data.email,
+      fromDate,
+      toDate,
+      password
+    });
+
+    // Persist CAS request state
+    if (result.success) {
+      const casRecord: InsertCasRequest = {
+        userId: sessionUserId,
+        portfolioId: portfolioId || null,
+        provider,
+        requestId: result.requestId,
+        status: 'requested',
+        currentStep: 'generation',
+        panNumber: decryptResult.data.pan,
+        email: decryptResult.data.email,
+        fromDate,
+        toDate,
+        metadata: {
+          estimatedTime: result.estimatedTime,
+          ipAddress: req.ip,
+          userAgent: req.headers['user-agent']
+        }
+      };
+
+      await db.insert(casRequests).values(casRecord);
+    }
+
+    res.json(result);
+  } catch (error: any) {
+    console.error('CAS generation request failed:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to initiate CAS generation'
+    });
+  }
+});
+
+// Check CAS generation status
+router.get('/api/auto-populate/cas/status/:requestId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const sessionUserId = req.session.user.id;
+    const { requestId } = req.params;
+
+    if (!requestId) {
+      return res.status(400).json({
+        success: false,
+        error: 'requestId is required'
+      });
+    }
+
+    // Get persisted CAS request
+    const [casRecord] = await db
+      .select()
+      .from(casRequests)
+      .where(eq(casRequests.requestId, requestId))
+      .limit(1);
+
+    if (!casRecord) {
+      return res.status(404).json({
+        success: false,
+        error: 'CAS request not found'
+      });
+    }
+
+    // Verify ownership
+    if (casRecord.userId !== sessionUserId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied'
+      });
+    }
+
+    const { casGeneratorService } = await import('./services/cas-generator-service');
+    
+    const status = await casGeneratorService.checkStatus(casRecord.provider as any, requestId);
+
+    // Update persisted status
+    if (status.status === 'ready') {
+      await db
+        .update(casRequests)
+        .set({
+          status: 'ready',
+          pdfUrl: status.pdfUrl,
+          pdfSize: status.pdfSize,
+          generatedAt: status.generatedAt
+        })
+        .where(eq(casRequests.id, casRecord.id));
+    }
+
+    res.json(status);
+  } catch (error: any) {
+    console.error('CAS status check failed:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to check CAS status'
+    });
+  }
+});
+
+// Import parsed CAS data into portfolio
+router.post('/api/auto-populate/cas/import', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const sessionUserId = req.session.user.id;
+    const { requestId, portfolioId, mergeOptions } = req.body;
+
+    if (!requestId || !portfolioId) {
+      return res.status(400).json({
+        success: false,
+        error: 'requestId and portfolioId are required'
+      });
+    }
+
+    // Get persisted CAS request with parsed data
+    const [casRecord] = await db
+      .select()
+      .from(casRequests)
+      .where(eq(casRequests.requestId, requestId))
+      .limit(1);
+
+    if (!casRecord) {
+      return res.status(404).json({
+        success: false,
+        error: 'CAS request not found'
+      });
+    }
+
+    if (casRecord.userId !== sessionUserId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied'
+      });
+    }
+
+    if (!casRecord.parsedData) {
+      return res.status(400).json({
+        success: false,
+        error: 'CAS data not yet parsed. Parse the PDF first.'
+      });
+    }
+
+    const { casDataNormalizer } = await import('./services/cas-data-normalizer');
+    
+    const result = await casDataNormalizer.normalizeCASData(
+      sessionUserId,
+      portfolioId,
+      casRecord.parsedData as any,
+      mergeOptions || {}
+    );
+
+    // Update persisted record with import results
+    if (result.success) {
+      await db
+        .update(casRequests)
+        .set({
+          status: 'imported',
+          portfolioId,
+          importedAt: new Date(),
+          insertedHoldings: result.insertedHoldings,
+          updatedHoldings: result.updatedHoldings,
+          skippedDuplicates: result.skippedDuplicates,
+          completedAt: new Date()
+        })
+        .where(eq(casRequests.id, casRecord.id));
+    }
+
+    res.json(result);
+  } catch (error: any) {
+    console.error('CAS import failed:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to import CAS data'
+    });
+  }
+});
+
+// Parse CAS PDF to JSON
+router.post('/api/auto-populate/cas/parse', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const sessionUserId = req.session.user.id;
+    const { requestId, pdfPassword } = req.body;
+
+    if (!requestId) {
+      return res.status(400).json({
+        success: false,
+        error: 'requestId is required'
+      });
+    }
+
+    // Get persisted CAS request
+    const [casRecord] = await db
+      .select()
+      .from(casRequests)
+      .where(eq(casRequests.requestId, requestId))
+      .limit(1);
+
+    if (!casRecord) {
+      return res.status(404).json({
+        success: false,
+        error: 'CAS request not found'
+      });
+    }
+
+    if (casRecord.userId !== sessionUserId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied'
+      });
+    }
+
+    if (!casRecord.pdfUrl) {
+      return res.status(400).json({
+        success: false,
+        error: 'PDF not yet ready. Check status first.'
+      });
+    }
+
+    const { casParserService } = await import('./services/cas-parser-service');
+    
+    const result = await casParserService.parseCAS({
+      pdfUrl: casRecord.pdfUrl,
+      pdfPassword: pdfPassword || casRecord.panNumber?.slice(-4),
+      provider: casRecord.provider as any
+    });
+
+    // Update persisted record with parsed data
+    if (result.success && result.data) {
+      await db
+        .update(casRequests)
+        .set({
+          status: 'parsed',
+          currentStep: 'importing',
+          parsedData: result.data as any,
+          totalFolios: result.data.folios.length,
+          totalValue: result.data.summary.totalCurrentValue.toString(),
+          parsedAt: new Date()
+        })
+        .where(eq(casRequests.id, casRecord.id));
+    }
+
+    res.json(result);
+  } catch (error: any) {
+    console.error('CAS parsing failed:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to parse CAS PDF'
+    });
+  }
+});
+
+// Complete CAS workflow: generate → poll → parse → import
+router.post('/api/auto-populate/cas/complete-workflow', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const sessionUserId = req.session.user.id;
+    const { provider, portfolioId, fromDate, toDate, password } = req.body;
+
+    if (!provider || !portfolioId || !fromDate || !toDate) {
+      return res.status(400).json({
+        success: false,
+        error: 'provider, portfolioId, fromDate, and toDate are required'
+      });
+    }
+
+    // Step 1: Get KYC data
+    const { kycVaultDecryptionService } = await import('./services/kyc-vault-decryption-service');
+    const decryptResult = await kycVaultDecryptionService.decryptVaultData(sessionUserId, {
+      purpose: 'auto_population',
+      requestId: `cas-workflow-${Date.now()}`,
+      externalParty: provider,
+      fieldsRequired: ['pan', 'email'],
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent']
+    });
+
+    if (!decryptResult.success || !decryptResult.data) {
+      return res.status(403).json({
+        success: false,
+        error: 'Unable to verify KYC data. Please complete KYC verification first.'
+      });
+    }
+
+    // Step 2: Request CAS generation
+    const { casGeneratorService } = await import('./services/cas-generator-service');
+    const genResult = await casGeneratorService.requestCAS({
+      provider,
+      panNumber: decryptResult.data.pan,
+      email: decryptResult.data.email,
+      fromDate,
+      toDate,
+      password: password || decryptResult.data.pan.slice(-4)
+    });
+
+    if (!genResult.success) {
+      return res.json({
+        success: false,
+        step: 'generation',
+        error: genResult.message
+      });
+    }
+
+    // Step 3: Poll until ready (with timeout)
+    const pollResult = await casGeneratorService.pollUntilReady(
+      provider,
+      genResult.requestId,
+      15, // max 15 attempts
+      20000 // 20 seconds between polls
+    );
+
+    if (pollResult.status !== 'ready') {
+      return res.json({
+        success: false,
+        step: 'polling',
+        status: pollResult.status,
+        error: pollResult.error || 'CAS generation timeout'
+      });
+    }
+
+    // Step 4: Parse the PDF
+    const { casParserService } = await import('./services/cas-parser-service');
+    const parseResult = await casParserService.parseCAS({
+      pdfUrl: pollResult.pdfUrl,
+      pdfPassword: password || decryptResult.data.pan.slice(-4),
+      provider
+    });
+
+    if (!parseResult.success || !parseResult.data) {
+      return res.json({
+        success: false,
+        step: 'parsing',
+        error: parseResult.error || 'Failed to parse CAS PDF'
+      });
+    }
+
+    // Step 5: Import into portfolio
+    const { casDataNormalizer } = await import('./services/cas-data-normalizer');
+    const importResult = await casDataNormalizer.normalizeCASData(
+      sessionUserId,
+      portfolioId,
+      parseResult.data
+    );
+
+    res.json({
+      step: 'completed',
+      casRequestId: genResult.requestId,
+      ...importResult
+    });
+
+  } catch (error: any) {
+    console.error('CAS complete workflow failed:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'CAS workflow failed'
     });
   }
 });
