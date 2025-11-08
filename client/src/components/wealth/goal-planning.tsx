@@ -47,6 +47,8 @@ interface FinancialGoal {
   riskProfile: 'conservative' | 'moderate' | 'aggressive';
   recommendedInvestments?: string[];
   monthlyContribution?: string;
+  investmentStrategy?: 'sip' | 'lump_sum';
+  recommendedMonthlyContribution?: string;
   currentProgress?: string;
   isActive?: boolean;
   createdAt: string;
@@ -604,7 +606,19 @@ export function GoalPlanning() {
                     </div>
                   </div>
 
-                  {goal.monthlyContribution && (
+                  {goal.investmentStrategy === 'lump_sum' ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <IndianRupee className="w-4 h-4 text-orange-600" />
+                        <span className="text-sm font-medium">Recommended Strategy</span>
+                      </div>
+                      <div className="bg-orange-50 dark:bg-orange-900/20 p-3 rounded-lg">
+                        <p className="text-sm font-medium text-orange-600 dark:text-orange-400 mb-1">Lump Sum Investment</p>
+                        <p className="text-lg font-bold text-orange-600 dark:text-orange-400">{formatCurrency(goal.targetAmount)}</p>
+                        <p className="text-xs text-orange-600 dark:text-orange-400">Goal is too short-term for SIP</p>
+                      </div>
+                    </div>
+                  ) : goal.monthlyContribution && parseFloat(goal.monthlyContribution) > 0 && (
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
                         <TrendingUp className="w-4 h-4 text-blue-600" />
