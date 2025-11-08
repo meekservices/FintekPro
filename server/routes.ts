@@ -2055,8 +2055,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Get user's name from profile (optional for PAN verification)
+      let userName = "";
+      try {
+        const [currentUser] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+        if (currentUser && currentUser.firstName) {
+          userName = `${currentUser.firstName} ${currentUser.middleName || ''} ${currentUser.lastName || ''}`.trim();
+        }
+      } catch (error) {
+        console.warn('Could not fetch user name for PAN verification:', error);
+      }
+      
       // Verify PAN using Sandbox API with name parameter
-      const verification = await sandboxKYCService.verifyIndividualPAN(panNumber, "", dob);
+      const verification = await sandboxKYCService.verifyIndividualPAN(panNumber, userName, dob);
       
       
       // verification returns IndividualPANDetails directly (no success wrapper)

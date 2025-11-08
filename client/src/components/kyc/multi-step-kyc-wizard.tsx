@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,10 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, Circle, Loader2, ArrowRight, ArrowLeft, Shield, User, MapPin, CreditCard, FileText, Eye, Sparkles, Save, Check } from "lucide-react";
+import { CheckCircle2, Circle, Loader2, ArrowRight, ArrowLeft, Shield, User, MapPin, CreditCard, FileText, Eye, Sparkles, Save, Check, AlertCircle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { Progress } from "@/components/ui/progress";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { KycFormProgress } from "@shared/schema";
 import { cn } from "@/lib/utils";
 
@@ -743,18 +745,63 @@ function ReviewStep({ data, onBack, isLast, autoPopulatedFields }: StepProps) {
 
 // Main Wizard Component
 export function MultiStepKYCWizard() {
-  const { user } = useAuth();
-  const userId = user?.id || "";
+  const { user, isLoading } = useAuth();
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<any>({});
   const [autoPopulatedFields, setAutoPopulatedFields] = useState<any>({});
   const queryClient = useQueryClient();
 
-  // Load saved progress
+  // Authentication guard - redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLoading && !user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please login to access KYC verification",
+        variant: "destructive"
+      });
+      setLocation("/login");
+    }
+  }, [user, isLoading, setLocation, toast]);
+
+  // Load saved progress - only if user is authenticated
   const { data: progress } = useQuery<KycFormProgress>({
     queryKey: ["/api/kyc-progress"],
-    retry: false
+    retry: false,
+    enabled: !!user
   });
+
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+            <p className="text-muted-foreground">Checking authentication...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Don't render if user is not authenticated (will redirect)
+  if (!user) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Authentication Required</AlertTitle>
+          <AlertDescription>
+            You need to be logged in to access KYC verification. Redirecting to login...
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  const userId = user.id;
 
   // Auto-save mutation
   const saveProgressMutation = useMutation({

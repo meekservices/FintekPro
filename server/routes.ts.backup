@@ -75,6 +75,7 @@ import { cashfreeService } from './cashfree-service';
 import { phonePeService } from './phonepe-service';
 import { mutualFundsRefreshJob } from './mutual-funds-refresh-job';
 import { initReKYCCron } from './rekyc-cron';
+import { initAutoPopulationSyncCron } from './auto-population-sync-cron';
 import { seedProducts } from './seed-products';
 import { seedDefaultAgent } from './seed-default-agent';
 import { nseNcbApi } from './nseNcbApi';
@@ -86,6 +87,7 @@ import { verifyBankAccountPennyDrop, validateIFSC, validateAccountNumber, isName
 import { lookupIFSC, isValidIFSCFormat } from './ifsc-lookup-service';
 import { ProductAccountService } from './product-account-service';
 import { BSEStarKYCService } from './services/bse-star-kyc-service';
+import { autoPopulationOrchestrator } from './services/auto-population-orchestrator';
 import * as schema from "@shared/schema";
 import { sanitizeError } from "./utils/pii-sanitizer";
 import { validatePayoutFields } from "./payout-validation";
@@ -154,6 +156,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Start Re-KYC reminder cron job (runs daily at 9:00 AM)
   initReKYCCron();
+  
+  // Start Auto-Population scheduled sync cron job (runs every 6 hours)
+  initAutoPopulationSyncCron();
   
   // Auto-seed products if database is empty
   try {
@@ -840,6 +845,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating user profile:", error);
       return apiResponse.serverError(res, "Failed to update profile");
+    }
+  });
+
+  // Current user endpoint - returns authenticated user with KYC status (or null if not logged in)
+  app.get("/api/user", async (req, res) => {
+    try {
+      // If no user is authenticated, return null (for useAuth hook)
+      if (!req.user) {
+        return res.json(null);
+      }
+      
+      const userId = req.user.id;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.json(null);
+      }
+      
+      // Determine KYC completion status
+      const kycCompleted = !!(user.smartKycCompletedAt);
+      const kycTier = user.kycTier || 'basic';
+      
+      // Return user with KYC status
+      res.json({
+        id: user.id,
+        userId: user.userId,
+        email: user.email,
+        mobile: user.mobile,
+        firstName: user.firstName,
+        middleName: user.middleName,
+        lastName: user.lastName,
+        profileImageUrl: user.profileImageUrl,
+        roles: user.roles || ['user'],
+        isActive: user.isActive,
+        kycCompleted,
+        kycTier,
+        smartKycCompletedAt: user.smartKycCompletedAt,
+        panNumber: user.panNumber,
+        isEmailVerified: user.isEmailVerified,
+        isMobileVerified: user.isMobileVerified,
+      });
+    } catch (error) {
+      console.error("Error fetching current user:", error);
+      return res.status(500).json({ error: "Failed to fetch user" });
     }
   });
 
@@ -1986,13 +2035,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Step 1: Verify PAN with DOB
   app.post("/api/kyc/wizard/verify-pan", requireClientOrHigher, async (req: any, res) => {
     try {
-      const { sessionId, panNumber, fullName, dob } = req.body;
+      const { sessionId, panNumber, dob } = req.body;
       const userId = req.user!.id;
       
-      if (!sessionId || !panNumber || !fullName || !dob) {
+      if (!sessionId || !panNumber || !dob) {
         return res.status(400).json({
           success: false,
-          message: "Session ID, PAN number, full name, and date of birth are required"
+          message: "Session ID, PAN number, and date of birth are required"
         });
       }
       
@@ -2007,7 +2056,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Verify PAN using Sandbox API with name parameter
-      const verification = await sandboxKYCService.verifyIndividualPAN(panNumber, fullName, dob);
+      const verification = await sandboxKYCService.verifyIndividualPAN(panNumber, "", dob);
       
       
       // verification returns IndividualPANDetails directly (no success wrapper)
@@ -2037,6 +2086,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       
       });
+      
+      // Update user profile with verified PAN data (encrypted)
+      const encryptedPAN = await PANConsentService.encryptPAN(panNumber);
+      const updateData: any = {
+        panNumber: encryptedPAN,
+        dateOfBirth: dob,
+        fatherName: verification.fatherName
+      };
+      
+      // Parse full name and update firstName/lastName if not already set
+      const [currentUser] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      if (currentUser && !currentUser.firstName && verification.fullName) {
+        const nameParts = verification.fullName.split(' ');
+        updateData.firstName = nameParts[0];
+        if (nameParts.length > 1) {
+          updateData.lastName = nameParts[nameParts.length - 1];
+        }
+        if (nameParts.length > 2) {
+          updateData.middleName = nameParts.slice(1, -1).join(' ');
+        }
+      }
+      
+      await db.update(users).set(updateData).where(eq(users.id, userId));
       res.json({
         success: true,
         data: {
@@ -2120,7 +2192,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Step 3: Verify Aadhaar OTP
   app.post("/api/kyc/wizard/verify-aadhaar-otp", requireClientOrHigher, async (req: any, res) => {
     try {
-      const { sessionId, transactionId, otp } = req.body;
+      const { sessionId, transactionId, otp, consentGiven } = req.body;
       const userId = req.user!.id;
       
       if (!sessionId || !transactionId || !otp) {
@@ -2147,6 +2219,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json(verification);
       }
       
+      // Record KYC consent if given
+      if (consentGiven) {
+        const consentText = `I hereby consent to share my KYC data with authorized financial institutions and service providers for the purpose of account opening, investment processing, and regulatory compliance. I understand that my data will be encrypted and stored securely.`;
+        
+        const crypto = require('crypto');
+        const consentSignature = crypto
+          .createHmac('sha256', process.env.ENCRYPTION_MASTER_KEY || 'fallback-key')
+          .update(JSON.stringify({ userId, consentText, timestamp: Date.now() }))
+          .digest('hex');
+        
+        await db.insert(kycConsentLogs).values({
+          userId,
+          consentType: 'kyc_reuse',
+          consentGiven: true,
+          consentText,
+          purpose: 'Enable KYC data sharing for financial services',
+          ipAddress: req.ip || req.connection.remoteAddress,
+          userAgent: req.headers['user-agent'],
+          consentSignature,
+          expiresAt: null
+        });
+      }
+      
       // Update session with Aadhaar data
       await storage.updateKycVerificationSession(sessionId, {
         aadhaarOtpVerified: true,
@@ -2166,6 +2261,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         aadhaarVerifiedViaSmartKyc: true,
         aadhaarVerificationDate: new Date()
       });
+      
+      // Auto-generate KYC reuse token silently in background
+      if (consentGiven) {
+        kycReuseTokenService.generateToken(userId, {
+          purpose: 'Financial services KYC reuse',
+          issuedTo: 'FintekPro Platform',
+          expiryDays: 365
+        }).catch(err => {
+          console.error('Failed to generate KYC reuse token:', err);
+        });
+      }
       
       res.json({
         success: true,
@@ -2213,6 +2319,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         smartKycCompletedAt: new Date()
       });
       
+      
+      // Auto-trigger portfolio auto-population after KYC completion (non-blocking)
+      setTimeout(async () => {
+        try {
+          console.log(`🚀 Auto-triggering portfolio sync for user ${userId} after KYC completion`);
+          await autoPopulationOrchestrator.initiateFromKYC(userId, 'kyc_completion');
+        } catch (error) {
+          console.error('Failed to auto-trigger portfolio sync after KYC:', error);
+          // Don't fail KYC completion if auto-population fails
+        }
+      }, 0);
       res.json({
         success: true,
         message: "Smart KYC completed successfully"
@@ -11406,6 +11523,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/portfolios/by-pan/holdings", async (req: any, res) => {
+    try {
+      // Require authentication - no demo user fallback
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          message: "Authentication required. Please log in to view your portfolio holdings.",
+          authRequired: true
+        });
+      }
+      
+      const userId = req.user.id;
+      
+      // Get user's PAN from database
+      const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found"
+        });
+      }
+      
+      // Check if PAN is verified
+      if (!user.panNumber) {
+        return res.status(400).json({
+          success: false,
+          message: "KYC not completed. Please complete PAN verification to view your portfolio holdings.",
+          kycRequired: true
+        });
+      }
+      
+      // Fetch actual holdings from user's portfolios
+      const userPortfolios = await storage.getPortfoliosByUserId(userId);
+      
+      // Aggregate holdings from all user portfolios
+      let allHoldings: any[] = [];
+      for (const portfolio of userPortfolios) {
+        const portfolioHoldings = await storage.getPortfolioHoldings(portfolio.id);
+        allHoldings = allHoldings.concat(portfolioHoldings);
+      }
+      
+      // Return holdings
+      res.json({
+        success: true,
+        holdings: allHoldings,
+        holdingsCount: allHoldings.length
+      });
+    } catch (error) {
+      console.error("Error fetching holdings by PAN:", error);
+      return apiResponse.serverError(res, "Failed to fetch portfolio holdings");
+    }
+  });
   // Insurance Holdings Routes
   app.get("/api/insurance-holdings", requireAuth, async (req: any, res) => {
     try {
@@ -11482,6 +11652,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return apiResponse.serverError(res, "Failed to fetch portfolio holdings");
     }
   });
+
+  // Get portfolio holdings by PAN number (for authenticated user)
 
   app.post("/api/portfolios/:portfolioId/holdings", async (req, res) => {
     try {
@@ -18868,15 +19040,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return apiResponse.notFound(res, "One or both users not found");
       }
       
-      // TODO: Implement comprehensive merge logic
-      // For now, just deactivate the merge user
-      await db.update(users)
-        .set({ 
-          isActive: false,
-          email: mergeUser.email ? `${mergeUser.email}.merged.${Date.now()}` : null,
-          mobile: mergeUser.mobile ? `${mergeUser.mobile}.merged.${Date.now()}` : null
-        })
-        .where(eq(users.id, mergeUserId));
+      // Comprehensive CKYC merge logic - consolidate all user data
+      console.log(`[CKYC Merge] Merging user ${mergeUserId} into ${keepUserId}`);
+      
+      try {
+        // 1. Transfer unified orders
+        await db.update(unifiedOrders)
+          .set({ userId: keepUserId })
+          .where(eq(unifiedOrders.userId, mergeUserId));
+        console.log(`[CKYC Merge] Transferred orders`);
+        
+        // 2. Transfer portfolios
+        await db.update(portfolios)
+          .set({ userId: keepUserId })
+          .where(eq(portfolios.userId, mergeUserId));
+        console.log(`[CKYC Merge] Transferred portfolios`);
+        
+        // 3. Transfer holdings
+        await db.update(holdings)
+          .set({ userId: keepUserId })
+          .where(eq(holdings.userId, mergeUserId));
+        console.log(`[CKYC Merge] Transferred holdings`);
+        
+        // 4. Transfer KYC records (keep most recent)
+        const mergeKycRecords = await db.select()
+          .from(kycRecords)
+          .where(eq(kycRecords.userId, mergeUserId));
+        
+        if (mergeKycRecords.length > 0) {
+          await db.update(kycRecords)
+            .set({ userId: keepUserId })
+            .where(eq(kycRecords.userId, mergeUserId));
+          console.log(`[CKYC Merge] Transferred ${mergeKycRecords.length} KYC records`);
+        }
+        
+        // 5. Update user profile - merge data, keeping most complete info
+        const [keepProfile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, keepUserId));
+        const [mergeProfile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, mergeUserId));
+        
+        if (mergeProfile) {
+          if (!keepProfile) {
+            // Transfer profile to keep user
+            await db.update(userProfiles)
+              .set({ userId: keepUserId })
+              .where(eq(userProfiles.userId, mergeUserId));
+          } else {
+            // Merge profile data, keeping non-null values from merge user
+            const mergedData: any = {};
+            if (!keepProfile.dateOfBirth && mergeProfile.dateOfBirth) mergedData.dateOfBirth = mergeProfile.dateOfBirth;
+            if (!keepProfile.address && mergeProfile.address) mergedData.address = mergeProfile.address;
+            if (!keepProfile.panNumber && mergeProfile.panNumber) mergedData.panNumber = mergeProfile.panNumber;
+            if (!keepProfile.aadhaarNumber && mergeProfile.aadhaarNumber) mergedData.aadhaarNumber = mergeProfile.aadhaarNumber;
+            
+            if (Object.keys(mergedData).length > 0) {
+              await db.update(userProfiles)
+                .set(mergedData)
+                .where(eq(userProfiles.userId, keepUserId));
+            }
+            
+            // Delete duplicate profile
+            await db.delete(userProfiles).where(eq(userProfiles.userId, mergeUserId));
+          }
+          console.log(`[CKYC Merge] Merged user profiles`);
+        }
+        
+        // 6. Transfer sessions (logout merged user)
+        await db.delete(sessions).where(eq(sessions.userId, mergeUserId));
+        console.log(`[CKYC Merge] Cleared sessions for merged user`);
+        
+        // 7. Deactivate the merged user account
+        await db.update(users)
+          .set({ 
+            isActive: false,
+            email: mergeUser.email ? `${mergeUser.email}.merged.${Date.now()}` : null,
+            mobile: mergeUser.mobile ? `${mergeUser.mobile}.merged.${Date.now()}` : null
+          })
+          .where(eq(users.id, mergeUserId));
+        console.log(`[CKYC Merge] Deactivated merged user account`);
+        
+      } catch (mergeError) {
+        console.error(`[CKYC Merge] Error during data consolidation:`, mergeError);
+        throw new Error(`Data consolidation failed: ${mergeError instanceof Error ? mergeError.message : 'Unknown error'}`);
+      }
       
       await adminService.logActivity({
         userId: req.user!.id,
@@ -27798,10 +28043,11 @@ System Security Data:`;
           return apiResponse.badRequest(res, "Invalid ITR form type");
       }
       
-      // Check if user has expert ITR filing service (would need to check user profile or services)
-      // For now, we'll assume this would be checked against user's purchased services
-      const userProfile = await storage.getUserProfile(userId);
-      const hasExpertService = false; // TODO: Implement actual check for expert ITR filing service
+      // Check if user has expert ITR filing service
+      // Users with expert service (isFree=true or free_expert_tier) get complimentary tax filing
+      const taxSubscription = await storage.getUserTaxReminderSubscription(userId);
+      const hasExpertService = taxSubscription?.isFree === true || 
+                               taxSubscription?.subscriptionStatus === 'free_expert_tier';
       
       const isFree = hasExpertService;
       if (isFree) {
@@ -28876,10 +29122,10 @@ System Security Data:`;
 
       const { pan, companyName } = req.body;
 
-      if (!pan || !companyName) {
+      if (!pan) {
         return res.status(400).json({ 
           success: false,
-          message: 'PAN and company name are required' 
+          message: 'PAN is required' 
         });
       }
 
@@ -28917,6 +29163,177 @@ System Security Data:`;
       res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Corporate PAN verification failed'
+      });
+    }
+  });
+
+  // Corporate KYC - Verify Authorized Signatory
+  app.post('/api/kyc/corporate/verify-signatory', async (req, res) => {
+    try {
+      if (!req.session?.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const { name, designation, digilockerSessionId, aadhaarData, consentGiven } = req.body;
+
+      if (!name || !designation) {
+        return res.status(400).json({ 
+          success: false,
+          message: 'Name and designation are required' 
+        });
+      }
+
+      const result = await corporateKYCService.verifyAuthorizedSignatory(
+        req.session.user.id,
+        {
+          name,
+          designation,
+          digilockerSessionId: digilockerSessionId || '',
+          aadhaarData: aadhaarData || {}
+        }
+      );
+
+      // Record consent if provided
+      if (consentGiven && result.success) {
+        const consentService = new PANConsentService();
+        await consentService.recordKYCConsent({
+          userId: req.session.user.id,
+          consentType: 'corporate_kyc_signatory',
+          consentGiven: true,
+          ipAddress: req.ip || 'unknown',
+          userAgent: req.get('User-Agent') || 'unknown',
+          verificationType: 'digilocker_aadhaar',
+          dataShared: {
+            signatoryName: name,
+            designation,
+            aadhaarLastFour: result.aadhaarLastFour
+          }
+        });
+
+        // Auto-generate KYC token for Corporate entity
+        const kycToken = await consentService.generateKYCToken(req.session.user.id, 'Corporate');
+        (result as any).kycToken = kycToken;
+      }
+
+      complianceMonitor.logEvent({
+        eventType: 'kyc_verification',
+        action: 'corporate_signatory_verification',
+        resource: name,
+        userId: req.session.user.id,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        outcome: result.success ? 'success' : 'failure',
+        riskLevel: 'medium',
+        details: {
+          signatoryName: name,
+          designation,
+          consentGiven: consentGiven || false
+        }
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error('Corporate signatory verification error:', error);
+      complianceMonitor.logEvent({
+        eventType: 'kyc_verification',
+        action: 'corporate_signatory_verification',
+        userId: req.session?.user?.id,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        outcome: 'failure',
+        riskLevel: 'high',
+        details: { error: error instanceof Error ? error.message : 'Unknown error' }
+      });
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Signatory verification failed'
+      });
+    }
+  });
+
+  // NRI KYC - Verify Passport and PAN
+  app.post('/api/kyc/nri/verify-passport', async (req, res) => {
+    try {
+      if (!req.session?.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const { passportNumber, passportName, passportExpiry, countryOfResidence, pan, dob, consentGiven } = req.body;
+
+      if (!passportNumber || !passportName || !passportExpiry || !countryOfResidence) {
+        return res.status(400).json({ 
+          success: false,
+          message: 'Passport details are required' 
+        });
+      }
+      const { NRIKYCService } = await import("./services/nri-kyc-service");
+      const nriService = new NRIKYCService();
+      const result = await nriService.verifyPassportAndPAN(
+        req.session.user.id,
+        passportNumber,
+        passportName,
+        passportExpiry,
+        countryOfResidence,
+        pan,
+        dob
+      );
+
+      // Record consent if provided
+      if (consentGiven && result.success) {
+        const consentService = new PANConsentService();
+        await consentService.recordKYCConsent({
+          userId: req.session.user.id,
+          consentType: 'nri_kyc_passport',
+          consentGiven: true,
+          ipAddress: req.ip || 'unknown',
+          userAgent: req.get('User-Agent') || 'unknown',
+          verificationType: 'passport',
+          dataShared: {
+            passportNumber,
+            name: passportName,
+            countryOfResidence,
+            pan: pan || 'not_provided'
+          }
+        });
+
+        // Auto-generate KYC token for NRI
+        const kycToken = await consentService.generateKYCToken(req.session.user.id, 'NRI');
+        (result as any).kycToken = kycToken;
+      }
+
+      complianceMonitor.logEvent({
+        eventType: 'kyc_verification',
+        action: 'nri_passport_verification',
+        resource: passportNumber,
+        userId: req.session.user.id,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        outcome: result.success ? 'success' : 'failure',
+        riskLevel: 'medium',
+        details: {
+          passportNumber,
+          countryOfResidence,
+          hasPAN: !!pan,
+          consentGiven: consentGiven || false
+        }
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error('NRI passport verification error:', error);
+      complianceMonitor.logEvent({
+        eventType: 'kyc_verification',
+        action: 'nri_passport_verification',
+        userId: req.session?.user?.id,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        outcome: 'failure',
+        riskLevel: 'high',
+        details: { error: error instanceof Error ? error.message : 'Unknown error' }
+      });
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Passport verification failed'
       });
     }
   });

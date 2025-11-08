@@ -1,0 +1,103 @@
+api/portfolios/by-pan/holdings:1  Failed to load resource: the server responded with a status of 401 ()
+api/user:1  Failed to load resource: the server responded with a status of 401 ()
+api/portfolios/by-pan/holdings:1  Failed to load resource: the server responded with a status of 500 ()
+api/kyc/wizard/verify-pan:1  Failed to load resource: the server responded with a status of 500 ()
+api/kyc/wizard/verify-pan:1  Failed to load resource: the server responded with a status of 500 ()
+index-CGkviikD.js:48  POST https://fintekpro.com/api/kyc/wizard/verify-pan 500 (Internal Server Error)
+Ee @ index-CGkviikD.js:48
+mutationFn @ index-CGkviikD.js:1054
+fn @ index-CGkviikD.js:48
+j @ index-CGkviikD.js:48
+start @ index-CGkviikD.js:48
+execute @ index-CGkviikD.js:48
+await in execute
+mutate @ index-CGkviikD.js:48
+(anonymous) @ index-CGkviikD.js:48
+onClick @ index-CGkviikD.js:1054
+yJ @ index-CGkviikD.js:37
+NJ @ index-CGkviikD.js:37
+wJ @ index-CGkviikD.js:37
+aT @ index-CGkviikD.js:37
+s$ @ index-CGkviikD.js:37
+(anonymous) @ index-CGkviikD.js:37
+Tk @ index-CGkviikD.js:40
+C8 @ index-CGkviikD.js:37
+zw @ index-CGkviikD.js:37
+nk @ index-CGkviikD.js:37
+$J @ index-CGkviikD.js:37
+index-CGkviikD.js:48  POST https://fintekpro.com/api/kyc/wizard/verify-pan 500 (Internal Server Error)
+Ee @ index-CGkviikD.js:48
+mutationFn @ index-CGkviikD.js:1054
+fn @ index-CGkviikD.js:48
+j @ index-CGkviikD.js:48
+(anonymous) @ index-CGkviikD.js:48
+Promise.then
+(anonymous) @ index-CGkviikD.js:48
+Promise.catch
+j @ index-CGkviikD.js:48
+start @ index-CGkviikD.js:48
+execute @ index-CGkviikD.js:48
+await in execute
+mutate @ index-CGkviikD.js:48
+(anonymous) @ index-CGkviikD.js:48
+onClick @ index-CGkviikD.js:1054
+yJ @ index-CGkviikD.js:37
+NJ @ index-CGkviikD.js:37
+wJ @ index-CGkviikD.js:37
+aT @ index-CGkviikD.js:37
+s$ @ index-CGkviikD.js:37
+(anonymous) @ index-CGkviikD.js:37
+Tk @ index-CGkviikD.js:40
+C8 @ index-CGkviikD.js:37
+zw @ index-CGkviikD.js:37
+nk @ index-CGkviikD.js:37
+$J @ index-CGkviikD.js:37
+index-CGkviikD.js:48  POST https://fintekpro.com/api/kyc/wizard/verify-pan 500 (Internal Server Error)
+Ee @ index-CGkviikD.js:48
+mutationFn @ index-CGkviikD.js:1054
+fn @ index-CGkviikD.js:48
+j @ index-CGkviikD.js:48
+start @ index-CGkviikD.js:48
+execute @ index-CGkviikD.js:48
+await in execute
+mutate @ index-CGkviikD.js:48
+(anonymous) @ index-CGkviikD.js:48
+onClick @ index-CGkviikD.js:1054
+yJ @ index-CGkviikD.js:37
+NJ @ index-CGkviikD.js:37
+wJ @ index-CGkviikD.js:37
+aT @ index-CGkviikD.js:37
+s$ @ index-CGkviikD.js:37
+(anonymous) @ index-CGkviikD.js:37
+Tk @ index-CGkviikD.js:40
+C8 @ index-CGkviikD.js:37
+zw @ index-CGkviikD.js:37
+nk @ index-CGkviikD.js:37
+$J @ index-CGkviikD.js:37
+index-CGkviikD.js:48  POST https://fintekpro.com/api/kyc/wizard/verify-pan 500 (Internal Server Error)
+Ee @ index-CGkviikD.js:48
+mutationFn @ index-CGkviikD.js:1054
+fn @ index-CGkviikD.js:48
+j @ index-CGkviikD.js:48
+(anonymous) @ index-CGkviikD.js:48
+Promise.then
+(anonymous) @ index-CGkviikD.js:48
+Promise.catch
+j @ index-CGkviikD.js:48
+start @ index-CGkviikD.js:48
+execute @ index-CGkviikD.js:48
+await in execute
+mutate @ index-CGkviikD.js:48
+(anonymous) @ index-CGkviikD.js:48
+onClick @ index-CGkviikD.js:1054
+yJ @ index-CGkviikD.js:37
+NJ @ index-CGkviikD.js:37
+wJ @ index-CGkviikD.js:37
+aT @ index-CGkviikD.js:37
+s$ @ index-CGkviikD.js:37
+(anonymous) @ index-CGkviikD.js:37
+Tk @ index-CGkviikD.js:40
+C8 @ index-CGkviikD.js:37
+zw @ index-CGkviikD.js:37
+nk @ index-CGkviikD.js:37
+$J @ index-CGkviikD.js:37
