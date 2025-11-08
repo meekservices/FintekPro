@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useSearchParams } from "wouter";
+import { useSearch } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -270,7 +270,7 @@ type SessionForm = z.infer<typeof sessionSchema>;
 export default function IntelligentTaxHub() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [searchParams] = useSearchParams();
+  const searchString = useSearch();
   const [activeTab, setActiveTab] = useState("dashboard");
   const [selectedYear, setSelectedYear] = useState("2024-25");
   const [scenarioIncome, setScenarioIncome] = useState<number>(1000000);
@@ -285,11 +285,12 @@ export default function IntelligentTaxHub() {
   
   // Read tab parameter from URL on mount
   useEffect(() => {
-    const tabParam = searchParams.get('tab');
+    const params = new URLSearchParams(searchString);
+    const tabParam = params.get('tab');
     if (tabParam) {
       setActiveTab(tabParam);
     }
-  }, [searchParams]);
+  }, [searchString]);
   
   // Wizard form setup
   const sessionForm = useForm<SessionForm>({
