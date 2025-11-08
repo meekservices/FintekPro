@@ -9490,6 +9490,124 @@ export const insertCasRequestSchema = createInsertSchema(casRequests).omit({
 export type CasRequest = typeof casRequests.$inferSelect;
 export type InsertCasRequest = z.infer<typeof insertCasRequestSchema>;
 
+// KYC Workflows - State machine tracking for hybrid KYC priority workflow
+export const kycWorkflows = pgTable("kyc_workflows", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // User information
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Workflow state machine
+  status: varchar("status").notNull().default("initiated"), // initiated/ckyc_lookup/kra_ekyc/video_kyc/manual_kyc/verified/failed
+  currentMethod: varchar("current_method"), // ckyc/kra_ekyc/video_kyc/manual_kyc
+  
+  // Success tracking
+  successfulMethod: varchar("successful_method"), // Which method ultimately succeeded
+  ckycKinNumber: varchar("ckyc_kin_number"), // CKYC ID if found/created
+  kraVerificationNumber: varchar("kra_verification_number"), // KRA verification number if used
+  videoKycSessionId: varchar("video_kyc_session_id"), // Video KYC session ID if used
+  
+  // Workflow progression
+  attemptedMethods: jsonb("attempted_methods").default([]), // Array of methods tried: ['ckyc', 'kra_ekyc', ...]
+  stepTimestamps: jsonb("step_timestamps"), // { ckyc_started: '...', ckyc_completed: '...', ... }
+  
+  // Result data
+  verifiedData: jsonb("verified_data"), // Normalized KYC data from successful method
+  dataSource: varchar("data_source"), // Which provider/agency gave the data
+  verificationLevel: varchar("verification_level").default("basic"), // basic/enhanced/accredited
+  
+  // Error tracking
+  errorMessage: text("error_message"),
+  failedAtMethod: varchar("failed_at_method"), // Which method was being attempted when workflow failed
+  
+  // Compliance metadata
+  panNumber: varchar("pan_number"), // For lookup/audit (not encrypted here)
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  
+  // Timestamps
+  initiatedAt: timestamp("initiated_at").defaultNow(),
+  verifiedAt: timestamp("verified_at"),
+  completedAt: timestamp("completed_at"),
+  
+  // Lock mechanism for preventing concurrent workflows
+  lockToken: varchar("lock_token"), // Distributed lock token
+  lockedAt: timestamp("locked_at"),
+  lockExpiresAt: timestamp("lock_expires_at"),
+}, (table) => [
+  index("idx_kyc_workflow_user").on(table.userId),
+  index("idx_kyc_workflow_status").on(table.status),
+  index("idx_kyc_workflow_pan").on(table.panNumber),
+  index("idx_kyc_workflow_initiated").on(table.initiatedAt),
+  index("idx_kyc_workflow_method").on(table.currentMethod),
+]);
+
+// KYC Verification Attempts - Detailed tracking of each verification method attempt
+export const kycVerificationAttempts = pgTable("kyc_verification_attempts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Workflow linkage
+  workflowId: varchar("workflow_id").references(() => kycWorkflows.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Verification method details
+  verificationMethod: varchar("verification_method").notNull(), // ckyc_lookup/kra_ekyc/video_kyc/manual_kyc
+  provider: varchar("provider"), // CAMS/CVL/KFintech/NSE/NDML/HyperVerge/SignDesk/etc
+  
+  // Request/Response tracking
+  requestPayloadHash: varchar("request_payload_hash"), // SHA-256 hash of request for audit
+  responsePayloadHash: varchar("response_payload_hash"), // SHA-256 hash of response for audit
+  correlationId: varchar("correlation_id").notNull().unique(), // For correlating logs/API calls
+  
+  // Result tracking
+  outcome: varchar("outcome").notNull(), // success/failure/timeout/rate_limited/partial_success
+  responseCode: varchar("response_code"), // HTTP status or API error code
+  errorDetails: jsonb("error_details"), // Structured error information
+  
+  // Data quality metrics
+  dataCompleteness: integer("data_completeness"), // Percentage of required fields populated (0-100)
+  dataFreshness: timestamp("data_freshness"), // Timestamp of data at provider
+  verificationScore: integer("verification_score"), // Provider's confidence score (0-100)
+  
+  // SLA tracking
+  latencyMs: integer("latency_ms"), // Response time in milliseconds
+  retryCount: integer("retry_count").default(0),
+  
+  // Compliance flags
+  complianceFlags: jsonb("compliance_flags"), // { pep_check: true, sanctions_check: false, ... }
+  regulatoryNotes: text("regulatory_notes"), // Any compliance-related notes
+  
+  // Timestamps
+  attemptedAt: timestamp("attempted_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  
+  // Metadata
+  metadata: jsonb("metadata"), // Provider-specific additional data
+}, (table) => [
+  index("idx_kyc_attempt_workflow").on(table.workflowId),
+  index("idx_kyc_attempt_user").on(table.userId),
+  index("idx_kyc_attempt_method").on(table.verificationMethod),
+  index("idx_kyc_attempt_outcome").on(table.outcome),
+  index("idx_kyc_attempt_correlation").on(table.correlationId),
+  index("idx_kyc_attempt_attempted_at").on(table.attemptedAt),
+]);
+
+export const insertKycWorkflowSchema = createInsertSchema(kycWorkflows).omit({
+  id: true,
+  initiatedAt: true,
+  completedAt: true,
+});
+export type KycWorkflow = typeof kycWorkflows.$inferSelect;
+export type InsertKycWorkflow = z.infer<typeof insertKycWorkflowSchema>;
+
+export const insertKycVerificationAttemptSchema = createInsertSchema(kycVerificationAttempts).omit({
+  id: true,
+  attemptedAt: true,
+  completedAt: true,
+});
+export type KycVerificationAttempt = typeof kycVerificationAttempts.$inferSelect;
+export type InsertKycVerificationAttempt = z.infer<typeof insertKycVerificationAttemptSchema>;
+
 // Insert schemas and types for KYC Vault System
 export const insertKycVaultSchema = createInsertSchema(kycVault).omit({
   id: true,
