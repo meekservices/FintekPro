@@ -85,7 +85,6 @@ import ClientProposalsPage from "@/pages/client-proposals";
 import TaxDocuments from "@/pages/tax-documents";
 import ITRPrefilled from "@/pages/itr-prefilled";
 import TaxDataCenter from "@/pages/tax-data-center";
-import TaxSmartFiling from "@/pages/tax-smart-filing";
 import OneClickTaxFiling from "@/pages/one-click-tax-filing";
 import PropertyServices from "@/pages/property-services";
 import LoanComparison from "@/pages/loan-comparison";
@@ -168,7 +167,7 @@ function UserProtectedRoutes() {
         <Route path="/capital-gains">{() => <KycGate><CapitalGainsReports /></KycGate>}</Route>
         {/* Unified Tax Services - Primary Route */}
         <Route path="/tax-hub" component={IntelligentTaxHub} />
-        <Route path="/tax" component={TaxSmartFiling} />
+        <Route path="/tax">{() => { window.location.href = '/tax-hub?tab=filing'; return null; }}</Route>
         <Route path="/one-click-tax-filing" component={OneClickTaxFiling} />
         <Route path="/tax-reminder-subscription" component={TaxReminderSubscription} />
         {/* Legacy Tax Routes - Maintained for existing users */}
