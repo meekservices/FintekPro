@@ -261,6 +261,10 @@ app.use((req, res, next) => {
   const { registerStakeholderRoutes } = await import('./stakeholder-routes');
   registerStakeholderRoutes(app);
   
+  // Register Account Aggregator routes (RBI AA Framework consent management & FI data fetching)
+  const { registerAARoutes } = await import('./aa-routes');
+  registerAARoutes(app);
+  
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
