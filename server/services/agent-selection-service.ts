@@ -46,19 +46,36 @@ export class AgentSelectionService {
       );
 
       if (relevantMapping) {
-        // Client has an assigned agent - use that agent
-        const agent = await db
+        // Client has an assigned agent - check both agent tables
+        // Try agents table first
+        const agentResults = await db
           .select()
           .from(agents)
           .where(eq(agents.id, relevantMapping.agentId))
           .limit(1);
 
-        if (agent.length > 0 && agent[0].status === 'active') {
+        if (agentResults.length > 0 && agentResults[0].status === 'active') {
           return {
-            agentId: agent[0].id,
-            arnCode: agent[0].arnCode,
-            euinNumber: agent[0].euinNumber,
-            fullName: agent[0].fullName
+            agentId: agentResults[0].id,
+            arnCode: agentResults[0].arnCode,
+            euinNumber: agentResults[0].euinNumber,
+            fullName: agentResults[0].fullName
+          };
+        }
+
+        // Try customer_care_agents table if not found in agents
+        const careAgentResults = await db
+          .select()
+          .from(customerCareAgents)
+          .where(eq(customerCareAgents.id, relevantMapping.agentId))
+          .limit(1);
+
+        if (careAgentResults.length > 0 && careAgentResults[0].status === 'active') {
+          return {
+            agentId: careAgentResults[0].id,
+            arnCode: careAgentResults[0].arnCode,
+            euinNumber: careAgentResults[0].euinNumber,
+            fullName: careAgentResults[0].fullName
           };
         }
       }
