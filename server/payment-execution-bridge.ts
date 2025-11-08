@@ -16,6 +16,7 @@ import { BSEStarApiService } from "./bseStarApi";
 import { LoanProcessingService } from "./loan-processing-service";
 import { BSEBondApiService } from "./bseBondApi";
 import { logger } from './logger';
+import { agentSelectionService } from "./services/agent-selection-service";
 
 // Feature flags for beta execution services
 const FEATURE_FLAGS = {
@@ -342,6 +343,26 @@ class PaymentExecutionBridge {
         actorType: 'system',
       });
       
+      // Get agent details for this client (checks mapping, falls back to default)
+      const agentDetails = await agentSelectionService.getAgentForClient(userId, 'mutual_funds');
+      
+      logger.info(`[PaymentBridge] Agent assigned for MF order ${orderId}`, {
+        agentId: agentDetails.agentId,
+        arnCode: agentDetails.arnCode,
+        euinNumber: agentDetails.euinNumber,
+        agentName: agentDetails.fullName
+      });
+      
+      // Snapshot agent information into the order for historical tracking
+      await db
+        .update(unifiedOrders)
+        .set({
+          agentId: agentDetails.agentId,
+          arnCode: agentDetails.arnCode,
+          euinNumber: agentDetails.euinNumber
+        })
+        .where(eq(unifiedOrders.id, orderId));
+      
       // Extract MF-specific metadata
       const {
         schemeCode,
@@ -350,8 +371,8 @@ class PaymentExecutionBridge {
         transactionType = 'P', // P = Purchase, R = Redeem
         orderType = 'LUMPSUM', // LUMPSUM or SIP
         clientCode,
-        agentArn,
-        agentEuin,
+        agentArn = agentDetails.arnCode, // Use agent selection service result if not provided
+        agentEuin = agentDetails.euinNumber, // Use agent selection service result if not provided
         euinDeclaration,
         sipFreq,
         sipStartDate,
