@@ -1,13 +1,15 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { 
   CheckCircle, 
   Loader2,
@@ -49,10 +51,24 @@ interface SessionData {
 }
 
 export default function SmartKYCOnboarding() {
+  const { user, isLoading } = useAuth();
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState<WizardStep>('pan_verification');
   const [sessionId, setSessionId] = useState<string>('');
   const [sessionError, setSessionError] = useState<string>('');
+
+  // Authentication guard - redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLoading && !user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please login to access KYC onboarding",
+        variant: "destructive"
+      });
+      setLocation("/login");
+    }
+  }, [user, isLoading, setLocation, toast]);
   
   // Session Timer State
   const [sessionExpiresAt, setSessionExpiresAt] = useState<Date | null>(null);
@@ -259,10 +275,12 @@ export default function SmartKYCOnboarding() {
     }
   });
   
-  // Start session on mount
+  // Start session on mount - only if user is authenticated
   useEffect(() => {
-    startSessionMutation.mutate();
-  }, []);
+    if (!isLoading && user) {
+      startSessionMutation.mutate();
+    }
+  }, [isLoading, user]);
   
   // Session countdown timer
   useEffect(() => {
@@ -711,6 +729,31 @@ export default function SmartKYCOnboarding() {
     </Card>
   );
   
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-muted-foreground">Checking authentication...</p>
+      </div>
+    );
+  }
+
+  // Don't render if user is not authenticated (will redirect)
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4 px-4">
+        <Alert variant="destructive" className="max-w-md">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Authentication Required</AlertTitle>
+          <AlertDescription>
+            You need to be logged in to access KYC onboarding. Redirecting to login...
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
   // Show loading state while session initializes
   if (startSessionMutation.isPending) {
     return (
