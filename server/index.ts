@@ -277,8 +277,7 @@ app.use((req, res, next) => {
   
   // Register Agent Admin routes (Default agent management for EUIN/ARN tracking)
   const { registerAgentAdminRoutes } = await import('./agent-admin-routes');
-  const { requireAuth, requireAdmin } = await import('./middleware/auth-middleware');
-  registerAgentAdminRoutes(app, requireAuth, requireAdmin);
+  registerAgentAdminRoutes(app);
   
   // Register KYC Vault routes (Production-grade KYC system)
   const { registerKYCVaultRoutes } = await import('./kyc-vault-routes');

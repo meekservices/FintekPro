@@ -1,14 +1,31 @@
 import type { Express, Request, Response } from "express";
 import { agentSelectionService } from "./services/agent-selection-service";
-import { apiResponse } from "./utils/apiResponse";
+import { apiResponse } from "./utils/responses";
+import { storage } from "./storage";
 
-// Middleware placeholders - these should be imported from your main routes file
-// For now, we'll assume they're passed in or available globally
-export function registerAgentAdminRoutes(
-  app: Express,
-  requireAuth: any,
-  requireAdmin: any
-) {
+// Auth middleware
+const requireAuth = (req: any, res: any, next: any) => {
+  if (!req.isAuthenticated || !req.isAuthenticated()) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  next();
+};
+
+// Admin middleware
+const requireAdmin = async (req: any, res: any, next: any) => {
+  if (!req.isAuthenticated || !req.isAuthenticated()) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  
+  const user = await storage.getUser(req.user.id);
+  if (!user || !user.roles || !user.roles.includes("admin")) {
+    return res.status(403).json({ error: "Forbidden: Admin access required" });
+  }
+  
+  next();
+};
+
+export function registerAgentAdminRoutes(app: Express) {
   
   /**
    * GET /api/admin/agents/default
