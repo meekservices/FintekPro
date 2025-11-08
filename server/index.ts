@@ -245,6 +245,10 @@ app.use((req, res, next) => {
   const { registerKYCVaultRoutes } = await import('./kyc-vault-routes');
   registerKYCVaultRoutes(app);
   
+  // Register KYC Priority Workflow routes (4-tier verification: CKYC → KRA → Video → Manual)
+  const { registerKYCPriorityRoutes } = await import('./kyc-priority-routes');
+  registerKYCPriorityRoutes(app);
+  
   // Register Marketing Automation routes (Zoho Campaigns, AiSensy, Probe42)
   const { registerMarketingRoutes } = await import('./marketing-routes');
   registerMarketingRoutes(app);
