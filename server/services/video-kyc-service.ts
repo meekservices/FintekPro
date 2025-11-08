@@ -198,20 +198,12 @@ export class VideoKYCService {
         status: 'created',
       };
     } catch (error: any) {
-      // Mock response for development
-      logger.warn('HyperVerge API call failed, using mock session', {
+      logger.error('HyperVerge API call failed', {
         correlationId,
         error: error.message,
       });
 
-      return {
-        sessionId,
-        sessionUrl: `https://demo-videoid.hyperverge.co/session/${sessionId}`,
-        sessionToken,
-        expiresAt,
-        provider: 'hyperverge',
-        status: 'created',
-      };
+      throw new Error(`HyperVerge session creation failed: ${error.message}`);
     }
   }
 
@@ -269,20 +261,12 @@ export class VideoKYCService {
         status: 'created',
       };
     } catch (error: any) {
-      // Mock response for development
-      logger.warn('SignDesk API call failed, using mock session', {
+      logger.error('SignDesk API call failed', {
         correlationId,
         error: error.message,
       });
 
-      return {
-        sessionId,
-        sessionUrl: `https://demo-vkyc.signdesk.in/session/${sessionId}`,
-        sessionToken,
-        expiresAt,
-        provider: 'signdesk',
-        status: 'created',
-      };
+      throw new Error(`SignDesk session creation failed: ${error.message}`);
     }
   }
 

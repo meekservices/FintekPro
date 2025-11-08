@@ -155,11 +155,39 @@ export class KRAeKYCService {
       correlationId,
       attempted: attempted.length,
       successful: successful.length,
+      failed: failed.length,
       found: foundResponses.length,
       responseTime: Date.now() - startTime,
     });
 
-    // If no agency found data, return not found
+    // If ALL agencies failed (network/API errors), return overall failure
+    if (successful.length === 0) {
+      const errorMessages = agencyResponses
+        .filter((r) => r.error)
+        .map((r) => `${r.agency}: ${r.error}`)
+        .join('; ');
+
+      logger.error('All KRA agencies failed', {
+        correlationId,
+        errors: errorMessages,
+      });
+
+      return {
+        success: false,
+        found: false,
+        agencies: { attempted, successful, failed },
+        responseTime: Date.now() - startTime,
+        details: agencyResponses.map((r) => ({
+          agency: r.agency,
+          found: r.found,
+          latencyMs: r.latencyMs || 0,
+          error: r.error,
+        })),
+        message: `All KRA agencies failed: ${errorMessages}`,
+      };
+    }
+
+    // If at least one agency succeeded but none found data, return not found
     if (foundResponses.length === 0) {
       return {
         success: true,
@@ -172,7 +200,7 @@ export class KRAeKYCService {
           latencyMs: r.latencyMs || 0,
           error: r.error,
         })),
-        message: 'No KRA records found across any agency',
+        message: 'No KRA records found (some agencies queried successfully)',
       };
     }
 
@@ -246,17 +274,17 @@ export class KRAeKYCService {
         latencyMs: Date.now() - startTime,
       };
     } catch (error: any) {
-      logger.warn('CAMS KRA query failed', {
+      logger.error('CAMS KRA query failed', {
         correlationId,
         error: error.message,
         latencyMs: Date.now() - startTime,
       });
 
-      // Fallback: Mock response for development
       return {
-        success: true,
+        success: false,
         agency: 'cams',
         found: false,
+        error: error.message,
         latencyMs: Date.now() - startTime,
       };
     }
@@ -311,16 +339,17 @@ export class KRAeKYCService {
         latencyMs: Date.now() - startTime,
       };
     } catch (error: any) {
-      logger.warn('CVL KRA query failed', {
+      logger.error('CVL KRA query failed', {
         correlationId,
         error: error.message,
         latencyMs: Date.now() - startTime,
       });
 
       return {
-        success: true,
+        success: false,
         agency: 'cvl',
         found: false,
+        error: error.message,
         latencyMs: Date.now() - startTime,
       };
     }
@@ -375,16 +404,17 @@ export class KRAeKYCService {
         latencyMs: Date.now() - startTime,
       };
     } catch (error: any) {
-      logger.warn('KFintech KRA query failed', {
+      logger.error('KFintech KRA query failed', {
         correlationId,
         error: error.message,
         latencyMs: Date.now() - startTime,
       });
 
       return {
-        success: true,
+        success: false,
         agency: 'kfintech',
         found: false,
+        error: error.message,
         latencyMs: Date.now() - startTime,
       };
     }
@@ -436,16 +466,17 @@ export class KRAeKYCService {
         latencyMs: Date.now() - startTime,
       };
     } catch (error: any) {
-      logger.warn('NSE KRA query failed', {
+      logger.error('NSE KRA query failed', {
         correlationId,
         error: error.message,
         latencyMs: Date.now() - startTime,
       });
 
       return {
-        success: true,
+        success: false,
         agency: 'nse',
         found: false,
+        error: error.message,
         latencyMs: Date.now() - startTime,
       };
     }
@@ -501,16 +532,17 @@ export class KRAeKYCService {
         latencyMs: Date.now() - startTime,
       };
     } catch (error: any) {
-      logger.warn('NDML KRA query failed', {
+      logger.error('NDML KRA query failed', {
         correlationId,
         error: error.message,
         latencyMs: Date.now() - startTime,
       });
 
       return {
-        success: true,
+        success: false,
         agency: 'ndml',
         found: false,
+        error: error.message,
         latencyMs: Date.now() - startTime,
       };
     }
