@@ -84,10 +84,22 @@ export function registerAdminMonitoringRoutes(app: Express) {
             checkedAt: new Date(),
           });
           
+          // Normalize status to match frontend expectations
+          let normalizedStatus: 'healthy' | 'degraded' | 'down';
+          if (result.status === 'failing') {
+            normalizedStatus = 'down';
+          } else if (result.status === 'degraded' || result.latency > 500) {
+            normalizedStatus = 'degraded';
+          } else {
+            normalizedStatus = 'healthy';
+          }
+          
           return {
-            name,
-            category: getServiceCategory(name),
-            ...result,
+            service: name,
+            status: normalizedStatus,
+            latencyMs: result.latency,
+            lastCheck: new Date().toISOString(),
+            details: result.error || `${getServiceCategory(name)} service`,
           };
         })
       );
@@ -156,10 +168,12 @@ export function registerAdminMonitoringRoutes(app: Express) {
         : 100;
       
       res.json({
-        p95Latency,
+        totalRequests: totalChecks[0].count,
         errorRate: parseFloat(errorRate.toFixed(2)),
+        p95Latency,
         uptime: parseFloat(uptime.toFixed(2)),
-        period: `last ${hoursAgo} hour(s)`,
+        activeUsers: 0, // TODO: Implement active users tracking
+        timestamp: new Date().toISOString(),
       });
     } catch (error) {
       logger.error('Error calculating metrics', { error: String(error) });

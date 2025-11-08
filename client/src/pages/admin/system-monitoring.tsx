@@ -50,10 +50,11 @@ export default function SystemMonitoring() {
   const [autoRefresh, setAutoRefresh] = useState(true);
 
   // Service health check query (refresh every 30s)
-  const { data: serviceHealth, isLoading: healthLoading, refetch: refetchHealth } = useQuery<ServiceHealthStatus[]>({
-    queryKey: ['/api/admin/monitoring/service-health'],
+  const { data: serviceHealthData, isLoading: healthLoading, refetch: refetchHealth } = useQuery<{ services: ServiceHealthStatus[] }>({
+    queryKey: ['/api/admin/monitoring/services'],
     refetchInterval: autoRefresh ? 30000 : false,
   });
+  const serviceHealth = serviceHealthData?.services;
 
   // System metrics query (refresh every 30s)
   const { data: metrics, isLoading: metricsLoading, refetch: refetchMetrics } = useQuery<SystemMetrics>({
@@ -62,10 +63,25 @@ export default function SystemMonitoring() {
   });
 
   // Error logs query (refresh every 10s for near real-time)
-  const { data: errorLogs, isLoading: logsLoading, refetch: refetchLogs } = useQuery<{ logs: ErrorLog[]; count: number }>({
-    queryKey: ['/api/admin/monitoring/error-logs'],
+  const { data: errorLogsData, isLoading: logsLoading, refetch: refetchLogs } = useQuery<{ errors: any[]; count: number }>({
+    queryKey: ['/api/admin/monitoring/errors'],
     refetchInterval: autoRefresh ? 10000 : false,
   });
+  
+  // Transform backend errors to match UI expectations
+  const errorLogs = errorLogsData ? {
+    logs: errorLogsData.errors.map((err: any, idx: number) => ({
+      id: `${err.timestamp}-${idx}`,
+      timestamp: err.timestamp,
+      level: err.level,
+      message: err.message,
+      service: err.service,
+      stackTrace: err.metadata?.stack,
+      count: 1,
+      aiSummary: undefined, // TODO: Add AI summaries via Gemini integration
+    })),
+    count: errorLogsData.count
+  } : undefined;
 
   const handleRefreshAll = () => {
     refetchHealth();
