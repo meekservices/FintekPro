@@ -338,7 +338,9 @@ export default function IntelligentTaxHub() {
         body: { year: selectedYear }
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/tax-hub'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tax-hub/dashboard', selectedYear] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tax-hub/filing', selectedYear] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tax-hub/data-sources', selectedYear] });
       toast({
         title: "Sync Completed",
         description: "Data has been successfully synced"
@@ -360,7 +362,9 @@ export default function IntelligentTaxHub() {
         body: { ...formData, year: selectedYear }
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/tax-hub'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tax-hub/dashboard', selectedYear] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tax-hub/filing', selectedYear] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tax-hub/services', selectedYear] });
       toast({
         title: "ITR Filed Successfully",
         description: "Your income tax return has been filed successfully"
