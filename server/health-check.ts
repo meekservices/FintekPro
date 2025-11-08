@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { db } from './db';
 import { sql } from 'drizzle-orm';
 import { createLogger } from './services/logger';
+import { cacheService } from './services/cache-service';
 
 const logger = createLogger({ service: 'health-check' });
 
@@ -166,6 +167,7 @@ export async function metricsEndpoint(req: Request, res: Response) {
   try {
     const metrics = getSystemMetrics();
     const uptime = process.uptime();
+    const cacheStats = cacheService.getStats();
     
     const dbStartTime = Date.now();
     let dbLatency = 0;
@@ -211,6 +213,18 @@ fintekpro_database_status ${dbStatus}
 # HELP fintekpro_database_latency_ms Database query latency in milliseconds
 # TYPE fintekpro_database_latency_ms gauge
 fintekpro_database_latency_ms ${dbLatency}
+
+# HELP fintekpro_cache_entries_total Total cache entries
+# TYPE fintekpro_cache_entries_total gauge
+fintekpro_cache_entries_total ${cacheStats.total}
+
+# HELP fintekpro_cache_entries_active Active cache entries (not expired)
+# TYPE fintekpro_cache_entries_active gauge
+fintekpro_cache_entries_active ${cacheStats.active}
+
+# HELP fintekpro_cache_entries_expired Expired cache entries
+# TYPE fintekpro_cache_entries_expired gauge
+fintekpro_cache_entries_expired ${cacheStats.expired}
 `.trim();
 
     res.set('Content-Type', 'text/plain; version=0.0.4');
@@ -219,5 +233,28 @@ fintekpro_database_latency_ms ${dbLatency}
   } catch (error) {
     logger.error('Metrics endpoint error', error instanceof Error ? error : undefined);
     res.status(500).send('# Error generating metrics');
+  }
+}
+
+/**
+ * Cache statistics endpoint - JSON format
+ * Provides detailed cache performance metrics
+ */
+export async function cacheStatsEndpoint(req: Request, res: Response) {
+  try {
+    const stats = cacheService.getStats();
+    const hitRate = stats.total > 0 ? ((stats.active / stats.total) * 100).toFixed(2) : '0.00';
+    
+    res.status(200).json({
+      stats,
+      metrics: {
+        hitRate: `${hitRate}%`,
+        size: cacheService.size()
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    logger.error('Cache stats endpoint error', error instanceof Error ? error : undefined);
+    res.status(500).json({ message: 'Error retrieving cache statistics' });
   }
 }
