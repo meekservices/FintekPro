@@ -2018,6 +2018,7 @@ export const agents = pgTable("agents", {
   agentType: varchar("agent_type").default("individual"), // individual, corporate, sub_broker
   status: varchar("status").default("active"), // active, inactive, suspended, terminated
   isActive: boolean("is_active").default(true),
+  isDefault: boolean("is_default").default(false), // Only one agent should be marked as default for fallback
   
   // Performance Metrics
   activeClients: integer("active_clients").default(0),
@@ -8607,6 +8608,11 @@ export const unifiedOrders = pgTable("unified_orders", {
   cartId: varchar("cart_id"),
   proposalId: varchar("proposal_id").references(() => investmentProposals.id),
   portfolioId: varchar("portfolio_id").references(() => portfolios.id),
+  
+  // Agent and EUIN snapshot (preserved for commission tracking even if agent is reassigned)
+  agentId: varchar("agent_id").references(() => agents.id), // Agent at time of order
+  arnCode: varchar("arn_code"), // ARN snapshot for mutual funds
+  euinNumber: varchar("euin_number"), // EUIN snapshot for mutual funds
   
   // Order lifecycle status
   status: varchar("status").notNull().default("initiated"), 
