@@ -23,7 +23,10 @@ import {
   MessageSquare,
   Building2,
   Target,
-  PieChart
+  PieChart,
+  Monitor,
+  ScrollText,
+  Bot
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -126,10 +129,22 @@ const adminNavItems = [
     description: "Service status & deployment"
   },
   {
-    title: "System Health",
-    href: "/admin/system-health",
-    icon: Activity,
-    description: "Performance & monitoring"
+    title: "System Monitoring",
+    href: "/admin/system-monitoring",
+    icon: Monitor,
+    description: "Live observability & AI diagnostics"
+  },
+  {
+    title: "Audit & Compliance",
+    href: "/admin/audit-ledger",
+    icon: ScrollText,
+    description: "Regulator-safe audit trails"
+  },
+  {
+    title: "AI Fix Suggestions",
+    href: "/admin/ai-fixes",
+    icon: Bot,
+    description: "Auto-debug assistant & error analysis"
   },
   {
     title: "Reports & Analytics",

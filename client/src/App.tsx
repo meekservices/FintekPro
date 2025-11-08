@@ -123,6 +123,9 @@ import LeadProspecting from "@/pages/admin/lead-prospecting";
 import ClientIntelligence from "@/pages/admin/client-intelligence";
 import MarketingAnalytics from "@/pages/admin/marketing-analytics";
 import UserManagement from "@/pages/admin/user-management";
+import SystemMonitoring from "@/pages/admin/system-monitoring";
+import AuditLedger from "@/pages/admin/audit-ledger";
+import AIFixSuggestions from "@/pages/admin/ai-fixes";
 import PredictiveAnalytics from "@/pages/PredictiveAnalytics";
 
 function UserProtectedRoutes() {
@@ -385,13 +388,24 @@ function AdminRoutes() {
           </AdminLayout>
         )}
       </Route>
-      <Route path="/admin/system-health">
+      <Route path="/admin/system-monitoring">
         {() => (
           <AdminLayout>
-            <div className="text-center py-20">
-              <h2 className="text-2xl font-bold text-white mb-4">System Health</h2>
-              <p className="text-gray-400">Coming soon...</p>
-            </div>
+            <SystemMonitoring />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/audit-ledger">
+        {() => (
+          <AdminLayout>
+            <AuditLedger />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/ai-fixes">
+        {() => (
+          <AdminLayout>
+            <AIFixSuggestions />
           </AdminLayout>
         )}
       </Route>
