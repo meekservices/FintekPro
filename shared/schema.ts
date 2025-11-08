@@ -2612,6 +2612,10 @@ export const financialGoals = pgTable("financial_goals", {
   riskProfile: varchar("risk_profile").notNull(), // conservative, moderate, aggressive
   priority: varchar("priority").default("medium"), // low, medium, high
   
+  // Investment strategy
+  investmentStrategy: varchar("investment_strategy").default("sip"), // sip, lump_sum
+  recommendedMonthlyContribution: decimal("recommended_monthly_contribution", { precision: 10, scale: 2 }).default("0"),
+  
   // Recommendations and tracking
   recommendedInvestments: text("recommended_investments").array(),
   currentProgress: decimal("current_progress", { precision: 5, scale: 2 }).default("0"), // Percentage

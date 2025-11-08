@@ -93,16 +93,35 @@ export function registerGoalRoutes(app: Express) {
       }
 
       // Calculate recommended monthly contribution
-      const monthsToGoal = calculateMonthsToGoal(targetDate);
-      const expectedReturn = 0.12; // 12% annual return assumption
-      const monthlyReturn = expectedReturn / 12;
-      
-      // Future Value = Monthly SIP * [(1 + r)^n - 1] / r * (1 + r)
-      // Solving for Monthly SIP
-      const n = monthsToGoal;
-      const r = monthlyReturn;
+      const monthsToGoal = Math.max(calculateMonthsToGoal(targetDate), 1); // Ensure at least 1 month
       const fv = parseFloat(targetAmount);
-      const recommendedMonthlyContribution = fv / (((Math.pow(1 + r, n) - 1) / r) * (1 + r));
+      
+      let recommendedMonthlyContribution;
+      let investmentStrategy;
+      
+      // For very short-term goals (≤ 3 months), recommend lump sum instead of SIP
+      if (monthsToGoal <= 3) {
+        recommendedMonthlyContribution = 0;
+        investmentStrategy = 'lump_sum'; // Recommend one-time investment
+      } else {
+        // Standard SIP calculation for goals > 3 months
+        const expectedReturn = 0.12; // 12% annual return assumption
+        const monthlyReturn = expectedReturn / 12;
+        
+        // Future Value = Monthly SIP * [(1 + r)^n - 1] / r * (1 + r)
+        // Solving for Monthly SIP
+        const n = monthsToGoal;
+        const r = monthlyReturn;
+        const denominator = ((Math.pow(1 + r, n) - 1) / r) * (1 + r);
+        
+        recommendedMonthlyContribution = fv / denominator;
+        investmentStrategy = 'sip';
+        
+        // Safety check
+        if (!isFinite(recommendedMonthlyContribution) || recommendedMonthlyContribution < 0) {
+          recommendedMonthlyContribution = fv / n;
+        }
+      }
 
       // Get investment recommendations based on goal
       const recommendedInvestments = getInvestmentRecommendations(
@@ -123,6 +142,8 @@ export function registerGoalRoutes(app: Express) {
         goalType,
         priority: priority || 'medium',
         riskProfile: riskProfile || 'moderate',
+        investmentStrategy,
+        recommendedMonthlyContribution: recommendedMonthlyContribution.toFixed(2),
         monthlyContribution: recommendedMonthlyContribution.toFixed(2),
         recommendedInvestments,
         currentAmount: "0",
