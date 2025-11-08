@@ -72,7 +72,7 @@ export function FetchStatusTracker({ sessionId, onComplete, onDismiss }: FetchSt
   };
 
   const handleViewAccounts = () => {
-    setLocation('/aa-discovered-accounts');
+    setLocation('/aa-accounts');
     handleDismiss();
   };
 

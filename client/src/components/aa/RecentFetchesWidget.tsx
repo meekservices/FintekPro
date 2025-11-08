@@ -201,7 +201,7 @@ export function RecentFetchesWidget() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => navigate('/aa-discovered-accounts')}
+                    onClick={() => navigate('/aa-accounts')}
                     data-testid={`button-view-accounts-${log.sessionId}`}
                   >
                     <ExternalLink className="h-3 w-3" />
