@@ -1609,6 +1609,7 @@ export const customerCareAgents = pgTable("customer_care_agents", {
   
   // Status and availability
   status: varchar("status").default("active"), // 'active', 'inactive', 'on_leave', 'suspended'
+  isDefault: boolean("is_default").default(false), // Mark as default agent for fallback EUIN/ARN when no client-agent mapping exists
   maxTicketsPerDay: integer("max_tickets_per_day").default(50),
   currentTicketCount: integer("current_ticket_count").default(0),
   // Performance metrics
