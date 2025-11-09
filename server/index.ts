@@ -318,6 +318,10 @@ app.use((req, res, next) => {
   // Register Financial Goal routes (Goal planning with contribution tracking)
   const { registerGoalRoutes } = await import('./goal-routes');
   registerGoalRoutes(app);
+
+  // Register Interactive Charts routes (Chart analysis with custom date ranges and comparison tool)
+  const { registerChartRoutes } = await import('./chart-routes');
+  registerChartRoutes(app);
   
   const server = await registerRoutes(app);
 
