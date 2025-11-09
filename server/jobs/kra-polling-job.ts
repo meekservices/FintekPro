@@ -45,9 +45,9 @@ async function pollKraStatuses() {
         }
 
         // Check KRA status again
-        const result = await proteanKRAService.checkKraStatus({
-          panNumber: session.panNumber,
-          dob: session.dateOfBirth || ''
+        const result = await proteanKRAService.checkKRAStatus({
+          panNumber: session.panNumber || '',
+          dateOfBirth: session.panDob ? new Date(session.panDob).toISOString().split('T')[0] : ''
         });
 
         // Update KRA check record
@@ -59,18 +59,16 @@ async function pollKraStatuses() {
           await storage.updateKraStatusCheck(check.id, {
             status: 'verified',
             kraNumber: result.kraNumber,
-            verificationDate: result.verificationDate,
-            kraAgency: result.agency,
+            verificationDate: result.verificationDate ? new Date(result.verificationDate) : undefined,
+            kraAgency: result.kraAgency,
             finalizedAt: new Date(),
             pollAttempt,
-            responsePayload: result.rawResponse
+            responsePayload: result.responsePayload
           });
 
           // Update KYC session
           await storage.updateKycVerificationSession(check.sessionId, {
-            currentState: 'kra_verified',
-            kraNumber: result.kraNumber,
-            kycStatus: 'kra_verified'
+            currentStep: 'kra_verified'
           });
 
           // Log state transition
@@ -98,7 +96,7 @@ async function pollKraStatuses() {
           await storage.updateKraStatusCheck(check.id, {
             pollAttempt,
             nextPollAt,
-            responsePayload: result.rawResponse
+            responsePayload: result.responsePayload
           });
 
           console.log(`[KRA-Polling] → Still pending for session ${check.sessionId}, next poll in ${backoffMinutes.toFixed(0)} min`);
@@ -110,13 +108,12 @@ async function pollKraStatuses() {
             pollAttempt,
             reasonCode: 'TIMEOUT',
             reasonMessage: `Exceeded max poll attempts (${maxAttempts})`,
-            responsePayload: result.rawResponse
+            responsePayload: result.responsePayload
           });
 
           // Update session to fallback flow
           await storage.updateKycVerificationSession(check.sessionId, {
-            currentState: 'kra_timeout',
-            kycStatus: 'kra_fallback'
+            currentStep: 'kra_timeout'
           });
 
           // Log state transition
@@ -144,13 +141,12 @@ async function pollKraStatuses() {
             pollAttempt,
             reasonCode: result.reasonCode,
             reasonMessage: result.reasonMessage,
-            responsePayload: result.rawResponse
+            responsePayload: result.responsePayload
           });
 
           // Update session to fallback flow
           await storage.updateKycVerificationSession(check.sessionId, {
-            currentState: 'kra_not_found',
-            kycStatus: 'kra_fallback'
+            currentStep: 'kra_not_found'
           });
 
           // Log state transition
