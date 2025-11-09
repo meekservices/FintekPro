@@ -805,8 +805,8 @@ export default function SmartKYCOnboarding() {
     );
   }
   
-  // Show loading if session hasn't been created yet
-  if (!sessionId && !sessionError) {
+  // Show loading if session hasn't been created yet (but not if we have an existing session dialog to show)
+  if (!sessionId && !existingSession && !sessionError) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
