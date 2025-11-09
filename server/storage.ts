@@ -1,6 +1,6 @@
 import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Partner, type InsertPartner, type Agent, type InsertAgent, type Supplier, type InsertSupplier, type EpfHolding, type PpfHolding, type EpsHolding, type GovernmentSchemeConsent, type InsertGovernmentSchemeConsent, type InsuranceHolding, type InsertInsuranceHolding, type UserBankAccount, type InsertUserBankAccount, type UserDematAccount, type InsertUserDematAccount, type AchievementCategory, type InsertAchievementCategory, type Achievement, type InsertAchievement, type UserAchievement, type InsertUserAchievement, type LearningProgress, type InsertLearningProgress, type SocialShare, type InsertSocialShare, type FinancialGoal, type InsertFinancialGoal, type TaxDocument, type InsertTaxDocument, type StructuredTaxData, type InsertStructuredTaxData, type UserAlert, type InsertUserAlert, type AlertHistory, type InsertAlertHistory, type AlertTemplate, type InsertAlertTemplate, type FamilyGroup, type InsertFamilyGroup, type FamilyMember, type InsertFamilyMember, type FamilyGoal, type InsertFamilyGoal, type FamilyGoalContribution, type InsertFamilyGoalContribution, type FamilyActivityLog, type InsertFamilyActivityLog, type FamilyDiscussion, type InsertFamilyDiscussion, type FamilyBudget, type InsertFamilyBudget, type FamilyPortfolioPermission, type InsertFamilyPortfolioPermission, type TaxCalculation, type InsertTaxCalculation, type TaxDocumentAccessLog, type InsertTaxDocumentAccessLog, type TaxSession, type InsertTaxSession, type TaxDataSource, type InsertTaxDataSource, type ValidationIssue, type InsertValidationIssue, type FilingRecord, type InsertFilingRecord, type AiOptimizationSuggestion, type InsertAiOptimizationSuggestion, type FundExtended, type Provenance, type FundSearchParams, type FundListResponse, type SourceStatus, type MultiSourceStatus, type LoanProduct, type InsertLoanProduct, type LoanProvider, type InsertLoanProvider, type ProviderProduct, type InsertProviderProduct, type CreditProfile, type InsertCreditProfile, type LoanRequest, type InsertLoanRequest, type LoanOffer, type InsertLoanOffer, type LoanApplicationMarketplace, type InsertLoanApplicationMarketplace, type ProviderIntegration, type InsertProviderIntegration, type PartnerApplicationDocument, type InsertPartnerApplicationDocument, type InvestmentIdea, type InsertInvestmentIdea, type InvestmentIdeaTracking, type InsertInvestmentIdeaTracking, type InvestmentIdeaAlert, type InsertInvestmentIdeaAlert, type YieldTracker, type InsertYieldTracker, type PartnerApplication, type InsertPartnerApplication, type TaxRule, type InsertTaxRule, type TaxReminderSubscription, type InsertTaxReminderSubscription, type CapitalGainsTaxReminder, type InsertCapitalGainsTaxReminder, type UserExpense, type InsertUserExpense, type UserBudget, type InsertUserBudget, type ExpenseInsight, type InsertExpenseInsight, type AgentClientMapping, type InsertAgentClientMapping, type Commission, type InsertCommission } from "@shared/schema";
 import { type CashfreeTransaction, type InsertCashfreeTransaction, type PhonePeTransaction, type InsertPhonePeTransaction, type AgentDocument, type InsertAgentDocument, type AgentCommissionSplit, type InsertAgentCommissionSplit, type AgentCommission, type InsertAgentCommission, type AmfiVerificationLog, type InsertAmfiVerificationLog, type RebalanceExecution, type InsertRebalanceExecution, type RebalanceTransaction, type InsertRebalanceTransaction, type RebalancingPreferences, type InsertRebalancingPreferences } from "@shared/schema";
-import { type Product, type InsertProduct, type ApplicationDocument, type InsertApplicationDocument, type ProductAccountPreference, type InsertProductAccountPreference, type ICICILoanApplication, type InsertICICILoanApplication, type ICICICreditScore, type InsertICICICreditScore, type PortfolioComparison, type InsertPortfolioComparison, type ChatSession, type InsertChatSession, type ChatMessage, type InsertChatMessage, type ChatAction, type InsertChatAction, type ChatFunction, type InsertChatFunction, type CurrencyRate, type InsertCurrencyRate, type CkycNotificationTrigger, type InsertCkycNotificationTrigger, type KycVerificationSession, type InsertKycVerificationSession, type ManualKycSubmission, type InsertManualKycSubmission, type ManualKycDocument, type InsertManualKycDocument } from "@shared/schema";
+import { type Product, type InsertProduct, type ApplicationDocument, type InsertApplicationDocument, type ProductAccountPreference, type InsertProductAccountPreference, type ICICILoanApplication, type InsertICICILoanApplication, type ICICICreditScore, type InsertICICICreditScore, type PortfolioComparison, type InsertPortfolioComparison, type ChatSession, type InsertChatSession, type ChatMessage, type InsertChatMessage, type ChatAction, type InsertChatAction, type ChatFunction, type InsertChatFunction, type CurrencyRate, type InsertCurrencyRate, type CkycNotificationTrigger, type InsertCkycNotificationTrigger, type KycVerificationSession, type InsertKycVerificationSession, type ManualKycSubmission, type InsertManualKycSubmission, type ManualKycDocument, type InsertManualKycDocument, type KraStatusCheck, type InsertKraStatusCheck, type CashfreeEkycSession, type InsertCashfreeEkycSession, type CersaiSubmission, type InsertCersaiSubmission, type BseUccRequest, type InsertBseUccRequest, type KycStateTransition, type InsertKycStateTransition } from "@shared/schema";
 import { randomUUID, scrypt, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { db } from "./db";
@@ -23,6 +23,44 @@ async function comparePasswords(supplied: string, stored: string): Promise<boole
 }
 
 const MAX_OTP_ATTEMPTS = 5;
+
+/**
+ * Production KYC Workflow Storage Interface
+ * Handles: KRA status checks, Cashfree eKYC, CERSAI uploads, BSE UCC creation, state transitions
+ */
+export interface IKycStorage {
+  // KRA Status Checks (Protean NSDL KRA API)
+  createKraStatusCheck(check: InsertKraStatusCheck): Promise<KraStatusCheck>;
+  getKraStatusCheck(id: string): Promise<KraStatusCheck | undefined>;
+  getKraStatusCheckBySession(sessionId: string): Promise<KraStatusCheck | undefined>;
+  updateKraStatusCheck(id: string, updates: Partial<KraStatusCheck>): Promise<KraStatusCheck | undefined>;
+  getPendingKraChecks(limit?: number): Promise<KraStatusCheck[]>;
+  
+  // Cashfree eKYC Sessions (Aadhaar OTP verification)
+  createCashfreeEkycSession(session: InsertCashfreeEkycSession): Promise<CashfreeEkycSession>;
+  getCashfreeEkycSession(id: string): Promise<CashfreeEkycSession | undefined>;
+  getCashfreeEkycSessionByKycSession(sessionId: string): Promise<CashfreeEkycSession | undefined>;
+  updateCashfreeEkycSession(id: string, updates: Partial<CashfreeEkycSession>): Promise<CashfreeEkycSession | undefined>;
+  
+  // CERSAI Submissions (CKYC XML uploads)
+  createCersaiSubmission(submission: InsertCersaiSubmission): Promise<CersaiSubmission>;
+  getCersaiSubmission(id: string): Promise<CersaiSubmission | undefined>;
+  getCersaiSubmissionBySession(sessionId: string): Promise<CersaiSubmission | undefined>;
+  updateCersaiSubmission(id: string, updates: Partial<CersaiSubmission>): Promise<CersaiSubmission | undefined>;
+  getPendingCersaiSubmissions(limit?: number): Promise<CersaiSubmission[]>;
+  
+  // BSE UCC Requests (Mutual fund account creation)
+  createBseUccRequest(request: InsertBseUccRequest): Promise<BseUccRequest>;
+  getBseUccRequest(id: string): Promise<BseUccRequest | undefined>;
+  getBseUccRequestBySession(sessionId: string): Promise<BseUccRequest | undefined>;
+  updateBseUccRequest(id: string, updates: Partial<BseUccRequest>): Promise<BseUccRequest | undefined>;
+  getPendingBseUccRequests(limit?: number): Promise<BseUccRequest[]>;
+  
+  // KYC State Transitions (Append-only audit log)
+  createKycStateTransition(transition: InsertKycStateTransition): Promise<KycStateTransition>;
+  getKycStateTransitions(sessionId: string): Promise<KycStateTransition[]>;
+  getKycStateTransitionsByUser(userId: string, limit?: number): Promise<KycStateTransition[]>;
+}
 
 export interface IStorage {
   // User methods for mobile/email authentication
@@ -1167,7 +1205,7 @@ export interface IStorage {
   updateChatAction(actionId: string, updates: any): Promise<any | undefined>;
 }
 
-export class DatabaseStorage implements IStorage {
+export class DatabaseStorage implements IStorage, IKycStorage {
   // User methods
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(schema.users).where(eq(schema.users.id, id));
@@ -8461,6 +8499,194 @@ export class DatabaseStorage implements IStorage {
       .where(eq(schema.chatActions.id, actionId))
       .returning();
     return updated;
+  }
+
+  // ========== Production KYC Workflow Methods (IKycStorage) ==========
+  
+  // KRA Status Check Methods
+  async createKraStatusCheck(check: InsertKraStatusCheck): Promise<KraStatusCheck> {
+    const [newCheck] = await db.insert(schema.kraStatusChecks)
+      .values(check)
+      .returning();
+    return newCheck;
+  }
+
+  async getKraStatusCheck(id: string): Promise<KraStatusCheck | undefined> {
+    const [check] = await db.select()
+      .from(schema.kraStatusChecks)
+      .where(eq(schema.kraStatusChecks.id, id));
+    return check;
+  }
+
+  async getKraStatusCheckBySession(sessionId: string): Promise<KraStatusCheck | undefined> {
+    const [check] = await db.select()
+      .from(schema.kraStatusChecks)
+      .where(eq(schema.kraStatusChecks.sessionId, sessionId))
+      .orderBy(desc(schema.kraStatusChecks.createdAt));
+    return check;
+  }
+
+  async updateKraStatusCheck(id: string, updates: Partial<KraStatusCheck>): Promise<KraStatusCheck | undefined> {
+    const [updated] = await db.update(schema.kraStatusChecks)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.kraStatusChecks.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getPendingKraChecks(limit: number = 100): Promise<KraStatusCheck[]> {
+    const checks = await db.select()
+      .from(schema.kraStatusChecks)
+      .where(and(
+        eq(schema.kraStatusChecks.status, 'pending'),
+        isNull(schema.kraStatusChecks.finalizedAt),
+        lte(schema.kraStatusChecks.nextPollAt, new Date())
+      ))
+      .orderBy(schema.kraStatusChecks.nextPollAt)
+      .limit(limit);
+    return checks;
+  }
+
+  // Cashfree eKYC Session Methods
+  async createCashfreeEkycSession(session: InsertCashfreeEkycSession): Promise<CashfreeEkycSession> {
+    const [newSession] = await db.insert(schema.cashfreeEkycSessions)
+      .values(session)
+      .returning();
+    return newSession;
+  }
+
+  async getCashfreeEkycSession(id: string): Promise<CashfreeEkycSession | undefined> {
+    const [session] = await db.select()
+      .from(schema.cashfreeEkycSessions)
+      .where(eq(schema.cashfreeEkycSessions.id, id));
+    return session;
+  }
+
+  async getCashfreeEkycSessionByKycSession(sessionId: string): Promise<CashfreeEkycSession | undefined> {
+    const [session] = await db.select()
+      .from(schema.cashfreeEkycSessions)
+      .where(eq(schema.cashfreeEkycSessions.sessionId, sessionId))
+      .orderBy(desc(schema.cashfreeEkycSessions.createdAt));
+    return session;
+  }
+
+  async updateCashfreeEkycSession(id: string, updates: Partial<CashfreeEkycSession>): Promise<CashfreeEkycSession | undefined> {
+    const [updated] = await db.update(schema.cashfreeEkycSessions)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.cashfreeEkycSessions.id, id))
+      .returning();
+    return updated;
+  }
+
+  // CERSAI Submission Methods
+  async createCersaiSubmission(submission: InsertCersaiSubmission): Promise<CersaiSubmission> {
+    const [newSubmission] = await db.insert(schema.cersaiSubmissions)
+      .values(submission)
+      .returning();
+    return newSubmission;
+  }
+
+  async getCersaiSubmission(id: string): Promise<CersaiSubmission | undefined> {
+    const [submission] = await db.select()
+      .from(schema.cersaiSubmissions)
+      .where(eq(schema.cersaiSubmissions.id, id));
+    return submission;
+  }
+
+  async getCersaiSubmissionBySession(sessionId: string): Promise<CersaiSubmission | undefined> {
+    const [submission] = await db.select()
+      .from(schema.cersaiSubmissions)
+      .where(eq(schema.cersaiSubmissions.sessionId, sessionId))
+      .orderBy(desc(schema.cersaiSubmissions.createdAt));
+    return submission;
+  }
+
+  async updateCersaiSubmission(id: string, updates: Partial<CersaiSubmission>): Promise<CersaiSubmission | undefined> {
+    const [updated] = await db.update(schema.cersaiSubmissions)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.cersaiSubmissions.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getPendingCersaiSubmissions(limit: number = 100): Promise<CersaiSubmission[]> {
+    const submissions = await db.select()
+      .from(schema.cersaiSubmissions)
+      .where(or(
+        eq(schema.cersaiSubmissions.status, 'pending'),
+        eq(schema.cersaiSubmissions.status, 'submitted')
+      ))
+      .orderBy(schema.cersaiSubmissions.createdAt)
+      .limit(limit);
+    return submissions;
+  }
+
+  // BSE UCC Request Methods
+  async createBseUccRequest(request: InsertBseUccRequest): Promise<BseUccRequest> {
+    const [newRequest] = await db.insert(schema.bseUccRequests)
+      .values(request)
+      .returning();
+    return newRequest;
+  }
+
+  async getBseUccRequest(id: string): Promise<BseUccRequest | undefined> {
+    const [request] = await db.select()
+      .from(schema.bseUccRequests)
+      .where(eq(schema.bseUccRequests.id, id));
+    return request;
+  }
+
+  async getBseUccRequestBySession(sessionId: string): Promise<BseUccRequest | undefined> {
+    const [request] = await db.select()
+      .from(schema.bseUccRequests)
+      .where(eq(schema.bseUccRequests.sessionId, sessionId))
+      .orderBy(desc(schema.bseUccRequests.createdAt));
+    return request;
+  }
+
+  async updateBseUccRequest(id: string, updates: Partial<BseUccRequest>): Promise<BseUccRequest | undefined> {
+    const [updated] = await db.update(schema.bseUccRequests)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.bseUccRequests.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getPendingBseUccRequests(limit: number = 100): Promise<BseUccRequest[]> {
+    const requests = await db.select()
+      .from(schema.bseUccRequests)
+      .where(or(
+        eq(schema.bseUccRequests.status, 'pending'),
+        eq(schema.bseUccRequests.status, 'submitted')
+      ))
+      .orderBy(schema.bseUccRequests.createdAt)
+      .limit(limit);
+    return requests;
+  }
+
+  // KYC State Transition Methods
+  async createKycStateTransition(transition: InsertKycStateTransition): Promise<KycStateTransition> {
+    const [newTransition] = await db.insert(schema.kycStateTransitions)
+      .values(transition)
+      .returning();
+    return newTransition;
+  }
+
+  async getKycStateTransitions(sessionId: string): Promise<KycStateTransition[]> {
+    const transitions = await db.select()
+      .from(schema.kycStateTransitions)
+      .where(eq(schema.kycStateTransitions.sessionId, sessionId))
+      .orderBy(schema.kycStateTransitions.occurredAt);
+    return transitions;
+  }
+
+  async getKycStateTransitionsByUser(userId: string, limit: number = 100): Promise<KycStateTransition[]> {
+    const transitions = await db.select()
+      .from(schema.kycStateTransitions)
+      .where(eq(schema.kycStateTransitions.userId, userId))
+      .orderBy(desc(schema.kycStateTransitions.occurredAt))
+      .limit(limit);
+    return transitions;
   }
 }
 
