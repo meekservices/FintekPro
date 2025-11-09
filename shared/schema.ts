@@ -603,7 +603,7 @@ export const complianceAuditTrail = pgTable("compliance_audit_trail", {
 export const otpVerifications = pgTable("otp_verifications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   identifier: varchar("identifier").notNull(), // email or mobile
-  otp: varchar("otp", { length: 128 }).notNull(), // Hashed OTP (scrypt hash ~97 chars)
+  otp: varchar("otp", { length: 200 }).notNull(), // Hashed OTP (scrypt hash: 128 hex + 1 dot + 32 hex salt = 161 chars)
   type: varchar("type").notNull(), // 'email' or 'mobile'
   expiresAt: timestamp("expires_at").notNull(),
   verified: boolean("verified").default(false),
