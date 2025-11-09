@@ -46,7 +46,7 @@ export function getCsrfToken(req: Request, res: Response) {
   res.cookie('x-csrf-token', req.session.csrfToken, {
     httpOnly: false, // Must be accessible to JavaScript
     secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    sameSite: 'lax', // Use 'lax' for better browser compatibility
     maxAge: 7 * 24 * 60 * 60 * 1000, // 1 week (matches session)
     domain: process.env.NODE_ENV === 'production' ? '.fintekpro.com' : undefined,
   });

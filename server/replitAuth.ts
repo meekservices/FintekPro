@@ -43,7 +43,7 @@ export function getSession() {
     cookie: {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      sameSite: "lax", // Use 'lax' for better browser compatibility
       maxAge: sessionTtl,
       path: '/',
       // Share cookie across all fintekpro.com subdomains in production
