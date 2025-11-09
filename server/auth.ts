@@ -149,6 +149,11 @@ export function setupAuth(app: Express) {
           };
           return done(null, normalizedUser);
         } catch (error) {
+          logger.error('Email authentication error', {
+            email,
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined
+          });
           return done(error);
         }
       }
@@ -190,6 +195,11 @@ export function setupAuth(app: Express) {
           };
           return done(null, normalizedUser);
         } catch (error) {
+          logger.error('Mobile authentication error', {
+            mobile,
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined
+          });
           return done(error);
         }
       }
@@ -222,6 +232,11 @@ export function setupAuth(app: Express) {
           };
           return done(null, normalizedUser);
         } catch (error) {
+          logger.error('UserId authentication error', {
+            userId,
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined
+          });
           return done(error);
         }
       }
