@@ -2202,7 +2202,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      await db.update(users).set(updateData).where(eq(schema.users.id, userId));
+      await db.update(schema.users).set(updateData).where(eq(schema.users.id, userId));
       res.json({
         success: true,
         data: {
@@ -19203,7 +19203,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`[CKYC Merge] Cleared sessions for merged user`);
         
         // 7. Deactivate the merged user account
-        await db.update(users)
+        await db.update(schema.users)
           .set({ 
             isActive: false,
             email: mergeUser.email ? `${mergeUser.email}.merged.${Date.now()}` : null,
