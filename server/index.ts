@@ -14,6 +14,7 @@ import { setupAuth as setupLocalAuth } from "./auth";
 import { subdomainDetection } from "./subdomain-middleware";
 import { requestCorrelationMiddleware } from "./middleware/request-correlation";
 import { initializeCsrfToken, validateCsrfToken, getCsrfToken } from "./csrf-protection";
+import { shouldSkipAuthRateLimit } from "./admin-rate-limit-bypass";
 import "./services/sms-service"; // Initialize SMS service
 
 // CRITICAL: Process-level error handlers to prevent silent crashes
@@ -105,6 +106,8 @@ const authLimiter = rateLimit({
   max: 5, // Limit each IP to 5 auth requests per windowMs
   message: { message: "Too many authentication attempts, please try again later." },
   skipSuccessfulRequests: true,
+  // Skip rate limiting for admin users
+  skip: shouldSkipAuthRateLimit,
   // Skip proxy configuration here - handled by app.set('trust proxy', 1)
 });
 
