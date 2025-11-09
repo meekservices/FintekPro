@@ -2117,6 +2117,149 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Production KYC Workflow Routes
+
+  // Check if PAN exists in database
+  // Check if user's PAN is verified
+  app.post("/api/kyc/production/check-pan", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const { panNumber } = req.body;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'User not authenticated'
+        });
+      }
+
+      if (!panNumber) {
+        return res.status(400).json({
+          success: false,
+          message: 'PAN number is required'
+        });
+      }
+
+      // SECURITY: Get the current user's profile to verify PAN ownership
+      const userProfile = await storage.getUserProfile(userId);
+      const currentUser = await storage.getUser(userId);
+      
+      // Check if this PAN belongs to the authenticated user
+      const userPan = currentUser?.panNumber || userProfile?.panNumber;
+      
+      if (userPan && userPan.toUpperCase() === panNumber.toUpperCase()) {
+        // User is checking their own PAN - return verified data
+        res.json({
+          success: true,
+          exists: true,
+          panData: {
+            name: currentUser?.name,
+            panNumber: userPan
+          }
+        });
+      } else {
+        // Either PAN doesn't match current user, or user has no PAN yet
+        res.json({
+          success: true,
+          exists: false
+        });
+      }
+    } catch (error: any) {
+      console.error('[KYC Production] Error checking PAN:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to check PAN',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+  // Verify PAN via Sandbox API and save to database
+  app.post("/api/kyc/production/verify-pan", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const { panNumber, fullName, dob } = req.body;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'User not authenticated'
+        });
+      }
+
+      if (!panNumber || !dob) {
+        return res.status(400).json({
+          success: false,
+          message: 'PAN number and date of birth are required'
+        });
+      }
+
+      // SECURITY: Check if this PAN is already assigned to another user
+      const existingUser = await storage.getUserByPan(panNumber.toUpperCase());
+      if (existingUser && existingUser.id !== userId) {
+        return res.status(409).json({
+          success: false,
+          message: 'This PAN is already registered to another account'
+        });
+      }
+
+      // Import Sandbox KYC service
+      const { SandboxKYCService } = await import('./services/sandbox-kyc-service');
+      const sandboxKYCService = new SandboxKYCService();
+      
+      // Verify PAN using Sandbox API
+      const verification = await sandboxKYCService.verifyIndividualPAN(
+        panNumber.toUpperCase(),
+        fullName,
+        dob
+      );
+
+      if (!verification || !verification.pan_number) {
+        return res.status(400).json({
+          success: false,
+          message: 'PAN verification failed'
+        });
+      }
+
+      // Update user with verified PAN
+      await storage.updateUser(userId, {
+        panNumber: panNumber.toUpperCase(),
+        name: verification.full_name || fullName
+      });
+
+      // Also update user profile if it exists
+      const profile = await storage.getUserProfile(userId);
+      if (profile) {
+        await storage.updateUserProfile(userId, {
+          panNumber: panNumber.toUpperCase(),
+          dateOfBirth: dob
+        });
+      } else {
+        // Create profile if it doesn't exist
+        await storage.createUserProfile({
+          userId,
+          panNumber: panNumber.toUpperCase(),
+          dateOfBirth: dob
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'PAN verified and saved successfully',
+        panData: {
+          panNumber: verification.pan_number,
+          name: verification.full_name,
+          fatherName: verification.father_name,
+          dob: verification.date_of_birth
+        }
+      });
+    } catch (error: any) {
+      console.error('[KYC Production] Error verifying PAN:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to verify PAN',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  });
+      });
+    }
+  });
   app.post("/api/kyc/production/start", requireClientOrHigher, async (req: any, res) => {
     try {
       const userId = req.user?.id;

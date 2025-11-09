@@ -77,6 +77,7 @@ import ProposalsPage from "@/pages/proposals";
 import BrokingPage from "@/pages/broking";
 import AgentPortal from "@/pages/agent-portal";
 import OnboardingPage from "@/pages/onboarding";
+import SmartProductionKYC from "@/pages/smart-production-kyc";
 import ManualKYCPage from "@/pages/manual-kyc";
 import KYCDashboard from "@/pages/kyc-dashboard";
 import NetWorthPage from "@/pages/net-worth";
@@ -488,6 +489,7 @@ function Router() {
         <Route path="/auth" component={AuthPage} />
         <Route path="/profile" component={Profile} />
         <Route path="/onboarding" component={OnboardingPage} />
+        <Route path="/smart-kyc" component={SmartProductionKYC} />
         <Route path="/manual-kyc" component={ManualKYCPage} />
         <Route path="/nri-kyc" component={NRIKYCPage} />
         <Route path="/corporate-kyc" component={CorporateKYCPage} />
