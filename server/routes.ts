@@ -2116,6 +2116,259 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Production KYC Workflow Routes
+  app.post("/api/kyc/production/start", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const { panNumber, dob } = req.body;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'User not authenticated'
+        });
+      }
+
+      if (!panNumber || !dob) {
+        return res.status(400).json({
+          success: false,
+          message: 'PAN number and date of birth are required'
+        });
+      }
+
+      const { KycWorkflowOrchestrator } = await import('./services/kyc-workflow-orchestrator');
+      const orchestrator = new KycWorkflowOrchestrator();
+
+      const result = await orchestrator.startKycWorkflow({
+        userId,
+        panNumber,
+        dob,
+        ipAddress: req.ip || '',
+        userAgent: req.get('user-agent') || ''
+      });
+
+      res.json({
+        success: true,
+        message: 'KYC workflow started successfully',
+        data: result
+      });
+    } catch (error: any) {
+      console.error('[KYC Production] Error starting workflow:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to start KYC workflow',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  });
+
+  app.get("/api/kyc/production/status/:sessionId", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const { sessionId } = req.params;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'User not authenticated'
+        });
+      }
+
+      if (!sessionId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Session ID is required'
+        });
+      }
+
+      const { KycWorkflowOrchestrator } = await import('./services/kyc-workflow-orchestrator');
+      const orchestrator = new KycWorkflowOrchestrator();
+
+      const status = await orchestrator.getWorkflowStatus(sessionId);
+
+      if (!status) {
+        return res.status(404).json({
+          success: false,
+          message: 'Workflow session not found'
+        });
+      }
+
+      res.json({
+        success: true,
+        data: status
+      });
+    } catch (error: any) {
+      console.error('[KYC Production] Error getting workflow status:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to get workflow status',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  });
+
+  app.post("/api/kyc/production/cashfree/init", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const { sessionId, aadhaarNumber } = req.body;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'User not authenticated'
+        });
+      }
+
+      if (!sessionId || !aadhaarNumber) {
+        return res.status(400).json({
+          success: false,
+          message: 'Session ID and Aadhaar number are required'
+        });
+      }
+
+      const { KycWorkflowOrchestrator } = await import('./services/kyc-workflow-orchestrator');
+      const orchestrator = new KycWorkflowOrchestrator();
+
+      const result = await orchestrator.initiateCashfreeEkyc(
+        sessionId,
+        userId,
+        aadhaarNumber,
+        req.ip || '',
+        req.get('user-agent') || ''
+      );
+
+      res.json({
+        success: result.success,
+        message: result.success ? 'OTP sent successfully' : 'Failed to initiate eKYC',
+        data: result
+      });
+    } catch (error: any) {
+      console.error('[KYC Production] Error initiating Cashfree eKYC:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to initiate Cashfree eKYC',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  });
+
+  app.post("/api/kyc/production/cashfree/verify-otp", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const { sessionId, otp } = req.body;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'User not authenticated'
+        });
+      }
+
+      if (!sessionId || !otp) {
+        return res.status(400).json({
+          success: false,
+          message: 'Session ID and OTP are required'
+        });
+      }
+
+      const { KycWorkflowOrchestrator } = await import('./services/kyc-workflow-orchestrator');
+      const orchestrator = new KycWorkflowOrchestrator();
+
+      const result = await orchestrator.verifyCashfreeOtp(sessionId, userId, otp);
+
+      res.json({
+        success: result.success,
+        message: result.success ? 'OTP verified successfully' : 'OTP verification failed',
+        data: result
+      });
+    } catch (error: any) {
+      console.error('[KYC Production] Error verifying Cashfree OTP:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to verify OTP',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  });
+
+  app.post("/api/kyc/production/cersai/submit", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const { sessionId } = req.body;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'User not authenticated'
+        });
+      }
+
+      if (!sessionId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Session ID is required'
+        });
+      }
+
+      const { KycWorkflowOrchestrator } = await import('./services/kyc-workflow-orchestrator');
+      const orchestrator = new KycWorkflowOrchestrator();
+
+      const result = await orchestrator.submitCersaiCkyc(sessionId, userId);
+
+      res.json({
+        success: result.success,
+        message: result.success ? 'CKYC submitted successfully' : 'CKYC submission failed',
+        data: result
+      });
+    } catch (error: any) {
+      console.error('[KYC Production] Error submitting CERSAI CKYC:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to submit CKYC',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  });
+
+  app.post("/api/kyc/production/bse/create-ucc", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const { sessionId } = req.body;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'User not authenticated'
+        });
+      }
+
+      if (!sessionId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Session ID is required'
+        });
+      }
+
+      const { KycWorkflowOrchestrator } = await import('./services/kyc-workflow-orchestrator');
+      const orchestrator = new KycWorkflowOrchestrator();
+
+      const result = await orchestrator.createBseUcc(sessionId, userId);
+
+      res.json({
+        success: result.success,
+        message: result.success ? 'BSE UCC created successfully' : 'BSE UCC creation failed',
+        data: result
+      });
+    } catch (error: any) {
+      console.error('[KYC Production] Error creating BSE UCC:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to create BSE UCC',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  });
+
   app.post("/api/kyc/wizard/verify-pan", requireClientOrHigher, async (req: any, res) => {
     try {
       const { sessionId, panNumber, dob } = req.body;

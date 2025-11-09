@@ -478,5 +478,17 @@ app.use((req, res, next) => {
     } catch (error) {
       console.error('❌ Error importing valuation cron:', error);
     }
+
+    // Initialize KRA Polling Job
+    try {
+      import('./jobs/kra-polling-job').then(({ startKraPollingJob }) => {
+        startKraPollingJob();
+        console.log('[KRA Polling] Background job initialized');
+      }).catch(error => {
+        console.error('❌ Failed to initialize KRA polling job:', error);
+      });
+    } catch (error) {
+      console.error('❌ Error importing KRA polling job:', error);
+    }
   });
 })();
