@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { 
@@ -57,6 +58,8 @@ export default function SmartKYCOnboarding() {
   const [currentStep, setCurrentStep] = useState<WizardStep>('pan_verification');
   const [sessionId, setSessionId] = useState<string>('');
   const [sessionError, setSessionError] = useState<string>('');
+  const [existingSession, setExistingSession] = useState<SessionData | null>(null);
+  const [showExistingSessionDialog, setShowExistingSessionDialog] = useState(false);
 
   // Authentication guard - redirect to login if not authenticated
   useEffect(() => {
@@ -91,6 +94,28 @@ export default function SmartKYCOnboarding() {
   const [aadhaarData, setAadhaarData] = useState<any>(null);
   const [consentGiven, setConsentGiven] = useState(false);
   
+  // Cancel existing session
+  const cancelSessionMutation = useMutation({
+    mutationFn: async (sessionId: string) => {
+      return await apiRequest('POST', '/api/kyc/wizard/cancel-session', {
+        body: { sessionId }
+      });
+    },
+    onSuccess: () => {
+      setShowExistingSessionDialog(false);
+      setExistingSession(null);
+      // Start a new session after cancelling
+      startSessionMutation.mutate();
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to cancel session",
+        variant: "destructive"
+      });
+    }
+  });
+  
   // Start or resume session
   const startSessionMutation = useMutation({
     mutationFn: async () => {
@@ -98,27 +123,23 @@ export default function SmartKYCOnboarding() {
     },
     onSuccess: (data) => {
       if (data.success && data.session) {
-        setSessionId(data.session.id);
-        setCurrentStep(data.session.currentStep);
-        setSessionError(''); // Clear any previous errors
-        
-        // Set session expiry time and reset warning flags
-        if (data.session.expiresAt) {
-          setSessionExpiresAt(new Date(data.session.expiresAt));
-          setShowFiveMinWarning(false);
-          setShowOneMinWarning(false);
-          setSessionExpiredShown(false);
-        }
-        
-        // Restore state if resuming
-        if (data.session.panVerified) {
-          setPanData(data.session.panVerificationData);
-        }
-        if (data.session.aadhaarOtpSent) {
-          setAadhaarMasked(data.session.aadhaarNumber || '');
-        }
-        if (data.session.aadhaarOtpVerified) {
-          setAadhaarData(data.session.aadhaarVerificationData);
+        // Check if this is resuming an existing session
+        if (data.message && data.message.includes('Resuming')) {
+          setExistingSession(data.session);
+          setShowExistingSessionDialog(true);
+        } else {
+          // New session created
+          setSessionId(data.session.id);
+          setCurrentStep(data.session.currentStep);
+          setSessionError(''); // Clear any previous errors
+          
+          // Set session expiry time and reset warning flags
+          if (data.session.expiresAt) {
+            setSessionExpiresAt(new Date(data.session.expiresAt));
+            setShowFiveMinWarning(false);
+            setShowOneMinWarning(false);
+            setSessionExpiredShown(false);
+          }
         }
       }
     },
@@ -794,6 +815,34 @@ export default function SmartKYCOnboarding() {
     );
   }
   
+  // Function to handle resuming existing session
+  const handleResumeSession = () => {
+    if (existingSession) {
+      setSessionId(existingSession.id);
+      setCurrentStep(existingSession.currentStep);
+      setSessionError('');
+      
+      // Set session expiry time
+      if (existingSession.expiresAt) {
+        setSessionExpiresAt(new Date(existingSession.expiresAt));
+        setShowFiveMinWarning(false);
+        setShowOneMinWarning(false);
+        setSessionExpiredShown(false);
+      }
+      
+      // Restore state
+      if (existingSession.panVerified && existingSession.panVerificationData) {
+        setPanData(existingSession.panVerificationData);
+      }
+      if (existingSession.aadhaarOtpVerified && existingSession.aadhaarVerificationData) {
+        setAadhaarData(existingSession.aadhaarVerificationData);
+      }
+      
+      setShowExistingSessionDialog(false);
+      setExistingSession(null);
+    }
+  };
+
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="mb-8">
@@ -818,6 +867,55 @@ export default function SmartKYCOnboarding() {
       {currentStep === 'aadhaar_verification' && renderAadhaarVerificationStep()}
       {currentStep === 'data_collection' && renderDataCollectionStep()}
       {currentStep === 'completed' && renderCompletedStep()}
+      
+      {/* Existing Session Dialog */}
+      <Dialog open={showExistingSessionDialog} onOpenChange={setShowExistingSessionDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Active KYC Session Found</DialogTitle>
+            <DialogDescription>
+              You have an active KYC session in progress. Would you like to continue where you left off or start a new session?
+            </DialogDescription>
+          </DialogHeader>
+          {existingSession && (
+            <div className="py-4">
+              <p className="text-sm text-muted-foreground">
+                Current step: <span className="font-medium text-foreground">{existingSession.currentStep.replace(/_/g, ' ')}</span>
+              </p>
+              {existingSession.expiresAt && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  Session expires: <span className="font-medium text-foreground">
+                    {new Date(existingSession.expiresAt).toLocaleString()}
+                  </span>
+                </p>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => existingSession && cancelSessionMutation.mutate(existingSession.id)}
+              disabled={cancelSessionMutation.isPending}
+              data-testid="button-start-new-session"
+            >
+              {cancelSessionMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Starting New...
+                </>
+              ) : (
+                'Start New Session'
+              )}
+            </Button>
+            <Button
+              onClick={handleResumeSession}
+              data-testid="button-continue-session"
+            >
+              Continue Session
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

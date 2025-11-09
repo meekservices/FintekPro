@@ -2062,6 +2062,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Step 1: Verify PAN with DOB
+
+  // Cancel existing KYC session
+  app.post("/api/kyc/wizard/cancel-session", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const { sessionId } = req.body;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'User not authenticated'
+        });
+      }
+
+      if (!sessionId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Session ID is required'
+        });
+      }
+
+      // Verify the session belongs to the user
+      const session = await storage.getKycVerificationSession(sessionId);
+      if (!session || session.userId !== userId) {
+        return res.status(403).json({
+          success: false,
+          message: 'Session not found or access denied'
+        });
+      }
+
+      // Cancel the session
+      await storage.cancelKycSession(sessionId);
+
+      console.log('[COMPLIANCE] kyc_session_cancelled:', {
+        userId,
+        sessionId,
+        outcome: 'success',
+        riskLevel: 'low'
+      });
+
+      res.json({
+        success: true,
+        message: 'KYC session cancelled successfully'
+      });
+    } catch (error: any) {
+      console.error('[KYC Wizard] Error cancelling session:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to cancel KYC session',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  });
+
   app.post("/api/kyc/wizard/verify-pan", requireClientOrHigher, async (req: any, res) => {
     try {
       const { sessionId, panNumber, dob } = req.body;

@@ -904,6 +904,7 @@ export interface IStorage {
   getKycVerificationSession(id: string): Promise<KycVerificationSession | undefined>;
   getActiveKycSession(userId: string): Promise<KycVerificationSession | undefined>;
   cleanupExpiredKycSessions(userId: string): Promise<number>;
+  cancelKycSession(sessionId: string): Promise<void>;
   updateKycVerificationSession(id: string, updates: Partial<KycVerificationSession>): Promise<KycVerificationSession | undefined>;
   completeKycSession(id: string): Promise<void>;
   
@@ -6713,6 +6714,13 @@ export class DatabaseStorage implements IStorage {
       .where(eq(schema.kycVerificationSessions.id, id))
       .returning();
     return updated || undefined;
+  }
+  
+  async cancelKycSession(sessionId: string): Promise<void> {
+    await db.update(schema.kycVerificationSessions)
+      .set({ isActive: false })
+      .where(eq(schema.kycVerificationSessions.id, sessionId));
+    console.log(`[KYC Session] Session ${sessionId} cancelled by user`);
   }
   
   async completeKycSession(id: string): Promise<void> {
