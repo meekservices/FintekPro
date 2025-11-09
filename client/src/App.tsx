@@ -22,6 +22,7 @@ import CamsServices from "@/pages/cams-services";
 import KfintechServices from "@/pages/kfintech-services";
 import AgriculturalInsights from "@/pages/agricultural-insights";
 import FinancialCalculators from "@/pages/financial-calculators";
+import ChartAnalyzer from "@/pages/chart-analyzer";
 import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/auth-page";
 import AdminPanel from "@/pages/admin";
@@ -160,6 +161,7 @@ function UserProtectedRoutes() {
         <Route path="/kfintech-services" component={KfintechServices} />
         <Route path="/agricultural-insights" component={AgriculturalInsights} />
         <Route path="/calculators" component={FinancialCalculators} />
+        <Route path="/chart-analyzer" component={ChartAnalyzer} />
         <Route path="/partner" component={PartnerPortal} />
         <Route path="/support" component={Support} />
         <Route path="/wealth" component={InvestSmart} />

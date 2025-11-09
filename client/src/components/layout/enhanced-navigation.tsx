@@ -201,6 +201,7 @@ export function EnhancedNavigation() {
             { name: "SIP Calculator", href: "/calculators?tool=sip", description: "Systematic investment planning" },
             { name: "EMI Calculator", href: "/calculators?tool=emi", description: "Loan EMI and eligibility" },
             { name: "Retirement Planner", href: "/calculators?tool=retirement", description: "Retirement corpus planning" },
+            { name: "Chart Analyzer", href: "/chart-analyzer", description: "Interactive charts with multi-asset comparison" },
             { name: "All Calculators", href: "/calculators", description: "Complete calculator suite" }
           ]
         }
