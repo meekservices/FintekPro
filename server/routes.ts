@@ -160,16 +160,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Start Auto-Population scheduled sync cron job (runs every 6 hours)
   initAutoPopulationSyncCron();
   
-  // Auto-seed products if database is empty
-  try {
-    const existingProducts = await storage.getProducts({ category: 'mutual_fund' });
-    if (!existingProducts || existingProducts.length === 0) {
-      console.log('📦 No products found, seeding sample data...');
-      const count = await seedProducts(storage as any);
-      console.log(`✅ Successfully seeded ${count} sample products`);
+  // Auto-seed products if database is empty (development only)
+  if (process.env.NODE_ENV !== 'production') {
+    try {
+      const existingProducts = await storage.getProducts({ category: 'mutual_fund' });
+      if (!existingProducts || existingProducts.length === 0) {
+        console.log('📦 No products found, seeding sample data...');
+        const count = await seedProducts(storage as any);
+        console.log(`✅ Successfully seeded ${count} sample products`);
+      }
+    } catch (error) {
+      console.log('⚠️ Product seeding skipped:', error instanceof Error ? error.message : 'Unknown error');
     }
-  } catch (error) {
-    console.log('⚠️ Product seeding skipped:', error instanceof Error ? error.message : 'Unknown error');
+  } else {
+    console.log('🏭 Production environment detected - skipping automatic product seeding');
   }
   
   // Seed default agent (Sangram Kesari Mohanty)
