@@ -462,12 +462,7 @@ export function EnhancedNavigation() {
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-gray-900 truncate text-sm">UID: {user?.userId || user?.id || 'N/A'}</p>
                 <p className="text-xs text-gray-500 truncate">
-                  {user?.previousLoginAt 
-                    ? `Last login: ${new Date(user.previousLoginAt).toLocaleString('en-IN', { 
-                        dateStyle: 'short', 
-                        timeStyle: 'short' 
-                      })}`
-                    : 'First login'}
+                  {user?.email || 'Valued Customer'}
                 </p>
               </div>
             </div>

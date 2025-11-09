@@ -100,9 +100,9 @@ export function registerChartRoutes(app: Express) {
       );
 
       res.json({
+        data: comparisonResult.comparison,
         symbols,
         rangeType,
-        comparison: comparisonResult.comparison,
         metrics: comparisonResult.metrics,
         correlation: comparisonResult.correlation,
         timestamp: new Date().toISOString(),

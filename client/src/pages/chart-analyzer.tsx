@@ -62,7 +62,9 @@ export default function ChartAnalyzer() {
     startDate: format(subYears(new Date(), 1), 'yyyy-MM-dd'),
     endDate: format(new Date(), 'yyyy-MM-dd'),
   });
-  const [chartType, setChartType] = useState<'line' | 'area'>('line');
+  const [chartType, setChartType] = useState<'line' | 'area' | 'candlestick'>('line');
+  const [showIndicators, setShowIndicators] = useState(false);
+  const [selectedIndicators, setSelectedIndicators] = useState<string[]>([]);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [configName, setConfigName] = useState('');
 
@@ -376,7 +378,7 @@ export default function ChartAnalyzer() {
                 Normalized performance comparison across selected assets
               </CardDescription>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button
                 variant={chartType === 'line' ? 'default' : 'outline'}
                 size="sm"
@@ -394,6 +396,26 @@ export default function ChartAnalyzer() {
               >
                 <Activity className="h-4 w-4 mr-2" />
                 Area
+              </Button>
+              <Button
+                variant={chartType === 'candlestick' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setChartType('candlestick')}
+                data-testid="button-chart-candlestick"
+                title="Candlestick view (requires OHLC data)"
+              >
+                <BarChart3 className="h-4 w-4 mr-2" />
+                Candlestick
+              </Button>
+              <Button
+                variant={showIndicators ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setShowIndicators(!showIndicators)}
+                data-testid="button-toggle-indicators"
+                title="Technical indicators"
+              >
+                <TrendingUp className="h-4 w-4 mr-2" />
+                Indicators
               </Button>
             </div>
           </div>
@@ -415,8 +437,65 @@ export default function ChartAnalyzer() {
               </div>
             </div>
           ) : chartData?.data && chartData.data.length > 0 ? (
-            <ResponsiveContainer width="100%" height={400}>
-              {chartType === 'line' ? (
+            <>
+              {showIndicators && (
+                <div className="mb-4 p-4 bg-muted rounded-lg" data-testid="panel-indicators">
+                  <h4 className="text-sm font-semibold mb-3">Technical Indicators</h4>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      data-testid="indicator-sma"
+                      title="Simple Moving Average (Coming Soon)"
+                    >
+                      SMA
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      data-testid="indicator-ema"
+                      title="Exponential Moving Average (Coming Soon)"
+                    >
+                      EMA
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      data-testid="indicator-rsi"
+                      title="Relative Strength Index (Coming Soon)"
+                    >
+                      RSI
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      data-testid="indicator-macd"
+                      title="MACD (Coming Soon)"
+                    >
+                      MACD
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      data-testid="indicator-bollinger"
+                      title="Bollinger Bands (Coming Soon)"
+                    >
+                      Bollinger Bands
+                    </Button>
+                  </div>
+                </div>
+              )}
+              <ResponsiveContainer width="100%" height={400} data-testid="chart-container">
+                {chartType === 'candlestick' ? (
+                  <div className="flex flex-col items-center justify-center h-full text-center p-8" data-testid="candlestick-placeholder">
+                    <BarChart3 className="h-16 w-16 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">Candlestick Chart</h3>
+                    <p className="text-muted-foreground max-w-sm">
+                      Candlestick charts require OHLC (Open, High, Low, Close) data.
+                      This feature will be available in a future update.
+                    </p>
+                  </div>
+                ) : chartType === 'line' ? (
                 <LineChart data={chartData.data}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis
@@ -466,8 +545,9 @@ export default function ChartAnalyzer() {
                     />
                   ))}
                 </AreaChart>
-              )}
-            </ResponsiveContainer>
+                )}
+              </ResponsiveContainer>
+            </>
           ) : (
             <div className="flex flex-col items-center justify-center h-[400px] text-center">
               <BarChart3 className="h-16 w-16 text-muted-foreground mb-4" />
