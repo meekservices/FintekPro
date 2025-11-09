@@ -990,7 +990,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get user and user profile for KYC information
       const user = await db.query.users.findFirst({
-        where: eq(users.id, userId),
+        where: eq(schema.users.id, userId),
       });
       
       if (!user) {
@@ -2062,7 +2062,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get user's name from profile (optional for PAN verification)
       let userName = "";
       try {
-        const [currentUser] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+        const [currentUser] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
         if (currentUser && currentUser.firstName) {
           userName = `${currentUser.firstName} ${currentUser.middleName || ''} ${currentUser.lastName || ''}`.trim();
         }
@@ -2111,7 +2111,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       // Parse full name and update firstName/lastName if not already set
-      const [currentUser] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      const [currentUser] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
       if (currentUser && !currentUser.firstName && verification.fullName) {
         const nameParts = verification.fullName.split(' ');
         updateData.firstName = nameParts[0];
@@ -2123,7 +2123,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      await db.update(users).set(updateData).where(eq(users.id, userId));
+      await db.update(users).set(updateData).where(eq(schema.users.id, userId));
       res.json({
         success: true,
         data: {
@@ -11552,7 +11552,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.id;
       
       // Get user's PAN from database
-      const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      const [user] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
       
       if (!user) {
         return res.status(404).json({
@@ -19048,8 +19048,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get both users
-      const [keepUser] = await db.select().from(users).where(eq(users.id, keepUserId));
-      const [mergeUser] = await db.select().from(users).where(eq(users.id, mergeUserId));
+      const [keepUser] = await db.select().from(schema.users).where(eq(schema.users.id, keepUserId));
+      const [mergeUser] = await db.select().from(schema.users).where(eq(schema.users.id, mergeUserId));
       
       if (!keepUser || !mergeUser) {
         return apiResponse.notFound(res, "One or both users not found");
@@ -19130,7 +19130,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             email: mergeUser.email ? `${mergeUser.email}.merged.${Date.now()}` : null,
             mobile: mergeUser.mobile ? `${mergeUser.mobile}.merged.${Date.now()}` : null
           })
-          .where(eq(users.id, mergeUserId));
+          .where(eq(schema.users.id, mergeUserId));
         console.log(`[CKYC Merge] Deactivated merged user account`);
         
       } catch (mergeError) {
