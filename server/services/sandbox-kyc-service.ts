@@ -646,7 +646,7 @@ export class SandboxKYCService {
       const response = await axios.post(
         `${SANDBOX_BASE_URL}/kyc/aadhaar/okyc/otp/verify`,
         {
-          "@entity": "in.co.sandbox.kyc.aadhaar.okyc.request",
+          "@entity": "in.co.sandbox.kyc.aadhaar.okyc.verify.request",
           reference_id: refId,
           otp: otp
         },
@@ -684,9 +684,10 @@ export class SandboxKYCService {
                 pincode: data.address?.pincode || data.pin || data.zip || '',
                 country: data.address?.country || data.country || 'India'
               },
-              mobile: data.mobile || data.phone,
-              email: data.email,
-              photoUrl: data.photo || data.photo_url
+              // v2.0 returns hashed email/mobile (SHA-256) for privacy - not plain text
+              mobile: undefined,  // mobile_hash not useful for display
+              email: undefined,   // email_hash not useful for display
+              photoUrl: data.photo || data.photo_url  // Base64-encoded photo
             }
           };
         }
