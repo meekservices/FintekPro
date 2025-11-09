@@ -14,6 +14,7 @@ import { smsService } from "./services/sms-service";
 import { whatsappService } from "./whatsapp";
 import { apiResponse } from "./utils/responses";
 import { z } from "zod";
+import { logger } from "./logger";
 import { duplicateDetectionService } from "./services/duplicateDetectionService";
 declare global {
   namespace Express {
@@ -45,10 +46,41 @@ export async function hashPassword(password: string): Promise<string> {
 }
 
 export async function comparePasswords(supplied: string, stored: string): Promise<boolean> {
-  const [hashed, salt] = stored.split(".");
-  const hashedBuf = Buffer.from(hashed, "hex");
-  const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
-  return timingSafeEqual(hashedBuf, suppliedBuf);
+  const parts = stored.split(".");
+  
+  // Defensive check: verify password hash has proper format (hex.salt)
+  if (parts.length !== 2) {
+    logger.warn('Invalid password hash format detected - missing salt delimiter', {
+      hashPrefix: stored.substring(0, 10) + '...',
+      expectedFormat: 'hex.salt',
+      partsFound: parts.length
+    });
+    return false;
+  }
+  
+  const [hashed, salt] = parts;
+  
+  // Defensive check: verify both parts exist
+  if (!salt || !hashed) {
+    logger.warn('Password hash or salt is empty', {
+      hasSalt: !!salt,
+      hasHash: !!hashed
+    });
+    return false;
+  }
+  
+  try {
+    const hashedBuf = Buffer.from(hashed, "hex");
+    const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
+    return timingSafeEqual(hashedBuf, suppliedBuf);
+  } catch (error) {
+    logger.error('Password comparison failed', {
+      error: error instanceof Error ? error.message : String(error),
+      hashLength: hashed.length,
+      saltLength: salt.length
+    });
+    return false;
+  }
 }
 
 export function generateOtp(): string {
