@@ -69,6 +69,18 @@ const DATE_PRESETS = [
   { label: '5Y', years: 5 },
 ];
 
+// Safe date formatter with validation
+const formatDate = (value: any, formatString: string): string => {
+  try {
+    if (!value) return '';
+    const date = new Date(value);
+    if (isNaN(date.getTime())) return String(value);
+    return format(date, formatString);
+  } catch (error) {
+    return String(value);
+  }
+};
+
 export default function ChartAnalyzer() {
   const { toast } = useToast();
   const [selectedAssets, setSelectedAssets] = useState<AssetSymbol[]>([]);
@@ -627,11 +639,11 @@ export default function ChartAnalyzer() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis
                     dataKey="date"
-                    tickFormatter={(value) => format(new Date(value), 'MMM dd')}
+                    tickFormatter={(value) => formatDate(value, 'MMM dd')}
                   />
                   <YAxis />
                   <Tooltip
-                    labelFormatter={(value) => format(new Date(value), 'MMM dd, yyyy')}
+                    labelFormatter={(value) => formatDate(value, 'MMM dd, yyyy')}
                     formatter={(value: number) => `${value.toFixed(2)}%`}
                   />
                   <Legend />
@@ -652,11 +664,11 @@ export default function ChartAnalyzer() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis
                     dataKey="date"
-                    tickFormatter={(value) => format(new Date(value), 'MMM dd')}
+                    tickFormatter={(value) => formatDate(value, 'MMM dd')}
                   />
                   <YAxis />
                   <Tooltip
-                    labelFormatter={(value) => format(new Date(value), 'MMM dd, yyyy')}
+                    labelFormatter={(value) => formatDate(value, 'MMM dd, yyyy')}
                     formatter={(value: number) => `${value.toFixed(2)}%`}
                   />
                   <Legend />
