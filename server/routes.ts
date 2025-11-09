@@ -160,20 +160,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Start Auto-Population scheduled sync cron job (runs every 6 hours)
   initAutoPopulationSyncCron();
   
-  // Auto-seed products if database is empty (development only)
-  if (process.env.NODE_ENV !== 'production') {
-    try {
-      const existingProducts = await storage.getProducts({ category: 'mutual_fund' });
-      if (!existingProducts || existingProducts.length === 0) {
-        console.log('📦 No products found, seeding sample data...');
-        const count = await seedProducts(storage as any);
-        console.log(`✅ Successfully seeded ${count} sample products`);
-      }
-    } catch (error) {
-      console.log('⚠️ Product seeding skipped:', error instanceof Error ? error.message : 'Unknown error');
+  // Auto-seed products if database is empty
+  try {
+    const existingProducts = await storage.getProducts({ category: 'mutual_fund' });
+    if (!existingProducts || existingProducts.length === 0) {
+      console.log('📦 No products found, seeding sample data...');
+      const count = await seedProducts(storage as any);
+      console.log(`✅ Successfully seeded ${count} sample products`);
     }
-  } else {
-    console.log('🏭 Production environment detected - skipping automatic product seeding');
+  } catch (error) {
+    console.log('⚠️ Product seeding skipped:', error instanceof Error ? error.message : 'Unknown error');
   }
   
   // Seed default agent (Sangram Kesari Mohanty)
@@ -990,7 +986,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get user and user profile for KYC information
       const user = await db.query.users.findFirst({
-        where: eq(schema.users.id, userId),
+        where: eq(users.id, userId),
       });
       
       if (!user) {
@@ -1927,9 +1923,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         riskLevel: 'medium'
       });
       
-      
-      // Cleanup any expired sessions first
-      await storage.cleanupExpiredKycSessions(userId);
       // Check for existing active session
       const existingSession = await storage.getActiveKycSession(userId);
       
@@ -1951,8 +1944,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Create new session
       console.log(`[KYC Wizard] Creating new KYC session for user ${userId}`);
-      
-      try {
       const session = await storage.createKycVerificationSession({
         userId,
         sessionType: "smart_kyc_wizard",
@@ -1987,26 +1978,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         session,
         message: "KYC session started successfully"
       });
-      } catch (createError: any) {
-        // Handle race condition: If session was created by another request, fetch and return it
-        if (createError.code === '23505' && createError.message.includes('idx_unique_active_kyc_session')) {
-          console.log(`[KYC Wizard] Detected race condition for user ${userId}, fetching existing session`);
-          await storage.cleanupExpiredKycSessions(userId);
-          const existingSessionRetry = await storage.getActiveKycSession(userId);
-          
-          if (existingSessionRetry) {
-            console.log(`[KYC Wizard] Resuming existing session (race condition handled): ${existingSessionRetry.id}`);
-            return res.json({
-              success: true,
-              session: existingSessionRetry,
-              message: "Resuming existing KYC session"
-            });
-          }
-        }
-        
-        // If it's a different error or we still can't find the session, rethrow
-        throw createError;
-      }
     } catch (error: any) {
       // Sanitize error to prevent PII leakage (PAN/Aadhaar/Email/Phone)
       const sanitizedError = sanitizeError(error);
@@ -2062,456 +2033,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Step 1: Verify PAN with DOB
-
-  // Cancel existing KYC session
-  app.post("/api/kyc/wizard/cancel-session", requireClientOrHigher, async (req: any, res) => {
-    try {
-      const userId = req.user?.id;
-      const { sessionId } = req.body;
-
-      if (!userId) {
-        return res.status(401).json({
-          success: false,
-          message: 'User not authenticated'
-        });
-      }
-
-      if (!sessionId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Session ID is required'
-        });
-      }
-
-      // Verify the session belongs to the user
-      const session = await storage.getKycVerificationSession(sessionId);
-      if (!session || session.userId !== userId) {
-        return res.status(403).json({
-          success: false,
-          message: 'Session not found or access denied'
-        });
-      }
-
-      // Cancel the session
-      await storage.cancelKycSession(sessionId);
-
-      console.log('[COMPLIANCE] kyc_session_cancelled:', {
-        userId,
-        sessionId,
-        outcome: 'success',
-        riskLevel: 'low'
-      });
-
-      res.json({
-        success: true,
-        message: 'KYC session cancelled successfully'
-      });
-    } catch (error: any) {
-      console.error('[KYC Wizard] Error cancelling session:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to cancel KYC session',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
-      });
-    }
-  });
-
-  // Production KYC Workflow Routes
-
-  // Check if PAN exists in database
-  // Check if user's PAN is verified
-  app.post("/api/kyc/production/check-pan", requireClientOrHigher, async (req: any, res) => {
-    try {
-      const userId = req.user?.id;
-      const { panNumber } = req.body;
-
-      if (!userId) {
-        return res.status(401).json({
-          success: false,
-          message: 'User not authenticated'
-        });
-      }
-
-      if (!panNumber) {
-        return res.status(400).json({
-          success: false,
-          message: 'PAN number is required'
-        });
-      }
-
-      // SECURITY: Get the current user's profile to verify PAN ownership
-      const userProfile = await storage.getUserProfile(userId);
-      const currentUser = await storage.getUser(userId);
-      
-      // Check if this PAN belongs to the authenticated user
-      const userPan = currentUser?.panNumber || userProfile?.panNumber;
-      
-      if (userPan && userPan.toUpperCase() === panNumber.toUpperCase()) {
-        // User is checking their own PAN - return verified data
-        res.json({
-          success: true,
-          exists: true,
-          panData: {
-            name: currentUser?.name,
-            panNumber: userPan
-          }
-        });
-      } else {
-        // Either PAN doesn't match current user, or user has no PAN yet
-        res.json({
-          success: true,
-          exists: false
-        });
-      }
-    } catch (error: any) {
-      console.error('[KYC Production] Error checking PAN:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to check PAN',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
-  // Verify PAN via Sandbox API and save to database
-  app.post("/api/kyc/production/verify-pan", requireClientOrHigher, async (req: any, res) => {
-    try {
-      const userId = req.user?.id;
-      const { panNumber, fullName, dob } = req.body;
-
-      if (!userId) {
-        return res.status(401).json({
-          success: false,
-          message: 'User not authenticated'
-        });
-      }
-
-      if (!panNumber || !dob) {
-        return res.status(400).json({
-          success: false,
-          message: 'PAN number and date of birth are required'
-        });
-      }
-
-      // SECURITY: Check if this PAN is already assigned to another user
-      const existingUser = await storage.getUserByPan(panNumber.toUpperCase());
-      if (existingUser && existingUser.id !== userId) {
-        return res.status(409).json({
-          success: false,
-          message: 'This PAN is already registered to another account'
-        });
-      }
-
-      // Import Sandbox KYC service
-      const { SandboxKYCService } = await import('./services/sandbox-kyc-service');
-      const sandboxKYCService = new SandboxKYCService();
-      
-      // Verify PAN using Sandbox API
-      const verification = await sandboxKYCService.verifyIndividualPAN(
-        panNumber.toUpperCase(),
-        fullName,
-        dob
-      );
-
-      if (!verification || !verification.pan_number) {
-        return res.status(400).json({
-          success: false,
-          message: 'PAN verification failed'
-        });
-      }
-
-      // Update user with verified PAN
-      await storage.updateUser(userId, {
-        panNumber: panNumber.toUpperCase(),
-        name: verification.full_name || fullName
-      });
-
-      // Also update user profile if it exists
-      const profile = await storage.getUserProfile(userId);
-      if (profile) {
-        await storage.updateUserProfile(userId, {
-          panNumber: panNumber.toUpperCase(),
-          dateOfBirth: dob
-        });
-      } else {
-        // Create profile if it doesn't exist
-        await storage.createUserProfile({
-          userId,
-          panNumber: panNumber.toUpperCase(),
-          dateOfBirth: dob
-        });
-      }
-
-      res.json({
-        success: true,
-        message: 'PAN verified and saved successfully',
-        panData: {
-          panNumber: verification.pan_number,
-          name: verification.full_name,
-          fatherName: verification.father_name,
-          dob: verification.date_of_birth
-        }
-      });
-    } catch (error: any) {
-      console.error('[KYC Production] Error verifying PAN:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to verify PAN',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
-      });
-    }
-  });
-      });
-    }
-  });
-  app.post("/api/kyc/production/start", requireClientOrHigher, async (req: any, res) => {
-    try {
-      const userId = req.user?.id;
-      const { panNumber, dob } = req.body;
-
-      if (!userId) {
-        return res.status(401).json({
-          success: false,
-          message: 'User not authenticated'
-        });
-      }
-
-      if (!panNumber || !dob) {
-        return res.status(400).json({
-          success: false,
-          message: 'PAN number and date of birth are required'
-        });
-      }
-
-      const { KycWorkflowOrchestrator } = await import('./services/kyc-workflow-orchestrator');
-      const orchestrator = new KycWorkflowOrchestrator();
-
-      const result = await orchestrator.startKycWorkflow({
-        userId,
-        panNumber,
-        dob,
-        ipAddress: req.ip || '',
-        userAgent: req.get('user-agent') || ''
-      });
-
-      res.json({
-        success: true,
-        message: 'KYC workflow started successfully',
-        data: result
-      });
-    } catch (error: any) {
-      console.error('[KYC Production] Error starting workflow:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to start KYC workflow',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
-      });
-    }
-  });
-
-  app.get("/api/kyc/production/status/:sessionId", requireClientOrHigher, async (req: any, res) => {
-    try {
-      const userId = req.user?.id;
-      const { sessionId } = req.params;
-
-      if (!userId) {
-        return res.status(401).json({
-          success: false,
-          message: 'User not authenticated'
-        });
-      }
-
-      if (!sessionId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Session ID is required'
-        });
-      }
-
-      const { KycWorkflowOrchestrator } = await import('./services/kyc-workflow-orchestrator');
-      const orchestrator = new KycWorkflowOrchestrator();
-
-      const status = await orchestrator.getWorkflowStatus(sessionId);
-
-      if (!status) {
-        return res.status(404).json({
-          success: false,
-          message: 'Workflow session not found'
-        });
-      }
-
-      res.json({
-        success: true,
-        data: status
-      });
-    } catch (error: any) {
-      console.error('[KYC Production] Error getting workflow status:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to get workflow status',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
-      });
-    }
-  });
-
-  app.post("/api/kyc/production/cashfree/init", requireClientOrHigher, async (req: any, res) => {
-    try {
-      const userId = req.user?.id;
-      const { sessionId, aadhaarNumber } = req.body;
-
-      if (!userId) {
-        return res.status(401).json({
-          success: false,
-          message: 'User not authenticated'
-        });
-      }
-
-      if (!sessionId || !aadhaarNumber) {
-        return res.status(400).json({
-          success: false,
-          message: 'Session ID and Aadhaar number are required'
-        });
-      }
-
-      const { KycWorkflowOrchestrator } = await import('./services/kyc-workflow-orchestrator');
-      const orchestrator = new KycWorkflowOrchestrator();
-
-      const result = await orchestrator.initiateCashfreeEkyc(
-        sessionId,
-        userId,
-        aadhaarNumber,
-        req.ip || '',
-        req.get('user-agent') || ''
-      );
-
-      res.json({
-        success: result.success,
-        message: result.success ? 'OTP sent successfully' : 'Failed to initiate eKYC',
-        data: result
-      });
-    } catch (error: any) {
-      console.error('[KYC Production] Error initiating Cashfree eKYC:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to initiate Cashfree eKYC',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
-      });
-    }
-  });
-
-  app.post("/api/kyc/production/cashfree/verify-otp", requireClientOrHigher, async (req: any, res) => {
-    try {
-      const userId = req.user?.id;
-      const { sessionId, otp } = req.body;
-
-      if (!userId) {
-        return res.status(401).json({
-          success: false,
-          message: 'User not authenticated'
-        });
-      }
-
-      if (!sessionId || !otp) {
-        return res.status(400).json({
-          success: false,
-          message: 'Session ID and OTP are required'
-        });
-      }
-
-      const { KycWorkflowOrchestrator } = await import('./services/kyc-workflow-orchestrator');
-      const orchestrator = new KycWorkflowOrchestrator();
-
-      const result = await orchestrator.verifyCashfreeOtp(sessionId, userId, otp);
-
-      res.json({
-        success: result.success,
-        message: result.success ? 'OTP verified successfully' : 'OTP verification failed',
-        data: result
-      });
-    } catch (error: any) {
-      console.error('[KYC Production] Error verifying Cashfree OTP:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to verify OTP',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
-      });
-    }
-  });
-
-  app.post("/api/kyc/production/cersai/submit", requireClientOrHigher, async (req: any, res) => {
-    try {
-      const userId = req.user?.id;
-      const { sessionId } = req.body;
-
-      if (!userId) {
-        return res.status(401).json({
-          success: false,
-          message: 'User not authenticated'
-        });
-      }
-
-      if (!sessionId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Session ID is required'
-        });
-      }
-
-      const { KycWorkflowOrchestrator } = await import('./services/kyc-workflow-orchestrator');
-      const orchestrator = new KycWorkflowOrchestrator();
-
-      const result = await orchestrator.submitCersaiCkyc(sessionId, userId);
-
-      res.json({
-        success: result.success,
-        message: result.success ? 'CKYC submitted successfully' : 'CKYC submission failed',
-        data: result
-      });
-    } catch (error: any) {
-      console.error('[KYC Production] Error submitting CERSAI CKYC:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to submit CKYC',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
-      });
-    }
-  });
-
-  app.post("/api/kyc/production/bse/create-ucc", requireClientOrHigher, async (req: any, res) => {
-    try {
-      const userId = req.user?.id;
-      const { sessionId } = req.body;
-
-      if (!userId) {
-        return res.status(401).json({
-          success: false,
-          message: 'User not authenticated'
-        });
-      }
-
-      if (!sessionId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Session ID is required'
-        });
-      }
-
-      const { KycWorkflowOrchestrator } = await import('./services/kyc-workflow-orchestrator');
-      const orchestrator = new KycWorkflowOrchestrator();
-
-      const result = await orchestrator.createBseUcc(sessionId, userId);
-
-      res.json({
-        success: result.success,
-        message: result.success ? 'BSE UCC created successfully' : 'BSE UCC creation failed',
-        data: result
-      });
-    } catch (error: any) {
-      console.error('[KYC Production] Error creating BSE UCC:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to create BSE UCC',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
-      });
-    }
-  });
-
   app.post("/api/kyc/wizard/verify-pan", requireClientOrHigher, async (req: any, res) => {
     try {
       const { sessionId, panNumber, dob } = req.body;
@@ -2534,19 +2055,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Get user's name from profile (optional for PAN verification)
-      let userName = "";
-      try {
-        const [currentUser] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
-        if (currentUser && currentUser.firstName) {
-          userName = `${currentUser.firstName} ${currentUser.middleName || ''} ${currentUser.lastName || ''}`.trim();
-        }
-      } catch (error) {
-        console.warn('Could not fetch user name for PAN verification:', error);
-      }
-      
       // Verify PAN using Sandbox API with name parameter
-      const verification = await sandboxKYCService.verifyIndividualPAN(panNumber, userName, dob);
+      const verification = await sandboxKYCService.verifyIndividualPAN(panNumber, "", dob);
       
       
       // verification returns IndividualPANDetails directly (no success wrapper)
@@ -2586,7 +2096,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       // Parse full name and update firstName/lastName if not already set
-      const [currentUser] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
+      const [currentUser] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
       if (currentUser && !currentUser.firstName && verification.fullName) {
         const nameParts = verification.fullName.split(' ');
         updateData.firstName = nameParts[0];
@@ -2598,7 +2108,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      await db.update(schema.users).set(updateData).where(eq(schema.users.id, userId));
+      await db.update(users).set(updateData).where(eq(users.id, userId));
       res.json({
         success: true,
         data: {
@@ -12027,7 +11537,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.id;
       
       // Get user's PAN from database
-      const [user] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
+      const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
       
       if (!user) {
         return res.status(404).json({
@@ -19523,8 +19033,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get both users
-      const [keepUser] = await db.select().from(schema.users).where(eq(schema.users.id, keepUserId));
-      const [mergeUser] = await db.select().from(schema.users).where(eq(schema.users.id, mergeUserId));
+      const [keepUser] = await db.select().from(users).where(eq(users.id, keepUserId));
+      const [mergeUser] = await db.select().from(users).where(eq(users.id, mergeUserId));
       
       if (!keepUser || !mergeUser) {
         return apiResponse.notFound(res, "One or both users not found");
@@ -19599,13 +19109,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`[CKYC Merge] Cleared sessions for merged user`);
         
         // 7. Deactivate the merged user account
-        await db.update(schema.users)
+        await db.update(users)
           .set({ 
             isActive: false,
             email: mergeUser.email ? `${mergeUser.email}.merged.${Date.now()}` : null,
             mobile: mergeUser.mobile ? `${mergeUser.mobile}.merged.${Date.now()}` : null
           })
-          .where(eq(schema.users.id, mergeUserId));
+          .where(eq(users.id, mergeUserId));
         console.log(`[CKYC Merge] Deactivated merged user account`);
         
       } catch (mergeError) {
