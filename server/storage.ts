@@ -4,7 +4,7 @@ import { type Product, type InsertProduct, type ApplicationDocument, type Insert
 import { randomUUID, scrypt, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { db } from "./db";
-import { eq, and, or, desc, asc, gte, lte, like, ilike, sql, isNull } from "drizzle-orm";
+import { eq, and, or, desc, asc, gte, lte, lt, like, ilike, sql, isNull } from "drizzle-orm";
 import * as schema from "@shared/schema";
 import { generateUniqueUserId } from "./auth";
 
