@@ -527,8 +527,9 @@ export const kycVerificationSessions = pgTable("kyc_verification_sessions", {
   
   // Session Type and Flow
   sessionType: varchar("session_type").default("smart_kyc_wizard"), // smart_kyc_wizard
-  currentStep: varchar("current_step").notNull().default("pan_verification"), // pan_verification/aadhaar_otp/aadhaar_verification/data_collection/completed
-  stepStatus: jsonb("step_status").default({}), // Status for each step: {pan_verified: true, aadhaar_otp_sent: true, etc.}
+  currentStep: varchar("current_step").notNull().default("pan_verification"), // pan_verification/kra_check/ekyc_pending/cersai_upload/kra_polling/ucc_creation/completed
+  stepStatus: jsonb("step_status").default({}), // Status for each step: {pan_verified: true, kra_checked: true, etc.}
+  sessionOutcome: varchar("session_outcome"), // success/failure/abandoned
   
   // PAN Verification Data
   panNumber: varchar("pan_number"), // Encrypted PAN number
@@ -556,7 +557,183 @@ export const kycVerificationSessions = pgTable("kyc_verification_sessions", {
   // Audit fields
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_kyc_sessions_user").on(table.userId),
+  index("idx_kyc_sessions_step").on(table.currentStep),
+]);
+
+// KRA Status Checks table for Protean (NSDL KRA) API responses
+export const kraStatusChecks = pgTable("kra_status_checks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").references(() => kycVerificationSessions.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // KRA Status Data
+  status: varchar("status").notNull(), // verified/on_hold/rejected/not_found/pending
+  kraNumber: varchar("kra_number"), // KRA ID if verified
+  proteanReferenceId: varchar("protean_reference_id"), // Protean API reference
+  verificationDate: timestamp("verification_date"),
+  kraAgency: varchar("kra_agency"), // NSDL/CDSL/CAMS/KARVY/DOTEX
+  
+  // Polling Metadata for Async Verification
+  nextPollAt: timestamp("next_poll_at"),
+  pollAttempt: integer("poll_attempt").default(0),
+  maxPollAttempts: integer("max_poll_attempts").default(48), // Poll for 48 hours
+  finalizedAt: timestamp("finalized_at"),
+  
+  // API Response Data
+  responsePayload: jsonb("response_payload"), // Full Protean API response
+  reasonCode: varchar("reason_code"), // Rejection/hold reason code
+  reasonMessage: text("reason_message"), // Human-readable reason
+  
+  // Audit fields
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_kra_session").on(table.sessionId),
+  index("idx_kra_user").on(table.userId),
+  index("idx_kra_poll_due").on(table.nextPollAt),
+  index("idx_kra_status").on(table.status),
+]);
+
+// Cashfree eKYC Sessions table for Aadhaar OTP-based verification
+export const cashfreeEkycSessions = pgTable("cashfree_ekyc_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").references(() => kycVerificationSessions.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Cashfree Session Data
+  cashfreeSessionId: varchar("cashfree_session_id").unique(), // Cashfree reference
+  aadhaarNumber: varchar("aadhaar_number"), // Encrypted Aadhaar
+  
+  // OTP Flow
+  otpSentAt: timestamp("otp_sent_at"),
+  otpVerifiedAt: timestamp("otp_verified_at"),
+  otpAttempts: integer("otp_attempts").default(0),
+  
+  // Consent Tracking
+  consentGiven: boolean("consent_given").default(false),
+  consentIpAddress: varchar("consent_ip_address"),
+  consentUserAgent: text("consent_user_agent"),
+  consentTimestamp: timestamp("consent_timestamp"),
+  
+  // XML Data
+  xmlUrl: varchar("xml_url"), // Signed URL to encrypted XML in object storage
+  xmlHash: varchar("xml_hash"), // SHA-256 hash for integrity
+  xmlParsed: boolean("xml_parsed").default(false),
+  xmlParsedAt: timestamp("xml_parsed_at"),
+  
+  // Parsed Attributes from XML
+  parsedData: jsonb("parsed_data"), // Name, address, DOB, photo, etc.
+  
+  // Status
+  status: varchar("status").default("pending"), // pending/otp_sent/verified/failed
+  errorCode: varchar("error_code"),
+  errorMessage: text("error_message"),
+  
+  // Audit fields
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_cashfree_session").on(table.sessionId),
+  index("idx_cashfree_user").on(table.userId),
+  index("idx_cashfree_status").on(table.status),
+]);
+
+// CERSAI Submissions table for CKYC XML uploads
+export const cersaiSubmissions = pgTable("cersai_submissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").references(() => kycVerificationSessions.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  ekycSessionId: varchar("ekyc_session_id").references(() => cashfreeEkycSessions.id),
+  
+  // CERSAI Submission Data
+  submissionId: varchar("submission_id").unique(), // CERSAI reference ID
+  packageVersion: varchar("package_version").default("3.0"), // CKYC XML version
+  ckycNumber: varchar("ckyc_number"), // 14-digit CKYC number if successful
+  
+  // Status Tracking
+  status: varchar("status").default("pending"), // pending/submitted/acknowledged/verified/rejected
+  submittedAt: timestamp("submitted_at"),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  verifiedAt: timestamp("verified_at"),
+  
+  // Response Data
+  acknowledgmentData: jsonb("acknowledgment_data"), // CERSAI ACK response
+  rejectionCode: varchar("rejection_code"),
+  rejectionMessage: text("rejection_message"),
+  
+  // Storage Reference
+  xmlStorageUrl: varchar("xml_storage_url"), // Object storage URL
+  
+  // Audit fields
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_cersai_session").on(table.sessionId),
+  index("idx_cersai_user").on(table.userId),
+  index("idx_cersai_status").on(table.status),
+  index("idx_cersai_ckyc").on(table.ckycNumber),
+]);
+
+// BSE UCC Requests table for BSE STAR mutual fund account creation
+export const bseUccRequests = pgTable("bse_ucc_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").references(() => kycVerificationSessions.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  kraCheckId: varchar("kra_check_id").references(() => kraStatusChecks.id),
+  
+  // BSE UCC Data
+  uccNumber: varchar("ucc_number").unique(), // BSE UCC number
+  requestId: varchar("request_id"), // BSE API request reference
+  
+  // Status Tracking
+  status: varchar("status").default("pending"), // pending/submitted/created/failed
+  attemptCount: integer("attempt_count").default(0),
+  lastTriedAt: timestamp("last_tried_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  
+  // Request/Response Data
+  requestPayload: jsonb("request_payload"), // BSE API request
+  responseData: jsonb("response_data"), // BSE API response
+  rejectionReason: text("rejection_reason"),
+  
+  // Audit fields
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_bse_session").on(table.sessionId),
+  index("idx_bse_user").on(table.userId),
+  index("idx_bse_ucc").on(table.uccNumber),
+  index("idx_bse_status").on(table.status),
+]);
+
+// KYC State Transitions table for immutable audit trail
+export const kycStateTransitions = pgTable("kyc_state_transitions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").references(() => kycVerificationSessions.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Transition Data
+  fromState: varchar("from_state").notNull(),
+  toState: varchar("to_state").notNull(),
+  trigger: varchar("trigger").notNull(), // api_call/background_job/user_action/system_timeout
+  
+  // Actor Information
+  performedBy: varchar("performed_by"), // User ID or 'system'
+  performedByRole: varchar("performed_by_role"), // user/admin/system
+  
+  // Metadata
+  metadata: jsonb("metadata"), // Additional context for the transition
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  
+  // Timestamp
+  occurredAt: timestamp("occurred_at").defaultNow(),
+}, (table) => [
+  index("idx_transition_session").on(table.sessionId),
+  index("idx_transition_user").on(table.userId),
+  index("idx_transition_time").on(table.occurredAt),
+]);
 
 // Compliance Documents table for storing regulatory documents
 export const complianceDocuments = pgTable("compliance_documents", {
