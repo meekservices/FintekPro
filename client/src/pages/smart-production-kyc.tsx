@@ -40,6 +40,7 @@ type UserType = "individual" | "corporate" | "nri";
 type WorkflowStep =
   | "user_type_selection"
   | "pan_verification"
+  | "entity_details" // For corporate/NRI additional details
   | "kra_check"
   | "cashfree_ekyc"
   | "cersai_submission"
@@ -89,6 +90,21 @@ export default function SmartProductionKYCOnboarding() {
   // Polling for KRA status
   const [kraPollingEnabled, setKraPollingEnabled] = useState(false);
 
+  // Corporate-specific state
+  const [entityType, setEntityType] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [cin, setCin] = useState("");
+  const [gstin, setGstin] = useState("");
+  const [incorporationDate, setIncorporationDate] = useState("");
+  const [entityRegistrationNumber, setEntityRegistrationNumber] = useState("");
+
+  // NRI-specific state
+  const [residentStatus, setResidentStatus] = useState("");
+  const [passportNumber, setPassportNumber] = useState("");
+  const [overseasAddress, setOverseasAddress] = useState("");
+  const [countryOfResidence, setCountryOfResidence] = useState("");
+  const [repatriationType, setRepatriationType] = useState("");
+
   // Authentication guard
   useEffect(() => {
     if (!isLoading && !user) {
@@ -117,8 +133,12 @@ export default function SmartProductionKYCOnboarding() {
           title: "PAN Found",
           description: "Using your verified PAN details from our records",
         });
-        // Move to KRA check
-        setCurrentStep("kra_check");
+        // Move to next step based on user type
+        if (userType === "individual") {
+          setCurrentStep("kra_check");
+        } else {
+          setCurrentStep("entity_details");
+        }
       } else {
         // PAN not found, need to verify via Sandbox
         toast({
@@ -155,8 +175,12 @@ export default function SmartProductionKYCOnboarding() {
           title: "PAN Verified",
           description: "Your PAN has been verified and saved",
         });
-        // Move to KRA check
-        setCurrentStep("kra_check");
+        // Move to next step based on user type
+        if (userType === "individual") {
+          setCurrentStep("kra_check");
+        } else {
+          setCurrentStep("entity_details");
+        }
       }
     },
     onError: (error: any) => {
@@ -361,7 +385,8 @@ export default function SmartProductionKYCOnboarding() {
 
   // Calculate progress percentage
   const getProgressPercentage = () => {
-    const stepOrder: WorkflowStep[] = [
+    // Different flow for individual vs corporate/NRI
+    const individualSteps: WorkflowStep[] = [
       "user_type_selection",
       "pan_verification",
       "kra_check",
@@ -370,6 +395,19 @@ export default function SmartProductionKYCOnboarding() {
       "bse_ucc",
       "completed",
     ];
+    
+    const corporateNriSteps: WorkflowStep[] = [
+      "user_type_selection",
+      "pan_verification",
+      "entity_details",
+      "kra_check",
+      "cashfree_ekyc",
+      "cersai_submission",
+      "bse_ucc",
+      "completed",
+    ];
+    
+    const stepOrder = userType === "individual" ? individualSteps : corporateNriSteps;
     const currentIndex = stepOrder.indexOf(currentStep);
     return ((currentIndex + 1) / stepOrder.length) * 100;
   };
@@ -541,6 +579,223 @@ export default function SmartProductionKYCOnboarding() {
                 )}
               </div>
             </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Render Entity Details (for Corporate and NRI)
+  if (currentStep === "entity_details") {
+    return (
+      <div className="container mx-auto p-6 max-w-2xl">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-2xl">
+                  {userType === "corporate" ? "Entity Details" : "Residency Information"}
+                </CardTitle>
+                <CardDescription>
+                  {userType === "corporate"
+                    ? "Provide your company/entity information"
+                    : "Provide your residency and passport details"}
+                </CardDescription>
+              </div>
+              <Badge variant="outline">{userType.toUpperCase()}</Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <Progress value={getProgressPercentage()} className="h-2" />
+
+            {userType === "corporate" ? (
+              // Corporate Entity Fields
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="entity-type">Entity Type</Label>
+                  <select
+                    id="entity-type"
+                    data-testid="select-entity-type"
+                    value={entityType}
+                    onChange={(e) => setEntityType(e.target.value)}
+                    className="w-full p-2 border rounded-md"
+                  >
+                    <option value="">Select Entity Type</option>
+                    <option value="company">Company/Private Limited</option>
+                    <option value="partnership">Partnership Firm</option>
+                    <option value="llp">Limited Liability Partnership (LLP)</option>
+                    <option value="trust">Trust</option>
+                    <option value="society">Society</option>
+                    <option value="huf">Hindu Undivided Family (HUF)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <Label htmlFor="company-name">Company/Entity Name</Label>
+                  <Input
+                    id="company-name"
+                    data-testid="input-company-name"
+                    placeholder="Enter company name"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="cin">Corporate Identification Number (CIN)</Label>
+                  <Input
+                    id="cin"
+                    data-testid="input-cin"
+                    placeholder="L12345MH1234PLC123456"
+                    value={cin}
+                    onChange={(e) => setCin(e.target.value.toUpperCase())}
+                    className="uppercase"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="gstin">GSTIN (GST Number)</Label>
+                  <Input
+                    id="gstin"
+                    data-testid="input-gstin"
+                    placeholder="22AAAAA0000A1Z5"
+                    value={gstin}
+                    onChange={(e) => setGstin(e.target.value.toUpperCase())}
+                    maxLength={15}
+                    className="uppercase"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="incorporation-date">Incorporation Date</Label>
+                  <Input
+                    id="incorporation-date"
+                    data-testid="input-incorporation-date"
+                    type="date"
+                    value={incorporationDate}
+                    onChange={(e) => setIncorporationDate(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="registration-number">Entity Registration Number</Label>
+                  <Input
+                    id="registration-number"
+                    data-testid="input-registration-number"
+                    placeholder="Enter registration number"
+                    value={entityRegistrationNumber}
+                    onChange={(e) => setEntityRegistrationNumber(e.target.value)}
+                  />
+                </div>
+              </div>
+            ) : (
+              // NRI Fields
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="resident-status">Residency Status</Label>
+                  <select
+                    id="resident-status"
+                    data-testid="select-resident-status"
+                    value={residentStatus}
+                    onChange={(e) => setResidentStatus(e.target.value)}
+                    className="w-full p-2 border rounded-md"
+                  >
+                    <option value="">Select Residency Status</option>
+                    <option value="nri_ordinary">NRI - Ordinary Resident</option>
+                    <option value="nri_non_ordinary">NRI - Non-Ordinary Resident</option>
+                    <option value="oci">Overseas Citizen of India (OCI)</option>
+                    <option value="pio">Person of Indian Origin (PIO)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <Label htmlFor="passport-number">Passport Number</Label>
+                  <Input
+                    id="passport-number"
+                    data-testid="input-passport-number"
+                    placeholder="Enter passport number"
+                    value={passportNumber}
+                    onChange={(e) => setPassportNumber(e.target.value.toUpperCase())}
+                    className="uppercase"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="country-residence">Country of Residence</Label>
+                  <Input
+                    id="country-residence"
+                    data-testid="input-country-residence"
+                    placeholder="e.g., United States, United Kingdom"
+                    value={countryOfResidence}
+                    onChange={(e) => setCountryOfResidence(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="overseas-address">Overseas Address</Label>
+                  <textarea
+                    id="overseas-address"
+                    data-testid="textarea-overseas-address"
+                    placeholder="Enter your complete overseas address"
+                    value={overseasAddress}
+                    onChange={(e) => setOverseasAddress(e.target.value)}
+                    className="w-full p-2 border rounded-md min-h-[80px]"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="repatriation-type">Repatriation Type</Label>
+                  <select
+                    id="repatriation-type"
+                    data-testid="select-repatriation-type"
+                    value={repatriationType}
+                    onChange={(e) => setRepatriationType(e.target.value)}
+                    className="w-full p-2 border rounded-md"
+                  >
+                    <option value="">Select Repatriation Type</option>
+                    <option value="repatriable">Repatriable (NRE)</option>
+                    <option value="non_repatriable">Non-Repatriable (NRO)</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            <Button
+              onClick={() => {
+                // Validate fields based on user type
+                if (userType === "corporate") {
+                  if (!entityType || !companyName) {
+                    toast({
+                      title: "Missing Information",
+                      description: "Please fill in all required fields",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                } else if (userType === "nri") {
+                  if (!residentStatus || !passportNumber || !countryOfResidence) {
+                    toast({
+                      title: "Missing Information",
+                      description: "Please fill in all required fields",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                }
+                
+                // Proceed to KRA check
+                setCurrentStep("kra_check");
+                toast({
+                  title: "Details Saved",
+                  description: "Proceeding to KRA verification",
+                });
+              }}
+              className="w-full"
+              data-testid="button-continue-entity-details"
+            >
+              Continue to KYC Verification
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
           </CardContent>
         </Card>
       </div>
