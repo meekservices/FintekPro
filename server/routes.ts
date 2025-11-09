@@ -1948,6 +1948,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Create new session
       console.log(`[KYC Wizard] Creating new KYC session for user ${userId}`);
+      
+      try {
       const session = await storage.createKycVerificationSession({
         userId,
         sessionType: "smart_kyc_wizard",
@@ -1982,6 +1984,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         session,
         message: "KYC session started successfully"
       });
+      } catch (createError: any) {
+        // Handle race condition: If session was created by another request, fetch and return it
+        if (createError.code === '23505' && createError.message.includes('idx_unique_active_kyc_session')) {
+          console.log(`[KYC Wizard] Detected race condition for user ${userId}, fetching existing session`);
+          const existingSessionRetry = await storage.getActiveKycSession(userId);
+          
+          if (existingSessionRetry) {
+            console.log(`[KYC Wizard] Resuming existing session (race condition handled): ${existingSessionRetry.id}`);
+            return res.json({
+              success: true,
+              session: existingSessionRetry,
+              message: "Resuming existing KYC session"
+            });
+          }
+        }
+        
+        // If it's a different error or we still can't find the session, rethrow
+        throw createError;
+      }
     } catch (error: any) {
       // Sanitize error to prevent PII leakage (PAN/Aadhaar/Email/Phone)
       const sanitizedError = sanitizeError(error);
