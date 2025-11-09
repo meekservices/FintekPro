@@ -70,8 +70,117 @@ class AdminCache {
 const adminCache = new AdminCache();
 
 /**
+ * Circuit breaker states
+ */
+enum CircuitState {
+  CLOSED = 'CLOSED',    // Normal operation
+  OPEN = 'OPEN',        // Too many failures, reject immediately
+  HALF_OPEN = 'HALF_OPEN' // Testing if service recovered
+}
+
+/**
+ * Circuit breaker for database lookups
+ */
+class CircuitBreaker {
+  private state: CircuitState = CircuitState.CLOSED;
+  private failureCount = 0;
+  private successCount = 0; // Track consecutive successes in HALF_OPEN
+  private lastFailureTime = 0;
+  private readonly FAILURE_THRESHOLD = 5; // Open circuit after 5 consecutive failures
+  private readonly RESET_TIMEOUT = 30000; // 30 seconds cooldown before trying again
+  private readonly SUCCESS_THRESHOLD = 2; // Require 2 successes in HALF_OPEN to close circuit
+
+  /**
+   * Check if circuit allows request
+   */
+  canAttempt(): boolean {
+    if (this.state === CircuitState.CLOSED) {
+      return true;
+    }
+
+    if (this.state === CircuitState.OPEN) {
+      // Check if enough time has passed to try half-open
+      if (Date.now() - this.lastFailureTime > this.RESET_TIMEOUT) {
+        this.state = CircuitState.HALF_OPEN;
+        this.successCount = 0; // Reset success counter when entering HALF_OPEN
+        logger.info('Circuit breaker entering HALF_OPEN state', { 
+          failureCount: this.failureCount 
+        });
+        return true;
+      }
+      return false; // Still in cooldown
+    }
+
+    // HALF_OPEN state allows attempts
+    return true;
+  }
+
+  /**
+   * Record successful operation
+   */
+  recordSuccess(): void {
+    if (this.state === CircuitState.HALF_OPEN) {
+      // Increment success counter in HALF_OPEN
+      this.successCount++;
+      
+      // Only close circuit after reaching SUCCESS_THRESHOLD
+      if (this.successCount >= this.SUCCESS_THRESHOLD) {
+        this.state = CircuitState.CLOSED;
+        this.failureCount = 0;
+        this.successCount = 0;
+        logger.info('Circuit breaker closed after successful recovery', {
+          successesRequired: this.SUCCESS_THRESHOLD
+        });
+      } else {
+        logger.info('Circuit breaker HALF_OPEN success', {
+          successCount: this.successCount,
+          successesRequired: this.SUCCESS_THRESHOLD
+        });
+      }
+    } else if (this.state === CircuitState.CLOSED) {
+      // Reset failure count on success
+      this.failureCount = 0;
+    }
+  }
+
+  /**
+   * Record failed operation
+   */
+  recordFailure(): void {
+    this.failureCount++;
+    this.lastFailureTime = Date.now();
+
+    if (this.state === CircuitState.HALF_OPEN) {
+      // Failed during HALF_OPEN, reopen circuit and reset success counter
+      this.state = CircuitState.OPEN;
+      this.successCount = 0;
+      logger.warn('Circuit breaker reopened after failed recovery attempt', {
+        failureCount: this.failureCount
+      });
+    } else if (this.state === CircuitState.CLOSED && this.failureCount >= this.FAILURE_THRESHOLD) {
+      // Too many failures, open circuit
+      this.state = CircuitState.OPEN;
+      logger.error('Circuit breaker opened due to repeated failures', {
+        failureCount: this.failureCount,
+        threshold: this.FAILURE_THRESHOLD
+      });
+    }
+  }
+
+  /**
+   * Get current state for monitoring
+   */
+  getState(): { state: CircuitState; failureCount: number } {
+    return { state: this.state, failureCount: this.failureCount };
+  }
+}
+
+// Singleton circuit breaker instance
+const circuitBreaker = new CircuitBreaker();
+
+/**
  * Safely check if a user is an admin with circuit breaker pattern
- * Returns null on errors to fail-safe to rate limiting
+ * Returns false on errors to fail-safe to rate limiting
  */
 async function isAdminSafe(identifier: string): Promise<boolean> {
   // Check cache first
@@ -80,9 +189,18 @@ async function isAdminSafe(identifier: string): Promise<boolean> {
     return cached;
   }
 
+  // Check if circuit breaker allows attempt
+  if (!circuitBreaker.canAttempt()) {
+    logger.warn('Admin lookup rejected by circuit breaker', { 
+      identifier,
+      ...circuitBreaker.getState()
+    });
+    return false; // Fail-safe: enforce rate limiting
+  }
+
   try {
     // Set a timeout for DB lookup (2 seconds max)
-    const timeoutPromise = new Promise<null>((_, reject) => 
+    const timeoutPromise = new Promise<never>((_, reject) => 
       setTimeout(() => reject(new Error('Admin lookup timeout')), 2000)
     );
 
@@ -113,22 +231,21 @@ async function isAdminSafe(identifier: string): Promise<boolean> {
 
     // Race between lookup and timeout
     const result = await Promise.race([lookupPromise, timeoutPromise]);
-    
-    if (result === null) {
-      // Timeout occurred
-      logger.warn('Admin lookup timeout', { identifier });
-      return false; // Fail-safe: enforce rate limiting
-    }
 
-    // Cache the result
+    // Success - record with circuit breaker and cache result
+    circuitBreaker.recordSuccess();
     adminCache.set(identifier, result);
     return result;
 
   } catch (error) {
+    // Record failure with circuit breaker
+    circuitBreaker.recordFailure();
+    
     // Log error but don't expose it
     logger.error('Admin lookup failed', { 
       identifier, 
-      error: error instanceof Error ? error.message : String(error) 
+      error: error instanceof Error ? error.message : String(error),
+      ...circuitBreaker.getState()
     });
     
     // Fail-safe: enforce rate limiting on errors
