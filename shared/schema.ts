@@ -10609,3 +10609,72 @@ export const insertGoalContributionSchema = createInsertSchema(goalContributions
 export type GoalContribution = typeof goalContributions.$inferSelect;
 export type InsertGoalContribution = z.infer<typeof insertGoalContributionSchema>;
 
+// Chart Configurations - Save user's custom chart configurations and comparisons
+export const chartConfigurations = pgTable("chart_configurations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Configuration details
+  name: varchar("name").notNull(),
+  description: text("description"),
+  
+  // Chart settings
+  symbols: text("symbols").array().notNull(), // Array of symbols to compare (max 5)
+  chartType: varchar("chart_type").default("line"), // 'line', 'area', 'candlestick'
+  indicatorSettings: jsonb("indicator_settings").default([]), // [{type:'sma', params:{period:50}}, {type:'rsi', params:{period:14}}]
+  
+  // Date range
+  dateRangeType: varchar("date_range_type").default("1Y"), // '1M', '3M', '6M', '1Y', '3Y', '5Y', 'custom'
+  startDate: date("start_date"),
+  endDate: date("end_date"),
+  
+  // Display preferences
+  displayOptions: jsonb("display_options").default({
+    showVolume: true,
+    showGrid: true,
+    colorScheme: "default"
+  }),
+  
+  // Sharing and security
+  shareToken: varchar("share_token").unique(), // UUID for secure sharing
+  isDiscoverable: boolean("is_discoverable").default(false), // Allow public discovery
+  viewCount: integer("view_count").default(0),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_chart_user_updated").on(table.userId, table.updatedAt),
+  index("idx_chart_share_token").on(table.shareToken),
+]);
+
+// Zod schema for Chart Configurations with validation
+export const insertChartConfigurationSchema = createInsertSchema(chartConfigurations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  symbols: z.array(z.string()).min(1, "At least one symbol is required").max(5, "Maximum 5 symbols allowed"),
+  name: z.string().min(1, "Name is required").max(100, "Name too long"),
+  chartType: z.enum(['line', 'area', 'candlestick']).default('line'),
+  dateRangeType: z.enum(['1M', '3M', '6M', '1Y', '3Y', '5Y', 'custom']).default('1Y'),
+  indicatorSettings: z.array(z.object({
+    type: z.enum(['sma', 'ema', 'rsi', 'macd', 'bollinger']),
+    params: z.record(z.union([z.string(), z.number()]))
+  })).default([]),
+}).refine(
+  (data) => {
+    // If custom date range, both dates must be provided
+    if (data.dateRangeType === 'custom') {
+      return data.startDate && data.endDate;
+    }
+    return true;
+  },
+  {
+    message: "Custom date range requires both start and end dates",
+    path: ["dateRangeType"],
+  }
+);
+export type ChartConfiguration = typeof chartConfigurations.$inferSelect;
+export type InsertChartConfiguration = z.infer<typeof insertChartConfigurationSchema>;
+
