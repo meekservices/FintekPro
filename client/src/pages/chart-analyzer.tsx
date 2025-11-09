@@ -1,17 +1,19 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useToast } from "@/hooks/use-toast";
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { TrendingUp, Download, Save, FolderOpen, Plus, X, Calendar, BarChart3, LineChart as LineChartIcon, Activity } from "lucide-react";
+import { TrendingUp, Download, Save, FolderOpen, Search, X, Calendar, BarChart3, LineChart as LineChartIcon, Activity, Loader2 } from "lucide-react";
 import { format, subMonths, subYears } from 'date-fns';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import type { SymbolSearchResult } from '@shared/schema';
 
 type DateRange = {
   startDate: string;
@@ -70,8 +72,9 @@ const DATE_PRESETS = [
 export default function ChartAnalyzer() {
   const { toast } = useToast();
   const [selectedAssets, setSelectedAssets] = useState<AssetSymbol[]>([]);
-  const [searchSymbol, setSearchSymbol] = useState('');
-  const [selectedExchange, setSelectedExchange] = useState('NS');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedTerm, setDebouncedTerm] = useState('');
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange>({
     startDate: format(subYears(new Date(), 1), 'yyyy-MM-dd'),
     endDate: format(new Date(), 'yyyy-MM-dd'),
@@ -81,6 +84,25 @@ export default function ChartAnalyzer() {
   const [selectedIndicators, setSelectedIndicators] = useState<string[]>([]);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [configName, setConfigName] = useState('');
+
+  // Debounce search term (300ms)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedTerm(searchTerm);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Search for symbols
+  const { data: searchResults, isLoading: isSearching } = useQuery({
+    queryKey: ['/api/charts/search', debouncedTerm],
+    queryFn: async () => {
+      const response = await apiRequest('GET', `/api/charts/search?query=${encodeURIComponent(debouncedTerm)}`);
+      return response as { results: SymbolSearchResult[]; query: string };
+    },
+    enabled: debouncedTerm.length >= 3,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 
   // Fetch chart data for comparison using POST
   const { data: chartData, isLoading: isLoadingChart, error: chartError } = useQuery({
@@ -154,14 +176,9 @@ export default function ChartAnalyzer() {
     },
   });
 
-  const addAsset = () => {
-    if (!searchSymbol.trim()) return;
-    
-    const displaySymbol = searchSymbol.toUpperCase().trim();
-    const exchange = EXCHANGES.find(e => e.value === selectedExchange);
-    const fullSymbol = displaySymbol + (exchange?.suffix || '');
-    
-    if (selectedAssets.some(a => a.symbol === fullSymbol)) {
+  const handleSelectSymbol = useCallback((result: SymbolSearchResult) => {
+    // Check for duplicates
+    if (selectedAssets.some(a => a.symbol === result.symbol)) {
       toast({
         title: "Duplicate asset",
         description: "This asset is already added to the comparison.",
@@ -170,6 +187,7 @@ export default function ChartAnalyzer() {
       return;
     }
 
+    // Check asset limit
     if (selectedAssets.length >= 5) {
       toast({
         title: "Limit reached",
@@ -179,17 +197,31 @@ export default function ChartAnalyzer() {
       return;
     }
 
+    // Extract display symbol (remove exchange suffix if present)
+    let displaySymbol = result.symbol;
+    if (result.exchangeSuffix) {
+      displaySymbol = result.symbol.replace(result.exchangeSuffix, '');
+    }
+
+    // Create new asset
     const newAsset: AssetSymbol = {
-      symbol: fullSymbol,
-      displaySymbol: displaySymbol,
-      name: displaySymbol,
-      exchange: exchange?.label || 'Unknown',
+      symbol: result.symbol,
+      displaySymbol,
+      name: result.name,
+      exchange: result.exchange,
       color: CHART_COLORS[selectedAssets.length],
     };
 
+    // Add asset and reset picker
     setSelectedAssets([...selectedAssets, newAsset]);
-    setSearchSymbol('');
-  };
+    setSearchTerm('');
+    setIsPickerOpen(false);
+    
+    toast({
+      title: "Asset added",
+      description: `${result.name} added to comparison.`,
+    });
+  }, [selectedAssets, toast]);
 
   const removeAsset = (symbol: string) => {
     setSelectedAssets(selectedAssets.filter(a => a.symbol !== symbol));
@@ -325,30 +357,70 @@ export default function ChartAnalyzer() {
             <CardDescription>Add up to 5 assets to compare on the chart</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex gap-2">
-              <Select value={selectedExchange} onValueChange={setSelectedExchange}>
-                <SelectTrigger className="w-[200px]" data-testid="select-exchange">
-                  <SelectValue placeholder="Select exchange" />
-                </SelectTrigger>
-                <SelectContent>
-                  {EXCHANGES.map((exchange) => (
-                    <SelectItem key={exchange.value} value={exchange.value}>
-                      {exchange.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Input
-                placeholder="Enter symbol (e.g., RELIANCE, TCS, INFY)"
-                value={searchSymbol}
-                onChange={(e) => setSearchSymbol(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && addAsset()}
-                data-testid="input-asset-search"
-              />
-              <Button onClick={addAsset} data-testid="button-add-asset">
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
+            <Popover open={isPickerOpen} onOpenChange={setIsPickerOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={isPickerOpen}
+                  className="w-full justify-between"
+                  data-testid="button-search-symbols"
+                >
+                  <div className="flex items-center gap-2">
+                    <Search className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">
+                      {selectedAssets.length > 0 
+                        ? "Add another asset..."
+                        : "Search for stocks by company name..."}
+                    </span>
+                  </div>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[400px] p-0" align="start">
+                <Command shouldFilter={false}>
+                  <CommandInput
+                    placeholder="Type company name (e.g., Apple, Reliance)..."
+                    value={searchTerm}
+                    onValueChange={setSearchTerm}
+                    data-testid="input-symbol-search"
+                  />
+                  <CommandList>
+                    {searchTerm.length < 3 && (
+                      <CommandEmpty>Type at least 3 characters to search</CommandEmpty>
+                    )}
+                    {searchTerm.length >= 3 && isSearching && (
+                      <div className="flex items-center justify-center py-6">
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                        <span className="ml-2 text-sm text-muted-foreground">Searching...</span>
+                      </div>
+                    )}
+                    {searchTerm.length >= 3 && !isSearching && searchResults && searchResults.results.length === 0 && (
+                      <CommandEmpty>No companies found. Try a different search.</CommandEmpty>
+                    )}
+                    {searchTerm.length >= 3 && !isSearching && searchResults && searchResults.results.length > 0 && (
+                      <CommandGroup heading="Search Results">
+                        {searchResults.results.map((result) => (
+                          <CommandItem
+                            key={result.symbol}
+                            value={result.symbol}
+                            onSelect={() => handleSelectSymbol(result)}
+                            className="cursor-pointer"
+                            data-testid={`result-${result.symbol}`}
+                          >
+                            <div className="flex flex-col">
+                              <div className="font-medium">{result.name}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {result.symbol} • {result.exchange}
+                              </div>
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    )}
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
 
             <div className="flex flex-wrap gap-2">
               {selectedAssets.map((asset) => (

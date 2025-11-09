@@ -10678,3 +10678,25 @@ export const insertChartConfigurationSchema = createInsertSchema(chartConfigurat
 export type ChartConfiguration = typeof chartConfigurations.$inferSelect;
 export type InsertChartConfiguration = z.infer<typeof insertChartConfigurationSchema>;
 
+// Symbol Search schemas
+export const symbolSearchRequestSchema = z.object({
+  query: z.string().min(3, "Query must be at least 3 characters").max(100, "Query too long"),
+});
+
+export const symbolSearchResultSchema = z.object({
+  symbol: z.string(),
+  name: z.string(),
+  exchange: z.string(),
+  type: z.string().optional(),
+  exchangeSuffix: z.string().optional(),
+});
+
+export const symbolSearchResponseSchema = z.object({
+  results: z.array(symbolSearchResultSchema),
+  query: z.string(),
+});
+
+export type SymbolSearchRequest = z.infer<typeof symbolSearchRequestSchema>;
+export type SymbolSearchResult = z.infer<typeof symbolSearchResultSchema>;
+export type SymbolSearchResponse = z.infer<typeof symbolSearchResponseSchema>;
+

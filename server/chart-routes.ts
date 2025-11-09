@@ -1,8 +1,9 @@
 import type { Express } from "express";
 import { chartService } from "./chart-service";
+import { symbolLookupService } from "./symbol-lookup-service";
 import { db } from "./db";
 import { chartConfigurations } from "@shared/schema";
-import { insertChartConfigurationSchema } from "@shared/schema";
+import { insertChartConfigurationSchema, symbolSearchRequestSchema } from "@shared/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { logger } from "./logger";
 import { v4 as uuidv4 } from 'uuid';
@@ -60,6 +61,83 @@ export function registerChartRoutes(app: Express) {
       });
       res.status(500).json({
         error: 'Failed to fetch historical data',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  });
+
+  // Search for symbols by company name
+  app.get("/api/charts/search", async (req, res) => {
+    try {
+      const { query } = req.query as { query?: string };
+
+      // Validate query parameter
+      const validationResult = symbolSearchRequestSchema.safeParse({ query });
+      if (!validationResult.success) {
+        return res.status(400).json({
+          error: 'Validation error',
+          details: validationResult.error.errors,
+        });
+      }
+
+      logger.info('[Charts API] Symbol search request', { query });
+
+      const results = await symbolLookupService.searchSymbols(validationResult.data.query);
+
+      res.json({
+        results,
+        query: validationResult.data.query,
+      });
+    } catch (error) {
+      logger.error('[Charts API] Symbol search error', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      res.status(500).json({
+        error: 'Failed to search symbols',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  });
+
+  // Get performance metrics for symbols
+  app.post("/api/charts/performance", async (req, res) => {
+    try {
+      const { symbols, rangeType = '1Y', startDate, endDate } = req.body;
+
+      // Validate symbols array
+      if (!Array.isArray(symbols) || symbols.length === 0) {
+        return res.status(400).json({
+          error: 'Invalid request',
+          message: 'Symbols array is required and must not be empty',
+        });
+      }
+
+      logger.info('[Charts API] Performance metrics request', {
+        symbols,
+        rangeType,
+      });
+
+      // Use the compareSymbols method which already calculates metrics
+      const comparisonResult = await chartService.compareSymbols(
+        symbols,
+        rangeType,
+        startDate,
+        endDate
+      );
+
+      const metrics = comparisonResult.metrics;
+
+      res.json({
+        metrics,
+        symbols,
+        rangeType,
+      });
+    } catch (error) {
+      logger.error('[Charts API] Performance metrics error', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      res.status(500).json({
+        error: 'Failed to calculate performance metrics',
         message: error instanceof Error ? error.message : 'Unknown error',
       });
     }
