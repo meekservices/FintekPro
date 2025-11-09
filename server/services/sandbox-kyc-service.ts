@@ -596,7 +596,12 @@ export class SandboxKYCService {
 
       const response = await axios.post(
         `${SANDBOX_BASE_URL}/kyc/aadhaar/okyc/otp`,
-        { aadhaar_number: aadhaarNumber },
+        {
+          "@entity": "in.co.sandbox.kyc.aadhaar.okyc.otp.request",
+          aadhaar_number: aadhaarNumber,
+          consent: "Y",
+          reason: "For KYC of the Individual"
+        },
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -605,22 +610,26 @@ export class SandboxKYCService {
         }
       );
 
-      if (response.data && response.data.ref_id) {
+      // Check for successful response (code 200 or data.reference_id)
+      if (response.data && (response.data.data?.reference_id || response.data.ref_id)) {
         // Mask Aadhaar number (show only last 4 digits)
         const maskedAadhaar = `XXXX XXXX ${aadhaarNumber.slice(-4)}`;
+        
+        // Handle both old and new API response formats
+        const referenceId = response.data.data?.reference_id || response.data.ref_id;
         
         return {
           success: true,
           message: `OTP sent successfully to registered mobile number`,
-          ref_id: response.data.ref_id,
-          status: response.data.status || 'SUCCESS',
+          ref_id: referenceId,
+          status: response.data.data?.status || response.data.status || 'SUCCESS',
           maskedAadhaar
         };
       }
       
       return {
         success: false,
-        message: response.data?.message || "Failed to send OTP"
+        message: response.data?.message || response.data?.data?.message || "Failed to send OTP"
       };
       
     } catch (error: any) {
@@ -659,9 +668,10 @@ export class SandboxKYCService {
       const token = await this.authenticate();
 
       const response = await axios.post(
-        `${SANDBOX_BASE_URL}/kyc/aadhaar/okyc/verify`,
+        `${SANDBOX_BASE_URL}/kyc/aadhaar/okyc/otp/verify`,
         {
-          ref_id: refId,
+          "@entity": "in.co.sandbox.kyc.aadhaar.okyc.request",
+          reference_id: refId,
           otp: otp
         },
         {
@@ -672,39 +682,43 @@ export class SandboxKYCService {
         }
       );
 
-      if (response.data && response.data.verified === true) {
-        const data = response.data.data || response.data;
+      // Check for successful verification (code 200 and status VALID)
+      if (response.data?.code === 200 && response.data?.data) {
+        const data = response.data.data;
         
-        return {
-          success: true,
-          message: "Aadhaar verified successfully",
-          verified: true,
-          data: {
-            aadhaarNumber: data.aadhaar_number || data.uid,
-            name: data.name || data.full_name,
-            dob: data.dob || data.date_of_birth,
-            gender: data.gender,
-            fatherName: data.father_name || data.care_of,
-            address: {
-              house: data.address?.house || data.house || '',
-              street: data.address?.street || data.street || '',
-              landmark: data.address?.landmark || data.landmark || '',
-              locality: data.address?.locality || data.locality || data.loc || '',
-              city: data.address?.city || data.city || data.dist || '',
-              state: data.address?.state || data.state || '',
-              pincode: data.address?.pincode || data.pin || data.zip || '',
-              country: data.address?.country || data.country || 'India'
-            },
-            mobile: data.mobile || data.phone,
-            email: data.email,
-            photoUrl: data.photo_url || data.photo
-          }
-        };
+        // Only return success if status is VALID
+        if (data.status === 'VALID') {
+          return {
+            success: true,
+            message: data.message || "Aadhaar verified successfully",
+            verified: true,
+            data: {
+              aadhaarNumber: data.aadhaar_number || data.uid,
+              name: data.name || data.full_name,
+              dob: data.date_of_birth || data.dob,
+              gender: data.gender,
+              fatherName: data.care_of || data.father_name,
+              address: {
+                house: data.address?.house || data.house || '',
+                street: data.address?.street || data.street || '',
+                landmark: data.address?.landmark || data.landmark || '',
+                locality: data.address?.vtc || data.locality || data.loc || '',
+                city: data.address?.district || data.city || data.dist || '',
+                state: data.address?.state || data.state || '',
+                pincode: data.address?.pincode || data.pin || data.zip || '',
+                country: data.address?.country || data.country || 'India'
+              },
+              mobile: data.mobile || data.phone,
+              email: data.email,
+              photoUrl: data.photo || data.photo_url
+            }
+          };
+        }
       }
 
       return {
         success: false,
-        message: response.data?.message || "Aadhaar verification failed",
+        message: response.data?.data?.message || response.data?.message || "Aadhaar verification failed",
         verified: false
       };
 
