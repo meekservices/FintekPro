@@ -1,9 +1,10 @@
 import { storage } from '../storage';
-import { proteanKraService } from './protean-kra-service';
+import { proteanKRAService } from './protean-kra-service';
 import { cashfreeEkycService } from './cashfree-ekyc-service';
 import { cersaiCkycService } from './cersai-ckyc-service';
 import { bseUccService } from './bse-ucc-service';
-import type { InsertKycStateTransition, KycVerificationSession } from '@shared/schema';
+import { createInsertSchema } from 'drizzle-zod';
+import { kycStateTransitions } from '@shared/schema';
 
 /**
  * Production KYC Workflow Orchestrator
@@ -20,6 +21,12 @@ import type { InsertKycStateTransition, KycVerificationSession } from '@shared/s
  * - Audit trail via state transitions table
  */
 
+const insertKycStateTransitionSchema = createInsertSchema(kycStateTransitions).omit({
+  id: true,
+  occurredAt: true,
+});
+type InsertKycStateTransition = typeof insertKycStateTransitionSchema._type;
+
 interface StartWorkflowRequest {
   userId: string;
   panNumber: string;
@@ -30,7 +37,7 @@ interface StartWorkflowRequest {
 
 interface WorkflowState {
   sessionId: string;
-  currentState: string;
+  currentStep: string;
   kraStatus?: string;
   kraNumber?: string;
   ckycNumber?: string;
@@ -40,7 +47,69 @@ interface WorkflowState {
   errorMessage?: string;
 }
 
+/**
+ * WorkflowStateAssembler: Joins hub (kycVerificationSessions) with spoke tables
+ * to create a comprehensive WorkflowState object
+ */
+class WorkflowStateAssembler {
+  async assembleWorkflowState(sessionId: string): Promise<WorkflowState | null> {
+    try {
+      // Fetch hub session
+      const session = await storage.getKycVerificationSession(sessionId);
+      if (!session) {
+        return null;
+      }
+
+      // Fetch spoke data
+      const kraCheck = await storage.getKraStatusCheckBySession(sessionId);
+      const cashfreeSession = await storage.getCashfreeEkycSessionByKycSession(sessionId);
+      const cersaiSubmission = await storage.getCersaiSubmissionBySession(sessionId);
+      const bseRequest = await storage.getBseUccRequestBySession(sessionId);
+
+      // Assemble composite state
+      return {
+        sessionId: session.id,
+        currentStep: session.currentStep,
+        kraStatus: kraCheck?.status,
+        kraNumber: kraCheck?.kraNumber || undefined,
+        ckycNumber: cersaiSubmission?.ckycNumber || undefined,
+        uccNumber: bseRequest?.uccNumber || undefined,
+        canProceed: this.determineCanProceed(session.currentStep),
+        nextAction: this.determineNextAction(session.currentStep)
+      };
+    } catch (error: any) {
+      console.error('[WorkflowStateAssembler] Assembly failed:', error.message);
+      return null;
+    }
+  }
+
+  private determineCanProceed(currentStep: string): boolean {
+    const proceedableSteps = [
+      'kra_verified',
+      'kra_not_found',
+      'cashfree_verified',
+      'cersai_submitted'
+    ];
+    return proceedableSteps.includes(currentStep);
+  }
+
+  private determineNextAction(currentStep: string): string {
+    const actionMap: Record<string, string> = {
+      'kra_verified': 'create_bse_ucc',
+      'kra_not_found': 'initiate_cashfree_ekyc',
+      'kra_check_pending': 'wait_for_kra_verification',
+      'cashfree_otp_sent': 'verify_otp',
+      'cashfree_verified': 'submit_cersai_ckyc',
+      'cersai_submitted': 'create_bse_ucc',
+      'ucc_created': 'completed'
+    };
+    return actionMap[currentStep] || 'unknown';
+  }
+}
+
 export class KycWorkflowOrchestrator {
+  private stateAssembler = new WorkflowStateAssembler();
+
   /**
    * Start KYC workflow with KRA status check (Tier 1)
    */
@@ -51,8 +120,9 @@ export class KycWorkflowOrchestrator {
     const session = await storage.createKycVerificationSession({
       userId,
       panNumber,
-      currentState: 'kra_check_initiated',
-      metadata: { initiatedVia: 'api', ipAddress, userAgent }
+      currentStep: 'kra_check_initiated',
+      ipAddress,
+      userAgent
     });
 
     await this.logStateTransition({
@@ -74,9 +144,7 @@ export class KycWorkflowOrchestrator {
     if (kraResult.status === 'verified') {
       // Early exit: KRA verified, skip to UCC creation
       await storage.updateKycVerificationSession(session.id, {
-        currentState: 'kra_verified',
-        kraNumber: kraResult.kraNumber,
-        kycStatus: 'kra_verified'
+        currentStep: 'kra_verified'
       });
 
       await this.logStateTransition({
@@ -94,7 +162,7 @@ export class KycWorkflowOrchestrator {
 
       return {
         sessionId: session.id,
-        currentState: 'kra_verified',
+        currentStep: 'kra_verified',
         kraStatus: 'verified',
         kraNumber: kraResult.kraNumber,
         nextAction: 'create_bse_ucc',
@@ -105,8 +173,7 @@ export class KycWorkflowOrchestrator {
     if (kraResult.status === 'pending') {
       // Async verification: will be polled by background job
       await storage.updateKycVerificationSession(session.id, {
-        currentState: 'kra_check_pending',
-        kycStatus: 'kra_pending'
+        currentStep: 'kra_check_pending'
       });
 
       await this.logStateTransition({
@@ -124,7 +191,7 @@ export class KycWorkflowOrchestrator {
 
       return {
         sessionId: session.id,
-        currentState: 'kra_check_pending',
+        currentStep: 'kra_check_pending',
         kraStatus: 'pending',
         nextAction: 'wait_for_kra_verification',
         canProceed: false
@@ -133,8 +200,7 @@ export class KycWorkflowOrchestrator {
 
     // KRA not found/rejected → Fall back to Cashfree eKYC
     await storage.updateKycVerificationSession(session.id, {
-      currentState: 'kra_not_found',
-      kycStatus: 'kra_fallback'
+      currentStep: 'kra_not_found'
     });
 
     await this.logStateTransition({
@@ -152,7 +218,7 @@ export class KycWorkflowOrchestrator {
 
     return {
       sessionId: session.id,
-      currentState: 'kra_not_found',
+      currentStep: 'kra_not_found',
       kraStatus: kraResult.status,
       nextAction: 'initiate_cashfree_ekyc',
       canProceed: true
@@ -168,7 +234,7 @@ export class KycWorkflowOrchestrator {
     nextPollAt?: Date;
   }> {
     try {
-      const result = await proteanKraService.checkKraStatus({ panNumber, dob });
+      const result = await proteanKRAService.checkKRAStatus({ panNumber, dateOfBirth: dob });
 
       // Create KRA status check record
       const kraCheck = await storage.createKraStatusCheck({
@@ -176,13 +242,13 @@ export class KycWorkflowOrchestrator {
         userId,
         status: result.status,
         kraNumber: result.kraNumber,
-        proteanReferenceId: result.referenceId,
+        proteanReferenceId: result.proteanReferenceId,
         verificationDate: result.verificationDate,
-        kraAgency: result.agency,
+        kraAgency: result.kraAgency,
         nextPollAt: result.status === 'pending' ? new Date(Date.now() + 5 * 60 * 1000) : undefined, // Poll in 5 min
         pollAttempt: 0,
         maxPollAttempts: 48, // 48 hours max
-        responsePayload: result.rawResponse,
+        responsePayload: result.responsePayload,
         reasonCode: result.reasonCode,
         reasonMessage: result.reasonMessage
       });
@@ -267,7 +333,7 @@ export class KycWorkflowOrchestrator {
       }
 
       await storage.updateKycVerificationSession(sessionId, {
-        currentState: 'cashfree_otp_sent'
+        currentStep: 'cashfree_otp_sent'
       });
 
       return {
@@ -349,8 +415,7 @@ export class KycWorkflowOrchestrator {
       }
 
       await storage.updateKycVerificationSession(sessionId, {
-        currentState: 'cashfree_verified',
-        kycStatus: 'ekyc_verified'
+        currentStep: 'cashfree_verified'
       });
 
       await this.logStateTransition({
@@ -431,9 +496,7 @@ export class KycWorkflowOrchestrator {
       }
 
       await storage.updateKycVerificationSession(sessionId, {
-        currentState: 'cersai_submitted',
-        ckycNumber: result.ckycNumber,
-        kycStatus: 'ckyc_submitted'
+        currentStep: 'cersai_submitted'
       });
 
       await this.logStateTransition({
@@ -531,9 +594,7 @@ export class KycWorkflowOrchestrator {
       }
 
       await storage.updateKycVerificationSession(sessionId, {
-        currentState: 'ucc_created',
-        uccNumber: result.uccNumber,
-        kycStatus: 'completed',
+        currentStep: 'ucc_created',
         completedAt: new Date()
       });
 
@@ -566,34 +627,10 @@ export class KycWorkflowOrchestrator {
   }
 
   /**
-   * Get workflow status
+   * Get workflow status using WorkflowStateAssembler
    */
   async getWorkflowStatus(sessionId: string): Promise<WorkflowState | null> {
-    try {
-      const session = await storage.getKycVerificationSession(sessionId);
-      
-      if (!session) {
-        return null;
-      }
-
-      const kraCheck = await storage.getKraStatusCheckBySession(sessionId);
-      const cersaiSubmission = await storage.getCersaiSubmissionBySession(sessionId);
-      const bseRequest = await storage.getBseUccRequestBySession(sessionId);
-
-      return {
-        sessionId: session.id,
-        currentState: session.currentState || 'unknown',
-        kraStatus: kraCheck?.status,
-        kraNumber: kraCheck?.kraNumber || session.kraNumber || undefined,
-        ckycNumber: cersaiSubmission?.ckycNumber || session.ckycNumber || undefined,
-        uccNumber: bseRequest?.uccNumber || session.uccNumber || undefined,
-        canProceed: this.determineCanProceed(session.currentState || ''),
-        nextAction: this.determineNextAction(session.currentState || '')
-      };
-    } catch (error: any) {
-      console.error('[KycOrchestrator] Get status failed:', error.message);
-      return null;
-    }
+    return this.stateAssembler.assembleWorkflowState(sessionId);
   }
 
   /**
@@ -605,37 +642,6 @@ export class KycWorkflowOrchestrator {
     } catch (error: any) {
       console.error('[KycOrchestrator] State transition logging failed:', error.message);
     }
-  }
-
-  /**
-   * Determine if workflow can proceed from current state
-   */
-  private determineCanProceed(currentState: string): boolean {
-    const proceedableStates = [
-      'kra_verified',
-      'kra_not_found',
-      'cashfree_verified',
-      'cersai_submitted'
-    ];
-    
-    return proceedableStates.includes(currentState);
-  }
-
-  /**
-   * Determine next action based on current state
-   */
-  private determineNextAction(currentState: string): string {
-    const actionMap: Record<string, string> = {
-      'kra_verified': 'create_bse_ucc',
-      'kra_not_found': 'initiate_cashfree_ekyc',
-      'kra_check_pending': 'wait_for_kra_verification',
-      'cashfree_otp_sent': 'verify_otp',
-      'cashfree_verified': 'submit_cersai_ckyc',
-      'cersai_submitted': 'create_bse_ucc',
-      'ucc_created': 'completed'
-    };
-    
-    return actionMap[currentState] || 'unknown';
   }
 }
 

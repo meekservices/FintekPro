@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import { storage } from '../storage';
-import { proteanKraService } from '../services/protean-kra-service';
+import { proteanKRAService } from '../services/protean-kra-service';
 
 /**
  * Background KRA Polling Job
@@ -45,7 +45,7 @@ async function pollKraStatuses() {
         }
 
         // Check KRA status again
-        const result = await proteanKraService.checkKraStatus({
+        const result = await proteanKRAService.checkKraStatus({
           panNumber: session.panNumber,
           dob: session.dateOfBirth || ''
         });
