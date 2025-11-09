@@ -572,6 +572,7 @@ export class SandboxKYCService {
         {
           headers: {
             Authorization: `Bearer ${token}`,
+            'x-api-version': '2.0',
             'Content-Type': 'application/json',
           },
         }
@@ -653,6 +654,7 @@ export class SandboxKYCService {
         {
           headers: {
             Authorization: `Bearer ${token}`,
+            'x-api-version': '2.0',
             'Content-Type': 'application/json',
           },
         }
