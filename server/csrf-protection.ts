@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { randomBytes } from 'crypto';
+import { getCookieDomain } from './cookie-domain';
 
 // Extend express-session to include csrfToken
 declare module 'express-session' {
@@ -42,13 +43,15 @@ export function getCsrfToken(req: Request, res: Response) {
     req.session.csrfToken = generateCsrfToken();
   }
 
+  const cookieDomain = getCookieDomain(req.hostname);
+
   // Set token in cookie FIRST (double-submit pattern)
   res.cookie('x-csrf-token', req.session.csrfToken, {
     httpOnly: false, // Must be accessible to JavaScript
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax', // Use 'lax' for better browser compatibility
     maxAge: 7 * 24 * 60 * 60 * 1000, // 1 week (matches session)
-    domain: process.env.NODE_ENV === 'production' ? '.fintekpro.com' : undefined,
+    domain: cookieDomain,
   });
 
   // Return token (client will include in x-csrf-token header)

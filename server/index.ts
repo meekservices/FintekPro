@@ -15,6 +15,7 @@ import { subdomainDetection } from "./subdomain-middleware";
 import { requestCorrelationMiddleware } from "./middleware/request-correlation";
 import { initializeCsrfToken, validateCsrfToken, getCsrfToken } from "./csrf-protection";
 import { shouldSkipAuthRateLimit } from "./admin-rate-limit-bypass";
+import { getCookieDomain } from "./cookie-domain";
 import "./services/sms-service"; // Initialize SMS service
 
 // CRITICAL: Process-level error handlers to prevent silent crashes
@@ -271,6 +272,15 @@ app.use((req, res, next) => {
   
   // Initialize authentication (Passport & sessions must be set up first)
   await setupReplitAuth(app);
+  
+  // Dynamically set session cookie domain per-request based on hostname
+  app.use((req, res, next) => {
+    if (req.session) {
+      const domain = getCookieDomain(req.hostname);
+      req.session.cookie.domain = domain;
+    }
+    next();
+  });
   
   // SECURITY: Initialize CSRF protection (must be after session, before routes)
   app.use(initializeCsrfToken());

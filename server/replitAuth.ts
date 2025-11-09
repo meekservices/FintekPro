@@ -33,6 +33,7 @@ export function getSession() {
     ttl: sessionTtl,
     tableName: "sessions",
   });
+  
   return session({
     name: 'fintekpro.sid',
     secret: process.env.SESSION_SECRET!,
@@ -46,8 +47,7 @@ export function getSession() {
       sameSite: "lax", // Use 'lax' for better browser compatibility
       maxAge: sessionTtl,
       path: '/',
-      // Share cookie across all fintekpro.com subdomains in production
-      domain: process.env.NODE_ENV === "production" ? ".fintekpro.com" : undefined,
+      domain: undefined, // Will be set dynamically per-request
     },
   });
 }
