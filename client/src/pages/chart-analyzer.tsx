@@ -22,6 +22,8 @@ type AssetSymbol = {
   symbol: string;
   name: string;
   color: string;
+  exchange: string;
+  displaySymbol: string;
 };
 
 type ChartDataPoint = {
@@ -45,6 +47,17 @@ type SavedConfigsResponse = {
 
 const CHART_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
+const EXCHANGES = [
+  { value: 'NS', label: 'NSE (India)', suffix: '.NS' },
+  { value: 'BO', label: 'BSE (India)', suffix: '.BO' },
+  { value: 'NASDAQ', label: 'NASDAQ (US)', suffix: '' },
+  { value: 'NYSE', label: 'NYSE (US)', suffix: '' },
+  { value: 'LSE', label: 'LSE (UK)', suffix: '.L' },
+  { value: 'TSE', label: 'TSE (Japan)', suffix: '.T' },
+  { value: 'HKG', label: 'HKEX (Hong Kong)', suffix: '.HK' },
+  { value: 'SSE', label: 'SSE (China)', suffix: '.SS' },
+];
+
 const DATE_PRESETS = [
   { label: '1M', months: 1 },
   { label: '3M', months: 3 },
@@ -58,6 +71,7 @@ export default function ChartAnalyzer() {
   const { toast } = useToast();
   const [selectedAssets, setSelectedAssets] = useState<AssetSymbol[]>([]);
   const [searchSymbol, setSearchSymbol] = useState('');
+  const [selectedExchange, setSelectedExchange] = useState('NS');
   const [dateRange, setDateRange] = useState<DateRange>({
     startDate: format(subYears(new Date(), 1), 'yyyy-MM-dd'),
     endDate: format(new Date(), 'yyyy-MM-dd'),
@@ -113,7 +127,7 @@ export default function ChartAnalyzer() {
     mutationFn: async (name: string) => {
       const payload = {
         name,
-        symbols: selectedAssets.map(a => a.symbol),
+        symbols: selectedAssets.map(a => `${a.symbol}|${a.exchange}`),
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
         chartType,
@@ -143,9 +157,11 @@ export default function ChartAnalyzer() {
   const addAsset = () => {
     if (!searchSymbol.trim()) return;
     
-    const symbol = searchSymbol.toUpperCase().trim();
+    const displaySymbol = searchSymbol.toUpperCase().trim();
+    const exchange = EXCHANGES.find(e => e.value === selectedExchange);
+    const fullSymbol = displaySymbol + (exchange?.suffix || '');
     
-    if (selectedAssets.some(a => a.symbol === symbol)) {
+    if (selectedAssets.some(a => a.symbol === fullSymbol)) {
       toast({
         title: "Duplicate asset",
         description: "This asset is already added to the comparison.",
@@ -164,8 +180,10 @@ export default function ChartAnalyzer() {
     }
 
     const newAsset: AssetSymbol = {
-      symbol,
-      name: symbol,
+      symbol: fullSymbol,
+      displaySymbol: displaySymbol,
+      name: displaySymbol,
+      exchange: exchange?.label || 'Unknown',
       color: CHART_COLORS[selectedAssets.length],
     };
 
@@ -196,11 +214,33 @@ export default function ChartAnalyzer() {
   };
 
   const loadConfiguration = (config: any) => {
-    const assets = config.symbols.map((symbol: string, index: number) => ({
-      symbol,
-      name: symbol,
-      color: CHART_COLORS[index],
-    }));
+    const assets = config.symbols.map((symbolWithExchange: string, index: number) => {
+      let symbol: string;
+      let exchange: string;
+      let displaySymbol: string;
+      
+      if (symbolWithExchange.includes('|')) {
+        const [fullSymbol, exchangeName] = symbolWithExchange.split('|');
+        symbol = fullSymbol;
+        exchange = exchangeName;
+        
+        const exchangeInfo = EXCHANGES.find(e => symbol.endsWith(e.suffix));
+        displaySymbol = exchangeInfo ? symbol.replace(exchangeInfo.suffix, '') : symbol;
+      } else {
+        const exchangeInfo = EXCHANGES.find(e => symbolWithExchange.endsWith(e.suffix));
+        symbol = symbolWithExchange;
+        displaySymbol = exchangeInfo ? symbolWithExchange.replace(exchangeInfo.suffix, '') : symbolWithExchange;
+        exchange = exchangeInfo?.label || 'Unknown';
+      }
+      
+      return {
+        symbol,
+        displaySymbol,
+        name: displaySymbol,
+        exchange,
+        color: CHART_COLORS[index],
+      };
+    });
     
     setSelectedAssets(assets);
     setDateRange({
@@ -286,6 +326,18 @@ export default function ChartAnalyzer() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex gap-2">
+              <Select value={selectedExchange} onValueChange={setSelectedExchange}>
+                <SelectTrigger className="w-[200px]" data-testid="select-exchange">
+                  <SelectValue placeholder="Select exchange" />
+                </SelectTrigger>
+                <SelectContent>
+                  {EXCHANGES.map((exchange) => (
+                    <SelectItem key={exchange.value} value={exchange.value}>
+                      {exchange.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Input
                 placeholder="Enter symbol (e.g., RELIANCE, TCS, INFY)"
                 value={searchSymbol}
@@ -310,7 +362,10 @@ export default function ChartAnalyzer() {
                     className="h-3 w-3 rounded-full"
                     style={{ backgroundColor: asset.color }}
                   />
-                  <span className="text-sm font-medium">{asset.symbol}</span>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium">{asset.displaySymbol}</span>
+                    <span className="text-xs text-muted-foreground">{asset.exchange}</span>
+                  </div>
                   <button
                     onClick={() => removeAsset(asset.symbol)}
                     className="ml-1 hover:bg-muted rounded p-0.5"
