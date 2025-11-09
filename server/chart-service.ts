@@ -1,5 +1,6 @@
 import { subDays, subMonths, subYears, format, parseISO } from 'date-fns';
 import { logger } from './logger';
+import yahooFinance from 'yahoo-finance2';
 
 export interface HistoricalDataPoint {
   date: string;
@@ -99,7 +100,6 @@ export class ChartService {
       });
 
       // Use Yahoo Finance for historical data
-      const yahooFinance = require('yahoo-finance2').default;
       const historical = await yahooFinance.historical(symbol, {
         period1: startDate,
         period2: endDate,
