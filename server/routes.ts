@@ -1927,6 +1927,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         riskLevel: 'medium'
       });
       
+      
+      // Cleanup any expired sessions first
+      await storage.cleanupExpiredKycSessions(userId);
       // Check for existing active session
       const existingSession = await storage.getActiveKycSession(userId);
       
@@ -1988,6 +1991,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Handle race condition: If session was created by another request, fetch and return it
         if (createError.code === '23505' && createError.message.includes('idx_unique_active_kyc_session')) {
           console.log(`[KYC Wizard] Detected race condition for user ${userId}, fetching existing session`);
+          await storage.cleanupExpiredKycSessions(userId);
           const existingSessionRetry = await storage.getActiveKycSession(userId);
           
           if (existingSessionRetry) {

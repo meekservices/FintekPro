@@ -903,6 +903,7 @@ export interface IStorage {
   createKycVerificationSession(session: InsertKycVerificationSession): Promise<KycVerificationSession>;
   getKycVerificationSession(id: string): Promise<KycVerificationSession | undefined>;
   getActiveKycSession(userId: string): Promise<KycVerificationSession | undefined>;
+  cleanupExpiredKycSessions(userId: string): Promise<number>;
   updateKycVerificationSession(id: string, updates: Partial<KycVerificationSession>): Promise<KycVerificationSession | undefined>;
   completeKycSession(id: string): Promise<void>;
   
@@ -6684,6 +6685,26 @@ export class DatabaseStorage implements IStorage {
       )
       .orderBy(desc(schema.kycVerificationSessions.startedAt));
     return session || undefined;
+  }
+  
+  async cleanupExpiredKycSessions(userId: string): Promise<number> {
+    const now = new Date();
+    const result = await db.update(schema.kycVerificationSessions)
+      .set({ isActive: false })
+      .where(
+        and(
+          eq(schema.kycVerificationSessions.userId, userId),
+          eq(schema.kycVerificationSessions.isActive, true),
+          lt(schema.kycVerificationSessions.expiresAt, now)
+        )
+      )
+      .returning({ id: schema.kycVerificationSessions.id });
+    
+    const count = result.length;
+    if (count > 0) {
+      console.log(`[KYC Cleanup] Deactivated ${count} expired session(s) for user ${userId}`);
+    }
+    return count;
   }
   
   async updateKycVerificationSession(id: string, updates: Partial<KycVerificationSession>): Promise<KycVerificationSession | undefined> {
