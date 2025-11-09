@@ -138,10 +138,15 @@ async function isAdminSafe(identifier: string): Promise<boolean> {
 
 /**
  * Rate limiter skip function - determines if request should bypass auth rate limiting
+ * 
+ * Note: express.json() middleware is applied before this skip function,
+ * so req.body is available for checking admin status
  */
 export async function shouldSkipAuthRateLimit(req: any): Promise<boolean> {
-  // Only apply to login endpoint
-  if (!req.path || !req.path.includes('/login')) {
+  // Check the full URL (originalUrl) to determine if it's a login endpoint
+  // req.path alone won't work because it's relative to the mount point
+  const fullPath = req.originalUrl || req.baseUrl + req.path || req.path;
+  if (!fullPath || !fullPath.includes('/login')) {
     return false;
   }
 
@@ -161,7 +166,7 @@ export async function shouldSkipAuthRateLimit(req: any): Promise<boolean> {
     if (isAdmin) {
       logger.info('Admin rate limit bypass', { 
         identifier,
-        path: req.path,
+        path: fullPath,
         ip: req.ip
       });
     }
@@ -172,7 +177,7 @@ export async function shouldSkipAuthRateLimit(req: any): Promise<boolean> {
     // Any error in skip logic should fail-safe to enforcing rate limit
     logger.error('Rate limit skip check failed', { 
       error: error instanceof Error ? error.message : String(error),
-      path: req.path 
+      path: fullPath 
     });
     return false;
   }

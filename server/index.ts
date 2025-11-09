@@ -100,6 +100,20 @@ const limiter = rateLimit({
 
 app.use("/api", limiter);
 
+// Parse body early for authentication endpoints to enable admin bypass check
+// This needs to run BEFORE the authLimiter so shouldSkipAuthRateLimit can access req.body
+app.use([
+  "/api/login",
+  "/api/login/verify-otp",
+  "/api/register",
+  "/api/register/verify-otp",
+  "/api/register/resend-otp",
+  "/api/otp/send",
+  "/api/otp/verify",
+  "/api/auth/forgot-password",
+  "/api/auth/reset-password"
+], express.json({ limit: "10mb" }));
+
 // Stricter rate limiting for authentication endpoints
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
