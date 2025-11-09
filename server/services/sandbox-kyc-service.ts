@@ -605,7 +605,7 @@ export class SandboxKYCService {
       
       console.error(`Sandbox Aadhaar OTP Error (${statusCode}):`, errorMsg);
       
-      // Throw specific errors for authentication/validation issues
+      // Return specific errors for authentication/validation issues
       if (statusCode === 400) {
         return {
           success: false,
@@ -618,24 +618,7 @@ export class SandboxKYCService {
         };
       }
       
-      // Return mock data for testing when Sandbox API is unavailable (403, 500, etc.)
-      // Only in non-production environments
-      if (process.env.NODE_ENV !== 'production') {
-        console.warn('Using mock data for testing');
-        const mockRefId = `MOCK_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-        const maskedAadhaar = `XXXX XXXX ${aadhaarNumber.slice(-4)}`;
-        
-        return {
-          success: true,
-          message: 'OTP sent successfully (Test Mode - Use OTP: 123456)',
-          ref_id: mockRefId,
-          status: 'SUCCESS',
-          maskedAadhaar,
-          isMock: true
-        };
-      }
-      
-      // In production, fail hard for Sandbox errors
+      // Return error for all other cases
       return {
         success: false,
         message: error.response?.data?.message || "Failed to generate OTP. Please try again."
@@ -656,45 +639,6 @@ export class SandboxKYCService {
           message: "OTP and Reference ID are required",
           verified: false
         };
-      }
-
-      // Handle mock OTP verification in non-production (MUST happen before authenticate())
-      if (refId.startsWith('MOCK_') && process.env.NODE_ENV !== 'production') {
-        if (otp === '123456') {
-          console.warn('Using mock Aadhaar verification data for testing');
-          return {
-            success: true,
-            message: 'Aadhaar verified successfully (Test Mode)',
-            verified: true,
-            data: {
-              aadhaarNumber: 'XXXX XXXX XXXX',  // Fully masked
-              name: 'Test User Name',
-              dob: '1990-01-01',
-              gender: 'M',
-              fatherName: 'Test Father Name',
-              address: {
-                house: 'Test House',
-                street: 'Test Street',
-                landmark: 'Test Landmark',
-                locality: 'Test Locality',
-                city: 'Test City',
-                state: 'Test State',
-                pincode: '000000',
-                country: 'India'
-              },
-              mobile: undefined,
-              email: undefined,
-              photoUrl: undefined
-            },
-            isMock: true
-          };
-        } else {
-          return {
-            success: false,
-            message: 'Invalid OTP (Test Mode - Use OTP: 123456)',
-            verified: false
-          };
-        }
       }
 
       const token = await this.authenticate();
