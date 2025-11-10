@@ -11538,7 +11538,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.id;
       
       // Get user's PAN from database
-      const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      const [user] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
       
       if (!user) {
         return res.status(404).json({
