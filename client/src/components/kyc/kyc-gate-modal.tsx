@@ -14,7 +14,7 @@ export function KycGateModal({ isOpen, onClose, kycProgress = 0 }: KycGateModalP
   const [, setLocation] = useLocation();
 
   const handleStartKyc = () => {
-    setLocation("/onboarding");
+    setLocation("/smart-production-kyc");
     onClose?.();
   };
 

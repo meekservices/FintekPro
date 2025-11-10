@@ -37,7 +37,7 @@ export function Footer() {
   const gettingStartedLinks = [
     { name: "Dashboard", href: "/" },
     { name: "Profile & KYC", href: "/profile" },
-    { name: "Onboarding", href: "/onboarding" },
+    { name: "Smart KYC", href: "/smart-production-kyc" },
   ];
 
   const researchLinks = [

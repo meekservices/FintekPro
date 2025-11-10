@@ -1,3 +1,24 @@
+/**
+ * @deprecated This page is DEPRECATED and no longer routed in the application.
+ * 
+ * This legacy Corporate KYC wizard has been replaced by the unified Smart Production KYC workflow.
+ * All routes to /corporate-kyc now redirect to /smart-production-kyc which provides:
+ * - Unified workflow for Individual, Corporate, and NRI user types
+ * - Protean (NSDL KRA) integration for status checks
+ * - Cashfree eKYC for entity verification
+ * - CERSAI for CKYC upload
+ * - BSE STAR for UCC creation
+ * - Corporate-specific entity verification and compliance checks
+ * 
+ * DO NOT reuse this component. Refer to client/src/pages/smart-production-kyc.tsx instead.
+ * This file is kept for reference only and will be removed after telemetry confirms zero traffic.
+ * 
+ * Backend API endpoints (/api/corporate-kyc/*) are marked deprecated but remain functional for backward compatibility.
+ * 
+ * Migration Date: November 10, 2025
+ * New Route: /smart-production-kyc
+ */
+
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";

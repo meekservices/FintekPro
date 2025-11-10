@@ -1,3 +1,22 @@
+/**
+ * @deprecated This page is DEPRECATED and no longer routed in the application.
+ * 
+ * This legacy NRI KYC wizard has been replaced by the unified Smart Production KYC workflow.
+ * All routes to /nri-kyc now redirect to /smart-production-kyc which provides:
+ * - Unified workflow for Individual, Corporate, and NRI user types
+ * - Protean (NSDL KRA) integration for status checks
+ * - Cashfree eKYC for Aadhaar verification
+ * - CERSAI for CKYC upload
+ * - BSE STAR for UCC creation
+ * - NRI-specific passport and repatriation setup
+ * 
+ * DO NOT reuse this component. Refer to client/src/pages/smart-production-kyc.tsx instead.
+ * This file is kept for reference only and will be removed after telemetry confirms zero traffic.
+ * 
+ * Migration Date: November 10, 2025
+ * New Route: /smart-production-kyc
+ */
+
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";

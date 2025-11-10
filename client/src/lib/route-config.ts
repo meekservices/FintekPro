@@ -32,7 +32,7 @@ export const KYC_REQUIRED_ROUTES: RouteConfig[] = [
 
 // Auth-only routes - require authentication but NOT KYC
 export const AUTH_ONLY_ROUTES: RouteConfig[] = [
-  { path: "/onboarding", name: "KYC Wizard", requiresAuth: true, requiresKyc: false },
+  { path: "/smart-production-kyc", name: "Smart KYC", requiresAuth: true, requiresKyc: false },
   { path: "/kyc-dashboard", name: "KYC Dashboard", requiresAuth: true, requiresKyc: false },
   { path: "/settings", name: "Settings", requiresAuth: true, requiresKyc: false },
   { path: "/profile", name: "Profile", requiresAuth: true, requiresKyc: false },

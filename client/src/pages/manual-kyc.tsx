@@ -1062,7 +1062,7 @@ export default function ManualKYCPage() {
               <>
                 This path uses direct document upload with BSE Star MFD API verification. 
                 <strong className="block mt-1">
-                  Prefer the <a href="/onboarding" className="text-blue-600 underline">Smart KYC Onboarding</a> for a faster, AI-assisted experience with auto-fill.
+                  Prefer the <a href="/smart-production-kyc" className="text-blue-600 underline">Smart Production KYC</a> for a faster, production-grade experience with Protean KRA, Cashfree eKYC, and BSE UCC.
                 </strong>
               </>
             ) : kycType === 'corporate' ? (

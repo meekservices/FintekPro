@@ -1,3 +1,21 @@
+/**
+ * @deprecated This page is DEPRECATED and no longer routed in the application.
+ * 
+ * This legacy Individual KYC wizard has been replaced by the unified Smart Production KYC workflow.
+ * All routes to /onboarding now redirect to /smart-production-kyc which provides:
+ * - Protean (NSDL KRA) integration for status checks
+ * - Cashfree eKYC for Aadhaar verification
+ * - CERSAI for CKYC upload
+ * - BSE STAR for UCC creation
+ * - Support for Individual, Corporate, and NRI user types
+ * 
+ * DO NOT reuse this component. Refer to client/src/pages/smart-production-kyc.tsx instead.
+ * This file is kept for reference only and will be removed after telemetry confirms zero traffic.
+ * 
+ * Migration Date: November 10, 2025
+ * New Route: /smart-production-kyc
+ */
+
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";

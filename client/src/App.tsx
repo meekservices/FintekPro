@@ -1,4 +1,4 @@
-import { Switch, Route, useLocation } from "wouter";
+import { Switch, Route, useLocation, Redirect } from "wouter";
 import { lazy, useEffect } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -131,6 +131,11 @@ import AuditLedger from "@/pages/admin/audit-ledger";
 import AIFixSuggestions from "@/pages/admin/ai-fixes";
 import PredictiveAnalytics from "@/pages/PredictiveAnalytics";
 
+// Legacy KYC redirect component for backward compatibility
+function LegacyKYCRedirect() {
+  return <Redirect to="/smart-production-kyc" />;
+}
+
 function UserProtectedRoutes() {
   return (
     <ProfileCompletionGuard>
@@ -220,7 +225,8 @@ function UserProtectedRoutes() {
         <Route path="/loan-dashboard" component={LoanDashboard} />
         <Route path="/families" component={FamilyList} />
         <Route path="/families/:id" component={FamilyDashboard} />
-        <Route path="/corporate-kyc" component={CorporateKYCPage} />
+        {/* Legacy KYC route - redirect to unified page */}
+        <Route path="/corporate-kyc" component={LegacyKYCRedirect} />
         {/* New Pages */}
         <Route path="/settings" component={SettingsPage} />
         <Route path="/credit-report" component={CreditReportPage} />
@@ -488,13 +494,19 @@ function Router() {
         {/* Public routes - no authentication or profile completion required */}
         <Route path="/auth" component={AuthPage} />
         <Route path="/profile" component={Profile} />
-        <Route path="/onboarding" component={OnboardingPage} />
-        <Route path="/smart-kyc" component={SmartProductionKYC} />
+        
+        {/* Smart Production KYC - Unified KYC workflow */}
+        <Route path="/smart-production-kyc" component={SmartProductionKYC} />
         <Route path="/manual-kyc" component={ManualKYCPage} />
-        <Route path="/nri-kyc" component={NRIKYCPage} />
-        <Route path="/corporate-kyc" component={CorporateKYCPage} />
         <Route path="/kyc-dashboard" component={KYCDashboard} />
         <Route path="/net-worth" component={NetWorthPage} />
+        
+        {/* Legacy KYC routes - redirect to unified page for backward compatibility */}
+        <Route path="/onboarding" component={LegacyKYCRedirect} />
+        <Route path="/smart-kyc" component={LegacyKYCRedirect} />
+        <Route path="/nri-kyc" component={LegacyKYCRedirect} />
+        <Route path="/corporate-kyc" component={LegacyKYCRedirect} />
+        
         <Route path="/privacy" component={Privacy} />
         <Route path="/terms" component={Terms} />
         
