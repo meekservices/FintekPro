@@ -32678,7 +32678,4 @@ System Security Data:`;
   // Smart onboarding with database-first PAN validation
   // ============================================================
 
-  // TODO: Implement production KYC routes - See /tmp/production-kyc-routes.ts
-  // Routes will be added after storage refactoring is complete
-
 }

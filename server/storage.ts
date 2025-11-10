@@ -3,6 +3,7 @@ import { type CashfreeTransaction, type InsertCashfreeTransaction, type PhonePeT
 import { type Product, type InsertProduct, type ApplicationDocument, type InsertApplicationDocument, type ProductAccountPreference, type InsertProductAccountPreference, type ICICILoanApplication, type InsertICICILoanApplication, type ICICICreditScore, type InsertICICICreditScore, type PortfolioComparison, type InsertPortfolioComparison, type ChatSession, type InsertChatSession, type ChatMessage, type InsertChatMessage, type ChatAction, type InsertChatAction, type ChatFunction, type InsertChatFunction, type CurrencyRate, type InsertCurrencyRate, type CkycNotificationTrigger, type InsertCkycNotificationTrigger, type KycVerificationSession, type InsertKycVerificationSession, type ManualKycSubmission, type InsertManualKycSubmission, type ManualKycDocument, type InsertManualKycDocument, type KraStatusCheck, type InsertKraStatusCheck, type CashfreeEkycSession, type InsertCashfreeEkycSession, type CersaiSubmission, type InsertCersaiSubmission, type BseUccRequest, type InsertBseUccRequest, type KycStateTransition, type InsertKycStateTransition } from "@shared/schema";
 import { randomUUID, scrypt, timingSafeEqual } from "crypto";
 import { promisify } from "util";
+import { productionKycStorage } from "./productionKycStorage";
 import { db } from "./db";
 import { eq, and, or, desc, asc, gte, lte, lt, like, ilike, sql, isNull } from "drizzle-orm";
 import * as schema from "@shared/schema";
@@ -8690,5 +8691,5 @@ export class DatabaseStorage implements IStorage, IKycStorage {
   }
 }
 
-// Use DatabaseStorage instead of MemStorage
+
 export const storage = new DatabaseStorage();
