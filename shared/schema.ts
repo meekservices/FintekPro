@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, decimal, timestamp, jsonb, boolean, index, integer, date, bigint, numeric } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, decimal, timestamp, jsonb, boolean, uniqueIndex, index, integer, date, bigint, numeric } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -677,6 +677,99 @@ export const cersaiSubmissions = pgTable("cersai_submissions", {
 ]);
 
 // BSE UCC Requests table for BSE STAR mutual fund account creation
+
+// ============================================================
+// PRODUCTION KYC WORKFLOW TABLES
+// Smart onboarding with database-first PAN validation
+// ============================================================
+
+// PAN Verification Records - Cache for verified PAN data
+export const panVerificationRecords = pgTable("pan_verification_records", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // PAN Details
+  panNumber: varchar("pan_number").notNull(),
+  fullName: varchar("full_name").notNull(),
+  dateOfBirth: varchar("date_of_birth").notNull(),
+  panType: varchar("pan_type").default("Individual"), // Individual, Company, HUF, etc.
+  
+  // Verification Status
+  verified: boolean("verified").default(false),
+  verifiedAt: timestamp("verified_at"),
+  verificationSource: varchar("verification_source").default("sandbox_api"), // sandbox_api, manual, etc.
+  
+  // Audit fields
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_pan_records_user").on(table.userId),
+  index("idx_pan_records_pan").on(table.panNumber),
+  // Ensure one PAN per user (prevent duplicates)
+  uniqueIndex("unique_user_pan").on(table.userId, table.panNumber),
+]);
+
+// Production KYC Sessions - Smart onboarding workflow tracking
+export const productionKycSessions = pgTable("production_kyc_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // User Type and Flow
+  userType: varchar("user_type").default("individual"), // individual, corporate, nri
+  currentStep: varchar("current_step").notNull().default("pan_verification"), // pan_verification, entity_details, kra_check, cashfree_ekyc, cersai_submission, bse_ucc, completed, cancelled
+  
+  // PAN Verification
+  panNumber: varchar("pan_number"),
+  panVerified: boolean("pan_verified").default(false),
+  
+  // Entity Details (Corporate/NRI)
+  entityType: varchar("entity_type"), // For corporate: company, partnership, llp, trust, society, huf
+  companyName: varchar("company_name"),
+  cin: varchar("cin"), // Corporate Identification Number
+  gstin: varchar("gstin"), // GST Number
+  incorporationDate: varchar("incorporation_date"),
+  entityRegistrationNumber: varchar("entity_registration_number"),
+  
+  // NRI Details
+  residentStatus: varchar("resident_status"), // nri_ordinary, nri_non_ordinary, oci, pio
+  passportNumber: varchar("passport_number"),
+  countryOfResidence: varchar("country_of_residence"),
+  overseasAddress: text("overseas_address"),
+  repatriationType: varchar("repatriation_type"), // repatriable (NRE), non_repatriable (NRO)
+  
+  // KRA Verification
+  kraVerified: boolean("kra_verified").default(false),
+  kraVerifiedAt: timestamp("kra_verified_at"),
+  kraCheckTimeout: boolean("kra_check_timeout").default(false),
+  
+  // Cashfree Aadhaar eKYC
+  cashfreeVerified: boolean("cashfree_verified").default(false),
+  cashfreeVerifiedAt: timestamp("cashfree_verified_at"),
+  cashfreeTransactionId: varchar("cashfree_transaction_id"),
+  
+  // CERSAI Submission
+  cersaiSubmitted: boolean("cersai_submitted").default(false),
+  cersaiSubmittedAt: timestamp("cersai_submitted_at"),
+  ckycNumber: varchar("ckyc_number"), // 14-digit CKYC number
+  
+  // BSE UCC Creation
+  uccCreated: boolean("ucc_created").default(false),
+  uccCreatedAt: timestamp("ucc_created_at"),
+  uccNumber: varchar("ucc_number"), // BSE Unique Client Code
+  
+  // Session Metadata
+  startedAt: timestamp("started_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  expiresAt: timestamp("expires_at"),
+  
+  // Audit fields
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_production_kyc_user").on(table.userId),
+  index("idx_production_kyc_step").on(table.currentStep),
+  index("idx_production_kyc_pan").on(table.panNumber),
+]);
 export const bseUccRequests = pgTable("bse_ucc_requests", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   sessionId: varchar("session_id").references(() => kycVerificationSessions.id).notNull(),
@@ -10877,3 +10970,7 @@ export type SymbolSearchRequest = z.infer<typeof symbolSearchRequestSchema>;
 export type SymbolSearchResult = z.infer<typeof symbolSearchResultSchema>;
 export type SymbolSearchResponse = z.infer<typeof symbolSearchResponseSchema>;
 
+
+// Production KYC Workflow Types
+export type PanVerificationRecord = typeof panVerificationRecords.$inferSelect;
+export type ProductionKycSession = typeof productionKycSessions.$inferSelect;
