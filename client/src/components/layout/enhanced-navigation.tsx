@@ -145,7 +145,7 @@ export function EnhancedNavigation() {
               name: "Individual KYC", 
               description: "For individual investors",
               subItems: [
-                { name: "Smart Mode", href: "/onboarding", description: "AI-assisted wizard with auto-fill & progressive save" },
+                { name: "Smart Mode", href: "/smart-production-kyc", description: "Production KYC with Protean, Cashfree eKYC, CERSAI & BSE UCC", badge: "NEW" },
                 { name: "Manual Mode", href: "/manual-kyc?type=individual", description: "Traditional document upload via BSE Star API" }
               ]
             },
@@ -153,7 +153,7 @@ export function EnhancedNavigation() {
               name: "Corporate/Non-Individual KYC", 
               description: "For companies and organizations",
               subItems: [
-                { name: "Smart Mode", href: "/corporate-kyc", description: "Step-by-step corporate wizard with entity verification" },
+                { name: "Smart Mode", href: "/smart-production-kyc", description: "Production KYC with entity verification & compliance checks", badge: "NEW" },
                 { name: "Manual Mode", href: "/manual-kyc?type=corporate", description: "Document submission via BSE Star API" }
               ]
             },
@@ -161,7 +161,7 @@ export function EnhancedNavigation() {
               name: "NRI KYC", 
               description: "For Non-Resident Indians",
               subItems: [
-                { name: "Smart Mode", href: "/nri-kyc", description: "NRI-specific intelligent wizard" },
+                { name: "Smart Mode", href: "/smart-production-kyc", description: "Production KYC with passport verification & repatriation setup", badge: "NEW" },
                 { name: "Manual Mode", href: "/manual-kyc?type=nri", description: "Passport & OCI verification via BSE Star API" }
               ]
             },
