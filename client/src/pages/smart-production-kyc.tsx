@@ -105,6 +105,10 @@ export default function SmartProductionKYCOnboarding() {
   const [countryOfResidence, setCountryOfResidence] = useState("");
   const [repatriationType, setRepatriationType] = useState("");
 
+  // Session management
+  const [existingSessionDialogOpen, setExistingSessionDialogOpen] = useState(false);
+  const [existingSession, setExistingSession] = useState<any>(null);
+
   // Authentication guard
   useEffect(() => {
     if (!isLoading && !user) {
@@ -116,6 +120,78 @@ export default function SmartProductionKYCOnboarding() {
       setLocation("/login");
     }
   }, [user, isLoading, setLocation, toast]);
+
+  // Check for existing session on page load
+  useEffect(() => {
+    if (user && !isLoading) {
+      checkExistingSession();
+    }
+  }, [user, isLoading]);
+
+  // Check for existing in-progress session
+  const checkExistingSession = async () => {
+    try {
+      const response = await apiRequest("POST", "/api/kyc/production/check-session", {});
+      if (response.hasSession && response.session) {
+        setExistingSession(response.session);
+        setExistingSessionDialogOpen(true);
+      }
+    } catch (error) {
+      // No session or error, proceed normally
+      console.error("Session check error:", error);
+    }
+  };
+
+  // Resume existing session
+  const handleResumeSession = () => {
+    if (existingSession) {
+      // Restore session state
+      setSessionId(existingSession.id);
+      setUserType(existingSession.userType || "individual");
+      setCurrentStep(existingSession.currentStep || "pan_verification");
+      setPanNumber(existingSession.panNumber || "");
+      setPanVerified(existingSession.panVerified || false);
+      
+      // Close dialog
+      setExistingSessionDialogOpen(false);
+      
+      toast({
+        title: "Session Resumed",
+        description: `Continuing from ${existingSession.currentStep} step`,
+      });
+    }
+  };
+
+  // Cancel existing session mutation
+  const cancelSessionMutation = useMutation({
+    mutationFn: async (sessionIdToCancel: string) => {
+      return await apiRequest("POST", "/api/kyc/production/cancel-session", {
+        body: { sessionId: sessionIdToCancel },
+      });
+    },
+    onSuccess: () => {
+      setExistingSession(null);
+      setExistingSessionDialogOpen(false);
+      toast({
+        title: "Session Cancelled",
+        description: "Previous KYC session has been cancelled. You can start a new one.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to cancel session",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Handle cancel session
+  const handleCancelSession = () => {
+    if (existingSession?.id) {
+      cancelSessionMutation.mutate(existingSession.id);
+    }
+  };
 
   // Check if PAN exists in database
   const checkPanMutation = useMutation({
@@ -1088,5 +1164,76 @@ export default function SmartProductionKYCOnboarding() {
     );
   }
 
-  return null;
+  // Session Management Dialog
+  return (
+    <>
+      <Dialog open={existingSessionDialogOpen} onOpenChange={setExistingSessionDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Existing KYC Session Found</DialogTitle>
+            <DialogDescription>
+              You have an incomplete KYC session. Would you like to resume where you left off or start fresh?
+            </DialogDescription>
+          </DialogHeader>
+          
+          {existingSession && (
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">User Type</p>
+                  <p className="font-medium capitalize">{existingSession.userType}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Current Step</p>
+                  <p className="font-medium capitalize">{existingSession.currentStep?.replace(/_/g, " ")}</p>
+                </div>
+              </div>
+              
+              {existingSession.panNumber && (
+                <div>
+                  <p className="text-sm text-muted-foreground">PAN Number</p>
+                  <p className="font-medium">{existingSession.panNumber}</p>
+                </div>
+              )}
+              
+              <div className="flex items-center gap-2 text-sm">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">
+                  Started {new Date(existingSession.createdAt).toLocaleDateString()}
+                </span>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={handleCancelSession}
+              disabled={cancelSessionMutation.isPending}
+              data-testid="button-cancel-session"
+            >
+              {cancelSessionMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Cancelling...
+                </>
+              ) : (
+                <>
+                  <XCircle className="mr-2 h-4 w-4" />
+                  Start Fresh
+                </>
+              )}
+            </Button>
+            <Button
+              onClick={handleResumeSession}
+              data-testid="button-resume-session"
+            >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Resume Session
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
 }
