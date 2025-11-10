@@ -2097,7 +2097,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       // Parse full name and update firstName/lastName if not already set
-      const [currentUser] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      const [currentUser] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
       if (currentUser && !currentUser.firstName && verification.fullName) {
         const nameParts = verification.fullName.split(' ');
         updateData.firstName = nameParts[0];
@@ -19034,8 +19034,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get both users
-      const [keepUser] = await db.select().from(users).where(eq(users.id, keepUserId));
-      const [mergeUser] = await db.select().from(users).where(eq(users.id, mergeUserId));
+      const [keepUser] = await db.select().from(schema.users).where(eq(schema.users.id, keepUserId));
+      const [mergeUser] = await db.select().from(schema.users).where(eq(schema.users.id, mergeUserId));
       
       if (!keepUser || !mergeUser) {
         return apiResponse.notFound(res, "One or both users not found");
