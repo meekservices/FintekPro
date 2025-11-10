@@ -1,13 +1,12 @@
 import { Router } from "express";
 import type { IStorage } from "./storage";
-import { requireClientOrHigher } from "./auth";
-import { apiResponse } from "./utils/apiResponse";
+import { apiResponse } from "./utils/responses";
 
 /**
  * Production KYC Routes
  * Smart onboarding workflow with database-first PAN validation
  */
-export function createProductionKycRouter(storage: IStorage) {
+export function createProductionKycRouter(storage: IStorage, requireClientOrHigher: any) {
   const router = Router();
 
   // Check if PAN exists in database

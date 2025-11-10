@@ -25,6 +25,7 @@ import { portfolioIntelligence } from "./portfolio-intelligence";
 import { adminService } from "./admin-service";
 import { duplicateDetectionService } from "./services/duplicateDetectionService";
 import { partnerService } from "./partner-service";
+import { createProductionKycRouter } from "./productionKycRoutes";
 import { z } from "zod";
 import { NseIndia } from 'stock-nse-india';
 import { comprehensiveAIFPMSAPI } from "./comprehensive-aif-pms-api";
@@ -32678,4 +32679,9 @@ System Security Data:`;
   // Smart onboarding with database-first PAN validation
   // ============================================================
 
+
+  // Mount production KYC router
+  const productionKycRouter = createProductionKycRouter(storage, requireClientOrHigher);
+  app.use("/api/kyc/production", productionKycRouter);
+  console.log("✅ Production KYC routes registered");
 }
