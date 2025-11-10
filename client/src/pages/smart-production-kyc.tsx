@@ -75,6 +75,9 @@ export default function SmartProductionKYCOnboarding() {
   const [panDob, setPanDob] = useState("");
   const [panVerified, setPanVerified] = useState(false);
   const [panData, setPanData] = useState<any>(null);
+  
+  // PAN sub-step state machine (check → verify)
+  const [panSubStep, setPanSubStep] = useState<"check" | "verify">("check");
 
   // Production KYC session
   const [sessionId, setSessionId] = useState<string>("");
@@ -127,6 +130,21 @@ export default function SmartProductionKYCOnboarding() {
       checkExistingSession();
     }
   }, [user, isLoading]);
+
+  // Handle browser back button for PAN sub-step navigation
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (event.state && event.state.panSubStep) {
+        setPanSubStep(event.state.panSubStep);
+      } else if (panSubStep === "verify") {
+        // Back button pressed from verify step
+        setPanSubStep("check");
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [panSubStep]);
 
   // Check for existing in-progress session
   const checkExistingSession = async () => {
@@ -216,10 +234,13 @@ export default function SmartProductionKYCOnboarding() {
           setCurrentStep("entity_details");
         }
       } else {
-        // PAN not found, need to verify via Sandbox
+        // PAN not found, transition to verify sub-step
+        setPanSubStep("verify");
+        // Push history state for back button support
+        window.history.pushState({ panSubStep: "verify" }, "");
         toast({
-          title: "PAN Verification Required",
-          description: "Please verify your PAN details",
+          title: "PAN Not Found",
+          description: "Please enter your details to verify your PAN",
         });
       }
     },
@@ -266,6 +287,12 @@ export default function SmartProductionKYCOnboarding() {
         variant: "destructive",
       });
     },
+  });
+
+  // Fetch KYC Tier Status
+  const { data: tierStatus, isLoading: tierStatusLoading, refetch: refetchTierStatus } = useQuery({
+    queryKey: ["/api/kyc/production/tier-status"],
+    enabled: !!user && !isLoading,
   });
 
   // Start production KYC workflow (KRA check)
@@ -492,6 +519,141 @@ export default function SmartProductionKYCOnboarding() {
     return null;
   }
 
+  // Render KYC Status Card (if user has existing KYC)
+  if (currentStep === "user_type_selection" && tierStatus?.currentTier) {
+    return (
+      <div className="container mx-auto p-6 max-w-4xl space-y-6">
+        {/* Current KYC Status Card */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-2xl flex items-center gap-2">
+                  <Shield className="h-6 w-6 text-green-600" />
+                  Your KYC Status
+                </CardTitle>
+                <CardDescription>
+                  Current verification level and available features
+                </CardDescription>
+              </div>
+              <Badge variant="default" className="text-lg px-4 py-2">
+                {tierStatus.currentTierName}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Tier Description */}
+            <Alert>
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <AlertTitle>Active KYC Tier</AlertTitle>
+              <AlertDescription>{tierStatus.currentTierDescription}</AlertDescription>
+            </Alert>
+
+            {/* Completed Verifications */}
+            <div className="space-y-3">
+              <h3 className="font-semibold text-sm text-muted-foreground">
+                Completed Verifications
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {tierStatus.completedVerifications?.map((verification: any) => (
+                  <div
+                    key={verification.code}
+                    className="flex items-center gap-2 p-2 rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
+                    data-testid={`verification-${verification.code}`}
+                  >
+                    <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                    <span className="text-sm">{verification.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Unlocked Features */}
+            <div className="space-y-3">
+              <h3 className="font-semibold text-sm text-muted-foreground">
+                Unlocked Products & Services
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {tierStatus.unlockedFeatures?.map((feature: string) => (
+                  <div
+                    key={feature}
+                    className="flex items-center gap-2 p-2 rounded-md bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800"
+                    data-testid={`feature-${feature.toLowerCase().replace(/\s+/g, '-')}`}
+                  >
+                    <CheckCircle className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                    <span className="text-sm font-medium">{feature}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Upgrade Section */}
+            {tierStatus.eligibleForUpgrade && tierStatus.nextTier && (
+              <div className="space-y-3 pt-4 border-t">
+                <h3 className="font-semibold text-sm text-muted-foreground">
+                  Upgrade Available
+                </h3>
+                <Alert>
+                  <ArrowRight className="h-4 w-4" />
+                  <AlertTitle>{tierStatus.nextTierName}</AlertTitle>
+                  <AlertDescription>{tierStatus.nextTierDescription}</AlertDescription>
+                </Alert>
+
+                {/* Missing Verifications for Upgrade */}
+                {tierStatus.missingVerifications && tierStatus.missingVerifications.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground">
+                      Additional verifications required:
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {tierStatus.missingVerifications.map((verification: any) => (
+                        <div
+                          key={verification.code}
+                          className="flex items-center gap-2 p-2 rounded-md bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800"
+                          data-testid={`missing-${verification.code}`}
+                        >
+                          <Clock className="h-4 w-4 text-yellow-600 flex-shrink-0" />
+                          <span className="text-sm">{verification.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <Button
+                  onClick={() => {
+                    // Start upgrade flow
+                    setCurrentStep("pan_verification");
+                    toast({
+                      title: "Starting Upgrade",
+                      description: `Beginning upgrade to ${tierStatus.nextTierName}`,
+                    });
+                  }}
+                  className="w-full"
+                  data-testid="button-upgrade-tier"
+                >
+                  <ArrowRight className="mr-2 h-4 w-4" />
+                  Upgrade to {tierStatus.nextTierName}
+                </Button>
+              </div>
+            )}
+
+            {/* Already at Highest Tier */}
+            {!tierStatus.eligibleForUpgrade && tierStatus.currentTier === "tier_3" && (
+              <Alert className="border-green-200 bg-green-50 dark:bg-green-900/20">
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <AlertTitle>Maximum KYC Level Achieved</AlertTitle>
+                <AlertDescription>
+                  You have completed the highest level of KYC verification. You have access to all premium features and products.
+                </AlertDescription>
+              </Alert>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   // Render User Type Selection
   if (currentStep === "user_type_selection") {
     return (
@@ -556,81 +718,157 @@ export default function SmartProductionKYCOnboarding() {
     );
   }
 
-  // Render PAN Verification
+  // Render PAN Verification (Two-Page Flow)
   if (currentStep === "pan_verification") {
-    return (
-      <div className="container mx-auto p-6 max-w-2xl">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-2xl">PAN Verification</CardTitle>
-                <CardDescription>
-                  Verify your PAN to proceed with KYC
-                </CardDescription>
+    // Page 1: Check PAN (Database Lookup)
+    if (panSubStep === "check") {
+      return (
+        <div className="container mx-auto p-6 max-w-2xl">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-2xl">Check PAN</CardTitle>
+                  <CardDescription>
+                    Enter your PAN to check if it's already verified
+                  </CardDescription>
+                </div>
+                <Badge variant="outline">{userType.toUpperCase()}</Badge>
               </div>
-              <Badge variant="outline">{userType.toUpperCase()}</Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <Progress value={getProgressPercentage()} className="h-2" />
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <Progress value={getProgressPercentage()} className="h-2" />
 
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="pan-number">PAN Number</Label>
-                <Input
-                  id="pan-number"
-                  data-testid="input-pan-number"
-                  placeholder="ABCDE1234F"
-                  value={panNumber}
-                  onChange={(e) => setPanNumber(e.target.value.toUpperCase())}
-                  maxLength={10}
-                  className="uppercase"
-                />
-              </div>
+              <Alert>
+                <CheckCircle className="h-4 w-4" />
+                <AlertTitle>Fast Database Lookup</AlertTitle>
+                <AlertDescription>
+                  We'll check if your PAN is already in our records. If found, you'll skip manual verification!
+                </AlertDescription>
+              </Alert>
 
-              <div>
-                <Label htmlFor="pan-name">Full Name (as per PAN)</Label>
-                <Input
-                  id="pan-name"
-                  data-testid="input-pan-name"
-                  placeholder="Enter your full name"
-                  value={panFullName}
-                  onChange={(e) => setPanFullName(e.target.value)}
-                />
-              </div>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="pan-number">PAN Number</Label>
+                  <Input
+                    id="pan-number"
+                    data-testid="input-pan-number"
+                    placeholder="ABCDE1234F"
+                    value={panNumber}
+                    onChange={(e) => setPanNumber(e.target.value.toUpperCase())}
+                    maxLength={10}
+                    className="uppercase"
+                    autoFocus
+                  />
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Enter your 10-character PAN number
+                  </p>
+                </div>
 
-              <div>
-                <Label htmlFor="pan-dob">Date of Birth</Label>
-                <Input
-                  id="pan-dob"
-                  data-testid="input-pan-dob"
-                  type="date"
-                  value={panDob}
-                  onChange={(e) => setPanDob(e.target.value)}
-                />
-              </div>
-
-              <div className="flex gap-3">
                 <Button
                   onClick={() => checkPanMutation.mutate(panNumber)}
                   disabled={
                     !panNumber || panNumber.length !== 10 || checkPanMutation.isPending
                   }
-                  className="flex-1"
+                  className="w-full"
                   data-testid="button-check-pan"
                 >
                   {checkPanMutation.isPending ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Checking...
+                      Checking Database...
                     </>
                   ) : (
-                    "Check PAN"
+                    <>
+                      <CheckCircle className="mr-2 h-4 w-4" />
+                      Check PAN
+                    </>
                   )}
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
 
-                {!checkPanMutation.data?.exists && (
+    // Page 2: Verify PAN (API Verification)
+    if (panSubStep === "verify") {
+      return (
+        <div className="container mx-auto p-6 max-w-2xl">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-2xl">Verify PAN</CardTitle>
+                  <CardDescription>
+                    Complete your PAN verification with government records
+                  </CardDescription>
+                </div>
+                <Badge variant="outline">{userType.toUpperCase()}</Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <Progress value={getProgressPercentage()} className="h-2" />
+
+              <Alert>
+                <Shield className="h-4 w-4" />
+                <AlertTitle>Secure API Verification</AlertTitle>
+                <AlertDescription>
+                  Your details will be verified against Income Tax Department records via Sandbox API
+                </AlertDescription>
+              </Alert>
+
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="pan-number-readonly">PAN Number</Label>
+                  <Input
+                    id="pan-number-readonly"
+                    data-testid="input-pan-number-readonly"
+                    value={panNumber}
+                    readOnly
+                    disabled
+                    className="uppercase bg-muted"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="pan-name">Full Name (as per PAN)</Label>
+                  <Input
+                    id="pan-name"
+                    data-testid="input-pan-name"
+                    placeholder="Enter your full name exactly as on PAN card"
+                    value={panFullName}
+                    onChange={(e) => setPanFullName(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="pan-dob">Date of Birth</Label>
+                  <Input
+                    id="pan-dob"
+                    data-testid="input-pan-dob"
+                    type="date"
+                    value={panDob}
+                    onChange={(e) => setPanDob(e.target.value)}
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <Button
+                    onClick={() => {
+                      setPanSubStep("check");
+                      window.history.back();
+                    }}
+                    variant="outline"
+                    className="flex-1"
+                    data-testid="button-back-to-check"
+                  >
+                    <ArrowRight className="mr-2 h-4 w-4 rotate-180" />
+                    Back
+                  </Button>
+
                   <Button
                     onClick={() => verifyPanMutation.mutate()}
                     disabled={
@@ -639,7 +877,6 @@ export default function SmartProductionKYCOnboarding() {
                       !panDob ||
                       verifyPanMutation.isPending
                     }
-                    variant="default"
                     className="flex-1"
                     data-testid="button-verify-pan"
                   >
@@ -649,16 +886,19 @@ export default function SmartProductionKYCOnboarding() {
                         Verifying...
                       </>
                     ) : (
-                      "Verify PAN"
+                      <>
+                        <Shield className="mr-2 h-4 w-4" />
+                        Verify PAN
+                      </>
                     )}
                   </Button>
-                )}
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
   }
 
   // Render Entity Details (for Corporate and NRI)

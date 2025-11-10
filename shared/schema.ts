@@ -1,7 +1,10 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, decimal, timestamp, jsonb, boolean, uniqueIndex, index, integer, date, bigint, numeric } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, decimal, timestamp, jsonb, boolean, uniqueIndex, index, integer, date, bigint, numeric, pgEnum } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+
+export const kycTierEnum = pgEnum("kyc_tier", ["tier_1", "tier_2", "tier_3"]);
+export const kycStatusEnum = pgEnum("kyc_status", ["pending", "in_progress", "completed", "cancelled"]);
 
 // Session storage table for Replit Auth
 export const sessions = pgTable(
@@ -757,6 +760,12 @@ export const productionKycSessions = pgTable("production_kyc_sessions", {
   uccCreatedAt: timestamp("ucc_created_at"),
   uccNumber: varchar("ucc_number"), // BSE Unique Client Code
   
+  // KYC Tier Tracking
+  targetKycTier: kycTierEnum("target_kyc_tier").default("tier_1"), // Target tier for this session
+  previousKycTier: kycTierEnum("previous_kyc_tier"), // Previous tier (for upgrades)
+  isUpgradeSession: boolean("is_upgrade_session").default(false), // Whether this is an upgrade
+  kycStatus: kycStatusEnum("kyc_status").default("pending"), // Session status
+  
   // Session Metadata
   startedAt: timestamp("started_at").defaultNow(),
   completedAt: timestamp("completed_at"),
@@ -769,7 +778,38 @@ export const productionKycSessions = pgTable("production_kyc_sessions", {
   index("idx_production_kyc_user").on(table.userId),
   index("idx_production_kyc_step").on(table.currentStep),
   index("idx_production_kyc_pan").on(table.panNumber),
+  index("idx_production_kyc_tier").on(table.targetKycTier),
+  index("idx_production_kyc_status").on(table.kycStatus),
 ]);
+
+// KYC Tier Upgrade Events - Audit trail for tier transitions
+export const kycTierUpgradeEvents = pgTable("kyc_tier_upgrade_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  sessionId: varchar("session_id").references(() => productionKycSessions.id), // Optional - may be system-triggered
+  
+  // Tier Transition
+  fromTier: kycTierEnum("from_tier"), // null for initial KYC
+  toTier: kycTierEnum("to_tier").notNull(),
+  
+  // Trigger Information
+  triggeredBy: varchar("triggered_by").default("user"), // user/system/admin
+  triggeredByUserId: varchar("triggered_by_user_id"), // ID of admin who triggered (if admin)
+  reason: text("reason"), // Optional reason/notes for the upgrade
+  
+  // Status
+  status: varchar("status").default("pending"), // pending/completed/failed
+  completedAt: timestamp("completed_at"),
+  failureReason: text("failure_reason"),
+  
+  // Audit
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_tier_events_user").on(table.userId),
+  index("idx_tier_events_session").on(table.sessionId),
+  index("idx_tier_events_status").on(table.status),
+]);
+
 export const bseUccRequests = pgTable("bse_ucc_requests", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   sessionId: varchar("session_id").references(() => kycVerificationSessions.id).notNull(),
@@ -10974,3 +11014,11 @@ export type SymbolSearchResponse = z.infer<typeof symbolSearchResponseSchema>;
 // Production KYC Workflow Types
 export type PanVerificationRecord = typeof panVerificationRecords.$inferSelect;
 export type ProductionKycSession = typeof productionKycSessions.$inferSelect;
+export type KycTierUpgradeEvent = typeof kycTierUpgradeEvents.$inferSelect;
+
+// Insert schemas for Production KYC
+export const insertProductionKycSessionSchema = createInsertSchema(productionKycSessions);
+export type InsertProductionKycSession = z.infer<typeof insertProductionKycSessionSchema>;
+
+export const insertKycTierUpgradeEventSchema = createInsertSchema(kycTierUpgradeEvents);
+export type InsertKycTierUpgradeEvent = z.infer<typeof insertKycTierUpgradeEventSchema>;

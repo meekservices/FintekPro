@@ -335,5 +335,96 @@ export function createProductionKycRouter(storage: IStorage, requireClientOrHigh
     }
   });
 
+  // Get KYC Tier Status
+  router.get("/tier-status", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      
+      // Import tier detection service
+      const { detectProductionKycTier, PRODUCTION_TIER_MATRIX, getVerificationDisplayName } = await import("./kyc-tier-service");
+      
+      const tierDetection = await detectProductionKycTier(userId);
+      
+      // Format response with user-friendly names
+      const response = {
+        currentTier: tierDetection.currentTier,
+        currentTierName: tierDetection.currentTier ? PRODUCTION_TIER_MATRIX[tierDetection.currentTier].name : null,
+        currentTierDescription: tierDetection.currentTier ? PRODUCTION_TIER_MATRIX[tierDetection.currentTier].description : null,
+        eligibleForUpgrade: tierDetection.eligibleForUpgrade,
+        nextTier: tierDetection.nextTier,
+        nextTierName: tierDetection.nextTier ? PRODUCTION_TIER_MATRIX[tierDetection.nextTier].name : null,
+        nextTierDescription: tierDetection.nextTier ? PRODUCTION_TIER_MATRIX[tierDetection.nextTier].description : null,
+        completedVerifications: tierDetection.completedVerifications.map(v => ({
+          code: v,
+          name: getVerificationDisplayName(v)
+        })),
+        missingVerifications: tierDetection.missingVerifications.map(v => ({
+          code: v,
+          name: getVerificationDisplayName(v)
+        })),
+        unlockedFeatures: tierDetection.unlockedFeatures,
+      };
+      
+      return apiResponse.success(res, response);
+    } catch (error) {
+      console.error("Error getting tier status:", error);
+      return apiResponse.serverError(res, "Failed to get tier status");
+    }
+  });
+
+  // Initiate Tier Upgrade
+  router.post("/upgrade", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const { targetTier } = req.body;
+      const userId = req.user.id;
+      
+      if (!targetTier || !["tier_2", "tier_3"].includes(targetTier)) {
+        return apiResponse.badRequest(res, "Valid target tier is required (tier_2 or tier_3)");
+      }
+      
+      // Import tier detection service
+      const { detectProductionKycTier, updateProductionKycTier } = await import("./kyc-tier-service");
+      
+      // Check if user is eligible for upgrade
+      const tierDetection = await detectProductionKycTier(userId);
+      
+      if (tierDetection.currentTier === targetTier) {
+        return apiResponse.error(res, "You are already at this tier", 400);
+      }
+      
+      if (tierDetection.nextTier !== targetTier) {
+        return apiResponse.error(res, "You must upgrade to the next tier sequentially", 400);
+      }
+      
+      if (!tierDetection.eligibleForUpgrade) {
+        return apiResponse.error(res, "You have not completed all requirements for this tier", 400);
+      }
+      
+      // Create a new KYC session for the upgrade
+      const session = await storage.createProductionKycSession({
+        userId,
+        userType: "individual", // Default, can be updated
+        currentStep: "pan_verification",
+        targetKycTier: targetTier,
+        previousKycTier: tierDetection.currentTier || undefined,
+        isUpgradeSession: true,
+        kycStatus: "in_progress",
+      });
+      
+      // Update user's tier
+      await updateProductionKycTier(userId, targetTier, session.id, "user");
+      
+      return apiResponse.success(res, {
+        success: true,
+        message: `Successfully upgraded to ${targetTier}`,
+        sessionId: session.id,
+        newTier: targetTier,
+      });
+    } catch (error) {
+      console.error("Error upgrading tier:", error);
+      return apiResponse.serverError(res, "Failed to upgrade tier");
+    }
+  });
+
   return router;
 }

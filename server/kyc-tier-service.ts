@@ -1,6 +1,6 @@
 import { db } from "./db";
-import { userProfiles } from "@shared/schema";
-import { eq, and } from "drizzle-orm";
+import * as schema from "@shared/schema";
+import { eq, and, desc } from "drizzle-orm";
 
 // Product categories by KYC tier
 export const PRODUCT_ACCESS_MATRIX = {
@@ -73,7 +73,7 @@ export async function getTierUpgradeRequirements(
   targetTier: "enhanced" | "accredited_investor"
 ): Promise<TierUpgradeRequirement> {
   const profile = await db.query.userProfiles.findFirst({
-    where: eq(userProfiles.userId, userId),
+    where: eq(schema.userProfiles.userId, userId),
   });
 
   if (!profile) {
@@ -243,7 +243,7 @@ export async function getUserProductAccess(userId: string): Promise<{
   tierProducts: Record<string, string[]>;
 }> {
   const profile = await db.query.userProfiles.findFirst({
-    where: eq(userProfiles.userId, userId),
+    where: eq(schema.userProfiles.userId, userId),
   });
 
   if (!profile) {
@@ -300,22 +300,22 @@ export async function upgradeToEnhancedKyc(userId: string): Promise<{
 
   // Upgrade the tier
   await db
-    .update(userProfiles)
+    .update(schema.userProfiles)
     .set({
       kycTier: "enhanced",
       kycTierUpgradedAt: new Date(),
     })
-    .where(eq(userProfiles.userId, userId));
+    .where(eq(schema.userProfiles.userId, userId));
 
   // Update product access
   const { unlockedProducts } = await getUserProductAccess(userId);
   await db
-    .update(userProfiles)
+    .update(schema.userProfiles)
     .set({
       productsUnlocked: unlockedProducts,
       lastProductAccessUpdate: new Date(),
     })
-    .where(eq(userProfiles.userId, userId));
+    .where(eq(schema.userProfiles.userId, userId));
 
   return {
     success: true,
@@ -335,7 +335,7 @@ export async function requestAccreditedInvestorVerification(
   message: string;
 }> {
   const profile = await db.query.userProfiles.findFirst({
-    where: eq(userProfiles.userId, userId),
+    where: eq(schema.userProfiles.userId, userId),
   });
 
   if (!profile) {
@@ -397,13 +397,13 @@ export async function requestAccreditedInvestorVerification(
 
   // Submit for verification
   await db
-    .update(userProfiles)
+    .update(schema.userProfiles)
     .set({
       accreditedInvestorStatus: "pending",
       accreditedInvestorType: verificationType,
       kycTierUpgradeRequestedAt: new Date(),
     })
-    .where(eq(userProfiles.userId, userId));
+    .where(eq(schema.userProfiles.userId, userId));
 
   return {
     success: true,
@@ -429,7 +429,7 @@ export async function verifyAccreditedInvestor(
     expiryDate.setFullYear(expiryDate.getFullYear() + 1);
 
     await db
-      .update(userProfiles)
+      .update(schema.userProfiles)
       .set({
         kycTier: "accredited_investor",
         accreditedInvestorStatus: "verified",
@@ -438,17 +438,17 @@ export async function verifyAccreditedInvestor(
         accreditedInvestorExpiryDate: expiryDate,
         kycTierUpgradedAt: new Date(),
       })
-      .where(eq(userProfiles.userId, userId));
+      .where(eq(schema.userProfiles.userId, userId));
 
     // Update product access
     const { unlockedProducts } = await getUserProductAccess(userId);
     await db
-      .update(userProfiles)
+      .update(schema.userProfiles)
       .set({
         productsUnlocked: unlockedProducts,
         lastProductAccessUpdate: new Date(),
       })
-      .where(eq(userProfiles.userId, userId));
+      .where(eq(schema.userProfiles.userId, userId));
 
     return {
       success: true,
@@ -456,12 +456,12 @@ export async function verifyAccreditedInvestor(
     };
   } else {
     await db
-      .update(userProfiles)
+      .update(schema.userProfiles)
       .set({
         accreditedInvestorStatus: "rejected",
         accreditedInvestorRejectionReason: rejectionReason,
       })
-      .where(eq(userProfiles.userId, userId));
+      .where(eq(schema.userProfiles.userId, userId));
 
     return {
       success: true,
@@ -513,4 +513,260 @@ export function getProductUpgradePrompt(currentTier: string, productCode: string
   }
 
   return { canAccess: false };
+}
+
+// ===============================================
+// New Production KYC Tier System (Enum-based)
+// ===============================================
+
+export type KycTierEnum = "tier_1" | "tier_2" | "tier_3";
+
+export interface ProductionTierRequirements {
+  tier: KycTierEnum;
+  name: string;
+  description: string;
+  requiredVerifications: string[];
+  unlockedFeatures: string[];
+}
+
+export interface ProductionTierDetectionResult {
+  currentTier: KycTierEnum | null;
+  eligibleForUpgrade: boolean;
+  nextTier: KycTierEnum | null;
+  completedVerifications: string[];
+  missingVerifications: string[];
+  unlockedFeatures: string[];
+}
+
+export const PRODUCTION_TIER_MATRIX: Record<KycTierEnum, ProductionTierRequirements> = {
+  tier_1: {
+    tier: "tier_1",
+    name: "Basic KYC",
+    description: "Start trading stocks and mutual funds",
+    requiredVerifications: ["pan", "kra"],
+    unlockedFeatures: [
+      "Equity Trading",
+      "Mutual Funds",
+      "Market Research",
+      "Portfolio Tracking",
+      "Basic Reports"
+    ]
+  },
+  tier_2: {
+    tier: "tier_2",
+    name: "Enhanced KYC",
+    description: "Access IPOs, bonds, and derivatives",
+    requiredVerifications: ["pan", "kra", "aadhaar_ekyc", "bank_account"],
+    unlockedFeatures: [
+      "IPO Applications",
+      "Government Bonds",
+      "Corporate Bonds",
+      "Futures & Options (F&O)",
+      "NCDs",
+      "Advanced Analytics",
+      "Priority Support"
+    ]
+  },
+  tier_3: {
+    tier: "tier_3",
+    name: "Accredited Investor",
+    description: "Unlock premium investment opportunities",
+    requiredVerifications: [
+      "pan",
+      "kra",
+      "aadhaar_ekyc",
+      "bank_account",
+      "income_verification",
+      "net_worth_verification"
+    ],
+    unlockedFeatures: [
+      "Unlisted Securities",
+      "Alternative Investment Funds (AIF)",
+      "Portfolio Management Services (PMS)",
+      "Startup Investments",
+      "Private Equity",
+      "Hedge Funds",
+      "Dedicated Relationship Manager",
+      "Exclusive Research Reports"
+    ]
+  }
+};
+
+/**
+ * Detect user's current KYC tier based on completed verifications
+ */
+export async function detectProductionKycTier(userId: string): Promise<ProductionTierDetectionResult> {
+  const user = await db
+    .select()
+    .from(schema.users)
+    .where(eq(schema.users.id, userId))
+    .limit(1);
+
+  if (!user || user.length === 0) {
+    return {
+      currentTier: null,
+      eligibleForUpgrade: false,
+      nextTier: null,
+      completedVerifications: [],
+      missingVerifications: [],
+      unlockedFeatures: []
+    };
+  }
+
+  const userData = user[0];
+  const completedVerifications: string[] = [];
+
+  // Check PAN
+  if (userData.panNumber) {
+    completedVerifications.push("pan");
+  }
+
+  // Check latest production KYC session
+  const latestSession = await db
+    .select()
+    .from(schema.productionKycSessions)
+    .where(eq(schema.productionKycSessions.userId, userId))
+    .orderBy(desc(schema.productionKycSessions.createdAt))
+    .limit(1);
+
+  if (latestSession.length > 0) {
+    const session = latestSession[0];
+    
+    if (session.kraVerified) {
+      completedVerifications.push("kra");
+    }
+    
+    if (session.cashfreeVerified) {
+      completedVerifications.push("aadhaar_ekyc");
+    }
+  }
+
+  // Check bank account verification
+  const bankAccounts = await db
+    .select()
+    .from(schema.userBankAccounts)
+    .where(eq(schema.userBankAccounts.userId, userId));
+
+  if (bankAccounts.length > 0 && bankAccounts.some(acc => acc.isVerified)) {
+    completedVerifications.push("bank_account");
+  }
+
+  // Check accredited investor status
+  const userProfile = await db
+    .select()
+    .from(schema.userProfiles)
+    .where(eq(schema.userProfiles.userId, userId))
+    .limit(1);
+
+  if (userProfile.length > 0) {
+    const profile = userProfile[0];
+    
+    if (profile.accreditedInvestorStatus === "verified") {
+      completedVerifications.push("income_verification");
+      completedVerifications.push("net_worth_verification");
+    }
+  }
+
+  // Determine current tier
+  let currentTier: KycTierEnum | null = null;
+  if (hasRequirementsForTier("tier_3", completedVerifications)) {
+    currentTier = "tier_3";
+  } else if (hasRequirementsForTier("tier_2", completedVerifications)) {
+    currentTier = "tier_2";
+  } else if (hasRequirementsForTier("tier_1", completedVerifications)) {
+    currentTier = "tier_1";
+  }
+
+  // Determine next tier and eligibility
+  let nextTier: KycTierEnum | null = null;
+  let eligibleForUpgrade = false;
+
+  if (currentTier === "tier_1") {
+    nextTier = "tier_2";
+    eligibleForUpgrade = hasRequirementsForTier("tier_2", completedVerifications);
+  } else if (currentTier === "tier_2") {
+    nextTier = "tier_3";
+    eligibleForUpgrade = hasRequirementsForTier("tier_3", completedVerifications);
+  }
+
+  const unlockedFeatures = currentTier ? PRODUCTION_TIER_MATRIX[currentTier].unlockedFeatures : [];
+
+  const missingForNextTier = nextTier 
+    ? PRODUCTION_TIER_MATRIX[nextTier].requiredVerifications.filter(
+        v => !completedVerifications.includes(v)
+      )
+    : [];
+
+  return {
+    currentTier,
+    eligibleForUpgrade,
+    nextTier,
+    completedVerifications,
+    missingVerifications: missingForNextTier,
+    unlockedFeatures
+  };
+}
+
+function hasRequirementsForTier(tier: KycTierEnum, completed: string[]): boolean {
+  const requirements = PRODUCTION_TIER_MATRIX[tier].requiredVerifications;
+  return requirements.every(req => completed.includes(req));
+}
+
+export function getVerificationDisplayName(verification: string): string {
+  const displayNames: Record<string, string> = {
+    pan: "PAN Verification",
+    kra: "KRA Status Check (Protean/NSDL)",
+    aadhaar_ekyc: "Aadhaar eKYC (Cashfree)",
+    bank_account: "Bank Account Verification",
+    income_verification: "Income Tax Returns (ITR)",
+    net_worth_verification: "Net Worth Certificate (CA Certified)"
+  };
+  return displayNames[verification] || verification;
+}
+
+/**
+ * Update user's KYC tier in userProfiles and record upgrade event
+ */
+export async function updateProductionKycTier(
+  userId: string,
+  newTier: KycTierEnum,
+  sessionId?: string,
+  triggeredBy: string = "user"
+): Promise<void> {
+  const detection = await detectProductionKycTier(userId);
+  const oldTier = detection.currentTier;
+
+  // Record upgrade event
+  await db.insert(schema.kycTierUpgradeEvents).values({
+    userId,
+    sessionId: sessionId || null,
+    fromTier: oldTier,
+    toTier: newTier,
+    triggeredBy,
+    status: "completed",
+    completedAt: new Date()
+  });
+
+  // Update or create user profile
+  const userProfile = await db
+    .select()
+    .from(schema.userProfiles)
+    .where(eq(schema.userProfiles.userId, userId))
+    .limit(1);
+
+  if (userProfile.length > 0) {
+    await db
+      .update(schema.userProfiles)
+      .set({
+        kycTier: newTier,
+        kycTierUpgradedAt: new Date()
+      })
+      .where(eq(schema.userProfiles.userId, userId));
+  } else {
+    await db.insert(schema.userProfiles).values({
+      userId,
+      kycTier: newTier,
+      kycTierUpgradedAt: new Date()
+    });
+  }
 }
