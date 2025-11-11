@@ -519,6 +519,17 @@ export const users = pgTable("users", {
   otpPreferenceSms: boolean("otp_preference_sms").default(false), // SMS OTP disabled by default
   otpPreferenceWhatsapp: boolean("otp_preference_whatsapp").default(true), // WhatsApp OTP enabled by default
   
+  // Accredited Investor (Tier 3) Certification
+  aiCertificateNumber: varchar("ai_certificate_number"), // BSE AI certificate number
+  aiCertificateId: varchar("ai_certificate_id"), // Internal certificate ID
+  aiVerifiedAt: timestamp("ai_verified_at"), // When AI status was verified
+  riskDeclarationUrl: varchar("risk_declaration_url"), // eSigned risk declaration document
+  aiESignStatus: varchar("ai_esign_status"), // eSign completion status
+  aiStatusSource: varchar("ai_status_source"), // Source: bse/manual/other
+  accreditedInvestorStatus: varchar("accredited_investor_status"), // verified/pending/expired/rejected
+  accreditedInvestorVerifiedAt: timestamp("accredited_investor_verified_at"), // Verification date
+  accreditedInvestorExpiryDate: timestamp("accredited_investor_expiry_date"), // Certificate expiry (3 years)
+  
   // Admin and system fields - supports multiple roles
   roles: varchar("roles").array().default(sql`ARRAY['user']`), // Array of roles: 'user', 'admin', 'superadmin', 'business_client', etc.
   isActive: boolean("is_active").default(true),

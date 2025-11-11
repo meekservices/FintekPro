@@ -130,6 +130,9 @@ import SystemMonitoring from "@/pages/admin/system-monitoring";
 import AuditLedger from "@/pages/admin/audit-ledger";
 import AIFixSuggestions from "@/pages/admin/ai-fixes";
 import PredictiveAnalytics from "@/pages/PredictiveAnalytics";
+import PmsDashboard from "@/pages/pms-dashboard";
+import AifDashboard from "@/pages/aif-dashboard";
+import PrivateMarketDashboard from "@/pages/private-market-dashboard";
 
 // Legacy KYC redirect component for backward compatibility
 function LegacyKYCRedirect() {
@@ -213,6 +216,9 @@ function UserProtectedRoutes() {
         <Route path="/hdfc-loans" component={HDFCLoans} />
         <Route path="/client-auto-populate" component={ClientAutoPopulate} />
         <Route path="/aif" component={AIF} />
+        <Route path="/pms" component={PmsDashboard} />
+        <Route path="/aif-dashboard" component={AifDashboard} />
+        <Route path="/private-market" component={PrivateMarketDashboard} />
         <Route path="/bajaj-finance" component={BajajFinance} />
         <Route path="/tata-capital" component={TataCapital} />
         <Route path="/policybazaar" component={PolicyBazaar} />

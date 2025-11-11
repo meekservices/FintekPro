@@ -426,5 +426,317 @@ export function createProductionKycRouter(storage: IStorage, requireClientOrHigh
     }
   });
 
+  // ==================== TIER 3: ACCREDITED INVESTOR ROUTES ====================
+
+  // Initiate Accredited Investor verification
+  router.post("/accredited-investor/initiate", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { verificationBasis, netWorthAmount, annualIncomeAmount } = req.body;
+
+      // Validate verification basis
+      if (!verificationBasis || !["networth", "income", "both"].includes(verificationBasis)) {
+        return apiResponse.badRequest(res, "Valid verification basis required (networth, income, or both)");
+      }
+
+      // Validate amounts based on verification basis
+      if ((verificationBasis === "networth" || verificationBasis === "both") && !netWorthAmount) {
+        return apiResponse.badRequest(res, "Net worth amount is required");
+      }
+      if ((verificationBasis === "income" || verificationBasis === "both") && !annualIncomeAmount) {
+        return apiResponse.badRequest(res, "Annual income amount is required");
+      }
+
+      const { db } = await import("./db");
+      const schema = await import("@shared/schema");
+
+      // Check if user already has a pending verification
+      const existingVerification = await db.query.accreditedInvestorVerifications.findFirst({
+        where: (table: any, { eq, and }: any) => and(
+          eq(table.userId, userId),
+          eq(table.status, "pending")
+        ),
+      });
+
+      if (existingVerification) {
+        return apiResponse.error(res, "You already have a pending AI verification. Please complete or cancel it first.", 400);
+      }
+
+      // Create new verification record
+      const [verification] = await db.insert(schema.accreditedInvestorVerifications).values({
+        userId,
+        status: "pending",
+        currentStep: "ca_upload",
+        verificationBasis,
+        netWorthAmount: netWorthAmount ? netWorthAmount.toString() : null,
+        annualIncomeAmount: annualIncomeAmount ? annualIncomeAmount.toString() : null,
+      }).returning();
+
+      return apiResponse.success(res, {
+        success: true,
+        verificationId: verification.id,
+        currentStep: "ca_upload",
+        message: "Accredited Investor verification initiated. Please upload CA certificate.",
+      });
+    } catch (error) {
+      console.error("Error initiating AI verification:", error);
+      return apiResponse.serverError(res, "Failed to initiate AI verification");
+    }
+  });
+
+  // Upload CA certificate
+  router.post("/accredited-investor/upload-ca", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { verificationId, caCertificateUrl, caCertificateName, caCertificateNumber } = req.body;
+
+      if (!verificationId || !caCertificateUrl) {
+        return apiResponse.badRequest(res, "Verification ID and certificate URL are required");
+      }
+
+      const { db } = await import("./db");
+      const schema = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+
+      // Verify ownership and get verification record
+      const verification = await db.query.accreditedInvestorVerifications.findFirst({
+        where: and(
+          eq(schema.accreditedInvestorVerifications.id, verificationId),
+          eq(schema.accreditedInvestorVerifications.userId, userId)
+        ),
+      });
+
+      if (!verification) {
+        return apiResponse.notFound(res, "Verification record not found");
+      }
+
+      if (verification.status !== "pending") {
+        return apiResponse.error(res, "Verification is not in pending status", 400);
+      }
+
+      // Update verification record with CA certificate
+      await db.update(schema.accreditedInvestorVerifications)
+        .set({
+          caCertificateUrl,
+          caCertificateName,
+          caCertificateNumber,
+          caCertificateUploadedAt: new Date(),
+          status: "ca_uploaded",
+          currentStep: "esign",
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.accreditedInvestorVerifications.id, verificationId));
+
+      return apiResponse.success(res, {
+        success: true,
+        message: "CA certificate uploaded successfully",
+        nextStep: "esign",
+      });
+    } catch (error) {
+      console.error("Error uploading CA certificate:", error);
+      return apiResponse.serverError(res, "Failed to upload CA certificate");
+    }
+  });
+
+  // Initiate eSign for risk declaration
+  router.post("/accredited-investor/esign-initiate", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { verificationId } = req.body;
+
+      if (!verificationId) {
+        return apiResponse.badRequest(res, "Verification ID is required");
+      }
+
+      const { db } = await import("./db");
+      const schema = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+
+      // Get verification record and user details
+      const verification = await db.query.accreditedInvestorVerifications.findFirst({
+        where: and(
+          eq(schema.accreditedInvestorVerifications.id, verificationId),
+          eq(schema.accreditedInvestorVerifications.userId, userId)
+        ),
+      });
+
+      if (!verification) {
+        return apiResponse.notFound(res, "Verification record not found");
+      }
+
+      if (verification.status !== "ca_uploaded") {
+        return apiResponse.error(res, "CA certificate must be uploaded first", 400);
+      }
+
+      const user = await db.query.users.findFirst({
+        where: eq(schema.users.id, userId),
+      });
+
+      if (!user) {
+        return apiResponse.notFound(res, "User not found");
+      }
+
+      // Initialize eSign service
+      const { initiateESign } = await import("./services/esign-service");
+      
+      const eSignResult = await initiateESign({
+        userId,
+        verificationId,
+        documentType: "risk_declaration",
+        documentUrl: verification.riskDeclarationUrl || "", // Will be generated by eSign service
+        signerDetails: {
+          fullName: `${user.firstName || ""} ${user.lastName || ""}`.trim(),
+          email: user.email || "",
+          mobile: user.mobile || "",
+          panNumber: user.panNumber || "",
+        },
+        returnUrl: `${process.env.APP_URL || "http://localhost:5000"}/smart-production-kyc`,
+      });
+
+      if (!eSignResult.success) {
+        return apiResponse.error(res, eSignResult.message, 400);
+      }
+
+      return apiResponse.success(res, {
+        success: true,
+        transactionId: eSignResult.transactionId,
+        redirectUrl: eSignResult.redirectUrl,
+        message: "eSign initiated successfully. Please complete the digital signature.",
+      });
+    } catch (error) {
+      console.error("Error initiating eSign:", error);
+      return apiResponse.serverError(res, "Failed to initiate eSign");
+    }
+  });
+
+  // Submit to BSE for AI certificate
+  router.post("/accredited-investor/submit-bse", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { verificationId } = req.body;
+
+      if (!verificationId) {
+        return apiResponse.badRequest(res, "Verification ID is required");
+      }
+
+      const { db } = await import("./db");
+      const schema = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+
+      // Get verification record
+      const verification = await db.query.accreditedInvestorVerifications.findFirst({
+        where: and(
+          eq(schema.accreditedInvestorVerifications.id, verificationId),
+          eq(schema.accreditedInvestorVerifications.userId, userId)
+        ),
+      });
+
+      if (!verification) {
+        return apiResponse.notFound(res, "Verification record not found");
+      }
+
+      if (verification.eSignStatus !== "completed") {
+        return apiResponse.error(res, "eSign must be completed first", 400);
+      }
+
+      const user = await db.query.users.findFirst({
+        where: eq(schema.users.id, userId),
+      });
+
+      if (!user) {
+        return apiResponse.notFound(res, "User not found");
+      }
+
+      // Submit to BSE Accreditation API
+      const { submitForAccreditation } = await import("./services/bse-accreditation-api");
+      
+      const bseResult = await submitForAccreditation({
+        userId,
+        verificationId,
+        caCertificateUrl: verification.caCertificateUrl || "",
+        riskDeclarationUrl: verification.riskDeclarationUrl || "",
+        netWorthAmount: verification.netWorthAmount ? parseFloat(verification.netWorthAmount) : undefined,
+        annualIncomeAmount: verification.annualIncomeAmount ? parseFloat(verification.annualIncomeAmount) : undefined,
+        verificationBasis: verification.verificationBasis as "networth" | "income" | "both",
+        applicantDetails: {
+          panNumber: user.panNumber || "",
+          fullName: `${user.firstName || ""} ${user.lastName || ""}`.trim(),
+          email: user.email || "",
+          mobile: user.mobile || "",
+          dateOfBirth: user.dateOfBirth || "",
+        },
+      });
+
+      if (!bseResult.success) {
+        return apiResponse.error(res, bseResult.message, 400);
+      }
+
+      // Get updated verification record to return the certificate details
+      const updatedVerification = await db.query.accreditedInvestorVerifications.findFirst({
+        where: eq(schema.accreditedInvestorVerifications.id, verificationId),
+      });
+
+      return apiResponse.success(res, {
+        success: true,
+        submissionId: bseResult.submissionId,
+        status: bseResult.status,
+        certificateNumber: updatedVerification?.aiCertificateNumber,
+        certificateId: updatedVerification?.aiCertificateId,
+        certificateUrl: updatedVerification?.aiCertificateUrl,
+        expiryDate: updatedVerification?.aiCertificateExpiryDate,
+        message: bseResult.message,
+      });
+    } catch (error) {
+      console.error("Error submitting to BSE:", error);
+      return apiResponse.serverError(res, "Failed to submit to BSE");
+    }
+  });
+
+  // Get AI verification status
+  router.get("/accredited-investor/status", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+
+      const { db } = await import("./db");
+      const schema = await import("@shared/schema");
+      const { eq, and, desc } = await import("drizzle-orm");
+
+      // Get the latest verification record
+      const verification = await db.query.accreditedInvestorVerifications.findFirst({
+        where: eq(schema.accreditedInvestorVerifications.userId, userId),
+        orderBy: desc(schema.accreditedInvestorVerifications.createdAt),
+      });
+
+      if (!verification) {
+        return apiResponse.success(res, {
+          hasVerification: false,
+          message: "No AI verification found",
+        });
+      }
+
+      return apiResponse.success(res, {
+        hasVerification: true,
+        verification: {
+          id: verification.id,
+          status: verification.status,
+          currentStep: verification.currentStep,
+          caCertificateUploaded: !!verification.caCertificateUrl,
+          eSignCompleted: verification.eSignStatus === "completed",
+          bseSubmitted: !!verification.bseSubmissionId,
+          certificateNumber: verification.aiCertificateNumber,
+          certificateId: verification.aiCertificateId,
+          certificateUrl: verification.aiCertificateUrl,
+          expiryDate: verification.aiCertificateExpiryDate,
+          approvedAt: verification.approvedAt,
+          rejectedAt: verification.rejectedAt,
+          rejectionReason: verification.rejectionReason,
+        },
+      });
+    } catch (error) {
+      console.error("Error getting AI verification status:", error);
+      return apiResponse.serverError(res, "Failed to get AI verification status");
+    }
+  });
+
   return router;
 }

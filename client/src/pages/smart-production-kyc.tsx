@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -32,8 +32,13 @@ import {
   User,
   Building,
   Globe,
+  Upload,
+  FileText,
+  Award,
+  X,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useDropzone } from "react-dropzone";
 
 type UserType = "individual" | "corporate" | "nri";
 
@@ -124,6 +129,22 @@ export default function SmartProductionKYCOnboarding() {
   // Session management
   const [existingSessionDialogOpen, setExistingSessionDialogOpen] = useState(false);
   const [existingSession, setExistingSession] = useState<any>(null);
+
+  // Tier 3: Accredited Investor state
+  const [aiVerificationId, setAiVerificationId] = useState("");
+  const [aiCurrentStep, setAiCurrentStep] = useState<"init" | "ca_upload" | "esign" | "bse_submit" | "completed">("init");
+  const [aiVerificationBasis, setAiVerificationBasis] = useState<"networth" | "income" | "both">("networth");
+  const [aiNetWorthAmount, setAiNetWorthAmount] = useState("");
+  const [aiAnnualIncomeAmount, setAiAnnualIncomeAmount] = useState("");
+  const [aiCaCertificates, setAiCaCertificates] = useState<File[]>([]);
+  const [aiCaCertificateName, setAiCaCertificateName] = useState("");
+  const [aiCaCertificateNumber, setAiCaCertificateNumber] = useState("");
+  const [aiESignTransactionId, setAiESignTransactionId] = useState("");
+  const [aiCertificateNumber, setAiCertificateNumber] = useState("");
+  const [aiCertificateId, setAiCertificateId] = useState("");
+  const [aiCertificateUrl, setAiCertificateUrl] = useState("");
+  const [aiExpiryDate, setAiExpiryDate] = useState("");
+  const [showAiWorkflow, setShowAiWorkflow] = useState(false);
 
   // Authentication guard
   useEffect(() => {
@@ -564,6 +585,134 @@ export default function SmartProductionKYCOnboarding() {
     },
   });
 
+  // ==================== TIER 3: ACCREDITED INVESTOR MUTATIONS ====================
+
+  // Initiate AI verification
+  const initiateAiVerificationMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/kyc/production/accredited-investor/initiate", {
+        body: {
+          verificationBasis: aiVerificationBasis,
+          netWorthAmount: aiNetWorthAmount ? parseFloat(aiNetWorthAmount) : undefined,
+          annualIncomeAmount: aiAnnualIncomeAmount ? parseFloat(aiAnnualIncomeAmount) : undefined,
+        },
+      });
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        setAiVerificationId(data.verificationId);
+        setAiCurrentStep("ca_upload");
+        toast({
+          title: "Verification Initiated",
+          description: "Please upload your CA certificate to proceed",
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to initiate AI verification",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Upload CA certificate (with file upload simulation for now)
+  const uploadCaCertificateMutation = useMutation({
+    mutationFn: async () => {
+      // In production, you would upload files to object storage first
+      // For now, we'll simulate with a placeholder URL
+      const caCertificateUrl = `https://storage.example.com/ca-certs/${Date.now()}.pdf`;
+      
+      return await apiRequest("POST", "/api/kyc/production/accredited-investor/upload-ca", {
+        body: {
+          verificationId: aiVerificationId,
+          caCertificateUrl,
+          caCertificateName: aiCaCertificateName,
+          caCertificateNumber: aiCaCertificateNumber,
+        },
+      });
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        setAiCurrentStep("esign");
+        toast({
+          title: "Certificate Uploaded",
+          description: "Proceeding to eSign risk declaration",
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Upload Failed",
+        description: error.message || "Failed to upload CA certificate",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Initiate eSign
+  const initiateESignMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/kyc/production/accredited-investor/esign-initiate", {
+        body: { verificationId: aiVerificationId },
+      });
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        setAiESignTransactionId(data.transactionId);
+        toast({
+          title: "eSign Initiated",
+          description: data.message || "Digital signature initiated successfully",
+        });
+        // In simulation mode, eSign completes immediately
+        // In production, user would be redirected to eSign provider
+        setTimeout(() => {
+          setAiCurrentStep("bse_submit");
+          submitBseMutation.mutate();
+        }, 2000);
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "eSign Failed",
+        description: error.message || "Failed to initiate eSign",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Submit to BSE
+  const submitBseMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/kyc/production/accredited-investor/submit-bse", {
+        body: { verificationId: aiVerificationId },
+      });
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        setAiCertificateNumber(data.certificateNumber || "");
+        setAiCertificateId(data.certificateId || "");
+        setAiCertificateUrl(data.certificateUrl || "");
+        setAiExpiryDate(data.expiryDate || "");
+        setAiCurrentStep("completed");
+        toast({
+          title: "AI Certificate Issued!",
+          description: `Certificate Number: ${data.certificateNumber}`,
+        });
+        // Refresh tier status
+        refetchTierStatus();
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "BSE Submission Failed",
+        description: error.message || "Failed to submit to BSE",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Calculate progress percentage
   const getProgressPercentage = () => {
     // Different flow for individual vs corporate/NRI
@@ -732,6 +881,428 @@ export default function SmartProductionKYCOnboarding() {
                   You have completed the highest level of KYC verification. You have access to all premium features and products.
                 </AlertDescription>
               </Alert>
+            )}
+
+            {/* Tier 3: Accredited Investor Upgrade (for tier_2 users) */}
+            {tierStatus.currentTier === "tier_2" && (
+              <div className="space-y-4 pt-6 border-t">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold text-lg flex items-center gap-2">
+                      <Award className="h-5 w-5 text-amber-600" />
+                      Tier 3: Accredited Investor
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Unlock premium investment products (AIF, PMS, Structured Products)
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400">
+                    Premium
+                  </Badge>
+                </div>
+
+                <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-900/20">
+                  <AlertCircle className="h-4 w-4 text-amber-600" />
+                  <AlertTitle>SEBI Eligibility Criteria</AlertTitle>
+                  <AlertDescription className="text-sm space-y-1">
+                    <div>✓ Annual Income: ₹2 Crore or above</div>
+                    <div>✓ Net Worth: ₹7.5 Crore (excluding primary residence)</div>
+                    <div>✓ CA Certified Net Worth/Income Statement required</div>
+                  </AlertDescription>
+                </Alert>
+
+                {!showAiWorkflow ? (
+                  <Button
+                    onClick={() => setShowAiWorkflow(true)}
+                    className="w-full bg-amber-600 hover:bg-amber-700 text-white"
+                    data-testid="button-start-ai-upgrade"
+                  >
+                    <Award className="mr-2 h-4 w-4" />
+                    Upgrade to Accredited Investor
+                  </Button>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Step Progress Indicator */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="font-medium">Verification Progress</span>
+                        <span className="text-muted-foreground">
+                          Step {aiCurrentStep === "init" ? 1 : aiCurrentStep === "ca_upload" ? 2 : aiCurrentStep === "esign" ? 3 : aiCurrentStep === "bse_submit" ? 4 : 5} of 5
+                        </span>
+                      </div>
+                      <Progress 
+                        value={
+                          aiCurrentStep === "init" ? 20 :
+                          aiCurrentStep === "ca_upload" ? 40 :
+                          aiCurrentStep === "esign" ? 60 :
+                          aiCurrentStep === "bse_submit" ? 80 :
+                          100
+                        } 
+                        className="h-2" 
+                      />
+                    </div>
+
+                    {/* Step 1: Initialize */}
+                    {aiCurrentStep === "init" && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg">Step 1: Verification Basis</CardTitle>
+                          <CardDescription>
+                            Select how you qualify as an Accredited Investor
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="space-y-3">
+                            <Label>Verification Basis</Label>
+                            <select
+                              value={aiVerificationBasis}
+                              onChange={(e) => setAiVerificationBasis(e.target.value as any)}
+                              className="w-full p-2 border rounded-md"
+                              data-testid="select-verification-basis"
+                            >
+                              <option value="networth">Net Worth (₹7.5 Cr+)</option>
+                              <option value="income">Annual Income (₹2 Cr+)</option>
+                              <option value="both">Both</option>
+                            </select>
+                          </div>
+
+                          {(aiVerificationBasis === "networth" || aiVerificationBasis === "both") && (
+                            <div>
+                              <Label htmlFor="net-worth">Net Worth Amount (₹)</Label>
+                              <Input
+                                id="net-worth"
+                                type="number"
+                                placeholder="75000000"
+                                value={aiNetWorthAmount}
+                                onChange={(e) => setAiNetWorthAmount(e.target.value)}
+                                data-testid="input-net-worth"
+                              />
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Excluding value of primary residence
+                              </p>
+                            </div>
+                          )}
+
+                          {(aiVerificationBasis === "income" || aiVerificationBasis === "both") && (
+                            <div>
+                              <Label htmlFor="annual-income">Annual Income Amount (₹)</Label>
+                              <Input
+                                id="annual-income"
+                                type="number"
+                                placeholder="20000000"
+                                value={aiAnnualIncomeAmount}
+                                onChange={(e) => setAiAnnualIncomeAmount(e.target.value)}
+                                data-testid="input-annual-income"
+                              />
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Gross annual income for the current financial year
+                              </p>
+                            </div>
+                          )}
+
+                          <Button
+                            onClick={() => initiateAiVerificationMutation.mutate()}
+                            disabled={
+                              initiateAiVerificationMutation.isPending ||
+                              ((aiVerificationBasis === "networth" || aiVerificationBasis === "both") && !aiNetWorthAmount) ||
+                              ((aiVerificationBasis === "income" || aiVerificationBasis === "both") && !aiAnnualIncomeAmount)
+                            }
+                            className="w-full"
+                            data-testid="button-initiate-ai"
+                          >
+                            {initiateAiVerificationMutation.isPending ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Initiating...
+                              </>
+                            ) : (
+                              <>
+                                Continue
+                                <ArrowRight className="ml-2 h-4 w-4" />
+                              </>
+                            )}
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Step 2: CA Certificate Upload */}
+                    {aiCurrentStep === "ca_upload" && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg">Step 2: Upload CA Certificate</CardTitle>
+                          <CardDescription>
+                            Upload CA-certified Net Worth/Income statement (PDF only, max 5MB)
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="space-y-3">
+                            <div>
+                              <Label htmlFor="ca-name">CA Name</Label>
+                              <Input
+                                id="ca-name"
+                                placeholder="e.g., CA Rajesh Kumar"
+                                value={aiCaCertificateName}
+                                onChange={(e) => setAiCaCertificateName(e.target.value)}
+                                data-testid="input-ca-name"
+                              />
+                            </div>
+
+                            <div>
+                              <Label htmlFor="ca-number">CA Membership Number</Label>
+                              <Input
+                                id="ca-number"
+                                placeholder="e.g., 123456"
+                                value={aiCaCertificateNumber}
+                                onChange={(e) => setAiCaCertificateNumber(e.target.value)}
+                                data-testid="input-ca-number"
+                              />
+                            </div>
+
+                            {/* PDF File Upload with react-dropzone */}
+                            <div>
+                              <Label>CA Certificate (PDF)</Label>
+                              <div
+                                className={`mt-2 border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors
+                                  ${aiCaCertificates.length > 0 ? "border-green-300 bg-green-50 dark:bg-green-900/10" : "border-gray-300 hover:border-gray-400"}`}
+                                onClick={() => {
+                                  const input = document.createElement("input");
+                                  input.type = "file";
+                                  input.accept = ".pdf";
+                                  input.multiple = true;
+                                  input.onchange = (e: any) => {
+                                    const files = Array.from(e.target.files || []) as File[];
+                                    const validFiles = files.filter(
+                                      (file) => file.type === "application/pdf" && file.size <= 5 * 1024 * 1024
+                                    );
+                                    if (validFiles.length !== files.length) {
+                                      toast({
+                                        title: "Invalid Files",
+                                        description: "Some files were rejected. Only PDF files under 5MB are allowed.",
+                                        variant: "destructive",
+                                      });
+                                    }
+                                    setAiCaCertificates((prev) => [...prev, ...validFiles]);
+                                  };
+                                  input.click();
+                                }}
+                                data-testid="dropzone-ca-certificate"
+                              >
+                                <Upload className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                  Click to upload PDF files (max 5MB each)
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Multiple files supported
+                                </p>
+                              </div>
+
+                              {/* Uploaded Files Preview */}
+                              {aiCaCertificates.length > 0 && (
+                                <div className="mt-3 space-y-2">
+                                  {aiCaCertificates.map((file, index) => (
+                                    <div
+                                      key={index}
+                                      className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded-md"
+                                      data-testid={`file-preview-${index}`}
+                                    >
+                                      <div className="flex items-center gap-2 flex-1">
+                                        <FileText className="h-4 w-4 text-red-600" />
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-sm font-medium truncate">{file.name}</p>
+                                          <p className="text-xs text-gray-500">
+                                            {(file.size / 1024 / 1024).toFixed(2)} MB
+                                          </p>
+                                        </div>
+                                      </div>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setAiCaCertificates((prev) =>
+                                            prev.filter((_, i) => i !== index)
+                                          );
+                                        }}
+                                        data-testid={`button-remove-file-${index}`}
+                                      >
+                                        <X className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <Button
+                            onClick={() => uploadCaCertificateMutation.mutate()}
+                            disabled={
+                              uploadCaCertificateMutation.isPending ||
+                              !aiCaCertificateName ||
+                              !aiCaCertificateNumber ||
+                              aiCaCertificates.length === 0
+                            }
+                            className="w-full"
+                            data-testid="button-upload-ca"
+                          >
+                            {uploadCaCertificateMutation.isPending ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Uploading...
+                              </>
+                            ) : (
+                              <>
+                                Upload & Continue
+                                <ArrowRight className="ml-2 h-4 w-4" />
+                              </>
+                            )}
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Step 3: eSign */}
+                    {aiCurrentStep === "esign" && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg">Step 3: Digital Signature (eSign)</CardTitle>
+                          <CardDescription>
+                            Sign the Risk Declaration document digitally
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <Alert>
+                            <FileText className="h-4 w-4" />
+                            <AlertTitle>Risk Declaration</AlertTitle>
+                            <AlertDescription>
+                              You will digitally sign a declaration acknowledging the risks associated with
+                              high-risk investment products including AIFs, PMS, and structured debt.
+                            </AlertDescription>
+                          </Alert>
+
+                          <Button
+                            onClick={() => initiateESignMutation.mutate()}
+                            disabled={initiateESignMutation.isPending}
+                            className="w-full"
+                            data-testid="button-esign"
+                          >
+                            {initiateESignMutation.isPending ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Processing...
+                              </>
+                            ) : (
+                              <>
+                                Sign Document
+                                <ArrowRight className="ml-2 h-4 w-4" />
+                              </>
+                            )}
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Step 4: BSE Submission */}
+                    {aiCurrentStep === "bse_submit" && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg">Step 4: BSE API Submission</CardTitle>
+                          <CardDescription>
+                            Submitting to BSE for Accredited Investor certification
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <Alert>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <AlertTitle>Processing...</AlertTitle>
+                            <AlertDescription>
+                              Your application is being submitted to BSE. This typically takes a few seconds.
+                            </AlertDescription>
+                          </Alert>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Step 5: Completed */}
+                    {aiCurrentStep === "completed" && (
+                      <Card className="border-green-200 bg-green-50 dark:bg-green-900/10">
+                        <CardHeader>
+                          <CardTitle className="text-lg flex items-center gap-2 text-green-700 dark:text-green-400">
+                            <Award className="h-6 w-6" />
+                            Accredited Investor Certificate Issued!
+                          </CardTitle>
+                          <CardDescription>
+                            Congratulations! You are now a SEBI-certified Accredited Investor
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-sm text-muted-foreground">Certificate Number</p>
+                              <p className="font-mono font-semibold" data-testid="text-cert-number">
+                                {aiCertificateNumber}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Certificate ID</p>
+                              <p className="font-mono font-semibold" data-testid="text-cert-id">
+                                {aiCertificateId}
+                              </p>
+                            </div>
+                          </div>
+
+                          {aiExpiryDate && (
+                            <div>
+                              <p className="text-sm text-muted-foreground">Valid Until</p>
+                              <p className="font-semibold" data-testid="text-cert-expiry">
+                                {new Date(aiExpiryDate).toLocaleDateString("en-IN", {
+                                  year: "numeric",
+                                  month: "long",
+                                  day: "numeric",
+                                })}
+                              </p>
+                            </div>
+                          )}
+
+                          {aiCertificateUrl && (
+                            <Button
+                              variant="outline"
+                              className="w-full"
+                              onClick={() => window.open(aiCertificateUrl, "_blank")}
+                              data-testid="button-download-cert"
+                            >
+                              <FileText className="mr-2 h-4 w-4" />
+                              Download Certificate
+                            </Button>
+                          )}
+
+                          <Alert className="border-green-200">
+                            <CheckCircle2 className="h-4 w-4 text-green-600" />
+                            <AlertTitle>Tier 3 Unlocked</AlertTitle>
+                            <AlertDescription>
+                              You now have access to premium investment products including AIFs, PMS, 
+                              structured products, and unlisted securities.
+                            </AlertDescription>
+                          </Alert>
+
+                          <Button
+                            onClick={() => {
+                              setShowAiWorkflow(false);
+                              setCurrentStep("user_type_selection");
+                              refetchTierStatus();
+                            }}
+                            className="w-full"
+                            data-testid="button-back-to-dashboard"
+                          >
+                            Back to Dashboard
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
           </CardContent>
         </Card>
