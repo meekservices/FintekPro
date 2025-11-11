@@ -97,41 +97,39 @@ export async function submitForAccreditation(
     console.log(`[BSE Accreditation - SIMULATION] Auto-approving submission ${submissionId}`);
     
     // Persist to database
-    // TODO: Uncomment after database migration is applied
     try {
-      // await db.update(schema.accreditedInvestorVerifications)
-      //   .set({
-      //     bseSubmissionId: submissionId,
-      //     bseSubmissionStatus: "approved",
-      //     bseSubmittedAt: issuedAt,
-      //     aiCertificateNumber: certificateNumber,
-      //     aiCertificateId: certificateId,
-      //     aiCertificateIssuedAt: issuedAt,
-      //     aiCertificateExpiryDate: expiryDate,
-      //     aiCertificateUrl: `https://simulation.bseasl.com/certificates/${certificateNumber}.pdf`,
-      //     status: "approved",
-      //     approvedAt: issuedAt,
-      //     verifiedBy: "bse_api",
-      //     updatedAt: new Date(),
-      //   })
-      //   .where(eq(schema.accreditedInvestorVerifications.id, request.verificationId));
+      await db.update(schema.accreditedInvestorVerifications)
+        .set({
+          bseSubmissionId: submissionId,
+          bseSubmissionStatus: "approved",
+          bseSubmittedAt: issuedAt,
+          aiCertificateNumber: certificateNumber,
+          aiCertificateId: certificateId,
+          aiCertificateIssuedAt: issuedAt,
+          aiCertificateExpiryDate: expiryDate,
+          aiCertificateUrl: `https://simulation.bseasl.com/certificates/${certificateNumber}.pdf`,
+          status: "approved",
+          approvedAt: issuedAt,
+          verifiedBy: "bse_api",
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.accreditedInvestorVerifications.id, request.verificationId));
       
       // Update user profile with AI certificate
-      // TODO: Uncomment after database migration is applied
-      // await db.update(schema.users)
-      //   .set({
-      //     aiCertificateNumber: certificateNumber,
-      //     aiCertificateId: certificateId,
-      //     aiVerifiedAt: issuedAt,
-      //     aiESignStatus: "completed",
-      //     aiStatusSource: "bse",
-      //     kycTier: "tier_3",
-      //     kycTierUpgradedAt: issuedAt,
-      //     accreditedInvestorStatus: "verified",
-      //     accreditedInvestorVerifiedAt: issuedAt,
-      //     accreditedInvestorExpiryDate: expiryDate,
-      //   })
-      //   .where(eq(schema.users.id, request.userId));
+      await db.update(schema.users)
+        .set({
+          aiCertificateNumber: certificateNumber,
+          aiCertificateId: certificateId,
+          aiVerifiedAt: issuedAt,
+          aiESignStatus: "completed",
+          aiStatusSource: "bse",
+          kycTier: "tier_3",
+          kycTierUpgradedAt: issuedAt,
+          accreditedInvestorStatus: "verified",
+          accreditedInvestorVerifiedAt: issuedAt,
+          accreditedInvestorExpiryDate: expiryDate,
+        })
+        .where(eq(schema.users.id, request.userId));
       
       console.log(`[BSE Accreditation - SIMULATION] Persisted approval for verification ${request.verificationId}`);
     } catch (error: any) {

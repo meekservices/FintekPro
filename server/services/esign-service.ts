@@ -247,27 +247,26 @@ export async function initiateESign(request: ESignRequest): Promise<ESignRespons
     console.log(`[eSign - SIMULATION] Auto-completing eSign transaction ${transactionId}`);
     
     // Persist to database
-    // TODO: Uncomment after database migration is applied
     try {
-      // await db.update(schema.accreditedInvestorVerifications)
-      //   .set({
-      //     eSignTransactionId: transactionId,
-      //     eSignProvider: ESIGN_CONFIG.PROVIDER as "emudhra" | "nsdl",
-      //     eSignStatus: "completed",
-      //     riskDeclarationUrl: signedDocumentUrl,
-      //     eSignCompletedAt: new Date(),
-      //     eSignResponsePayload: {
-      //       transactionId,
-      //       status: "completed",
-      //       signedAt: new Date().toISOString(),
-      //       provider: ESIGN_CONFIG.PROVIDER,
-      //       mode: "simulation",
-      //     },
-      //     currentStep: "bse_submission",
-      //     status: "esign_completed",
-      //     updatedAt: new Date(),
-      //   })
-      //   .where(eq(schema.accreditedInvestorVerifications.id, request.verificationId));
+      await db.update(schema.accreditedInvestorVerifications)
+        .set({
+          eSignTransactionId: transactionId,
+          eSignProvider: ESIGN_CONFIG.PROVIDER as "emudhra" | "nsdl",
+          eSignStatus: "completed",
+          riskDeclarationUrl: signedDocumentUrl,
+          eSignCompletedAt: new Date(),
+          eSignResponsePayload: {
+            transactionId,
+            status: "completed",
+            signedAt: new Date().toISOString(),
+            provider: ESIGN_CONFIG.PROVIDER,
+            mode: "simulation",
+          },
+          currentStep: "bse_submission",
+          status: "esign_completed",
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.accreditedInvestorVerifications.id, request.verificationId));
       
       console.log(`[eSign - SIMULATION] Persisted eSign completion for verification ${request.verificationId}`);
     } catch (error: any) {
