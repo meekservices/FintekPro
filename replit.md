@@ -38,6 +38,8 @@ The platform uses a subdomain-based portal architecture for Admin, Partner, and 
 - **Sandbox.co.in API** (Primary): KYC and tax compliance (PAN, Aadhaar OKYC, Bank Account/UPI verification, Income Tax, TDS, GST, Tax Payments) with live production keys.
 - **Digilocker API** (Backup Option): OAuth 2.0-based e-Aadhaar verification via government platform.
 - **Setu OKYC API** (Backup Option): OTP-based Aadhaar verification with REST API integration.
+- **eMudhra eSign API** (Production): Digital signature for Tier 3 KYC risk declarations with HMAC-SHA256 webhook validation, async status polling, and PII redaction in logs.
+- **BSE Accreditation API** (Simulation): Production-quality simulation for SEBI Accredited Investor certification. Real API requires BSE partnership (contact bseasl.membership@bseasl.com).
 - **Cashfree (primary) & PhonePe (secondary)**: Payment Gateways.
 - **Cashfree Payout API**: Vendor management, automated commission settlements.
 - **Twilio**: SMS OTP delivery.
