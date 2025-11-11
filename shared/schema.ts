@@ -5,6 +5,8 @@ import { z } from "zod";
 
 export const kycTierEnum = pgEnum("kyc_tier", ["tier_1", "tier_2", "tier_3"]);
 export const kycStatusEnum = pgEnum("kyc_status", ["pending", "in_progress", "completed", "cancelled"]);
+export const aiVerificationStatusEnum = pgEnum("ai_verification_status", ["pending", "ca_uploaded", "esign_pending", "esign_completed", "submitted", "approved", "rejected", "expired"]);
+export const aiWorkflowStepEnum = pgEnum("ai_workflow_step", ["ca_upload", "esign", "bse_submission", "completed"]);
 
 // Session storage table for Replit Auth
 export const sessions = pgTable(
@@ -247,6 +249,14 @@ export const userProfiles = pgTable("user_profiles", {
   netWorthStatementUrl: varchar("net_worth_statement_url"),
   portfolioStatementUrl: varchar("portfolio_statement_url"),
   accreditedInvestorRejectionReason: text("accredited_investor_rejection_reason"),
+  
+  // BSE Accreditation API Fields (snapshot of latest status)
+  aiCertificateNumber: varchar("ai_certificate_number"), // BSE AI Certificate Number
+  aiCertificateId: varchar("ai_certificate_id"), // BSE AI Certificate ID
+  aiVerifiedAt: timestamp("ai_verified_at"), // When AI certificate was issued
+  riskDeclarationUrl: varchar("risk_declaration_url"), // Signed risk declaration PDF
+  aiESignStatus: varchar("ai_esign_status"), // pending/completed/failed
+  aiStatusSource: varchar("ai_status_source").default("bse"), // bse/cvl/nsdl
   
   // Product Access Permissions (auto-calculated based on KYC tier)
   productsUnlocked: jsonb("products_unlocked").default([]), // Array of unlocked product codes
@@ -766,6 +776,15 @@ export const productionKycSessions = pgTable("production_kyc_sessions", {
   isUpgradeSession: boolean("is_upgrade_session").default(false), // Whether this is an upgrade
   kycStatus: kycStatusEnum("kyc_status").default("pending"), // Session status
   
+  // Accredited Investor Verification (Tier 3 specific)
+  aiCertificateId: varchar("ai_certificate_id"), // BSE AI Certificate ID for this session
+  aiESignStatus: varchar("ai_esign_status"), // pending/completed/failed
+  caCertificateUrl: varchar("ca_certificate_url"), // CA Net Worth Certificate URL
+  riskDeclarationUrl: varchar("risk_declaration_url"), // Signed risk declaration URL
+  aiSubmissionStatus: varchar("ai_submission_status"), // pending/submitted/approved/rejected
+  aiSubmittedAt: timestamp("ai_submitted_at"),
+  aiDecisionAt: timestamp("ai_decision_at"),
+  
   // Session Metadata
   startedAt: timestamp("started_at").defaultNow(),
   completedAt: timestamp("completed_at"),
@@ -808,6 +827,69 @@ export const kycTierUpgradeEvents = pgTable("kyc_tier_upgrade_events", {
   index("idx_tier_events_user").on(table.userId),
   index("idx_tier_events_session").on(table.sessionId),
   index("idx_tier_events_status").on(table.status),
+]);
+
+// Accredited Investor Verifications - Complete workflow tracking
+export const accreditedInvestorVerifications = pgTable("accredited_investor_verifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  sessionId: varchar("session_id").references(() => productionKycSessions.id), // Link to KYC session if part of tier upgrade
+  
+  // Workflow Status
+  status: aiVerificationStatusEnum("status").default("pending"),
+  currentStep: aiWorkflowStepEnum("current_step").default("ca_upload"),
+  
+  // CA Certificate Upload
+  caCertificateUrl: varchar("ca_certificate_url"),
+  caCertificateName: varchar("ca_certificate_name"), // Name of CA who certified
+  caCertificateNumber: varchar("ca_certificate_number"), // CA membership number
+  caCertificateUploadedAt: timestamp("ca_certificate_uploaded_at"),
+  
+  // Income/Net Worth Documentation
+  incomeDocs: jsonb("income_docs").default([]), // Array of {url, type, uploadedAt}
+  netWorthAmount: decimal("net_worth_amount", { precision: 15, scale: 2 }),
+  annualIncomeAmount: decimal("annual_income_amount", { precision: 15, scale: 2 }),
+  verificationBasis: varchar("verification_basis"), // networth/income/both
+  
+  // Risk Declaration eSign
+  riskDeclarationUrl: varchar("risk_declaration_url"),
+  eSignProvider: varchar("esign_provider"), // emudhra/nsdl
+  eSignTransactionId: varchar("esign_transaction_id"),
+  eSignStatus: varchar("esign_status"), // pending/initiated/completed/failed
+  eSignRequestPayload: jsonb("esign_request_payload"),
+  eSignResponsePayload: jsonb("esign_response_payload"),
+  eSignCompletedAt: timestamp("esign_completed_at"),
+  eSignFailureReason: text("esign_failure_reason"),
+  
+  // BSE Accreditation API Submission
+  bseSubmissionId: varchar("bse_submission_id"),
+  bseSubmissionStatus: varchar("bse_submission_status"), // pending/submitted/under_review/approved/rejected
+  bseSubmittedAt: timestamp("bse_submitted_at"),
+  bseRequestPayload: jsonb("bse_request_payload"),
+  bseResponsePayload: jsonb("bse_response_payload"),
+  
+  // AI Certificate (received from BSE)
+  aiCertificateNumber: varchar("ai_certificate_number"),
+  aiCertificateId: varchar("ai_certificate_id"),
+  aiCertificateIssuedAt: timestamp("ai_certificate_issued_at"),
+  aiCertificateExpiryDate: timestamp("ai_certificate_expiry_date"),
+  aiCertificateUrl: varchar("ai_certificate_url"), // URL to download certificate PDF
+  
+  // Decision Tracking
+  approvedAt: timestamp("approved_at"),
+  rejectedAt: timestamp("rejected_at"),
+  rejectionReason: text("rejection_reason"),
+  verifiedBy: varchar("verified_by"), // admin user ID or "bse_api"
+  
+  // Audit
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_ai_verif_user").on(table.userId),
+  index("idx_ai_verif_session").on(table.sessionId),
+  index("idx_ai_verif_status").on(table.status),
+  index("idx_ai_verif_esign").on(table.eSignTransactionId),
+  index("idx_ai_verif_bse").on(table.bseSubmissionId),
 ]);
 
 export const bseUccRequests = pgTable("bse_ucc_requests", {
@@ -11022,3 +11104,7 @@ export type InsertProductionKycSession = z.infer<typeof insertProductionKycSessi
 
 export const insertKycTierUpgradeEventSchema = createInsertSchema(kycTierUpgradeEvents);
 export type InsertKycTierUpgradeEvent = z.infer<typeof insertKycTierUpgradeEventSchema>;
+
+export const insertAccreditedInvestorVerificationSchema = createInsertSchema(accreditedInvestorVerifications).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertAccreditedInvestorVerification = z.infer<typeof insertAccreditedInvestorVerificationSchema>;
+export type AccreditedInvestorVerification = typeof accreditedInvestorVerifications.$inferSelect;
