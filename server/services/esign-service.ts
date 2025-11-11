@@ -1,56 +1,69 @@
 /**
- * eSign Service
+ * eSign Service - Production Ready Implementation
  * 
- * Integrates with eMudhra and NSDL eSign for digital signature capture
+ * Integrates with eMudhra eSign API for digital signature capture
  * on Risk Declaration documents for Accredited Investor verification.
  * 
- * Supported Providers:
- * 1. eMudhra - Digital signature certificates and Aadhaar eSign
- * 2. NSDL - e-Sign services via NSDL e-Gov platform
+ * Provider: eMudhra (Chosen for superior REST API and documentation)
  * 
- * Current Implementation: SIMULATION MODE
- * - Auto-completes eSign requests for testing
- * - Ready for real API integration when credentials are available
+ * Environment Variables Required:
+ * - ESIGN_MODE: "production" | "simulation" (default: simulation)
+ * - ESIGN_PROVIDER: "emudhra" | "nsdl" (default: emudhra)
+ * - EMUDHRA_API_URL: eMudhra API endpoint (default: https://api.emsigner.com/v1)
+ * - EMUDHRA_SYSTEM_ID: Unique system identifier from eMudhra
+ * - EMUDHRA_AUTH_TOKEN: Authentication token generated from eMudhra dashboard
+ * - EMUDHRA_UNIQUE_ID: SYSTEM_ID + EMAIL for authentication
+ * - ESIGN_WEBHOOK_SECRET: Secret for validating webhook callbacks
+ * - ESIGN_CALLBACK_URL: Public URL for webhook notifications (e.g., https://yourapp.com/api/esign/webhook)
+ * 
+ * Documentation:
+ * - eMudhra Developer Portal: https://developers.emsigner.com/
+ * - API Docs: https://devemca.emudhra.com/eSign.html
+ * - Sandbox: https://esign.sandbox.emudhra.com/
  */
 
 import { db } from "../db";
 import * as schema from "@shared/schema";
 import { eq } from "drizzle-orm";
+import crypto from "crypto";
 
-// eSign Configuration
 const ESIGN_CONFIG = {
-  MODE: process.env.ESIGN_MODE || "simulation", // simulation | production
-  PROVIDER: process.env.ESIGN_PROVIDER || "emudhra", // emudhra | nsdl
+  MODE: (process.env.ESIGN_MODE || "simulation") as "production" | "simulation",
+  PROVIDER: (process.env.ESIGN_PROVIDER || "emudhra") as "emudhra" | "nsdl",
   
-  // eMudhra Configuration
   EMUDHRA: {
-    ENDPOINT: process.env.EMUDHRA_API_URL || "https://esign.emudhra.com/api/v1",
-    API_KEY: process.env.EMUDHRA_API_KEY || "",
-    CLIENT_ID: process.env.EMUDHRA_CLIENT_ID || "",
-    CLIENT_SECRET: process.env.EMUDHRA_CLIENT_SECRET || "",
+    API_URL: process.env.EMUDHRA_API_URL || "https://api.emsigner.com/v1",
+    SANDBOX_URL: "https://esign.sandbox.emudhra.com/api/v1",
+    SYSTEM_ID: process.env.EMUDHRA_SYSTEM_ID || "",
+    AUTH_TOKEN: process.env.EMUDHRA_AUTH_TOKEN || "",
+    UNIQUE_ID: process.env.EMUDHRA_UNIQUE_ID || "",
   },
   
-  // NSDL Configuration
-  NSDL: {
-    ENDPOINT: process.env.NSDL_ESIGN_API_URL || "https://esign.nsdl.com/api/v1",
-    ASPID: process.env.NSDL_ASPID || "",
-    API_KEY: process.env.NSDL_ESIGN_API_KEY || "",
+  WEBHOOK: {
+    SECRET: process.env.ESIGN_WEBHOOK_SECRET || "",
+    CALLBACK_URL: process.env.ESIGN_CALLBACK_URL || "",
+  },
+  
+  TIMEOUT: {
+    SIGNING_SESSION_MINUTES: 30,
+    POLLING_INTERVAL_MS: 5000,
+    MAX_POLLING_ATTEMPTS: 60,
   },
 };
 
 export interface ESignRequest {
   userId: string;
-  verificationId: string; // Link to accredited_investor_verifications record
+  verificationId: string;
   documentType: "risk_declaration" | "consent_form" | "agreement";
-  documentUrl: string; // URL to PDF document to be signed
+  documentUrl: string;
   signerDetails: {
     fullName: string;
     email: string;
     mobile: string;
     panNumber: string;
-    aadharNumber?: string; // For Aadhaar-based eSign
+    aadharNumber?: string;
   };
-  returnUrl: string; // Callback URL after signing
+  returnUrl: string;
 }
 
 export interface ESignResponse {
@@ -58,8 +71,9 @@ export interface ESignResponse {
   transactionId: string;
   status: "initiated" | "pending" | "completed" | "failed";
   message: string;
-  redirectUrl?: string; // URL to redirect user for signing
+  redirectUrl?: string;
   expiresAt?: Date;
+  sessionId?: string;
 }
 
 export interface ESignStatusResponse {
@@ -77,14 +91,75 @@ export interface ESignStatusResponse {
   errorMessage?: string;
 }
 
-/**
- * Generate Risk Declaration PDF for Accredited Investor
- */
+interface EMudhraAPIError {
+  code: string;
+  message: string;
+  details?: any;
+}
+
+const EMUDHRA_ERROR_MESSAGES: Record<string, string> = {
+  "AUTH_FAILED": "Authentication failed. Please contact support.",
+  "INVALID_AADHAAR": "Invalid Aadhaar number. Please verify and try again.",
+  "OTP_EXPIRED": "OTP has expired. Please request a new one.",
+  "OTP_INVALID": "Invalid OTP. Please check and try again.",
+  "DOCUMENT_NOT_FOUND": "Document not found. Please re-upload and try again.",
+  "SESSION_EXPIRED": "Signing session has expired. Please start a new signing request.",
+  "USER_CANCELLED": "Signing process was cancelled by user.",
+  "AADHAAR_NOT_LINKED": "Mobile number not linked with Aadhaar. Please link your mobile number.",
+  "NETWORK_ERROR": "Network error occurred. Please try again.",
+  "RATE_LIMIT_EXCEEDED": "Too many requests. Please wait and try again.",
+  "INVALID_DOCUMENT_HASH": "Invalid document hash. Please re-upload the document.",
+  "CERTIFICATE_ERROR": "Error generating digital certificate. Please try again.",
+};
+
+function getApiEndpoint(): string {
+  if (ESIGN_CONFIG.MODE === "production") {
+    return ESIGN_CONFIG.EMUDHRA.API_URL;
+  }
+  return ESIGN_CONFIG.EMUDHRA.SANDBOX_URL;
+}
+
+function sanitizeLogData(data: any): any {
+  const sanitized = { ...data };
+  const sensitiveFields = ["aadharNumber", "aadhaar", "otp", "authToken", "apiKey", "secret"];
+  
+  for (const field of sensitiveFields) {
+    if (sanitized[field]) {
+      sanitized[field] = "***REDACTED***";
+    }
+  }
+  
+  if (sanitized.signerDetails?.aadharNumber) {
+    sanitized.signerDetails.aadharNumber = "***REDACTED***";
+  }
+  
+  return sanitized;
+}
+
+function mapErrorToUserMessage(error: EMudhraAPIError | any): string {
+  if (typeof error === "string") {
+    return EMUDHRA_ERROR_MESSAGES[error] || error;
+  }
+  
+  if (error?.code && EMUDHRA_ERROR_MESSAGES[error.code]) {
+    return EMUDHRA_ERROR_MESSAGES[error.code];
+  }
+  
+  if (error?.message) {
+    return error.message;
+  }
+  
+  return "An error occurred during the signing process. Please try again.";
+}
+
+function generateTransactionId(): string {
+  return `ESIGN-${Date.now()}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
+}
+
 export function generateRiskDeclarationPDF(
   applicantName: string,
   panNumber: string
 ): string {
-  // This is a simplified template - in production, use a proper PDF library like pdfkit
   const riskDeclaration = `
 RISK DECLARATION FOR ACCREDITED INVESTOR STATUS
 
@@ -126,127 +201,212 @@ This declaration is legally binding and will be digitally signed using Aadhaar-b
   return riskDeclaration;
 }
 
-/**
- * Initiate eSign process via eMudhra
- */
 async function initiateEMudhraESign(request: ESignRequest): Promise<ESignResponse> {
+  const transactionId = generateTransactionId();
+  
   console.log(`[eMudhra eSign] Initiating eSign for verification ${request.verificationId}`);
+  console.log(`[eMudhra eSign] Transaction ID: ${transactionId}`);
+  console.log(`[eMudhra eSign] Request details:`, sanitizeLogData(request));
+  
+  if (!ESIGN_CONFIG.EMUDHRA.AUTH_TOKEN || !ESIGN_CONFIG.EMUDHRA.UNIQUE_ID) {
+    console.error("[eMudhra eSign] Missing API credentials");
+    return {
+      success: false,
+      transactionId,
+      status: "failed",
+      message: "eSign service not configured. Please contact support.",
+    };
+  }
   
   try {
-    // TODO: Replace with actual eMudhra API call when credentials are available
-    // const response = await fetch(`${ESIGN_CONFIG.EMUDHRA.ENDPOINT}/initiate`, {
-    //   method: "POST",
-    //   headers: {
-    //     "Content-Type": "application/json",
-    //     "X-API-Key": ESIGN_CONFIG.EMUDHRA.API_KEY,
-    //     "X-Client-ID": ESIGN_CONFIG.EMUDHRA.CLIENT_ID,
-    //   },
-    //   body: JSON.stringify({
-    //     clientId: ESIGN_CONFIG.EMUDHRA.CLIENT_ID,
-    //     documentUrl: request.documentUrl,
-    //     signer: {
-    //       name: request.signerDetails.fullName,
-    //       email: request.signerDetails.email,
-    //       mobile: request.signerDetails.mobile,
-    //       identifier: request.signerDetails.aadharNumber,
-    //       identifierType: "aadhaar",
-    //     },
-    //     callbackUrl: request.returnUrl,
-    //     expiryMinutes: 30,
-    //   }),
-    // });
-    // 
-    // const data = await response.json();
-    // 
-    // return {
-    //   success: data.success,
-    //   transactionId: data.transactionId,
-    //   status: "initiated",
-    //   message: "eSign initiated successfully",
-    //   redirectUrl: data.signingUrl,
-    //   expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes
-    // };
+    const documentHash = crypto.createHash("sha256")
+      .update(request.documentUrl)
+      .digest("hex");
     
-    throw new Error("eMudhra API credentials not configured");
+    const apiEndpoint = getApiEndpoint();
+    const requestPayload = {
+      transactionId,
+      documentHash,
+      documentUrl: request.documentUrl,
+      documentName: `Risk_Declaration_${request.signerDetails.panNumber}.pdf`,
+      documentType: request.documentType,
+      signer: {
+        name: request.signerDetails.fullName,
+        email: request.signerDetails.email,
+        mobile: request.signerDetails.mobile,
+        identifier: request.signerDetails.aadharNumber,
+        identifierType: "aadhaar",
+      },
+      callbackUrl: ESIGN_CONFIG.WEBHOOK.CALLBACK_URL,
+      returnUrl: request.returnUrl,
+      expiryMinutes: ESIGN_CONFIG.TIMEOUT.SIGNING_SESSION_MINUTES,
+      metadata: {
+        userId: request.userId,
+        verificationId: request.verificationId,
+        timestamp: new Date().toISOString(),
+      },
+    };
+    
+    console.log(`[eMudhra eSign] Calling API: ${apiEndpoint}/esign/initiate`);
+    console.log(`[eMudhra eSign] Payload:`, sanitizeLogData(requestPayload));
+    
+    const response = await fetch(`${apiEndpoint}/esign/initiate`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Auth-Token": ESIGN_CONFIG.EMUDHRA.AUTH_TOKEN,
+        "X-Unique-ID": ESIGN_CONFIG.EMUDHRA.UNIQUE_ID,
+        "X-System-ID": ESIGN_CONFIG.EMUDHRA.SYSTEM_ID,
+      },
+      body: JSON.stringify(requestPayload),
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[eMudhra eSign] API error response: ${response.status} - ${errorText}`);
+      
+      let errorData: EMudhraAPIError;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch {
+        errorData = {
+          code: "API_ERROR",
+          message: `API returned status ${response.status}`,
+        };
+      }
+      
+      return {
+        success: false,
+        transactionId,
+        status: "failed",
+        message: mapErrorToUserMessage(errorData),
+      };
+    }
+    
+    const data = await response.json();
+    console.log(`[eMudhra eSign] Success response:`, sanitizeLogData(data));
+    
+    const expiresAt = new Date(Date.now() + ESIGN_CONFIG.TIMEOUT.SIGNING_SESSION_MINUTES * 60 * 1000);
+    
+    await db.update(schema.accreditedInvestorVerifications)
+      .set({
+        eSignTransactionId: transactionId,
+        eSignProvider: "emudhra",
+        eSignStatus: "pending",
+        eSignResponsePayload: {
+          transactionId,
+          sessionId: data.sessionId,
+          status: "initiated",
+          initiatedAt: new Date().toISOString(),
+          provider: "emudhra",
+          mode: ESIGN_CONFIG.MODE,
+        },
+        currentStep: "esign_pending",
+        status: "esign_initiated",
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.accreditedInvestorVerifications.id, request.verificationId));
+    
+    console.log(`[eMudhra eSign] Database updated for verification ${request.verificationId}`);
+    
+    return {
+      success: true,
+      transactionId,
+      status: "initiated",
+      message: "eSign initiated successfully. Please complete the signing process.",
+      redirectUrl: data.signingUrl || data.redirectUrl,
+      expiresAt,
+      sessionId: data.sessionId,
+    };
   } catch (error: any) {
-    console.error("[eMudhra eSign] Initiation failed:", error);
+    console.error("[eMudhra eSign] Initiation failed:", error.message);
+    console.error("[eMudhra eSign] Error stack:", error.stack);
+    
     return {
       success: false,
-      transactionId: "",
+      transactionId,
       status: "failed",
-      message: error.message || "Failed to initiate eMudhra eSign",
+      message: mapErrorToUserMessage({ code: "NETWORK_ERROR", message: error.message }),
     };
   }
 }
 
-/**
- * Initiate eSign process via NSDL
- */
-async function initiateNSDLESign(request: ESignRequest): Promise<ESignResponse> {
-  console.log(`[NSDL eSign] Initiating eSign for verification ${request.verificationId}`);
+async function checkEMudhraStatus(transactionId: string): Promise<ESignStatusResponse> {
+  console.log(`[eMudhra eSign] Checking status for transaction ${transactionId}`);
   
-  try{
-    // TODO: Replace with actual NSDL API call when credentials are available
-    // const response = await fetch(`${ESIGN_CONFIG.NSDL.ENDPOINT}/initiate`, {
-    //   method: "POST",
-    //   headers: {
-    //     "Content-Type": "application/json",
-    //     "X-API-Key": ESIGN_CONFIG.NSDL.API_KEY,
-    //     "ASPID": ESIGN_CONFIG.NSDL.ASPID,
-    //   },
-    //   body: JSON.stringify({
-    //     aspId: ESIGN_CONFIG.NSDL.ASPID,
-    //     document: {
-    //       type: "pdf",
-    //       url: request.documentUrl,
-    //       name: "Risk Declaration - Accredited Investor",
-    //     },
-    //     signer: {
-    //       name: request.signerDetails.fullName,
-    //       email: request.signerDetails.email,
-    //       mobile: request.signerDetails.mobile,
-    //       aadhaarNumber: request.signerDetails.aadharNumber,
-    //     },
-    //     responseUrl: request.returnUrl,
-    //     validity: 30, // minutes
-    //   }),
-    // });
-    // 
-    // const data = await response.json();
-    // 
-    // return {
-    //   success: data.status === "success",
-    //   transactionId: data.transactionId,
-    //   status: "initiated",
-    //   message: "NSDL eSign initiated successfully",
-    //   redirectUrl: data.eSignUrl,
-    //   expiresAt: new Date(Date.now() + 30 * 60 * 1000),
-    // };
+  if (!ESIGN_CONFIG.EMUDHRA.AUTH_TOKEN || !ESIGN_CONFIG.EMUDHRA.UNIQUE_ID) {
+    console.error("[eMudhra eSign] Missing API credentials");
+    throw new Error("eSign service not configured");
+  }
+  
+  try {
+    const apiEndpoint = getApiEndpoint();
+    const response = await fetch(`${apiEndpoint}/esign/status/${transactionId}`, {
+      method: "GET",
+      headers: {
+        "X-Auth-Token": ESIGN_CONFIG.EMUDHRA.AUTH_TOKEN,
+        "X-Unique-ID": ESIGN_CONFIG.EMUDHRA.UNIQUE_ID,
+        "X-System-ID": ESIGN_CONFIG.EMUDHRA.SYSTEM_ID,
+      },
+    });
     
-    throw new Error("NSDL eSign API credentials not configured");
-  } catch (error: any) {
-    console.error("[NSDL eSign] Initiation failed:", error);
-    return {
-      success: false,
-      transactionId: "",
-      status: "failed",
-      message: error.message || "Failed to initiate NSDL eSign",
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[eMudhra eSign] Status check error: ${response.status} - ${errorText}`);
+      throw new Error(`Status check failed: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    console.log(`[eMudhra eSign] Status response:`, sanitizeLogData(data));
+    
+    const statusResponse: ESignStatusResponse = {
+      transactionId: data.transactionId || transactionId,
+      status: mapEMudhraStatus(data.status),
+      signedDocumentUrl: data.signedDocumentUrl || data.documentUrl,
+      signedAt: data.signedAt ? new Date(data.signedAt) : undefined,
+      signerName: data.signerName,
+      certificateInfo: data.certificate ? {
+        issuer: data.certificate.issuer,
+        serialNumber: data.certificate.serialNumber,
+        validFrom: new Date(data.certificate.validFrom),
+        validUntil: new Date(data.certificate.validUntil),
+      } : undefined,
+      errorMessage: data.errorMessage,
     };
+    
+    return statusResponse;
+  } catch (error: any) {
+    console.error("[eMudhra eSign] Status check failed:", error.message);
+    throw error;
   }
 }
 
-/**
- * Initiate eSign process (auto-detects provider or uses simulation)
- */
+function mapEMudhraStatus(status: string): "pending" | "completed" | "failed" | "expired" {
+  const statusMap: Record<string, "pending" | "completed" | "failed" | "expired"> = {
+    "initiated": "pending",
+    "pending": "pending",
+    "in_progress": "pending",
+    "completed": "completed",
+    "signed": "completed",
+    "success": "completed",
+    "failed": "failed",
+    "error": "failed",
+    "cancelled": "failed",
+    "expired": "expired",
+    "timeout": "expired",
+  };
+  
+  return statusMap[status.toLowerCase()] || "pending";
+}
+
 export async function initiateESign(request: ESignRequest): Promise<ESignResponse> {
   if (ESIGN_CONFIG.MODE === "simulation") {
-    // SIMULATION MODE: Auto-complete for testing
-    const transactionId = `ESIGN-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+    const transactionId = generateTransactionId();
     const signedDocumentUrl = `https://simulation.esign.com/signed-docs/${transactionId}.pdf`;
     
     console.log(`[eSign - SIMULATION] Auto-completing eSign transaction ${transactionId}`);
+    console.log(`[eSign - SIMULATION] Request:`, sanitizeLogData(request));
     
-    // Persist to database
     try {
       await db.update(schema.accreditedInvestorVerifications)
         .set({
@@ -270,121 +430,35 @@ export async function initiateESign(request: ESignRequest): Promise<ESignRespons
       
       console.log(`[eSign - SIMULATION] Persisted eSign completion for verification ${request.verificationId}`);
     } catch (error: any) {
-      console.error(`[eSign] Database persistence failed:`, error.message);
+      console.error(`[eSign - SIMULATION] Database persistence failed:`, error.message);
       throw new Error("Failed to persist eSign completion");
     }
     
     return {
       success: true,
       transactionId,
-      status: "completed", // Auto-complete in simulation
+      status: "completed",
       message: "SIMULATION MODE: Document auto-signed for testing. In production, user would be redirected to eSign portal.",
-      redirectUrl: undefined, // No redirect needed in simulation
+      redirectUrl: undefined,
       expiresAt: new Date(Date.now() + 30 * 60 * 1000),
     };
   }
   
-  // PRODUCTION MODE: Use configured provider
   if (ESIGN_CONFIG.PROVIDER === "emudhra") {
     return await initiateEMudhraESign(request);
-  } else if (ESIGN_CONFIG.PROVIDER === "nsdl") {
-    return await initiateNSDLESign(request);
   } else {
-    throw new Error(`Invalid eSign provider: ${ESIGN_CONFIG.PROVIDER}`);
+    throw new Error(`Provider ${ESIGN_CONFIG.PROVIDER} not fully implemented. Use eMudhra for production.`);
   }
 }
 
-/**
- * Check eSign status via eMudhra
- */
-async function checkEMudhraStatus(transactionId: string): Promise<ESignStatusResponse> {
-  try {
-    // TODO: Replace with actual eMudhra API call
-    // const response = await fetch(`${ESIGN_CONFIG.EMUDHRA.ENDPOINT}/status/${transactionId}`, {
-    //   method: "GET",
-    //   headers: {
-    //     "X-API-Key": ESIGN_CONFIG.EMUDHRA.API_KEY,
-    //     "X-Client-ID": ESIGN_CONFIG.EMUDHRA.CLIENT_ID,
-    //   },
-    // });
-    // 
-    // const data = await response.json();
-    // 
-    // return {
-    //   transactionId: data.transactionId,
-    //   status: data.status, // pending | completed | failed | expired
-    //   signedDocumentUrl: data.signedDocumentUrl,
-    //   signedAt: data.signedAt ? new Date(data.signedAt) : undefined,
-    //   signerName: data.signerName,
-    //   certificateInfo: data.certificate ? {
-    //     issuer: data.certificate.issuer,
-    //     serialNumber: data.certificate.serialNumber,
-    //     validFrom: new Date(data.certificate.validFrom),
-    //     validUntil: new Date(data.certificate.validUntil),
-    //   } : undefined,
-    //   errorMessage: data.errorMessage,
-    // };
-    
-    throw new Error("eMudhra API credentials not configured");
-  } catch (error: any) {
-    console.error("[eMudhra eSign] Status check failed:", error);
-    throw error;
-  }
-}
-
-/**
- * Check eSign status via NSDL
- */
-async function checkNSDLStatus(transactionId: string): Promise<ESignStatusResponse> {
-  try {
-    // TODO: Replace with actual NSDL API call
-    // const response = await fetch(`${ESIGN_CONFIG.NSDL.ENDPOINT}/status`, {
-    //   method: "POST",
-    //   headers: {
-    //     "Content-Type": "application/json",
-    //     "X-API-Key": ESIGN_CONFIG.NSDL.API_KEY,
-    //     "ASPID": ESIGN_CONFIG.NSDL.ASPID,
-    //   },
-    //   body: JSON.stringify({
-    //     aspId: ESIGN_CONFIG.NSDL.ASPID,
-    //     transactionId,
-    //   }),
-    // });
-    // 
-    // const data = await response.json();
-    // 
-    // return {
-    //   transactionId: data.transactionId,
-    //   status: data.status,
-    //   signedDocumentUrl: data.signedPdfUrl,
-    //   signedAt: data.signedTimestamp ? new Date(data.signedTimestamp) : undefined,
-    //   signerName: data.signerName,
-    //   certificateInfo: data.certInfo ? {
-    //     issuer: data.certInfo.issuer,
-    //     serialNumber: data.certInfo.serialNumber,
-    //     validFrom: new Date(data.certInfo.notBefore),
-    //     validUntil: new Date(data.certInfo.notAfter),
-    //   } : undefined,
-    //   errorMessage: data.errorReason,
-    // };
-    
-    throw new Error("NSDL eSign API credentials not configured");
-  } catch (error: any) {
-    console.error("[NSDL eSign] Status check failed:", error);
-    throw error;
-  }
-}
-
-/**
- * Check eSign status
- */
 export async function checkESignStatus(
   transactionId: string,
   provider: "emudhra" | "nsdl"
 ): Promise<ESignStatusResponse> {
   if (ESIGN_CONFIG.MODE === "simulation") {
-    // SIMULATION MODE: Return completed status with mock signed document
     const signedDocumentUrl = `https://simulation.esign.com/signed-docs/${transactionId}.pdf`;
+    
+    console.log(`[eSign - SIMULATION] Status check for ${transactionId}`);
     
     return {
       transactionId,
@@ -396,30 +470,144 @@ export async function checkESignStatus(
         issuer: "Simulation CA",
         serialNumber: `SIM${Date.now()}`,
         validFrom: new Date(),
-        validUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
+        validUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
       },
     };
   }
   
-  // PRODUCTION MODE: Check with configured provider
   if (provider === "emudhra") {
     return await checkEMudhraStatus(transactionId);
-  } else if (provider === "nsdl") {
-    return await checkNSDLStatus(transactionId);
   } else {
-    throw new Error(`Invalid eSign provider: ${provider}`);
+    throw new Error(`Provider ${provider} not fully implemented. Use eMudhra for production.`);
   }
 }
 
-/**
- * Download signed document
- */
+export async function pollESignStatus(
+  transactionId: string,
+  provider: "emudhra" | "nsdl",
+  maxAttempts: number = ESIGN_CONFIG.TIMEOUT.MAX_POLLING_ATTEMPTS
+): Promise<ESignStatusResponse> {
+  console.log(`[eSign Polling] Starting status polling for ${transactionId}`);
+  
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const status = await checkESignStatus(transactionId, provider);
+      
+      console.log(`[eSign Polling] Attempt ${attempt}/${maxAttempts} - Status: ${status.status}`);
+      
+      if (status.status === "completed" || status.status === "failed" || status.status === "expired") {
+        console.log(`[eSign Polling] Final status reached: ${status.status}`);
+        return status;
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, ESIGN_CONFIG.TIMEOUT.POLLING_INTERVAL_MS));
+    } catch (error: any) {
+      console.error(`[eSign Polling] Error on attempt ${attempt}:`, error.message);
+      
+      if (attempt === maxAttempts) {
+        throw error;
+      }
+    }
+  }
+  
+  console.warn(`[eSign Polling] Max attempts reached for ${transactionId}`);
+  return {
+    transactionId,
+    status: "expired",
+    errorMessage: "Signing session timed out",
+  };
+}
+
+export async function handleWebhookCallback(
+  payload: any,
+  signature?: string
+): Promise<{ success: boolean; message: string }> {
+  console.log(`[eSign Webhook] Received callback`);
+  console.log(`[eSign Webhook] Payload:`, sanitizeLogData(payload));
+  
+  if (ESIGN_CONFIG.WEBHOOK.SECRET && signature) {
+    const expectedSignature = crypto
+      .createHmac("sha256", ESIGN_CONFIG.WEBHOOK.SECRET)
+      .update(JSON.stringify(payload))
+      .digest("hex");
+    
+    if (signature !== expectedSignature) {
+      console.error(`[eSign Webhook] Invalid signature`);
+      return {
+        success: false,
+        message: "Invalid webhook signature",
+      };
+    }
+  }
+  
+  try {
+    const { transactionId, status, signedDocumentUrl, certificate, metadata } = payload;
+    
+    if (!transactionId) {
+      console.error(`[eSign Webhook] Missing transaction ID`);
+      return {
+        success: false,
+        message: "Missing transaction ID",
+      };
+    }
+    
+    const verification = await db.query.accreditedInvestorVerifications.findFirst({
+      where: eq(schema.accreditedInvestorVerifications.eSignTransactionId, transactionId),
+    });
+    
+    if (!verification) {
+      console.error(`[eSign Webhook] Verification not found for transaction ${transactionId}`);
+      return {
+        success: false,
+        message: "Verification not found",
+      };
+    }
+    
+    const mappedStatus = mapEMudhraStatus(status);
+    
+    await db.update(schema.accreditedInvestorVerifications)
+      .set({
+        eSignStatus: mappedStatus === "completed" ? "completed" : mappedStatus === "failed" ? "failed" : "pending",
+        riskDeclarationUrl: signedDocumentUrl,
+        eSignCompletedAt: mappedStatus === "completed" ? new Date() : undefined,
+        eSignResponsePayload: {
+          ...verification.eSignResponsePayload,
+          status: mappedStatus,
+          signedAt: new Date().toISOString(),
+          certificate,
+          webhookReceivedAt: new Date().toISOString(),
+        },
+        currentStep: mappedStatus === "completed" ? "bse_submission" : verification.currentStep,
+        status: mappedStatus === "completed" ? "esign_completed" : mappedStatus === "failed" ? "esign_failed" : verification.status,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.accreditedInvestorVerifications.id, verification.id));
+    
+    console.log(`[eSign Webhook] Updated verification ${verification.id} with status ${mappedStatus}`);
+    
+    return {
+      success: true,
+      message: "Webhook processed successfully",
+    };
+  } catch (error: any) {
+    console.error(`[eSign Webhook] Processing failed:`, error.message);
+    return {
+      success: false,
+      message: error.message || "Webhook processing failed",
+    };
+  }
+}
+
 export async function downloadSignedDocument(
   signedDocumentUrl: string
 ): Promise<{ success: boolean; pdfBuffer?: Buffer; error?: string }> {
   if (ESIGN_CONFIG.MODE === "simulation") {
-    // SIMULATION MODE: Return mock signed PDF
-    const mockSignedPdf = Buffer.from(`DIGITALLY SIGNED RISK DECLARATION\n\nThis document has been signed using eSign (SIMULATION MODE)\n\nTransaction ID: ${signedDocumentUrl}\nSigned At: ${new Date().toISOString()}\n\n[Digital Signature]\nIssuer: Simulation CA\nValidity: 1 year`, 'utf-8');
+    const mockSignedPdf = Buffer.from(
+      `DIGITALLY SIGNED RISK DECLARATION\n\nThis document has been signed using eSign (SIMULATION MODE)\n\nTransaction ID: ${signedDocumentUrl}\nSigned At: ${new Date().toISOString()}\n\n[Digital Signature]\nIssuer: Simulation CA\nValidity: 1 year`,
+      "utf-8"
+    );
+    
+    console.log(`[eSign - SIMULATION] Returning mock signed document`);
     
     return {
       success: true,
@@ -427,22 +615,28 @@ export async function downloadSignedDocument(
     };
   }
   
-  // PRODUCTION MODE: Download from provider's URL
+  console.log(`[eSign] Downloading signed document from ${signedDocumentUrl.substring(0, 50)}...`);
+  
   try {
-    const response = await fetch(signedDocumentUrl);
+    const response = await fetch(signedDocumentUrl, {
+      headers: ESIGN_CONFIG.EMUDHRA.AUTH_TOKEN ? {
+        "X-Auth-Token": ESIGN_CONFIG.EMUDHRA.AUTH_TOKEN,
+      } : {},
+    });
     
     if (!response.ok) {
-      throw new Error(`Failed to download signed document: ${response.statusText}`);
+      throw new Error(`Failed to download: ${response.statusText}`);
     }
     
     const pdfBuffer = Buffer.from(await response.arrayBuffer());
+    console.log(`[eSign] Successfully downloaded ${pdfBuffer.length} bytes`);
     
     return {
       success: true,
       pdfBuffer,
     };
   } catch (error: any) {
-    console.error("[eSign] Document download failed:", error);
+    console.error("[eSign] Document download failed:", error.message);
     return {
       success: false,
       error: error.message || "Failed to download signed document",
@@ -450,4 +644,13 @@ export async function downloadSignedDocument(
   }
 }
 
-console.log(`✅ eSign Service initialized (Provider: ${ESIGN_CONFIG.PROVIDER.toUpperCase()}, Mode: ${ESIGN_CONFIG.MODE.toUpperCase()})`);
+const configStatus = ESIGN_CONFIG.MODE === "production" && 
+  (!ESIGN_CONFIG.EMUDHRA.AUTH_TOKEN || !ESIGN_CONFIG.EMUDHRA.UNIQUE_ID)
+  ? "⚠️  PRODUCTION MODE - Missing credentials!"
+  : "✅";
+
+console.log(`${configStatus} eSign Service initialized`);
+console.log(`   Provider: ${ESIGN_CONFIG.PROVIDER.toUpperCase()}`);
+console.log(`   Mode: ${ESIGN_CONFIG.MODE.toUpperCase()}`);
+console.log(`   Endpoint: ${getApiEndpoint()}`);
+console.log(`   Webhook: ${ESIGN_CONFIG.WEBHOOK.CALLBACK_URL || "Not configured"}`);

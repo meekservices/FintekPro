@@ -617,13 +617,36 @@ export default function SmartProductionKYCOnboarding() {
     },
   });
 
-  // Upload CA certificate (with file upload simulation for now)
+  // Upload CA certificate with real file upload
   const uploadCaCertificateMutation = useMutation({
     mutationFn: async () => {
-      // In production, you would upload files to object storage first
-      // For now, we'll simulate with a placeholder URL
-      const caCertificateUrl = `https://storage.example.com/ca-certs/${Date.now()}.pdf`;
+      // Upload files to object storage first
+      const uploadedUrls: string[] = [];
       
+      for (const file of aiCaCertificates) {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        // Upload file to object storage
+        const uploadResponse = await fetch('/api/kyc/production/accredited-investor/upload-file', {
+          method: 'POST',
+          body: formData,
+          credentials: 'include',
+        });
+        
+        if (!uploadResponse.ok) {
+          const errorData = await uploadResponse.json();
+          throw new Error(errorData.message || 'File upload failed');
+        }
+        
+        const uploadData = await uploadResponse.json();
+        uploadedUrls.push(uploadData.fileUrl);
+      }
+      
+      // Use the first uploaded file URL (primary certificate)
+      const caCertificateUrl = uploadedUrls[0];
+      
+      // Now submit metadata to the upload-ca endpoint
       return await apiRequest("POST", "/api/kyc/production/accredited-investor/upload-ca", {
         body: {
           verificationId: aiVerificationId,
@@ -638,7 +661,7 @@ export default function SmartProductionKYCOnboarding() {
         setAiCurrentStep("esign");
         toast({
           title: "Certificate Uploaded",
-          description: "Proceeding to eSign risk declaration",
+          description: `${aiCaCertificates.length} file(s) uploaded successfully. Proceeding to eSign risk declaration.`,
         });
       }
     },

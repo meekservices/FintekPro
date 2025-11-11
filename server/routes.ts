@@ -1660,6 +1660,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // eSign Webhook - Handle callbacks from eMudhra/NSDL eSign service
+  app.post("/api/esign/webhook", async (req, res) => {
+    try {
+      const { handleWebhookCallback } = await import("./services/esign-service");
+      const signature = req.headers['x-esign-signature'] as string;
+      
+      console.log("[eSign Webhook] Received callback");
+      
+      const result = await handleWebhookCallback(req.body, signature);
+      
+      if (!result.success) {
+        return res.status(400).json(result);
+      }
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error processing eSign webhook:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to process eSign webhook",
+      });
+    }
+  });
+
+  // eSign Status Check - Poll for eSign transaction status
+  app.get("/api/esign/status/:transactionId", requireClientOrHigher, async (req, res) => {
+    try {
+      const { checkESignStatus } = await import("./services/esign-service");
+      const { transactionId } = req.params;
+      const { provider } = req.query;
+      
+      if (!provider || !["emudhra", "nsdl"].includes(provider as string)) {
+        return res.status(400).json({
+          success: false,
+          error: "Provider is required and must be 'emudhra' or 'nsdl'",
+        });
+      }
+      
+      const status = await checkESignStatus(transactionId, provider as "emudhra" | "nsdl");
+      
+      res.json({
+        success: true,
+        status,
+      });
+    } catch (error) {
+      console.error("Error checking eSign status:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to check eSign status",
+      });
+    }
+  });
+
   app.get("/api/profile/kyc-tier/product-prompt/:productCode", requireClientOrHigher, async (req, res) => {
     try {
       const { getProductUpgradePrompt } = await import("./kyc-tier-service");

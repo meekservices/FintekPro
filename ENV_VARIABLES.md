@@ -32,6 +32,18 @@ This document lists all required environment variables for the FintekPro platfor
 - `SANDBOX_API_KEY` - Sandbox API key for bank verification
 - `SANDBOX_API_SECRET` - Sandbox API secret
 
+### eSign Services (eMudhra)
+- `ESIGN_MODE` - Operation mode: "production" or "simulation" (default: simulation)
+- `ESIGN_PROVIDER` - Provider: "emudhra" or "nsdl" (default: emudhra, recommended)
+- `EMUDHRA_API_URL` - eMudhra API endpoint (default: https://api.emsigner.com/v1)
+- `EMUDHRA_SYSTEM_ID` - Unique system identifier from eMudhra
+- `EMUDHRA_AUTH_TOKEN` - Authentication token generated from eMudhra dashboard
+- `EMUDHRA_UNIQUE_ID` - SYSTEM_ID + EMAIL for authentication
+- `ESIGN_WEBHOOK_SECRET` - Secret for validating webhook callbacks (generate a strong random string)
+- `ESIGN_CALLBACK_URL` - Public URL for webhook notifications (e.g., https://yourapp.com/api/esign/webhook)
+
+**Note:** eMudhra is the recommended provider due to its modern REST API, comprehensive documentation, and sandbox environment. Contact eMudhra to register as an ASP (Application Service Provider) and obtain credentials.
+
 ## AI & Intelligence
 
 ### Google Gemini AI

@@ -1,6 +1,9 @@
 import { Router } from "express";
 import type { IStorage } from "./storage";
 import { apiResponse } from "./utils/responses";
+import multer from "multer";
+import path from "path";
+import { objectStorageClient } from "./objectStorage";
 
 /**
  * Production KYC Routes
@@ -8,6 +11,23 @@ import { apiResponse } from "./utils/responses";
  */
 export function createProductionKycRouter(storage: IStorage, requireClientOrHigher: any) {
   const router = Router();
+
+  // Configure multer for file uploads (memory storage for streaming to object storage)
+  const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+      fileSize: 5 * 1024 * 1024, // 5MB max file size
+    },
+    fileFilter: (req, file, cb) => {
+      // Only allow PDF files
+      const ext = path.extname(file.originalname).toLowerCase();
+      if (ext !== '.pdf') {
+        cb(new Error('Only PDF files are allowed'));
+        return;
+      }
+      cb(null, true);
+    },
+  });
 
   // Check if PAN exists in database
   router.post("/check-pan", requireClientOrHigher, async (req: any, res) => {
@@ -481,6 +501,69 @@ export function createProductionKycRouter(storage: IStorage, requireClientOrHigh
     } catch (error) {
       console.error("Error initiating AI verification:", error);
       return apiResponse.serverError(res, "Failed to initiate AI verification");
+    }
+  });
+
+  // Upload CA certificate files to object storage
+  router.post("/accredited-investor/upload-file", requireClientOrHigher, upload.single('file'), async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const file = req.file;
+
+      if (!file) {
+        return apiResponse.badRequest(res, "No file uploaded");
+      }
+
+      // Sanitize filename to prevent path traversal
+      const originalFilename = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const timestamp = Date.now();
+      const filename = `${timestamp}-${originalFilename}`;
+      
+      // Get private object directory from environment
+      const privateObjectDir = process.env.PRIVATE_OBJECT_DIR;
+      if (!privateObjectDir) {
+        return apiResponse.serverError(res, "Object storage not configured");
+      }
+
+      // Construct object path: /.private/kyc/ai-certificates/{userId}/{timestamp}-{filename}
+      const objectPath = `${privateObjectDir}/kyc/ai-certificates/${userId}/${filename}`;
+      
+      // Parse bucket and object name
+      const pathParts = objectPath.split("/");
+      const bucketName = pathParts[1];
+      const objectName = pathParts.slice(2).join("/");
+
+      // Upload to object storage
+      const bucket = objectStorageClient.bucket(bucketName);
+      const fileObj = bucket.file(objectName);
+
+      await fileObj.save(file.buffer, {
+        contentType: file.mimetype,
+        metadata: {
+          metadata: {
+            uploadedBy: userId,
+            originalName: file.originalname,
+            uploadedAt: new Date().toISOString(),
+          },
+        },
+      });
+
+      // Generate the storage URL
+      const storageUrl = `https://storage.googleapis.com/${bucketName}/${objectName}`;
+
+      return apiResponse.success(res, {
+        success: true,
+        fileUrl: storageUrl,
+        filename: originalFilename,
+        size: file.size,
+        uploadedAt: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      console.error("Error uploading file to object storage:", error);
+      if (error.message === 'Only PDF files are allowed') {
+        return apiResponse.badRequest(res, error.message);
+      }
+      return apiResponse.serverError(res, "Failed to upload file");
     }
   });
 
