@@ -1668,7 +1668,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log("[eSign Webhook] Received callback");
       
-      const result = await handleWebhookCallback(req.body, signature);
+      const rawBody = (req as any).rawBody as string;
+      
+      if (!rawBody) {
+        console.error("[eSign Webhook] Missing raw body for signature verification");
+        return res.status(400).json({
+          success: false,
+          message: "Missing raw body for signature verification",
+        });
+      }
+      
+      const result = await handleWebhookCallback(rawBody, signature);
       
       if (!result.success) {
         return res.status(400).json(result);

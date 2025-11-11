@@ -519,16 +519,16 @@ export async function pollESignStatus(
 }
 
 export async function handleWebhookCallback(
-  payload: any,
+  rawBody: string,
   signature?: string
 ): Promise<{ success: boolean; message: string }> {
   console.log(`[eSign Webhook] Received callback`);
-  console.log(`[eSign Webhook] Payload:`, sanitizeLogData(payload));
   
+  // Verify HMAC signature using raw body (BEFORE parsing)
   if (ESIGN_CONFIG.WEBHOOK.SECRET && signature) {
     const expectedSignature = crypto
       .createHmac("sha256", ESIGN_CONFIG.WEBHOOK.SECRET)
-      .update(JSON.stringify(payload))
+      .update(rawBody)
       .digest("hex");
     
     if (signature !== expectedSignature) {
@@ -539,6 +539,20 @@ export async function handleWebhookCallback(
       };
     }
   }
+  
+  // Parse payload AFTER signature verification
+  let payload: any;
+  try {
+    payload = JSON.parse(rawBody);
+  } catch (error) {
+    console.error(`[eSign Webhook] Invalid JSON payload`);
+    return {
+      success: false,
+      message: "Invalid JSON payload",
+    };
+  }
+  
+  console.log(`[eSign Webhook] Payload:`, sanitizeLogData(payload));
   
   try {
     const { transactionId, status, signedDocumentUrl, certificate, metadata } = payload;

@@ -151,6 +151,15 @@ app.use('/api/zoho/webhooks/*', express.json({
   }
 }));
 
+// Raw body capture for eSign webhook signature verification (HMAC-SHA256)
+// CRITICAL: Must be before express.json() to capture the raw payload
+app.use('/api/esign/webhook', express.json({
+  verify: (req: any, _res, buf) => {
+    // Store raw body for HMAC verification
+    req.rawBody = buf.toString('utf8');
+  }
+}));
+
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: false, limit: "10mb" }));
 

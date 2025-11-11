@@ -25,6 +25,7 @@ import { portfolioIntelligence } from "./portfolio-intelligence";
 import { adminService } from "./admin-service";
 import { duplicateDetectionService } from "./services/duplicateDetectionService";
 import { partnerService } from "./partner-service";
+import { createProductionKycRouter } from "./productionKycRoutes";
 import { z } from "zod";
 import { NseIndia } from 'stock-nse-india';
 import { comprehensiveAIFPMSAPI } from "./comprehensive-aif-pms-api";
@@ -1659,6 +1660,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // eSign Webhook - Handle callbacks from eMudhra/NSDL eSign service
+  app.post("/api/esign/webhook", async (req, res) => {
+    try {
+      const { handleWebhookCallback } = await import("./services/esign-service");
+      const signature = req.headers['x-esign-signature'] as string;
+      
+      console.log("[eSign Webhook] Received callback");
+      
+      const result = await handleWebhookCallback(req.body, signature);
+      
+      if (!result.success) {
+        return res.status(400).json(result);
+      }
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error processing eSign webhook:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to process eSign webhook",
+      });
+    }
+  });
+
+  // eSign Status Check - Poll for eSign transaction status
+  app.get("/api/esign/status/:transactionId", requireClientOrHigher, async (req, res) => {
+    try {
+      const { checkESignStatus } = await import("./services/esign-service");
+      const { transactionId } = req.params;
+      const { provider } = req.query;
+      
+      if (!provider || !["emudhra", "nsdl"].includes(provider as string)) {
+        return res.status(400).json({
+          success: false,
+          error: "Provider is required and must be 'emudhra' or 'nsdl'",
+        });
+      }
+      
+      const status = await checkESignStatus(transactionId, provider as "emudhra" | "nsdl");
+      
+      res.json({
+        success: true,
+        status,
+      });
+    } catch (error) {
+      console.error("Error checking eSign status:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to check eSign status",
+      });
+    }
+  });
+
   app.get("/api/profile/kyc-tier/product-prompt/:productCode", requireClientOrHigher, async (req, res) => {
     try {
       const { getProductUpgradePrompt } = await import("./kyc-tier-service");
@@ -2096,7 +2150,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       // Parse full name and update firstName/lastName if not already set
-      const [currentUser] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      const [currentUser] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
       if (currentUser && !currentUser.firstName && verification.fullName) {
         const nameParts = verification.fullName.split(' ');
         updateData.firstName = nameParts[0];
@@ -11537,7 +11591,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.id;
       
       // Get user's PAN from database
-      const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      const [user] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
       
       if (!user) {
         return res.status(404).json({
@@ -19033,8 +19087,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get both users
-      const [keepUser] = await db.select().from(users).where(eq(users.id, keepUserId));
-      const [mergeUser] = await db.select().from(users).where(eq(users.id, mergeUserId));
+      const [keepUser] = await db.select().from(schema.users).where(eq(schema.users.id, keepUserId));
+      const [mergeUser] = await db.select().from(schema.users).where(eq(schema.users.id, mergeUserId));
       
       if (!keepUser || !mergeUser) {
         return apiResponse.notFound(res, "One or both users not found");
@@ -32672,4 +32726,15 @@ System Security Data:`;
       return apiResponse.serverError(res, "Failed to update category status");
     }
   });
+
+  // ============================================================
+  // PRODUCTION KYC WORKFLOW ROUTES
+  // Smart onboarding with database-first PAN validation
+  // ============================================================
+
+
+  // Mount production KYC router
+  const productionKycRouter = createProductionKycRouter(storage, requireClientOrHigher);
+  app.use("/api/kyc/production", productionKycRouter);
+  console.log("✅ Production KYC routes registered");
 }
