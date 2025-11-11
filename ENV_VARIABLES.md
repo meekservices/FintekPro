@@ -44,6 +44,16 @@ This document lists all required environment variables for the FintekPro platfor
 
 **Note:** eMudhra is the recommended provider due to its modern REST API, comprehensive documentation, and sandbox environment. Contact eMudhra to register as an ASP (Application Service Provider) and obtain credentials.
 
+### BSE Accreditation API (Tier 3 KYC)
+- `BSE_ACCREDITATION_MODE` - Operation mode: "production" or "simulation" (default: simulation)
+- `BSE_ACCREDITATION_API_URL` - BSE BASL API endpoint (for production integration)
+- `BSE_ACCREDITATION_API_KEY` - API key for BSE BASL service
+- `BSE_ACCREDITATION_MEMBER_ID` - BSE member identifier
+- `BSE_ACCREDITATION_APPROVAL_DELAY` - Processing delay in milliseconds for simulation mode (default: 2000)
+- `BSE_ACCREDITATION_STRICT_VALIDATION` - Enable strict SEBI threshold validation: true/false (default: true)
+
+**Note:** BSE BASL (BSE Administration & Supervision Limited) currently does NOT provide a public REST/SOAP API for Accredited Investor verification. The simulation mode provides production-quality validation and certificate generation for testing. For production access, contact bseasl.membership@bseasl.com to discuss bulk verification options or custom integration. Manual verification costs ₹500 + taxes per query through the web portal at https://bseasl.com.
+
 ## AI & Intelligence
 
 ### Google Gemini AI

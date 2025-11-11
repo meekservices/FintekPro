@@ -514,6 +514,14 @@ export function createProductionKycRouter(storage: IStorage, requireClientOrHigh
         return apiResponse.badRequest(res, "No file uploaded");
       }
 
+      // Validate file content (not just extension)
+      const { fileTypeFromBuffer } = await import('file-type');
+      const fileType = await fileTypeFromBuffer(file.buffer);
+      
+      if (!fileType || fileType.mime !== 'application/pdf') {
+        return apiResponse.badRequest(res, "File is not a valid PDF. Only genuine PDF files are allowed.");
+      }
+
       // Sanitize filename to prevent path traversal
       const originalFilename = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
       const timestamp = Date.now();
