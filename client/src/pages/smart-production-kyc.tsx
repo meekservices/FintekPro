@@ -60,6 +60,19 @@ interface ProductionKycSession {
   expiresAt?: string;
 }
 
+interface TierStatusResponse {
+  currentTier: string | null;
+  currentTierName: string | null;
+  currentTierDescription: string | null;
+  eligibleForUpgrade: boolean;
+  nextTier: string | null;
+  nextTierName: string | null;
+  nextTierDescription: string | null;
+  completedVerifications: Array<{ code: string; name: string }>;
+  missingVerifications: Array<{ code: string; name: string }>;
+  unlockedFeatures: string[];
+}
+
 export default function SmartProductionKYCOnboarding() {
   const { user, isLoading } = useAuth();
   const [, setLocation] = useLocation();
@@ -290,9 +303,74 @@ export default function SmartProductionKYCOnboarding() {
   });
 
   // Fetch KYC Tier Status
-  const { data: tierStatus, isLoading: tierStatusLoading, refetch: refetchTierStatus } = useQuery({
+  const { data: tierStatus, isLoading: tierStatusLoading, refetch: refetchTierStatus } = useQuery<TierStatusResponse>({
     queryKey: ["/api/kyc/production/tier-status"],
     enabled: !!user && !isLoading,
+  });
+
+  // Initiate Tier Upgrade
+  const upgradeTierMutation = useMutation({
+    mutationFn: async (targetTier: string) => {
+      return await apiRequest("POST", "/api/kyc/production/upgrade", {
+        body: { targetTier },
+      });
+    },
+    onSuccess: async (data) => {
+      if (data.success) {
+        toast({
+          title: "Upgrade Initiated",
+          description: `Successfully upgraded to ${data.newTier}. Let's complete additional verifications.`,
+        });
+        
+        // Refetch tier status to get fresh missingVerifications
+        const updatedStatus = await refetchTierStatus();
+        const missing = updatedStatus.data?.missingVerifications || [];
+        
+        // Dynamically determine next step based on missing verifications
+        // Priority mapping: PAN → KRA → AADHAAR → BANK_ACCOUNT → VIDEO_KYC → INCOME_PROOF → FATCA
+        const stepMapping: Record<string, WorkflowStep> = {
+          "PAN": "pan_verification",
+          "KRA": "kra_check",
+          "AADHAAR": "cashfree_ekyc",
+          "BANK_ACCOUNT": "cashfree_ekyc",
+          "VIDEO_KYC": "cashfree_ekyc",
+          "INCOME_PROOF": "entity_details",
+          "NET_WORTH_PROOF": "entity_details",
+          "FATCA": "entity_details",
+          "CERSAI": "cersai_submission",
+          "UCC": "bse_ucc",
+        };
+        
+        // Find the first missing verification and route to corresponding step
+        if (missing.length > 0) {
+          for (const verification of missing) {
+            const step = stepMapping[verification.code];
+            if (step) {
+              setCurrentStep(step);
+              toast({
+                title: "Next Step",
+                description: `Please complete ${verification.name}`,
+              });
+              return;
+            }
+          }
+        }
+        
+        // If no missing verifications or no mapping found, mark as completed
+        toast({
+          title: "Upgrade Complete",
+          description: "All verifications completed for this tier!",
+        });
+        setCurrentStep("completed");
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Upgrade Failed",
+        description: error.message || "Failed to initiate tier upgrade",
+        variant: "destructive",
+      });
+    },
   });
 
   // Start production KYC workflow (KRA check)
@@ -622,18 +700,25 @@ export default function SmartProductionKYCOnboarding() {
 
                 <Button
                   onClick={() => {
-                    // Start upgrade flow
-                    setCurrentStep("pan_verification");
-                    toast({
-                      title: "Starting Upgrade",
-                      description: `Beginning upgrade to ${tierStatus.nextTierName}`,
-                    });
+                    if (tierStatus?.nextTier) {
+                      upgradeTierMutation.mutate(tierStatus.nextTier);
+                    }
                   }}
+                  disabled={upgradeTierMutation.isPending}
                   className="w-full"
                   data-testid="button-upgrade-tier"
                 >
-                  <ArrowRight className="mr-2 h-4 w-4" />
-                  Upgrade to {tierStatus.nextTierName}
+                  {upgradeTierMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <ArrowRight className="mr-2 h-4 w-4" />
+                      Upgrade to {tierStatus.nextTierName}
+                    </>
+                  )}
                 </Button>
               </div>
             )}
@@ -657,7 +742,116 @@ export default function SmartProductionKYCOnboarding() {
   // Render User Type Selection
   if (currentStep === "user_type_selection") {
     return (
-      <div className="container mx-auto p-6 max-w-2xl">
+      <div className="container mx-auto p-6 max-w-4xl space-y-6">
+        {/* KYC Tier Information */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-xl flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              3-Tier KYC System
+            </CardTitle>
+            <CardDescription>
+              Progressive verification levels unlocking different products and services
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Tier 1 */}
+              <div className="p-4 border rounded-lg space-y-3 bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800">
+                <div className="flex items-center justify-between">
+                  <Badge variant="outline" className="bg-blue-100 dark:bg-blue-900/40">
+                    Tier 1
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">Basic KYC</span>
+                </div>
+                <h4 className="font-semibold text-sm">Essential Trading</h4>
+                <ul className="text-xs space-y-1 text-muted-foreground">
+                  <li className="flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3 text-green-600" />
+                    Stocks & Equity
+                  </li>
+                  <li className="flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3 text-green-600" />
+                    Mutual Funds
+                  </li>
+                  <li className="flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3 text-green-600" />
+                    ETFs
+                  </li>
+                </ul>
+                <p className="text-xs text-muted-foreground pt-2 border-t">
+                  Required: PAN + KRA Verification
+                </p>
+              </div>
+
+              {/* Tier 2 */}
+              <div className="p-4 border rounded-lg space-y-3 bg-purple-50 dark:bg-purple-900/10 border-purple-200 dark:border-purple-800">
+                <div className="flex items-center justify-between">
+                  <Badge variant="outline" className="bg-purple-100 dark:bg-purple-900/40">
+                    Tier 2
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">Enhanced KYC</span>
+                </div>
+                <h4 className="font-semibold text-sm">Advanced Products</h4>
+                <ul className="text-xs space-y-1 text-muted-foreground">
+                  <li className="flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3 text-green-600" />
+                    All Tier 1 +
+                  </li>
+                  <li className="flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3 text-green-600" />
+                    IPO Applications
+                  </li>
+                  <li className="flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3 text-green-600" />
+                    Bonds & Debentures
+                  </li>
+                  <li className="flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3 text-green-600" />
+                    F&O Trading
+                  </li>
+                </ul>
+                <p className="text-xs text-muted-foreground pt-2 border-t">
+                  Required: Aadhaar + Bank Account
+                </p>
+              </div>
+
+              {/* Tier 3 */}
+              <div className="p-4 border rounded-lg space-y-3 bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800">
+                <div className="flex items-center justify-between">
+                  <Badge variant="outline" className="bg-amber-100 dark:bg-amber-900/40">
+                    Tier 3
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">Accredited Investor</span>
+                </div>
+                <h4 className="font-semibold text-sm">Premium Access</h4>
+                <ul className="text-xs space-y-1 text-muted-foreground">
+                  <li className="flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3 text-green-600" />
+                    All Tier 2 +
+                  </li>
+                  <li className="flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3 text-green-600" />
+                    Private Equity
+                  </li>
+                  <li className="flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3 text-green-600" />
+                    Alternative Investments
+                  </li>
+                  <li className="flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3 text-green-600" />
+                    Structured Products
+                  </li>
+                </ul>
+                <p className="text-xs text-muted-foreground pt-2 border-t">
+                  Required: Income/Net Worth Proof
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* User Type Selection */}
         <Card>
           <CardHeader>
             <CardTitle className="text-2xl">Start Your KYC Journey</CardTitle>
