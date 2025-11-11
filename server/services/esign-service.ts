@@ -301,8 +301,8 @@ async function initiateEMudhraESign(request: ESignRequest): Promise<ESignRespons
           provider: "emudhra",
           mode: ESIGN_CONFIG.MODE,
         },
-        currentStep: "esign_pending",
-        status: "esign_initiated",
+        currentStep: "esign",
+        status: "esign_pending",
         updatedAt: new Date(),
       })
       .where(eq(schema.accreditedInvestorVerifications.id, request.verificationId));
@@ -585,14 +585,14 @@ export async function handleWebhookCallback(
         riskDeclarationUrl: signedDocumentUrl,
         eSignCompletedAt: mappedStatus === "completed" ? new Date() : undefined,
         eSignResponsePayload: {
-          ...verification.eSignResponsePayload,
+          ...(verification.eSignResponsePayload || {}),
           status: mappedStatus,
           signedAt: new Date().toISOString(),
           certificate,
           webhookReceivedAt: new Date().toISOString(),
         },
         currentStep: mappedStatus === "completed" ? "bse_submission" : verification.currentStep,
-        status: mappedStatus === "completed" ? "esign_completed" : mappedStatus === "failed" ? "esign_failed" : verification.status,
+        status: mappedStatus === "completed" ? "esign_completed" : mappedStatus === "failed" ? "rejected" : verification.status,
         updatedAt: new Date(),
       })
       .where(eq(schema.accreditedInvestorVerifications.id, verification.id));

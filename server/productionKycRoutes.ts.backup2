@@ -655,16 +655,8 @@ export function createProductionKycRouter(storage: IStorage, requireClientOrHigh
         return apiResponse.notFound(res, "Verification record not found");
       }
 
-
-      // Enhanced validation: Check state transitions
-      const validStatusesForESign = ["ca_uploaded", "esign_pending", "rejected"];
-      if (!validStatusesForESign.includes(verification.status || "")) {
-        return apiResponse.error(res, `Cannot initiate eSign from current status: ${verification.status}. CA certificate must be uploaded first.`, 400);
-      }
-
-      // Prevent re-signing if already completed
-      if (verification.status === "esign_completed" || verification.status === "submitted" || verification.status === "approved") {
-        return apiResponse.error(res, "eSign already completed for this verification", 400);
+      if (verification.status !== "ca_uploaded") {
+        return apiResponse.error(res, "CA certificate must be uploaded first", 400);
       }
 
       const user = await db.query.users.findFirst({
@@ -734,19 +726,8 @@ export function createProductionKycRouter(storage: IStorage, requireClientOrHigh
         return apiResponse.notFound(res, "Verification record not found");
       }
 
-
-      // Enhanced validation: Check state transitions
-      if (verification.status !== "esign_completed") {
-        return apiResponse.error(res, `Cannot submit to BSE from current status: ${verification.status}. eSign must be completed first.`, 400);
-      }
-
-      if (verification.currentStep !== "bse_submission") {
-        return apiResponse.error(res, `Invalid workflow step: ${verification.currentStep}. Expected: bse_submission`, 400);
-      }
-
-      // Prevent re-submission if already processed
-      if (verification.status === "approved" || verification.status === "submitted") {
-        return apiResponse.error(res, "BSE submission already processed for this verification", 400);
+      if (verification.eSignStatus !== "completed") {
+        return apiResponse.error(res, "eSign must be completed first", 400);
       }
 
       const user = await db.query.users.findFirst({
