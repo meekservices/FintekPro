@@ -252,11 +252,13 @@ export default function SmartProductionKYCOnboarding() {
         body: { panNumber: pan },
       });
     },
-    onSuccess: (data) => {
-      if (data.exists) {
+    onSuccess: (response) => {
+      // Backend wraps response as { success: true, data: { exists: boolean, panData?: {...} } }
+      const { exists, panData } = response.data;
+      if (exists) {
         // PAN exists, use stored data
         setPanVerified(true);
-        setPanData(data.panData);
+        setPanData(panData);
         toast({
           title: "PAN Found",
           description: "Using your verified PAN details from our records",
