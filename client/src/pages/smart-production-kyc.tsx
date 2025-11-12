@@ -298,10 +298,12 @@ export default function SmartProductionKYCOnboarding() {
         },
       });
     },
-    onSuccess: (data) => {
-      if (data.success) {
+    onSuccess: (response) => {
+      // Backend wraps response as { success: true, data: { success: true, panData: {...} } }
+      const { success, panData } = response.data;
+      if (success) {
         setPanVerified(true);
-        setPanData(data.panData);
+        setPanData(panData);
         toast({
           title: "PAN Verified",
           description: "Your PAN has been verified and saved",
