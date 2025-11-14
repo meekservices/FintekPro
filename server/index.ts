@@ -347,9 +347,6 @@ app.use((req, res, next) => {
   const { registerAdminAuditRoutes } = await import('./admin-audit-routes');
   registerAdminAuditRoutes(app);
   
-  // Register Admin AI Fixes routes (AI-powered error analysis and fix suggestions)
-  const { registerAdminAIFixesRoutes } = await import('./admin-ai-fixes-routes');
-  registerAdminAIFixesRoutes(app);
   
   // Register Financial Goal routes (Goal planning with contribution tracking)
   const { registerGoalRoutes } = await import('./goal-routes');

@@ -51,6 +51,7 @@ import { aiInvestSmartMonitorService } from './ai-investsmart-monitor';
 import amlRoutes from './aml-routes';
 import monitoringRoutes from "./monitoringRoutes";
 import auditRoutes from "./auditRoutes";
+import adminAIFixesRouter from "./admin-ai-fixes-routes";
 import { ZohoCommerceAPI, type ZohoCommerceConfig } from './zoho-commerce-api';
 import { zohoCommerceConfig, zohoProducts, zohoCategories, zohoOrders, zohoCustomers, zohoInventory, zohoWebhooks, zohoSyncLogs, insertZohoCommerceConfigSchema, insertZohoProductSchema, insertZohoCategorySchema, insertZohoOrderSchema, insertCreditProfileSchema, insertLoanRequestSchema, insertLoanApplicationMarketplaceSchema, insertApplicationDocumentSchema, insertPartnerApplicationDocumentSchema } from '@shared/schema';
 import BBPSService from './services/bbpsService';
@@ -32030,6 +32031,7 @@ System Security Data:`;
   app.use("/api/kyc/production", productionKycRouter);
   app.use("/api/monitoring", monitoringRoutes);
   app.use("/api/admin/audit", requireAdmin, auditRoutes);
+  app.use("/api/admin/ai-fixes", requireAdmin, adminAIFixesRouter);
   console.log("✅ Production KYC routes registered");
 
   // Get current user's agent profile
