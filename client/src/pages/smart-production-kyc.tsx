@@ -253,12 +253,20 @@ export default function SmartProductionKYCOnboarding() {
       });
     },
     onSuccess: (response) => {
-      // Debug logging
-      console.log("✅ checkPanMutation response:", JSON.stringify(response, null, 2));
+      // Debug logging - check response structure
+      console.log("✅ checkPanMutation RAW response:", response);
+      console.log("✅ checkPanMutation response type:", typeof response);
+      console.log("✅ checkPanMutation response.data:", response?.data);
+      console.log("✅ checkPanMutation response keys:", Object.keys(response || {}));
       
-      // Backend wraps response as { success: true, data: { exists: boolean, panData?: {...} } }
-      const { exists, panData } = response.data;
-      console.log("✅ Extracted from response.data:", { exists, panData });
+      // Backend sends: { success: true, data: { exists: boolean, panData?: {...} } }
+      // apiRequest returns the full parsed JSON, so response = { success: true, data: {...} }
+      const responseData = response?.data || response;  // Fallback in case structure is different
+      console.log("✅ responseData:", responseData);
+      
+      const exists = responseData?.exists;
+      const panData = responseData?.panData;
+      console.log("✅ Extracted:", { exists, panData });
       
       if (exists) {
         // PAN exists, use stored data
