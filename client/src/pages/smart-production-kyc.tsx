@@ -297,19 +297,22 @@ export default function SmartProductionKYCOnboarding() {
   // Verify PAN via Sandbox API
   const verifyPanMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("POST", "/api/kyc/production/verify-pan", {
+      const response = await apiRequest("POST", "/api/kyc/production/verify-pan", {
         body: {
           panNumber: panNumber.toUpperCase(),
           fullName: panFullName,
           dob: panDob,
         },
       });
+      // Ensure we have JSON data
+      if (response instanceof Response) {
+        return await response.json();
+      }
+      return response;
     },
     onSuccess: (response) => {
-      console.log('[DEBUG] verifyPanMutation response:', response);
       // Backend wraps response as { success: true, data: { success: true, panData: {...} } }
       const { success, panData } = response.data;
-      console.log('[DEBUG] Destructured - success:', success, 'panData:', panData);
       if (success) {
         setPanVerified(true);
         setPanData(panData);
@@ -318,7 +321,6 @@ export default function SmartProductionKYCOnboarding() {
           description: "Your PAN has been verified and saved",
         });
         // Move to next step based on user type
-        console.log('[DEBUG] Moving to next step for userType:', userType);
         if (userType === "individual") {
           setCurrentStep("kra_check");
         } else {
@@ -327,7 +329,6 @@ export default function SmartProductionKYCOnboarding() {
       }
     },
     onError: (error: any) => {
-      console.error('[DEBUG] verifyPanMutation error:', error);
       toast({
         title: "PAN Verification Failed",
         description: error.message || "Failed to verify PAN",
