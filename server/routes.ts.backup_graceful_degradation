@@ -9470,9 +9470,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const finnhubQuote = await finnhubService.getQuote(symbol.toUpperCase());
         if (!finnhubQuote) {
           console.log("Finnhub API key not configured for", symbol, "trying fallback");
-          // Skip to fallback - don't throw error
-        } else {
-          const data = finnhubService.transformQuoteToMarketData(symbol.toUpperCase(), finnhubQuote);
+          throw new Error("Finnhub not available");
+        }
+        const data = finnhubService.transformQuoteToMarketData(symbol.toUpperCase(), finnhubQuote);
         
         // Store in local cache
         await storage.upsertMarketData(symbol, {
@@ -9485,7 +9485,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         res.json(data);
         return;
-        }
       } catch (finnhubError) {
         console.log("Finnhub failed for", symbol, "trying fallback");
       }
@@ -9528,12 +9527,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         if (!finnhubCandles) {
           console.log("Finnhub API key not configured for candles", symbol, "using fallback");
-          // Skip to fallback - don't throw error
-        } else {
-            const data = finnhubService.transformCandlesToMarketCandles(finnhubCandles);
-          res.json(data);
-          return;
+          throw new Error("Finnhub not available");
         }
+        
+        const data = finnhubService.transformCandlesToMarketCandles(finnhubCandles);
+        res.json(data);
+        return;
       } catch (finnhubError) {
         console.log("Finnhub candles failed for", symbol, "using fallback");
       }

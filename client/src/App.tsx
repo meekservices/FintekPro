@@ -9,6 +9,7 @@ import { GDPRConsent } from "@/components/gdpr-consent";
 import Home from "@/pages/home";
 import Portfolio from "@/pages/portfolio";
 import Markets from "@/pages/markets";
+import MarketIntelligence from "@/pages/market-intelligence";
 import IPO from "@/pages/ipo";
 import PreIPO from "@/pages/pre-ipo";
 import MutualFunds from "@/pages/mutual-funds";
@@ -152,6 +153,7 @@ function UserProtectedRoutes() {
           return <KycGate><ComprehensivePortfolio /></KycGate>;
         }}</Route>
         <Route path="/broking">{() => <KycGate><BrokingPage /></KycGate>}</Route>
+        <Route path="/market-intelligence" component={MarketIntelligence} />
         <Route path="/markets" component={Markets} />
         <Route path="/ipo">{() => <KycGate><IPO /></KycGate>}</Route>
         <Route path="/pre-ipo">{() => <KycGate><PreIPO /></KycGate>}</Route>
