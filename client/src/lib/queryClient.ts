@@ -107,11 +107,7 @@ export async function apiRequest(
     return await res.json();
   }
   
-  // If we got HTML or other non-JSON response, throw an error
-  if (contentType?.includes("text/html")) {
-    throw new Error("Server returned an error page. Please try again or contact support.");
-  }
-  
+  // For successful non-JSON responses, return the raw response
   return res;
 }
 
