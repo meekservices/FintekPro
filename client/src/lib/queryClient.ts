@@ -103,11 +103,17 @@ export async function apiRequest(
   
   // Parse JSON if response has content
   const contentType = res.headers.get("content-type");
+  console.log(`🔍 [apiRequest] Response content-type: "${contentType}"`);
+  console.log(`🔍 [apiRequest] Includes JSON check: ${contentType?.includes("application/json")}`);
+  
   if (contentType?.includes("application/json")) {
-    return await res.json();
+    const jsonData = await res.json();
+    console.log(`🔍 [apiRequest] Parsed JSON:`, jsonData);
+    return jsonData;
   }
   
   // For successful non-JSON responses, return the raw response
+  console.log(`⚠️ [apiRequest] No JSON content-type, returning raw response`);
   return res;
 }
 
