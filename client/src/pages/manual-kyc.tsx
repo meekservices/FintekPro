@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { ObjectUploader } from "@/components/ObjectUploader";
+import { UserTypeSelection } from "@/components/kyc/user-type-selection";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { 
@@ -27,6 +28,7 @@ import {
 } from "lucide-react";
 
 type KYCType = 'individual' | 'corporate' | 'nri';
+type ManualKYCStep = 'user_type_selection' | 'details' | 'documents' | 'review';
 type CorporateEntityType = 'private_limited' | 'public_limited' | 'partnership' | 'llp' | 'trust' | 'huf' | 'society' | 'aop' | 'boi';
 
 interface DocumentRequirement {
@@ -877,31 +879,57 @@ export default function ManualKYCPage() {
   const [location, navigate] = useLocation();
   const { toast } = useToast();
   const urlParams = new URLSearchParams(window.location.search);
-  const typeParam = urlParams.get('type') as KYCType || 'individual';
+  const typeParam = urlParams.get('type') as KYCType;
   
-  const [kycType, setKYCType] = useState<KYCType>(typeParam);
+  // Validate URL param - if valid, skip user type selection; otherwise show it
+  const isValidType = typeParam && ['individual', 'corporate', 'nri'].includes(typeParam);
+  const initialKycType = isValidType ? typeParam : null;
+  const initialStep: ManualKYCStep = isValidType ? 'details' : 'user_type_selection';
+  
+  const [kycType, setKYCType] = useState<KYCType | null>(initialKycType);
   const [entityType, setEntityType] = useState<CorporateEntityType>('private_limited');
   const [formData, setFormData] = useState<Partial<KYCFormData>>({
-    applicantType: kycType,
-    entityType: kycType === 'corporate' ? 'private_limited' : undefined,
+    applicantType: initialKycType || 'individual',
+    entityType: initialKycType === 'corporate' ? 'private_limited' : undefined,
     documents: {}
   });
   const [uploadedDocs, setUploadedDocs] = useState<Record<string, UploadedDocument>>({});
-  const [currentStep, setCurrentStep] = useState<'details' | 'documents' | 'review'>('details');
+  const [currentStep, setCurrentStep] = useState<ManualKYCStep>(initialStep);
 
   useEffect(() => {
-    setKYCType(typeParam);
-    setFormData(prev => ({ ...prev, applicantType: typeParam }));
+    if (typeParam && ['individual', 'corporate', 'nri'].includes(typeParam)) {
+      setKYCType(typeParam);
+      setFormData(prev => ({ ...prev, applicantType: typeParam }));
+    }
   }, [typeParam]);
 
-  // Get requirements based on KYC type and entity type
-  const requirements = kycType === 'corporate' 
-    ? ENTITY_DOCUMENT_REQUIREMENTS[entityType]
-    : DOCUMENT_REQUIREMENTS[kycType];
+  // Handle user type selection
+  const handleUserTypeSelect = (type: KYCType) => {
+    setKYCType(type);
+    setFormData({
+      applicantType: type,
+      entityType: type === 'corporate' ? 'private_limited' : undefined,
+      documents: {}
+    });
+    // Reset uploaded docs when changing type
+    setUploadedDocs({});
+    // Reset entity type for corporate
+    if (type === 'corporate') {
+      setEntityType('private_limited');
+    }
+    setCurrentStep('details');
+  };
+
+  // Get requirements based on KYC type and entity type (guard against null kycType)
+  const requirements = kycType 
+    ? (kycType === 'corporate' 
+        ? ENTITY_DOCUMENT_REQUIREMENTS[entityType]
+        : DOCUMENT_REQUIREMENTS[kycType])
+    : [];
   const requiredDocs = requirements.filter(doc => doc.required);
   const uploadedCount = Object.keys(uploadedDocs).length;
   const requiredCount = requiredDocs.length;
-  const progress = (uploadedCount / requiredCount) * 100;
+  const progress = requiredCount > 0 ? (uploadedCount / requiredCount) * 100 : 0;
 
   const handleDocumentUpload = (docId: string, url: string, file: File) => {
     setUploadedDocs(prev => ({
@@ -1034,6 +1062,18 @@ export default function ManualKYCPage() {
         return 'Complete KYC verification for Non-Resident Indians with overseas address';
     }
   };
+
+  // Render User Type Selection
+  if (currentStep === 'user_type_selection') {
+    return (
+      <UserTypeSelection
+        selectedType={kycType}
+        onSelect={handleUserTypeSelect}
+        ctaLabel="Select your account type for manual document upload via BSE Star API"
+        showTierInfo={true}
+      />
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
