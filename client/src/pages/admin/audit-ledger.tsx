@@ -58,9 +58,54 @@ export default function AuditLedger() {
     queryKey: ['/api/admin/audit/hash-chain-verify'],
   });
 
-  const handleExport = (format: 'csv' | 'pdf' | 'amfi' | 'sebi') => {
-    console.log(`Exporting ${activeTab} in ${format} format...`);
-    // TODO: Implement export functionality
+  const handleExport = async (format: 'csv' | 'pdf' | 'amfi' | 'sebi') => {
+    if (format !== 'csv') {
+      console.log(`${format} export not yet implemented`);
+      return;
+    }
+
+    // Map activeTab to export endpoint
+    const exportEndpoints: Record<string, string> = {
+      'data-access': '/api/admin/audit/export/data-access',
+      'kyc-verification': '/api/admin/audit/export/kyc-verification',
+      'mf-orders': '/api/admin/audit/export/mf-orders',
+      'aa-consent-ledger': '/api/admin/audit/export/aa-consent-ledger',
+      'third-party-api': '/api/admin/audit/export/third-party-api',
+    };
+
+    const endpoint = exportEndpoints[activeTab];
+    if (!endpoint) {
+      console.error(`No export endpoint for tab: ${activeTab}`);
+      return;
+    }
+
+    try {
+      // Use authenticated fetch to download CSV with session credentials
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        credentials: 'include', // Include session cookies for authentication
+        headers: {
+          'Accept': 'text/csv',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Export failed: ${response.statusText}`);
+      }
+
+      // Convert response to blob and trigger download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${activeTab}-audit-logs.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to export CSV:', error);
+    }
   };
 
   const getOutcomeIcon = (outcome: string) => {

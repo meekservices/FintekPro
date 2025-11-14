@@ -9,10 +9,20 @@
 
 import cron from 'node-cron';
 import { db } from './db';
-import { comprehensiveHoldings, dataSourceConsents } from '@shared/schema';
+import { 
+  comprehensiveHoldings, 
+  dataSourceConsents,
+  complianceAuditTrail,
+  kycStateTransitions,
+  unifiedOrders,
+  orderLifecycleEvents,
+  panConsentAuditLog,
+  auditLogs
+} from '@shared/schema';
 import { eq, and, isNull, sql, lt } from 'drizzle-orm';
 import { emailService } from './email-service';
 import { whatsappService } from './whatsapp';
+import { logger } from './logger';
 
 // Run daily at 3 AM IST (9:30 PM UTC previous day)
 const CRON_SCHEDULE = '30 21 * * *'; // 9:30 PM UTC = 3:00 AM IST
@@ -220,6 +230,81 @@ FintekPro Team
   }
 
   /**
+   * Clean up audit logs based on retention policies
+   * - 7 years: complianceAuditTrail, kycStateTransitions, unifiedOrders (MF), orderLifecycleEvents
+   * - 5 years: panConsentAuditLog
+   * - 90 days: auditLogs (general third-party API logs)
+   */
+  async cleanupAuditLogs(): Promise<void> {
+    console.log('🗑️  Starting audit log retention cleanup...');
+    
+    try {
+      const now = new Date();
+      
+      // 7-year retention for KYC/MF compliance data
+      const sevenYearsAgo = new Date(now);
+      sevenYearsAgo.setFullYear(sevenYearsAgo.getFullYear() - 7);
+      
+      // Delete old complianceAuditTrail logs (7 years)
+      const deletedAuditTrail = await db
+        .delete(complianceAuditTrail)
+        .where(lt(complianceAuditTrail.createdAt, sevenYearsAgo));
+      logger.info(`Deleted ${deletedAuditTrail.rowCount || 0} compliance audit trail logs older than 7 years`);
+      
+      // Delete old kycStateTransitions (7 years)
+      const deletedKycTransitions = await db
+        .delete(kycStateTransitions)
+        .where(lt(kycStateTransitions.occurredAt, sevenYearsAgo));
+      logger.info(`Deleted ${deletedKycTransitions.rowCount || 0} KYC state transitions older than 7 years`);
+      
+      // Delete old mutual fund orders (7 years)
+      const deletedMfOrders = await db
+        .delete(unifiedOrders)
+        .where(
+          and(
+            eq(unifiedOrders.productType, 'mutual_fund'),
+            lt(unifiedOrders.createdAt, sevenYearsAgo)
+          )
+        );
+      logger.info(`Deleted ${deletedMfOrders.rowCount || 0} mutual fund orders older than 7 years`);
+      
+      // Delete old orderLifecycleEvents (7 years)
+      const deletedOrderEvents = await db
+        .delete(orderLifecycleEvents)
+        .where(lt(orderLifecycleEvents.createdAt, sevenYearsAgo));
+      logger.info(`Deleted ${deletedOrderEvents.rowCount || 0} order lifecycle events older than 7 years`);
+      
+      // 5-year retention for consent data
+      const fiveYearsAgo = new Date(now);
+      fiveYearsAgo.setFullYear(fiveYearsAgo.getFullYear() - 5);
+      
+      const deletedConsents = await db
+        .delete(panConsentAuditLog)
+        .where(lt(panConsentAuditLog.timestamp, fiveYearsAgo));
+      logger.info(`Deleted ${deletedConsents.rowCount || 0} PAN consent audit logs older than 5 years`);
+      
+      // 90-day retention for general third-party API logs
+      const ninetyDaysAgo = new Date(now);
+      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+      
+      const deletedApiLogs = await db
+        .delete(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.resource, 'third_party_api'),
+            lt(auditLogs.occurredAt, ninetyDaysAgo)
+          )
+        );
+      logger.info(`Deleted ${deletedApiLogs.rowCount || 0} third-party API audit logs older than 90 days`);
+      
+      console.log('✅ Audit log retention cleanup completed');
+    } catch (error) {
+      logger.error('Failed to clean up audit logs', { error });
+      console.error('❌ Error cleaning up audit logs:', error);
+    }
+  }
+
+  /**
    * Run all cleanup tasks
    */
   async runCleanup(): Promise<void> {
@@ -233,6 +318,9 @@ FintekPro Team
     
     // Then perform soft-deletes (90 days after revocation)
     await this.softDeleteExpiredHoldings();
+    
+    // Clean up old audit logs based on retention policies
+    await this.cleanupAuditLogs();
     
     const duration = Date.now() - startTime;
     console.log(`✅ Data cleanup completed in ${duration}ms`);
