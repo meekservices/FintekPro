@@ -23,12 +23,19 @@ fetchCsrfToken();
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
+    const contentType = res.headers.get("content-type");
+    
+    // If response is HTML, don't try to parse as JSON
+    if (contentType?.includes("text/html")) {
+      throw new Error(`Request failed: ${res.statusText}. The server returned an error page.`);
+    }
+    
     try {
       const json = await res.json();
       const errorMessage = json.error || json.message || res.statusText;
       throw new Error(errorMessage);
     } catch (parseError) {
-      throw new Error(res.statusText);
+      throw new Error(res.statusText || "An unexpected error occurred");
     }
   }
 }
@@ -98,6 +105,11 @@ export async function apiRequest(
   const contentType = res.headers.get("content-type");
   if (contentType?.includes("application/json")) {
     return await res.json();
+  }
+  
+  // If we got HTML or other non-JSON response, throw an error
+  if (contentType?.includes("text/html")) {
+    throw new Error("Server returned an error page. Please try again or contact support.");
   }
   
   return res;
