@@ -142,27 +142,11 @@ export function EnhancedNavigation() {
             { name: "KYC Dashboard", href: "/kyc-dashboard", description: "Current tier, product access & upgrade paths", badge: "OVERVIEW" },
             { name: "My Net Worth", href: "/net-worth", description: "Complete wealth tracking with assets, liabilities & AI insights", badge: "NEW" },
             { 
-              name: "Individual KYC", 
-              description: "For individual investors",
+              name: "Client Onboarding", 
+              description: "Choose Individual, Corporate or NRI KYC",
               subItems: [
-                { name: "Smart Mode", href: "/smart-production-kyc", description: "Production KYC with Protean, Cashfree eKYC, CERSAI & BSE UCC", badge: "NEW" },
-                { name: "Manual Mode", href: "/manual-kyc?type=individual", description: "Traditional document upload via BSE Star API" }
-              ]
-            },
-            { 
-              name: "Corporate/Non-Individual KYC", 
-              description: "For companies and organizations",
-              subItems: [
-                { name: "Smart Mode", href: "/smart-production-kyc", description: "Production KYC with entity verification & compliance checks", badge: "NEW" },
-                { name: "Manual Mode", href: "/manual-kyc?type=corporate", description: "Document submission via BSE Star API" }
-              ]
-            },
-            { 
-              name: "NRI KYC", 
-              description: "For Non-Resident Indians",
-              subItems: [
-                { name: "Smart Mode", href: "/smart-production-kyc", description: "Production KYC with passport verification & repatriation setup", badge: "NEW" },
-                { name: "Manual Mode", href: "/manual-kyc?type=nri", description: "Passport & OCI verification via BSE Star API" }
+                { name: "Smart Mode", href: "/smart-production-kyc", description: "Automated KYC with Protean, Cashfree eKYC, CERSAI & BSE UCC", badge: "RECOMMENDED" },
+                { name: "Manual Mode", href: "/manual-kyc", description: "Traditional document upload via BSE Star API" }
               ]
             },
             { 
