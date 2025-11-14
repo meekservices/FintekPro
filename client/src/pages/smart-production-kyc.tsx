@@ -248,14 +248,9 @@ export default function SmartProductionKYCOnboarding() {
   // Check if PAN exists in database
   const checkPanMutation = useMutation({
     mutationFn: async (pan: string) => {
-      const response = await apiRequest("POST", "/api/kyc/production/check-pan", {
+      return await apiRequest("POST", "/api/kyc/production/check-pan", {
         body: { panNumber: pan },
       });
-      // Ensure we have JSON data
-      if (response instanceof Response) {
-        return await response.json();
-      }
-      return response;
     },
     onSuccess: (response) => {
       // Backend wraps response as { success: true, data: { exists: boolean, panData?: {...} } }
@@ -297,18 +292,13 @@ export default function SmartProductionKYCOnboarding() {
   // Verify PAN via Sandbox API
   const verifyPanMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/kyc/production/verify-pan", {
+      return await apiRequest("POST", "/api/kyc/production/verify-pan", {
         body: {
           panNumber: panNumber.toUpperCase(),
           fullName: panFullName,
           dob: panDob,
         },
       });
-      // Ensure we have JSON data
-      if (response instanceof Response) {
-        return await response.json();
-      }
-      return response;
     },
     onSuccess: (response) => {
       // Backend wraps response as { success: true, data: { success: true, panData: {...} } }
