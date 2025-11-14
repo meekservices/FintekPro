@@ -418,7 +418,7 @@ router.get("/dashboard", async (req: Request, res: Response) => {
     });
 
     // Get API health
-    const apiHealth = await monitoringStorage.getApiHealthStatus(undefined, 1);
+    const apiHealthRaw = await monitoringStorage.getApiHealthStatus(undefined, 1);
 
     // Calculate statistics
     const errorStats = {
@@ -430,6 +430,54 @@ router.get("/dashboard", async (req: Request, res: Response) => {
       frontend: recentErrors.filter(e => e.source === "frontend").length,
       backend: recentErrors.filter(e => e.source === "backend").length,
     };
+
+    // Aggregate API health by service
+    const serviceHealthMap = new Map<string, {
+      service: string;
+      status: string;
+      avgLatency: number;
+      lastCheck: Date | null;
+      lastFailure: string | null;
+      totalChecks: number;
+      successfulChecks: number;
+    }>();
+
+    for (const health of apiHealthRaw) {
+      const existing = serviceHealthMap.get(health.service) || {
+        service: health.service,
+        status: 'healthy',
+        avgLatency: 0,
+        lastCheck: null,
+        lastFailure: null,
+        totalChecks: 0,
+        successfulChecks: 0,
+      };
+
+      existing.totalChecks++;
+      if (health.status === 'healthy') {
+        existing.successfulChecks++;
+      }
+      existing.avgLatency += health.latencyMs || 0;
+      
+      // Update last check time
+      if (!existing.lastCheck || (health.checkedAt && health.checkedAt > existing.lastCheck)) {
+        existing.lastCheck = health.checkedAt;
+        // Update overall status based on most recent check
+        existing.status = health.status;
+        if (health.status !== 'healthy') {
+          existing.lastFailure = health.failureReason || health.errorMessage || 'Unknown failure';
+        }
+      }
+
+      serviceHealthMap.set(health.service, existing);
+    }
+
+    // Calculate average latency per service
+    const apiHealth = Array.from(serviceHealthMap.values()).map(service => ({
+      ...service,
+      avgLatency: service.totalChecks > 0 ? Math.round(service.avgLatency / service.totalChecks) : 0,
+      successRate: service.totalChecks > 0 ? (service.successfulChecks / service.totalChecks * 100).toFixed(2) : '0.00',
+    }));
 
     res.json({
       success: true,

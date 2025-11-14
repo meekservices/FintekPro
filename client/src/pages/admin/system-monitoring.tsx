@@ -3,6 +3,15 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { 
   Activity, 
   AlertCircle, 
@@ -14,7 +23,11 @@ import {
   TrendingUp,
   TrendingDown,
   RefreshCw,
-  ExternalLink
+  ExternalLink,
+  Search,
+  Filter,
+  FileText,
+  BarChart3
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -48,46 +61,85 @@ interface ErrorLog {
 
 export default function SystemMonitoring() {
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [severityFilter, setSeverityFilter] = useState<string>("all");
+  const [sourceFilter, setSourceFilter] = useState<string>("all");
+  const [activeTab, setActiveTab] = useState("errors");
 
-  // Service health check query (refresh every 30s)
-  const { data: serviceHealthData, isLoading: healthLoading, refetch: refetchHealth } = useQuery<{ services: ServiceHealthStatus[] }>({
-    queryKey: ['/api/admin/monitoring/services'],
-    refetchInterval: autoRefresh ? 30000 : false,
+  // Dashboard aggregated data query (refresh every 10s for near real-time)
+  const { data: dashboardResponse, isLoading: dashboardLoading, refetch: refetchDashboard } = useQuery<{
+    success: boolean;
+    dashboard: {
+      errorStats: { total: number; critical: number; high: number; medium: number; low: number; frontend: number; backend: number };
+      recentErrors: any[];
+      errorGroups: any[];
+      apiHealth: any[];
+      lastUpdated: string;
+    };
+  }>({
+    queryKey: ['/api/monitoring/dashboard'],
+    refetchInterval: autoRefresh ? 10000 : false, // Faster refresh for near real-time
   });
-  const serviceHealth = serviceHealthData?.services;
 
-  // System metrics query (refresh every 30s)
-  const { data: metrics, isLoading: metricsLoading, refetch: refetchMetrics } = useQuery<SystemMetrics>({
-    queryKey: ['/api/admin/monitoring/metrics'],
-    refetchInterval: autoRefresh ? 30000 : false,
-  });
+  const dashboardData = dashboardResponse?.dashboard;
 
-  // Error logs query (refresh every 10s for near real-time)
-  const { data: errorLogsData, isLoading: logsLoading, refetch: refetchLogs } = useQuery<{ errors: any[]; count: number }>({
-    queryKey: ['/api/admin/monitoring/errors'],
-    refetchInterval: autoRefresh ? 10000 : false,
-  });
+  // Transform dashboard data for compatibility
+  const serviceHealth = dashboardData?.apiHealth?.map((service: any) => ({
+    service: service.service,
+    status: service.status as 'healthy' | 'degraded' | 'down',
+    latencyMs: service.avgLatency,
+    lastCheck: service.lastCheck,
+    details: service.lastFailure || undefined,
+  })) || [];
+
+  // Map real error monitoring stats (not fake request metrics)
+  const errorStats = dashboardData?.errorStats;
+  const apiHealthData = dashboardData?.apiHealth || [];
   
-  // Transform backend errors to match UI expectations
-  const errorLogs = errorLogsData ? {
-    logs: errorLogsData.errors.map((err: any, idx: number) => ({
-      id: `${err.timestamp}-${idx}`,
-      timestamp: err.timestamp,
-      level: err.level,
+  const totalErrors = errorStats?.total || 0;
+  const criticalHighErrors = (errorStats?.critical || 0) + (errorStats?.high || 0);
+  const avgServiceLatency = apiHealthData.length > 0 
+    ? Math.round(apiHealthData.reduce((acc: number, s: any) => acc + (s.avgLatency || 0), 0) / apiHealthData.length)
+    : 0;
+  
+  // Calculate healthy services percentage from apiHealth array
+  const healthyServices = apiHealthData.filter((s: any) => s.status === 'healthy').length;
+  const totalServices = apiHealthData.length;
+  const healthyServicesPercent = totalServices > 0 ? (healthyServices / totalServices * 100) : 0;
+
+  const errorLogs = dashboardData?.recentErrors ? {
+    logs: dashboardData.recentErrors.map((err: any) => ({
+      id: err.id,
+      timestamp: err.occurredAt || err.ingestionTs,
+      level: err.severity || 'medium',
       message: err.message,
       service: err.service,
-      stackTrace: err.metadata?.stack,
-      count: 1,
-      aiSummary: undefined, // TODO: Add AI summaries via Gemini integration
+      stackTrace: err.stackTrace,
+      count: err.count || 1,
+      aiSummary: err.aiSummary,
     })),
-    count: errorLogsData.count
+    count: dashboardData.recentErrors.length
   } : undefined;
 
+  const healthLoading = dashboardLoading;
+  const metricsLoading = dashboardLoading;
+  const logsLoading = dashboardLoading;
+
   const handleRefreshAll = () => {
-    refetchHealth();
-    refetchMetrics();
-    refetchLogs();
+    refetchDashboard();
   };
+
+  // Filter errors based on search and filters
+  const filteredErrors = errorLogs?.logs.filter((err) => {
+    const matchesSearch = searchTerm === "" || 
+      err.message.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      err.service.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesSeverity = severityFilter === "all" || err.level === severityFilter;
+    const matchesSource = sourceFilter === "all" || err.service === sourceFilter;
+    
+    return matchesSearch && matchesSeverity && matchesSource;
+  }) || [];
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -143,21 +195,71 @@ export default function SystemMonitoring() {
         </div>
       </div>
 
-      {/* System Metrics Cards */}
+      {/* Search and Filters */}
+      <Card className="bg-gray-800 border-gray-700">
+        <CardContent className="pt-6">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search errors by message or service..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 bg-gray-900 border-gray-700 text-white"
+                  data-testid="input-search-errors"
+                />
+              </div>
+            </div>
+            <Select value={severityFilter} onValueChange={setSeverityFilter}>
+              <SelectTrigger className="w-[180px] bg-gray-900 border-gray-700 text-white" data-testid="select-severity-filter">
+                <SelectValue placeholder="Severity" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Severity</SelectItem>
+                <SelectItem value="critical">Critical</SelectItem>
+                <SelectItem value="high">High</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="low">Low</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={sourceFilter} onValueChange={setSourceFilter}>
+              <SelectTrigger className="w-[180px] bg-gray-900 border-gray-700 text-white" data-testid="select-source-filter">
+                <SelectValue placeholder="Source" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Sources</SelectItem>
+                <SelectItem value="frontend">Frontend</SelectItem>
+                <SelectItem value="backend">Backend</SelectItem>
+                <SelectItem value="service">Service</SelectItem>
+                <SelectItem value="external_api">External API</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Error Monitoring Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="bg-gray-800 border-gray-700">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Total Requests</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-400">Total Errors</CardTitle>
           </CardHeader>
           <CardContent>
-            {metricsLoading ? (
+            {dashboardLoading ? (
               <div className="h-8 bg-gray-700 animate-pulse rounded" />
             ) : (
               <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-white">
-                  {metrics?.totalRequests.toLocaleString() || '0'}
+                <span className={cn(
+                  "text-2xl font-bold",
+                  totalErrors > 0 ? "text-red-500" : "text-green-500"
+                )}>
+                  {totalErrors.toLocaleString()}
                 </span>
-                <TrendingUp className="h-4 w-4 text-green-500" />
+                <AlertCircle className={cn(
+                  "h-4 w-4",
+                  totalErrors > 0 ? "text-red-500" : "text-green-500"
+                )} />
               </div>
             )}
           </CardContent>
@@ -165,23 +267,23 @@ export default function SystemMonitoring() {
 
         <Card className="bg-gray-800 border-gray-700">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Error Rate</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-400">Critical/High Errors</CardTitle>
           </CardHeader>
           <CardContent>
-            {metricsLoading ? (
+            {dashboardLoading ? (
               <div className="h-8 bg-gray-700 animate-pulse rounded" />
             ) : (
               <div className="flex items-baseline gap-2">
                 <span className={cn(
                   "text-2xl font-bold",
-                  (metrics?.errorRate || 0) > 5 ? "text-red-500" : "text-green-500"
+                  criticalHighErrors > 0 ? "text-red-600" : "text-green-500"
                 )}>
-                  {metrics?.errorRate.toFixed(2) || '0.00'}%
+                  {criticalHighErrors.toLocaleString()}
                 </span>
-                {(metrics?.errorRate || 0) > 5 ? (
-                  <TrendingUp className="h-4 w-4 text-red-500" />
+                {criticalHighErrors > 0 ? (
+                  <TrendingUp className="h-4 w-4 text-red-600" />
                 ) : (
-                  <TrendingDown className="h-4 w-4 text-green-500" />
+                  <CheckCircle className="h-4 w-4 text-green-500" />
                 )}
               </div>
             )}
@@ -190,18 +292,18 @@ export default function SystemMonitoring() {
 
         <Card className="bg-gray-800 border-gray-700">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">P95 Latency</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-400">Avg Service Latency</CardTitle>
           </CardHeader>
           <CardContent>
-            {metricsLoading ? (
+            {dashboardLoading ? (
               <div className="h-8 bg-gray-700 animate-pulse rounded" />
             ) : (
               <div className="flex items-baseline gap-2">
                 <span className={cn(
                   "text-2xl font-bold",
-                  (metrics?.p95Latency || 0) > 1000 ? "text-yellow-500" : "text-green-500"
+                  avgServiceLatency > 1000 ? "text-yellow-500" : "text-green-500"
                 )}>
-                  {metrics?.p95Latency || '0'}
+                  {avgServiceLatency}
                 </span>
                 <span className="text-sm text-gray-400">ms</span>
               </div>
@@ -211,17 +313,23 @@ export default function SystemMonitoring() {
 
         <Card className="bg-gray-800 border-gray-700">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">System Uptime</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-400">Healthy Services</CardTitle>
           </CardHeader>
           <CardContent>
-            {metricsLoading ? (
+            {dashboardLoading ? (
               <div className="h-8 bg-gray-700 animate-pulse rounded" />
             ) : (
               <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-green-500">
-                  {metrics?.uptime.toFixed(2) || '0.00'}%
+                <span className={cn(
+                  "text-2xl font-bold",
+                  healthyServicesPercent < 100 ? "text-yellow-500" : "text-green-500"
+                )}>
+                  {healthyServicesPercent.toFixed(0)}%
                 </span>
-                <CheckCircle className="h-4 w-4 text-green-500" />
+                <CheckCircle className={cn(
+                  "h-4 w-4",
+                  healthyServicesPercent < 100 ? "text-yellow-500" : "text-green-500"
+                )} />
               </div>
             )}
           </CardContent>
@@ -316,9 +424,12 @@ export default function SystemMonitoring() {
                 <div key={i} className="h-24 bg-gray-700 animate-pulse rounded" />
               ))}
             </div>
-          ) : errorLogs && errorLogs.logs.length > 0 ? (
+          ) : filteredErrors.length > 0 ? (
             <div className="space-y-3">
-              {errorLogs.logs.map((log) => (
+              <div className="text-sm text-gray-400 mb-3">
+                Showing {filteredErrors.length} of {errorLogs?.logs.length || 0} errors
+              </div>
+              {filteredErrors.map((log) => (
                 <div 
                   key={log.id}
                   className="p-4 bg-gray-900 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors"
@@ -329,8 +440,10 @@ export default function SystemMonitoring() {
                       <Badge 
                         variant="destructive" 
                         className={cn(
-                          log.level === 'error' ? 'bg-red-600' : 
-                          log.level === 'warn' ? 'bg-yellow-600' : 'bg-gray-600'
+                          log.level === 'critical' ? 'bg-red-700' :
+                          log.level === 'high' ? 'bg-red-600' : 
+                          log.level === 'medium' ? 'bg-yellow-600' : 
+                          log.level === 'low' ? 'bg-gray-600' : 'bg-gray-600'
                         )}
                       >
                         {log.level.toUpperCase()}
