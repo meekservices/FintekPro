@@ -8,6 +8,12 @@ export const kycStatusEnum = pgEnum("kyc_status", ["pending", "in_progress", "co
 export const aiVerificationStatusEnum = pgEnum("ai_verification_status", ["pending", "ca_uploaded", "esign_pending", "esign_completed", "submitted", "approved", "rejected", "expired"]);
 export const aiWorkflowStepEnum = pgEnum("ai_workflow_step", ["ca_upload", "esign", "bse_submission", "completed"]);
 
+// Monitoring & Observability Enums
+export const errorSourceEnum = pgEnum("error_source", ["frontend", "backend", "service", "external_api"]);
+export const errorSeverityEnum = pgEnum("error_severity", ["critical", "high", "medium", "low", "info"]);
+export const apiHealthStatusEnum = pgEnum("api_health_status", ["healthy", "degraded", "down", "unknown"]);
+export const auditActionTypeEnum = pgEnum("audit_action_type", ["create", "read", "update", "delete", "execute", "approve", "reject"]);
+
 // Session storage table for Replit Auth
 export const sessions = pgTable(
   "sessions",
@@ -11119,3 +11125,253 @@ export type InsertKycTierUpgradeEvent = z.infer<typeof insertKycTierUpgradeEvent
 export const insertAccreditedInvestorVerificationSchema = createInsertSchema(accreditedInvestorVerifications).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertAccreditedInvestorVerification = z.infer<typeof insertAccreditedInvestorVerificationSchema>;
 export type AccreditedInvestorVerification = typeof accreditedInvestorVerifications.$inferSelect;
+
+// ===================================================================
+// MONITORING & OBSERVABILITY SYSTEM
+// ===================================================================
+
+// Error Stack Traces - Deduplicated storage for stack traces
+export const errorStackTraces = pgTable("error_stack_traces", {
+  stackHash: varchar("stack_hash").primaryKey(), // SHA-256 hash of stack trace
+  stackTrace: text("stack_trace").notNull(), // Full stack trace (may be gzipped)
+  sourceMap: text("source_map"), // Source map reference for frontend errors
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_error_stack_created").on(table.createdAt),
+]);
+
+// Error Events - Unified error logging for frontend, backend, and external APIs
+export const errorEvents = pgTable("error_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Source & Classification
+  source: errorSourceEnum("source").notNull(), // frontend/backend/service/external_api
+  severity: errorSeverityEnum("severity").notNull().default("medium"),
+  environment: varchar("environment").default("production"), // production/staging/development
+  service: varchar("service").notNull(), // 'web', 'api', 'worker', 'bse-mfd', 'cashfree', etc.
+  
+  // Error Details
+  message: text("message").notNull(),
+  errorType: varchar("error_type"), // TypeError, ReferenceError, APIError, etc.
+  errorCode: varchar("error_code"), // Custom error codes
+  stackHash: varchar("stack_hash").references(() => errorStackTraces.stackHash), // Reference to deduplicated stack
+  
+  // Context & Metadata
+  userId: varchar("user_id").references(() => users.id),
+  sessionId: varchar("session_id"),
+  requestId: varchar("request_id"), // For request tracing
+  
+  // HTTP Context (for API errors)
+  httpMethod: varchar("http_method"), // GET, POST, etc.
+  httpPath: varchar("http_path"), // /api/kyc/production/check-pan
+  httpStatusCode: integer("http_status_code"), // 500, 404, etc.
+  userAgent: text("user_agent"),
+  ipAddress: varchar("ip_address"),
+  
+  // Device & Browser (for frontend errors)
+  deviceInfo: jsonb("device_info"), // {browser, os, device, viewport}
+  
+  // Additional Payload
+  payload: jsonb("payload"), // Custom error context, sanitized PII
+  tags: text("tags").array(), // ['payment', 'kyc', 'critical']
+  
+  // Timestamps
+  ingestionTs: timestamp("ingestion_ts").defaultNow(),
+  occurredAt: timestamp("occurred_at"), // When error actually happened (may differ from ingestion)
+}, (table) => [
+  index("idx_error_events_severity_ts").on(table.severity, table.ingestionTs.desc()),
+  index("idx_error_events_service_ts").on(table.service, table.ingestionTs.desc()),
+  index("idx_error_events_user_ts").on(table.userId, table.ingestionTs.desc()),
+  index("idx_error_events_stack_hash").on(table.stackHash),
+  index("idx_error_events_occurred").on(table.occurredAt.desc()),
+  // Partial index for high-priority errors
+  sql`CREATE INDEX IF NOT EXISTS idx_error_events_critical ON error_events(ingestion_ts DESC) WHERE severity IN ('critical', 'high')`,
+]);
+
+// Error Groups - Aggregated error patterns with AI analysis
+export const errorGroups = pgTable("error_groups", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Grouping Keys
+  stackHash: varchar("stack_hash").references(() => errorStackTraces.stackHash).notNull(),
+  service: varchar("service").notNull(),
+  environment: varchar("environment").notNull(),
+  severity: errorSeverityEnum("severity").notNull(),
+  
+  // Aggregation Metrics
+  totalCount: integer("total_count").default(0),
+  affectedUsers: integer("affected_users").default(0),
+  firstOccurrence: timestamp("first_occurrence").notNull(),
+  lastOccurrence: timestamp("last_occurrence").notNull(),
+  
+  // AI Analysis (Google Gemini)
+  aiAnalyzed: boolean("ai_analyzed").default(false),
+  aiFindings: jsonb("ai_findings"), // {rootCause, suggestedFix, severity, category}
+  aiAnalyzedAt: timestamp("ai_analyzed_at"),
+  
+  // Status & Resolution
+  status: varchar("status").default("open"), // open/investigating/resolved/ignored
+  assignedTo: varchar("assigned_to"), // Admin user ID
+  resolvedAt: timestamp("resolved_at"),
+  resolution: text("resolution"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_error_groups_stack_hash").on(table.stackHash),
+  index("idx_error_groups_service_severity").on(table.service, table.severity),
+  index("idx_error_groups_status").on(table.status),
+  index("idx_error_groups_last_occurrence").on(table.lastOccurrence.desc()),
+  uniqueIndex("idx_error_groups_unique").on(table.stackHash, table.service, table.environment),
+]);
+
+// API Health Logs - Monitor external service health
+export const apiHealthLogs = pgTable("api_health_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Service Information
+  service: varchar("service").notNull(), // 'bse_star', 'cashfree', 'protean', 'emudhra', 'sandbox'
+  endpoint: varchar("endpoint"), // Specific endpoint checked
+  checkType: varchar("check_type").default("ping"), // ping/full/critical
+  
+  // Health Status
+  status: apiHealthStatusEnum("status").notNull(),
+  latencyMs: integer("latency_ms"), // Response time in milliseconds
+  responseCode: integer("response_code"),
+  
+  // Failure Details
+  failureReason: text("failure_reason"),
+  errorMessage: text("error_message"),
+  incidentId: varchar("incident_id"), // Link multiple failures to same incident
+  
+  // Metadata
+  metadata: jsonb("metadata"), // Additional context
+  
+  // Timestamps
+  checkedAt: timestamp("checked_at").defaultNow(),
+}, (table) => [
+  index("idx_api_health_service_checked").on(table.service, table.checkedAt.desc()),
+  index("idx_api_health_status").on(table.status),
+  index("idx_api_health_incident").on(table.incidentId),
+]);
+
+// Audit Logs - Compliance and regulatory tracking (7-year retention)
+export const auditLogs = pgTable("audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Actor Information
+  userId: varchar("user_id").references(() => users.id),
+  actorType: varchar("actor_type").notNull(), // 'user', 'admin', 'system', 'api'
+  actorId: varchar("actor_id"), // ID of actor (user/admin/system)
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  
+  // Action Details
+  action: auditActionTypeEnum("action").notNull(),
+  resource: varchar("resource").notNull(), // 'kyc_session', 'mf_order', 'ucc', 'euin'
+  resourceId: varchar("resource_id"),
+  
+  // Operation Context
+  operation: varchar("operation").notNull(), // 'pan_verification', 'kyc_upgrade', 'mf_purchase', etc.
+  status: varchar("status").notNull(), // 'success', 'failure', 'partial'
+  
+  // Compliance Data
+  regulatoryCategory: varchar("regulatory_category"), // 'kyc', 'aml', 'transaction', 'data_access'
+  sensitivityLevel: varchar("sensitivity_level").default("medium"), // low/medium/high/critical
+  
+  // Change Details
+  changesBefore: jsonb("changes_before"), // State before action
+  changesAfter: jsonb("changes_after"), // State after action
+  
+  // Tamper Evidence (Hash Chain)
+  previousLogHash: varchar("previous_log_hash"), // Hash of previous log entry
+  currentLogHash: varchar("current_log_hash"), // Hash of this entry
+  
+  // Metadata
+  metadata: jsonb("metadata"),
+  reason: text("reason"), // Reason for action (e.g., "User requested KYC upgrade")
+  
+  // Timestamps
+  occurredAt: timestamp("occurred_at").defaultNow(),
+}, (table) => [
+  index("idx_audit_user_occurred").on(table.userId, table.occurredAt.desc()),
+  index("idx_audit_resource").on(table.resource, table.resourceId),
+  index("idx_audit_action").on(table.action),
+  index("idx_audit_regulatory").on(table.regulatoryCategory),
+  index("idx_audit_occurred").on(table.occurredAt.desc()),
+]);
+
+// System Metrics - Performance and resource usage tracking
+export const systemMetrics = pgTable("system_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Metric Information
+  metricName: varchar("metric_name").notNull(), // 'api_latency', 'db_query_time', 'cpu_usage', 'memory_usage'
+  metricType: varchar("metric_type").notNull(), // 'counter', 'gauge', 'histogram'
+  
+  // Dimensions
+  service: varchar("service"), // Service generating the metric
+  environment: varchar("environment").default("production"),
+  dimensions: jsonb("dimensions"), // {endpoint: '/api/kyc', method: 'POST'}
+  
+  // Value
+  value: decimal("value", { precision: 15, scale: 4 }).notNull(),
+  unit: varchar("unit"), // 'ms', 'bytes', 'percent', 'count'
+  
+  // Aggregation Window
+  aggregationWindow: varchar("aggregation_window").default("1m"), // '1m', '5m', '15m', '1h', '1d'
+  
+  // Timestamps
+  collectedAt: timestamp("collected_at").defaultNow(),
+}, (table) => [
+  index("idx_system_metrics_name_collected").on(table.metricName, table.collectedAt.desc()),
+  index("idx_system_metrics_service_collected").on(table.service, table.collectedAt.desc()),
+]);
+
+// Zod Schemas for Monitoring Tables
+export const insertErrorStackTraceSchema = createInsertSchema(errorStackTraces).omit({
+  createdAt: true,
+});
+export type ErrorStackTrace = typeof errorStackTraces.$inferSelect;
+export type InsertErrorStackTrace = z.infer<typeof insertErrorStackTraceSchema>;
+
+// Extended schema for error event insertion (accepts stackTrace instead of stackHash)
+export const insertErrorEventSchema = createInsertSchema(errorEvents).omit({
+  id: true,
+  ingestionTs: true,
+  stackHash: true, // Exclude stackHash from input
+}).extend({
+  stackTrace: z.string().optional(), // Accept stackTrace, will be hashed internally
+});
+export type ErrorEvent = typeof errorEvents.$inferSelect;
+export type InsertErrorEvent = z.infer<typeof insertErrorEventSchema>;
+
+export const insertErrorGroupSchema = createInsertSchema(errorGroups).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type ErrorGroup = typeof errorGroups.$inferSelect;
+export type InsertErrorGroup = z.infer<typeof insertErrorGroupSchema>;
+
+export const insertApiHealthLogSchema = createInsertSchema(apiHealthLogs).omit({
+  id: true,
+  checkedAt: true,
+});
+export type ApiHealthLog = typeof apiHealthLogs.$inferSelect;
+export type InsertApiHealthLog = z.infer<typeof insertApiHealthLogSchema>;
+
+export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
+  id: true,
+  occurredAt: true,
+});
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+
+export const insertSystemMetricSchema = createInsertSchema(systemMetrics).omit({
+  id: true,
+  collectedAt: true,
+});
+export type SystemMetric = typeof systemMetrics.$inferSelect;
+export type InsertSystemMetric = z.infer<typeof insertSystemMetricSchema>;
