@@ -1,0 +1,136 @@
+chunk-RPCDYKBN.js?v=034af7ea:21551 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+content_script.js:1 Uncaught TypeError: Cannot read properties of undefined (reading 'control')
+    at content_script.js:1:422999
+    at Array.some (<anonymous>)
+    at shouldOfferCompletionListForField (content_script.js:1:422984)
+    at elementWasFocused (content_script.js:1:423712)
+    at HTMLDocument.focusInEventHandler (content_script.js:1:423069)
+(anonymous) @ content_script.js:1
+shouldOfferCompletionListForField @ content_script.js:1
+elementWasFocused @ content_script.js:1
+focusInEventHandler @ content_script.js:1
+content_script.js:1 Uncaught (in promise) TypeError: Cannot read properties of undefined (reading 'control')
+    at content_script.js:1:422999
+    at Array.some (<anonymous>)
+    at shouldOfferCompletionListForField (content_script.js:1:422984)
+    at processInputEvent (content_script.js:1:426332)
+(anonymous) @ content_script.js:1
+shouldOfferCompletionListForField @ content_script.js:1
+processInputEvent @ content_script.js:1
+setTimeout
+inputEventHandler @ content_script.js:1
+content_script.js:1 Uncaught (in promise) TypeError: Cannot read properties of undefined (reading 'control')
+    at content_script.js:1:422999
+    at Array.some (<anonymous>)
+    at shouldOfferCompletionListForField (content_script.js:1:422984)
+    at processInputEvent (content_script.js:1:426332)
+(anonymous) @ content_script.js:1
+shouldOfferCompletionListForField @ content_script.js:1
+processInputEvent @ content_script.js:1
+setTimeout
+inputEventHandler @ content_script.js:1
+content_script.js:1 Uncaught (in promise) TypeError: Cannot read properties of undefined (reading 'control')
+    at content_script.js:1:422999
+    at Array.some (<anonymous>)
+    at shouldOfferCompletionListForField (content_script.js:1:422984)
+    at processInputEvent (content_script.js:1:426332)
+(anonymous) @ content_script.js:1
+shouldOfferCompletionListForField @ content_script.js:1
+processInputEvent @ content_script.js:1
+setTimeout
+inputEventHandler @ content_script.js:1
+content_script.js:1 Uncaught (in promise) TypeError: Cannot read properties of undefined (reading 'control')
+    at content_script.js:1:422999
+    at Array.some (<anonymous>)
+    at shouldOfferCompletionListForField (content_script.js:1:422984)
+    at processInputEvent (content_script.js:1:426332)
+(anonymous) @ content_script.js:1
+shouldOfferCompletionListForField @ content_script.js:1
+processInputEvent @ content_script.js:1
+setTimeout
+inputEventHandler @ content_script.js:1
+content_script.js:1 Uncaught (in promise) TypeError: Cannot read properties of undefined (reading 'control')
+    at content_script.js:1:422999
+    at Array.some (<anonymous>)
+    at shouldOfferCompletionListForField (content_script.js:1:422984)
+    at processInputEvent (content_script.js:1:426332)
+(anonymous) @ content_script.js:1
+shouldOfferCompletionListForField @ content_script.js:1
+processInputEvent @ content_script.js:1
+setTimeout
+inputEventHandler @ content_script.js:1
+content_script.js:1 Uncaught (in promise) TypeError: Cannot read properties of undefined (reading 'control')
+    at content_script.js:1:422999
+    at Array.some (<anonymous>)
+    at shouldOfferCompletionListForField (content_script.js:1:422984)
+    at processInputEvent (content_script.js:1:426332)
+(anonymous) @ content_script.js:1
+shouldOfferCompletionListForField @ content_script.js:1
+processInputEvent @ content_script.js:1
+setTimeout
+inputEventHandler @ content_script.js:1
+content_script.js:1 Uncaught (in promise) TypeError: Cannot read properties of undefined (reading 'control')
+    at content_script.js:1:422999
+    at Array.some (<anonymous>)
+    at shouldOfferCompletionListForField (content_script.js:1:422984)
+    at processInputEvent (content_script.js:1:426332)
+(anonymous) @ content_script.js:1
+shouldOfferCompletionListForField @ content_script.js:1
+processInputEvent @ content_script.js:1
+setTimeout
+inputEventHandler @ content_script.js:1
+content_script.js:1 Uncaught (in promise) TypeError: Cannot read properties of undefined (reading 'control')
+    at content_script.js:1:422999
+    at Array.some (<anonymous>)
+    at shouldOfferCompletionListForField (content_script.js:1:422984)
+    at processInputEvent (content_script.js:1:426332)
+(anonymous) @ content_script.js:1
+shouldOfferCompletionListForField @ content_script.js:1
+processInputEvent @ content_script.js:1
+setTimeout
+inputEventHandler @ content_script.js:1
+content_script.js:1 Uncaught (in promise) TypeError: Cannot read properties of undefined (reading 'control')
+    at content_script.js:1:422999
+    at Array.some (<anonymous>)
+    at shouldOfferCompletionListForField (content_script.js:1:422984)
+    at processInputEvent (content_script.js:1:426332)
+(anonymous) @ content_script.js:1
+shouldOfferCompletionListForField @ content_script.js:1
+processInputEvent @ content_script.js:1
+setTimeout
+inputEventHandler @ content_script.js:1
+content_script.js:1 Uncaught (in promise) TypeError: Cannot read properties of undefined (reading 'control')
+    at content_script.js:1:422999
+    at Array.some (<anonymous>)
+    at shouldOfferCompletionListForField (content_script.js:1:422984)
+    at processInputEvent (content_script.js:1:426332)
+(anonymous) @ content_script.js:1
+shouldOfferCompletionListForField @ content_script.js:1
+processInputEvent @ content_script.js:1
+setTimeout
+inputEventHandler @ content_script.js:1
+smart-production-kyc.tsx:256 [DEBUG] checkPanMutation response: Response {type: 'basic', url: 'https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-10…t3tt.worf.replit.dev/api/kyc/production/check-pan', redirected: false, status: 200, ok: true, …}
+smart-production-kyc.tsx:288 [DEBUG] checkPanMutation error: TypeError: Cannot destructure property 'exists' of 'response.data' as it is undefined.
+    at Object.onSuccess (smart-production-kyc.tsx:258:15)
+    at _a6.execute (@tanstack_react-query.js?v=034af7ea:1233:73)
+onError @ smart-production-kyc.tsx:288
+execute @ @tanstack_react-query.js?v=034af7ea:1254
+await in execute
+mutate @ @tanstack_react-query.js?v=034af7ea:2630
+(anonymous) @ @tanstack_react-query.js?v=034af7ea:3295
+onClick @ smart-production-kyc.tsx:1570
+callCallback2 @ chunk-RPCDYKBN.js?v=034af7ea:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=034af7ea:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=034af7ea:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=034af7ea:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=034af7ea:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=034af7ea:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=034af7ea:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=034af7ea:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=034af7ea:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=034af7ea:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=034af7ea:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=034af7ea:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=034af7ea:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=034af7ea:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=034af7ea:5449

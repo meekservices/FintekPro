@@ -248,15 +248,18 @@ export default function SmartProductionKYCOnboarding() {
   // Check if PAN exists in database
   const checkPanMutation = useMutation({
     mutationFn: async (pan: string) => {
-      return await apiRequest("POST", "/api/kyc/production/check-pan", {
+      const response = await apiRequest("POST", "/api/kyc/production/check-pan", {
         body: { panNumber: pan },
       });
+      // Ensure we have JSON data
+      if (response instanceof Response) {
+        return await response.json();
+      }
+      return response;
     },
     onSuccess: (response) => {
-      console.log('[DEBUG] checkPanMutation response:', response);
       // Backend wraps response as { success: true, data: { exists: boolean, panData?: {...} } }
       const { exists, panData } = response.data;
-      console.log('[DEBUG] Destructured - exists:', exists, 'panData:', panData);
       if (exists) {
         // PAN exists, use stored data
         setPanVerified(true);
@@ -266,7 +269,6 @@ export default function SmartProductionKYCOnboarding() {
           description: "Using your verified PAN details from our records",
         });
         // Move to next step based on user type
-        console.log('[DEBUG] Moving to next step for userType:', userType);
         if (userType === "individual") {
           setCurrentStep("kra_check");
         } else {
@@ -274,7 +276,6 @@ export default function SmartProductionKYCOnboarding() {
         }
       } else {
         // PAN not found, transition to verify sub-step
-        console.log('[DEBUG] PAN not found, moving to verify sub-step');
         setPanSubStep("verify");
         // Push history state for back button support
         window.history.pushState({ panSubStep: "verify" }, "");
@@ -285,7 +286,6 @@ export default function SmartProductionKYCOnboarding() {
       }
     },
     onError: (error: any) => {
-      console.error('[DEBUG] checkPanMutation error:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to check PAN",
