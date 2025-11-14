@@ -3,6 +3,10 @@
 ## Overview
 FintekPro is a full-stack TypeScript financial services platform designed for personal finance and investment management. It provides tools for portfolio management, real-time market data, and access to various financial services including stocks, mutual funds, IPOs, bonds, and loans. The platform emphasizes secure financial planning, family collaboration, unified KYC compliance, and an AI-powered financial assistant. Its goal is to equip individual investors and financial advisors with advanced tools and insights, aspiring to become a leading digital financial ecosystem.
 
+## Recent Changes
+**November 14, 2025 - Critical Routing Bug Fix**
+Fixed a severe routing bug in `server/routes.ts` where 730+ lines of route handlers (including production KYC routes, agent routes, and other critical endpoints) were placed AFTER the `return server;` statement, making them unreachable dead code. This caused `/api/kyc/production/*` endpoints to return HTML (404 from Vite) instead of JSON, and broke agent-related functionality entirely. All route registrations have been moved before the return statement, restoring full API functionality.
+
 ## User Preferences
 I want iterative development.
 I prefer detailed explanations.

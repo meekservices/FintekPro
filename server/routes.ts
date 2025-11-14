@@ -32017,8 +32017,16 @@ System Security Data:`;
     }
   });
 
-  return server;
 
+  // ============================================================
+  // PRODUCTION KYC WORKFLOW ROUTES
+  // Smart onboarding with database-first PAN validation
+  // ============================================================
+
+  // Mount production KYC router
+  const productionKycRouter = createProductionKycRouter(storage, requireClientOrHigher);
+  app.use("/api/kyc/production", productionKycRouter);
+  console.log("✅ Production KYC routes registered");
 
   // Get current user's agent profile
   app.get("/api/agents/my-agent", requireAuth, async (req, res) => {
@@ -32737,14 +32745,5 @@ System Security Data:`;
     }
   });
 
-  // ============================================================
-  // PRODUCTION KYC WORKFLOW ROUTES
-  // Smart onboarding with database-first PAN validation
-  // ============================================================
-
-
-  // Mount production KYC router
-  const productionKycRouter = createProductionKycRouter(storage, requireClientOrHigher);
-  app.use("/api/kyc/production", productionKycRouter);
-  console.log("✅ Production KYC routes registered");
+  return server;
 }
