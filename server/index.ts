@@ -499,5 +499,21 @@ app.use((req, res, next) => {
     } catch (error) {
       console.error('❌ Error importing KRA polling job:', error);
     }
+
+    // Initialize API Health Monitoring Job
+    if (process.env.API_HEALTH_MONITORING_ENABLED !== 'false') {
+      try {
+        import('./jobs/api-health-cron').then(({ startApiHealthMonitoringJob }) => {
+          startApiHealthMonitoringJob();
+          console.log('[API Health Monitoring] Background job initialized');
+        }).catch(error => {
+          console.error('❌ Failed to initialize API health monitoring job:', error);
+        });
+      } catch (error) {
+        console.error('❌ Error importing API health monitoring job:', error);
+      }
+    } else {
+      console.log('[API Health Monitoring] Disabled via API_HEALTH_MONITORING_ENABLED=false');
+    }
   });
 })();
