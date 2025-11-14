@@ -253,8 +253,13 @@ export default function SmartProductionKYCOnboarding() {
       });
     },
     onSuccess: (response) => {
+      // Debug logging
+      console.log("✅ checkPanMutation response:", JSON.stringify(response, null, 2));
+      
       // Backend wraps response as { success: true, data: { exists: boolean, panData?: {...} } }
       const { exists, panData } = response.data;
+      console.log("✅ Extracted from response.data:", { exists, panData });
+      
       if (exists) {
         // PAN exists, use stored data
         setPanVerified(true);

@@ -42,8 +42,10 @@ export function createProductionKycRouter(storage: IStorage, requireClientOrHigh
       // Check if PAN exists in database for this user
       const existingPan = await storage.getUserPanDetails(userId, panNumber.toUpperCase());
 
+      console.log(`🔍 [check-pan] PAN lookup for ${panNumber}:`, existingPan ? 'FOUND' : 'NOT FOUND');
+
       if (existingPan) {
-        return apiResponse.success(res, {
+        const responseData = {
           exists: true,
           panData: {
             panNumber: existingPan.panNumber,
@@ -51,9 +53,12 @@ export function createProductionKycRouter(storage: IStorage, requireClientOrHigh
             dob: existingPan.dateOfBirth,
             verified: existingPan.verified,
           },
-        });
+        };
+        console.log(`✅ [check-pan] Sending response:`, JSON.stringify(responseData, null, 2));
+        return apiResponse.success(res, responseData);
       }
 
+      console.log(`✅ [check-pan] Sending response: { exists: false }`);
       return apiResponse.success(res, { exists: false });
     } catch (error) {
       console.error("Error checking PAN:", error);
