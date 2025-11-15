@@ -128,13 +128,17 @@ export class KycWorkflowOrchestrator {
       }
     }
 
-    // Create new KYC verification session
+    // Create new KYC verification session with 30-minute expiration
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 30);
+    
     const session = await storage.createKycVerificationSession({
       userId,
       panNumber,
       currentStep: 'kra_check_initiated',
       ipAddress,
-      userAgent
+      userAgent,
+      expiresAt
     });
 
     await this.logStateTransition({
