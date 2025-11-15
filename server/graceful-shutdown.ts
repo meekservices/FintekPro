@@ -53,6 +53,12 @@ class GracefulShutdownManager {
    */
   private setupSignalHandlers(): void {
     const handleSignal = (signal: string) => {
+      // In development, ignore SIGHUP to prevent premature pool closure
+      if (process.env.NODE_ENV !== 'production' && signal === 'SIGHUP') {
+        logger.info(`${signal} signal received in development mode - ignoring`);
+        return;
+      }
+
       logger.info(`${signal} signal received: initiating graceful shutdown`);
       this.shutdown(signal).catch((error) => {
         logger.error('Error during shutdown', error instanceof Error ? error : undefined);
@@ -170,6 +176,12 @@ class GracefulShutdownManager {
    * Close database connection pool
    */
   private async closeDatabasePool(): Promise<void> {
+    // Skip closing database pool in development to prevent connection errors
+    if (process.env.NODE_ENV !== 'production') {
+      logger.info('Skipping database pool closure in development mode');
+      return;
+    }
+
     try {
       logger.info('Closing database connection pool...');
       await pool.end();
