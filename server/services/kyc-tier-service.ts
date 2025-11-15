@@ -6,7 +6,7 @@
  */
 
 import { db } from '../db';
-import { users, kycTierUpgradeEvents, productionKycSessions } from '@db/schema';
+import { users, kycTierUpgradeEvents, productionKycSessions } from '@shared/schema';
 import { eq, desc, and } from 'drizzle-orm';
 import { 
   KycTier, 
@@ -202,9 +202,12 @@ async function isEligibleForUpgrade(
     return false; // Already at highest tier
   }
 
-  // Tier 1 → Tier 2: All basic verifications + Video KYC
+  // Tier 1 → Tier 2: All basic verifications + Enhanced verifications (Video KYC, Income Proof, Bank Statement)
   if (currentTier === 'basic' && nextTier === 'enhanced') {
-    const requiredCodes = ['PAN_VERIFIED', 'AADHAAR_VERIFIED', 'BANK_VERIFIED', 'PROFILE_COMPLETE', 'VIDEO_KYC'];
+    const requiredCodes = [
+      'PAN_VERIFIED', 'AADHAAR_VERIFIED', 'BANK_VERIFIED', 'PROFILE_COMPLETE',
+      'VIDEO_KYC', 'INCOME_PROOF', 'BANK_STATEMENT'
+    ];
     return requiredCodes.every(code => verifications.find(v => v.code === code)?.completed);
   }
 

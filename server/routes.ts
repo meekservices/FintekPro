@@ -26,6 +26,7 @@ import { adminService } from "./admin-service";
 import { duplicateDetectionService } from "./services/duplicateDetectionService";
 import { partnerService } from "./partner-service";
 import { createProductionKycRouter } from "./productionKycRoutes";
+import kycTierRoutes from "./kyc-tier-routes";
 import { z } from "zod";
 import { NseIndia } from 'stock-nse-india';
 import { comprehensiveAIFPMSAPI } from "./comprehensive-aif-pms-api";
@@ -32047,6 +32048,7 @@ System Security Data:`;
   // Mount production KYC router
   const productionKycRouter = createProductionKycRouter(storage, requireClientOrHigher);
   app.use("/api/kyc/production", productionKycRouter);
+  app.use("/api/kyc/tiers", kycTierRoutes);
   app.use("/api/monitoring", monitoringRoutes);
   app.use("/api/admin/audit", requireAdmin, auditRoutes);
   app.use("/api/admin/ai-fixes", requireAdmin, adminAIFixesRouter);
