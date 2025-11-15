@@ -339,7 +339,13 @@ export const KYC_TIER_METADATA = {
     icon: 'Shield',
     description: 'Simplified verification for basic investments',
     maxAnnualInvestment: 50000,
-    productsUnlocked: ['Mutual Funds (limited)', 'Government Bonds', 'Insurance', 'NPS', 'Fixed Deposits']
+    productsUnlocked: ['Mutual Funds (limited)', 'Government Bonds', 'Insurance', 'NPS', 'Fixed Deposits'],
+    requirements: [
+      'PAN Card Verification',
+      'Aadhaar OKYC',
+      'Bank Account Verification',
+      'Basic Profile Completion'
+    ]
   },
   enhanced: {
     label: 'Enhanced KYC',
@@ -347,7 +353,14 @@ export const KYC_TIER_METADATA = {
     icon: 'ShieldCheck',
     description: 'Full verification for trading and advanced products',
     maxAnnualInvestment: null, // No limit
-    productsUnlocked: ['All Equity Trading', 'Derivatives', 'IPOs', 'Corporate Bonds', 'Loans', 'Credit Cards', 'Forex']
+    productsUnlocked: ['All Equity Trading', 'Derivatives', 'IPOs', 'Corporate Bonds', 'Loans', 'Credit Cards', 'Forex'],
+    requirements: [
+      'All Tier 1 Requirements',
+      'Video KYC Verification',
+      'Income Proof Upload',
+      'Enhanced Due Diligence',
+      'Bank Statement Verification'
+    ]
   },
   accredited_investor: {
     label: 'Accredited Investor',
@@ -356,6 +369,45 @@ export const KYC_TIER_METADATA = {
     description: 'Exclusive access to premium investment products',
     minIncome: 20000000,
     minNetWorth: 75000000,
-    productsUnlocked: ['AIF', 'PMS', 'Hedge Funds', 'Private Equity', 'Structured Products']
+    productsUnlocked: ['AIF', 'PMS', 'Hedge Funds', 'Private Equity', 'Structured Products'],
+    requirements: [
+      'All Tier 2 Requirements',
+      'BSE Accredited Investor Certification',
+      'eMudhra eSign Consent',
+      'Net Worth ≥ ₹7.5 Cr OR Annual Income ≥ ₹2 Cr',
+      'Compliance Review & Approval'
+    ]
   }
 } as const;
+
+/**
+ * Get tier upgrade message for a product
+ */
+export function getTierUpgradeMessage(productCode: ProductCategory, currentTier: KycTier): string {
+  const rule = PRODUCT_ELIGIBILITY_MATRIX.find(r => r.productCode === productCode);
+  if (!rule) {
+    return 'Complete KYC verification to access this product';
+  }
+  
+  if (isKycTierSufficient(currentTier, rule.minKycTier)) {
+    return ''; // Already eligible
+  }
+  
+  const requiredTierMeta = KYC_TIER_METADATA[rule.minKycTier];
+  return `Upgrade to ${requiredTierMeta.label} to access ${rule.productName}. ${rule.regulatoryNotes}`;
+}
+
+/**
+ * Get products newly unlocked at a specific tier (excluding lower tiers)
+ */
+export function getProductsUnlockedAtTier(tier: KycTier): ProductEligibilityRule[] {
+  return PRODUCT_ELIGIBILITY_MATRIX.filter(rule => rule.minKycTier === tier);
+}
+
+/**
+ * Check if a user can access a specific product based on tier
+ */
+export function canAccessProductType(currentTier: KycTier, productCode: ProductCategory): boolean {
+  const requiredTier = getMinKycTierForProduct(productCode);
+  return isKycTierSufficient(currentTier, requiredTier);
+}
