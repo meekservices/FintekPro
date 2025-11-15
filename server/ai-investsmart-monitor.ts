@@ -66,13 +66,15 @@ class AIInvestSmartMonitor {
       ]);
 
       // Mock dashboard metrics based on real user data
+      const estimatedIncome = parseFloat(enrichmentRecords?.estimatedIncome || '180000');
+      const monthlyObligations = 63000;
       const dashboardMetrics = {
-        monthlyIncome: enrichmentRecords?.estimatedIncome || 180000,
-        monthlyObligations: 63000, // From CIBIL analysis
-        availableForInvestment: (enrichmentRecords?.estimatedIncome || 180000) - 63000,
+        monthlyIncome: estimatedIncome,
+        monthlyObligations: monthlyObligations,
+        availableForInvestment: estimatedIncome - monthlyObligations,
         creditScore: enrichmentRecords?.creditworthiness === 'excellent' ? 785 : 750,
         totalPortfolioValue: this.calculateTotalPortfolioValue(userPortfolios),
-        obligationRatio: Math.round((63000 / (enrichmentRecords?.estimatedIncome || 180000)) * 100)
+        obligationRatio: Math.round((monthlyObligations / estimatedIncome) * 100)
       };
 
       // Analyze portfolio holdings
@@ -93,8 +95,8 @@ class AIInvestSmartMonitor {
         goalProgress,
         riskProfile,
         creditObligations,
-        enrichmentData: enrichmentRecords || [],
-        transactionPatterns: transactionAnalysis || []
+        enrichmentData: enrichmentRecords ? [enrichmentRecords] : [],
+        transactionPatterns: transactionAnalysis ? [transactionAnalysis] : []
       };
 
     } catch (error) {
@@ -223,7 +225,7 @@ Provide insights in this JSON format:
     const [latestAnalysis] = await db.select()
       .from(transactionEnrichmentAnalysis)
       .where(eq(transactionEnrichmentAnalysis.userId, userId))
-      .orderBy(desc(transactionEnrichmentAnalysis.analysisDate))
+      .orderBy(desc(transactionEnrichmentAnalysis.toDate))
       .limit(1);
     return latestAnalysis;
   }
@@ -533,7 +535,7 @@ export const aiInvestSmartMonitorService = {
           liquidity: pageStructure.dashboardMetrics.availableForInvestment > 50000 ? 100 : 60,
           compliance: 95 // Based on credit score and payment history
         },
-        alerts: [],
+        alerts: [] as Array<{ type: string; severity: string; message: string }>,
         recommendations: []
       };
 
