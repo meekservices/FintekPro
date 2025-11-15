@@ -1,0 +1,1830 @@
+      headers: [Object [AxiosHeaders]],
+      method: 'post',
+      url: 'https://bsestarmf.in/StarMFWebService/VerifyPAN',
+      data: '{"UserId":"","MemberId":"","Password":"","PassKey":"","Param":"AAAPL1234C"}',
+      allowAbsoluteUrls: true
+    },
+    request: <ref *1> ClientRequest {
+      _events: [Object: null prototype],
+      _eventsCount: 7,
+      _maxListeners: undefined,
+      outputData: [],
+      outputSize: 0,
+      writable: true,
+      destroyed: true,
+      _last: false,
+      chunkedEncoding: false,
+      shouldKeepAlive: true,
+      maxRequestsOnConnectionReached: false,
+      _defaultKeepAlive: true,
+      useChunkedEncodingByDefault: true,
+      sendDate: false,
+      _removedConnection: false,
+      _removedContLen: false,
+      _removedTE: false,
+      strictContentLength: false,
+      _contentLength: '75',
+      _hasBody: true,
+      _trailer: '',
+      finished: true,
+      _headerSent: true,
+      _closed: true,
+      socket: [TLSSocket],
+      _header: 'POST /StarMFWebService/VerifyPAN HTTP/1.1\r\n' +
+        'Accept: application/json, text/plain, */*\r\n' +
+        'Content-Type: application/json\r\n' +
+        'User-Agent: axios/1.12.2\r\n' +
+        'Content-Length: 75\r\n' +
+        'Accept-Encoding: gzip, compress, deflate, br\r\n' +
+        'Host: bsestarmf.in\r\n' +
+        'Connection: keep-alive\r\n' +
+        '\r\n',
+      _keepAliveTimeout: 0,
+      _onPendingData: [Function: nop],
+      agent: [Agent],
+      socketPath: undefined,
+      method: 'POST',
+      maxHeaderSize: undefined,
+      insecureHTTPParser: undefined,
+      joinDuplicateHeaders: undefined,
+      path: '/StarMFWebService/VerifyPAN',
+      _ended: true,
+      res: [IncomingMessage],
+      aborted: false,
+      timeoutCb: null,
+      upgradeOrConnect: false,
+      parser: null,
+      maxHeadersCount: null,
+      reusedSocket: false,
+      host: 'bsestarmf.in',
+      protocol: 'https:',
+      _redirectable: [Writable],
+      [Symbol(shapeMode)]: false,
+      [Symbol(kCapture)]: false,
+      [Symbol(kBytesWritten)]: 0,
+      [Symbol(kNeedDrain)]: false,
+      [Symbol(corked)]: 0,
+      [Symbol(kOutHeaders)]: [Object: null prototype],
+      [Symbol(errored)]: null,
+      [Symbol(kHighWaterMark)]: 16384,
+      [Symbol(kRejectNonStandardBodyWrites)]: false,
+      [Symbol(kUniqueHeaders)]: null
+    },
+    data: '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">\r\n' +
+      '<html xmlns="http://www.w3.org/1999/xhtml">\r\n' +
+      '<head>\r\n' +
+      '<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/>\r\n' +
+      '<title>404 - File or directory not found.</title>\r\n' +
+      '<style type="text/css">\r\n' +
+      '<!--\r\n' +
+      'body{margin:0;font-size:.7em;font-family:Verdana, Arial, Helvetica, sans-serif;background:#EEEEEE;}\r\n' +
+      'fieldset{padding:0 15px 10px 15px;} \r\n' +
+      'h1{font-size:2.4em;margin:0;color:#FFF;}\r\n' +
+      'h2{font-size:1.7em;margin:0;color:#CC0000;} \r\n' +
+      'h3{font-size:1.2em;margin:10px 0 0 0;color:#000000;} \r\n' +
+      '#header{width:96%;margin:0 0 0 0;padding:6px 2% 6px 2%;font-family:"trebuchet MS", Verdana, sans-serif;color:#FFF;\r\n' +
+      'background-color:#555555;}\r\n' +
+      '#content{margin:0 0 0 2%;position:relative;}\r\n' +
+      '.content-container{background:#FFF;width:96%;margin-top:8px;padding:10px;position:relative;}\r\n' +
+      '-->\r\n' +
+      '</style>\r\n' +
+      '</head>\r\n' +
+      '<body>\r\n' +
+      '<div id="header"><h1>Server Error</h1></div>\r\n' +
+      '<div id="content">\r\n' +
+      ' <div class="content-container"><fieldset>\r\n' +
+      '  <h2>404 - File or directory not found.</h2>\r\n' +
+      '  <h3>The resource you are looking for might have been removed, had its name changed, or is temporarily unavailable.</h3>\r\n' +
+      ' </fieldset></div>\r\n' +
+      '</div>\r\n' +
+      '</body>\r\n' +
+      '</html>\r\n'
+  },
+  status: 404
+}
+Sandbox PAN API Error (403): Forbidden
+Using mock data for testing
+2025-11-15 16:30:01 error: [API-Health-Cron] Job failed:
+Error: Cannot use a pool after calling end on the pool
+    at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async NeonPreparedQuery.execute (/home/runner/workspace/node_modules/src/neon-serverless/session.ts:102:18)
+    at async MonitoringStorage.logApiHealth (/home/runner/workspace/server/monitoringStorage.ts:254:25)
+    at async HealthMonitoringService.runAllChecks (/home/runner/workspace/server/services/healthMonitoring.ts:165:9)
+    at async runHealthChecks (/home/runner/workspace/server/jobs/api-health-cron.ts:56:21)
+⚠️ OTP cleanup skipped due to database issue
+⚠️ OTP cleanup skipped due to database issue
+[2025-11-15T16:30:04.876Z] Checking alerts...
+⚠️ Alert monitoring cycle skipped due to database issue
+🐛 2025-11-15 16:32:00 [debug] Running error aggregation enhancements
+❌ 2025-11-15 16:32:00 [error] Error aggregation failed | {"error":{"message":"Cannot use a pool after calling end on the pool","stack":"Error: Cannot use a pool after calling end on the pool\n    at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async NeonPreparedQuery.execute (/home/runner/workspace/node_modules/src/neon-serverless/session.ts:102:18)\n    at async ErrorAggregator.runAggregation (/home/runner/workspace/server/services/error-aggregator.ts:78:32)","name":"Error"}}
+🐛 2025-11-15 16:34:00 [debug] Running error aggregation enhancements
+❌ 2025-11-15 16:34:00 [error] Error aggregation failed | {"error":{"message":"Cannot use a pool after calling end on the pool","stack":"Error: Cannot use a pool after calling end on the pool\n    at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async NeonPreparedQuery.execute (/home/runner/workspace/node_modules/src/neon-serverless/session.ts:102:18)\n    at async ErrorAggregator.runAggregation (/home/runner/workspace/server/services/error-aggregator.ts:78:32)","name":"Error"}}
+🐛 2025-11-15 16:35:00 [debug] Running external API health checks
+2025-11-15 16:35:00 info: [API-Health-Cron] Starting API health checks...
+2025-11-15 16:35:00 info: [HealthMonitoring] Running 4 health checks...
+2025-11-15 16:35:00 info: [Protean KRA] Checking KRA status | {"correlationId":"c5dfb026-488a-47cf-8111-6a5db854ee33","pan":"AAA***4C","dob":"1990-01-01"}
+[KRA-Polling] Starting KRA status poll...
+[KRA-Polling] Job failed: Cannot use a pool after calling end on the pool
+2025-11-15 16:35:00 error: [Protean KRA] API call failed | {"correlationId":"c5dfb026-488a-47cf-8111-6a5db854ee33","error":"fetch failed","responseTime":68}
+🐛 2025-11-15 16:35:00 [debug] Completed external API health checks
+BSE PAN verification error: AxiosError: Request failed with status code 404
+    at settle (file:///home/runner/workspace/node_modules/axios/lib/core/settle.js:19:12)
+    at IncomingMessage.handleStreamEnd (file:///home/runner/workspace/node_modules/axios/lib/adapters/http.js:617:11)
+    at IncomingMessage.emit (node:events:536:35)
+    at endReadableNT (node:internal/streams/readable:1698:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+    at Axios.request (file:///home/runner/workspace/node_modules/axios/lib/core/Axios.js:45:41)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async BSEStarKYCService.verifyPAN (/home/runner/workspace/server/services/bse-star-kyc-service.ts:56:24)
+    at async Object.checkFn (/home/runner/workspace/server/services/healthCheckAdapters.ts:30:24)
+    at async HealthMonitoringService.runCheck (/home/runner/workspace/server/services/healthMonitoring.ts:104:22)
+    at async Promise.allSettled (index 0)
+    at async HealthMonitoringService.runAllChecks (/home/runner/workspace/server/services/healthMonitoring.ts:152:21)
+    at async runHealthChecks (/home/runner/workspace/server/jobs/api-health-cron.ts:56:21) {
+  code: 'ERR_BAD_REQUEST',
+  config: {
+    transitional: {
+      silentJSONParsing: true,
+      forcedJSONParsing: true,
+      clarifyTimeoutError: false
+    },
+    adapter: [ 'xhr', 'http', 'fetch' ],
+    transformRequest: [ [Function: transformRequest] ],
+    transformResponse: [ [Function: transformResponse] ],
+    timeout: 10000,
+    xsrfCookieName: 'XSRF-TOKEN',
+    xsrfHeaderName: 'X-XSRF-TOKEN',
+    maxContentLength: -1,
+    maxBodyLength: -1,
+    env: { FormData: [Function [FormData]], Blob: [class Blob] },
+    validateStatus: [Function: validateStatus],
+    headers: Object [AxiosHeaders] {
+      Accept: 'application/json, text/plain, */*',
+      'Content-Type': 'application/json',
+      'User-Agent': 'axios/1.12.2',
+      'Content-Length': '75',
+      'Accept-Encoding': 'gzip, compress, deflate, br'
+    },
+    method: 'post',
+    url: 'https://bsestarmf.in/StarMFWebService/VerifyPAN',
+    data: '{"UserId":"","MemberId":"","Password":"","PassKey":"","Param":"AAAPL1234C"}',
+    allowAbsoluteUrls: true
+  },
+  request: <ref *1> ClientRequest {
+    _events: [Object: null prototype] {
+      abort: [Function (anonymous)],
+      aborted: [Function (anonymous)],
+      connect: [Function (anonymous)],
+      error: [Function (anonymous)],
+      socket: [Function (anonymous)],
+      timeout: [Function (anonymous)],
+      finish: [Function: requestOnFinish]
+    },
+    _eventsCount: 7,
+    _maxListeners: undefined,
+    outputData: [],
+    outputSize: 0,
+    writable: true,
+    destroyed: true,
+    _last: false,
+    chunkedEncoding: false,
+    shouldKeepAlive: true,
+    maxRequestsOnConnectionReached: false,
+    _defaultKeepAlive: true,
+    useChunkedEncodingByDefault: true,
+    sendDate: false,
+    _removedConnection: false,
+    _removedContLen: false,
+    _removedTE: false,
+    strictContentLength: false,
+    _contentLength: '75',
+    _hasBody: true,
+    _trailer: '',
+    finished: true,
+    _headerSent: true,
+    _closed: true,
+    socket: TLSSocket {
+      _tlsOptions: [Object],
+      _secureEstablished: true,
+      _securePending: false,
+      _newSessionPending: false,
+      _controlReleased: true,
+      secureConnecting: false,
+      _SNICallback: null,
+      servername: 'bsestarmf.in',
+      alpnProtocol: false,
+      authorized: true,
+      authorizationError: null,
+      encrypted: true,
+      _events: [Object: null prototype],
+      _eventsCount: 9,
+      connecting: false,
+      _hadError: false,
+      _parent: null,
+      _host: 'bsestarmf.in',
+      _closeAfterHandlingError: false,
+      _readableState: [ReadableState],
+      _writableState: [WritableState],
+      allowHalfOpen: false,
+      _maxListeners: undefined,
+      _sockname: null,
+      _pendingData: null,
+      _pendingEncoding: '',
+      server: undefined,
+      _server: null,
+      ssl: [TLSWrap],
+      _requestCert: true,
+      _rejectUnauthorized: true,
+      timeout: 5000,
+      parser: null,
+      _httpMessage: null,
+      [Symbol(alpncallback)]: null,
+      [Symbol(res)]: [TLSWrap],
+      [Symbol(verified)]: true,
+      [Symbol(pendingSession)]: null,
+      [Symbol(async_id_symbol)]: -1,
+      [Symbol(kHandle)]: [TLSWrap],
+      [Symbol(lastWriteQueueSize)]: 0,
+      [Symbol(timeout)]: Timeout {
+        _idleTimeout: 5000,
+        _idlePrev: [TimersList],
+        _idleNext: [Timeout],
+        _idleStart: 14100988,
+        _onTimeout: [Function: bound ],
+        _timerArgs: undefined,
+        _repeat: null,
+        _destroyed: false,
+        [Symbol(refed)]: false,
+        [Symbol(kHasPrimitive)]: false,
+        [Symbol(asyncId)]: 54810,
+        [Symbol(triggerId)]: 54808
+      },
+      [Symbol(kBuffer)]: null,
+      [Symbol(kBufferCb)]: null,
+      [Symbol(kBufferGen)]: null,
+      [Symbol(shapeMode)]: true,
+      [Symbol(kCapture)]: false,
+      [Symbol(kSetNoDelay)]: false,
+      [Symbol(kSetKeepAlive)]: true,
+      [Symbol(kSetKeepAliveInitialDelay)]: 1,
+      [Symbol(kBytesRead)]: 0,
+      [Symbol(kBytesWritten)]: 0,
+      [Symbol(connect-options)]: [Object]
+    },
+    _header: 'POST /StarMFWebService/VerifyPAN HTTP/1.1\r\n' +
+      'Accept: application/json, text/plain, */*\r\n' +
+      'Content-Type: application/json\r\n' +
+      'User-Agent: axios/1.12.2\r\n' +
+      'Content-Length: 75\r\n' +
+      'Accept-Encoding: gzip, compress, deflate, br\r\n' +
+      'Host: bsestarmf.in\r\n' +
+      'Connection: keep-alive\r\n' +
+      '\r\n',
+    _keepAliveTimeout: 0,
+    _onPendingData: [Function: nop],
+    agent: Agent {
+      _events: [Object: null prototype],
+      _eventsCount: 2,
+      _maxListeners: undefined,
+      defaultPort: 443,
+      protocol: 'https:',
+      options: [Object: null prototype],
+      requests: [Object: null prototype] {},
+      sockets: [Object: null prototype],
+      freeSockets: [Object: null prototype],
+      keepAliveMsecs: 1000,
+      keepAlive: true,
+      maxSockets: Infinity,
+      maxFreeSockets: 256,
+      scheduling: 'lifo',
+      maxTotalSockets: Infinity,
+      totalSocketCount: 6,
+      maxCachedSessions: 100,
+      _sessionCache: [Object],
+      [Symbol(shapeMode)]: false,
+      [Symbol(kCapture)]: false
+    },
+    socketPath: undefined,
+    method: 'POST',
+    maxHeaderSize: undefined,
+    insecureHTTPParser: undefined,
+    joinDuplicateHeaders: undefined,
+    path: '/StarMFWebService/VerifyPAN',
+    _ended: true,
+    res: IncomingMessage {
+      _events: [Object],
+      _readableState: [ReadableState],
+      _maxListeners: undefined,
+      socket: null,
+      httpVersionMajor: 1,
+      httpVersionMinor: 1,
+      httpVersion: '1.1',
+      complete: true,
+      rawHeaders: [Array],
+      rawTrailers: [],
+      joinDuplicateHeaders: undefined,
+      aborted: false,
+      upgrade: false,
+      url: '',
+      method: null,
+      statusCode: 404,
+      statusMessage: 'Not Found',
+      client: [TLSSocket],
+      _consuming: true,
+      _dumped: false,
+      req: [Circular *1],
+      _eventsCount: 4,
+      responseUrl: 'https://bsestarmf.in/StarMFWebService/VerifyPAN',
+      redirects: [],
+      [Symbol(shapeMode)]: true,
+      [Symbol(kCapture)]: false,
+      [Symbol(kHeaders)]: [Object],
+      [Symbol(kHeadersCount)]: 20,
+      [Symbol(kTrailers)]: null,
+      [Symbol(kTrailersCount)]: 0
+    },
+    aborted: false,
+    timeoutCb: null,
+    upgradeOrConnect: false,
+    parser: null,
+    maxHeadersCount: null,
+    reusedSocket: false,
+    host: 'bsestarmf.in',
+    protocol: 'https:',
+    _redirectable: Writable {
+      _events: [Object],
+      _writableState: [WritableState],
+      _maxListeners: undefined,
+      _options: [Object],
+      _ended: true,
+      _ending: true,
+      _redirectCount: 0,
+      _redirects: [],
+      _requestBodyLength: 75,
+      _requestBodyBuffers: [],
+      _eventsCount: 3,
+      _onNativeResponse: [Function (anonymous)],
+      _currentRequest: [Circular *1],
+      _currentUrl: 'https://bsestarmf.in/StarMFWebService/VerifyPAN',
+      _timeout: null,
+      [Symbol(shapeMode)]: true,
+      [Symbol(kCapture)]: false
+    },
+    [Symbol(shapeMode)]: false,
+    [Symbol(kCapture)]: false,
+    [Symbol(kBytesWritten)]: 0,
+    [Symbol(kNeedDrain)]: false,
+    [Symbol(corked)]: 0,
+    [Symbol(kOutHeaders)]: [Object: null prototype] {
+      accept: [Array],
+      'content-type': [Array],
+      'user-agent': [Array],
+      'content-length': [Array],
+      'accept-encoding': [Array],
+      host: [Array]
+    },
+    [Symbol(errored)]: null,
+    [Symbol(kHighWaterMark)]: 16384,
+    [Symbol(kRejectNonStandardBodyWrites)]: false,
+    [Symbol(kUniqueHeaders)]: null
+  },
+  response: {
+    status: 404,
+    statusText: 'Not Found',
+    headers: Object [AxiosHeaders] {
+      'content-type': 'text/html',
+      server: 'BSELTD',
+      'content-security-policy': "default-src 'self' ; img-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' ; connect-src * data: blob: filesystem:; style-src 'self' data: chrome-extension-resource: 'unsafe-inline'; img-src 'self' data: chrome-extension-resource:; frame-src 'self' data: chrome-extension-resource:; font-src 'self' data: chrome-extension-resource:; media-src * data: blob: filesystem:;",
+      'x-frame-options': 'SAMEORIGIN',
+      'x-xss-protection': '1; mode=block',
+      'x-content-type-options': 'nosniff',
+      'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
+      'referrer-policy': 'no-referrer | same-origin | origin | strict-origin | no-origin-when-downgrading',
+      date: 'Sat, 15 Nov 2025 16:35:00 GMT',
+      'content-length': '1245'
+    },
+    config: {
+      transitional: [Object],
+      adapter: [Array],
+      transformRequest: [Array],
+      transformResponse: [Array],
+      timeout: 10000,
+      xsrfCookieName: 'XSRF-TOKEN',
+      xsrfHeaderName: 'X-XSRF-TOKEN',
+      maxContentLength: -1,
+      maxBodyLength: -1,
+      env: [Object],
+      validateStatus: [Function: validateStatus],
+      headers: [Object [AxiosHeaders]],
+      method: 'post',
+      url: 'https://bsestarmf.in/StarMFWebService/VerifyPAN',
+      data: '{"UserId":"","MemberId":"","Password":"","PassKey":"","Param":"AAAPL1234C"}',
+      allowAbsoluteUrls: true
+    },
+    request: <ref *1> ClientRequest {
+      _events: [Object: null prototype],
+      _eventsCount: 7,
+      _maxListeners: undefined,
+      outputData: [],
+      outputSize: 0,
+      writable: true,
+      destroyed: true,
+      _last: false,
+      chunkedEncoding: false,
+      shouldKeepAlive: true,
+      maxRequestsOnConnectionReached: false,
+      _defaultKeepAlive: true,
+      useChunkedEncodingByDefault: true,
+      sendDate: false,
+      _removedConnection: false,
+      _removedContLen: false,
+      _removedTE: false,
+      strictContentLength: false,
+      _contentLength: '75',
+      _hasBody: true,
+      _trailer: '',
+      finished: true,
+      _headerSent: true,
+      _closed: true,
+      socket: [TLSSocket],
+      _header: 'POST /StarMFWebService/VerifyPAN HTTP/1.1\r\n' +
+        'Accept: application/json, text/plain, */*\r\n' +
+        'Content-Type: application/json\r\n' +
+        'User-Agent: axios/1.12.2\r\n' +
+        'Content-Length: 75\r\n' +
+        'Accept-Encoding: gzip, compress, deflate, br\r\n' +
+        'Host: bsestarmf.in\r\n' +
+        'Connection: keep-alive\r\n' +
+        '\r\n',
+      _keepAliveTimeout: 0,
+      _onPendingData: [Function: nop],
+      agent: [Agent],
+      socketPath: undefined,
+      method: 'POST',
+      maxHeaderSize: undefined,
+      insecureHTTPParser: undefined,
+      joinDuplicateHeaders: undefined,
+      path: '/StarMFWebService/VerifyPAN',
+      _ended: true,
+      res: [IncomingMessage],
+      aborted: false,
+      timeoutCb: null,
+      upgradeOrConnect: false,
+      parser: null,
+      maxHeadersCount: null,
+      reusedSocket: false,
+      host: 'bsestarmf.in',
+      protocol: 'https:',
+      _redirectable: [Writable],
+      [Symbol(shapeMode)]: false,
+      [Symbol(kCapture)]: false,
+      [Symbol(kBytesWritten)]: 0,
+      [Symbol(kNeedDrain)]: false,
+      [Symbol(corked)]: 0,
+      [Symbol(kOutHeaders)]: [Object: null prototype],
+      [Symbol(errored)]: null,
+      [Symbol(kHighWaterMark)]: 16384,
+      [Symbol(kRejectNonStandardBodyWrites)]: false,
+      [Symbol(kUniqueHeaders)]: null
+    },
+    data: '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">\r\n' +
+      '<html xmlns="http://www.w3.org/1999/xhtml">\r\n' +
+      '<head>\r\n' +
+      '<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/>\r\n' +
+      '<title>404 - File or directory not found.</title>\r\n' +
+      '<style type="text/css">\r\n' +
+      '<!--\r\n' +
+      'body{margin:0;font-size:.7em;font-family:Verdana, Arial, Helvetica, sans-serif;background:#EEEEEE;}\r\n' +
+      'fieldset{padding:0 15px 10px 15px;} \r\n' +
+      'h1{font-size:2.4em;margin:0;color:#FFF;}\r\n' +
+      'h2{font-size:1.7em;margin:0;color:#CC0000;} \r\n' +
+      'h3{font-size:1.2em;margin:10px 0 0 0;color:#000000;} \r\n' +
+      '#header{width:96%;margin:0 0 0 0;padding:6px 2% 6px 2%;font-family:"trebuchet MS", Verdana, sans-serif;color:#FFF;\r\n' +
+      'background-color:#555555;}\r\n' +
+      '#content{margin:0 0 0 2%;position:relative;}\r\n' +
+      '.content-container{background:#FFF;width:96%;margin-top:8px;padding:10px;position:relative;}\r\n' +
+      '-->\r\n' +
+      '</style>\r\n' +
+      '</head>\r\n' +
+      '<body>\r\n' +
+      '<div id="header"><h1>Server Error</h1></div>\r\n' +
+      '<div id="content">\r\n' +
+      ' <div class="content-container"><fieldset>\r\n' +
+      '  <h2>404 - File or directory not found.</h2>\r\n' +
+      '  <h3>The resource you are looking for might have been removed, had its name changed, or is temporarily unavailable.</h3>\r\n' +
+      ' </fieldset></div>\r\n' +
+      '</div>\r\n' +
+      '</body>\r\n' +
+      '</html>\r\n'
+  },
+  status: 404
+}
+Sandbox PAN API Error (403): Forbidden
+Using mock data for testing
+2025-11-15 16:35:01 error: [API-Health-Cron] Job failed:
+Error: Cannot use a pool after calling end on the pool
+    at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async NeonPreparedQuery.execute (/home/runner/workspace/node_modules/src/neon-serverless/session.ts:102:18)
+    at async MonitoringStorage.logApiHealth (/home/runner/workspace/server/monitoringStorage.ts:254:25)
+    at async HealthMonitoringService.runAllChecks (/home/runner/workspace/server/services/healthMonitoring.ts:165:9)
+    at async runHealthChecks (/home/runner/workspace/server/jobs/api-health-cron.ts:56:21)
+[2025-11-15T16:35:04.877Z] Checking alerts...
+⚠️ Alert monitoring cycle skipped due to database issue
+🐛 2025-11-15 16:36:00 [debug] Running error aggregation enhancements
+❌ 2025-11-15 16:36:00 [error] Error aggregation failed | {"error":{"message":"Cannot use a pool after calling end on the pool","stack":"Error: Cannot use a pool after calling end on the pool\n    at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async NeonPreparedQuery.execute (/home/runner/workspace/node_modules/src/neon-serverless/session.ts:102:18)\n    at async ErrorAggregator.runAggregation (/home/runner/workspace/server/services/error-aggregator.ts:78:32)","name":"Error"}}
+🐛 2025-11-15 16:38:00 [debug] Running error aggregation enhancements
+❌ 2025-11-15 16:38:00 [error] Error aggregation failed | {"error":{"message":"Cannot use a pool after calling end on the pool","stack":"Error: Cannot use a pool after calling end on the pool\n    at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async NeonPreparedQuery.execute (/home/runner/workspace/node_modules/src/neon-serverless/session.ts:102:18)\n    at async ErrorAggregator.runAggregation (/home/runner/workspace/server/services/error-aggregator.ts:78:32)","name":"Error"}}
+🐛 2025-11-15 16:40:00 [debug] Running external API health checks
+2025-11-15 16:40:00 info: [API-Health-Cron] Starting API health checks...
+2025-11-15 16:40:00 info: [HealthMonitoring] Running 4 health checks...
+2025-11-15 16:40:00 info: [Protean KRA] Checking KRA status | {"correlationId":"2d6dcc2b-11bd-4336-acb0-c7dee9c11280","pan":"AAA***4C","dob":"1990-01-01"}
+[KRA-Polling] Starting KRA status poll...
+[KRA-Polling] Job failed: Cannot use a pool after calling end on the pool
+🐛 2025-11-15 16:40:00 [debug] Running error aggregation enhancements
+❌ 2025-11-15 16:40:00 [error] Error aggregation failed | {"error":{"message":"Cannot use a pool after calling end on the pool","stack":"Error: Cannot use a pool after calling end on the pool\n    at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async NeonPreparedQuery.execute (/home/runner/workspace/node_modules/src/neon-serverless/session.ts:102:18)\n    at async ErrorAggregator.runAggregation (/home/runner/workspace/server/services/error-aggregator.ts:78:32)","name":"Error"}}
+2025-11-15 16:40:00 error: [Protean KRA] API call failed | {"correlationId":"2d6dcc2b-11bd-4336-acb0-c7dee9c11280","error":"fetch failed","responseTime":41}
+🐛 2025-11-15 16:40:00 [debug] Completed external API health checks
+BSE PAN verification error: AxiosError: Request failed with status code 404
+    at settle (file:///home/runner/workspace/node_modules/axios/lib/core/settle.js:19:12)
+    at IncomingMessage.handleStreamEnd (file:///home/runner/workspace/node_modules/axios/lib/adapters/http.js:617:11)
+    at IncomingMessage.emit (node:events:536:35)
+    at endReadableNT (node:internal/streams/readable:1698:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+    at Axios.request (file:///home/runner/workspace/node_modules/axios/lib/core/Axios.js:45:41)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async BSEStarKYCService.verifyPAN (/home/runner/workspace/server/services/bse-star-kyc-service.ts:56:24)
+    at async Object.checkFn (/home/runner/workspace/server/services/healthCheckAdapters.ts:30:24)
+    at async HealthMonitoringService.runCheck (/home/runner/workspace/server/services/healthMonitoring.ts:104:22)
+    at async Promise.allSettled (index 0)
+    at async HealthMonitoringService.runAllChecks (/home/runner/workspace/server/services/healthMonitoring.ts:152:21)
+    at async runHealthChecks (/home/runner/workspace/server/jobs/api-health-cron.ts:56:21) {
+  code: 'ERR_BAD_REQUEST',
+  config: {
+    transitional: {
+      silentJSONParsing: true,
+      forcedJSONParsing: true,
+      clarifyTimeoutError: false
+    },
+    adapter: [ 'xhr', 'http', 'fetch' ],
+    transformRequest: [ [Function: transformRequest] ],
+    transformResponse: [ [Function: transformResponse] ],
+    timeout: 10000,
+    xsrfCookieName: 'XSRF-TOKEN',
+    xsrfHeaderName: 'X-XSRF-TOKEN',
+    maxContentLength: -1,
+    maxBodyLength: -1,
+    env: { FormData: [Function [FormData]], Blob: [class Blob] },
+    validateStatus: [Function: validateStatus],
+    headers: Object [AxiosHeaders] {
+      Accept: 'application/json, text/plain, */*',
+      'Content-Type': 'application/json',
+      'User-Agent': 'axios/1.12.2',
+      'Content-Length': '75',
+      'Accept-Encoding': 'gzip, compress, deflate, br'
+    },
+    method: 'post',
+    url: 'https://bsestarmf.in/StarMFWebService/VerifyPAN',
+    data: '{"UserId":"","MemberId":"","Password":"","PassKey":"","Param":"AAAPL1234C"}',
+    allowAbsoluteUrls: true
+  },
+  request: <ref *1> ClientRequest {
+    _events: [Object: null prototype] {
+      abort: [Function (anonymous)],
+      aborted: [Function (anonymous)],
+      connect: [Function (anonymous)],
+      error: [Function (anonymous)],
+      socket: [Function (anonymous)],
+      timeout: [Function (anonymous)],
+      finish: [Function: requestOnFinish]
+    },
+    _eventsCount: 7,
+    _maxListeners: undefined,
+    outputData: [],
+    outputSize: 0,
+    writable: true,
+    destroyed: true,
+    _last: false,
+    chunkedEncoding: false,
+    shouldKeepAlive: true,
+    maxRequestsOnConnectionReached: false,
+    _defaultKeepAlive: true,
+    useChunkedEncodingByDefault: true,
+    sendDate: false,
+    _removedConnection: false,
+    _removedContLen: false,
+    _removedTE: false,
+    strictContentLength: false,
+    _contentLength: '75',
+    _hasBody: true,
+    _trailer: '',
+    finished: true,
+    _headerSent: true,
+    _closed: true,
+    socket: TLSSocket {
+      _tlsOptions: [Object],
+      _secureEstablished: true,
+      _securePending: false,
+      _newSessionPending: false,
+      _controlReleased: true,
+      secureConnecting: false,
+      _SNICallback: null,
+      servername: 'bsestarmf.in',
+      alpnProtocol: false,
+      authorized: true,
+      authorizationError: null,
+      encrypted: true,
+      _events: [Object: null prototype],
+      _eventsCount: 9,
+      connecting: false,
+      _hadError: false,
+      _parent: null,
+      _host: 'bsestarmf.in',
+      _closeAfterHandlingError: false,
+      _readableState: [ReadableState],
+      _writableState: [WritableState],
+      allowHalfOpen: false,
+      _maxListeners: undefined,
+      _sockname: null,
+      _pendingData: null,
+      _pendingEncoding: '',
+      server: undefined,
+      _server: null,
+      ssl: [TLSWrap],
+      _requestCert: true,
+      _rejectUnauthorized: true,
+      timeout: 5000,
+      parser: null,
+      _httpMessage: null,
+      [Symbol(alpncallback)]: null,
+      [Symbol(res)]: [TLSWrap],
+      [Symbol(verified)]: true,
+      [Symbol(pendingSession)]: null,
+      [Symbol(async_id_symbol)]: -1,
+      [Symbol(kHandle)]: [TLSWrap],
+      [Symbol(lastWriteQueueSize)]: 0,
+      [Symbol(timeout)]: Timeout {
+        _idleTimeout: 5000,
+        _idlePrev: [TimersList],
+        _idleNext: [Timeout],
+        _idleStart: 14400970,
+        _onTimeout: [Function: bound ],
+        _timerArgs: undefined,
+        _repeat: null,
+        _destroyed: false,
+        [Symbol(refed)]: false,
+        [Symbol(kHasPrimitive)]: false,
+        [Symbol(asyncId)]: 55131,
+        [Symbol(triggerId)]: 55129
+      },
+      [Symbol(kBuffer)]: null,
+      [Symbol(kBufferCb)]: null,
+      [Symbol(kBufferGen)]: null,
+      [Symbol(shapeMode)]: true,
+      [Symbol(kCapture)]: false,
+      [Symbol(kSetNoDelay)]: false,
+      [Symbol(kSetKeepAlive)]: true,
+      [Symbol(kSetKeepAliveInitialDelay)]: 1,
+      [Symbol(kBytesRead)]: 0,
+      [Symbol(kBytesWritten)]: 0,
+      [Symbol(connect-options)]: [Object]
+    },
+    _header: 'POST /StarMFWebService/VerifyPAN HTTP/1.1\r\n' +
+      'Accept: application/json, text/plain, */*\r\n' +
+      'Content-Type: application/json\r\n' +
+      'User-Agent: axios/1.12.2\r\n' +
+      'Content-Length: 75\r\n' +
+      'Accept-Encoding: gzip, compress, deflate, br\r\n' +
+      'Host: bsestarmf.in\r\n' +
+      'Connection: keep-alive\r\n' +
+      '\r\n',
+    _keepAliveTimeout: 0,
+    _onPendingData: [Function: nop],
+    agent: Agent {
+      _events: [Object: null prototype],
+      _eventsCount: 2,
+      _maxListeners: undefined,
+      defaultPort: 443,
+      protocol: 'https:',
+      options: [Object: null prototype],
+      requests: [Object: null prototype] {},
+      sockets: [Object: null prototype],
+      freeSockets: [Object: null prototype],
+      keepAliveMsecs: 1000,
+      keepAlive: true,
+      maxSockets: Infinity,
+      maxFreeSockets: 256,
+      scheduling: 'lifo',
+      maxTotalSockets: Infinity,
+      totalSocketCount: 6,
+      maxCachedSessions: 100,
+      _sessionCache: [Object],
+      [Symbol(shapeMode)]: false,
+      [Symbol(kCapture)]: false
+    },
+    socketPath: undefined,
+    method: 'POST',
+    maxHeaderSize: undefined,
+    insecureHTTPParser: undefined,
+    joinDuplicateHeaders: undefined,
+    path: '/StarMFWebService/VerifyPAN',
+    _ended: true,
+    res: IncomingMessage {
+      _events: [Object],
+      _readableState: [ReadableState],
+      _maxListeners: undefined,
+      socket: null,
+      httpVersionMajor: 1,
+      httpVersionMinor: 1,
+      httpVersion: '1.1',
+      complete: true,
+      rawHeaders: [Array],
+      rawTrailers: [],
+      joinDuplicateHeaders: undefined,
+      aborted: false,
+      upgrade: false,
+      url: '',
+      method: null,
+      statusCode: 404,
+      statusMessage: 'Not Found',
+      client: [TLSSocket],
+      _consuming: true,
+      _dumped: false,
+      req: [Circular *1],
+      _eventsCount: 4,
+      responseUrl: 'https://bsestarmf.in/StarMFWebService/VerifyPAN',
+      redirects: [],
+      [Symbol(shapeMode)]: true,
+      [Symbol(kCapture)]: false,
+      [Symbol(kHeaders)]: [Object],
+      [Symbol(kHeadersCount)]: 20,
+      [Symbol(kTrailers)]: null,
+      [Symbol(kTrailersCount)]: 0
+    },
+    aborted: false,
+    timeoutCb: null,
+    upgradeOrConnect: false,
+    parser: null,
+    maxHeadersCount: null,
+    reusedSocket: false,
+    host: 'bsestarmf.in',
+    protocol: 'https:',
+    _redirectable: Writable {
+      _events: [Object],
+      _writableState: [WritableState],
+      _maxListeners: undefined,
+      _options: [Object],
+      _ended: true,
+      _ending: true,
+      _redirectCount: 0,
+      _redirects: [],
+      _requestBodyLength: 75,
+      _requestBodyBuffers: [],
+      _eventsCount: 3,
+      _onNativeResponse: [Function (anonymous)],
+      _currentRequest: [Circular *1],
+      _currentUrl: 'https://bsestarmf.in/StarMFWebService/VerifyPAN',
+      _timeout: null,
+      [Symbol(shapeMode)]: true,
+      [Symbol(kCapture)]: false
+    },
+    [Symbol(shapeMode)]: false,
+    [Symbol(kCapture)]: false,
+    [Symbol(kBytesWritten)]: 0,
+    [Symbol(kNeedDrain)]: false,
+    [Symbol(corked)]: 0,
+    [Symbol(kOutHeaders)]: [Object: null prototype] {
+      accept: [Array],
+      'content-type': [Array],
+      'user-agent': [Array],
+      'content-length': [Array],
+      'accept-encoding': [Array],
+      host: [Array]
+    },
+    [Symbol(errored)]: null,
+    [Symbol(kHighWaterMark)]: 16384,
+    [Symbol(kRejectNonStandardBodyWrites)]: false,
+    [Symbol(kUniqueHeaders)]: null
+  },
+  response: {
+    status: 404,
+    statusText: 'Not Found',
+    headers: Object [AxiosHeaders] {
+      'content-type': 'text/html',
+      server: 'BSELTD',
+      'content-security-policy': "default-src 'self' ; img-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' ; connect-src * data: blob: filesystem:; style-src 'self' data: chrome-extension-resource: 'unsafe-inline'; img-src 'self' data: chrome-extension-resource:; frame-src 'self' data: chrome-extension-resource:; font-src 'self' data: chrome-extension-resource:; media-src * data: blob: filesystem:;",
+      'x-frame-options': 'SAMEORIGIN',
+      'x-xss-protection': '1; mode=block',
+      'x-content-type-options': 'nosniff',
+      'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
+      'referrer-policy': 'no-referrer | same-origin | origin | strict-origin | no-origin-when-downgrading',
+      date: 'Sat, 15 Nov 2025 16:40:00 GMT',
+      'content-length': '1245'
+    },
+    config: {
+      transitional: [Object],
+      adapter: [Array],
+      transformRequest: [Array],
+      transformResponse: [Array],
+      timeout: 10000,
+      xsrfCookieName: 'XSRF-TOKEN',
+      xsrfHeaderName: 'X-XSRF-TOKEN',
+      maxContentLength: -1,
+      maxBodyLength: -1,
+      env: [Object],
+      validateStatus: [Function: validateStatus],
+      headers: [Object [AxiosHeaders]],
+      method: 'post',
+      url: 'https://bsestarmf.in/StarMFWebService/VerifyPAN',
+      data: '{"UserId":"","MemberId":"","Password":"","PassKey":"","Param":"AAAPL1234C"}',
+      allowAbsoluteUrls: true
+    },
+    request: <ref *1> ClientRequest {
+      _events: [Object: null prototype],
+      _eventsCount: 7,
+      _maxListeners: undefined,
+      outputData: [],
+      outputSize: 0,
+      writable: true,
+      destroyed: true,
+      _last: false,
+      chunkedEncoding: false,
+      shouldKeepAlive: true,
+      maxRequestsOnConnectionReached: false,
+      _defaultKeepAlive: true,
+      useChunkedEncodingByDefault: true,
+      sendDate: false,
+      _removedConnection: false,
+      _removedContLen: false,
+      _removedTE: false,
+      strictContentLength: false,
+      _contentLength: '75',
+      _hasBody: true,
+      _trailer: '',
+      finished: true,
+      _headerSent: true,
+      _closed: true,
+      socket: [TLSSocket],
+      _header: 'POST /StarMFWebService/VerifyPAN HTTP/1.1\r\n' +
+        'Accept: application/json, text/plain, */*\r\n' +
+        'Content-Type: application/json\r\n' +
+        'User-Agent: axios/1.12.2\r\n' +
+        'Content-Length: 75\r\n' +
+        'Accept-Encoding: gzip, compress, deflate, br\r\n' +
+        'Host: bsestarmf.in\r\n' +
+        'Connection: keep-alive\r\n' +
+        '\r\n',
+      _keepAliveTimeout: 0,
+      _onPendingData: [Function: nop],
+      agent: [Agent],
+      socketPath: undefined,
+      method: 'POST',
+      maxHeaderSize: undefined,
+      insecureHTTPParser: undefined,
+      joinDuplicateHeaders: undefined,
+      path: '/StarMFWebService/VerifyPAN',
+      _ended: true,
+      res: [IncomingMessage],
+      aborted: false,
+      timeoutCb: null,
+      upgradeOrConnect: false,
+      parser: null,
+      maxHeadersCount: null,
+      reusedSocket: false,
+      host: 'bsestarmf.in',
+      protocol: 'https:',
+      _redirectable: [Writable],
+      [Symbol(shapeMode)]: false,
+      [Symbol(kCapture)]: false,
+      [Symbol(kBytesWritten)]: 0,
+      [Symbol(kNeedDrain)]: false,
+      [Symbol(corked)]: 0,
+      [Symbol(kOutHeaders)]: [Object: null prototype],
+      [Symbol(errored)]: null,
+      [Symbol(kHighWaterMark)]: 16384,
+      [Symbol(kRejectNonStandardBodyWrites)]: false,
+      [Symbol(kUniqueHeaders)]: null
+    },
+    data: '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">\r\n' +
+      '<html xmlns="http://www.w3.org/1999/xhtml">\r\n' +
+      '<head>\r\n' +
+      '<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/>\r\n' +
+      '<title>404 - File or directory not found.</title>\r\n' +
+      '<style type="text/css">\r\n' +
+      '<!--\r\n' +
+      'body{margin:0;font-size:.7em;font-family:Verdana, Arial, Helvetica, sans-serif;background:#EEEEEE;}\r\n' +
+      'fieldset{padding:0 15px 10px 15px;} \r\n' +
+      'h1{font-size:2.4em;margin:0;color:#FFF;}\r\n' +
+      'h2{font-size:1.7em;margin:0;color:#CC0000;} \r\n' +
+      'h3{font-size:1.2em;margin:10px 0 0 0;color:#000000;} \r\n' +
+      '#header{width:96%;margin:0 0 0 0;padding:6px 2% 6px 2%;font-family:"trebuchet MS", Verdana, sans-serif;color:#FFF;\r\n' +
+      'background-color:#555555;}\r\n' +
+      '#content{margin:0 0 0 2%;position:relative;}\r\n' +
+      '.content-container{background:#FFF;width:96%;margin-top:8px;padding:10px;position:relative;}\r\n' +
+      '-->\r\n' +
+      '</style>\r\n' +
+      '</head>\r\n' +
+      '<body>\r\n' +
+      '<div id="header"><h1>Server Error</h1></div>\r\n' +
+      '<div id="content">\r\n' +
+      ' <div class="content-container"><fieldset>\r\n' +
+      '  <h2>404 - File or directory not found.</h2>\r\n' +
+      '  <h3>The resource you are looking for might have been removed, had its name changed, or is temporarily unavailable.</h3>\r\n' +
+      ' </fieldset></div>\r\n' +
+      '</div>\r\n' +
+      '</body>\r\n' +
+      '</html>\r\n'
+  },
+  status: 404
+}
+Sandbox PAN API Error (403): Forbidden
+Using mock data for testing
+2025-11-15 16:40:01 error: [API-Health-Cron] Job failed:
+Error: Cannot use a pool after calling end on the pool
+    at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async NeonPreparedQuery.execute (/home/runner/workspace/node_modules/src/neon-serverless/session.ts:102:18)
+    at async MonitoringStorage.logApiHealth (/home/runner/workspace/server/monitoringStorage.ts:254:25)
+    at async HealthMonitoringService.runAllChecks (/home/runner/workspace/server/services/healthMonitoring.ts:165:9)
+    at async runHealthChecks (/home/runner/workspace/server/jobs/api-health-cron.ts:56:21)
+[COMPLIANCE] Cleaned up old tracking data
+⚠️ OTP cleanup skipped due to database issue
+⚠️ OTP cleanup skipped due to database issue
+🔄 Refreshing bond catalog from NSE and BSE...
+Error refreshing corporate bonds: Error: Cannot use a pool after calling end on the pool
+    at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async NeonPreparedQuery.execute (/home/runner/workspace/node_modules/src/neon-serverless/session.ts:102:18)
+    at async BondCatalogService.refreshCorporateBonds (/home/runner/workspace/server/bond-catalog-service.ts:136:26)
+    at async Promise.all (index 1)
+    at async BondCatalogService.refreshAllBonds (/home/runner/workspace/server/bond-catalog-service.ts:55:7)
+Error refreshing SGBs: Error: Cannot use a pool after calling end on the pool
+    at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async NeonPreparedQuery.execute (/home/runner/workspace/node_modules/src/neon-serverless/session.ts:102:18)
+    at async BondCatalogService.refreshSovereignGoldBonds (/home/runner/workspace/server/bond-catalog-service.ts:191:26)
+    at async Promise.all (index 2)
+    at async BondCatalogService.refreshAllBonds (/home/runner/workspace/server/bond-catalog-service.ts:55:7)
+Error refreshing tax-free bonds: Error: Cannot use a pool after calling end on the pool
+    at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async NeonPreparedQuery.execute (/home/runner/workspace/node_modules/src/neon-serverless/session.ts:102:18)
+    at async BondCatalogService.refreshTaxFreeBonds (/home/runner/workspace/server/bond-catalog-service.ts:245:26)
+    at async Promise.all (index 3)
+    at async BondCatalogService.refreshAllBonds (/home/runner/workspace/server/bond-catalog-service.ts:55:7)
+Error refreshing infrastructure bonds: Error: Cannot use a pool after calling end on the pool
+    at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async NeonPreparedQuery.execute (/home/runner/workspace/node_modules/src/neon-serverless/session.ts:102:18)
+    at async BondCatalogService.refreshInfrastructureBonds (/home/runner/workspace/server/bond-catalog-service.ts:301:26)
+    at async Promise.all (index 4)
+    at async BondCatalogService.refreshAllBonds (/home/runner/workspace/server/bond-catalog-service.ts:55:7)
+Error refreshing government securities: Error: Cannot use a pool after calling end on the pool
+    at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async NeonPreparedQuery.execute (/home/runner/workspace/node_modules/src/neon-serverless/session.ts:102:18)
+    at async BondCatalogService.refreshGovernmentSecurities (/home/runner/workspace/server/bond-catalog-service.ts:83:26)
+    at async Promise.all (index 0)
+    at async BondCatalogService.refreshAllBonds (/home/runner/workspace/server/bond-catalog-service.ts:55:7)
+✅ Bond catalog refresh completed successfully
+[2025-11-15T16:40:04.879Z] Checking alerts...
+⚠️ Alert monitoring cycle skipped due to database issue
+🐛 2025-11-15 16:42:00 [debug] Running error aggregation enhancements
+❌ 2025-11-15 16:42:00 [error] Error aggregation failed | {"error":{"message":"Cannot use a pool after calling end on the pool","stack":"Error: Cannot use a pool after calling end on the pool\n    at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async NeonPreparedQuery.execute (/home/runner/workspace/node_modules/src/neon-serverless/session.ts:102:18)\n    at async ErrorAggregator.runAggregation (/home/runner/workspace/server/services/error-aggregator.ts:78:32)","name":"Error"}}
+🐛 2025-11-15 16:44:00 [debug] Running error aggregation enhancements
+❌ 2025-11-15 16:44:00 [error] Error aggregation failed | {"error":{"message":"Cannot use a pool after calling end on the pool","stack":"Error: Cannot use a pool after calling end on the pool\n    at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async NeonPreparedQuery.execute (/home/runner/workspace/node_modules/src/neon-serverless/session.ts:102:18)\n    at async ErrorAggregator.runAggregation (/home/runner/workspace/server/services/error-aggregator.ts:78:32)","name":"Error"}}
+🐛 2025-11-15 16:45:00 [debug] Running external API health checks
+2025-11-15 16:45:00 info: [API-Health-Cron] Starting API health checks...
+2025-11-15 16:45:00 info: [HealthMonitoring] Running 4 health checks...
+2025-11-15 16:45:00 info: [Protean KRA] Checking KRA status | {"correlationId":"5347bdc2-944d-4afb-b23c-040a845c0508","pan":"AAA***4C","dob":"1990-01-01"}
+[KRA-Polling] Starting KRA status poll...
+[KRA-Polling] Job failed: Cannot use a pool after calling end on the pool
+2025-11-15 16:45:00 error: [Protean KRA] API call failed | {"correlationId":"5347bdc2-944d-4afb-b23c-040a845c0508","error":"fetch failed","responseTime":44}
+🐛 2025-11-15 16:45:00 [debug] Completed external API health checks
+BSE PAN verification error: AxiosError: Request failed with status code 404
+    at settle (file:///home/runner/workspace/node_modules/axios/lib/core/settle.js:19:12)
+    at IncomingMessage.handleStreamEnd (file:///home/runner/workspace/node_modules/axios/lib/adapters/http.js:617:11)
+    at IncomingMessage.emit (node:events:536:35)
+    at endReadableNT (node:internal/streams/readable:1698:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+    at Axios.request (file:///home/runner/workspace/node_modules/axios/lib/core/Axios.js:45:41)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async BSEStarKYCService.verifyPAN (/home/runner/workspace/server/services/bse-star-kyc-service.ts:56:24)
+    at async Object.checkFn (/home/runner/workspace/server/services/healthCheckAdapters.ts:30:24)
+    at async HealthMonitoringService.runCheck (/home/runner/workspace/server/services/healthMonitoring.ts:104:22)
+    at async Promise.allSettled (index 0)
+    at async HealthMonitoringService.runAllChecks (/home/runner/workspace/server/services/healthMonitoring.ts:152:21)
+    at async runHealthChecks (/home/runner/workspace/server/jobs/api-health-cron.ts:56:21) {
+  code: 'ERR_BAD_REQUEST',
+  config: {
+    transitional: {
+      silentJSONParsing: true,
+      forcedJSONParsing: true,
+      clarifyTimeoutError: false
+    },
+    adapter: [ 'xhr', 'http', 'fetch' ],
+    transformRequest: [ [Function: transformRequest] ],
+    transformResponse: [ [Function: transformResponse] ],
+    timeout: 10000,
+    xsrfCookieName: 'XSRF-TOKEN',
+    xsrfHeaderName: 'X-XSRF-TOKEN',
+    maxContentLength: -1,
+    maxBodyLength: -1,
+    env: { FormData: [Function [FormData]], Blob: [class Blob] },
+    validateStatus: [Function: validateStatus],
+    headers: Object [AxiosHeaders] {
+      Accept: 'application/json, text/plain, */*',
+      'Content-Type': 'application/json',
+      'User-Agent': 'axios/1.12.2',
+      'Content-Length': '75',
+      'Accept-Encoding': 'gzip, compress, deflate, br'
+    },
+    method: 'post',
+    url: 'https://bsestarmf.in/StarMFWebService/VerifyPAN',
+    data: '{"UserId":"","MemberId":"","Password":"","PassKey":"","Param":"AAAPL1234C"}',
+    allowAbsoluteUrls: true
+  },
+  request: <ref *1> ClientRequest {
+    _events: [Object: null prototype] {
+      abort: [Function (anonymous)],
+      aborted: [Function (anonymous)],
+      connect: [Function (anonymous)],
+      error: [Function (anonymous)],
+      socket: [Function (anonymous)],
+      timeout: [Function (anonymous)],
+      finish: [Function: requestOnFinish]
+    },
+    _eventsCount: 7,
+    _maxListeners: undefined,
+    outputData: [],
+    outputSize: 0,
+    writable: true,
+    destroyed: true,
+    _last: false,
+    chunkedEncoding: false,
+    shouldKeepAlive: true,
+    maxRequestsOnConnectionReached: false,
+    _defaultKeepAlive: true,
+    useChunkedEncodingByDefault: true,
+    sendDate: false,
+    _removedConnection: false,
+    _removedContLen: false,
+    _removedTE: false,
+    strictContentLength: false,
+    _contentLength: '75',
+    _hasBody: true,
+    _trailer: '',
+    finished: true,
+    _headerSent: true,
+    _closed: true,
+    socket: TLSSocket {
+      _tlsOptions: [Object],
+      _secureEstablished: true,
+      _securePending: false,
+      _newSessionPending: false,
+      _controlReleased: true,
+      secureConnecting: false,
+      _SNICallback: null,
+      servername: 'bsestarmf.in',
+      alpnProtocol: false,
+      authorized: true,
+      authorizationError: null,
+      encrypted: true,
+      _events: [Object: null prototype],
+      _eventsCount: 9,
+      connecting: false,
+      _hadError: false,
+      _parent: null,
+      _host: 'bsestarmf.in',
+      _closeAfterHandlingError: false,
+      _readableState: [ReadableState],
+      _writableState: [WritableState],
+      allowHalfOpen: false,
+      _maxListeners: undefined,
+      _sockname: null,
+      _pendingData: null,
+      _pendingEncoding: '',
+      server: undefined,
+      _server: null,
+      ssl: [TLSWrap],
+      _requestCert: true,
+      _rejectUnauthorized: true,
+      timeout: 5000,
+      parser: null,
+      _httpMessage: null,
+      [Symbol(alpncallback)]: null,
+      [Symbol(res)]: [TLSWrap],
+      [Symbol(verified)]: true,
+      [Symbol(pendingSession)]: null,
+      [Symbol(async_id_symbol)]: -1,
+      [Symbol(kHandle)]: [TLSWrap],
+      [Symbol(lastWriteQueueSize)]: 0,
+      [Symbol(timeout)]: Timeout {
+        _idleTimeout: 5000,
+        _idlePrev: [TimersList],
+        _idleNext: [Timeout],
+        _idleStart: 14700991,
+        _onTimeout: [Function: bound ],
+        _timerArgs: undefined,
+        _repeat: null,
+        _destroyed: false,
+        [Symbol(refed)]: false,
+        [Symbol(kHasPrimitive)]: false,
+        [Symbol(asyncId)]: 55436,
+        [Symbol(triggerId)]: 55434
+      },
+      [Symbol(kBuffer)]: null,
+      [Symbol(kBufferCb)]: null,
+      [Symbol(kBufferGen)]: null,
+      [Symbol(shapeMode)]: true,
+      [Symbol(kCapture)]: false,
+      [Symbol(kSetNoDelay)]: false,
+      [Symbol(kSetKeepAlive)]: true,
+      [Symbol(kSetKeepAliveInitialDelay)]: 1,
+      [Symbol(kBytesRead)]: 0,
+      [Symbol(kBytesWritten)]: 0,
+      [Symbol(connect-options)]: [Object]
+    },
+    _header: 'POST /StarMFWebService/VerifyPAN HTTP/1.1\r\n' +
+      'Accept: application/json, text/plain, */*\r\n' +
+      'Content-Type: application/json\r\n' +
+      'User-Agent: axios/1.12.2\r\n' +
+      'Content-Length: 75\r\n' +
+      'Accept-Encoding: gzip, compress, deflate, br\r\n' +
+      'Host: bsestarmf.in\r\n' +
+      'Connection: keep-alive\r\n' +
+      '\r\n',
+    _keepAliveTimeout: 0,
+    _onPendingData: [Function: nop],
+    agent: Agent {
+      _events: [Object: null prototype],
+      _eventsCount: 2,
+      _maxListeners: undefined,
+      defaultPort: 443,
+      protocol: 'https:',
+      options: [Object: null prototype],
+      requests: [Object: null prototype] {},
+      sockets: [Object: null prototype],
+      freeSockets: [Object: null prototype],
+      keepAliveMsecs: 1000,
+      keepAlive: true,
+      maxSockets: Infinity,
+      maxFreeSockets: 256,
+      scheduling: 'lifo',
+      maxTotalSockets: Infinity,
+      totalSocketCount: 6,
+      maxCachedSessions: 100,
+      _sessionCache: [Object],
+      [Symbol(shapeMode)]: false,
+      [Symbol(kCapture)]: false
+    },
+    socketPath: undefined,
+    method: 'POST',
+    maxHeaderSize: undefined,
+    insecureHTTPParser: undefined,
+    joinDuplicateHeaders: undefined,
+    path: '/StarMFWebService/VerifyPAN',
+    _ended: true,
+    res: IncomingMessage {
+      _events: [Object],
+      _readableState: [ReadableState],
+      _maxListeners: undefined,
+      socket: null,
+      httpVersionMajor: 1,
+      httpVersionMinor: 1,
+      httpVersion: '1.1',
+      complete: true,
+      rawHeaders: [Array],
+      rawTrailers: [],
+      joinDuplicateHeaders: undefined,
+      aborted: false,
+      upgrade: false,
+      url: '',
+      method: null,
+      statusCode: 404,
+      statusMessage: 'Not Found',
+      client: [TLSSocket],
+      _consuming: true,
+      _dumped: false,
+      req: [Circular *1],
+      _eventsCount: 4,
+      responseUrl: 'https://bsestarmf.in/StarMFWebService/VerifyPAN',
+      redirects: [],
+      [Symbol(shapeMode)]: true,
+      [Symbol(kCapture)]: false,
+      [Symbol(kHeaders)]: [Object],
+      [Symbol(kHeadersCount)]: 20,
+      [Symbol(kTrailers)]: null,
+      [Symbol(kTrailersCount)]: 0
+    },
+    aborted: false,
+    timeoutCb: null,
+    upgradeOrConnect: false,
+    parser: null,
+    maxHeadersCount: null,
+    reusedSocket: false,
+    host: 'bsestarmf.in',
+    protocol: 'https:',
+    _redirectable: Writable {
+      _events: [Object],
+      _writableState: [WritableState],
+      _maxListeners: undefined,
+      _options: [Object],
+      _ended: true,
+      _ending: true,
+      _redirectCount: 0,
+      _redirects: [],
+      _requestBodyLength: 75,
+      _requestBodyBuffers: [],
+      _eventsCount: 3,
+      _onNativeResponse: [Function (anonymous)],
+      _currentRequest: [Circular *1],
+      _currentUrl: 'https://bsestarmf.in/StarMFWebService/VerifyPAN',
+      _timeout: null,
+      [Symbol(shapeMode)]: true,
+      [Symbol(kCapture)]: false
+    },
+    [Symbol(shapeMode)]: false,
+    [Symbol(kCapture)]: false,
+    [Symbol(kBytesWritten)]: 0,
+    [Symbol(kNeedDrain)]: false,
+    [Symbol(corked)]: 0,
+    [Symbol(kOutHeaders)]: [Object: null prototype] {
+      accept: [Array],
+      'content-type': [Array],
+      'user-agent': [Array],
+      'content-length': [Array],
+      'accept-encoding': [Array],
+      host: [Array]
+    },
+    [Symbol(errored)]: null,
+    [Symbol(kHighWaterMark)]: 16384,
+    [Symbol(kRejectNonStandardBodyWrites)]: false,
+    [Symbol(kUniqueHeaders)]: null
+  },
+  response: {
+    status: 404,
+    statusText: 'Not Found',
+    headers: Object [AxiosHeaders] {
+      'content-type': 'text/html',
+      server: 'BSELTD',
+      'content-security-policy': "default-src 'self' ; img-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' ; connect-src * data: blob: filesystem:; style-src 'self' data: chrome-extension-resource: 'unsafe-inline'; img-src 'self' data: chrome-extension-resource:; frame-src 'self' data: chrome-extension-resource:; font-src 'self' data: chrome-extension-resource:; media-src * data: blob: filesystem:;",
+      'x-frame-options': 'SAMEORIGIN',
+      'x-xss-protection': '1; mode=block',
+      'x-content-type-options': 'nosniff',
+      'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
+      'referrer-policy': 'no-referrer | same-origin | origin | strict-origin | no-origin-when-downgrading',
+      date: 'Sat, 15 Nov 2025 16:45:00 GMT',
+      'content-length': '1245'
+    },
+    config: {
+      transitional: [Object],
+      adapter: [Array],
+      transformRequest: [Array],
+      transformResponse: [Array],
+      timeout: 10000,
+      xsrfCookieName: 'XSRF-TOKEN',
+      xsrfHeaderName: 'X-XSRF-TOKEN',
+      maxContentLength: -1,
+      maxBodyLength: -1,
+      env: [Object],
+      validateStatus: [Function: validateStatus],
+      headers: [Object [AxiosHeaders]],
+      method: 'post',
+      url: 'https://bsestarmf.in/StarMFWebService/VerifyPAN',
+      data: '{"UserId":"","MemberId":"","Password":"","PassKey":"","Param":"AAAPL1234C"}',
+      allowAbsoluteUrls: true
+    },
+    request: <ref *1> ClientRequest {
+      _events: [Object: null prototype],
+      _eventsCount: 7,
+      _maxListeners: undefined,
+      outputData: [],
+      outputSize: 0,
+      writable: true,
+      destroyed: true,
+      _last: false,
+      chunkedEncoding: false,
+      shouldKeepAlive: true,
+      maxRequestsOnConnectionReached: false,
+      _defaultKeepAlive: true,
+      useChunkedEncodingByDefault: true,
+      sendDate: false,
+      _removedConnection: false,
+      _removedContLen: false,
+      _removedTE: false,
+      strictContentLength: false,
+      _contentLength: '75',
+      _hasBody: true,
+      _trailer: '',
+      finished: true,
+      _headerSent: true,
+      _closed: true,
+      socket: [TLSSocket],
+      _header: 'POST /StarMFWebService/VerifyPAN HTTP/1.1\r\n' +
+        'Accept: application/json, text/plain, */*\r\n' +
+        'Content-Type: application/json\r\n' +
+        'User-Agent: axios/1.12.2\r\n' +
+        'Content-Length: 75\r\n' +
+        'Accept-Encoding: gzip, compress, deflate, br\r\n' +
+        'Host: bsestarmf.in\r\n' +
+        'Connection: keep-alive\r\n' +
+        '\r\n',
+      _keepAliveTimeout: 0,
+      _onPendingData: [Function: nop],
+      agent: [Agent],
+      socketPath: undefined,
+      method: 'POST',
+      maxHeaderSize: undefined,
+      insecureHTTPParser: undefined,
+      joinDuplicateHeaders: undefined,
+      path: '/StarMFWebService/VerifyPAN',
+      _ended: true,
+      res: [IncomingMessage],
+      aborted: false,
+      timeoutCb: null,
+      upgradeOrConnect: false,
+      parser: null,
+      maxHeadersCount: null,
+      reusedSocket: false,
+      host: 'bsestarmf.in',
+      protocol: 'https:',
+      _redirectable: [Writable],
+      [Symbol(shapeMode)]: false,
+      [Symbol(kCapture)]: false,
+      [Symbol(kBytesWritten)]: 0,
+      [Symbol(kNeedDrain)]: false,
+      [Symbol(corked)]: 0,
+      [Symbol(kOutHeaders)]: [Object: null prototype],
+      [Symbol(errored)]: null,
+      [Symbol(kHighWaterMark)]: 16384,
+      [Symbol(kRejectNonStandardBodyWrites)]: false,
+      [Symbol(kUniqueHeaders)]: null
+    },
+    data: '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">\r\n' +
+      '<html xmlns="http://www.w3.org/1999/xhtml">\r\n' +
+      '<head>\r\n' +
+      '<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/>\r\n' +
+      '<title>404 - File or directory not found.</title>\r\n' +
+      '<style type="text/css">\r\n' +
+      '<!--\r\n' +
+      'body{margin:0;font-size:.7em;font-family:Verdana, Arial, Helvetica, sans-serif;background:#EEEEEE;}\r\n' +
+      'fieldset{padding:0 15px 10px 15px;} \r\n' +
+      'h1{font-size:2.4em;margin:0;color:#FFF;}\r\n' +
+      'h2{font-size:1.7em;margin:0;color:#CC0000;} \r\n' +
+      'h3{font-size:1.2em;margin:10px 0 0 0;color:#000000;} \r\n' +
+      '#header{width:96%;margin:0 0 0 0;padding:6px 2% 6px 2%;font-family:"trebuchet MS", Verdana, sans-serif;color:#FFF;\r\n' +
+      'background-color:#555555;}\r\n' +
+      '#content{margin:0 0 0 2%;position:relative;}\r\n' +
+      '.content-container{background:#FFF;width:96%;margin-top:8px;padding:10px;position:relative;}\r\n' +
+      '-->\r\n' +
+      '</style>\r\n' +
+      '</head>\r\n' +
+      '<body>\r\n' +
+      '<div id="header"><h1>Server Error</h1></div>\r\n' +
+      '<div id="content">\r\n' +
+      ' <div class="content-container"><fieldset>\r\n' +
+      '  <h2>404 - File or directory not found.</h2>\r\n' +
+      '  <h3>The resource you are looking for might have been removed, had its name changed, or is temporarily unavailable.</h3>\r\n' +
+      ' </fieldset></div>\r\n' +
+      '</div>\r\n' +
+      '</body>\r\n' +
+      '</html>\r\n'
+  },
+  status: 404
+}
+Sandbox PAN API Error (403): Forbidden
+Using mock data for testing
+2025-11-15 16:45:01 error: [API-Health-Cron] Job failed:
+Error: Cannot use a pool after calling end on the pool
+    at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async NeonPreparedQuery.execute (/home/runner/workspace/node_modules/src/neon-serverless/session.ts:102:18)
+    at async MonitoringStorage.logApiHealth (/home/runner/workspace/server/monitoringStorage.ts:254:25)
+    at async HealthMonitoringService.runAllChecks (/home/runner/workspace/server/services/healthMonitoring.ts:165:9)
+    at async runHealthChecks (/home/runner/workspace/server/jobs/api-health-cron.ts:56:21)
+[2025-11-15T16:45:04.881Z] Checking alerts...
+⚠️ Alert monitoring cycle skipped due to database issue
+🐛 2025-11-15 16:46:00 [debug] Running error aggregation enhancements
+❌ 2025-11-15 16:46:00 [error] Error aggregation failed | {"error":{"message":"Cannot use a pool after calling end on the pool","stack":"Error: Cannot use a pool after calling end on the pool\n    at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async NeonPreparedQuery.execute (/home/runner/workspace/node_modules/src/neon-serverless/session.ts:102:18)\n    at async ErrorAggregator.runAggregation (/home/runner/workspace/server/services/error-aggregator.ts:78:32)","name":"Error"}}
+🐛 2025-11-15 16:48:00 [debug] Running error aggregation enhancements
+❌ 2025-11-15 16:48:00 [error] Error aggregation failed | {"error":{"message":"Cannot use a pool after calling end on the pool","stack":"Error: Cannot use a pool after calling end on the pool\n    at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async NeonPreparedQuery.execute (/home/runner/workspace/node_modules/src/neon-serverless/session.ts:102:18)\n    at async ErrorAggregator.runAggregation (/home/runner/workspace/server/services/error-aggregator.ts:78:32)","name":"Error"}}
+🐛 2025-11-15 16:50:00 [debug] Running external API health checks
+2025-11-15 16:50:00 info: [API-Health-Cron] Starting API health checks...
+2025-11-15 16:50:00 info: [HealthMonitoring] Running 4 health checks...
+2025-11-15 16:50:00 info: [Protean KRA] Checking KRA status | {"correlationId":"95826b70-358c-42c8-8aa6-886752ecbc29","pan":"AAA***4C","dob":"1990-01-01"}
+[KRA-Polling] Starting KRA status poll...
+[KRA-Polling] Job failed: Cannot use a pool after calling end on the pool
+🐛 2025-11-15 16:50:00 [debug] Running error aggregation enhancements
+❌ 2025-11-15 16:50:00 [error] Error aggregation failed | {"error":{"message":"Cannot use a pool after calling end on the pool","stack":"Error: Cannot use a pool after calling end on the pool\n    at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async NeonPreparedQuery.execute (/home/runner/workspace/node_modules/src/neon-serverless/session.ts:102:18)\n    at async ErrorAggregator.runAggregation (/home/runner/workspace/server/services/error-aggregator.ts:78:32)","name":"Error"}}
+2025-11-15 16:50:00 error: [Protean KRA] API call failed | {"correlationId":"95826b70-358c-42c8-8aa6-886752ecbc29","error":"fetch failed","responseTime":53}
+🐛 2025-11-15 16:50:00 [debug] Completed external API health checks
+BSE PAN verification error: AxiosError: Request failed with status code 404
+    at settle (file:///home/runner/workspace/node_modules/axios/lib/core/settle.js:19:12)
+    at IncomingMessage.handleStreamEnd (file:///home/runner/workspace/node_modules/axios/lib/adapters/http.js:617:11)
+    at IncomingMessage.emit (node:events:536:35)
+    at endReadableNT (node:internal/streams/readable:1698:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+    at Axios.request (file:///home/runner/workspace/node_modules/axios/lib/core/Axios.js:45:41)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async BSEStarKYCService.verifyPAN (/home/runner/workspace/server/services/bse-star-kyc-service.ts:56:24)
+    at async Object.checkFn (/home/runner/workspace/server/services/healthCheckAdapters.ts:30:24)
+    at async HealthMonitoringService.runCheck (/home/runner/workspace/server/services/healthMonitoring.ts:104:22)
+    at async Promise.allSettled (index 0)
+    at async HealthMonitoringService.runAllChecks (/home/runner/workspace/server/services/healthMonitoring.ts:152:21)
+    at async runHealthChecks (/home/runner/workspace/server/jobs/api-health-cron.ts:56:21) {
+  code: 'ERR_BAD_REQUEST',
+  config: {
+    transitional: {
+      silentJSONParsing: true,
+      forcedJSONParsing: true,
+      clarifyTimeoutError: false
+    },
+    adapter: [ 'xhr', 'http', 'fetch' ],
+    transformRequest: [ [Function: transformRequest] ],
+    transformResponse: [ [Function: transformResponse] ],
+    timeout: 10000,
+    xsrfCookieName: 'XSRF-TOKEN',
+    xsrfHeaderName: 'X-XSRF-TOKEN',
+    maxContentLength: -1,
+    maxBodyLength: -1,
+    env: { FormData: [Function [FormData]], Blob: [class Blob] },
+    validateStatus: [Function: validateStatus],
+    headers: Object [AxiosHeaders] {
+      Accept: 'application/json, text/plain, */*',
+      'Content-Type': 'application/json',
+      'User-Agent': 'axios/1.12.2',
+      'Content-Length': '75',
+      'Accept-Encoding': 'gzip, compress, deflate, br'
+    },
+    method: 'post',
+    url: 'https://bsestarmf.in/StarMFWebService/VerifyPAN',
+    data: '{"UserId":"","MemberId":"","Password":"","PassKey":"","Param":"AAAPL1234C"}',
+    allowAbsoluteUrls: true
+  },
+  request: <ref *1> ClientRequest {
+    _events: [Object: null prototype] {
+      abort: [Function (anonymous)],
+      aborted: [Function (anonymous)],
+      connect: [Function (anonymous)],
+      error: [Function (anonymous)],
+      socket: [Function (anonymous)],
+      timeout: [Function (anonymous)],
+      finish: [Function: requestOnFinish]
+    },
+    _eventsCount: 7,
+    _maxListeners: undefined,
+    outputData: [],
+    outputSize: 0,
+    writable: true,
+    destroyed: true,
+    _last: false,
+    chunkedEncoding: false,
+    shouldKeepAlive: true,
+    maxRequestsOnConnectionReached: false,
+    _defaultKeepAlive: true,
+    useChunkedEncodingByDefault: true,
+    sendDate: false,
+    _removedConnection: false,
+    _removedContLen: false,
+    _removedTE: false,
+    strictContentLength: false,
+    _contentLength: '75',
+    _hasBody: true,
+    _trailer: '',
+    finished: true,
+    _headerSent: true,
+    _closed: true,
+    socket: TLSSocket {
+      _tlsOptions: [Object],
+      _secureEstablished: true,
+      _securePending: false,
+      _newSessionPending: false,
+      _controlReleased: true,
+      secureConnecting: false,
+      _SNICallback: null,
+      servername: 'bsestarmf.in',
+      alpnProtocol: false,
+      authorized: true,
+      authorizationError: null,
+      encrypted: true,
+      _events: [Object: null prototype],
+      _eventsCount: 9,
+      connecting: false,
+      _hadError: false,
+      _parent: null,
+      _host: 'bsestarmf.in',
+      _closeAfterHandlingError: false,
+      _readableState: [ReadableState],
+      _writableState: [WritableState],
+      allowHalfOpen: false,
+      _maxListeners: undefined,
+      _sockname: null,
+      _pendingData: null,
+      _pendingEncoding: '',
+      server: undefined,
+      _server: null,
+      ssl: [TLSWrap],
+      _requestCert: true,
+      _rejectUnauthorized: true,
+      timeout: 5000,
+      parser: null,
+      _httpMessage: null,
+      [Symbol(alpncallback)]: null,
+      [Symbol(res)]: [TLSWrap],
+      [Symbol(verified)]: true,
+      [Symbol(pendingSession)]: null,
+      [Symbol(async_id_symbol)]: -1,
+      [Symbol(kHandle)]: [TLSWrap],
+      [Symbol(lastWriteQueueSize)]: 0,
+      [Symbol(timeout)]: Timeout {
+        _idleTimeout: 5000,
+        _idlePrev: [TimersList],
+        _idleNext: [Timeout],
+        _idleStart: 15001025,
+        _onTimeout: [Function: bound ],
+        _timerArgs: undefined,
+        _repeat: null,
+        _destroyed: false,
+        [Symbol(refed)]: false,
+        [Symbol(kHasPrimitive)]: false,
+        [Symbol(asyncId)]: 55758,
+        [Symbol(triggerId)]: 55756
+      },
+      [Symbol(kBuffer)]: null,
+      [Symbol(kBufferCb)]: null,
+      [Symbol(kBufferGen)]: null,
+      [Symbol(shapeMode)]: true,
+      [Symbol(kCapture)]: false,
+      [Symbol(kSetNoDelay)]: false,
+      [Symbol(kSetKeepAlive)]: true,
+      [Symbol(kSetKeepAliveInitialDelay)]: 1,
+      [Symbol(kBytesRead)]: 0,
+      [Symbol(kBytesWritten)]: 0,
+      [Symbol(connect-options)]: [Object]
+    },
+    _header: 'POST /StarMFWebService/VerifyPAN HTTP/1.1\r\n' +
+      'Accept: application/json, text/plain, */*\r\n' +
+      'Content-Type: application/json\r\n' +
+      'User-Agent: axios/1.12.2\r\n' +
+      'Content-Length: 75\r\n' +
+      'Accept-Encoding: gzip, compress, deflate, br\r\n' +
+      'Host: bsestarmf.in\r\n' +
+      'Connection: keep-alive\r\n' +
+      '\r\n',
+    _keepAliveTimeout: 0,
+    _onPendingData: [Function: nop],
+    agent: Agent {
+      _events: [Object: null prototype],
+      _eventsCount: 2,
+      _maxListeners: undefined,
+      defaultPort: 443,
+      protocol: 'https:',
+      options: [Object: null prototype],
+      requests: [Object: null prototype] {},
+      sockets: [Object: null prototype],
+      freeSockets: [Object: null prototype],
+      keepAliveMsecs: 1000,
+      keepAlive: true,
+      maxSockets: Infinity,
+      maxFreeSockets: 256,
+      scheduling: 'lifo',
+      maxTotalSockets: Infinity,
+      totalSocketCount: 6,
+      maxCachedSessions: 100,
+      _sessionCache: [Object],
+      [Symbol(shapeMode)]: false,
+      [Symbol(kCapture)]: false
+    },
+    socketPath: undefined,
+    method: 'POST',
+    maxHeaderSize: undefined,
+    insecureHTTPParser: undefined,
+    joinDuplicateHeaders: undefined,
+    path: '/StarMFWebService/VerifyPAN',
+    _ended: true,
+    res: IncomingMessage {
+      _events: [Object],
+      _readableState: [ReadableState],
+      _maxListeners: undefined,
+      socket: null,
+      httpVersionMajor: 1,
+      httpVersionMinor: 1,
+      httpVersion: '1.1',
+      complete: true,
+      rawHeaders: [Array],
+      rawTrailers: [],
+      joinDuplicateHeaders: undefined,
+      aborted: false,
+      upgrade: false,
+      url: '',
+      method: null,
+      statusCode: 404,
+      statusMessage: 'Not Found',
+      client: [TLSSocket],
+      _consuming: true,
+      _dumped: false,
+      req: [Circular *1],
+      _eventsCount: 4,
+      responseUrl: 'https://bsestarmf.in/StarMFWebService/VerifyPAN',
+      redirects: [],
+      [Symbol(shapeMode)]: true,
+      [Symbol(kCapture)]: false,
+      [Symbol(kHeaders)]: [Object],
+      [Symbol(kHeadersCount)]: 20,
+      [Symbol(kTrailers)]: null,
+      [Symbol(kTrailersCount)]: 0
+    },
+    aborted: false,
+    timeoutCb: null,
+    upgradeOrConnect: false,
+    parser: null,
+    maxHeadersCount: null,
+    reusedSocket: false,
+    host: 'bsestarmf.in',
+    protocol: 'https:',
+    _redirectable: Writable {
+      _events: [Object],
+      _writableState: [WritableState],
+      _maxListeners: undefined,
+      _options: [Object],
+      _ended: true,
+      _ending: true,
+      _redirectCount: 0,
+      _redirects: [],
+      _requestBodyLength: 75,
+      _requestBodyBuffers: [],
+      _eventsCount: 3,
+      _onNativeResponse: [Function (anonymous)],
+      _currentRequest: [Circular *1],
+      _currentUrl: 'https://bsestarmf.in/StarMFWebService/VerifyPAN',
+      _timeout: null,
+      [Symbol(shapeMode)]: true,
+      [Symbol(kCapture)]: false
+    },
+    [Symbol(shapeMode)]: false,
+    [Symbol(kCapture)]: false,
+    [Symbol(kBytesWritten)]: 0,
+    [Symbol(kNeedDrain)]: false,
+    [Symbol(corked)]: 0,
+    [Symbol(kOutHeaders)]: [Object: null prototype] {
+      accept: [Array],
+      'content-type': [Array],
+      'user-agent': [Array],
+      'content-length': [Array],
+      'accept-encoding': [Array],
+      host: [Array]
+    },
+    [Symbol(errored)]: null,
+    [Symbol(kHighWaterMark)]: 16384,
+    [Symbol(kRejectNonStandardBodyWrites)]: false,
+    [Symbol(kUniqueHeaders)]: null
+  },
+  response: {
+    status: 404,
+    statusText: 'Not Found',
+    headers: Object [AxiosHeaders] {
+      'content-type': 'text/html',
+      server: 'BSELTD',
+      'content-security-policy': "default-src 'self' ; img-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' ; connect-src * data: blob: filesystem:; style-src 'self' data: chrome-extension-resource: 'unsafe-inline'; img-src 'self' data: chrome-extension-resource:; frame-src 'self' data: chrome-extension-resource:; font-src 'self' data: chrome-extension-resource:; media-src * data: blob: filesystem:;",
+      'x-frame-options': 'SAMEORIGIN',
+      'x-xss-protection': '1; mode=block',
+      'x-content-type-options': 'nosniff',
+      'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
+      'referrer-policy': 'no-referrer | same-origin | origin | strict-origin | no-origin-when-downgrading',
+      date: 'Sat, 15 Nov 2025 16:50:00 GMT',
+      'content-length': '1245'
+    },
+    config: {
+      transitional: [Object],
+      adapter: [Array],
+      transformRequest: [Array],
+      transformResponse: [Array],
+      timeout: 10000,
+      xsrfCookieName: 'XSRF-TOKEN',
+      xsrfHeaderName: 'X-XSRF-TOKEN',
+      maxContentLength: -1,
+      maxBodyLength: -1,
+      env: [Object],
+      validateStatus: [Function: validateStatus],
+      headers: [Object [AxiosHeaders]],
+      method: 'post',
+      url: 'https://bsestarmf.in/StarMFWebService/VerifyPAN',
+      data: '{"UserId":"","MemberId":"","Password":"","PassKey":"","Param":"AAAPL1234C"}',
+      allowAbsoluteUrls: true
+    },
+    request: <ref *1> ClientRequest {
+      _events: [Object: null prototype],
+      _eventsCount: 7,
+      _maxListeners: undefined,
+      outputData: [],
+      outputSize: 0,
+      writable: true,
+      destroyed: true,
+      _last: false,
+      chunkedEncoding: false,
+      shouldKeepAlive: true,
+      maxRequestsOnConnectionReached: false,
+      _defaultKeepAlive: true,
+      useChunkedEncodingByDefault: true,
+      sendDate: false,
+      _removedConnection: false,
+      _removedContLen: false,
+      _removedTE: false,
+      strictContentLength: false,
+      _contentLength: '75',
+      _hasBody: true,
+      _trailer: '',
+      finished: true,
+      _headerSent: true,
+      _closed: true,
+      socket: [TLSSocket],
+      _header: 'POST /StarMFWebService/VerifyPAN HTTP/1.1\r\n' +
+        'Accept: application/json, text/plain, */*\r\n' +
+        'Content-Type: application/json\r\n' +
+        'User-Agent: axios/1.12.2\r\n' +
+        'Content-Length: 75\r\n' +
+        'Accept-Encoding: gzip, compress, deflate, br\r\n' +
+        'Host: bsestarmf.in\r\n' +
+        'Connection: keep-alive\r\n' +
+        '\r\n',
+      _keepAliveTimeout: 0,
+      _onPendingData: [Function: nop],
+      agent: [Agent],
+      socketPath: undefined,
+      method: 'POST',
+      maxHeaderSize: undefined,
+      insecureHTTPParser: undefined,
+      joinDuplicateHeaders: undefined,
+      path: '/StarMFWebService/VerifyPAN',
+      _ended: true,
+      res: [IncomingMessage],
+      aborted: false,
+      timeoutCb: null,
+      upgradeOrConnect: false,
+      parser: null,
+      maxHeadersCount: null,
+      reusedSocket: false,
+      host: 'bsestarmf.in',
+      protocol: 'https:',
+      _redirectable: [Writable],
+      [Symbol(shapeMode)]: false,
+      [Symbol(kCapture)]: false,
+      [Symbol(kBytesWritten)]: 0,
+      [Symbol(kNeedDrain)]: false,
+      [Symbol(corked)]: 0,
+      [Symbol(kOutHeaders)]: [Object: null prototype],
+      [Symbol(errored)]: null,
+      [Symbol(kHighWaterMark)]: 16384,
+      [Symbol(kRejectNonStandardBodyWrites)]: false,
+      [Symbol(kUniqueHeaders)]: null
+    },
+    data: '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">\r\n' +
+      '<html xmlns="http://www.w3.org/1999/xhtml">\r\n' +
+      '<head>\r\n' +
+      '<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/>\r\n' +
+      '<title>404 - File or directory not found.</title>\r\n' +
+      '<style type="text/css">\r\n' +
+      '<!--\r\n' +
+      'body{margin:0;font-size:.7em;font-family:Verdana, Arial, Helvetica, sans-serif;background:#EEEEEE;}\r\n' +
+      'fieldset{padding:0 15px 10px 15px;} \r\n' +
+      'h1{font-size:2.4em;margin:0;color:#FFF;}\r\n' +
+      'h2{font-size:1.7em;margin:0;color:#CC0000;} \r\n' +
+      'h3{font-size:1.2em;margin:10px 0 0 0;color:#000000;} \r\n' +
+      '#header{width:96%;margin:0 0 0 0;padding:6px 2% 6px 2%;font-family:"trebuchet MS", Verdana, sans-serif;color:#FFF;\r\n' +
+      'background-color:#555555;}\r\n' +
+      '#content{margin:0 0 0 2%;position:relative;}\r\n' +
+      '.content-container{background:#FFF;width:96%;margin-top:8px;padding:10px;position:relative;}\r\n' +
+      '-->\r\n' +
+      '</style>\r\n' +
+      '</head>\r\n' +
+      '<body>\r\n' +
+      '<div id="header"><h1>Server Error</h1></div>\r\n' +
+      '<div id="content">\r\n' +
+      ' <div class="content-container"><fieldset>\r\n' +
+      '  <h2>404 - File or directory not found.</h2>\r\n' +
+      '  <h3>The resource you are looking for might have been removed, had its name changed, or is temporarily unavailable.</h3>\r\n' +
+      ' </fieldset></div>\r\n' +
+      '</div>\r\n' +
+      '</body>\r\n' +
+      '</html>\r\n'
+  },
+  status: 404
+}
+Sandbox PAN API Error (403): Forbidden
+Using mock data for testing
+2025-11-15 16:50:01 error: [API-Health-Cron] Job failed:
+Error: Cannot use a pool after calling end on the pool
+    at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async NeonPreparedQuery.execute (/home/runner/workspace/node_modules/src/neon-serverless/session.ts:102:18)
+    at async MonitoringStorage.logApiHealth (/home/runner/workspace/server/monitoringStorage.ts:254:25)
+    at async HealthMonitoringService.runAllChecks (/home/runner/workspace/server/services/healthMonitoring.ts:165:9)
+    at async runHealthChecks (/home/runner/workspace/server/jobs/api-health-cron.ts:56:21)
+⚠️ OTP cleanup skipped due to database issue
+⚠️ OTP cleanup skipped due to database issue
+[2025-11-15T16:50:04.881Z] Checking alerts...
+⚠️ Alert monitoring cycle skipped due to database issue
+🐛 2025-11-15 16:52:00 [debug] Running error aggregation enhancements
+❌ 2025-11-15 16:52:00 [error] Error aggregation failed | {"error":{"message":"Cannot use a pool after calling end on the pool","stack":"Error: Cannot use a pool after calling end on the pool\n    at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async NeonPreparedQuery.execute (/home/runner/workspace/node_modules/src/neon-serverless/session.ts:102:18)\n    at async ErrorAggregator.runAggregation (/home/runner/workspace/server/services/error-aggregator.ts:78:32)","name":"Error"}}
