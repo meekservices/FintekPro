@@ -1,5 +1,5 @@
-// FintekPro Server - Main entry point
-import express, { type Request, Response, NextFunction } from "express";
+// FintekPro Server - Main entry point (Fixed graceful shutdown)
+import express, { type Request, Response, NextFunction} from "express";
 import helmet from "helmet";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
