@@ -158,7 +158,7 @@ export class BondCatalogService {
           minimumLotSize: bond.minimumLotSize.toString(),
           tradingStatus: bond.tradingStatus,
           lastTradedPrice: bond.lastTradedPrice.toString(),
-          volume: bond.volume,
+          volume: bond.volume.toString(),
           lastUpdated: new Date()
         };
         
@@ -267,7 +267,7 @@ export class BondCatalogService {
           minimumLotSize: bond.minimumLotSize.toString(),
           tradingStatus: bond.tradingStatus,
           lastTradedPrice: bond.lastTradedPrice.toString(),
-          volume: bond.volume,
+          volume: bond.volume.toString(),
           taxBenefit: bond.taxBenefit,
           lastUpdated: new Date()
         };
@@ -323,7 +323,7 @@ export class BondCatalogService {
           minimumLotSize: bond.minimumLotSize.toString(),
           tradingStatus: bond.tradingStatus,
           lastTradedPrice: bond.lastTradedPrice.toString(),
-          volume: bond.volume,
+          volume: bond.volume.toString(),
           infraSector: bond.sector,
           infraProjectType: bond.projectType,
           lastUpdated: new Date()

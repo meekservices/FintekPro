@@ -1,18 +1,7 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, decimal, timestamp, jsonb, boolean, uniqueIndex, index, integer, date, bigint, numeric, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, decimal, timestamp, jsonb, boolean, index, integer, date, bigint, numeric } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-
-export const kycTierEnum = pgEnum("kyc_tier", ["tier_1", "tier_2", "tier_3"]);
-export const kycStatusEnum = pgEnum("kyc_status", ["pending", "in_progress", "completed", "cancelled"]);
-export const aiVerificationStatusEnum = pgEnum("ai_verification_status", ["pending", "ca_uploaded", "esign_pending", "esign_completed", "submitted", "approved", "rejected", "expired"]);
-export const aiWorkflowStepEnum = pgEnum("ai_workflow_step", ["ca_upload", "esign", "bse_submission", "completed"]);
-
-// Monitoring & Observability Enums
-export const errorSourceEnum = pgEnum("error_source", ["frontend", "backend", "service", "external_api"]);
-export const errorSeverityEnum = pgEnum("error_severity", ["critical", "high", "medium", "low", "info"]);
-export const apiHealthStatusEnum = pgEnum("api_health_status", ["healthy", "degraded", "down", "unknown"]);
-export const auditActionTypeEnum = pgEnum("audit_action_type", ["create", "read", "update", "delete", "execute", "approve", "reject"]);
 
 // Session storage table for Replit Auth
 export const sessions = pgTable(
@@ -255,14 +244,6 @@ export const userProfiles = pgTable("user_profiles", {
   netWorthStatementUrl: varchar("net_worth_statement_url"),
   portfolioStatementUrl: varchar("portfolio_statement_url"),
   accreditedInvestorRejectionReason: text("accredited_investor_rejection_reason"),
-  
-  // BSE Accreditation API Fields (snapshot of latest status)
-  aiCertificateNumber: varchar("ai_certificate_number"), // BSE AI Certificate Number
-  aiCertificateId: varchar("ai_certificate_id"), // BSE AI Certificate ID
-  aiVerifiedAt: timestamp("ai_verified_at"), // When AI certificate was issued
-  riskDeclarationUrl: varchar("risk_declaration_url"), // Signed risk declaration PDF
-  aiESignStatus: varchar("ai_esign_status"), // pending/completed/failed
-  aiStatusSource: varchar("ai_status_source").default("bse"), // bse/cvl/nsdl
   
   // Product Access Permissions (auto-calculated based on KYC tier)
   productsUnlocked: jsonb("products_unlocked").default([]), // Array of unlocked product codes
@@ -520,22 +501,6 @@ export const users = pgTable("users", {
   aadhaarVerificationDate: timestamp("aadhaar_verification_date"),
   smartKycCompletedAt: timestamp("smart_kyc_completed_at"),
   
-  // OTP Delivery Preferences
-  otpPreferenceEmail: boolean("otp_preference_email").default(true), // Email OTP enabled by default
-  otpPreferenceSms: boolean("otp_preference_sms").default(false), // SMS OTP disabled by default
-  otpPreferenceWhatsapp: boolean("otp_preference_whatsapp").default(true), // WhatsApp OTP enabled by default
-  
-  // Accredited Investor (Tier 3) Certification
-  aiCertificateNumber: varchar("ai_certificate_number"), // BSE AI certificate number
-  aiCertificateId: varchar("ai_certificate_id"), // Internal certificate ID
-  aiVerifiedAt: timestamp("ai_verified_at"), // When AI status was verified
-  riskDeclarationUrl: varchar("risk_declaration_url"), // eSigned risk declaration document
-  aiESignStatus: varchar("ai_esign_status"), // eSign completion status
-  aiStatusSource: varchar("ai_status_source"), // Source: bse/manual/other
-  accreditedInvestorStatus: varchar("accredited_investor_status"), // verified/pending/expired/rejected
-  accreditedInvestorVerifiedAt: timestamp("accredited_investor_verified_at"), // Verification date
-  accreditedInvestorExpiryDate: timestamp("accredited_investor_expiry_date"), // Certificate expiry (3 years)
-  
   // Admin and system fields - supports multiple roles
   roles: varchar("roles").array().default(sql`ARRAY['user']`), // Array of roles: 'user', 'admin', 'superadmin', 'business_client', etc.
   isActive: boolean("is_active").default(true),
@@ -557,9 +522,8 @@ export const kycVerificationSessions = pgTable("kyc_verification_sessions", {
   
   // Session Type and Flow
   sessionType: varchar("session_type").default("smart_kyc_wizard"), // smart_kyc_wizard
-  currentStep: varchar("current_step").notNull().default("pan_verification"), // pan_verification/kra_check/ekyc_pending/cersai_upload/kra_polling/ucc_creation/completed
-  stepStatus: jsonb("step_status").default({}), // Status for each step: {pan_verified: true, kra_checked: true, etc.}
-  sessionOutcome: varchar("session_outcome"), // success/failure/abandoned
+  currentStep: varchar("current_step").notNull().default("pan_verification"), // pan_verification/aadhaar_otp/aadhaar_verification/data_collection/completed
+  stepStatus: jsonb("step_status").default({}), // Status for each step: {pan_verified: true, aadhaar_otp_sent: true, etc.}
   
   // PAN Verification Data
   panNumber: varchar("pan_number"), // Encrypted PAN number
@@ -587,385 +551,7 @@ export const kycVerificationSessions = pgTable("kyc_verification_sessions", {
   // Audit fields
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-  index("idx_kyc_sessions_user").on(table.userId),
-  index("idx_kyc_sessions_step").on(table.currentStep),
-]);
-
-// KRA Status Checks table for Protean (NSDL KRA) API responses
-export const kraStatusChecks = pgTable("kra_status_checks", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  sessionId: varchar("session_id").references(() => kycVerificationSessions.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  
-  // KRA Status Data
-  status: varchar("status").notNull(), // verified/on_hold/rejected/not_found/pending
-  kraNumber: varchar("kra_number"), // KRA ID if verified
-  proteanReferenceId: varchar("protean_reference_id"), // Protean API reference
-  verificationDate: timestamp("verification_date"),
-  kraAgency: varchar("kra_agency"), // NSDL/CDSL/CAMS/KARVY/DOTEX
-  
-  // Polling Metadata for Async Verification
-  nextPollAt: timestamp("next_poll_at"),
-  pollAttempt: integer("poll_attempt").default(0),
-  maxPollAttempts: integer("max_poll_attempts").default(48), // Poll for 48 hours
-  finalizedAt: timestamp("finalized_at"),
-  
-  // API Response Data
-  responsePayload: jsonb("response_payload"), // Full Protean API response
-  reasonCode: varchar("reason_code"), // Rejection/hold reason code
-  reasonMessage: text("reason_message"), // Human-readable reason
-  
-  // Audit fields
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-  index("idx_kra_session").on(table.sessionId),
-  index("idx_kra_user").on(table.userId),
-  index("idx_kra_poll_due").on(table.nextPollAt),
-  index("idx_kra_status").on(table.status),
-]);
-
-// Cashfree eKYC Sessions table for Aadhaar OTP-based verification
-export const cashfreeEkycSessions = pgTable("cashfree_ekyc_sessions", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  sessionId: varchar("session_id").references(() => kycVerificationSessions.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  
-  // Cashfree Session Data
-  cashfreeSessionId: varchar("cashfree_session_id").unique(), // Cashfree reference
-  aadhaarNumber: varchar("aadhaar_number"), // Encrypted Aadhaar
-  
-  // OTP Flow
-  otpSentAt: timestamp("otp_sent_at"),
-  otpVerifiedAt: timestamp("otp_verified_at"),
-  otpAttempts: integer("otp_attempts").default(0),
-  
-  // Consent Tracking
-  consentGiven: boolean("consent_given").default(false),
-  consentIpAddress: varchar("consent_ip_address"),
-  consentUserAgent: text("consent_user_agent"),
-  consentTimestamp: timestamp("consent_timestamp"),
-  
-  // XML Data
-  xmlUrl: varchar("xml_url"), // Signed URL to encrypted XML in object storage
-  xmlHash: varchar("xml_hash"), // SHA-256 hash for integrity
-  xmlParsed: boolean("xml_parsed").default(false),
-  xmlParsedAt: timestamp("xml_parsed_at"),
-  
-  // Parsed Attributes from XML
-  parsedData: jsonb("parsed_data"), // Name, address, DOB, photo, etc.
-  
-  // Status
-  status: varchar("status").default("pending"), // pending/otp_sent/verified/failed
-  errorCode: varchar("error_code"),
-  errorMessage: text("error_message"),
-  
-  // Audit fields
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-  index("idx_cashfree_session").on(table.sessionId),
-  index("idx_cashfree_user").on(table.userId),
-  index("idx_cashfree_status").on(table.status),
-]);
-
-// CERSAI Submissions table for CKYC XML uploads
-export const cersaiSubmissions = pgTable("cersai_submissions", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  sessionId: varchar("session_id").references(() => kycVerificationSessions.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  ekycSessionId: varchar("ekyc_session_id").references(() => cashfreeEkycSessions.id),
-  
-  // CERSAI Submission Data
-  submissionId: varchar("submission_id").unique(), // CERSAI reference ID
-  packageVersion: varchar("package_version").default("3.0"), // CKYC XML version
-  ckycNumber: varchar("ckyc_number"), // 14-digit CKYC number if successful
-  
-  // Status Tracking
-  status: varchar("status").default("pending"), // pending/submitted/acknowledged/verified/rejected
-  submittedAt: timestamp("submitted_at"),
-  acknowledgedAt: timestamp("acknowledged_at"),
-  verifiedAt: timestamp("verified_at"),
-  
-  // Response Data
-  acknowledgmentData: jsonb("acknowledgment_data"), // CERSAI ACK response
-  rejectionCode: varchar("rejection_code"),
-  rejectionMessage: text("rejection_message"),
-  
-  // Storage Reference
-  xmlStorageUrl: varchar("xml_storage_url"), // Object storage URL
-  
-  // Audit fields
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-  index("idx_cersai_session").on(table.sessionId),
-  index("idx_cersai_user").on(table.userId),
-  index("idx_cersai_status").on(table.status),
-  index("idx_cersai_ckyc").on(table.ckycNumber),
-]);
-
-// BSE UCC Requests table for BSE STAR mutual fund account creation
-
-// ============================================================
-// PRODUCTION KYC WORKFLOW TABLES
-// Smart onboarding with database-first PAN validation
-// ============================================================
-
-// PAN Verification Records - Cache for verified PAN data
-export const panVerificationRecords = pgTable("pan_verification_records", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  
-  // PAN Details
-  panNumber: varchar("pan_number").notNull(),
-  fullName: varchar("full_name").notNull(),
-  dateOfBirth: varchar("date_of_birth").notNull(),
-  panType: varchar("pan_type").default("Individual"), // Individual, Company, HUF, etc.
-  
-  // Verification Status
-  verified: boolean("verified").default(false),
-  verifiedAt: timestamp("verified_at"),
-  verificationSource: varchar("verification_source").default("sandbox_api"), // sandbox_api, manual, etc.
-  
-  // Audit fields
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-  index("idx_pan_records_user").on(table.userId),
-  index("idx_pan_records_pan").on(table.panNumber),
-  // Ensure one PAN per user (prevent duplicates)
-  uniqueIndex("unique_user_pan").on(table.userId, table.panNumber),
-]);
-
-// Production KYC Sessions - Smart onboarding workflow tracking
-export const productionKycSessions = pgTable("production_kyc_sessions", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  
-  // User Type and Flow
-  userType: varchar("user_type").default("individual"), // individual, corporate, nri
-  currentStep: varchar("current_step").notNull().default("pan_verification"), // pan_verification, entity_details, kra_check, cashfree_ekyc, cersai_submission, bse_ucc, completed, cancelled
-  
-  // PAN Verification
-  panNumber: varchar("pan_number"),
-  panVerified: boolean("pan_verified").default(false),
-  
-  // Entity Details (Corporate/NRI)
-  entityType: varchar("entity_type"), // For corporate: company, partnership, llp, trust, society, huf
-  companyName: varchar("company_name"),
-  cin: varchar("cin"), // Corporate Identification Number
-  gstin: varchar("gstin"), // GST Number
-  incorporationDate: varchar("incorporation_date"),
-  entityRegistrationNumber: varchar("entity_registration_number"),
-  
-  // NRI Details
-  residentStatus: varchar("resident_status"), // nri_ordinary, nri_non_ordinary, oci, pio
-  passportNumber: varchar("passport_number"),
-  countryOfResidence: varchar("country_of_residence"),
-  overseasAddress: text("overseas_address"),
-  repatriationType: varchar("repatriation_type"), // repatriable (NRE), non_repatriable (NRO)
-  
-  // KRA Verification
-  kraVerified: boolean("kra_verified").default(false),
-  kraVerifiedAt: timestamp("kra_verified_at"),
-  kraCheckTimeout: boolean("kra_check_timeout").default(false),
-  
-  // Cashfree Aadhaar eKYC
-  cashfreeVerified: boolean("cashfree_verified").default(false),
-  cashfreeVerifiedAt: timestamp("cashfree_verified_at"),
-  cashfreeTransactionId: varchar("cashfree_transaction_id"),
-  
-  // CERSAI Submission
-  cersaiSubmitted: boolean("cersai_submitted").default(false),
-  cersaiSubmittedAt: timestamp("cersai_submitted_at"),
-  ckycNumber: varchar("ckyc_number"), // 14-digit CKYC number
-  
-  // BSE UCC Creation
-  uccCreated: boolean("ucc_created").default(false),
-  uccCreatedAt: timestamp("ucc_created_at"),
-  uccNumber: varchar("ucc_number"), // BSE Unique Client Code
-  
-  // KYC Tier Tracking
-  targetKycTier: kycTierEnum("target_kyc_tier").default("tier_1"), // Target tier for this session
-  previousKycTier: kycTierEnum("previous_kyc_tier"), // Previous tier (for upgrades)
-  isUpgradeSession: boolean("is_upgrade_session").default(false), // Whether this is an upgrade
-  kycStatus: kycStatusEnum("kyc_status").default("pending"), // Session status
-  
-  // Accredited Investor Verification (Tier 3 specific)
-  aiCertificateId: varchar("ai_certificate_id"), // BSE AI Certificate ID for this session
-  aiESignStatus: varchar("ai_esign_status"), // pending/completed/failed
-  caCertificateUrl: varchar("ca_certificate_url"), // CA Net Worth Certificate URL
-  riskDeclarationUrl: varchar("risk_declaration_url"), // Signed risk declaration URL
-  aiSubmissionStatus: varchar("ai_submission_status"), // pending/submitted/approved/rejected
-  aiSubmittedAt: timestamp("ai_submitted_at"),
-  aiDecisionAt: timestamp("ai_decision_at"),
-  
-  // Session Metadata
-  startedAt: timestamp("started_at").defaultNow(),
-  completedAt: timestamp("completed_at"),
-  expiresAt: timestamp("expires_at"),
-  
-  // Audit fields
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-  index("idx_production_kyc_user").on(table.userId),
-  index("idx_production_kyc_step").on(table.currentStep),
-  index("idx_production_kyc_pan").on(table.panNumber),
-  index("idx_production_kyc_tier").on(table.targetKycTier),
-  index("idx_production_kyc_status").on(table.kycStatus),
-]);
-
-// KYC Tier Upgrade Events - Audit trail for tier transitions
-export const kycTierUpgradeEvents = pgTable("kyc_tier_upgrade_events", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  sessionId: varchar("session_id").references(() => productionKycSessions.id), // Optional - may be system-triggered
-  
-  // Tier Transition
-  fromTier: kycTierEnum("from_tier"), // null for initial KYC
-  toTier: kycTierEnum("to_tier").notNull(),
-  
-  // Trigger Information
-  triggeredBy: varchar("triggered_by").default("user"), // user/system/admin
-  triggeredByUserId: varchar("triggered_by_user_id"), // ID of admin who triggered (if admin)
-  reason: text("reason"), // Optional reason/notes for the upgrade
-  
-  // Status
-  status: varchar("status").default("pending"), // pending/completed/failed
-  completedAt: timestamp("completed_at"),
-  failureReason: text("failure_reason"),
-  
-  // Audit
-  createdAt: timestamp("created_at").defaultNow(),
-}, (table) => [
-  index("idx_tier_events_user").on(table.userId),
-  index("idx_tier_events_session").on(table.sessionId),
-  index("idx_tier_events_status").on(table.status),
-]);
-
-// Accredited Investor Verifications - Complete workflow tracking
-export const accreditedInvestorVerifications = pgTable("accredited_investor_verifications", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  sessionId: varchar("session_id").references(() => productionKycSessions.id), // Link to KYC session if part of tier upgrade
-  
-  // Workflow Status
-  status: aiVerificationStatusEnum("status").default("pending"),
-  currentStep: aiWorkflowStepEnum("current_step").default("ca_upload"),
-  
-  // CA Certificate Upload
-  caCertificateUrl: varchar("ca_certificate_url"),
-  caCertificateName: varchar("ca_certificate_name"), // Name of CA who certified
-  caCertificateNumber: varchar("ca_certificate_number"), // CA membership number
-  caCertificateUploadedAt: timestamp("ca_certificate_uploaded_at"),
-  
-  // Income/Net Worth Documentation
-  incomeDocs: jsonb("income_docs").default([]), // Array of {url, type, uploadedAt}
-  netWorthAmount: decimal("net_worth_amount", { precision: 15, scale: 2 }),
-  annualIncomeAmount: decimal("annual_income_amount", { precision: 15, scale: 2 }),
-  verificationBasis: varchar("verification_basis"), // networth/income/both
-  
-  // Risk Declaration eSign
-  riskDeclarationUrl: varchar("risk_declaration_url"),
-  eSignProvider: varchar("esign_provider"), // emudhra/nsdl
-  eSignTransactionId: varchar("esign_transaction_id"),
-  eSignStatus: varchar("esign_status"), // pending/initiated/completed/failed
-  eSignRequestPayload: jsonb("esign_request_payload"),
-  eSignResponsePayload: jsonb("esign_response_payload"),
-  eSignCompletedAt: timestamp("esign_completed_at"),
-  eSignFailureReason: text("esign_failure_reason"),
-  
-  // BSE Accreditation API Submission
-  bseSubmissionId: varchar("bse_submission_id"),
-  bseSubmissionStatus: varchar("bse_submission_status"), // pending/submitted/under_review/approved/rejected
-  bseSubmittedAt: timestamp("bse_submitted_at"),
-  bseRequestPayload: jsonb("bse_request_payload"),
-  bseResponsePayload: jsonb("bse_response_payload"),
-  
-  // AI Certificate (received from BSE)
-  aiCertificateNumber: varchar("ai_certificate_number"),
-  aiCertificateId: varchar("ai_certificate_id"),
-  aiCertificateIssuedAt: timestamp("ai_certificate_issued_at"),
-  aiCertificateExpiryDate: timestamp("ai_certificate_expiry_date"),
-  aiCertificateUrl: varchar("ai_certificate_url"), // URL to download certificate PDF
-  
-  // Decision Tracking
-  approvedAt: timestamp("approved_at"),
-  rejectedAt: timestamp("rejected_at"),
-  rejectionReason: text("rejection_reason"),
-  verifiedBy: varchar("verified_by"), // admin user ID or "bse_api"
-  
-  // Audit
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-  index("idx_ai_verif_user").on(table.userId),
-  index("idx_ai_verif_session").on(table.sessionId),
-  index("idx_ai_verif_status").on(table.status),
-  index("idx_ai_verif_esign").on(table.eSignTransactionId),
-  index("idx_ai_verif_bse").on(table.bseSubmissionId),
-]);
-
-export const bseUccRequests = pgTable("bse_ucc_requests", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  sessionId: varchar("session_id").references(() => kycVerificationSessions.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  kraCheckId: varchar("kra_check_id").references(() => kraStatusChecks.id),
-  
-  // BSE UCC Data
-  uccNumber: varchar("ucc_number").unique(), // BSE UCC number
-  requestId: varchar("request_id"), // BSE API request reference
-  
-  // Status Tracking
-  status: varchar("status").default("pending"), // pending/submitted/created/failed
-  attemptCount: integer("attempt_count").default(0),
-  lastTriedAt: timestamp("last_tried_at"),
-  createdAt: timestamp("created_at").defaultNow(),
-  
-  // Request/Response Data
-  requestPayload: jsonb("request_payload"), // BSE API request
-  responseData: jsonb("response_data"), // BSE API response
-  rejectionReason: text("rejection_reason"),
-  
-  // Audit fields
-  updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-  index("idx_bse_session").on(table.sessionId),
-  index("idx_bse_user").on(table.userId),
-  index("idx_bse_ucc").on(table.uccNumber),
-  index("idx_bse_status").on(table.status),
-]);
-
-// KYC State Transitions table for immutable audit trail
-export const kycStateTransitions = pgTable("kyc_state_transitions", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  sessionId: varchar("session_id").references(() => kycVerificationSessions.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  
-  // Transition Data
-  fromState: varchar("from_state").notNull(),
-  toState: varchar("to_state").notNull(),
-  trigger: varchar("trigger").notNull(), // api_call/background_job/user_action/system_timeout
-  
-  // Actor Information
-  performedBy: varchar("performed_by"), // User ID or 'system'
-  performedByRole: varchar("performed_by_role"), // user/admin/system
-  
-  // Metadata
-  metadata: jsonb("metadata"), // Additional context for the transition
-  ipAddress: varchar("ip_address"),
-  userAgent: text("user_agent"),
-  
-  // Timestamp
-  occurredAt: timestamp("occurred_at").defaultNow(),
-}, (table) => [
-  index("idx_transition_session").on(table.sessionId),
-  index("idx_transition_user").on(table.userId),
-  index("idx_transition_time").on(table.occurredAt),
-]);
+});
 
 // Compliance Documents table for storing regulatory documents
 export const complianceDocuments = pgTable("compliance_documents", {
@@ -1012,11 +598,10 @@ export const complianceAuditTrail = pgTable("compliance_audit_trail", {
 export const otpVerifications = pgTable("otp_verifications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   identifier: varchar("identifier").notNull(), // email or mobile
-  otp: varchar("otp", { length: 200 }).notNull(), // Hashed OTP (scrypt hash: 128 hex + 1 dot + 32 hex salt = 161 chars)
+  otp: varchar("otp", { length: 6 }).notNull(),
   type: varchar("type").notNull(), // 'email' or 'mobile'
   expiresAt: timestamp("expires_at").notNull(),
   verified: boolean("verified").default(false),
-  attemptCount: integer("attempt_count").default(0).notNull(), // Track verification attempts
   metadata: jsonb("metadata"), // Store additional data like pending registration info
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -1413,61 +998,6 @@ export const assetAllocation = pgTable("asset_allocation", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Rebalance execution history
-export const rebalanceExecutions = pgTable("rebalance_executions", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  portfolioId: varchar("portfolio_id").references(() => portfolios.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  executionDate: timestamp("execution_date").defaultNow(),
-  status: varchar("status").notNull().default("pending"), // 'pending', 'executing', 'completed', 'failed', 'partially_completed'
-  portfolioValueBefore: decimal("portfolio_value_before", { precision: 15, scale: 2 }),
-  portfolioValueAfter: decimal("portfolio_value_after", { precision: 15, scale: 2 }),
-  transactionCount: integer("transaction_count").default(0),
-  successfulTransactions: integer("successful_transactions").default(0),
-  failedTransactions: integer("failed_transactions").default(0),
-  totalTransactionCost: decimal("total_transaction_cost", { precision: 15, scale: 2 }).default("0"),
-  rebalanceDetails: jsonb("rebalance_details"), // Store the full rebalance calculation
-  executionNotes: text("execution_notes"),
-  completedAt: timestamp("completed_at"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-// Rebalance transaction details (individual buy/sell transactions from rebalance)
-export const rebalanceTransactions = pgTable("rebalance_transactions", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  rebalanceExecutionId: varchar("rebalance_execution_id").references(() => rebalanceExecutions.id).notNull(),
-  portfolioId: varchar("portfolio_id").references(() => portfolios.id).notNull(),
-  assetType: varchar("asset_type").notNull(),
-  symbol: varchar("symbol"),
-  action: varchar("action").notNull(), // 'BUY' or 'SELL'
-  quantity: decimal("quantity", { precision: 15, scale: 4 }),
-  price: decimal("price", { precision: 15, scale: 4 }),
-  amount: decimal("amount", { precision: 15, scale: 2 }),
-  transactionCost: decimal("transaction_cost", { precision: 15, scale: 2 }),
-  status: varchar("status").notNull().default("pending"), // 'pending', 'executed', 'failed'
-  orderId: varchar("order_id"), // External order reference if applicable
-  errorMessage: text("error_message"),
-  executedAt: timestamp("executed_at"),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-// User rebalancing preferences
-export const rebalancingPreferences = pgTable("rebalancing_preferences", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull().unique(),
-  toleranceThreshold: decimal("tolerance_threshold", { precision: 5, scale: 2 }).default("5.00"), // Percentage deviation before rebalancing (default 5%)
-  minimumTransactionAmount: decimal("minimum_transaction_amount", { precision: 15, scale: 2 }).default("1000.00"), // Skip transactions below this amount (default ₹1000)
-  transactionCostPercentage: decimal("transaction_cost_percentage", { precision: 5, scale: 2 }).default("0.10"), // Transaction cost as percentage (default 0.10%)
-  autoRebalanceEnabled: boolean("auto_rebalance_enabled").default(false),
-  rebalanceFrequency: varchar("rebalance_frequency").default("quarterly"), // 'monthly', 'quarterly', 'semi_annually', 'annually', 'manual'
-  notifyOnDrift: boolean("notify_on_drift").default(true), // Send alert when portfolio drifts beyond threshold
-  lastRebalanceDate: timestamp("last_rebalance_date"),
-  nextScheduledRebalance: timestamp("next_scheduled_rebalance"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
 // Portfolio snapshots for date-specific portfolio views
 export const portfolioSnapshots = pgTable("portfolio_snapshots", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1547,7 +1077,6 @@ export const comprehensiveHoldings = pgTable("comprehensive_holdings", {
   lastUpdated: timestamp("last_updated").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-  deletedAt: timestamp("deleted_at"), // Soft delete timestamp (set 90 days after consent revocation)
 });
 
 // EPF Holdings table for tracking Employee Provident Fund data
@@ -2018,7 +1547,6 @@ export const customerCareAgents = pgTable("customer_care_agents", {
   
   // Status and availability
   status: varchar("status").default("active"), // 'active', 'inactive', 'on_leave', 'suspended'
-  isDefault: boolean("is_default").default(false), // Mark as default agent for fallback EUIN/ARN when no client-agent mapping exists
   maxTicketsPerDay: integer("max_tickets_per_day").default(50),
   currentTicketCount: integer("current_ticket_count").default(0),
   // Performance metrics
@@ -2428,7 +1956,6 @@ export const agents = pgTable("agents", {
   agentType: varchar("agent_type").default("individual"), // individual, corporate, sub_broker
   status: varchar("status").default("active"), // active, inactive, suspended, terminated
   isActive: boolean("is_active").default(true),
-  isDefault: boolean("is_default").default(false), // Only one agent should be marked as default for fallback
   
   // Performance Metrics
   activeClients: integer("active_clients").default(0),
@@ -2438,7 +1965,7 @@ export const agents = pgTable("agents", {
   totalCommissionsEarned: decimal("total_commissions_earned", { precision: 15, scale: 2 }).default("0.00"),
   
   // Hierarchy and Reporting
-  reportingTo: varchar("reporting_to"), // Manager/supervisor agent ID
+  reportingTo: varchar("reporting_to").references(() => agents.id), // Manager/supervisor agent ID
   teamSize: integer("team_size").default(0), // Number of agents reporting to this agent
   hierarchyLevel: integer("hierarchy_level").default(1), // 1 = frontline, 2 = team lead, 3 = manager, etc.
   
@@ -2451,162 +1978,10 @@ export const agents = pgTable("agents", {
   commissionTier: varchar("commission_tier").default("standard"), // standard, silver, gold, platinum
   baseCommissionRate: decimal("base_commission_rate", { precision: 5, scale: 2 }).default("0.00"), // Base % commission
   
-  // NISM-V-A Certification (Required for Mutual Fund Distribution)
-  nismCertificateNumber: varchar("nism_certificate_number"), // NISM Series V-A certificate number
-  nismValidTill: timestamp("nism_valid_till"), // Certificate expiry date
-  nismCertificateUrl: text("nism_certificate_url"), // Document URL in object storage
-  nismStatus: varchar("nism_status").default("pending"), // pending, verified, expired, rejected
-  
-  // KYD Verification (Know Your Distributor - Biometric & Identity)
-  kydVerificationStatus: varchar("kyd_verification_status").default("pending"), // pending, verified, failed, expired
-  kydVerifiedAt: timestamp("kyd_verified_at"),
-  kydReferenceNumber: varchar("kyd_reference_number"), // KYD verification reference ID
-  kydDocumentUrl: text("kyd_document_url"), // KYD proof document URL
-  
-  // ARN & EUIN Validity Tracking
-  arnValidTill: timestamp("arn_valid_till"), // ARN (AMFI Registration Number) validity
-  euinValidTill: timestamp("euin_valid_till"), // EUIN validity
-  arnStatus: varchar("arn_status").default("pending"), // pending, active, expired, suspended, cancelled
-  euinStatus: varchar("euin_status").default("pending"), // pending, active, expired, suspended
-  
-  // Compliance Status and Documents
-  complianceStatus: varchar("compliance_status").default("incomplete"), // incomplete, compliant, non_compliant, under_review
-  certificationDocuments: jsonb("certification_documents"), // Store all certification docs metadata
-  lastComplianceCheckAt: timestamp("last_compliance_check_at"),
-  complianceRemarks: text("compliance_remarks"), // Admin remarks on compliance status
-  
-  // Referral System
-  referralCode: varchar("referral_code").unique(), // Unique code for agent referral links (e.g., "AG123")
-  referralCount: integer("referral_count").default(0), // Total clients referred
-  
   // Timestamps
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
-
-// Agent-Client Mapping - Track which agent is assigned to which client with product-level granularity
-export const agentClientMapping = pgTable("agent_client_mapping", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  
-  // Relationship
-  clientId: varchar("client_id").references(() => users.id).notNull(),
-  agentId: varchar("agent_id").references(() => agents.id).notNull(),
-  
-  // Product-level assignment (allows different agents for different products)
-  productType: varchar("product_type"), // null = all products, or specific: 'mutual_funds', 'pms', 'aif', 'insurance', 'loans', 'bonds', 'equity'
-  
-  // Assignment period
-  startDate: timestamp("start_date").defaultNow().notNull(),
-  endDate: timestamp("end_date"), // null = currently active
-  
-  // Assignment metadata
-  assignmentType: varchar("assignment_type").default("referral"), // referral, admin_assigned, client_selected, transferred
-  referralSource: varchar("referral_source"), // web, mobile, agent_link, call_center
-  assignedBy: varchar("assigned_by").references(() => users.id), // Admin who made the assignment
-  
-  // Status
-  status: varchar("status").default("active"), // active, inactive, replaced
-  isActive: boolean("is_active").default(true),
-  
-  // Transfer/replacement tracking
-  replacedByMappingId: varchar("replaced_by_mapping_id"), // If this assignment was replaced
-  replacementReason: text("replacement_reason"), // Why agent was changed
-  
-  // Audit trail
-  notes: text("notes"),
-  
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-  index("idx_agent_client_client").on(table.clientId),
-  index("idx_agent_client_agent").on(table.agentId),
-  index("idx_agent_client_product").on(table.productType),
-  index("idx_agent_client_active").on(table.isActive),
-]);
-
-// Commissions - Track commission calculations and payouts for agents
-export const commissions = pgTable("commissions", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  
-  // Agent and Client
-  agentId: varchar("agent_id").references(() => agents.id).notNull(),
-  clientId: varchar("client_id").references(() => users.id).notNull(),
-  
-  // Transaction reference
-  orderId: varchar("order_id"), // Reference to order/transaction
-  transactionType: varchar("transaction_type"), // 'purchase', 'sip', 'redemption', 'switch'
-  
-  // Product details
-  productType: varchar("product_type").notNull(), // mutual_funds, pms, aif, insurance, loans
-  schemeCode: varchar("scheme_code"), // For mutual funds
-  schemeName: varchar("scheme_name"),
-  
-  // Commission calculation
-  transactionAmount: decimal("transaction_amount", { precision: 20, scale: 2 }).notNull(),
-  units: decimal("units", { precision: 20, scale: 4 }), // For funds
-  nav: decimal("nav", { precision: 20, scale: 4 }), // Net Asset Value at transaction
-  
-  // Commission rates and amounts
-  commissionType: varchar("commission_type").notNull(), // 'upfront', 'trail', 'performance', 'referral_bonus'
-  commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }).notNull(), // Percentage
-  commissionAmount: decimal("commission_amount", { precision: 15, scale: 2 }).notNull(),
-  
-  // Trail commission specifics
-  trailMonth: varchar("trail_month"), // YYYY-MM format for trail commissions
-  trailFrequency: varchar("trail_frequency"), // monthly, quarterly, annually
-  
-  // TDS and taxes
-  tdsAmount: decimal("tds_amount", { precision: 15, scale: 2 }).default("0.00"),
-  tdsRate: decimal("tds_rate", { precision: 5, scale: 2 }).default("0.00"),
-  gstAmount: decimal("gst_amount", { precision: 15, scale: 2 }).default("0.00"),
-  netCommission: decimal("net_commission", { precision: 15, scale: 2 }).notNull(), // After TDS & GST
-  
-  // RTA/AMC information
-  rtaReportDate: timestamp("rta_report_date"), // Date from RTA report (CAMS/KFintech)
-  rtaReferenceNumber: varchar("rta_reference_number"), // Reference from RTA
-  amcName: varchar("amc_name"), // Asset Management Company name
-  
-  // Payout tracking
-  payoutStatus: varchar("payout_status").default("pending"), // pending, approved, processing, paid, failed, cancelled
-  approvedBy: varchar("approved_by").references(() => users.id),
-  approvedAt: timestamp("approved_at"),
-  
-  // Payout execution
-  payoutRequestId: varchar("payout_request_id"), // Link to payout batch
-  payoutMethod: varchar("payout_method"), // bank_transfer, upi, cheque
-  payoutDate: timestamp("payout_date"),
-  payoutReferenceNumber: varchar("payout_reference_number"), // UTR/transaction ref
-  payoutAmount: decimal("payout_amount", { precision: 15, scale: 2 }), // Actual amount paid
-  
-  // Cashfree Payout Integration
-  cashfreeTransferId: varchar("cashfree_transfer_id"), // Cashfree payout ID
-  cashfreeUtr: varchar("cashfree_utr"), // Bank UTR from Cashfree
-  cashfreeStatus: varchar("cashfree_status"), // Cashfree payout status
-  
-  // Reconciliation
-  isReconciled: boolean("is_reconciled").default(false),
-  reconciledAt: timestamp("reconciled_at"),
-  reconciledBy: varchar("reconciled_by").references(() => users.id),
-  reconciliationNotes: text("reconciliation_notes"),
-  
-  // Error handling
-  failureReason: text("failure_reason"),
-  retryCount: integer("retry_count").default(0),
-  
-  // Audit
-  calculatedAt: timestamp("calculated_at").defaultNow(),
-  calculationMethod: varchar("calculation_method"), // rta_report, manual, automated
-  notes: text("notes"),
-  
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-  index("idx_commissions_agent").on(table.agentId),
-  index("idx_commissions_client").on(table.clientId),
-  index("idx_commissions_status").on(table.payoutStatus),
-  index("idx_commissions_month").on(table.trailMonth),
-  index("idx_commissions_product").on(table.productType),
-]);
 
 // Zoho OAuth Connections - Store OAuth tokens for Zoho integrations
 export const zohoConnections = pgTable("zoho_connections", {
@@ -2810,12 +2185,6 @@ export const products = pgTable("products", {
   // Data freshness
   lastPerformanceUpdate: timestamp("last_performance_update"),
   dataSource: varchar("data_source"), // 'api', 'manual', 'calculated'
-  // Markup and pricing
-  markup: decimal("markup", { precision: 8, scale: 4 }).default("0"), // Markup amount or percentage
-  markupType: varchar("markup_type").default("percentage"), // 'percentage' or 'fixed'
-  finalPrice: decimal("final_price", { precision: 15, scale: 2 }), // Calculated: basePrice + markup
-  // Bond specific flags
-  isPerpetual: boolean("is_perpetual").default(false), // For perpetual bonds (no maturity date)
   // Timestamps
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -3022,10 +2391,6 @@ export const financialGoals = pgTable("financial_goals", {
   // Risk and investment preferences
   riskProfile: varchar("risk_profile").notNull(), // conservative, moderate, aggressive
   priority: varchar("priority").default("medium"), // low, medium, high
-  
-  // Investment strategy
-  investmentStrategy: varchar("investment_strategy").default("sip"), // sip, lump_sum
-  recommendedMonthlyContribution: decimal("recommended_monthly_contribution", { precision: 10, scale: 2 }).default("0"),
   
   // Recommendations and tracking
   recommendedInvestments: text("recommended_investments").array(),
@@ -3299,23 +2664,6 @@ export const insertAssetAllocationSchema = createInsertSchema(assetAllocation).o
   updatedAt: true,
 });
 
-export const insertRebalanceExecutionSchema = createInsertSchema(rebalanceExecutions).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertRebalanceTransactionSchema = createInsertSchema(rebalanceTransactions).omit({
-  id: true,
-  createdAt: true,
-});
-
-export const insertRebalancingPreferencesSchema = createInsertSchema(rebalancingPreferences).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
 export const insertPortfolioSnapshotSchema = createInsertSchema(portfolioSnapshots).omit({
   id: true,
   createdAt: true,
@@ -3509,24 +2857,6 @@ export const insertAgentSchema = createInsertSchema(agents).omit({
 });
 export type InsertAgent = z.infer<typeof insertAgentSchema>;
 export type Agent = typeof agents.$inferSelect;
-
-// Agent-Client Mapping schemas
-export const insertAgentClientMappingSchema = createInsertSchema(agentClientMapping).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-export type InsertAgentClientMapping = z.infer<typeof insertAgentClientMappingSchema>;
-export type AgentClientMapping = typeof agentClientMapping.$inferSelect;
-
-// Commission schemas
-export const insertCommissionSchema = createInsertSchema(commissions).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-export type InsertCommission = z.infer<typeof insertCommissionSchema>;
-export type Commission = typeof commissions.$inferSelect;
 
 // Zoho Connections schemas
 export const insertZohoConnectionSchema = createInsertSchema(zohoConnections).omit({
@@ -3810,12 +3140,6 @@ export type Watchlist = typeof watchlists.$inferSelect;
 export type MarketData = typeof marketData.$inferSelect;
 export type AssetAllocation = typeof assetAllocation.$inferSelect;
 export type InsertAssetAllocation = z.infer<typeof insertAssetAllocationSchema>;
-export type RebalanceExecution = typeof rebalanceExecutions.$inferSelect;
-export type InsertRebalanceExecution = z.infer<typeof insertRebalanceExecutionSchema>;
-export type RebalanceTransaction = typeof rebalanceTransactions.$inferSelect;
-export type InsertRebalanceTransaction = z.infer<typeof insertRebalanceTransactionSchema>;
-export type RebalancingPreferences = typeof rebalancingPreferences.$inferSelect;
-export type InsertRebalancingPreferences = z.infer<typeof insertRebalancingPreferencesSchema>;
 export type PortfolioSnapshot = typeof portfolioSnapshots.$inferSelect;
 export type InsertPortfolioSnapshot = z.infer<typeof insertPortfolioSnapshotSchema>;
 export type ComprehensiveHolding = typeof comprehensiveHoldings.$inferSelect;
@@ -5218,19 +4542,6 @@ export const suppliers = pgTable("suppliers", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const supplierProducts = pgTable("supplier_products", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  supplierId: varchar("supplier_id").references(() => suppliers.id).notNull(),
-  productName: varchar("product_name").notNull(),
-  description: text("description"),
-  price: decimal("price", { precision: 15, scale: 2 }).notNull(),
-  profitMargin: decimal("profit_margin", { precision: 5, scale: 2 }).notNull(),
-  category: varchar("category"),
-  isActive: boolean("is_active").default(true),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
 export const productPerformance = pgTable("product_performance", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   productId: varchar("product_id").references(() => storeProducts.id).notNull(),
@@ -6244,7 +5555,7 @@ export type InsertZohoCommerceSyncLog = z.infer<typeof insertZohoCommerceSyncLog
 export const bbpsCategories = pgTable("bbps_categories", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   categoryName: varchar("category_name").notNull(), // Electricity, Gas, Telecom, etc.
-  categoryCode: varchar("category_code").notNull(), // ELECTRICITY_BILL, GAS_BILL, etc. - TODO: Add unique constraint after republish
+  categoryCode: varchar("category_code").notNull().unique(), // ELECTRICITY_BILL, GAS_BILL, etc.
   description: text("description"),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
@@ -6254,7 +5565,7 @@ export const bbpsCategories = pgTable("bbps_categories", {
 export const bbpsBillers = pgTable("bbps_billers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   billerName: varchar("biller_name").notNull(), // BSES, Airtel, etc.
-  billerCode: varchar("biller_code").notNull(), // BSES001, AIRTEL001, etc. - TODO: Add unique constraint after republish
+  billerCode: varchar("biller_code").notNull().unique(), // BSES001, AIRTEL001, etc.
   categoryId: varchar("category_id").references(() => bbpsCategories.id).notNull(),
   billerAliasName: varchar("biller_alias_name"),
   billerCoverage: varchar("biller_coverage"), // ALL_INDIA, STATE_WISE, etc.
@@ -7822,13 +7133,30 @@ export const cashfreeTransactions = pgTable("cashfree_transactions", {
   
   // Transaction Status
   status: varchar("status").default("PENDING").notNull(), // PENDING, SUCCESS, FAILED, ACTIVE
+  orderStatus: varchar("order_status"), // Cashfree order status
+  responseMessage: text("response_message"), // Cashfree response message
+  
+  // URLs and Redirects
+  returnUrl: text("return_url"),
+  paymentUrl: text("payment_url"), // Cashfree payment page URL
+  
+  // Related Entities
+  cartId: varchar("cart_id").references(() => userCart.id), // If payment for cart checkout
+  itemType: varchar("item_type"), // mutual_fund, product, proposal, loan
+  itemId: varchar("item_id"), // ID of the item being purchased
   
   // Cashfree Gateway Response
   gatewayResponse: jsonb("gateway_response"), // Full response from Cashfree
   
+  // Metadata
+  metadata: jsonb("metadata"), // Additional transaction data
+  failureReason: text("failure_reason"),
+  retryCount: integer("retry_count").default(0),
+  
   // Timestamps
-  webhookReceivedAt: timestamp("webhook_received_at"),
+  initiatedAt: timestamp("initiated_at").defaultNow(),
   completedAt: timestamp("completed_at"),
+  callbackReceivedAt: timestamp("callback_received_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -7838,6 +7166,7 @@ export const insertCashfreeTransactionSchema = createInsertSchema(cashfreeTransa
   id: true,
   createdAt: true,
   updatedAt: true,
+  initiatedAt: true,
 });
 
 // Cashfree Transaction Types
@@ -8224,13 +7553,6 @@ export const governmentSecurities = pgTable("government_securities", {
   eligibilityCriteria: text("eligibility_criteria"),
   lockinPeriod: varchar("lockin_period"), // Lock-in period if any
   
-  // Markup and pricing
-  markup: decimal("markup", { precision: 8, scale: 4 }).default("0"), // Markup amount or percentage
-  markupType: varchar("markup_type").default("percentage"), // 'percentage' or 'fixed'
-  finalPrice: decimal("final_price", { precision: 15, scale: 4 }), // Calculated: currentPrice + markup
-  // Perpetual bond flag
-  isPerpetual: boolean("is_perpetual").default(false), // True for perpetual bonds with no maturity date
-  
   // Metadata
   dataSource: varchar("data_source").default("nse_ncb"), // 'nse_ncb', 'rbi', 'manual'
   lastUpdated: timestamp("last_updated").defaultNow(),
@@ -8322,12 +7644,6 @@ export const corporateBonds = pgTable("corporate_bonds", {
   specialFeatures: jsonb("special_features").default([]),
   lockinPeriod: varchar("lockin_period"),
   
-  // Markup and pricing
-  markup: decimal("markup", { precision: 8, scale: 4 }).default("0"), // Markup amount or percentage
-  markupType: varchar("markup_type").default("percentage"), // 'percentage' or 'fixed'
-  finalPrice: decimal("final_price", { precision: 15, scale: 4 }), // Calculated: currentPrice + markup
-  // Perpetual bond flag
-  isPerpetual: boolean("is_perpetual").default(false), // True for perpetual bonds with no maturity date
   // Metadata
   dataSource: varchar("data_source").default("bse_bond"), // 'bse_bond', 'manual'
   lastUpdated: timestamp("last_updated").defaultNow(),
@@ -9019,11 +8335,6 @@ export const unifiedOrders = pgTable("unified_orders", {
   proposalId: varchar("proposal_id").references(() => investmentProposals.id),
   portfolioId: varchar("portfolio_id").references(() => portfolios.id),
   
-  // Agent and EUIN snapshot (preserved for commission tracking even if agent is reassigned)
-  agentId: varchar("agent_id").references(() => agents.id), // Agent at time of order
-  arnCode: varchar("arn_code"), // ARN snapshot for mutual funds
-  euinNumber: varchar("euin_number"), // EUIN snapshot for mutual funds
-  
   // Order lifecycle status
   status: varchar("status").notNull().default("initiated"), 
   // Status flow: initiated → payment_pending → payment_completed → kyc_verified → processing → executed → settled → completed
@@ -9258,14 +8569,20 @@ export const userBudgets = pgTable("user_budgets", {
   
   // Budget amount and period
   budgetAmount: decimal("budget_amount", { precision: 15, scale: 2 }).notNull(),
-  periodType: varchar("period_type").notNull(), // daily, weekly, monthly, quarterly, yearly
+  period: varchar("period").notNull(), // daily, weekly, monthly, quarterly, yearly
   currency: varchar("currency").default("INR").notNull(),
   
   // Tracking
-  spentAmount: decimal("spent_amount", { precision: 15, scale: 2 }).default("0"),
+  currentSpend: decimal("current_spend", { precision: 15, scale: 2 }).default("0"),
+  lastResetDate: timestamp("last_reset_date").defaultNow(),
+  
+  // AI suggestions
+  aiSuggested: boolean("ai_suggested").default(false),
+  aiReasoning: text("ai_reasoning"), // Why AI suggested this budget
   
   // Alerts
   alertThreshold: decimal("alert_threshold", { precision: 5, scale: 2 }).default("80"), // Percentage
+  alertEnabled: boolean("alert_enabled").default(true),
   
   // Status
   isActive: boolean("is_active").default(true),
@@ -9278,8 +8595,8 @@ export const userBudgets = pgTable("user_budgets", {
 }, (table) => [
   index("idx_user_budgets_user").on(table.userId),
   index("idx_user_budgets_category").on(table.category),
-  index("idx_user_budgets_period").on(table.periodType),
-  sql`UNIQUE(user_id, category, subcategory, period_type)`,
+  index("idx_user_budgets_period").on(table.period),
+  sql`UNIQUE(user_id, category, subcategory, period)`,
 ]);
 
 // Expense Insights - AI-generated spending insights and recommendations
@@ -9792,7 +9109,6 @@ export const dataSourceConsents = pgTable("data_source_consents", {
   lastSyncedAt: timestamp("last_synced_at"), // Last successful data fetch
   nextSyncDue: timestamp("next_sync_due"), // Next scheduled sync
   syncFrequency: varchar("sync_frequency").default("weekly"), // daily/weekly/monthly/manual
-  deletionWarningSentAt: timestamp("deletion_warning_sent_at"), // Track when 30-day deletion warning was sent
   
   // Audit metadata
   consentVersion: varchar("consent_version").default("v1.0"), // Track consent text versions
@@ -9845,189 +9161,6 @@ export const autoPopulationStatus = pgTable("auto_population_status", {
   index("idx_auto_pop_status").on(table.status),
   index("idx_auto_pop_initiated").on(table.initiatedAt),
 ]);
-
-// CAS Request Tracking - Track CAS generation/parsing/import workflow state
-export const casRequests = pgTable("cas_requests", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  
-  // User information
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  portfolioId: varchar("portfolio_id").references(() => portfolios.id),
-  
-  // CAS provider details
-  provider: varchar("provider").notNull(), // CAMS/KFin
-  requestId: varchar("request_id").notNull().unique(), // External CAS provider request ID
-  
-  // Workflow status
-  status: varchar("status").notNull().default("requested"), // requested/generating/ready/parsed/imported/failed
-  currentStep: varchar("current_step").default("generation"), // generation/polling/parsing/importing
-  
-  // Request parameters
-  panNumber: varchar("pan_number"),
-  email: varchar("email"),
-  fromDate: date("from_date"),
-  toDate: date("to_date"),
-  
-  // Generation tracking
-  pdfUrl: text("pdf_url"), // URL to download generated PDF
-  pdfSize: integer("pdf_size"), // PDF file size in bytes
-  generatedAt: timestamp("generated_at"), // When PDF was ready
-  
-  // Parsed data
-  parsedData: jsonb("parsed_data"), // Full parsed CAS JSON
-  totalFolios: integer("total_folios").default(0),
-  totalValue: numeric("total_value", { precision: 15, scale: 2 }),
-  parsedAt: timestamp("parsed_at"),
-  
-  // Import results
-  importedAt: timestamp("imported_at"),
-  insertedHoldings: integer("inserted_holdings").default(0),
-  updatedHoldings: integer("updated_holdings").default(0),
-  skippedDuplicates: integer("skipped_duplicates").default(0),
-  
-  // Error handling
-  errorMessage: text("error_message"),
-  errorStep: varchar("error_step"), // Which step failed
-  
-  // Timestamps
-  requestedAt: timestamp("requested_at").defaultNow(),
-  completedAt: timestamp("completed_at"),
-  
-  // Metadata
-  metadata: jsonb("metadata"), // Additional workflow context
-}, (table) => [
-  index("idx_cas_req_user").on(table.userId),
-  index("idx_cas_req_status").on(table.status),
-  index("idx_cas_req_provider").on(table.provider),
-  index("idx_cas_req_external_id").on(table.requestId),
-  index("idx_cas_req_requested_at").on(table.requestedAt),
-]);
-
-export const insertCasRequestSchema = createInsertSchema(casRequests).omit({
-  id: true,
-  requestedAt: true,
-  completedAt: true,
-});
-export type CasRequest = typeof casRequests.$inferSelect;
-export type InsertCasRequest = z.infer<typeof insertCasRequestSchema>;
-
-// KYC Workflows - State machine tracking for hybrid KYC priority workflow
-export const kycWorkflows = pgTable("kyc_workflows", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  
-  // User information
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  
-  // Workflow state machine
-  status: varchar("status").notNull().default("initiated"), // initiated/ckyc_lookup/kra_ekyc/video_kyc/manual_kyc/verified/failed
-  currentMethod: varchar("current_method"), // ckyc/kra_ekyc/video_kyc/manual_kyc
-  
-  // Success tracking
-  successfulMethod: varchar("successful_method"), // Which method ultimately succeeded
-  ckycKinNumber: varchar("ckyc_kin_number"), // CKYC ID if found/created
-  kraVerificationNumber: varchar("kra_verification_number"), // KRA verification number if used
-  videoKycSessionId: varchar("video_kyc_session_id"), // Video KYC session ID if used
-  
-  // Workflow progression
-  attemptedMethods: jsonb("attempted_methods").default([]), // Array of methods tried: ['ckyc', 'kra_ekyc', ...]
-  stepTimestamps: jsonb("step_timestamps"), // { ckyc_started: '...', ckyc_completed: '...', ... }
-  
-  // Result data
-  verifiedData: jsonb("verified_data"), // Normalized KYC data from successful method
-  dataSource: varchar("data_source"), // Which provider/agency gave the data
-  verificationLevel: varchar("verification_level").default("basic"), // basic/enhanced/accredited
-  
-  // Error tracking
-  errorMessage: text("error_message"),
-  failedAtMethod: varchar("failed_at_method"), // Which method was being attempted when workflow failed
-  
-  // Compliance metadata
-  panNumber: varchar("pan_number"), // For lookup/audit (not encrypted here)
-  ipAddress: varchar("ip_address"),
-  userAgent: text("user_agent"),
-  
-  // Timestamps
-  initiatedAt: timestamp("initiated_at").defaultNow(),
-  verifiedAt: timestamp("verified_at"),
-  completedAt: timestamp("completed_at"),
-  
-  // Lock mechanism for preventing concurrent workflows
-  lockToken: varchar("lock_token"), // Distributed lock token
-  lockedAt: timestamp("locked_at"),
-  lockExpiresAt: timestamp("lock_expires_at"),
-}, (table) => [
-  index("idx_kyc_workflow_user").on(table.userId),
-  index("idx_kyc_workflow_status").on(table.status),
-  index("idx_kyc_workflow_pan").on(table.panNumber),
-  index("idx_kyc_workflow_initiated").on(table.initiatedAt),
-  index("idx_kyc_workflow_method").on(table.currentMethod),
-]);
-
-// KYC Verification Attempts - Detailed tracking of each verification method attempt
-export const kycVerificationAttempts = pgTable("kyc_verification_attempts", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  
-  // Workflow linkage
-  workflowId: varchar("workflow_id").references(() => kycWorkflows.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  
-  // Verification method details
-  verificationMethod: varchar("verification_method").notNull(), // ckyc_lookup/kra_ekyc/video_kyc/manual_kyc
-  provider: varchar("provider"), // CAMS/CVL/KFintech/NSE/NDML/HyperVerge/SignDesk/etc
-  
-  // Request/Response tracking
-  requestPayloadHash: varchar("request_payload_hash"), // SHA-256 hash of request for audit
-  responsePayloadHash: varchar("response_payload_hash"), // SHA-256 hash of response for audit
-  correlationId: varchar("correlation_id").notNull().unique(), // For correlating logs/API calls
-  
-  // Result tracking
-  outcome: varchar("outcome").notNull(), // success/failure/timeout/rate_limited/partial_success
-  responseCode: varchar("response_code"), // HTTP status or API error code
-  errorDetails: jsonb("error_details"), // Structured error information
-  
-  // Data quality metrics
-  dataCompleteness: integer("data_completeness"), // Percentage of required fields populated (0-100)
-  dataFreshness: timestamp("data_freshness"), // Timestamp of data at provider
-  verificationScore: integer("verification_score"), // Provider's confidence score (0-100)
-  
-  // SLA tracking
-  latencyMs: integer("latency_ms"), // Response time in milliseconds
-  retryCount: integer("retry_count").default(0),
-  
-  // Compliance flags
-  complianceFlags: jsonb("compliance_flags"), // { pep_check: true, sanctions_check: false, ... }
-  regulatoryNotes: text("regulatory_notes"), // Any compliance-related notes
-  
-  // Timestamps
-  attemptedAt: timestamp("attempted_at").defaultNow(),
-  completedAt: timestamp("completed_at"),
-  
-  // Metadata
-  metadata: jsonb("metadata"), // Provider-specific additional data
-}, (table) => [
-  index("idx_kyc_attempt_workflow").on(table.workflowId),
-  index("idx_kyc_attempt_user").on(table.userId),
-  index("idx_kyc_attempt_method").on(table.verificationMethod),
-  index("idx_kyc_attempt_outcome").on(table.outcome),
-  index("idx_kyc_attempt_correlation").on(table.correlationId),
-  index("idx_kyc_attempt_attempted_at").on(table.attemptedAt),
-]);
-
-export const insertKycWorkflowSchema = createInsertSchema(kycWorkflows).omit({
-  id: true,
-  initiatedAt: true,
-  completedAt: true,
-});
-export type KycWorkflow = typeof kycWorkflows.$inferSelect;
-export type InsertKycWorkflow = z.infer<typeof insertKycWorkflowSchema>;
-
-export const insertKycVerificationAttemptSchema = createInsertSchema(kycVerificationAttempts).omit({
-  id: true,
-  attemptedAt: true,
-  completedAt: true,
-});
-export type KycVerificationAttempt = typeof kycVerificationAttempts.$inferSelect;
-export type InsertKycVerificationAttempt = z.infer<typeof insertKycVerificationAttemptSchema>;
 
 // Insert schemas and types for KYC Vault System
 export const insertKycVaultSchema = createInsertSchema(kycVault).omit({
@@ -10602,776 +9735,3 @@ export const insertPredictionAccuracySchema = createInsertSchema(predictionAccur
 export type PredictionAccuracy = typeof predictionAccuracy.$inferSelect;
 export type InsertPredictionAccuracy = z.infer<typeof insertPredictionAccuracySchema>;
 
-// Account Aggregator (AA) Consents - User consent management for financial data sharing
-export const aaConsents = pgTable("aa_consents", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  
-  // Consent identification
-  consentId: varchar("consent_id").notNull().unique(), // AA ecosystem consent ID
-  consentHandle: varchar("consent_handle").unique(), // Short handle for consent
-  
-  // Consent metadata
-  purpose: varchar("purpose").notNull(), // 'portfolio_sync', 'loan_application', 'wealth_management'
-  consentMode: varchar("consent_mode").default("view"), // 'view', 'store', 'query', 'stream'
-  
-  // Financial Information Types requested
-  fiTypes: text("fi_types").array().notNull(), // ['deposit', 'mutual_funds', 'insurance_policies', 'securities', 'term_deposit', 'recurring_deposit', 'sip', 'cp', 'govt_securities', 'equities', 'bonds', 'debentures', 'etf', 'idr', 'cis', 'aif']
-  
-  // Data range
-  dataRangeFrom: timestamp("data_range_from").notNull(), // Start date for data fetch
-  dataRangeTo: timestamp("data_range_to").notNull(), // End date for data fetch
-  
-  // Consent lifecycle
-  consentStatus: varchar("consent_status").default("requested").notNull(), // 'requested', 'pending', 'approved', 'active', 'paused', 'revoked', 'expired', 'rejected'
-  consentExpiry: timestamp("consent_expiry").notNull(), // When consent expires
-  
-  // Frequency of data fetch
-  frequency: jsonb("frequency").notNull(), // { unit: 'hour'|'day'|'month'|'year', value: number }
-  dataLifePeriod: jsonb("data_life_period"), // How long FIU can store data { unit: 'month'|'year', value: number }
-  
-  // FIU (Financial Information User) details
-  fiuId: varchar("fiu_id").default("FintekPro-FIU"), // Our FIU identifier
-  fiuName: varchar("fiu_name").default("FintekPro"),
-  
-  // Account Aggregator details
-  aaId: varchar("aa_id"), // AA entity ID (Anumati, Finvu, NADL, etc.)
-  aaName: varchar("aa_name"), // AA entity name
-  
-  // Consent artifacts
-  consentArtefact: jsonb("consent_artefact"), // Signed consent artifact from AA
-  digitalSignature: text("digital_signature"), // Digital signature of consent
-  
-  // Customer VUA (Virtual User Address)
-  customerVua: varchar("customer_vua"), // user@aa-identifier format
-  
-  // Account discovery and linking
-  discoveredAccounts: jsonb("discovered_accounts").default([]), // Accounts discovered through AA
-  linkedAccountIds: text("linked_account_ids").array(), // Internal account IDs linked to this consent
-  
-  // Audit trail
-  requestedAt: timestamp("requested_at").defaultNow(),
-  approvedAt: timestamp("approved_at"),
-  activatedAt: timestamp("activated_at"),
-  pausedAt: timestamp("paused_at"),
-  revokedAt: timestamp("revoked_at"),
-  expiredAt: timestamp("expired_at"),
-  
-  // Revocation details
-  revocationReason: text("revocation_reason"),
-  revokedBy: varchar("revoked_by"), // 'user', 'system', 'admin'
-  
-  // Metadata
-  lastDataFetchAt: timestamp("last_data_fetch_at"),
-  totalDataFetches: integer("total_data_fetches").default(0),
-  metadata: jsonb("metadata"), // Additional consent-specific data
-  
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-  index("idx_aa_consents_user_id").on(table.userId),
-  index("idx_aa_consents_status").on(table.consentStatus),
-  index("idx_aa_consents_expiry").on(table.consentExpiry),
-  index("idx_aa_consents_consent_id").on(table.consentId),
-]);
-
-// AA Data Fetch Logs - Audit trail for all data fetch operations
-export const aaDataFetchLogs = pgTable("aa_data_fetch_logs", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  
-  // Consent and user reference (both mandatory for audit trail)
-  consentId: varchar("consent_id").references(() => aaConsents.id, { onDelete: 'cascade' }).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  aaConsentHandle: varchar("aa_consent_handle"), // AA ecosystem consent handle
-  
-  // Session tracking
-  sessionId: varchar("session_id").notNull(), // AA session ID for this fetch
-  correlationId: varchar("correlation_id"), // Correlation ID for tracking across services
-  
-  // Fetch details
-  fetchType: varchar("fetch_type").notNull(), // 'full', 'incremental', 'on_demand'
-  fiTypes: text("fi_types").array(), // FI types fetched in this session
-  
-  // Account information
-  accountsRequested: integer("accounts_requested"), // Number of accounts requested
-  accountsFetched: integer("accounts_fetched"), // Number of accounts successfully fetched
-  accountsFailed: integer("accounts_failed"), // Number of accounts that failed
-  
-  // Data range for this fetch
-  dataRangeFrom: timestamp("data_range_from"),
-  dataRangeTo: timestamp("data_range_to"),
-  
-  // Fetch status
-  fetchStatus: varchar("fetch_status").notNull(), // 'initiated', 'pending', 'partial', 'completed', 'failed'
-  
-  // Response details
-  responseCode: varchar("response_code"), // AA response code
-  responseMessage: text("response_message"),
-  
-  // Data quality metrics
-  recordsReceived: integer("records_received").default(0),
-  recordsProcessed: integer("records_processed").default(0),
-  recordsFailed: integer("records_failed").default(0),
-  dataCompleteness: decimal("data_completeness", { precision: 5, scale: 2 }), // 0-100%
-  
-  // Performance metrics
-  initiatedAt: timestamp("initiated_at").defaultNow(),
-  completedAt: timestamp("completed_at"),
-  latencyMs: integer("latency_ms"), // Time taken in milliseconds
-  
-  // Error tracking
-  errors: jsonb("errors"), // Array of errors encountered
-  errorSummary: text("error_summary"),
-  
-  // Encryption and security
-  encryptionKeyId: varchar("encryption_key_id"), // ID of encryption key used
-  isDataEncrypted: boolean("is_data_encrypted").default(true),
-  
-  // Data storage reference
-  dataStorageRef: varchar("data_storage_ref"), // Reference to where encrypted FI data is stored
-  dataRetentionUntil: timestamp("data_retention_until"), // When to delete this data
-  
-  // Metadata
-  metadata: jsonb("metadata"),
-  
-  createdAt: timestamp("created_at").defaultNow(),
-}, (table) => [
-  index("idx_aa_fetch_logs_consent").on(table.consentId),
-  index("idx_aa_fetch_logs_user").on(table.userId),
-  index("idx_aa_fetch_logs_session").on(table.sessionId),
-  index("idx_aa_fetch_logs_status").on(table.fetchStatus),
-  index("idx_aa_fetch_logs_date").on(table.initiatedAt),
-]);
-
-// AA Discovered Accounts - Financial accounts discovered through AA
-export const aaDiscoveredAccounts = pgTable("aa_discovered_accounts", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  
-  // User and consent reference
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  consentId: varchar("consent_id").references(() => aaConsents.id),
-  
-  // Account identification
-  fiuAccountId: varchar("fiu_account_id"), // Our internal account ID if linked
-  aaAccountId: varchar("aa_account_id").notNull(), // AA ecosystem account ID
-  maskedAccountNumber: varchar("masked_account_number"), // Masked account number (e.g., XXXX1234)
-  
-  // Financial Institution details
-  fipId: varchar("fip_id").notNull(), // Financial Information Provider ID
-  fipName: varchar("fip_name").notNull(), // Bank/AMC/Insurance company name
-  
-  // Account details
-  accountType: varchar("account_type").notNull(), // 'savings', 'current', 'mutual_fund', 'demat', 'insurance_policy', 'term_deposit', etc.
-  fiType: varchar("fi_type").notNull(), // 'deposit', 'mutual_funds', 'insurance_policies', 'securities'
-  
-  // Account status
-  accountStatus: varchar("account_status").default("discovered"), // 'discovered', 'linked', 'active', 'dormant', 'closed', 'unlinked'
-  isLinked: boolean("is_linked").default(false), // Whether linked to portfolio
-  
-  // Account metadata
-  accountName: varchar("account_name"), // Account nickname or title
-  accountHolderName: varchar("account_holder_name"),
-  currency: varchar("currency").default("INR"),
-  
-  // Balance information (from latest fetch)
-  currentBalance: decimal("current_balance", { precision: 15, scale: 2 }),
-  availableBalance: decimal("available_balance", { precision: 15, scale: 2 }),
-  balanceAsOf: timestamp("balance_as_of"),
-  
-  // Linking details
-  linkedAt: timestamp("linked_at"),
-  linkedToPortfolioId: varchar("linked_to_portfolio_id").references(() => portfolios.id),
-  
-  // Data freshness
-  lastDataFetchAt: timestamp("last_data_fetch_at"),
-  lastSuccessfulFetchAt: timestamp("last_successful_fetch_at"),
-  
-  // Discovery details
-  discoveredAt: timestamp("discovered_at").defaultNow(),
-  discoverySource: varchar("discovery_source").default("account_aggregator"), // 'account_aggregator', 'manual', 'auto_population'
-  
-  // Metadata
-  accountMetadata: jsonb("account_metadata"), // Additional account-specific data
-  
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-  index("idx_aa_accounts_user").on(table.userId),
-  index("idx_aa_accounts_consent").on(table.consentId),
-  index("idx_aa_accounts_type").on(table.accountType),
-  index("idx_aa_accounts_status").on(table.accountStatus),
-  index("idx_aa_accounts_linked").on(table.isLinked),
-]);
-
-// Zod schemas for Account Aggregator
-export const insertAaConsentSchema = createInsertSchema(aaConsents).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-export type AaConsent = typeof aaConsents.$inferSelect;
-export type InsertAaConsent = z.infer<typeof insertAaConsentSchema>;
-
-export const insertAaDataFetchLogSchema = createInsertSchema(aaDataFetchLogs).omit({
-  id: true,
-  createdAt: true,
-});
-export type AaDataFetchLog = typeof aaDataFetchLogs.$inferSelect;
-export type InsertAaDataFetchLog = z.infer<typeof insertAaDataFetchLogSchema>;
-
-export const insertAaDiscoveredAccountSchema = createInsertSchema(aaDiscoveredAccounts).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-export type AaDiscoveredAccount = typeof aaDiscoveredAccounts.$inferSelect;
-export type InsertAaDiscoveredAccount = z.infer<typeof insertAaDiscoveredAccountSchema>;
-
-// ============================================================================
-// ADMIN MONITORING & OBSERVABILITY
-// ============================================================================
-
-// System Health Logs - Track service health and performance metrics over time
-export const systemHealthLogs = pgTable("system_health_logs", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  
-  // Service identification
-  serviceName: varchar("service_name").notNull(), // 'bse_star', 'cashfree', 'emudhra', 'demat_sync', 'aa_finvu', etc.
-  serviceCategory: varchar("service_category").notNull(), // 'payment', 'kyc', 'trading', 'market_data', 'communication'
-  
-  // Health status
-  status: varchar("status").notNull(), // 'healthy', 'degraded', 'failing', 'offline'
-  statusCode: integer("status_code"), // HTTP status code if applicable
-  
-  // Performance metrics
-  latencyMs: integer("latency_ms"), // Response time in milliseconds
-  errorRate: decimal("error_rate", { precision: 5, scale: 2 }), // Error percentage
-  uptime: decimal("uptime", { precision: 5, scale: 2 }), // Uptime percentage
-  
-  // Detailed information
-  endpoint: varchar("endpoint"), // Specific endpoint checked
-  errorMessage: text("error_message"), // Error details if failing
-  metadata: jsonb("metadata"), // Additional context (headers, response body, etc.)
-  
-  // Timestamps
-  checkedAt: timestamp("checked_at").defaultNow(),
-  createdAt: timestamp("created_at").defaultNow(),
-}, (table) => [
-  index("idx_health_service").on(table.serviceName),
-  index("idx_health_status").on(table.status),
-  index("idx_health_checked").on(table.checkedAt),
-]);
-
-// AI Fix Suggestions - AI-generated error analysis and fix recommendations
-export const aiFixSuggestions = pgTable("ai_fix_suggestions", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  
-  // Error identification
-  errorType: varchar("error_type").notNull(), // 'api_error', 'database_error', 'validation_error', 'timeout', 'null_pointer', etc.
-  endpoint: varchar("endpoint"), // API endpoint where error occurred
-  errorMessage: text("error_message").notNull(), // Original error message
-  stackTrace: text("stack_trace"), // Full stack trace
-  
-  // Error context
-  affectedUsers: integer("affected_users").default(0), // Number of users impacted
-  occurrenceCount: integer("occurrence_count").default(1), // How many times this error occurred
-  severity: varchar("severity").notNull(), // 'critical', 'high', 'medium', 'low'
-  firstSeenAt: timestamp("first_seen_at").notNull(),
-  lastSeenAt: timestamp("last_seen_at").notNull(),
-  
-  // AI Analysis
-  aiRootCause: text("ai_root_cause"), // AI-determined root cause
-  aiConfidence: integer("ai_confidence"), // Confidence score (0-100)
-  aiSummary: text("ai_summary"), // Brief AI summary of the issue
-  
-  // Fix suggestion
-  suggestedFix: text("suggested_fix").notNull(), // AI-generated fix description
-  suggestedCode: text("suggested_code"), // Code patch if applicable
-  fixCategory: varchar("fix_category"), // 'code_patch', 'config_change', 'dependency_update', 'rollback', 'vendor_issue'
-  
-  // Workflow status
-  status: varchar("status").default("pending"), // 'pending', 'reviewed', 'approved', 'testing', 'deployed', 'rejected', 'resolved'
-  reviewedBy: varchar("reviewed_by").references(() => users.id), // Admin who reviewed
-  reviewedAt: timestamp("reviewed_at"),
-  reviewNotes: text("review_notes"),
-  
-  // Deployment tracking
-  deployedBy: varchar("deployed_by").references(() => users.id),
-  deployedAt: timestamp("deployed_at"),
-  deploymentStatus: varchar("deployment_status"), // 'success', 'failed', 'partial'
-  deploymentNotes: text("deployment_notes"),
-  
-  // Resolution tracking
-  resolvedAt: timestamp("resolved_at"),
-  resolutionMethod: varchar("resolution_method"), // 'ai_fix_applied', 'manual_fix', 'vendor_resolved', 'false_positive'
-  
-  // Metadata
-  relatedLogs: jsonb("related_logs"), // Array of related log entries
-  metadata: jsonb("metadata"), // Additional context
-  
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-  index("idx_fix_status").on(table.status),
-  index("idx_fix_severity").on(table.severity),
-  index("idx_fix_created").on(table.createdAt),
-  index("idx_fix_endpoint").on(table.endpoint),
-]);
-
-// Audit Hash Chain - Tamper-evident audit trail with cryptographic verification
-export const auditHashChain = pgTable("audit_hash_chain", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  
-  // Chain information
-  sequenceNumber: bigint("sequence_number", { mode: "number" }).notNull(), // Sequential number in the chain
-  previousHash: varchar("previous_hash", { length: 64 }), // SHA-256 hash of previous record
-  currentHash: varchar("current_hash", { length: 64 }).notNull(), // SHA-256 hash of this record
-  
-  // Audit record reference
-  auditType: varchar("audit_type").notNull(), // 'kyc_verification', 'mf_order', 'consent', 'api_call', 'data_access'
-  auditRecordId: varchar("audit_record_id").notNull(), // ID of the actual audit record
-  auditTable: varchar("audit_table").notNull(), // Table name where audit record exists
-  
-  // Record snapshot (for verification)
-  recordSnapshot: jsonb("record_snapshot").notNull(), // Immutable snapshot of the audit record
-  recordHash: varchar("record_hash", { length: 64 }).notNull(), // Hash of the record snapshot
-  
-  // Chain metadata
-  userId: varchar("user_id").references(() => users.id), // User associated with the audit event
-  agentId: varchar("agent_id").references(() => agents.id), // Agent if applicable
-  clientId: varchar("client_id"), // Client identifier if applicable
-  
-  // Regulatory context
-  regulatoryCategory: varchar("regulatory_category"), // 'sebi', 'amfi', 'rbi', 'uidai', 'irdai'
-  complianceEvent: varchar("compliance_event"), // Specific compliance event type
-  
-  // Verification status
-  isVerified: boolean("is_verified").default(true), // Whether hash chain is intact
-  verifiedAt: timestamp("verified_at"),
-  verificationStatus: varchar("verification_status"), // 'valid', 'broken', 'pending'
-  
-  // Timestamps
-  createdAt: timestamp("created_at").defaultNow(),
-  
-  // Metadata
-  metadata: jsonb("metadata"), // Additional context
-}, (table) => [
-  index("idx_chain_sequence").on(table.sequenceNumber),
-  index("idx_chain_type").on(table.auditType),
-  index("idx_chain_record").on(table.auditRecordId),
-  index("idx_chain_user").on(table.userId),
-  index("idx_chain_created").on(table.createdAt),
-]);
-
-// Zod schemas for Admin Monitoring
-export const insertSystemHealthLogSchema = createInsertSchema(systemHealthLogs).omit({
-  id: true,
-  createdAt: true,
-});
-export type SystemHealthLog = typeof systemHealthLogs.$inferSelect;
-export type InsertSystemHealthLog = z.infer<typeof insertSystemHealthLogSchema>;
-
-export const insertAiFixSuggestionSchema = createInsertSchema(aiFixSuggestions).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-export type AiFixSuggestion = typeof aiFixSuggestions.$inferSelect;
-export type InsertAiFixSuggestion = z.infer<typeof insertAiFixSuggestionSchema>;
-
-export const insertAuditHashChainSchema = createInsertSchema(auditHashChain).omit({
-  id: true,
-  createdAt: true,
-});
-export type AuditHashChain = typeof auditHashChain.$inferSelect;
-export type InsertAuditHashChain = z.infer<typeof insertAuditHashChainSchema>;
-
-// Goal Contributions - Track all contributions made towards financial goals
-export const goalContributions = pgTable("goal_contributions", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  goalId: varchar("goal_id").references(() => financialGoals.id, { onDelete: 'cascade' }).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  
-  // Contribution details
-  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
-  contributionDate: date("contribution_date").notNull(),
-  contributionType: varchar("contribution_type").notNull().default("manual"), // 'manual', 'sip', 'lumpsum', 'bonus', 'other'
-  
-  // Optional metadata
-  notes: text("notes"),
-  source: varchar("source"), // e.g., 'salary', 'bonus', 'gift', 'investment_return'
-  transactionId: varchar("transaction_id"), // Link to actual transaction if applicable
-  
-  // Timestamps
-  createdAt: timestamp("created_at").defaultNow(),
-}, (table) => [
-  index("idx_contribution_goal").on(table.goalId),
-  index("idx_contribution_user").on(table.userId),
-  index("idx_contribution_date").on(table.contributionDate),
-]);
-
-// Zod schema for Goal Contributions
-export const insertGoalContributionSchema = createInsertSchema(goalContributions).omit({
-  id: true,
-  createdAt: true,
-});
-export type GoalContribution = typeof goalContributions.$inferSelect;
-export type InsertGoalContribution = z.infer<typeof insertGoalContributionSchema>;
-
-// Chart Configurations - Save user's custom chart configurations and comparisons
-export const chartConfigurations = pgTable("chart_configurations", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  
-  // Configuration details
-  name: varchar("name").notNull(),
-  description: text("description"),
-  
-  // Chart settings
-  symbols: text("symbols").array().notNull(), // Array of symbols to compare (max 5)
-  chartType: varchar("chart_type").default("line"), // 'line', 'area', 'candlestick'
-  indicatorSettings: jsonb("indicator_settings").default([]), // [{type:'sma', params:{period:50}}, {type:'rsi', params:{period:14}}]
-  
-  // Date range
-  dateRangeType: varchar("date_range_type").default("1Y"), // '1M', '3M', '6M', '1Y', '3Y', '5Y', 'custom'
-  startDate: date("start_date"),
-  endDate: date("end_date"),
-  
-  // Display preferences
-  displayOptions: jsonb("display_options").default({
-    showVolume: true,
-    showGrid: true,
-    colorScheme: "default"
-  }),
-  
-  // Sharing and security
-  shareToken: varchar("share_token").unique(), // UUID for secure sharing
-  isDiscoverable: boolean("is_discoverable").default(false), // Allow public discovery
-  viewCount: integer("view_count").default(0),
-  
-  // Timestamps
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-  index("idx_chart_user_updated").on(table.userId, table.updatedAt),
-  index("idx_chart_share_token").on(table.shareToken),
-]);
-
-// Zod schema for Chart Configurations with validation
-export const insertChartConfigurationSchema = createInsertSchema(chartConfigurations).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-}).extend({
-  symbols: z.array(z.string()).min(1, "At least one symbol is required").max(5, "Maximum 5 symbols allowed"),
-  name: z.string().min(1, "Name is required").max(100, "Name too long"),
-  chartType: z.enum(['line', 'area', 'candlestick']).default('line'),
-  dateRangeType: z.enum(['1M', '3M', '6M', '1Y', '3Y', '5Y', 'custom']).default('1Y'),
-  indicatorSettings: z.array(z.object({
-    type: z.enum(['sma', 'ema', 'rsi', 'macd', 'bollinger']),
-    params: z.record(z.union([z.string(), z.number()]))
-  })).default([]),
-}).refine(
-  (data) => {
-    // If custom date range, both dates must be provided
-    if (data.dateRangeType === 'custom') {
-      return data.startDate && data.endDate;
-    }
-    return true;
-  },
-  {
-    message: "Custom date range requires both start and end dates",
-    path: ["dateRangeType"],
-  }
-);
-export type ChartConfiguration = typeof chartConfigurations.$inferSelect;
-export type InsertChartConfiguration = z.infer<typeof insertChartConfigurationSchema>;
-
-// Symbol Search schemas
-export const symbolSearchRequestSchema = z.object({
-  query: z.string().min(3, "Query must be at least 3 characters").max(100, "Query too long"),
-});
-
-export const symbolSearchResultSchema = z.object({
-  symbol: z.string(),
-  name: z.string(),
-  exchange: z.string(),
-  type: z.string().optional(),
-  exchangeSuffix: z.string().optional(),
-});
-
-export const symbolSearchResponseSchema = z.object({
-  results: z.array(symbolSearchResultSchema),
-  query: z.string(),
-});
-
-export type SymbolSearchRequest = z.infer<typeof symbolSearchRequestSchema>;
-export type SymbolSearchResult = z.infer<typeof symbolSearchResultSchema>;
-export type SymbolSearchResponse = z.infer<typeof symbolSearchResponseSchema>;
-
-
-// Production KYC Workflow Types
-export type PanVerificationRecord = typeof panVerificationRecords.$inferSelect;
-export type ProductionKycSession = typeof productionKycSessions.$inferSelect;
-export type KycTierUpgradeEvent = typeof kycTierUpgradeEvents.$inferSelect;
-
-// Insert schemas for Production KYC
-export const insertProductionKycSessionSchema = createInsertSchema(productionKycSessions);
-export type InsertProductionKycSession = z.infer<typeof insertProductionKycSessionSchema>;
-
-export const insertKycTierUpgradeEventSchema = createInsertSchema(kycTierUpgradeEvents);
-export type InsertKycTierUpgradeEvent = z.infer<typeof insertKycTierUpgradeEventSchema>;
-
-export const insertAccreditedInvestorVerificationSchema = createInsertSchema(accreditedInvestorVerifications).omit({ id: true, createdAt: true, updatedAt: true });
-export type InsertAccreditedInvestorVerification = z.infer<typeof insertAccreditedInvestorVerificationSchema>;
-export type AccreditedInvestorVerification = typeof accreditedInvestorVerifications.$inferSelect;
-
-// ===================================================================
-// MONITORING & OBSERVABILITY SYSTEM
-// ===================================================================
-
-// Error Stack Traces - Deduplicated storage for stack traces
-export const errorStackTraces = pgTable("error_stack_traces", {
-  stackHash: varchar("stack_hash").primaryKey(), // SHA-256 hash of stack trace
-  stackTrace: text("stack_trace").notNull(), // Full stack trace (may be gzipped)
-  sourceMap: text("source_map"), // Source map reference for frontend errors
-  createdAt: timestamp("created_at").defaultNow(),
-}, (table) => [
-  index("idx_error_stack_created").on(table.createdAt),
-]);
-
-// Error Events - Unified error logging for frontend, backend, and external APIs
-export const errorEvents = pgTable("error_events", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  
-  // Source & Classification
-  source: errorSourceEnum("source").notNull(), // frontend/backend/service/external_api
-  severity: errorSeverityEnum("severity").notNull().default("medium"),
-  environment: varchar("environment").default("production"), // production/staging/development
-  service: varchar("service").notNull(), // 'web', 'api', 'worker', 'bse-mfd', 'cashfree', etc.
-  
-  // Error Details
-  message: text("message").notNull(),
-  errorType: varchar("error_type"), // TypeError, ReferenceError, APIError, etc.
-  errorCode: varchar("error_code"), // Custom error codes
-  stackHash: varchar("stack_hash").references(() => errorStackTraces.stackHash), // Reference to deduplicated stack
-  
-  // Context & Metadata
-  userId: varchar("user_id").references(() => users.id),
-  sessionId: varchar("session_id"),
-  requestId: varchar("request_id"), // For request tracing
-  
-  // HTTP Context (for API errors)
-  httpMethod: varchar("http_method"), // GET, POST, etc.
-  httpPath: varchar("http_path"), // /api/kyc/production/check-pan
-  httpStatusCode: integer("http_status_code"), // 500, 404, etc.
-  userAgent: text("user_agent"),
-  ipAddress: varchar("ip_address"),
-  
-  // Device & Browser (for frontend errors)
-  deviceInfo: jsonb("device_info"), // {browser, os, device, viewport}
-  
-  // Additional Payload
-  payload: jsonb("payload"), // Custom error context, sanitized PII
-  tags: text("tags").array(), // ['payment', 'kyc', 'critical']
-  
-  // Timestamps
-  ingestionTs: timestamp("ingestion_ts").defaultNow(),
-  occurredAt: timestamp("occurred_at"), // When error actually happened (may differ from ingestion)
-}, (table) => [
-  index("idx_error_events_severity_ts").on(table.severity, table.ingestionTs.desc()),
-  index("idx_error_events_service_ts").on(table.service, table.ingestionTs.desc()),
-  index("idx_error_events_user_ts").on(table.userId, table.ingestionTs.desc()),
-  index("idx_error_events_stack_hash").on(table.stackHash),
-  index("idx_error_events_occurred").on(table.occurredAt.desc()),
-  // Partial index for high-priority errors
-  sql`CREATE INDEX IF NOT EXISTS idx_error_events_critical ON error_events(ingestion_ts DESC) WHERE severity IN ('critical', 'high')`,
-]);
-
-// Error Groups - Aggregated error patterns with AI analysis
-export const errorGroups = pgTable("error_groups", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  
-  // Grouping Keys
-  stackHash: varchar("stack_hash").references(() => errorStackTraces.stackHash).notNull(),
-  service: varchar("service").notNull(),
-  environment: varchar("environment").notNull(),
-  severity: errorSeverityEnum("severity").notNull(),
-  
-  // Aggregation Metrics
-  totalCount: integer("total_count").default(0),
-  affectedUsers: integer("affected_users").default(0),
-  firstOccurrence: timestamp("first_occurrence").notNull(),
-  lastOccurrence: timestamp("last_occurrence").notNull(),
-  
-  // AI Analysis (Google Gemini)
-  aiAnalyzed: boolean("ai_analyzed").default(false),
-  aiFindings: jsonb("ai_findings"), // {rootCause, suggestedFix, severity, category}
-  aiAnalyzedAt: timestamp("ai_analyzed_at"),
-  
-  // Status & Resolution
-  status: varchar("status").default("open"), // open/investigating/resolved/ignored
-  assignedTo: varchar("assigned_to"), // Admin user ID
-  resolvedAt: timestamp("resolved_at"),
-  resolution: text("resolution"),
-  
-  // Timestamps
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-  index("idx_error_groups_stack_hash").on(table.stackHash),
-  index("idx_error_groups_service_severity").on(table.service, table.severity),
-  index("idx_error_groups_status").on(table.status),
-  index("idx_error_groups_last_occurrence").on(table.lastOccurrence.desc()),
-  uniqueIndex("idx_error_groups_unique").on(table.stackHash, table.service, table.environment),
-]);
-
-// API Health Logs - Monitor external service health
-export const apiHealthLogs = pgTable("api_health_logs", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  
-  // Service Information
-  service: varchar("service").notNull(), // 'bse_star', 'cashfree', 'protean', 'emudhra', 'sandbox'
-  endpoint: varchar("endpoint"), // Specific endpoint checked
-  checkType: varchar("check_type").default("ping"), // ping/full/critical
-  
-  // Health Status
-  status: apiHealthStatusEnum("status").notNull(),
-  latencyMs: integer("latency_ms"), // Response time in milliseconds
-  responseCode: integer("response_code"),
-  
-  // Failure Details
-  failureReason: text("failure_reason"),
-  errorMessage: text("error_message"),
-  incidentId: varchar("incident_id"), // Link multiple failures to same incident
-  
-  // Metadata
-  metadata: jsonb("metadata"), // Additional context
-  
-  // Timestamps
-  checkedAt: timestamp("checked_at").defaultNow(),
-}, (table) => [
-  index("idx_api_health_service_checked").on(table.service, table.checkedAt.desc()),
-  index("idx_api_health_status").on(table.status),
-  index("idx_api_health_incident").on(table.incidentId),
-]);
-
-// Audit Logs - Compliance and regulatory tracking (7-year retention)
-export const auditLogs = pgTable("audit_logs", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  
-  // Actor Information
-  userId: varchar("user_id").references(() => users.id),
-  actorType: varchar("actor_type").notNull(), // 'user', 'admin', 'system', 'api'
-  actorId: varchar("actor_id"), // ID of actor (user/admin/system)
-  ipAddress: varchar("ip_address"),
-  userAgent: text("user_agent"),
-  
-  // Action Details
-  action: auditActionTypeEnum("action").notNull(),
-  resource: varchar("resource").notNull(), // 'kyc_session', 'mf_order', 'ucc', 'euin'
-  resourceId: varchar("resource_id"),
-  
-  // Operation Context
-  operation: varchar("operation").notNull(), // 'pan_verification', 'kyc_upgrade', 'mf_purchase', etc.
-  status: varchar("status").notNull(), // 'success', 'failure', 'partial'
-  
-  // Compliance Data
-  regulatoryCategory: varchar("regulatory_category"), // 'kyc', 'aml', 'transaction', 'data_access'
-  sensitivityLevel: varchar("sensitivity_level").default("medium"), // low/medium/high/critical
-  
-  // Change Details
-  changesBefore: jsonb("changes_before"), // State before action
-  changesAfter: jsonb("changes_after"), // State after action
-  
-  // Tamper Evidence (Hash Chain)
-  previousLogHash: varchar("previous_log_hash"), // Hash of previous log entry
-  currentLogHash: varchar("current_log_hash"), // Hash of this entry
-  
-  // Metadata
-  metadata: jsonb("metadata"),
-  reason: text("reason"), // Reason for action (e.g., "User requested KYC upgrade")
-  
-  // Timestamps
-  occurredAt: timestamp("occurred_at").defaultNow(),
-}, (table) => [
-  index("idx_audit_user_occurred").on(table.userId, table.occurredAt.desc()),
-  index("idx_audit_resource").on(table.resource, table.resourceId),
-  index("idx_audit_action").on(table.action),
-  index("idx_audit_regulatory").on(table.regulatoryCategory),
-  index("idx_audit_occurred").on(table.occurredAt.desc()),
-]);
-
-// System Metrics - Performance and resource usage tracking
-export const systemMetrics = pgTable("system_metrics", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  
-  // Metric Information
-  metricName: varchar("metric_name").notNull(), // 'api_latency', 'db_query_time', 'cpu_usage', 'memory_usage'
-  metricType: varchar("metric_type").notNull(), // 'counter', 'gauge', 'histogram'
-  
-  // Dimensions
-  service: varchar("service"), // Service generating the metric
-  environment: varchar("environment").default("production"),
-  dimensions: jsonb("dimensions"), // {endpoint: '/api/kyc', method: 'POST'}
-  
-  // Value
-  value: decimal("value", { precision: 15, scale: 4 }).notNull(),
-  unit: varchar("unit"), // 'ms', 'bytes', 'percent', 'count'
-  
-  // Aggregation Window
-  aggregationWindow: varchar("aggregation_window").default("1m"), // '1m', '5m', '15m', '1h', '1d'
-  
-  // Timestamps
-  collectedAt: timestamp("collected_at").defaultNow(),
-}, (table) => [
-  index("idx_system_metrics_name_collected").on(table.metricName, table.collectedAt.desc()),
-  index("idx_system_metrics_service_collected").on(table.service, table.collectedAt.desc()),
-]);
-
-// Zod Schemas for Monitoring Tables
-export const insertErrorStackTraceSchema = createInsertSchema(errorStackTraces).omit({
-  createdAt: true,
-});
-export type ErrorStackTrace = typeof errorStackTraces.$inferSelect;
-export type InsertErrorStackTrace = z.infer<typeof insertErrorStackTraceSchema>;
-
-// Extended schema for error event insertion (accepts stackTrace instead of stackHash)
-export const insertErrorEventSchema = createInsertSchema(errorEvents).omit({
-  id: true,
-  ingestionTs: true,
-  stackHash: true, // Exclude stackHash from input
-}).extend({
-  stackTrace: z.string().optional(), // Accept stackTrace, will be hashed internally
-});
-export type ErrorEvent = typeof errorEvents.$inferSelect;
-export type InsertErrorEvent = z.infer<typeof insertErrorEventSchema>;
-
-export const insertErrorGroupSchema = createInsertSchema(errorGroups).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-export type ErrorGroup = typeof errorGroups.$inferSelect;
-export type InsertErrorGroup = z.infer<typeof insertErrorGroupSchema>;
-
-export const insertApiHealthLogSchema = createInsertSchema(apiHealthLogs).omit({
-  id: true,
-  checkedAt: true,
-});
-export type ApiHealthLog = typeof apiHealthLogs.$inferSelect;
-export type InsertApiHealthLog = z.infer<typeof insertApiHealthLogSchema>;
-
-export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
-  id: true,
-  occurredAt: true,
-});
-export type AuditLog = typeof auditLogs.$inferSelect;
-export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
-
-export const insertSystemMetricSchema = createInsertSchema(systemMetrics).omit({
-  id: true,
-  collectedAt: true,
-});
-export type SystemMetric = typeof systemMetrics.$inferSelect;
-export type InsertSystemMetric = z.infer<typeof insertSystemMetricSchema>;

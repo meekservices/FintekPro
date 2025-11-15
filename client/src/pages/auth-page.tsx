@@ -667,6 +667,23 @@ export default function AuthPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
+                <Tabs defaultValue="social" className="space-y-4">
+                  <ScrollableTabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="social" data-testid="tab-social-login">Social Login</TabsTrigger>
+                    <TabsTrigger value="traditional" data-testid="tab-traditional-login">Traditional</TabsTrigger>
+                  </ScrollableTabsList>
+
+                  {/* Social Login Tab */}
+                  <TabsContent value="social" className="space-y-4">
+                    <div className="space-y-3">
+                      <p className="text-sm text-center text-gray-500 dark:text-gray-400 py-8">
+                        Social login options are currently unavailable. Please use traditional login.
+                      </p>
+                    </div>
+                  </TabsContent>
+
+                  {/* Traditional Login Tab */}
+                  <TabsContent value="traditional">
                     <Tabs value={authMode} onValueChange={(v) => setAuthMode(v as "login" | "register")} className="space-y-4">
                       <ScrollableTabsList className={`grid w-full ${isAdminPortal ? 'grid-cols-1' : 'grid-cols-2'}`}>
                         <TabsTrigger value="login" data-testid="tab-login">Login</TabsTrigger>
@@ -783,7 +800,7 @@ export default function AuthPage() {
                                   Forgot Password?
                                 </Button>
                               </DialogTrigger>
-                              <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800" data-testid="dialog-forgot-password">
+                              <DialogContent className="sm:max-w-md" data-testid="dialog-forgot-password">
                                 <DialogHeader>
                                   <DialogTitle>
                                     {resetPasswordStep === "request" ? "Reset Password" : "Enter OTP & New Password"}
@@ -998,6 +1015,8 @@ export default function AuthPage() {
                         </form>
                       </TabsContent>
                     </Tabs>
+                  </TabsContent>
+                </Tabs>
               </CardContent>
             </Card>
           </div>
@@ -1006,7 +1025,7 @@ export default function AuthPage() {
 
       {/* Enhanced OTP Verification Dialog */}
       <Dialog open={otpDialogOpen} onOpenChange={setOtpDialogOpen}>
-        <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800" data-testid="dialog-otp-verification">
+        <DialogContent className="sm:max-w-md" data-testid="dialog-otp-verification">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-blue-600" />
@@ -1105,7 +1124,7 @@ export default function AuthPage() {
 
       {/* Registration OTP Verification Dialog */}
       <Dialog open={registrationOtpDialogOpen} onOpenChange={setRegistrationOtpDialogOpen}>
-        <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800" data-testid="dialog-registration-otp">
+        <DialogContent className="sm:max-w-md" data-testid="dialog-registration-otp">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-blue-600" />
@@ -1206,7 +1225,7 @@ export default function AuthPage() {
 
       {/* User ID Success Dialog */}
       <Dialog open={showUserIdDialog} onOpenChange={setShowUserIdDialog}>
-        <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800" data-testid="dialog-user-id-success">
+        <DialogContent className="sm:max-w-md" data-testid="dialog-user-id-success">
           <DialogHeader>
             <div className="flex justify-center mb-4">
               <div className="rounded-full bg-green-100 dark:bg-green-900/20 p-3">
@@ -1255,7 +1274,7 @@ export default function AuthPage() {
 
       {/* Duplicate Warning Dialog */}
       <Dialog open={duplicateWarningOpen} onOpenChange={setDuplicateWarningOpen}>
-        <DialogContent className="sm:max-w-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800" data-testid="dialog-duplicate-warning">
+        <DialogContent className="sm:max-w-lg" data-testid="dialog-duplicate-warning">
           <DialogHeader>
             <div className="flex justify-center mb-4">
               <div className="rounded-full bg-yellow-100 dark:bg-yellow-900/20 p-3">

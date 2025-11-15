@@ -10,7 +10,34 @@
  * - Return mock user data after verification
  */
 
-import { AadhaarOTPResponse, AadhaarVerificationResponse } from './kyc/aadhaar-types';
+export interface AadhaarOTPResponse {
+  success: boolean;
+  message: string;
+  transactionId: string;
+  maskedAadhaar: string;
+}
+
+export interface AadhaarVerificationResponse {
+  success: boolean;
+  message: string;
+  verified: boolean;
+  data?: {
+    name: string;
+    dob: string;
+    gender: string;
+    address: {
+      house: string;
+      street: string;
+      landmark: string;
+      locality: string;
+      city: string;
+      state: string;
+      pincode: string;
+      country: string;
+    };
+    photoUrl?: string;
+  };
+}
 
 export class AadhaarMockService {
   private static otpStore = new Map<string, { otp: string; aadhaarNumber: string; expiresAt: number }>();

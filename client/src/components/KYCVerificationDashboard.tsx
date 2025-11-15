@@ -500,7 +500,7 @@ export function KYCVerificationDashboard() {
                     </ul>
                   </div>
                   <div className="ml-4">
-                    <Link href="/smart-production-kyc">
+                    <Link href="/corporate-kyc">
                       <Button variant="default" data-testid="button-corporate-verify">
                         {profile.sandboxVerified ? "Update Details" : "Verify Entity"}
                         <ArrowRight className="ml-2 h-4 w-4" />

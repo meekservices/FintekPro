@@ -15,9 +15,7 @@ import {
   User,
   Calendar,
   FileText,
-  Users,
-  TrendingUp,
-  Award
+  Users
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -51,7 +49,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
-type ActiveTab = "dashboard" | "submissions" | "documents" | "alerts" | "tier_upgrades";
+type ActiveTab = "dashboard" | "submissions" | "documents" | "alerts";
 
 interface DashboardStats {
   pendingKyc: number;
@@ -87,23 +85,6 @@ interface ComplianceAlert {
   status: string;
 }
 
-interface TierUpgradeRequest {
-  eventId: string;
-  userId: string;
-  userName: string | null;
-  userEmail: string;
-  userMobile: string | null;
-  fromTier: string | null;
-  toTier: string;
-  status: string;
-  reason: string | null;
-  createdAt: string;
-  currentKycTier: string | null;
-  panVerified: boolean | null;
-  aadhaarVerified: boolean | null;
-  bankVerified: boolean | null;
-}
-
 export default function KycCompliancePage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("dashboard");
   const [searchQuery, setSearchQuery] = useState("");
@@ -114,14 +95,6 @@ export default function KycCompliancePage() {
   const [reviewAction, setReviewAction] = useState<"approve" | "reject" | null>(null);
   const [reviewNotes, setReviewNotes] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
-  
-  // Tier upgrade review state
-  const [selectedTierUpgrade, setSelectedTierUpgrade] = useState<TierUpgradeRequest | null>(null);
-  const [tierReviewDialogOpen, setTierReviewDialogOpen] = useState(false);
-  const [tierReviewAction, setTierReviewAction] = useState<"approve" | "reject" | null>(null);
-  const [tierReviewNotes, setTierReviewNotes] = useState("");
-  const [tierRejectionReason, setTierRejectionReason] = useState("");
-  
   const { toast } = useToast();
 
   // Fetch dashboard stats
@@ -145,12 +118,6 @@ export default function KycCompliancePage() {
   const { data: alertsResponse, refetch: refetchAlerts } = useQuery<{ success: boolean; data: ComplianceAlert[]; pagination?: { total: number } }>({
     queryKey: ["/api/admin/compliance/alerts", { status: statusFilter === "all" ? undefined : statusFilter }],
     enabled: activeTab === "alerts",
-  });
-
-  // Fetch pending tier upgrade requests
-  const { data: tierUpgradesResponse, refetch: refetchTierUpgrades } = useQuery<{ success: boolean; data: TierUpgradeRequest[]; total: number }>({
-    queryKey: ["/api/kyc/tiers/pending"],
-    enabled: activeTab === "tier_upgrades",
   });
 
   // Review KYC submission mutation
@@ -198,85 +165,8 @@ export default function KycCompliancePage() {
     setReviewDialogOpen(true);
   };
 
-  // Tier upgrade approve mutation
-  const tierApproveMutation = useMutation({
-    mutationFn: async ({ eventId, notes }: { eventId: string; notes?: string }) => {
-      return await apiRequest("POST", "/api/kyc/tiers/approve", {
-        body: { eventId, notes },
-      });
-    },
-    onSuccess: () => {
-      toast({
-        title: "Tier Upgrade Approved",
-        description: "The tier upgrade request has been approved successfully.",
-      });
-      setTierReviewDialogOpen(false);
-      setSelectedTierUpgrade(null);
-      setTierReviewNotes("");
-      refetchTierUpgrades();
-      refetchStats();
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Approval Failed",
-        description: error.message || "Failed to approve tier upgrade",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Tier upgrade reject mutation
-  const tierRejectMutation = useMutation({
-    mutationFn: async ({ eventId, reason }: { eventId: string; reason: string }) => {
-      return await apiRequest("POST", "/api/kyc/tiers/reject", {
-        body: { eventId, reason },
-      });
-    },
-    onSuccess: () => {
-      toast({
-        title: "Tier Upgrade Rejected",
-        description: "The tier upgrade request has been rejected.",
-      });
-      setTierReviewDialogOpen(false);
-      setSelectedTierUpgrade(null);
-      setTierRejectionReason("");
-      refetchTierUpgrades();
-      refetchStats();
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Rejection Failed",
-        description: error.message || "Failed to reject tier upgrade",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleTierReview = () => {
-    if (!selectedTierUpgrade || !tierReviewAction) return;
-    
-    if (tierReviewAction === "approve") {
-      tierApproveMutation.mutate({
-        eventId: selectedTierUpgrade.eventId,
-        notes: tierReviewNotes,
-      });
-    } else {
-      tierRejectMutation.mutate({
-        eventId: selectedTierUpgrade.eventId,
-        reason: tierRejectionReason,
-      });
-    }
-  };
-
-  const openTierReviewDialog = (tierUpgrade: TierUpgradeRequest, action: "approve" | "reject") => {
-    setSelectedTierUpgrade(tierUpgrade);
-    setTierReviewAction(action);
-    setTierReviewDialogOpen(true);
-  };
-
   const submissions = submissionsResponse?.data || [];
   const alerts = alertsResponse?.data || [];
-  const tierUpgrades = tierUpgradesResponse?.data || [];
 
   return (
     <div className="space-y-6">
@@ -292,7 +182,7 @@ export default function KycCompliancePage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ActiveTab)}>
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="dashboard" data-testid="tab-kyc-dashboard">
             <Shield className="h-4 w-4 mr-2" />
             Dashboard
@@ -308,10 +198,6 @@ export default function KycCompliancePage() {
           <TabsTrigger value="alerts" data-testid="tab-compliance-alerts">
             <AlertTriangle className="h-4 w-4 mr-2" />
             Alerts
-          </TabsTrigger>
-          <TabsTrigger value="tier_upgrades" data-testid="tab-tier-upgrades">
-            <TrendingUp className="h-4 w-4 mr-2" />
-            Tier Upgrades
           </TabsTrigger>
         </TabsList>
 
@@ -624,96 +510,6 @@ export default function KycCompliancePage() {
             </CardContent>
           </Card>
         </TabsContent>
-
-        {/* Tier Upgrades Tab */}
-        <TabsContent value="tier_upgrades" className="mt-6 space-y-6">
-          <Card data-testid="card-tier-upgrades">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Pending Tier Upgrade Requests</CardTitle>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Review and approve/reject tier upgrade requests
-                  </p>
-                </div>
-                <Button variant="outline" size="sm" onClick={() => refetchTierUpgrades()} data-testid="button-refresh-tier-upgrades">
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Refresh
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>From Tier</TableHead>
-                    <TableHead>To Tier</TableHead>
-                    <TableHead>Requested</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {tierUpgrades.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center text-gray-500 py-8">
-                        No pending tier upgrade requests
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    tierUpgrades.map((upgrade: TierUpgradeRequest) => (
-                      <TableRow key={upgrade.eventId} data-testid={`row-tier-upgrade-${upgrade.eventId}`}>
-                        <TableCell className="font-medium">
-                          {upgrade.userName || 'N/A'}
-                        </TableCell>
-                        <TableCell>{upgrade.userEmail}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">
-                            {upgrade.fromTier || 'None'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className="bg-purple-600 text-white">
-                            <Award className="h-3 w-3 mr-1" />
-                            {upgrade.toTier}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{new Date(upgrade.createdAt).toLocaleDateString()}</TableCell>
-                        <TableCell>
-                          <Badge variant="secondary">{upgrade.status}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => openTierReviewDialog(upgrade, "approve")}
-                              data-testid={`button-approve-${upgrade.eventId}`}
-                            >
-                              <CheckCircle className="h-4 w-4 mr-1" />
-                              Approve
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => openTierReviewDialog(upgrade, "reject")}
-                              data-testid={`button-reject-${upgrade.eventId}`}
-                            >
-                              <XCircle className="h-4 w-4 mr-1" />
-                              Reject
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
 
       {/* Review Dialog */}
@@ -762,76 +558,6 @@ export default function KycCompliancePage() {
               data-testid="button-confirm-review"
             >
               {reviewMutation.isPending ? "Processing..." : `${reviewAction === "approve" ? "Approve" : "Reject"}`}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Tier Review Dialog */}
-      <Dialog open={tierReviewDialogOpen} onOpenChange={setTierReviewDialogOpen}>
-        <DialogContent data-testid="dialog-review-tier">
-          <DialogHeader>
-            <DialogTitle>
-              {tierReviewAction === "approve" ? "Approve" : "Reject"} Tier Upgrade Request
-            </DialogTitle>
-            <DialogDescription>
-              {tierReviewAction} tier upgrade for {selectedTierUpgrade?.userName} ({selectedTierUpgrade?.userEmail})
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="font-medium">From Tier:</span>
-                <Badge variant="outline">{selectedTierUpgrade?.fromTier || 'None'}</Badge>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="font-medium">To Tier:</span>
-                <Badge className="bg-purple-600 text-white">{selectedTierUpgrade?.toTier}</Badge>
-              </div>
-            </div>
-            {tierReviewAction === "approve" && (
-              <div>
-                <label className="text-sm font-medium">Approval Notes (Optional)</label>
-                <Textarea
-                  value={tierReviewNotes}
-                  onChange={(e) => setTierReviewNotes(e.target.value)}
-                  placeholder="Add any notes about this approval..."
-                  className="mt-1"
-                  data-testid="textarea-tier-review-notes"
-                />
-              </div>
-            )}
-            {tierReviewAction === "reject" && (
-              <div>
-                <label className="text-sm font-medium">Rejection Reason *</label>
-                <Textarea
-                  value={tierRejectionReason}
-                  onChange={(e) => setTierRejectionReason(e.target.value)}
-                  placeholder="Provide reason for rejection..."
-                  className="mt-1"
-                  required
-                  data-testid="textarea-tier-rejection-reason"
-                />
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setTierReviewDialogOpen(false)} data-testid="button-cancel-tier-review">
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleTierReview}
-              disabled={
-                tierApproveMutation.isPending || 
-                tierRejectMutation.isPending || 
-                (tierReviewAction === "reject" && !tierRejectionReason)
-              }
-              data-testid="button-confirm-tier-review"
-            >
-              {(tierApproveMutation.isPending || tierRejectMutation.isPending) 
-                ? "Processing..." 
-                : `${tierReviewAction === "approve" ? "Approve" : "Reject"}`
-              }
             </Button>
           </DialogFooter>
         </DialogContent>

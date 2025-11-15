@@ -32,28 +32,6 @@ This document lists all required environment variables for the FintekPro platfor
 - `SANDBOX_API_KEY` - Sandbox API key for bank verification
 - `SANDBOX_API_SECRET` - Sandbox API secret
 
-### eSign Services (eMudhra)
-- `ESIGN_MODE` - Operation mode: "production" or "simulation" (default: simulation)
-- `ESIGN_PROVIDER` - Provider: "emudhra" or "nsdl" (default: emudhra, recommended)
-- `EMUDHRA_API_URL` - eMudhra API endpoint (default: https://api.emsigner.com/v1)
-- `EMUDHRA_SYSTEM_ID` - Unique system identifier from eMudhra
-- `EMUDHRA_AUTH_TOKEN` - Authentication token generated from eMudhra dashboard
-- `EMUDHRA_UNIQUE_ID` - SYSTEM_ID + EMAIL for authentication
-- `ESIGN_WEBHOOK_SECRET` - Secret for validating webhook callbacks (generate a strong random string)
-- `ESIGN_CALLBACK_URL` - Public URL for webhook notifications (e.g., https://yourapp.com/api/esign/webhook)
-
-**Note:** eMudhra is the recommended provider due to its modern REST API, comprehensive documentation, and sandbox environment. Contact eMudhra to register as an ASP (Application Service Provider) and obtain credentials.
-
-### BSE Accreditation API (Tier 3 KYC)
-- `BSE_ACCREDITATION_MODE` - Operation mode: "production" or "simulation" (default: simulation)
-- `BSE_ACCREDITATION_API_URL` - BSE BASL API endpoint (for production integration)
-- `BSE_ACCREDITATION_API_KEY` - API key for BSE BASL service
-- `BSE_ACCREDITATION_MEMBER_ID` - BSE member identifier
-- `BSE_ACCREDITATION_APPROVAL_DELAY` - Processing delay in milliseconds for simulation mode (default: 2000)
-- `BSE_ACCREDITATION_STRICT_VALIDATION` - Enable strict SEBI threshold validation: true/false (default: true)
-
-**Note:** BSE BASL (BSE Administration & Supervision Limited) currently does NOT provide a public REST/SOAP API for Accredited Investor verification. The simulation mode provides production-quality validation and certificate generation for testing. For production access, contact bseasl.membership@bseasl.com to discuss bulk verification options or custom integration. Manual verification costs ₹500 + taxes per query through the web portal at https://bseasl.com.
-
 ## AI & Intelligence
 
 ### Google Gemini AI

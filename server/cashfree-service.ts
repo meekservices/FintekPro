@@ -34,8 +34,8 @@ export class CashfreeService {
   private apiClient: AxiosInstance;
 
   constructor() {
-    this.appId = process.env.CASHFREE_CLIENT_ID || '';
-    this.secretKey = process.env.CASHFREE_CLIENT_SECRET || '';
+    this.appId = process.env.CASHFREE_APP_ID || '';
+    this.secretKey = process.env.CASHFREE_SECRET_KEY || '';
     this.environment = process.env.CASHFREE_ENVIRONMENT || 'SANDBOX';
     
     // Set base URL based on environment

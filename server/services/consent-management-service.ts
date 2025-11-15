@@ -155,15 +155,23 @@ export class ConsentManagementService {
    * Get all active consents for a user
    */
   async getUserConsents(userId: string): Promise<DataSourceConsent[]> {
-    // Return ALL consents (active, revoked, expired) so UI can properly display status
-    // Frontend will handle filtering and status display
     const consents = await db
       .select()
       .from(dataSourceConsents)
-      .where(eq(dataSourceConsents.userId, userId))
+      .where(
+        and(
+          eq(dataSourceConsents.userId, userId),
+          eq(dataSourceConsents.isActive, true)
+        )
+      )
       .orderBy(desc(dataSourceConsents.consentedAt));
 
-    return consents;
+    // Filter out expired consents
+    const now = new Date();
+    return consents.filter(consent => {
+      const isExpired = consent.expiresAt && new Date(consent.expiresAt) < now;
+      return !isExpired;
+    });
   }
 
   /**
@@ -180,49 +188,6 @@ export class ConsentManagementService {
       .where(eq(dataSourceConsents.id, consentId));
 
     console.log(`❌ Consent revoked: ${consentId} - Reason: ${reason}`);
-  }
-
-  /**
-   * Renew expired consent by extending expiry date
-   */
-  async renewConsent(userId: string, consentId: string, validityDays: number = 90): Promise<DataSourceConsent> {
-    // Get the existing consent
-    const [existingConsent] = await db
-      .select()
-      .from(dataSourceConsents)
-      .where(
-        and(
-          eq(dataSourceConsents.id, consentId),
-          eq(dataSourceConsents.userId, userId)
-        )
-      )
-      .limit(1);
-
-    if (!existingConsent) {
-      throw new Error('Consent not found');
-    }
-
-    // Calculate new expiry date
-    const newExpiresAt = new Date();
-    newExpiresAt.setDate(newExpiresAt.getDate() + validityDays);
-
-    // Update the consent to renew it
-    const [updatedConsent] = await db
-      .update(dataSourceConsents)
-      .set({
-        isActive: true,
-        expiresAt: newExpiresAt,
-        revokedAt: null,
-        revokeReason: null,
-        deletionWarningSentAt: null, // Reset warning flag for new revocation cycle
-        consentedAt: new Date() // Update consent timestamp
-      })
-      .where(eq(dataSourceConsents.id, consentId))
-      .returning();
-
-    console.log(`🔄 Consent renewed: ${consentId} for ${existingConsent.dataSource} - Valid until ${newExpiresAt.toISOString()}`);
-    
-    return updatedConsent;
   }
 
   /**
@@ -378,10 +343,7 @@ export class ConsentManagementService {
       'demat',
       'bank',
       'loans',
-      'insurance',
-      'epf',
-      'nps',
-      'apy'
+      'insurance'
     ];
 
     const consents: DataSourceConsent[] = [];

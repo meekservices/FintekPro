@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { storage } from "./storage";
 import { amfiValidationService } from "./amfi-validation-service";
-import { sandboxKYCService } from "./services/sandbox-kyc-service";
+import { CashfreeAadhaarService } from "./services/cashfree-aadhaar-service";
 import { z } from "zod";
 import { randomUUID } from "crypto";
 
@@ -525,16 +525,16 @@ router.post("/api/agents/:agentId/aadhaar/generate-otp", requireAuth, async (req
       return res.status(400).json({ error: "Invalid Aadhaar number. Must be 12 digits." });
     }
     
-    // Sandbox KYC service is always available
-    if (!true) {
+    // Check if Cashfree is configured
+    if (!CashfreeAadhaarService.isConfigured()) {
       return res.status(503).json({ 
         error: "Aadhaar verification service not configured",
         message: "Please contact support to enable Aadhaar verification" 
       });
     }
     
-    // Generate OTP using Sandbox API
-    const otpResponse = await sandboxKYCService.generateAadhaarOTP(aadhaarNumber);
+    // Generate OTP using Cashfree OKYC
+    const otpResponse = await CashfreeAadhaarService.generateOTP(aadhaarNumber);
     
     if (!otpResponse.success) {
       return res.status(400).json({ 
@@ -548,7 +548,7 @@ router.post("/api/agents/:agentId/aadhaar/generate-otp", requireAuth, async (req
     res.json({
       success: true,
       message: otpResponse.message,
-      refId: otpResponse.refId,
+      refId: otpResponse.ref_id,
       maskedAadhaar: otpResponse.maskedAadhaar
     });
     
@@ -575,8 +575,8 @@ router.post("/api/agents/:agentId/aadhaar/verify-otp", requireAuth, async (req, 
       return res.status(400).json({ error: "OTP and reference ID are required" });
     }
     
-    // Verify OTP using Sandbox API
-    const verificationResponse = await sandboxKYCService.verifyAadhaarOTP(otp, refId);
+    // Verify OTP using Cashfree OKYC
+    const verificationResponse = await CashfreeAadhaarService.verifyOTP(otp, refId);
     
     if (!verificationResponse.success || !verificationResponse.verified) {
       return res.status(400).json({ 
@@ -599,7 +599,7 @@ router.post("/api/agents/:agentId/aadhaar/verify-otp", requireAuth, async (req, 
       return res.status(404).json({ error: "Agent not found" });
     }
     
-    // CRITICAL: Use ONLY verified data from Sandbox/UIDAI, never client-supplied data
+    // CRITICAL: Use ONLY verified data from Cashfree/UIDAI, never client-supplied data
     await storage.updateCustomerCareAgent(agentId, {
       aadharNumber: verificationResponse.data.aadhaarNumber, // Verified Aadhaar from UIDAI
       aadharName: verificationResponse.data.name, // Verified name from UIDAI

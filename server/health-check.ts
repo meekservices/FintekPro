@@ -1,17 +1,12 @@
 import { Request, Response } from 'express';
 import { db } from './db';
 import { sql } from 'drizzle-orm';
-import { createLogger } from './services/logger';
-import { cacheService } from './services/cache-service';
-
-const logger = createLogger({ service: 'health-check' });
 
 /**
  * Health Check Endpoints for Production Deployment
  * 
  * /health - Basic health check (always returns 200 if server is running)
  * /ready - Readiness check (checks database connectivity)
- * /metrics - Prometheus-compatible metrics endpoint
  */
 
 interface HealthStatus {
@@ -20,16 +15,6 @@ interface HealthStatus {
   uptime: number;
   environment: string;
   version: string;
-  memory?: {
-    heapUsed: number;
-    heapTotal: number;
-    rss: number;
-    external: number;
-  };
-  cpu?: {
-    user: number;
-    system: number;
-  };
 }
 
 interface ReadinessStatus extends HealthStatus {
@@ -38,33 +23,6 @@ interface ReadinessStatus extends HealthStatus {
     responseTime?: number;
     error?: string;
   };
-  dependencies?: {
-    [key: string]: {
-      status: 'healthy' | 'unhealthy' | 'degraded';
-      message?: string;
-    };
-  };
-}
-
-/**
- * Get system metrics for monitoring
- */
-function getSystemMetrics() {
-  const memUsage = process.memoryUsage();
-  const cpuUsage = process.cpuUsage();
-  
-  return {
-    memory: {
-      heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024),
-      heapTotal: Math.round(memUsage.heapTotal / 1024 / 1024),
-      rss: Math.round(memUsage.rss / 1024 / 1024),
-      external: Math.round(memUsage.external / 1024 / 1024)
-    },
-    cpu: {
-      user: cpuUsage.user,
-      system: cpuUsage.system
-    }
-  };
 }
 
 /**
@@ -72,39 +30,15 @@ function getSystemMetrics() {
  * Used by load balancers to check if server process is alive
  */
 export async function healthCheck(req: Request, res: Response) {
-  const metrics = getSystemMetrics();
-  
   const health: HealthStatus = {
     status: 'healthy',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     environment: process.env.NODE_ENV || 'development',
-    version: process.env.npm_package_version || '1.0.0',
-    ...metrics
+    version: process.env.npm_package_version || '1.0.0'
   };
 
   res.status(200).json(health);
-}
-
-/**
- * Check health of external dependencies
- */
-async function checkDependencies(): Promise<ReadinessStatus['dependencies']> {
-  const dependencies: ReadinessStatus['dependencies'] = {};
-
-  dependencies.cashfree = process.env.CASHFREE_CLIENT_ID && process.env.CASHFREE_CLIENT_SECRET
-    ? { status: 'healthy', message: 'Credentials configured' }
-    : { status: 'degraded', message: 'Credentials not configured' };
-
-  dependencies.email = process.env.EMAIL_USER && process.env.EMAIL_PASS
-    ? { status: 'healthy', message: 'SMTP configured' }
-    : { status: 'degraded', message: 'SMTP not configured' };
-
-  dependencies.sms = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
-    ? { status: 'healthy', message: 'Twilio configured' }
-    : { status: 'degraded', message: 'Twilio not configured' };
-
-  return dependencies;
 }
 
 /**
@@ -113,7 +47,6 @@ async function checkDependencies(): Promise<ReadinessStatus['dependencies']> {
  */
 export async function readinessCheck(req: Request, res: Response) {
   const startTime = Date.now();
-  const metrics = getSystemMetrics();
   
   const readiness: ReadinessStatus = {
     status: 'healthy',
@@ -121,32 +54,29 @@ export async function readinessCheck(req: Request, res: Response) {
     uptime: process.uptime(),
     environment: process.env.NODE_ENV || 'development',
     version: process.env.npm_package_version || '1.0.0',
-    ...metrics,
     database: {
       connected: false
     }
   };
 
   try {
+    // Check database connectivity with a simple query
     await db.execute(sql`SELECT 1`);
     const responseTime = Date.now() - startTime;
     
     readiness.database.connected = true;
     readiness.database.responseTime = responseTime;
-
-    readiness.dependencies = await checkDependencies();
     
+    // Server is ready to accept traffic
     res.status(200).json(readiness);
     
   } catch (error) {
+    // Database connection failed
     readiness.status = 'unhealthy';
     readiness.database.connected = false;
     readiness.database.error = error instanceof Error ? error.message : 'Database connection failed';
     
-    logger.error('Readiness check failed', error instanceof Error ? error : undefined, {
-      databaseError: readiness.database.error
-    });
-    
+    // Return 503 Service Unavailable - tells load balancer not to route traffic here
     res.status(503).json(readiness);
   }
 }
@@ -156,105 +86,7 @@ export async function readinessCheck(req: Request, res: Response) {
  * Used to determine if the application should be restarted
  */
 export async function livenessCheck(req: Request, res: Response) {
+  // For now, same as health check
+  // Can be enhanced to check for deadlocks, memory leaks, etc.
   return healthCheck(req, res);
-}
-
-/**
- * Metrics endpoint - Prometheus-compatible metrics
- * Provides system metrics in Prometheus exposition format
- */
-export async function metricsEndpoint(req: Request, res: Response) {
-  try {
-    const metrics = getSystemMetrics();
-    const uptime = process.uptime();
-    const cacheStats = cacheService.getStats();
-    
-    const dbStartTime = Date.now();
-    let dbLatency = 0;
-    let dbStatus = 0;
-    
-    try {
-      await db.execute(sql`SELECT 1`);
-      dbLatency = Date.now() - dbStartTime;
-      dbStatus = 1;
-    } catch {
-      dbStatus = 0;
-    }
-    
-    const prometheusMetrics = `
-# HELP fintekpro_uptime_seconds Application uptime in seconds
-# TYPE fintekpro_uptime_seconds counter
-fintekpro_uptime_seconds ${uptime.toFixed(2)}
-
-# HELP fintekpro_memory_heap_used_mb Memory heap used in MB
-# TYPE fintekpro_memory_heap_used_mb gauge
-fintekpro_memory_heap_used_mb ${metrics.memory.heapUsed}
-
-# HELP fintekpro_memory_heap_total_mb Memory heap total in MB
-# TYPE fintekpro_memory_heap_total_mb gauge
-fintekpro_memory_heap_total_mb ${metrics.memory.heapTotal}
-
-# HELP fintekpro_memory_rss_mb Resident Set Size in MB
-# TYPE fintekpro_memory_rss_mb gauge
-fintekpro_memory_rss_mb ${metrics.memory.rss}
-
-# HELP fintekpro_cpu_user_microseconds CPU user time in microseconds
-# TYPE fintekpro_cpu_user_microseconds counter
-fintekpro_cpu_user_microseconds ${metrics.cpu.user}
-
-# HELP fintekpro_cpu_system_microseconds CPU system time in microseconds
-# TYPE fintekpro_cpu_system_microseconds counter
-fintekpro_cpu_system_microseconds ${metrics.cpu.system}
-
-# HELP fintekpro_database_status Database connectivity status (1=up, 0=down)
-# TYPE fintekpro_database_status gauge
-fintekpro_database_status ${dbStatus}
-
-# HELP fintekpro_database_latency_ms Database query latency in milliseconds
-# TYPE fintekpro_database_latency_ms gauge
-fintekpro_database_latency_ms ${dbLatency}
-
-# HELP fintekpro_cache_entries_total Total cache entries
-# TYPE fintekpro_cache_entries_total gauge
-fintekpro_cache_entries_total ${cacheStats.total}
-
-# HELP fintekpro_cache_entries_active Active cache entries (not expired)
-# TYPE fintekpro_cache_entries_active gauge
-fintekpro_cache_entries_active ${cacheStats.active}
-
-# HELP fintekpro_cache_entries_expired Expired cache entries
-# TYPE fintekpro_cache_entries_expired gauge
-fintekpro_cache_entries_expired ${cacheStats.expired}
-`.trim();
-
-    res.set('Content-Type', 'text/plain; version=0.0.4');
-    res.status(200).send(prometheusMetrics);
-    
-  } catch (error) {
-    logger.error('Metrics endpoint error', error instanceof Error ? error : undefined);
-    res.status(500).send('# Error generating metrics');
-  }
-}
-
-/**
- * Cache statistics endpoint - JSON format
- * Provides detailed cache performance metrics
- */
-export async function cacheStatsEndpoint(req: Request, res: Response) {
-  try {
-    const stats = cacheService.getStats();
-    const hitRate = stats.total > 0 ? ((stats.active / stats.total) * 100).toFixed(2) : '0.00';
-    
-    res.status(200).json({
-      stats,
-      metrics: {
-        hitRate: `${hitRate}%`,
-        size: cacheService.size()
-      },
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    logger.error('Cache stats endpoint error', error instanceof Error ? error : undefined);
-    res.status(500).json({ message: 'Error retrieving cache statistics' });
-  }
 }

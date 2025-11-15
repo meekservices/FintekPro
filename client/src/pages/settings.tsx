@@ -23,15 +23,11 @@ import {
   Eye,
   EyeOff,
   Trash2,
-  Check,
-  TrendingUp
+  Check
 } from "lucide-react";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ProductAccountPreferences } from "@/components/ProductAccountPreferences";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { RebalancingPreferences } from "@shared/schema";
 
 const accountFormSchema = z.object({
   firstName: z.string().min(2, "First name must be at least 2 characters"),
@@ -51,24 +47,6 @@ const securityFormSchema = z.object({
   path: ["confirmPassword"],
 });
 
-const rebalancePreferencesSchema = z.object({
-  toleranceThreshold: z.string().refine(val => {
-    const num = parseFloat(val);
-    return !isNaN(num) && num > 0 && num <= 100;
-  }, "Must be between 0 and 100"),
-  minimumTransactionAmount: z.string().refine(val => {
-    const num = parseFloat(val);
-    return !isNaN(num) && num >= 0;
-  }, "Must be a positive number"),
-  transactionCostPercentage: z.string().refine(val => {
-    const num = parseFloat(val);
-    return !isNaN(num) && num >= 0 && num <= 10;
-  }, "Must be between 0 and 10"),
-  autoRebalanceEnabled: z.boolean(),
-  rebalanceFrequency: z.string(),
-  notifyOnDrift: z.boolean(),
-});
-
 export default function SettingsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -81,11 +59,6 @@ export default function SettingsPage() {
   const [marketAlerts, setMarketAlerts] = useState(true);
   const [portfolioUpdates, setPortfolioUpdates] = useState(true);
   const [newsAlerts, setNewsAlerts] = useState(false);
-  
-  // OTP Delivery Preferences
-  const [otpEmail, setOtpEmail] = useState(user?.otpPreferenceEmail ?? true);
-  const [otpSms, setOtpSms] = useState(user?.otpPreferenceSms ?? false);
-  const [otpWhatsapp, setOtpWhatsapp] = useState(user?.otpPreferenceWhatsapp ?? true);
 
   const accountForm = useForm<z.infer<typeof accountFormSchema>>({
     resolver: zodResolver(accountFormSchema),
@@ -108,90 +81,6 @@ export default function SettingsPage() {
     },
   });
 
-  // Query rebalancing preferences
-  const { data: rebalancePrefs, isLoading: isLoadingPrefs } = useQuery<RebalancingPreferences>({
-    queryKey: ["/api/user/rebalance-preferences"],
-    enabled: !!user?.id,
-  });
-
-  const rebalancePreferencesForm = useForm<z.infer<typeof rebalancePreferencesSchema>>({
-    resolver: zodResolver(rebalancePreferencesSchema),
-    defaultValues: {
-      toleranceThreshold: rebalancePrefs?.toleranceThreshold?.toString() || "5.00",
-      minimumTransactionAmount: rebalancePrefs?.minimumTransactionAmount?.toString() || "1000.00",
-      transactionCostPercentage: rebalancePrefs?.transactionCostPercentage?.toString() || "0.10",
-      autoRebalanceEnabled: rebalancePrefs?.autoRebalanceEnabled ?? false,
-      rebalanceFrequency: rebalancePrefs?.rebalanceFrequency || "quarterly",
-      notifyOnDrift: rebalancePrefs?.notifyOnDrift ?? true,
-    },
-    values: rebalancePrefs ? {
-      toleranceThreshold: rebalancePrefs.toleranceThreshold?.toString() || "5.00",
-      minimumTransactionAmount: rebalancePrefs.minimumTransactionAmount?.toString() || "1000.00",
-      transactionCostPercentage: rebalancePrefs.transactionCostPercentage?.toString() || "0.10",
-      autoRebalanceEnabled: rebalancePrefs.autoRebalanceEnabled ?? false,
-      rebalanceFrequency: rebalancePrefs.rebalanceFrequency || "quarterly",
-      notifyOnDrift: rebalancePrefs.notifyOnDrift ?? true,
-    } : undefined,
-  });
-
-  const saveOtpPreferencesMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/user/otp-preferences", {
-        body: {
-          otpPreferenceEmail: otpEmail,
-          otpPreferenceSms: otpSms,
-          otpPreferenceWhatsapp: otpWhatsapp,
-        }
-      });
-      return response;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
-      toast({
-        title: "OTP Preferences Updated",
-        description: "Your OTP delivery preferences have been saved successfully.",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Failed to save preferences",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const saveRebalancePreferencesMutation = useMutation({
-    mutationFn: async (data: z.infer<typeof rebalancePreferencesSchema>) => {
-      const response = await apiRequest("POST", "/api/user/rebalance-preferences", {
-        body: {
-          userId: user?.id,
-          toleranceThreshold: data.toleranceThreshold.toString(),
-          minimumTransactionAmount: data.minimumTransactionAmount.toString(),
-          transactionCostPercentage: data.transactionCostPercentage.toString(),
-          autoRebalanceEnabled: data.autoRebalanceEnabled,
-          rebalanceFrequency: data.rebalanceFrequency,
-          notifyOnDrift: data.notifyOnDrift,
-        }
-      });
-      return response;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/user/rebalance-preferences"] });
-      toast({
-        title: "Rebalancing Preferences Updated",
-        description: "Your portfolio rebalancing settings have been saved successfully.",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Failed to save preferences",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
   const onAccountSubmit = (values: z.infer<typeof accountFormSchema>) => {
     toast({
       title: "Account Updated",
@@ -205,15 +94,6 @@ export default function SettingsPage() {
       description: "Your password has been updated successfully.",
     });
     securityForm.reset();
-  };
-
-  const onRebalancePreferencesSubmit = (values: z.infer<typeof rebalancePreferencesSchema>) => {
-    saveRebalancePreferencesMutation.mutate(values);
-  };
-  
-  const handleSaveNotifications = () => {
-    // Save OTP preferences
-    saveOtpPreferencesMutation.mutate();
   };
 
   return (
@@ -249,10 +129,6 @@ export default function SettingsPage() {
           <TabsTrigger value="product-preferences" data-testid="tab-product-preferences">
             <SettingsIcon className="h-4 w-4 mr-2" />
             Product Accounts
-          </TabsTrigger>
-          <TabsTrigger value="rebalancing" data-testid="tab-rebalancing">
-            <TrendingUp className="h-4 w-4 mr-2" />
-            Portfolio Rebalancing
           </TabsTrigger>
         </ScrollableTabsList>
 
@@ -428,44 +304,6 @@ export default function SettingsPage() {
               </div>
 
               <div className="space-y-4 pt-6 border-t">
-                <h3 className="text-lg font-semibold">OTP Delivery Preferences</h3>
-                <p className="text-sm text-muted-foreground">Choose how you want to receive verification codes (OTP) for login and transactions</p>
-                
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Mail className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">Email OTP</p>
-                      <p className="text-sm text-muted-foreground">Receive verification codes via email</p>
-                    </div>
-                  </div>
-                  <Switch checked={otpEmail} onCheckedChange={setOtpEmail} data-testid="switch-otp-email" />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Smartphone className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">SMS OTP</p>
-                      <p className="text-sm text-muted-foreground">Receive verification codes via SMS</p>
-                    </div>
-                  </div>
-                  <Switch checked={otpSms} onCheckedChange={setOtpSms} data-testid="switch-otp-sms" />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Smartphone className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">WhatsApp OTP</p>
-                      <p className="text-sm text-muted-foreground">Receive verification codes via WhatsApp</p>
-                    </div>
-                  </div>
-                  <Switch checked={otpWhatsapp} onCheckedChange={setOtpWhatsapp} data-testid="switch-otp-whatsapp" />
-                </div>
-              </div>
-
-              <div className="space-y-4 pt-6 border-t">
                 <h3 className="text-lg font-semibold">Alert Types</h3>
                 
                 <div className="flex items-center justify-between">
@@ -493,13 +331,9 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              <Button 
-                onClick={handleSaveNotifications}
-                disabled={saveOtpPreferencesMutation.isPending}
-                data-testid="button-save-notifications"
-              >
+              <Button data-testid="button-save-notifications">
                 <Check className="h-4 w-4 mr-2" />
-                {saveOtpPreferencesMutation.isPending ? "Saving..." : "Save Notification Settings"}
+                Save Notification Settings
               </Button>
             </CardContent>
           </Card>
@@ -690,191 +524,6 @@ export default function SettingsPage() {
         {/* Product Account Preferences Tab */}
         <TabsContent value="product-preferences" className="space-y-6">
           <ProductAccountPreferences />
-        </TabsContent>
-
-        {/* Portfolio Rebalancing Tab */}
-        <TabsContent value="rebalancing" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Rebalancing Preferences</CardTitle>
-              <CardDescription>
-                Customize your portfolio rebalancing strategy and automation settings
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoadingPrefs ? (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">Loading preferences...</p>
-                </div>
-              ) : (
-                <Form {...rebalancePreferencesForm}>
-                  <form onSubmit={rebalancePreferencesForm.handleSubmit(onRebalancePreferencesSubmit)} className="space-y-6">
-                    <div className="grid md:grid-cols-2 gap-6">
-                      <FormField
-                        control={rebalancePreferencesForm.control}
-                        name="toleranceThreshold"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Tolerance Threshold (%)</FormLabel>
-                            <FormControl>
-                              <Input 
-                                type="number" 
-                                step="0.01" 
-                                placeholder="5.00" 
-                                {...field} 
-                                data-testid="input-tolerance-threshold" 
-                              />
-                            </FormControl>
-                            <FormDescription>
-                              Maximum percentage deviation allowed before triggering rebalance alert
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={rebalancePreferencesForm.control}
-                        name="minimumTransactionAmount"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Minimum Transaction Amount (₹)</FormLabel>
-                            <FormControl>
-                              <Input 
-                                type="number" 
-                                step="100" 
-                                placeholder="1000.00" 
-                                {...field} 
-                                data-testid="input-min-transaction" 
-                              />
-                            </FormControl>
-                            <FormDescription>
-                              Skip transactions below this amount to reduce costs
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    <div className="grid md:grid-cols-2 gap-6">
-                      <FormField
-                        control={rebalancePreferencesForm.control}
-                        name="transactionCostPercentage"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Transaction Cost (%)</FormLabel>
-                            <FormControl>
-                              <Input 
-                                type="number" 
-                                step="0.01" 
-                                placeholder="0.10" 
-                                {...field} 
-                                data-testid="input-transaction-cost" 
-                              />
-                            </FormControl>
-                            <FormDescription>
-                              Expected transaction cost as percentage of amount
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={rebalancePreferencesForm.control}
-                        name="rebalanceFrequency"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Rebalancing Frequency</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                              <FormControl>
-                                <SelectTrigger data-testid="select-rebalance-frequency">
-                                  <SelectValue placeholder="Select frequency" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="monthly">Monthly</SelectItem>
-                                <SelectItem value="quarterly">Quarterly</SelectItem>
-                                <SelectItem value="semi_annually">Semi-Annually</SelectItem>
-                                <SelectItem value="annually">Annually</SelectItem>
-                                <SelectItem value="manual">Manual Only</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormDescription>
-                              How often to check for rebalancing opportunities
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    <div className="space-y-4 pt-4 border-t">
-                      <h3 className="text-lg font-semibold">Automation Settings</h3>
-                      
-                      <FormField
-                        control={rebalancePreferencesForm.control}
-                        name="autoRebalanceEnabled"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base">
-                                Auto-Rebalance
-                              </FormLabel>
-                              <FormDescription>
-                                Automatically execute rebalancing when conditions are met
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                                data-testid="switch-auto-rebalance"
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={rebalancePreferencesForm.control}
-                        name="notifyOnDrift"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base">
-                                Drift Notifications
-                              </FormLabel>
-                              <FormDescription>
-                                Receive alerts when portfolio drifts beyond tolerance threshold
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                                data-testid="switch-notify-drift"
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    <Button 
-                      type="submit" 
-                      disabled={saveRebalancePreferencesMutation.isPending}
-                      data-testid="button-save-rebalancing"
-                    >
-                      <Check className="h-4 w-4 mr-2" />
-                      {saveRebalancePreferencesMutation.isPending ? "Saving..." : "Save Rebalancing Preferences"}
-                    </Button>
-                  </form>
-                </Form>
-              )}
-            </CardContent>
-          </Card>
         </TabsContent>
       </Tabs>
     </div>

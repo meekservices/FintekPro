@@ -2,11 +2,9 @@
  * Corporate KYC Service
  * Handles Smart KYC flow for Corporate/Non-Individual entities
  * Flow: Corporate PAN → Company Documents → Authorized Signatory → Account Discovery → Review
- * 
- * Migration Note: Migrated from Cashfree to Sandbox.co.in for PAN verification
  */
 
-import { sandboxKYCService } from './sandbox-kyc-service';
+import { CashfreePANService } from './cashfree-pan-service';
 import { DigiLockerService } from './digilockerService';
 import { db } from '../db';
 import { corporateKycProgress, users } from '@shared/schema';
@@ -43,25 +41,19 @@ export class CorporateKYCService {
 
   /**
    * Step 1: Verify Corporate PAN
-   * Uses Sandbox.co.in API for PAN verification (replaces Cashfree)
-   * Auto-fetches company name if not provided
    */
-  async verifyCorporatePAN(userId: string, pan: string, companyName?: string): Promise<CorporatePanVerificationResult> {
+  async verifyCorporatePAN(userId: string, pan: string, companyName: string): Promise<CorporatePanVerificationResult> {
     try {
-      // If company name not provided, fetch it using Basic PAN API
-      let verification;
-      if (!companyName) {
-        verification = await sandboxKYCService.fetchPANBasic(pan);
-      } else {
-        // Verify PAN with provided company name
-        verification = await sandboxKYCService.verifyCorporatePAN(pan, companyName);
+      // Verify PAN using Cashfree API
+      const verification = await CashfreePANService.verifyCompanyPAN(pan, companyName);
+
+      // Check if verification succeeded
+      if (!verification.verified || !verification.data) {
+        throw new Error(verification.message || 'Corporate PAN verification failed');
       }
 
-      // Sandbox returns a different structure, so we adapt it
-      const data = verification;
-
-      // Validate it's a corporate PAN (not individual)
-      if (data.category === 'Individual') {
+      // Validate it's a corporate PAN
+      if (verification.data.type === 'Individual') {
         throw new Error('This appears to be an individual PAN. Please use Individual KYC for personal accounts.');
       }
 
@@ -74,11 +66,11 @@ export class CorporateKYCService {
         await db.update(corporateKycProgress)
           .set({
             step1CorporatePanVerified: true,
-            step1CorporatePan: data.pan,
-            step1CompanyName: data.name,
-            step1CompanyType: data.entityType,
+            step1CorporatePan: verification.data.pan,
+            step1CompanyName: verification.data.registeredName,
+            step1CompanyType: verification.data.type,
             step1CompletedAt: new Date(),
-            step1Data: data,
+            step1Data: verification.data,
             currentStep: 2,
             lastUpdatedStep: 1,
             updatedAt: new Date(),
@@ -88,11 +80,11 @@ export class CorporateKYCService {
         await db.insert(corporateKycProgress).values({
           userId,
           step1CorporatePanVerified: true,
-          step1CorporatePan: data.pan,
-          step1CompanyName: data.name,
-          step1CompanyType: data.entityType,
+          step1CorporatePan: verification.data.pan,
+          step1CompanyName: verification.data.registeredName,
+          step1CompanyType: verification.data.type,
           step1CompletedAt: new Date(),
-          step1Data: data,
+          step1Data: verification.data,
           currentStep: 2,
           lastUpdatedStep: 1,
         });
@@ -100,10 +92,10 @@ export class CorporateKYCService {
 
       return {
         success: true,
-        pan: data.pan,
-        companyName: data.name,
-        companyType: data.entityType,
-        data: data,
+        pan: verification.data.pan,
+        companyName: verification.data.registeredName,
+        companyType: verification.data.type,
+        data: verification.data,
       };
     } catch (error: any) {
       console.error('Corporate PAN verification error:', error);
@@ -315,7 +307,13 @@ export class CorporateKYCService {
         throw new Error('Failed to update KYC progress');
       }
 
-      // Note: KYC tier tracking has been moved to kycVault table
+      // Update user's KYC tier to enhanced (Corporate entities get enhanced tier)
+      await db.update(users)
+        .set({
+          kycTier: 'enhanced',
+          kycTierUpgradedAt: new Date(),
+        })
+        .where(eq(users.id, userId));
     } catch (error: any) {
       console.error('KYC confirmation error:', error);
       throw new Error(error.message || 'Failed to complete Corporate KYC');

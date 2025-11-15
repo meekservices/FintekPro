@@ -6,23 +6,19 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, TrendingUp, TrendingDown, Activity, Shield, Target, Brain, Loader2 } from "lucide-react";
+import { AlertCircle, TrendingUp, TrendingDown, Activity, Shield, Target, Brain } from "lucide-react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { LoadingState } from "@/components/LoadingState";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function PredictiveAnalytics() {
-  const { user, isLoading: authLoading } = useAuth();
   const [selectedPortfolio, setSelectedPortfolio] = useState<string>("");
   const [selectedHorizon, setSelectedHorizon] = useState<string>("1Y");
   const { toast } = useToast();
 
-  // Fetch user portfolios - only when authenticated
+  // Fetch user portfolios
   const { data: portfolios, isLoading: portfoliosLoading } = useQuery({
     queryKey: ["/api/portfolios"],
-    enabled: !!user,
   });
 
   // Fetch predictions
@@ -46,7 +42,7 @@ export default function PredictiveAnalytics() {
   // Generate predictions mutation
   const generatePredictions = useMutation({
     mutationFn: async (data: { portfolioId: string; horizon: string }) =>
-      apiRequest("/api/analytics/generate-predictions", "POST", { body: data }),
+      apiRequest("/api/analytics/generate-predictions", "POST", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/analytics/predictions"] });
       toast({
@@ -66,7 +62,7 @@ export default function PredictiveAnalytics() {
   // Generate risk analysis mutation
   const generateRiskAnalysis = useMutation({
     mutationFn: async (portfolioId: string) =>
-      apiRequest("/api/analytics/generate-risk-analysis", "POST", { body: { portfolioId } }),
+      apiRequest("/api/analytics/generate-risk-analysis", "POST", { portfolioId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/analytics/risk"] });
       toast({
@@ -83,38 +79,11 @@ export default function PredictiveAnalytics() {
     },
   });
 
-  const latestPrediction = Array.isArray(predictions) && predictions.length > 0 ? predictions[0] : null;
-  const latestRisk = Array.isArray(riskAnalysis) && riskAnalysis.length > 0 ? riskAnalysis[0] : null;
-
-  // Show loading state while checking authentication
-  if (authLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-muted-foreground">Checking authentication...</p>
-      </div>
-    );
-  }
-
-  // Redirect if not authenticated
-  if (!user) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4 px-4">
-        <Alert variant="destructive" className="max-w-md">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            You need to be logged in to access predictive analytics. Please login to continue.
-          </AlertDescription>
-        </Alert>
-        <Button onClick={() => window.location.href = '/login'}>
-          Go to Login
-        </Button>
-      </div>
-    );
-  }
+  const latestPrediction = predictions && predictions.length > 0 ? predictions[0] : null;
+  const latestRisk = riskAnalysis && riskAnalysis.length > 0 ? riskAnalysis[0] : null;
 
   if (portfoliosLoading) {
-    return <LoadingState variant="card" count={3} />;
+    return <LoadingState message="Loading portfolios..." />;
   }
 
   return (
@@ -144,7 +113,7 @@ export default function PredictiveAnalytics() {
                 <SelectValue placeholder="Select portfolio" />
               </SelectTrigger>
               <SelectContent>
-                {Array.isArray(portfolios) && portfolios.map((portfolio: any) => (
+                {portfolios?.map((portfolio: any) => (
                   <SelectItem key={portfolio.id} value={portfolio.id}>
                     {portfolio.name}
                   </SelectItem>
@@ -199,7 +168,7 @@ export default function PredictiveAnalytics() {
           {/* Performance Predictions Tab */}
           <TabsContent value="predictions" className="space-y-4">
             {predictionsLoading ? (
-              <LoadingState variant="card" count={2} />
+              <LoadingState message="Loading predictions..." />
             ) : latestPrediction ? (
               <>
                 {/* Key Metrics */}
@@ -344,7 +313,7 @@ export default function PredictiveAnalytics() {
           {/* Risk Analysis Tab */}
           <TabsContent value="risk" className="space-y-4">
             {riskLoading ? (
-              <LoadingState variant="card" count={3} />
+              <LoadingState message="Loading risk analysis..." />
             ) : latestRisk ? (
               <>
                 {/* Overall Risk Score */}
@@ -518,8 +487,8 @@ export default function PredictiveAnalytics() {
           {/* Asset Forecasts Tab */}
           <TabsContent value="forecasts" className="space-y-4">
             {forecastsLoading ? (
-              <LoadingState variant="card" count={4} />
-            ) : Array.isArray(forecasts) && forecasts.length > 0 ? (
+              <LoadingState message="Loading forecasts..." />
+            ) : forecasts && forecasts.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {forecasts.map((forecast: any) => (
                   <Card key={forecast.id}>

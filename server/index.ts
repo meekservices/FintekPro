@@ -1,5 +1,5 @@
-// FintekPro Server - Main entry point (Fixed graceful shutdown)
-import express, { type Request, Response, NextFunction} from "express";
+// FintekPro Server - Main entry point
+import express, { type Request, Response, NextFunction } from "express";
 import helmet from "helmet";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
@@ -12,27 +12,7 @@ import { storage } from "./storage";
 import { setupAuth as setupReplitAuth } from "./replitAuth";
 import { setupAuth as setupLocalAuth } from "./auth";
 import { subdomainDetection } from "./subdomain-middleware";
-import { requestCorrelationMiddleware } from "./middleware/request-correlation";
-import { requestTracingMiddleware } from "./middleware/request-tracing";
-import { initializeCsrfToken, validateCsrfToken, getCsrfToken } from "./csrf-protection";
-import { shouldSkipAuthRateLimit } from "./admin-rate-limit-bypass";
-import { getCookieDomain } from "./cookie-domain";
 import "./services/sms-service"; // Initialize SMS service
-import { gracefulShutdown } from "./graceful-shutdown";
-import { setupSwagger } from "./swagger";
-
-// CRITICAL: Process-level error handlers to prevent silent crashes
-process.on('uncaughtException', (error: Error) => {
-  console.error('💥 UNCAUGHT EXCEPTION - Process will exit:', error);
-  logger.error('Uncaught exception', { error: error.message, stack: error.stack });
-  process.exit(1);
-});
-
-process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
-  console.error('💥 UNHANDLED REJECTION:', reason);
-  logger.error('Unhandled rejection', { reason: reason instanceof Error ? reason.message : String(reason), stack: reason instanceof Error ? reason.stack : undefined });
-  process.exit(1);
-});
 
 const app = express();
 
@@ -85,7 +65,7 @@ app.use(cors({
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "X-CSRF-Token"]
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"]
 }));
 
 // Rate limiting with proper proxy configuration
@@ -104,64 +84,19 @@ const limiter = rateLimit({
 
 app.use("/api", limiter);
 
-// Parse body early for authentication endpoints to enable admin bypass check
-// This needs to run BEFORE the authLimiter so shouldSkipAuthRateLimit can access req.body
-app.use([
-  "/api/login",
-  "/api/login/verify-otp",
-  "/api/register",
-  "/api/register/verify-otp",
-  "/api/register/resend-otp",
-  "/api/otp/send",
-  "/api/otp/verify",
-  "/api/auth/forgot-password",
-  "/api/auth/reset-password"
-], express.json({ limit: "10mb" }));
-
 // Stricter rate limiting for authentication endpoints
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5, // Limit each IP to 5 auth requests per windowMs
   message: { message: "Too many authentication attempts, please try again later." },
   skipSuccessfulRequests: true,
-  // Skip rate limiting for admin users
-  skip: shouldSkipAuthRateLimit,
   // Skip proxy configuration here - handled by app.set('trust proxy', 1)
 });
 
-// SECURITY FIX: Apply rate limiting to all authentication-related endpoints
-app.use([
-  "/api/login",
-  "/api/login/verify-otp",
-  "/api/register",
-  "/api/register/verify-otp",
-  "/api/register/resend-otp",
-  "/api/otp/send",
-  "/api/otp/verify",
-  "/api/auth/forgot-password",
-  "/api/auth/reset-password"
-], authLimiter);
+app.use(["/api/login", "/api/register"], authLimiter);
 
 // Raw body capture for webhook signature verification
 app.use('/api/payments/cashfree/webhook', express.raw({ type: 'application/json' }));
-
-// Raw body capture for Zoho webhook signature verification (HMAC-SHA256)
-// CRITICAL: Must be before express.json() to capture the raw payload
-app.use('/api/zoho/webhooks/*', express.json({
-  verify: (req: any, _res, buf) => {
-    // Store raw body for HMAC verification
-    req.rawBody = buf.toString('utf8');
-  }
-}));
-
-// Raw body capture for eSign webhook signature verification (HMAC-SHA256)
-// CRITICAL: Must be before express.json() to capture the raw payload
-app.use('/api/esign/webhook', express.json({
-  verify: (req: any, _res, buf) => {
-    // Store raw body for HMAC verification
-    req.rawBody = buf.toString('utf8');
-  }
-}));
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: false, limit: "10mb" }));
@@ -230,12 +165,6 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-// Request correlation middleware for request ID tracking
-app.use(requestCorrelationMiddleware);
-
-// Request tracing middleware for distributed tracing
-app.use(requestTracingMiddleware);
-
 // Subdomain detection middleware - must come early to be available in all routes
 app.use(subdomainDetection);
 
@@ -265,11 +194,7 @@ app.use((req, res, next) => {
         logLine = logLine.slice(0, 79) + "…";
       }
 
-      const logContext = {
-        requestId: req.requestId,
-        ...(capturedJsonResponse ? { response: capturedJsonResponse } : {})
-      };
-      logger.http(req.method, path, res.statusCode, duration, logContext);
+      logger.http(req.method, path, res.statusCode, duration, capturedJsonResponse ? { response: capturedJsonResponse } : undefined);
     }
   });
 
@@ -278,35 +203,15 @@ app.use((req, res, next) => {
 
 (async () => {
   // Health check endpoints (must be before auth - no authentication required)
-  const { healthCheck, readinessCheck, livenessCheck, metricsEndpoint, cacheStatsEndpoint } = await import('./health-check');
+  const { healthCheck, readinessCheck, livenessCheck } = await import('./health-check');
   app.get('/health', healthCheck);
   app.get('/ready', readinessCheck);
   app.get('/live', livenessCheck);
-  app.get('/metrics', metricsEndpoint);
-  app.get('/cache/stats', cacheStatsEndpoint);
   
   // Initialize authentication (Passport & sessions must be set up first)
   await setupReplitAuth(app);
   
-  // Dynamically set session cookie domain per-request based on hostname
-  app.use((req, res, next) => {
-    if (req.session) {
-      const domain = getCookieDomain(req.hostname);
-      req.session.cookie.domain = domain;
-    }
-    next();
-  });
-  
-  // SECURITY: Initialize CSRF protection (must be after session, before routes)
-  app.use(initializeCsrfToken());
-  
-  // SECURITY: Add CSRF token endpoint for SPA clients
-  app.get('/api/csrf-token', getCsrfToken);
-  
-  // SECURITY: Validate CSRF tokens on state-changing requests (BEFORE route registration)
-  app.use(validateCsrfToken());
-  
-  // Then add local email/mobile authentication routes (AFTER CSRF validation)
+  // Then add local email/mobile authentication routes
   setupLocalAuth(app);
   
   // Register Zoho integration routes
@@ -317,17 +222,9 @@ app.use((req, res, next) => {
   const agentRoutes = await import('./agent-routes');
   app.use(agentRoutes.default);
   
-  // Register Agent Admin routes (Default agent management for EUIN/ARN tracking)
-  const { registerAgentAdminRoutes } = await import('./agent-admin-routes');
-  registerAgentAdminRoutes(app);
-  
   // Register KYC Vault routes (Production-grade KYC system)
   const { registerKYCVaultRoutes } = await import('./kyc-vault-routes');
   registerKYCVaultRoutes(app);
-  
-  // Register KYC Priority Workflow routes (4-tier verification: CKYC → KRA → Video → Manual)
-  const { registerKYCPriorityRoutes } = await import('./kyc-priority-routes');
-  registerKYCPriorityRoutes(app);
   
   // Register Marketing Automation routes (Zoho Campaigns, AiSensy, Probe42)
   const { registerMarketingRoutes } = await import('./marketing-routes');
@@ -341,55 +238,14 @@ app.use((req, res, next) => {
   const { registerStakeholderRoutes } = await import('./stakeholder-routes');
   registerStakeholderRoutes(app);
   
-  // Register Account Aggregator routes (RBI AA Framework consent management & FI data fetching)
-  const { registerAARoutes } = await import('./aa-routes');
-  registerAARoutes(app);
-  
-  // Register Admin Monitoring routes (System Health, AI Fixes, Audit Ledger)
-  const { registerAdminMonitoringRoutes } = await import('./admin-monitoring-routes');
-  registerAdminMonitoringRoutes(app);
-  
-  // Register Admin Audit routes (Audit & Compliance Ledger)
-  const { registerAdminAuditRoutes } = await import('./admin-audit-routes');
-  registerAdminAuditRoutes(app);
-  
-  
-  // Register Financial Goal routes (Goal planning with contribution tracking)
-  const { registerGoalRoutes } = await import('./goal-routes');
-  registerGoalRoutes(app);
-
-  // Register Interactive Charts routes (Chart analysis with custom date ranges and comparison tool)
-  const { registerChartRoutes } = await import('./chart-routes');
-  registerChartRoutes(app);
-  
-  // Setup Swagger API Documentation (/api/docs)
-  setupSwagger(app);
-  logger.info('📚 API documentation available at /api/docs');
-  
   const server = await registerRoutes(app);
 
-  // Production HTTP server timeout configurations
-  if (process.env.NODE_ENV === 'production') {
-    server.keepAliveTimeout = 65000; // 65 seconds (must be > load balancer timeout)
-    server.headersTimeout = 66000; // 66 seconds (must be > keepAliveTimeout)
-    server.requestTimeout = 120000; // 120 seconds for long-running requests
-  }
-
-  app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
+  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
-    // Log error instead of re-throwing to prevent silent process crashes
-    logger.error('Express error middleware caught error', {
-      error: err.message || String(err),
-      stack: err.stack,
-      status,
-      path: req.path,
-      method: req.method
-    });
-    console.error('❌ Express error:', { path: req.path, method: req.method, error: err.message, stack: err.stack });
-
     res.status(status).json({ message });
+    throw err;
   });
 
   // importantly only setup vite in development and after
@@ -472,81 +328,5 @@ app.use((req, res, next) => {
     } catch (error) {
       console.error('❌ Error importing session cleanup cron:', error);
     }
-
-    // Initialize Data Cleanup Cron Job
-    try {
-      import('./data-cleanup-cron').then(({ startDataCleanupCron }) => {
-        startDataCleanupCron();
-      }).catch(error => {
-        console.error('❌ Failed to initialize data cleanup cron:', error);
-      });
-    } catch (error) {
-      console.error('❌ Error importing data cleanup cron:', error);
-    }
-
-    // Initialize Portfolio Valuation Cron Job
-    try {
-      import('./valuation-cron').then(({ initValuationCron }) => {
-        initValuationCron();
-      }).catch(error => {
-        console.error('❌ Failed to initialize valuation cron:', error);
-      });
-    } catch (error) {
-      console.error('❌ Error importing valuation cron:', error);
-    }
-
-    // Initialize KRA Polling Job
-    try {
-      import('./jobs/kra-polling-job').then(({ startKraPollingJob }) => {
-        startKraPollingJob();
-        console.log('[KRA Polling] Background job initialized');
-      }).catch(error => {
-        console.error('❌ Failed to initialize KRA polling job:', error);
-      });
-    } catch (error) {
-      console.error('❌ Error importing KRA polling job:', error);
-    }
-
-    // Initialize API Health Monitoring Job
-    if (process.env.API_HEALTH_MONITORING_ENABLED !== 'false') {
-      try {
-        import('./jobs/api-health-cron').then(({ startApiHealthMonitoringJob }) => {
-          startApiHealthMonitoringJob();
-          console.log('[API Health Monitoring] Background job initialized');
-        }).catch(error => {
-          console.error('❌ Failed to initialize API health monitoring job:', error);
-        });
-      } catch (error) {
-        console.error('❌ Error importing API health monitoring job:', error);
-      }
-    } else {
-      console.log('[API Health Monitoring] Disabled via API_HEALTH_MONITORING_ENABLED=false');
-    }
-
-    // ✅ Register server for graceful shutdown
-    gracefulShutdown.registerServer(server);
-    
-    // Register cleanup handlers for background services
-    gracefulShutdown.registerHandler({
-      name: 'Cron Jobs',
-      cleanup: async () => {
-        logger.info('Stopping all cron jobs...');
-        // Cron jobs will be stopped automatically when process exits
-      }
-    });
-
-    gracefulShutdown.registerHandler({
-      name: 'Cache Service',
-      cleanup: async () => {
-        logger.info('Clearing cache...');
-        const { cacheService } = await import('./services/cache-service');
-        cacheService.clear();
-      }
-    });
-
-    logger.info('Graceful shutdown handlers registered', { 
-      environment: process.env.NODE_ENV,
-      serverReady: true 
-    });
   });
 })();

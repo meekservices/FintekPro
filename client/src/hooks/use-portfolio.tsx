@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { useAuth } from "@/hooks/useAuth";
 import type { Portfolio, PortfolioHolding, AssetAllocation, EpfHolding, PpfHolding, EpsHolding, InsuranceHolding } from "@shared/schema";
 
 interface EnhancedHolding extends PortfolioHolding {
@@ -48,29 +47,9 @@ export function usePortfolios(userId: string) {
 }
 
 export function usePortfoliosByPan() {
-  const { user } = useAuth();
   return useQuery<Portfolio[]>({
     queryKey: ['/api/portfolios/by-pan'],
     retry: false,
-    enabled: !!user,
-  });
-}
-
-// Fetch holdings by user's PAN number (new approach)
-export function useHoldingsByPan() {
-  const { user } = useAuth();
-  return useQuery<{
-    success: boolean;
-    holdings: PortfolioHolding[];
-    message?: string;
-    panNumber?: string;
-    panVerified?: boolean;
-    holdingsCount?: number;
-    kycRequired?: boolean;
-  }>({
-    queryKey: ['/api/portfolios/by-pan/holdings'],
-    retry: false,
-    enabled: !!user,
   });
 }
 
@@ -106,35 +85,27 @@ export function useAssetAllocation(portfolioId: string | null) {
 
 // Government Scheme Holdings hooks
 export function useEpfHoldings() {
-  const { user } = useAuth();
   return useQuery<EpfHolding[]>({
     queryKey: ['/api/government-schemes/epf'],
-    enabled: !!user,
   });
 }
 
 export function usePpfHoldings() {
-  const { user } = useAuth();
   return useQuery<PpfHolding[]>({
     queryKey: ['/api/government-schemes/ppf'],
-    enabled: !!user,
   });
 }
 
 export function useEpsHoldings() {
-  const { user } = useAuth();
   return useQuery<EpsHolding[]>({
     queryKey: ['/api/government-schemes/eps'],
-    enabled: !!user,
   });
 }
 
 // Insurance Holdings hooks
 export function useInsuranceHoldings() {
-  const { user } = useAuth();
   return useQuery<InsuranceHolding[]>({
     queryKey: ['/api/insurance-holdings'],
-    enabled: !!user,
   });
 }
 
@@ -186,41 +157,6 @@ export function useRebalancePortfolio() {
         queryKey: ['/api/portfolios', variables.portfolioId, 'allocation'] 
       });
     },
-  });
-}
-
-export function useExecuteRebalance() {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: async ({ portfolioId, rebalanceCalculations, portfolioValueBefore }: { 
-      portfolioId: string; 
-      rebalanceCalculations: any[];
-      portfolioValueBefore: number;
-    }) => {
-      const response = await apiRequest("POST", `/api/portfolios/${portfolioId}/rebalance/execute`, {
-        body: { rebalanceCalculations, portfolioValueBefore }
-      });
-      return response.json();
-    },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/portfolios', variables.portfolioId, 'allocation'] 
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/portfolios', variables.portfolioId, 'holdings'] 
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/portfolios', variables.portfolioId, 'rebalance', 'history'] 
-      });
-    },
-  });
-}
-
-export function useRebalanceHistory(portfolioId: string | null) {
-  return useQuery<any[]>({
-    queryKey: ['/api/portfolios', portfolioId, 'rebalance', 'history'],
-    enabled: !!portfolioId,
   });
 }
 

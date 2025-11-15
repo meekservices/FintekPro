@@ -1,4 +1,4 @@
-import { Switch, Route, useLocation, Redirect } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { lazy, useEffect } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -9,7 +9,6 @@ import { GDPRConsent } from "@/components/gdpr-consent";
 import Home from "@/pages/home";
 import Portfolio from "@/pages/portfolio";
 import Markets from "@/pages/markets";
-import MarketIntelligence from "@/pages/market-intelligence";
 import IPO from "@/pages/ipo";
 import PreIPO from "@/pages/pre-ipo";
 import MutualFunds from "@/pages/mutual-funds";
@@ -23,7 +22,6 @@ import CamsServices from "@/pages/cams-services";
 import KfintechServices from "@/pages/kfintech-services";
 import AgriculturalInsights from "@/pages/agricultural-insights";
 import FinancialCalculators from "@/pages/financial-calculators";
-import ChartAnalyzer from "@/pages/chart-analyzer";
 import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/auth-page";
 import AdminPanel from "@/pages/admin";
@@ -33,8 +31,6 @@ import InvestSmart from "@/pages/wealth-management";
 import Achievements from "@/pages/achievements";
 import CapitalGainsReports from "@/pages/capital-gains-reports";
 import AgentDashboard from "@/pages/agent-dashboard";
-import AgentDashboardNew from "@/pages/agent/dashboard";
-import AgentClients from "@/pages/agent/clients";
 import IBTradingPage from "@/pages/ib-trading";
 import StorePage from "@/pages/store";
 import GiftCity from "@/pages/gift-city";
@@ -58,7 +54,6 @@ import { AppLayout } from "@/components/layout/app-layout";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { useSubdomain } from "@/hooks/useSubdomain";
 import { useAuth } from "@/hooks/useAuth";
-import { KycGate } from "@/components/kyc/kyc-gate";
 import AdminDashboard from "@/pages/admin/dashboard";
 import StakeholdersPage from "@/pages/admin/stakeholders";
 import KycCompliancePage from "@/pages/admin/kyc-compliance";
@@ -78,7 +73,6 @@ import ProposalsPage from "@/pages/proposals";
 import BrokingPage from "@/pages/broking";
 import AgentPortal from "@/pages/agent-portal";
 import OnboardingPage from "@/pages/onboarding";
-import SmartProductionKYC from "@/pages/smart-production-kyc";
 import ManualKYCPage from "@/pages/manual-kyc";
 import KYCDashboard from "@/pages/kyc-dashboard";
 import NetWorthPage from "@/pages/net-worth";
@@ -88,6 +82,7 @@ import ClientProposalsPage from "@/pages/client-proposals";
 import TaxDocuments from "@/pages/tax-documents";
 import ITRPrefilled from "@/pages/itr-prefilled";
 import TaxDataCenter from "@/pages/tax-data-center";
+import TaxSmartFiling from "@/pages/tax-smart-filing";
 import OneClickTaxFiling from "@/pages/one-click-tax-filing";
 import PropertyServices from "@/pages/property-services";
 import LoanComparison from "@/pages/loan-comparison";
@@ -108,7 +103,6 @@ import FamilyList from "@/pages/family-list";
 import FamilyDashboard from "@/pages/family-dashboard";
 import AIChat from "@/pages/ai-chat";
 import CorporateKYCPage from "@/pages/CorporateKYCPage";
-import NRIKYCPage from "@/pages/nri-kyc";
 import AlertsPage from "@/pages/alerts";
 import SettingsPage from "@/pages/settings";
 import CreditReportPage from "@/pages/credit-report";
@@ -118,8 +112,6 @@ import CreditCardsPage from "@/pages/credit-cards";
 import ProfessionalServicesPage from "@/pages/professional-services";
 import ExpensesBudgets from "@/pages/expenses-budgets";
 import AutoPopulationDashboard from "@/pages/auto-population-dashboard";
-import AAConsentManagement from "@/pages/AAConsentManagement";
-import AADiscoveredAccounts from "@/pages/AADiscoveredAccounts";
 import MarketingDashboard from "@/pages/admin/marketing-dashboard";
 import EmailCampaigns from "@/pages/admin/email-campaigns";
 import WhatsAppCampaigns from "@/pages/admin/whatsapp-campaigns";
@@ -127,18 +119,7 @@ import LeadProspecting from "@/pages/admin/lead-prospecting";
 import ClientIntelligence from "@/pages/admin/client-intelligence";
 import MarketingAnalytics from "@/pages/admin/marketing-analytics";
 import UserManagement from "@/pages/admin/user-management";
-import SystemMonitoring from "@/pages/admin/system-monitoring";
-import AuditLedger from "@/pages/admin/audit-ledger";
-import AIFixSuggestions from "@/pages/admin/ai-fixes";
 import PredictiveAnalytics from "@/pages/PredictiveAnalytics";
-import PmsDashboard from "@/pages/pms-dashboard";
-import AifDashboard from "@/pages/aif-dashboard";
-import PrivateMarketDashboard from "@/pages/private-market-dashboard";
-
-// Legacy KYC redirect component for backward compatibility
-function LegacyKYCRedirect() {
-  return <Redirect to="/smart-production-kyc" />;
-}
 
 function UserProtectedRoutes() {
   return (
@@ -146,25 +127,24 @@ function UserProtectedRoutes() {
       <Switch>
         <Route path="/" component={Home} />
         <Route path="/dashboard" component={Home} />
-        <Route path="/portfolio">{() => <KycGate><Portfolio /></KycGate>}</Route>
-        <Route path="/analytics">{() => <KycGate><PredictiveAnalytics /></KycGate>}</Route>
+        <Route path="/portfolio" component={Portfolio} />
+        <Route path="/analytics" component={PredictiveAnalytics} />
         <Route path="/comprehensive-portfolio">{() => {
           const ComprehensivePortfolio = lazy(() => import("@/pages/comprehensive-portfolio"));
-          return <KycGate><ComprehensivePortfolio /></KycGate>;
+          return <ComprehensivePortfolio />;
         }}</Route>
-        <Route path="/broking">{() => <KycGate><BrokingPage /></KycGate>}</Route>
-        <Route path="/market-intelligence" component={MarketIntelligence} />
+        <Route path="/broking" component={BrokingPage} />
         <Route path="/markets" component={Markets} />
-        <Route path="/ipo">{() => <KycGate><IPO /></KycGate>}</Route>
-        <Route path="/pre-ipo">{() => <KycGate><PreIPO /></KycGate>}</Route>
-        <Route path="/mutual-funds">{() => <KycGate><MutualFunds /></KycGate>}</Route>
-        <Route path="/fund-comparison">{() => <KycGate><FundComparison /></KycGate>}</Route>
-        <Route path="/portfolio-comparison">{() => <KycGate><PortfolioComparison /></KycGate>}</Route>
-        <Route path="/unlisted">{() => <KycGate><Unlisted /></KycGate>}</Route>
-        <Route path="/bonds">{() => <KycGate><Bonds /></KycGate>}</Route>
-        <Route path="/mlds">{() => <KycGate><MLDs /></KycGate>}</Route>
-        <Route path="/insurance">{() => <KycGate><Insurance /></KycGate>}</Route>
-        <Route path="/banking-products">{() => <KycGate><BankingProducts /></KycGate>}</Route>
+        <Route path="/ipo" component={IPO} />
+        <Route path="/pre-ipo" component={PreIPO} />
+        <Route path="/mutual-funds" component={MutualFunds} />
+        <Route path="/fund-comparison" component={FundComparison} />
+        <Route path="/portfolio-comparison" component={PortfolioComparison} />
+        <Route path="/unlisted" component={Unlisted} />
+        <Route path="/bonds" component={Bonds} />
+        <Route path="/mlds" component={MLDs} />
+        <Route path="/insurance" component={Insurance} />
+        <Route path="/banking-products" component={BankingProducts} />
         <Route path="/loans" component={Loans} />
         <Route path="/nsdl-services" component={NSDLServices} />
         <Route path="/cdsl-services" component={CDSLServices} />
@@ -172,19 +152,18 @@ function UserProtectedRoutes() {
         <Route path="/kfintech-services" component={KfintechServices} />
         <Route path="/agricultural-insights" component={AgriculturalInsights} />
         <Route path="/calculators" component={FinancialCalculators} />
-        <Route path="/chart-analyzer" component={ChartAnalyzer} />
         <Route path="/partner" component={PartnerPortal} />
         <Route path="/support" component={Support} />
         <Route path="/wealth" component={InvestSmart} />
         <Route path="/investsmart" component={InvestSmart} />
         <Route path="/wealth-management" component={InvestSmart} />
-        <Route path="/proposals">{() => <KycGate><ProposalsPage /></KycGate>}</Route>
-        <Route path="/my-proposals">{() => <KycGate><ClientProposalsPage /></KycGate>}</Route>
+        <Route path="/proposals" component={ProposalsPage} />
+        <Route path="/my-proposals" component={ClientProposalsPage} />
         <Route path="/achievements" component={Achievements} />
-        <Route path="/capital-gains">{() => <KycGate><CapitalGainsReports /></KycGate>}</Route>
+        <Route path="/capital-gains" component={CapitalGainsReports} />
         {/* Unified Tax Services - Primary Route */}
         <Route path="/tax-hub" component={IntelligentTaxHub} />
-        <Route path="/tax">{() => { window.location.href = '/tax-hub?tab=filing'; return null; }}</Route>
+        <Route path="/tax" component={TaxSmartFiling} />
         <Route path="/one-click-tax-filing" component={OneClickTaxFiling} />
         <Route path="/tax-reminder-subscription" component={TaxReminderSubscription} />
         {/* Legacy Tax Routes - Maintained for existing users */}
@@ -203,24 +182,21 @@ function UserProtectedRoutes() {
         <Route path="/loan-recommendations" component={LoanRecommendations} />
         <Route path="/partner-application/:lender" component={PartnerApplication} />
         <Route path="/investment-dashboard" component={InvestmentDashboard} />
-        <Route path="/ib-trading">{() => <KycGate><IBTradingPage /></KycGate>}</Route>
-        <Route path="/store">{() => <KycGate><StorePage /></KycGate>}</Route>
+        <Route path="/ib-trading" component={IBTradingPage} />
+        <Route path="/store" component={StorePage} />
         <Route path="/chat" component={AIChat} />
         <Route path="/alerts" component={AlertsPage} />
-        <Route path="/gift-city">{() => <KycGate><GiftCity /></KycGate>}</Route>
-        <Route path="/nri-services">{() => <KycGate><NRIServices /></KycGate>}</Route>
-        <Route path="/itr-tax-services">{() => <KycGate><ITRTaxServices /></KycGate>}</Route>
-        <Route path="/domestic-trading">{() => <KycGate><DomesticTrading /></KycGate>}</Route>
-        <Route path="/global-trading">{() => <KycGate><GlobalTrading /></KycGate>}</Route>
-        <Route path="/cart">{() => <KycGate><Cart /></KycGate>}</Route>
+        <Route path="/gift-city" component={GiftCity} />
+        <Route path="/nri-services" component={NRIServices} />
+        <Route path="/itr-tax-services" component={ITRTaxServices} />
+        <Route path="/domestic-trading" component={DomesticTrading} />
+        <Route path="/global-trading" component={GlobalTrading} />
+        <Route path="/cart" component={Cart} />
         <Route path="/api-monitor" component={ApiMonitorDemo} />
         <Route path="/icici-loans" component={ICICILoans} />
         <Route path="/hdfc-loans" component={HDFCLoans} />
         <Route path="/client-auto-populate" component={ClientAutoPopulate} />
         <Route path="/aif" component={AIF} />
-        <Route path="/pms" component={PmsDashboard} />
-        <Route path="/aif-dashboard" component={AifDashboard} />
-        <Route path="/private-market" component={PrivateMarketDashboard} />
         <Route path="/bajaj-finance" component={BajajFinance} />
         <Route path="/tata-capital" component={TataCapital} />
         <Route path="/policybazaar" component={PolicyBazaar} />
@@ -233,8 +209,7 @@ function UserProtectedRoutes() {
         <Route path="/loan-dashboard" component={LoanDashboard} />
         <Route path="/families" component={FamilyList} />
         <Route path="/families/:id" component={FamilyDashboard} />
-        {/* Legacy KYC route - redirect to unified page */}
-        <Route path="/corporate-kyc" component={LegacyKYCRedirect} />
+        <Route path="/corporate-kyc" component={CorporateKYCPage} />
         {/* New Pages */}
         <Route path="/settings" component={SettingsPage} />
         <Route path="/credit-report" component={CreditReportPage} />
@@ -244,8 +219,6 @@ function UserProtectedRoutes() {
         <Route path="/credit-cards" component={CreditCardsPage} />
         <Route path="/professional-services" component={ProfessionalServicesPage} />
         <Route path="/auto-populate" component={AutoPopulationDashboard} />
-        <Route path="/aa-consents">{() => <KycGate><AAConsentManagement /></KycGate>}</Route>
-        <Route path="/aa-accounts">{() => <KycGate><AADiscoveredAccounts /></KycGate>}</Route>
       </Switch>
     </ProfileCompletionGuard>
   );
@@ -406,24 +379,13 @@ function AdminRoutes() {
           </AdminLayout>
         )}
       </Route>
-      <Route path="/admin/system-monitoring">
+      <Route path="/admin/system-health">
         {() => (
           <AdminLayout>
-            <SystemMonitoring />
-          </AdminLayout>
-        )}
-      </Route>
-      <Route path="/admin/audit-ledger">
-        {() => (
-          <AdminLayout>
-            <AuditLedger />
-          </AdminLayout>
-        )}
-      </Route>
-      <Route path="/admin/ai-fixes">
-        {() => (
-          <AdminLayout>
-            <AIFixSuggestions />
+            <div className="text-center py-20">
+              <h2 className="text-2xl font-bold text-white mb-4">System Health</h2>
+              <p className="text-gray-400">Coming soon...</p>
+            </div>
           </AdminLayout>
         )}
       </Route>
@@ -502,19 +464,10 @@ function Router() {
         {/* Public routes - no authentication or profile completion required */}
         <Route path="/auth" component={AuthPage} />
         <Route path="/profile" component={Profile} />
-        
-        {/* Smart Production KYC - Unified KYC workflow */}
-        <Route path="/smart-production-kyc" component={SmartProductionKYC} />
+        <Route path="/onboarding" component={OnboardingPage} />
         <Route path="/manual-kyc" component={ManualKYCPage} />
         <Route path="/kyc-dashboard" component={KYCDashboard} />
         <Route path="/net-worth" component={NetWorthPage} />
-        
-        {/* Legacy KYC routes - redirect to unified page for backward compatibility */}
-        <Route path="/onboarding" component={LegacyKYCRedirect} />
-        <Route path="/smart-kyc" component={LegacyKYCRedirect} />
-        <Route path="/nri-kyc" component={LegacyKYCRedirect} />
-        <Route path="/corporate-kyc" component={LegacyKYCRedirect} />
-        
         <Route path="/privacy" component={Privacy} />
         <Route path="/terms" component={Terms} />
         
@@ -523,8 +476,6 @@ function Router() {
         <Route path="/admin/proposals" component={AdminProposalsPage} />
         <Route path="/admin/whatsapp-setup" component={AdminWhatsAppSetup} />
         <Route path="/agent" component={AgentDashboard} />
-        <Route path="/agent/dashboard" component={AgentDashboardNew} />
-        <Route path="/agent/clients" component={AgentClients} />
         
         {/* User routes - require both authentication and profile completion */}
         <Route component={UserProtectedRoutes} />

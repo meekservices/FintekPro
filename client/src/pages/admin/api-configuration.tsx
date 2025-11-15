@@ -1,15 +1,14 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Key, Check, X, AlertCircle, Settings, Info, ExternalLink } from "lucide-react";
+import { Key, Check, X, AlertCircle, Settings } from "lucide-react";
 import { useState } from "react";
 
 interface ServiceConfig {
   name: string;
   description: string;
   environment: 'sandbox' | 'production';
-  status: 'configured' | 'missing' | 'error' | 'warning';
+  status: 'configured' | 'missing' | 'error';
   envVars: string[];
 }
 
@@ -58,17 +57,10 @@ const services: ServiceConfig[] = [
   },
   {
     name: 'Sandbox API',
-    description: 'Primary KYC provider (PAN, Aadhaar, Bank, UPI verification)',
-    environment: 'production',
+    description: 'Bank account verification',
+    environment: 'sandbox',
     status: 'configured',
     envVars: ['SANDBOX_API_KEY', 'SANDBOX_API_SECRET']
-  },
-  {
-    name: 'Cashfree Verification',
-    description: '⚠️ DEPRECATED - Migrated to Sandbox API',
-    environment: 'sandbox',
-    status: 'warning',
-    envVars: ['CASHFREE_CLIENT_ID', 'CASHFREE_CLIENT_SECRET']
   },
 ];
 
@@ -87,8 +79,6 @@ export default function APIConfiguration() {
       case 'missing':
         return <X className="h-4 w-4 text-red-400" />;
       case 'error':
-        return <AlertCircle className="h-4 w-4 text-red-400" />;
-      case 'warning':
         return <AlertCircle className="h-4 w-4 text-yellow-400" />;
     }
   };
@@ -97,8 +87,7 @@ export default function APIConfiguration() {
     const variants = {
       configured: 'bg-green-500/20 text-green-400 border-green-500/50',
       missing: 'bg-red-500/20 text-red-400 border-red-500/50',
-      error: 'bg-red-500/20 text-red-400 border-red-500/50',
-      warning: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50'
+      error: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50'
     };
     
     return (
@@ -114,28 +103,6 @@ export default function APIConfiguration() {
         <h1 className="text-3xl font-bold text-white">API Configuration</h1>
         <p className="text-gray-400 mt-1">Manage API keys and service environments</p>
       </div>
-
-      <Alert className="bg-blue-900/20 border-blue-700">
-        <Info className="h-4 w-4 text-blue-400" />
-        <AlertDescription className="text-gray-300">
-          <div className="space-y-2">
-            <p className="font-semibold text-white">Sandbox API Setup (Primary KYC Provider)</p>
-            <p className="text-sm">
-              To obtain Sandbox API credentials for KYC verification:
-            </p>
-            <ol className="list-decimal list-inside text-sm space-y-1 ml-2">
-              <li>Visit <a href="https://sandbox.co.in" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline inline-flex items-center gap-1">sandbox.co.in <ExternalLink className="h-3 w-3" /></a></li>
-              <li>Sign up or log in to your account</li>
-              <li>Navigate to API Settings or Developer Console</li>
-              <li>Generate API Key and API Secret</li>
-              <li>Add credentials to environment variables: <code className="bg-gray-800 px-1 rounded">SANDBOX_API_KEY</code> and <code className="bg-gray-800 px-1 rounded">SANDBOX_API_SECRET</code></li>
-            </ol>
-            <p className="text-sm text-yellow-300 mt-2">
-              ⚠️ Note: Cashfree Verification API has been deprecated and migrated to Sandbox. Payment processing via Cashfree remains active.
-            </p>
-          </div>
-        </AlertDescription>
-      </Alert>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {services.map((service) => (

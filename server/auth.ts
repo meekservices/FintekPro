@@ -13,14 +13,12 @@ import { eq, sql } from "drizzle-orm";
 import { smsService } from "./services/sms-service";
 import { whatsappService } from "./whatsapp";
 import { apiResponse } from "./utils/responses";
-import { z } from "zod";
-import { logger } from "./logger";
+
 import { duplicateDetectionService } from "./services/duplicateDetectionService";
 declare global {
   namespace Express {
     interface User {
       id: string;
-      userId?: string | null;
       email?: string | null;
       mobile?: string | null;
       password: string;
@@ -46,41 +44,10 @@ export async function hashPassword(password: string): Promise<string> {
 }
 
 export async function comparePasswords(supplied: string, stored: string): Promise<boolean> {
-  const parts = stored.split(".");
-  
-  // Defensive check: verify password hash has proper format (hex.salt)
-  if (parts.length !== 2) {
-    logger.warn('Invalid password hash format detected - missing salt delimiter', {
-      hashPrefix: stored.substring(0, 10) + '...',
-      expectedFormat: 'hex.salt',
-      partsFound: parts.length
-    });
-    return false;
-  }
-  
-  const [hashed, salt] = parts;
-  
-  // Defensive check: verify both parts exist
-  if (!salt || !hashed) {
-    logger.warn('Password hash or salt is empty', {
-      hasSalt: !!salt,
-      hasHash: !!hashed
-    });
-    return false;
-  }
-  
-  try {
-    const hashedBuf = Buffer.from(hashed, "hex");
-    const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
-    return timingSafeEqual(hashedBuf, suppliedBuf);
-  } catch (error) {
-    logger.error('Password comparison failed', {
-      error: error instanceof Error ? error.message : String(error),
-      hashLength: hashed.length,
-      saltLength: salt.length
-    });
-    return false;
-  }
+  const [hashed, salt] = stored.split(".");
+  const hashedBuf = Buffer.from(hashed, "hex");
+  const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
+  return timingSafeEqual(hashedBuf, suppliedBuf);
 }
 
 export function generateOtp(): string {
@@ -128,17 +95,16 @@ export function setupAuth(app: Express) {
           const users = await db.select().from(schema.users).where(eq(schema.users.email, email));
           
           if (users.length === 0) {
-            return done(null, false, { message: "Invalid credentials" });
+            return done(null, false, { message: "Invalid email or password" });
           }
           
-          // SECURITY FIX: Return identical message for multiple accounts (no enumeration)
           if (users.length > 1) {
-            return done(null, false, { message: "Invalid credentials" });
+            return done(null, false, { message: "Multiple accounts found with this email. Please log in using your User ID instead." });
           }
           
           const user = users[0];
           if (!(await comparePasswords(password, user.password))) {
-            return done(null, false, { message: "Invalid credentials" });
+            return done(null, false, { message: "Incorrect password. Please try again or use Forgot Password." });
           }
           
           // Normalize user data for Express
@@ -149,11 +115,6 @@ export function setupAuth(app: Express) {
           };
           return done(null, normalizedUser);
         } catch (error) {
-          logger.error('Email authentication error', {
-            email,
-            error: error instanceof Error ? error.message : String(error),
-            stack: error instanceof Error ? error.stack : undefined
-          });
           return done(error);
         }
       }
@@ -174,17 +135,16 @@ export function setupAuth(app: Express) {
           const users = await db.select().from(schema.users).where(eq(schema.users.mobile, mobile));
           
           if (users.length === 0) {
-            return done(null, false, { message: "Invalid credentials" });
+            return done(null, false, { message: "Invalid mobile number or password" });
           }
           
-          // SECURITY FIX: Return identical message for multiple accounts (no enumeration)
           if (users.length > 1) {
-            return done(null, false, { message: "Invalid credentials" });
+            return done(null, false, { message: "Multiple accounts found with this mobile number. Please log in using your User ID instead." });
           }
           
           const user = users[0];
           if (!(await comparePasswords(password, user.password))) {
-            return done(null, false, { message: "Invalid credentials" });
+            return done(null, false, { message: "Incorrect password. Please try again or use Forgot Password." });
           }
           
           // Normalize user data for Express
@@ -195,11 +155,6 @@ export function setupAuth(app: Express) {
           };
           return done(null, normalizedUser);
         } catch (error) {
-          logger.error('Mobile authentication error', {
-            mobile,
-            error: error instanceof Error ? error.message : String(error),
-            stack: error instanceof Error ? error.stack : undefined
-          });
           return done(error);
         }
       }
@@ -217,12 +172,11 @@ export function setupAuth(app: Express) {
       async (userId, password, done) => {
         try {
           const user = await storage.getUserByUserId(userId);
-          // SECURITY FIX: Don't reveal that User ID doesn't exist
           if (!user) {
-            return done(null, false, { message: "Invalid credentials" });
+            return done(null, false, { message: "User ID not found" });
           }
           if (!(await comparePasswords(password, user.password))) {
-            return done(null, false, { message: "Invalid credentials" });
+            return done(null, false, { message: "Incorrect password. Please try again or use Forgot Password." });
           }
           // Normalize user data for Express
           const normalizedUser = {
@@ -232,11 +186,6 @@ export function setupAuth(app: Express) {
           };
           return done(null, normalizedUser);
         } catch (error) {
-          logger.error('UserId authentication error', {
-            userId,
-            error: error instanceof Error ? error.message : String(error),
-            stack: error instanceof Error ? error.stack : undefined
-          });
           return done(error);
         }
       }
@@ -312,13 +261,10 @@ export function setupAuth(app: Express) {
       await db.delete(schema.otpVerifications)
         .where(eq(schema.otpVerifications.identifier, mobile));
 
-      // SECURITY FIX: Hash OTP before storing
-      const hashedOtp = await hashPassword(otp);
-
-      // Store hashed OTP with registration data in metadata
+      // Store OTP with registration data in metadata
       await storage.createOtpVerification({
         identifier: email, // Use email as primary identifier for registration
-        otp: hashedOtp,
+        otp,
         type: "registration",
         expiresAt,
         verified: false,
@@ -331,30 +277,27 @@ export function setupAuth(app: Express) {
         }
       });
 
-      // Send OTP via enabled channels (defaults for new user: Email + WhatsApp enabled, SMS disabled)
-      const deliveryChannels: string[] = [];
-      
-      // Email (default: enabled)
+      // Send OTP via email (primary channel)
       const emailSent = await emailService.sendRegistrationOTP(email, otp);
       if (emailSent) {
         console.log(`✅ Registration OTP sent to email: ${email}`);
-        deliveryChannels.push('email');
       } else {
         console.log(`⚠️ Email delivery failed for ${email}`);
       }
 
-      // SMS (default: disabled, so we skip it)
-      // WhatsApp (default: enabled)
-      const whatsappSent = await whatsappService.sendLoginOTP(mobile, otp);
-      if (whatsappSent) {
-        console.log(`✅ Registration OTP sent via WhatsApp to: ${mobile}`);
-        deliveryChannels.push('whatsapp');
+      // Also try sending via SMS to mobile as backup
+      const smsSent = await smsService.sendOTP(mobile, otp);
+      if (smsSent) {
+        console.log(`✅ Registration OTP sent via SMS to: ${mobile}`);
       } else {
-        console.log(`⚠️ WhatsApp delivery failed for ${mobile}`);
-      }
-
-      if (deliveryChannels.length === 0) {
-        console.log(`⚠️ All delivery channels failed for registration. Please check service configuration.`);
+        console.log(`⚠️ SMS delivery failed for ${mobile}, trying WhatsApp...`);
+        // Try WhatsApp as fallback
+        const whatsappSent = await whatsappService.sendLoginOTP(mobile, otp);
+        if (whatsappSent) {
+          console.log(`✅ Registration OTP sent via WhatsApp to: ${mobile}`);
+        } else {
+          console.log(`⚠️ All delivery channels failed for registration. Please check service configuration.`);
+        }
       }
 
       // Return success response indicating OTP is required
@@ -542,37 +485,23 @@ export function setupAuth(app: Express) {
       await db.delete(schema.otpVerifications)
         .where(eq(schema.otpVerifications.id, otpRecord.id));
 
-      // SECURITY FIX: Regenerate session to prevent session fixation
-      req.session.regenerate((regenerateErr) => {
-        if (regenerateErr) {
-          console.error("Session regeneration error:", regenerateErr);
-          return apiResponse.serverError(res, "Registration successful but session creation failed");
+      // Auto-login the user
+      req.login(user, (err) => {
+        if (err) {
+          console.error("Login error:", err);
+          return apiResponse.serverError(res, "Registration successful but login failed");
         }
-        
-        // Auto-login the user with the new session
-        req.login(user, (loginErr) => {
-          if (loginErr) {
-            console.error("Login error:", loginErr);
-            return apiResponse.serverError(res, "Registration successful but login failed");
-          }
-          
-          // Regenerate CSRF token as well
-          if (req.session) {
-            req.session.csrfToken = randomBytes(32).toString('hex');
-          }
-          
-          return apiResponse.created(res, {
-            id: user.id,
-            userId: user.userId,
-            email: user.email,
-            mobile: user.mobile,
-            firstName: user.firstName,
-            middleName: user.middleName,
-            lastName: user.lastName,
-            isEmailVerified: user.isEmailVerified,
-            isMobileVerified: user.isMobileVerified
-          }, "Registration successful");
-        });
+        return apiResponse.created(res, {
+          id: user.id,
+          userId: user.userId,
+          email: user.email,
+          mobile: user.mobile,
+          firstName: user.firstName,
+          middleName: user.middleName,
+          lastName: user.lastName,
+          isEmailVerified: user.isEmailVerified,
+          isMobileVerified: user.isMobileVerified
+        }, "Registration successful");
       });
 
     } catch (error) {
@@ -620,39 +549,31 @@ export function setupAuth(app: Express) {
       const newOtp = generateOtp();
       const newExpiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
-      // SECURITY FIX: Hash new OTP before storing
-      const hashedNewOtp = await hashPassword(newOtp);
-
-      // Update OTP record with new hashed OTP, reset attempt counter, and new expiry
+      // Update OTP record with new OTP and expiry
       await db.update(schema.otpVerifications)
         .set({
-          otp: hashedNewOtp,
+          otp: newOtp,
           expiresAt: newExpiresAt,
-          verified: false,
-          attemptCount: 0 // Reset attempt counter on resend
+          verified: false
         })
         .where(eq(schema.otpVerifications.id, otpRecord.id));
 
-      // Send new OTP via enabled channels (defaults: Email + WhatsApp enabled, SMS disabled)
-      const deliveryChannels: string[] = [];
-
-      // Email (default: enabled)
+      // Send new OTP via email (primary channel)
       const emailSent = await emailService.sendRegistrationOTP(metadata.email, newOtp);
       if (emailSent) {
         console.log(`✅ Resend OTP sent to email: ${metadata.email}`);
-        deliveryChannels.push('email');
-      } else {
-        console.log(`⚠️ Email delivery failed for ${metadata.email}`);
       }
 
-      // SMS (default: disabled, so we skip it)
-      // WhatsApp (default: enabled)
-      const whatsappSent = await whatsappService.sendLoginOTP(metadata.mobile, newOtp);
-      if (whatsappSent) {
-        console.log(`✅ Resend OTP sent via WhatsApp to: ${metadata.mobile}`);
-        deliveryChannels.push('whatsapp');
+      // Also try sending via SMS
+      const smsSent = await smsService.sendOTP(metadata.mobile, newOtp);
+      if (smsSent) {
+        console.log(`✅ Resend OTP sent via SMS to: ${metadata.mobile}`);
       } else {
-        console.log(`⚠️ WhatsApp delivery failed for ${metadata.mobile}`);
+        console.log(`⚠️ SMS delivery failed for ${metadata.mobile}, trying WhatsApp...`);
+        const whatsappSent = await whatsappService.sendLoginOTP(metadata.mobile, newOtp);
+        if (whatsappSent) {
+          console.log(`✅ Resend OTP sent via WhatsApp to: ${metadata.mobile}`);
+        }
       }
 
       return apiResponse.success(res, {
@@ -746,59 +667,34 @@ export function setupAuth(app: Express) {
           return apiResponse.badRequest(res, "No valid OTP destination found for this account");
         }
 
-        // SECURITY FIX: Hash OTP before storing
-        const hashedOtp = await hashPassword(otp);
-
-        // Store hashed OTP for verification
+        // Store OTP for verification
         await storage.createOtpVerification({
           identifier: otpDestination,
-          otp: hashedOtp,
+          otp,
           type: otpType,
           expiresAt,
           verified: false,
         });
 
-        // Send OTP via channels based on user preferences
-        const deliveryChannels: string[] = [];
-        
-        // Fetch user preferences (defaults: email + WhatsApp enabled, SMS disabled)
-        const otpPreferenceEmail = user.otpPreferenceEmail ?? true;
-        const otpPreferenceSms = user.otpPreferenceSms ?? false;
-        const otpPreferenceWhatsapp = user.otpPreferenceWhatsapp ?? true;
-        
-        if (otpType === "email" && otpPreferenceEmail) {
+        // Send OTP via appropriate channels (email/SMS/WhatsApp)
+        if (otpType === "email") {
           const emailSent = await emailService.sendLoginOTP(otpDestination, otp);
           if (emailSent) {
             console.log(`✅ Login OTP sent to email: ${otpDestination}`);
-            deliveryChannels.push('email');
           } else {
-            console.log(`⚠️ Email delivery failed for ${otpDestination}`);
+            console.log(`⚠️ Email failed, Login OTP for ${otpDestination}: ${otp}`);
           }
-        } else if (otpType === "mobile") {
-          // Send via SMS if enabled
-          if (otpPreferenceSms) {
-            const smsSent = await smsService.sendOTP(otpDestination, otp);
-            if (smsSent) {
-              console.log(`✅ Login OTP sent via SMS to: ${otpDestination}`);
-              deliveryChannels.push('sms');
-            } else {
-              console.log(`⚠️ SMS delivery failed for ${otpDestination}`);
-            }
-          }
-          
-          // Send via WhatsApp if enabled
-          if (otpPreferenceWhatsapp) {
+        } else {
+          // For mobile, try SMS first, then WhatsApp as fallback
+          const smsSent = await smsService.sendOTP(otpDestination, otp);
+          if (smsSent) {
+            console.log(`✅ Login OTP sent via SMS to: ${otpDestination}`);
+          } else {
+            // Try WhatsApp as fallback
             const whatsappSent = await whatsappService.sendLoginOTP(otpDestination, otp);
-            if (whatsappSent) {
-              console.log(`✅ Login OTP sent via WhatsApp to: ${otpDestination}`);
-              deliveryChannels.push('whatsapp');
-            } else {
-              console.log(`⚠️ WhatsApp delivery failed for ${otpDestination}`);
+            if (!whatsappSent) {
+              console.log(`📱 Login OTP for ${otpDestination}: ${otp} (SMS and WhatsApp unavailable)`);
             }
-          }
-          
-          if (deliveryChannels.length === 0) {
-            console.log(`📱 Login OTP for ${otpDestination}: ${otp} (All enabled channels failed)`);
           }
         }
 
@@ -843,9 +739,8 @@ export function setupAuth(app: Express) {
         user = await storage.getUserByMobile(identifier);
       }
 
-      // SECURITY FIX: Use generic error message (this should rarely happen as OTP was valid)
       if (!user) {
-        return apiResponse.badRequest(res, "Authentication failed. Please try logging in again.");
+        return apiResponse.notFound(res, "User not found");
       }
 
       // Update verification status and login timestamps
@@ -872,54 +767,41 @@ export function setupAuth(app: Express) {
         return apiResponse.serverError(res, "Failed to retrieve updated user data");
       }
 
-      // SECURITY FIX: Regenerate session to prevent session fixation
-      req.session.regenerate((regenerateErr) => {
-        if (regenerateErr) {
-          console.error("❌ Session regeneration error:", regenerateErr);
-          return apiResponse.serverError(res, "Login failed - session creation error");
+      // Complete login by creating session with updated user data
+      req.login(updatedUser, (loginErr) => {
+        if (loginErr) {
+          console.error("❌ Login session error:", loginErr);
+          return apiResponse.serverError(res, "Login failed");
         }
         
-        // Complete login by creating session with updated user data
-        req.login(updatedUser, (loginErr) => {
-          if (loginErr) {
-            console.error("❌ Login session error:", loginErr);
-            return apiResponse.serverError(res, "Login failed");
+        // Explicitly save session to ensure it persists
+        req.session.save((saveErr) => {
+          if (saveErr) {
+            console.error("❌ Session save error:", saveErr);
+            return apiResponse.serverError(res, "Session save failed");
           }
           
-          // Regenerate CSRF token as well
-          if (req.session) {
-            req.session.csrfToken = randomBytes(32).toString('hex');
-          }
+          // Log session details for debugging
+          console.log("✅ Session created and saved for user:", updatedUser.email || updatedUser.mobile);
+          console.log("📝 Session ID:", req.sessionID);
+          console.log("🔑 User roles:", updatedUser.roles);
+          console.log("🍪 Session cookie:", req.session.cookie);
           
-          // Explicitly save session to ensure it persists
-          req.session.save((saveErr) => {
-            if (saveErr) {
-              console.error("❌ Session save error:", saveErr);
-              return apiResponse.serverError(res, "Session save failed");
-            }
-            
-            // Log session details for debugging
-            console.log("✅ Session created and saved for user:", updatedUser.email || updatedUser.mobile);
-            console.log("📝 Session ID:", req.sessionID);
-            console.log("🔑 User roles:", updatedUser.roles);
-            console.log("🍪 Session cookie:", req.session.cookie);
-            
-            return apiResponse.success(res, {
-              id: updatedUser.id,
-              userId: updatedUser.userId,
-              email: updatedUser.email,
-              mobile: updatedUser.mobile,
-              firstName: updatedUser.firstName,
-              middleName: updatedUser.middleName,
-              lastName: updatedUser.lastName,
-              roles: updatedUser.roles,
-              isEmailVerified: updatedUser.isEmailVerified,
-              isMobileVerified: updatedUser.isMobileVerified,
-              lastLoginAt: updatedUser.lastLoginAt,
-              previousLoginAt: updatedUser.previousLoginAt,
-              loginCount: updatedUser.loginCount
-            }, "Login successful");
-          });
+          return apiResponse.success(res, {
+            id: updatedUser.id,
+            userId: updatedUser.userId,
+            email: updatedUser.email,
+            mobile: updatedUser.mobile,
+            firstName: updatedUser.firstName,
+            middleName: updatedUser.middleName,
+            lastName: updatedUser.lastName,
+            roles: updatedUser.roles,
+            isEmailVerified: updatedUser.isEmailVerified,
+            isMobileVerified: updatedUser.isMobileVerified,
+            lastLoginAt: updatedUser.lastLoginAt,
+            previousLoginAt: updatedUser.previousLoginAt,
+            loginCount: updatedUser.loginCount
+          }, "Login successful");
         });
       });
     } catch (error) {
@@ -944,12 +826,9 @@ export function setupAuth(app: Express) {
       const otp = generateOtp();
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
-      // SECURITY FIX: Hash OTP before storing
-      const hashedOtp = await hashPassword(otp);
-
       await storage.createOtpVerification({
         identifier,
-        otp: hashedOtp,
+        otp,
         type,
         expiresAt,
         verified: false,
@@ -1724,13 +1603,10 @@ export function setupAuth(app: Express) {
       await db.delete(schema.otpVerifications)
         .where(eq(schema.otpVerifications.identifier, user.email || user.mobile || user.userId));
 
-      // SECURITY FIX: Hash OTP before storing
-      const hashedOtp = await hashPassword(otp);
-
-      // Store hashed OTP for password reset
+      // Store OTP for password reset
       await storage.createOtpVerification({
         identifier: user.email || user.mobile || user.userId,
-        otp: hashedOtp,
+        otp,
         type: "password_reset",
         expiresAt,
         verified: false,
@@ -1740,44 +1616,25 @@ export function setupAuth(app: Express) {
         }
       });
 
-      // Send OTP via channels based on user preferences
-      const deliveryChannels: string[] = [];
-      
-      // Fetch user preferences (defaults: email + WhatsApp enabled, SMS disabled)
-      const otpPreferenceEmail = user.otpPreferenceEmail ?? true;
-      const otpPreferenceSms = user.otpPreferenceSms ?? false;
-      const otpPreferenceWhatsapp = user.otpPreferenceWhatsapp ?? true;
-      
-      // Send via email if enabled and available
-      if (user.email && otpPreferenceEmail) {
+      // Send OTP via email (primary)
+      if (user.email) {
         const emailSent = await emailService.sendPasswordResetOTP(user.email, otp);
         if (emailSent) {
           console.log(`✅ Password reset OTP sent to email: ${user.email}`);
-          deliveryChannels.push('email');
-        } else {
-          console.log(`⚠️ Email delivery failed for ${user.email}`);
         }
       }
 
-      // Send via SMS if enabled and available
-      if (user.mobile && otpPreferenceSms) {
+      // Also try SMS
+      if (user.mobile) {
         const smsSent = await smsService.sendOTP(user.mobile, otp);
         if (smsSent) {
           console.log(`✅ Password reset OTP sent via SMS to: ${user.mobile}`);
-          deliveryChannels.push('sms');
         } else {
-          console.log(`⚠️ SMS delivery failed for ${user.mobile}`);
-        }
-      }
-      
-      // Send via WhatsApp if enabled and available
-      if (user.mobile && otpPreferenceWhatsapp) {
-        const whatsappSent = await whatsappService.sendLoginOTP(user.mobile, otp);
-        if (whatsappSent) {
-          console.log(`✅ Password reset OTP sent via WhatsApp to: ${user.mobile}`);
-          deliveryChannels.push('whatsapp');
-        } else {
-          console.log(`⚠️ WhatsApp delivery failed for ${user.mobile}`);
+          console.log(`⚠️ SMS delivery failed for ${user.mobile}, trying WhatsApp...`);
+          const whatsappSent = await whatsappService.sendLoginOTP(user.mobile, otp);
+          if (whatsappSent) {
+            console.log(`✅ Password reset OTP sent via WhatsApp to: ${user.mobile}`);
+          }
         }
       }
 
@@ -1858,51 +1715,6 @@ export function setupAuth(app: Express) {
     } catch (error) {
       console.error("Error in reset password:", error);
       return apiResponse.serverError(res, "Failed to reset password");
-    }
-  });
-
-  // Save OTP delivery preferences
-  app.post("/api/user/otp-preferences", async (req, res) => {
-    try {
-      if (!req.isAuthenticated() || !req.user) {
-        return apiResponse.unauthorized(res);
-      }
-
-      const user = req.user;
-      
-      // Zod validation schema
-      const otpPreferencesSchema = z.object({
-        otpPreferenceEmail: z.boolean().optional(),
-        otpPreferenceSms: z.boolean().optional(),
-        otpPreferenceWhatsapp: z.boolean().optional(),
-      }).refine(
-        (data) => data.otpPreferenceEmail || data.otpPreferenceSms || data.otpPreferenceWhatsapp,
-        { message: "At least one OTP delivery method must be enabled" }
-      );
-
-      // Validate request body
-      const validation = otpPreferencesSchema.safeParse(req.body);
-      if (!validation.success) {
-        return apiResponse.badRequest(res, validation.error.errors[0].message);
-      }
-
-      const { otpPreferenceEmail, otpPreferenceSms, otpPreferenceWhatsapp } = validation.data;
-
-      // Update user preferences
-      await storage.updateUser(user.id, {
-        otpPreferenceEmail: otpPreferenceEmail ?? true,
-        otpPreferenceSms: otpPreferenceSms ?? false,
-        otpPreferenceWhatsapp: otpPreferenceWhatsapp ?? false,
-      });
-
-      console.log(`✅ OTP preferences updated for user: ${user.userId}`);
-
-      return apiResponse.success(res, {
-        message: "OTP delivery preferences updated successfully",
-      });
-    } catch (error) {
-      console.error("Error updating OTP preferences:", error);
-      return apiResponse.serverError(res, "Failed to update OTP preferences");
     }
   });
 

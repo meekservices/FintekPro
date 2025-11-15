@@ -1,34 +1,12 @@
-/**
- * @deprecated This page is DEPRECATED and no longer routed in the application.
- * 
- * This legacy Individual KYC wizard has been replaced by the unified Smart Production KYC workflow.
- * All routes to /onboarding now redirect to /smart-production-kyc which provides:
- * - Protean (NSDL KRA) integration for status checks
- * - Cashfree eKYC for Aadhaar verification
- * - CERSAI for CKYC upload
- * - BSE STAR for UCC creation
- * - Support for Individual, Corporate, and NRI user types
- * 
- * DO NOT reuse this component. Refer to client/src/pages/smart-production-kyc.tsx instead.
- * This file is kept for reference only and will be removed after telemetry confirms zero traffic.
- * 
- * Migration Date: November 10, 2025
- * New Route: /smart-production-kyc
- */
-
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
 import { 
   CheckCircle, 
   Loader2,
@@ -37,7 +15,8 @@ import {
   Sparkles,
   ArrowRight,
   ArrowLeft,
-  Clock
+  Clock,
+  Info
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -70,26 +49,10 @@ interface SessionData {
 }
 
 export default function SmartKYCOnboarding() {
-  const { user, isLoading } = useAuth();
-  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState<WizardStep>('pan_verification');
   const [sessionId, setSessionId] = useState<string>('');
   const [sessionError, setSessionError] = useState<string>('');
-  const [existingSession, setExistingSession] = useState<SessionData | null>(null);
-  const [showExistingSessionDialog, setShowExistingSessionDialog] = useState(false);
-
-  // Authentication guard - redirect to login if not authenticated
-  useEffect(() => {
-    if (!isLoading && !user) {
-      toast({
-        title: "Authentication Required",
-        description: "Please login to access KYC onboarding",
-        variant: "destructive"
-      });
-      setLocation("/login");
-    }
-  }, [user, isLoading, setLocation, toast]);
   
   // Session Timer State
   const [sessionExpiresAt, setSessionExpiresAt] = useState<Date | null>(null);
@@ -110,29 +73,6 @@ export default function SmartKYCOnboarding() {
   const [aadhaarMasked, setAadhaarMasked] = useState('');
   const [aadhaarOtp, setAadhaarOtp] = useState('');
   const [aadhaarData, setAadhaarData] = useState<any>(null);
-  const [consentGiven, setConsentGiven] = useState(false);
-  
-  // Cancel existing session
-  const cancelSessionMutation = useMutation({
-    mutationFn: async (sessionId: string) => {
-      return await apiRequest('POST', '/api/kyc/wizard/cancel-session', {
-        body: { sessionId }
-      });
-    },
-    onSuccess: () => {
-      setShowExistingSessionDialog(false);
-      setExistingSession(null);
-      // Start a new session after cancelling
-      startSessionMutation.mutate();
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to cancel session",
-        variant: "destructive"
-      });
-    }
-  });
   
   // Start or resume session
   const startSessionMutation = useMutation({
@@ -141,23 +81,27 @@ export default function SmartKYCOnboarding() {
     },
     onSuccess: (data) => {
       if (data.success && data.session) {
-        // Check if this is resuming an existing session
-        if (data.message && data.message.includes('Resuming')) {
-          setExistingSession(data.session);
-          setShowExistingSessionDialog(true);
-        } else {
-          // New session created
-          setSessionId(data.session.id);
-          setCurrentStep(data.session.currentStep);
-          setSessionError(''); // Clear any previous errors
-          
-          // Set session expiry time and reset warning flags
-          if (data.session.expiresAt) {
-            setSessionExpiresAt(new Date(data.session.expiresAt));
-            setShowFiveMinWarning(false);
-            setShowOneMinWarning(false);
-            setSessionExpiredShown(false);
-          }
+        setSessionId(data.session.id);
+        setCurrentStep(data.session.currentStep);
+        setSessionError(''); // Clear any previous errors
+        
+        // Set session expiry time and reset warning flags
+        if (data.session.expiresAt) {
+          setSessionExpiresAt(new Date(data.session.expiresAt));
+          setShowFiveMinWarning(false);
+          setShowOneMinWarning(false);
+          setSessionExpiredShown(false);
+        }
+        
+        // Restore state if resuming
+        if (data.session.panVerified) {
+          setPanData(data.session.panVerificationData);
+        }
+        if (data.session.aadhaarOtpSent) {
+          setAadhaarMasked(data.session.aadhaarNumber || '');
+        }
+        if (data.session.aadhaarOtpVerified) {
+          setAadhaarData(data.session.aadhaarVerificationData);
         }
       }
     },
@@ -184,7 +128,7 @@ export default function SmartKYCOnboarding() {
         body: {
           sessionId,
           panNumber: panNumber.toUpperCase(),
-          
+          fullName: panFullName,
           dob: panDob
         }
       });
@@ -257,8 +201,7 @@ export default function SmartKYCOnboarding() {
         body: {
           sessionId,
           transactionId: aadhaarTransactionId,
-          otp: aadhaarOtp,
-          consentGiven
+          otp: aadhaarOtp
         }
       });
     },
@@ -314,12 +257,10 @@ export default function SmartKYCOnboarding() {
     }
   });
   
-  // Start session on mount - only if user is authenticated
+  // Start session on mount
   useEffect(() => {
-    if (!isLoading && user) {
-      startSessionMutation.mutate();
-    }
-  }, [isLoading, user]);
+    startSessionMutation.mutate();
+  }, []);
   
   // Session countdown timer
   useEffect(() => {
@@ -475,7 +416,7 @@ export default function SmartKYCOnboarding() {
         <Button
           data-testid="button-verify-pan"
           onClick={() => verifyPanMutation.mutate()}
-          disabled={!sessionId || !panNumber || !panDob || verifyPanMutation.isPending}
+          disabled={!sessionId || !panNumber || !panFullName || !panDob || verifyPanMutation.isPending}
           className="w-full"
         >
           {verifyPanMutation.isPending ? (
@@ -515,6 +456,13 @@ export default function SmartKYCOnboarding() {
           </Alert>
         )}
         
+        <Alert className="bg-blue-50 border-blue-200">
+          <Info className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="text-blue-800 text-sm">
+            <strong>Important:</strong> OTP will be sent by UIDAI to the mobile number linked with your Aadhaar card, not the number you registered with on FintekPro. Please ensure you have access to your Aadhaar-registered mobile.
+          </AlertDescription>
+        </Alert>
+        
         <div className="space-y-2">
           <Label htmlFor="aadhaar">Aadhaar Number</Label>
           <Input
@@ -526,7 +474,7 @@ export default function SmartKYCOnboarding() {
             maxLength={12}
           />
           <p className="text-sm text-muted-foreground">
-            OTP will be sent to your registered mobile number
+            Enter your 12-digit Aadhaar number (without spaces)
           </p>
         </div>
         
@@ -593,26 +541,6 @@ export default function SmartKYCOnboarding() {
           />
         </div>
         
-        <div className="flex items-start space-x-2 p-4 border rounded-lg bg-blue-50 dark:bg-blue-950/20">
-          <Checkbox
-            id="consent"
-            data-testid="checkbox-consent"
-            checked={consentGiven}
-            onCheckedChange={(checked) => setConsentGiven(checked as boolean)}
-          />
-          <div className="grid gap-1.5 leading-none">
-            <label
-              htmlFor="consent"
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-            >
-              I consent to KYC data sharing
-            </label>
-            <p className="text-sm text-muted-foreground">
-              I hereby consent to share my KYC data with authorized financial institutions for account opening, investment processing, and regulatory compliance.
-            </p>
-          </div>
-        </div>
-        
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -628,7 +556,7 @@ export default function SmartKYCOnboarding() {
           <Button
             data-testid="button-verify-otp"
             onClick={() => verifyAadhaarOtpMutation.mutate()}
-            disabled={aadhaarOtp.length !== 6 || !consentGiven || verifyAadhaarOtpMutation.isPending}
+            disabled={aadhaarOtp.length !== 6 || verifyAadhaarOtpMutation.isPending}
             className="flex-1"
           >
             {verifyAadhaarOtpMutation.isPending ? (
@@ -768,31 +696,6 @@ export default function SmartKYCOnboarding() {
     </Card>
   );
   
-  // Show loading state while checking authentication
-  if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-muted-foreground">Checking authentication...</p>
-      </div>
-    );
-  }
-
-  // Don't render if user is not authenticated (will redirect)
-  if (!user) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4 px-4">
-        <Alert variant="destructive" className="max-w-md">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Authentication Required</AlertTitle>
-          <AlertDescription>
-            You need to be logged in to access KYC onboarding. Redirecting to login...
-          </AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
-
   // Show loading state while session initializes
   if (startSessionMutation.isPending) {
     return (
@@ -823,8 +726,8 @@ export default function SmartKYCOnboarding() {
     );
   }
   
-  // Show loading if session hasn't been created yet (but not if we have an existing session dialog to show)
-  if (!sessionId && !existingSession && !sessionError) {
+  // Show loading if session hasn't been created yet
+  if (!sessionId && !sessionError) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -833,34 +736,6 @@ export default function SmartKYCOnboarding() {
     );
   }
   
-  // Function to handle resuming existing session
-  const handleResumeSession = () => {
-    if (existingSession) {
-      setSessionId(existingSession.id);
-      setCurrentStep(existingSession.currentStep);
-      setSessionError('');
-      
-      // Set session expiry time
-      if (existingSession.expiresAt) {
-        setSessionExpiresAt(new Date(existingSession.expiresAt));
-        setShowFiveMinWarning(false);
-        setShowOneMinWarning(false);
-        setSessionExpiredShown(false);
-      }
-      
-      // Restore state
-      if (existingSession.panVerified && existingSession.panVerificationData) {
-        setPanData(existingSession.panVerificationData);
-      }
-      if (existingSession.aadhaarOtpVerified && existingSession.aadhaarVerificationData) {
-        setAadhaarData(existingSession.aadhaarVerificationData);
-      }
-      
-      setShowExistingSessionDialog(false);
-      setExistingSession(null);
-    }
-  };
-
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="mb-8">
@@ -885,55 +760,6 @@ export default function SmartKYCOnboarding() {
       {currentStep === 'aadhaar_verification' && renderAadhaarVerificationStep()}
       {currentStep === 'data_collection' && renderDataCollectionStep()}
       {currentStep === 'completed' && renderCompletedStep()}
-      
-      {/* Existing Session Dialog */}
-      <Dialog open={showExistingSessionDialog} onOpenChange={setShowExistingSessionDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Active KYC Session Found</DialogTitle>
-            <DialogDescription>
-              You have an active KYC session in progress. Would you like to continue where you left off or start a new session?
-            </DialogDescription>
-          </DialogHeader>
-          {existingSession && (
-            <div className="py-4">
-              <p className="text-sm text-muted-foreground">
-                Current step: <span className="font-medium text-foreground">{existingSession.currentStep.replace(/_/g, ' ')}</span>
-              </p>
-              {existingSession.expiresAt && (
-                <p className="text-sm text-muted-foreground mt-2">
-                  Session expires: <span className="font-medium text-foreground">
-                    {new Date(existingSession.expiresAt).toLocaleString()}
-                  </span>
-                </p>
-              )}
-            </div>
-          )}
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => existingSession && cancelSessionMutation.mutate(existingSession.id)}
-              disabled={cancelSessionMutation.isPending}
-              data-testid="button-start-new-session"
-            >
-              {cancelSessionMutation.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Starting New...
-                </>
-              ) : (
-                'Start New Session'
-              )}
-            </Button>
-            <Button
-              onClick={handleResumeSession}
-              data-testid="button-continue-session"
-            >
-              Continue Session
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

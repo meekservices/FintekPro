@@ -39,7 +39,6 @@ export async function seedDefaultAgent(): Promise<void> {
       arnCode: "ARN-0002",
       distributorId: "ARN0002",
       status: "active",
-      isDefault: true, // Mark as default agent for fallback EUIN/ARN
       specializations: [],
       languages: ["en"],
       maxTicketsPerDay: 100,

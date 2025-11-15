@@ -142,11 +142,36 @@ export function EnhancedNavigation() {
             { name: "KYC Dashboard", href: "/kyc-dashboard", description: "Current tier, product access & upgrade paths", badge: "OVERVIEW" },
             { name: "My Net Worth", href: "/net-worth", description: "Complete wealth tracking with assets, liabilities & AI insights", badge: "NEW" },
             { 
-              name: "Client Onboarding", 
-              description: "Choose Individual, Corporate or NRI KYC",
+              name: "Individual KYC", 
+              description: "For individual investors",
               subItems: [
-                { name: "Smart Mode", href: "/smart-production-kyc", description: "Automated KYC with Protean, Cashfree eKYC, CERSAI & BSE UCC", badge: "RECOMMENDED" },
-                { name: "Manual Mode", href: "/manual-kyc", description: "Traditional document upload via BSE Star API" }
+                { name: "Smart Mode", href: "/onboarding", description: "AI-assisted wizard with auto-fill & progressive save" },
+                { name: "Manual Mode", href: "/manual-kyc?type=individual", description: "Traditional document upload via BSE Star API" }
+              ]
+            },
+            { 
+              name: "Corporate/Non-Individual KYC", 
+              description: "For companies and organizations",
+              subItems: [
+                { name: "Smart Mode", href: "/corporate-kyc", description: "Step-by-step corporate wizard with entity verification" },
+                { name: "Manual Mode", href: "/manual-kyc?type=corporate", description: "Document submission via BSE Star API" }
+              ]
+            },
+            { 
+              name: "NRI KYC", 
+              description: "For Non-Resident Indians",
+              subItems: [
+                { name: "Smart Mode", href: "#", description: "NRI-specific intelligent wizard", badge: "COMING SOON" },
+                { name: "Manual Mode", href: "/manual-kyc?type=nri", description: "Passport & OCI verification via BSE Star API" }
+              ]
+            },
+            { 
+              name: "KYC Tier Upgrades", 
+              description: "Unlock premium products",
+              subItems: [
+                { name: "Basic KYC (Tier 1)", href: "/profile?tab=basic", description: "PAN, Aadhaar, basic profile → Unlock MF, IPO, Equity" },
+                { name: "Enhanced KYC (Tier 2)", href: "/profile?tab=enhanced", description: "Video KYC, income proof → Unlock F&O, Commodities, Global" },
+                { name: "Accredited Investor (Tier 3)", href: "/profile?tab=accredited", description: "Net worth ₹7.5Cr+ → Unlock AIF, PMS, Pre-IPO", badge: "PREMIUM" }
               ]
             }
           ]
@@ -175,8 +200,9 @@ export function EnhancedNavigation() {
             { name: "Expenses & Budgets", href: "/expenses-budgets", description: "AI-powered expense tracking and budgeting", badge: "AI POWERED" },
             { name: "SIP Calculator", href: "/calculators?tool=sip", description: "Systematic investment planning" },
             { name: "EMI Calculator", href: "/calculators?tool=emi", description: "Loan EMI and eligibility" },
+            { name: "Tax Calculator", href: "/calculators?tool=tax", description: "Tax planning and optimization" },
             { name: "Retirement Planner", href: "/calculators?tool=retirement", description: "Retirement corpus planning" },
-            { name: "Chart Analyzer", href: "/chart-analyzer", description: "Interactive charts with multi-asset comparison" },
+            { name: "Goal Planner", href: "/calculators?tool=goals", description: "Financial goal achievement" },
             { name: "All Calculators", href: "/calculators", description: "Complete calculator suite" }
           ]
         }
@@ -216,6 +242,7 @@ export function EnhancedNavigation() {
           subItems: [
             { name: "NSE/BSE Trading", href: "/broking", description: "Equity and derivatives trading" },
             { name: "Global Markets", href: "/global-trading", description: "US, Europe, Asia stocks" },
+            { name: "IPO Center", href: "/ipo", description: "Current and pre-IPO opportunities" },
             { name: "F&O Trading", href: "/derivatives", description: "Futures and options" },
             { name: "Commodities", href: "/commodities", description: "MCX and NCDEX trading" },
             { name: "Portfolio", href: "/portfolio", description: "Holdings and performance" }
@@ -277,7 +304,7 @@ export function EnhancedNavigation() {
           subItems: [
             { name: "One-Click Tax Filing", href: "/one-click-tax-filing", description: "File ITR in minutes with auto-population", badge: "⚡ NEW" },
             { name: "Smart Tax Hub", href: "/tax-hub", description: "Unified AI-powered dashboard", badge: "NEW" },
-            { name: "Tax Calculator", href: "/calculators?tool=tax", description: "Tax planning and optimization" },
+            { name: "Tax Smart Filing", href: "/tax", description: "Intelligent ITR filing" },
             { name: "ITR Services", href: "/itr-tax-services", description: "ITR-1 to ITR-7 filing" },
             { name: "Tax Data Center", href: "/tax-data-center", description: "AIS, 26AS, mutual fund data" },
             { name: "Tax Documents", href: "/tax-documents", description: "Form 16, 26AS, TDS certificates" },
@@ -297,7 +324,8 @@ export function EnhancedNavigation() {
           subItems: [
             { name: "Pay Bills", href: "/bbps", description: "Electricity, water, gas, mobile, DTH, broadband" },
             { name: "Bill History", href: "/bbps?tab=history", description: "Transaction history and receipts" },
-            { name: "Recurring Payments", href: "/bbps?tab=recurring", description: "Set up auto-pay for bills" }
+            { name: "Recurring Payments", href: "/bbps?tab=recurring", description: "Set up auto-pay for bills" },
+            { name: "My Expenses", href: "/expenses-budgets", description: "Track all expenses including bills", badge: "AI POWERED" }
           ]
         }
       ]
@@ -330,22 +358,6 @@ export function EnhancedNavigation() {
             { name: "Alert History", href: "/alerts?tab=history", description: "Past notifications and triggers" },
             { name: "Notification Settings", href: "/alerts?tab=settings", description: "Configure alert channels" },
             { name: "Alert Templates", href: "/alerts?tab=templates", description: "Pre-configured alert types" }
-          ]
-        }
-      ]
-    },
-    {
-      title: "Data & Sync",
-      items: [
-        {
-          name: "Account Aggregator",
-          icon: Shield,
-          description: "RBI-regulated secure data fetching",
-          badge: "NEW",
-          subItems: [
-            { name: "Manage Consents", href: "/aa-consents", description: "Create and manage AA consents" },
-            { name: "Discovered Accounts", href: "/aa-accounts", description: "View and link fetched accounts" },
-            { name: "Auto-Population", href: "/auto-populate", description: "Portfolio data synchronization" }
           ]
         }
       ]
@@ -437,7 +449,12 @@ export function EnhancedNavigation() {
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-gray-900 truncate text-sm">UID: {user?.userId || user?.id || 'N/A'}</p>
                 <p className="text-xs text-gray-500 truncate">
-                  {user?.email || 'Valued Customer'}
+                  {user?.previousLoginAt 
+                    ? `Last login: ${new Date(user.previousLoginAt).toLocaleString('en-IN', { 
+                        dateStyle: 'short', 
+                        timeStyle: 'short' 
+                      })}`
+                    : 'First login'}
                 </p>
               </div>
             </div>

@@ -4,43 +4,21 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, AlertTriangle, XCircle, Clock, Shield, TrendingUp, Globe, ArrowUpCircle, Lock } from "lucide-react";
+import { CheckCircle2, AlertTriangle, XCircle, Clock, Shield, TrendingUp, Globe } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Separator } from "@/components/ui/separator";
-import { useLocation } from "wouter";
 
-interface CompleteKYCStatus {
-  // Tier Information
-  currentTier: string;
-  currentTierName: string;
-  currentTierDescription: string;
-  eligibleForUpgrade: boolean;
-  nextTier: string | null;
-  nextTierName: string | null;
-  nextTierDescription: string | null;
-  completedVerifications: Array<{code: string; name: string; completed: boolean}>;
-  missingVerifications: Array<{code: string; name: string; completed: boolean}>;
-  unlockedFeatures: string[];
-  productsUnlockedAtCurrentTier: string[];
-  productsAccessible: number;
-  productsLocked: number;
-  upgradeRequestedAt: string | null;
-  upgradedAt: string | null;
-  
-  // Re-KYC & Compliance Status
+interface KYCStatus {
+  userId: string;
+  currentLevel: "none" | "basic" | "full" | "enhanced";
   isActive: boolean;
   dueDate: string | null;
   daysUntilExpiry: number | null;
   requiresReKYC: boolean;
   remindersSent: number;
-  
-  // Transaction Permissions
   canTradeMutualFunds: boolean;
   canTradeBroking: boolean;
   canTradeInternational: boolean;
-  
-  // Metadata
   riskCategory: string;
   reviewFrequency: string;
   lastUpdated: string | null;
@@ -49,10 +27,9 @@ interface CompleteKYCStatus {
 
 export function KYCStatusCard() {
   const { toast } = useToast();
-  const [, setLocation] = useLocation();
 
-  const { data: completeStatus, isLoading } = useQuery<{ success: boolean; data: CompleteKYCStatus }>({
-    queryKey: ["/api/kyc/complete-status"],
+  const { data: kycStatus, isLoading } = useQuery<{ success: boolean; data: KYCStatus }>({
+    queryKey: ["/api/profile/kyc-status"],
   });
 
   const triggerReKYCMutation = useMutation({
@@ -65,7 +42,7 @@ export function KYCStatusCard() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/kyc/complete-status"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/profile/kyc-status"] });
       toast({
         title: "Re-KYC Initiated",
         description: "Please complete your KYC verification to continue trading",
@@ -91,14 +68,13 @@ export function KYCStatusCard() {
           <div className="space-y-4">
             <div className="h-24 bg-muted animate-pulse rounded-lg" />
             <div className="h-20 bg-muted animate-pulse rounded-lg" />
-            <div className="h-32 bg-muted animate-pulse rounded-lg" />
           </div>
         </CardContent>
       </Card>
     );
   }
 
-  const status = completeStatus?.data;
+  const status = kycStatus?.data;
 
   if (!status) {
     return (
@@ -152,24 +128,25 @@ export function KYCStatusCard() {
     );
   };
 
-  // Determine tier badge color
-  const getTierBadgeColor = () => {
-    switch (status.currentTier) {
-      case "accredited_investor":
-        return "bg-purple-600 hover:bg-purple-700 text-white";
+  // Determine level color
+  const getLevelBadgeColor = () => {
+    switch (status.currentLevel) {
       case "enhanced":
-        return "bg-blue-600 hover:bg-blue-700 text-white";
+        return "bg-purple-600 hover:bg-purple-700";
+      case "full":
+        return "bg-blue-600 hover:bg-blue-700";
       case "basic":
-        return "bg-green-600 hover:bg-green-700 text-white";
+        return "bg-gray-600 hover:bg-gray-700";
       default:
-        return "bg-gray-400 text-white";
+        return "bg-gray-400";
     }
   };
 
-  // Calculate tier completion percentage
-  const tierProgress = status.currentTier === "accredited_investor" ? 100 :
-                       status.currentTier === "enhanced" ? 66 :
-                       status.currentTier === "basic" ? 33 : 0;
+  // Calculate completion percentage
+  const completionPercentage = 
+    status.currentLevel === "enhanced" ? 100 :
+    status.currentLevel === "full" ? 75 :
+    status.currentLevel === "basic" ? 50 : 25;
 
   return (
     <Card data-testid="kyc-status-card" className="border-2">
@@ -189,22 +166,18 @@ export function KYCStatusCard() {
       </CardHeader>
 
       <CardContent className="space-y-6">
-        {/* KYC Tier Status */}
+        {/* KYC Level */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">Current Tier</span>
-            <Badge className={getTierBadgeColor()} data-testid="kyc-tier-badge">
-              {status.currentTierName}
+            <span className="text-sm font-medium">Current Level</span>
+            <Badge className={getLevelBadgeColor()} data-testid="kyc-level-badge">
+              {status.currentLevel.toUpperCase()} KYC
             </Badge>
           </div>
-          <Progress value={tierProgress} className="h-2" />
+          <Progress value={completionPercentage} className="h-2" />
           <p className="text-xs text-muted-foreground">
-            {status.currentTierDescription}
+            {completionPercentage}% Complete
           </p>
-          <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
-            <span>{status.productsAccessible} products accessible</span>
-            <span>{status.productsLocked} products locked</span>
-          </div>
         </div>
 
         {/* Expiry Information */}
@@ -305,7 +278,7 @@ export function KYCStatusCard() {
           </Alert>
         )}
 
-        {/* Action Buttons */}
+        {/* Action Button */}
         {status.requiresReKYC ? (
           <Button
             onClick={() => triggerReKYCMutation.mutate()}
@@ -319,25 +292,22 @@ export function KYCStatusCard() {
         ) : (
           <div className="flex gap-2">
             <Button
-              onClick={() => setLocation("/kyc-dashboard")}
+              onClick={() => window.location.href = "/kyc-dashboard"}
               className="flex-1"
               variant="outline"
               data-testid="button-view-verification"
             >
               <Shield className="h-4 w-4 mr-2" />
-              View Verification Status
+              View Full Verification Status
             </Button>
-            {status.currentTier !== "accredited_investor" && (
+            {status.currentLevel !== "enhanced" && (
               <Button
-                onClick={() => setLocation("/kyc-dashboard")}
+                onClick={() => window.location.href = "/kyc-dashboard"}
                 className="flex-1"
                 variant="default"
-                data-testid="button-upgrade-tier"
+                data-testid="button-upgrade-kyc"
               >
-                <ArrowUpCircle className="h-4 w-4 mr-2" />
-                {status.eligibleForUpgrade 
-                  ? `Upgrade to ${status.nextTierName}` 
-                  : `Unlock ${status.productsLocked} More Products`}
+                Upgrade KYC
               </Button>
             )}
           </div>

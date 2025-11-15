@@ -333,7 +333,7 @@ export function ObligationMapping() {
                 Sync CIBIL Report
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
+            <DialogContent className="sm:max-w-[500px]">
               <DialogHeader>
                 <DialogTitle>Sync Credit Obligations from CIBIL</DialogTitle>
               </DialogHeader>
@@ -423,7 +423,7 @@ export function ObligationMapping() {
                 Add Obligation
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
+            <DialogContent className="sm:max-w-[500px]">
               <DialogHeader>
                 <DialogTitle>Add Financial Obligation</DialogTitle>
               </DialogHeader>

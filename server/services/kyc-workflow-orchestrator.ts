@@ -1,664 +1,727 @@
-import { storage } from '../storage';
-import { proteanKRAService } from './protean-kra-service';
-import { cashfreeEkycService } from './cashfree-ekyc-service';
-import { cersaiCkycService } from './cersai-ckyc-service';
-import { bseUccService } from './bse-ucc-service';
-import { createInsertSchema } from 'drizzle-zod';
-import { kycStateTransitions } from '@shared/schema';
-
 /**
- * Production KYC Workflow Orchestrator
+ * KYC Workflow Orchestrator
  * 
- * Smart 4-tier workflow with early exit optimization:
- * 1. KRA Status Check (Protean) → Early exit if verified, direct to BSE UCC
- * 2. Cashfree Aadhaar eKYC → OTP verification + XML parsing
- * 3. CERSAI CKYC Upload → Submit XML, get CKYC number
- * 4. BSE UCC Creation → Mutual fund account creation
+ * Coordinates the complete KYC verification and vault storage workflow:
+ * 1. User Registration
+ * 2. CKYC Lookup (check if KYC already exists)
+ * 3. Cashfree OKYC (if CKYC not found - Aadhaar verification)
+ * 4. CKYC Creation (submit to registry if needed)
+ * 5. Vault Storage (encrypt & tokenize data)
+ * 6. KYC Reuse Token Generation
  * 
- * State machine handles:
- * - Synchronous flow for immediate responses
- * - Asynchronous polling for 1-48 hour KRA verification
- * - Audit trail via state transitions table
+ * This service ensures compliance with SEBI/RBI/PMLA KYC norms.
  */
 
-const insertKycStateTransitionSchema = createInsertSchema(kycStateTransitions).omit({
-  id: true,
-  occurredAt: true,
-});
-type InsertKycStateTransition = typeof insertKycStateTransitionSchema._type;
+import { db } from '../db';
+import { kycVault, kycConsentLogs, users } from '../../shared/schema';
+import { CashfreeAadhaarService } from './cashfree-aadhaar-service';
+import { CKYCService } from '../ckyc-service';
+import { tokenizationService } from './tokenization-service';
+import { faceHashingService } from './face-hashing-service';
+import { kycReuseTokenService } from './kyc-reuse-token-service';
+import { encryptionService } from '../encryption-service';
+import { kycVaultDecryptionService } from './kyc-vault-decryption-service';
+import { eq } from 'drizzle-orm';
 
-interface StartWorkflowRequest {
-  userId: string;
-  panNumber: string;
+interface OKYCData {
+  aadhaarNumber: string;
+  name: string;
   dob: string;
-  ipAddress: string;
-  userAgent: string;
+  gender: string;
+  fatherName?: string;
+  address: {
+    house: string;
+    street: string;
+    landmark: string;
+    locality: string;
+    city: string;
+    state: string;
+    pincode: string;
+    country: string;
+  };
+  mobile?: string;
+  email?: string;
+  photoUrl?: string;
 }
 
-interface WorkflowState {
-  sessionId: string;
-  currentStep: string;
-  kraStatus?: string;
-  kraNumber?: string;
-  ckycNumber?: string;
-  uccNumber?: string;
-  nextAction?: string;
-  canProceed: boolean;
-  errorMessage?: string;
+interface WorkflowResult {
+  success: boolean;
+  step: string;
+  kycStatus?: 'verified' | 'pending' | 'failed';
+  ckycKinNumber?: string;
+  kycReuseToken?: string;
+  message?: string;
+  error?: string;
+  data?: any;
 }
 
-/**
- * WorkflowStateAssembler: Joins hub (kycVerificationSessions) with spoke tables
- * to create a comprehensive WorkflowState object
- */
-class WorkflowStateAssembler {
-  async assembleWorkflowState(sessionId: string): Promise<WorkflowState | null> {
+export class KYCWorkflowOrchestrator {
+  private cashfreeService: typeof CashfreeAadhaarService;
+  private ckycService: CKYCService;
+
+  constructor() {
+    this.cashfreeService = CashfreeAadhaarService;
+    this.ckycService = new CKYCService();
+  }
+
+  /**
+   * Step 1: Initiate OKYC - Generate OTP for Aadhaar verification
+   */
+  async initiateOKYC(aadhaarNumber: string): Promise<WorkflowResult> {
     try {
-      // Fetch hub session
-      const session = await storage.getKycVerificationSession(sessionId);
-      if (!session) {
-        return null;
+      console.log('🔄 Step 1: Initiating Cashfree OKYC...');
+
+      const result = await this.cashfreeService.generateOTP(aadhaarNumber);
+
+      if (!result.success) {
+        return {
+          success: false,
+          step: 'okyc_initiate',
+          error: result.message
+        };
       }
 
-      // Fetch spoke data
-      const kraCheck = await storage.getKraStatusCheckBySession(sessionId);
-      const cashfreeSession = await storage.getCashfreeEkycSessionByKycSession(sessionId);
-      const cersaiSubmission = await storage.getCersaiSubmissionBySession(sessionId);
-      const bseRequest = await storage.getBseUccRequestBySession(sessionId);
-
-      // Assemble composite state
       return {
-        sessionId: session.id,
-        currentStep: session.currentStep,
-        kraStatus: kraCheck?.status,
-        kraNumber: kraCheck?.kraNumber || undefined,
-        ckycNumber: cersaiSubmission?.ckycNumber || undefined,
-        uccNumber: bseRequest?.uccNumber || undefined,
-        canProceed: this.determineCanProceed(session.currentStep),
-        nextAction: this.determineNextAction(session.currentStep)
+        success: true,
+        step: 'okyc_initiate',
+        message: result.message,
+        data: {
+          refId: result.ref_id,
+          maskedAadhaar: result.maskedAadhaar
+        }
       };
     } catch (error: any) {
-      console.error('[WorkflowStateAssembler] Assembly failed:', error.message);
-      return null;
-    }
-  }
-
-  private determineCanProceed(currentStep: string): boolean {
-    const proceedableSteps = [
-      'kra_verified',
-      'kra_not_found',
-      'cashfree_verified',
-      'cersai_submitted'
-    ];
-    return proceedableSteps.includes(currentStep);
-  }
-
-  private determineNextAction(currentStep: string): string {
-    const actionMap: Record<string, string> = {
-      'kra_verified': 'create_bse_ucc',
-      'kra_not_found': 'initiate_cashfree_ekyc',
-      'kra_check_pending': 'wait_for_kra_verification',
-      'cashfree_otp_sent': 'verify_otp',
-      'cashfree_verified': 'submit_cersai_ckyc',
-      'cersai_submitted': 'create_bse_ucc',
-      'ucc_created': 'completed'
-    };
-    return actionMap[currentStep] || 'unknown';
-  }
-}
-
-export class KycWorkflowOrchestrator {
-  private stateAssembler = new WorkflowStateAssembler();
-
-  /**
-   * Start KYC workflow with KRA status check (Tier 1)
-   * Checks for existing active session and resumes it instead of creating duplicate
-   */
-  async startKycWorkflow(request: StartWorkflowRequest): Promise<WorkflowState> {
-    const { userId, panNumber, dob, ipAddress, userAgent } = request;
-
-    // Check for existing active session in kyc_verification_sessions table
-    const existingSession = await storage.getActiveKycSession(userId);
-    
-    if (existingSession) {
-      // Resume existing session instead of creating duplicate
-      const resumedState = await this.stateAssembler.assembleWorkflowState(existingSession.id);
-      if (resumedState) {
-        return resumedState;
-      }
-    }
-
-    // Create new KYC verification session with 30-minute expiration
-    const expiresAt = new Date();
-    expiresAt.setMinutes(expiresAt.getMinutes() + 30);
-    
-    const session = await storage.createKycVerificationSession({
-      userId,
-      panNumber,
-      currentStep: 'kra_check_initiated',
-      ipAddress,
-      userAgent,
-      expiresAt
-    });
-
-    await this.logStateTransition({
-      sessionId: session.id,
-      userId,
-      fromState: 'not_started',
-      toState: 'kra_check_initiated',
-      trigger: 'user_action',
-      performedBy: userId,
-      performedByRole: 'user',
-      metadata: { panNumber: panNumber.substring(0, 5) + '****', dob },
-      ipAddress,
-      userAgent
-    });
-
-    // Initiate KRA status check
-    const kraResult = await this.processKraCheck(session.id, userId, panNumber, dob);
-
-    if (kraResult.status === 'verified') {
-      // Early exit: KRA verified, skip to UCC creation
-      await storage.updateKycVerificationSession(session.id, {
-        currentStep: 'kra_verified'
-      });
-
-      await this.logStateTransition({
-        sessionId: session.id,
-        userId,
-        fromState: 'kra_check_initiated',
-        toState: 'kra_verified',
-        trigger: 'api_call',
-        performedBy: 'system',
-        performedByRole: 'system',
-        metadata: { kraNumber: kraResult.kraNumber, earlyExit: true },
-        ipAddress,
-        userAgent
-      });
-
+      console.error('OKYC initiation error:', error);
       return {
-        sessionId: session.id,
-        currentStep: 'kra_verified',
-        kraStatus: 'verified',
-        kraNumber: kraResult.kraNumber,
-        nextAction: 'create_bse_ucc',
-        canProceed: true
+        success: false,
+        step: 'okyc_initiate',
+        error: error.message || 'Failed to initiate OKYC'
       };
     }
-
-    if (kraResult.status === 'pending') {
-      // Async verification: will be polled by background job
-      await storage.updateKycVerificationSession(session.id, {
-        currentStep: 'kra_check_pending'
-      });
-
-      await this.logStateTransition({
-        sessionId: session.id,
-        userId,
-        fromState: 'kra_check_initiated',
-        toState: 'kra_check_pending',
-        trigger: 'api_call',
-        performedBy: 'system',
-        performedByRole: 'system',
-        metadata: { asyncVerification: true, nextPollAt: kraResult.nextPollAt },
-        ipAddress,
-        userAgent
-      });
-
-      return {
-        sessionId: session.id,
-        currentStep: 'kra_check_pending',
-        kraStatus: 'pending',
-        nextAction: 'wait_for_kra_verification',
-        canProceed: false
-      };
-    }
-
-    // KRA not found/rejected → Fall back to Cashfree eKYC
-    await storage.updateKycVerificationSession(session.id, {
-      currentStep: 'kra_not_found'
-    });
-
-    await this.logStateTransition({
-      sessionId: session.id,
-      userId,
-      fromState: 'kra_check_initiated',
-      toState: 'kra_not_found',
-      trigger: 'api_call',
-      performedBy: 'system',
-      performedByRole: 'system',
-      metadata: { fallbackToCashfree: true, kraStatus: kraResult.status },
-      ipAddress,
-      userAgent
-    });
-
-    return {
-      sessionId: session.id,
-      currentStep: 'kra_not_found',
-      kraStatus: kraResult.status,
-      nextAction: 'initiate_cashfree_ekyc',
-      canProceed: true
-    };
   }
 
   /**
-   * Process KRA status check via Protean API
+   * Step 2: Verify OTP and retrieve Aadhaar data
    */
-  async processKraCheck(sessionId: string, userId: string, panNumber: string, dob: string): Promise<{
-    status: string;
-    kraNumber?: string;
-    nextPollAt?: Date;
-  }> {
+  async verifyOKYC(otp: string, refId: string): Promise<WorkflowResult> {
     try {
-      const result = await proteanKRAService.checkKRAStatus({ panNumber, dateOfBirth: dob });
+      console.log('🔄 Step 2: Verifying OTP and fetching Aadhaar data...');
 
-      // Create KRA status check record
-      const kraCheck = await storage.createKraStatusCheck({
-        sessionId,
-        userId,
-        status: result.status,
-        kraNumber: result.kraNumber,
-        proteanReferenceId: result.proteanReferenceId,
-        verificationDate: result.verificationDate,
-        kraAgency: result.kraAgency,
-        nextPollAt: result.status === 'pending' ? new Date(Date.now() + 5 * 60 * 1000) : undefined, // Poll in 5 min
-        pollAttempt: 0,
-        maxPollAttempts: 48, // 48 hours max
-        responsePayload: result.responsePayload,
-        reasonCode: result.reasonCode,
-        reasonMessage: result.reasonMessage
-      });
+      const result = await this.cashfreeService.verifyOTP(otp, refId);
+
+      if (!result.success || !result.verified || !result.data) {
+        return {
+          success: false,
+          step: 'okyc_verify',
+          error: result.message
+        };
+      }
 
       return {
-        status: result.status,
-        kraNumber: result.kraNumber,
-        nextPollAt: kraCheck.nextPollAt || undefined
+        success: true,
+        step: 'okyc_verify',
+        message: 'Aadhaar verified successfully',
+        data: result.data
       };
     } catch (error: any) {
-      console.error('[KycOrchestrator] KRA check failed:', error.message);
-      
-      await storage.createKraStatusCheck({
-        sessionId,
-        userId,
-        status: 'not_found',
-        reasonCode: 'API_ERROR',
-        reasonMessage: error.message
-      });
-
-      return { status: 'not_found' };
+      console.error('OKYC verification error:', error);
+      return {
+        success: false,
+        step: 'okyc_verify',
+        error: error.message || 'Failed to verify OTP'
+      };
     }
   }
 
   /**
-   * Initiate Cashfree Aadhaar eKYC (Tier 2)
+   * Step 3: Check CKYC Registry
+   * Lookup if user already has CKYC record
    */
-  async initiateCashfreeEkyc(
-    sessionId: string,
+  async checkCKYC(panNumber: string, aadhaarNumber?: string): Promise<WorkflowResult> {
+    try {
+      console.log('🔄 Step 3: Checking CKYC Registry...');
+
+      const searchResult = await this.ckycService.searchCKYC({
+        panNumber,
+        aadharNumber: aadhaarNumber
+      });
+
+      if (searchResult.success && searchResult.found && searchResult.ckycNumber) {
+        return {
+          success: true,
+          step: 'ckyc_lookup',
+          message: 'CKYC record found',
+          ckycKinNumber: searchResult.ckycNumber,
+          data: searchResult
+        };
+      }
+
+      return {
+        success: true,
+        step: 'ckyc_lookup',
+        message: 'CKYC record not found - will create new',
+        data: { found: false }
+      };
+    } catch (error: any) {
+      console.error('CKYC lookup error:', error);
+      return {
+        success: false,
+        step: 'ckyc_lookup',
+        error: error.message || 'Failed to check CKYC registry'
+      };
+    }
+  }
+
+  /**
+   * Step 4: Create CKYC Record (if not found)
+   */
+  async createCKYC(okycData: OKYCData, panNumber: string): Promise<WorkflowResult> {
+    try {
+      console.log('🔄 Step 4: Creating CKYC record...');
+
+      const registrationResult = await this.ckycService.registerCKYC({
+        firstName: okycData.name.split(' ')[0] || '',
+        lastName: okycData.name.split(' ').slice(1).join(' ') || '',
+        dateOfBirth: okycData.dob,
+        gender: okycData.gender.toUpperCase() as 'M' | 'F' | 'T',
+        nationality: 'Indian',
+        panNumber,
+        aadharNumber: okycData.aadhaarNumber,
+        mobileNumber: okycData.mobile || '',
+        emailAddress: okycData.email || '',
+        addressLine1: `${okycData.address.house} ${okycData.address.street}`.trim(),
+        addressLine2: okycData.address.landmark,
+        city: okycData.address.city,
+        state: okycData.address.state,
+        pincode: okycData.address.pincode,
+        country: okycData.address.country || 'India'
+      });
+
+      if (!registrationResult.success || !registrationResult.ckycNumber) {
+        return {
+          success: false,
+          step: 'ckyc_create',
+          error: registrationResult.message || 'Failed to create CKYC record'
+        };
+      }
+
+      return {
+        success: true,
+        step: 'ckyc_create',
+        message: 'CKYC record created successfully',
+        ckycKinNumber: registrationResult.ckycNumber,
+        data: registrationResult
+      };
+    } catch (error: any) {
+      console.error('CKYC creation error:', error);
+      return {
+        success: false,
+        step: 'ckyc_create',
+        error: error.message || 'Failed to create CKYC record'
+      };
+    }
+  }
+
+  /**
+   * Step 5: Store in KYC Vault with encryption & tokenization
+   */
+  async storeInVault(
     userId: string,
-    aadhaarNumber: string,
-    ipAddress: string,
-    userAgent: string
-  ): Promise<{
-    success: boolean;
-    cashfreeSessionId?: string;
-    otpSent?: boolean;
-    errorMessage?: string;
-  }> {
+    okycData: OKYCData,
+    panNumber: string,
+    ckycKinNumber: string,
+    cashfreeRefId: string
+  ): Promise<WorkflowResult> {
     try {
-      const result = await cashfreeEkycService.initSession({
-        aadhaarNumber,
-        consent: true,
-        consentIpAddress: ipAddress,
-        consentUserAgent: userAgent
+      console.log('🔄 Step 5: Storing KYC data in secure vault...');
+
+      // Encrypt personal data
+      const encryptedFullName = encryptionService.encrypt(okycData.name);
+      const encryptedDob = encryptionService.encrypt(okycData.dob);
+      const encryptedGender = encryptionService.encrypt(okycData.gender);
+      const encryptedFatherName = okycData.fatherName ? encryptionService.encrypt(okycData.fatherName) : null;
+      
+      // Encrypt address
+      const fullAddress = `${okycData.address.house}, ${okycData.address.street}, ${okycData.address.locality}, ${okycData.address.city}, ${okycData.address.state}`;
+      const encryptedAddress = encryptionService.encrypt(fullAddress);
+      const encryptedCity = encryptionService.encrypt(okycData.address.city);
+      const encryptedState = encryptionService.encrypt(okycData.address.state);
+      const encryptedPincode = encryptionService.encrypt(okycData.address.pincode);
+      
+      // Encrypt contact info
+      const encryptedMobile = okycData.mobile ? encryptionService.encrypt(okycData.mobile) : null;
+      const encryptedEmail = okycData.email ? encryptionService.encrypt(okycData.email) : null;
+      
+      // Encrypt CKYC KIN (CRITICAL: Never store in plain text)
+      const encryptedCkycKin = encryptionService.encrypt(ckycKinNumber);
+
+      // Tokenize PAN, Aadhaar, CKYC KIN
+      const tokenResults = await tokenizationService.tokenizeBatch([
+        { value: panNumber, fieldType: 'pan' },
+        { value: okycData.aadhaarNumber, fieldType: 'aadhaar' },
+        { value: ckycKinNumber, fieldType: 'ckyc_kin' }
+      ], userId);
+
+      const tokenizedPan = tokenResults.get('pan') || null;
+      const tokenizedAadhaar = tokenResults.get('aadhaar') || null;
+      const tokenizedCkycKin = tokenResults.get('ckyc_kin') || null;
+
+      // Hash face image if available
+      let faceImageHash: string | null = null;
+      if (okycData.photoUrl) {
+        const hashResult = await faceHashingService.hashFaceImageFromUrl(okycData.photoUrl);
+        faceImageHash = hashResult.success && hashResult.hash ? hashResult.hash : null;
+      }
+
+      // Calculate KYC expiry (2 years from now - SEBI norms)
+      const kycExpiryDate = new Date();
+      kycExpiryDate.setFullYear(kycExpiryDate.getFullYear() + 2);
+
+      const kycNextRenewalDate = new Date(kycExpiryDate);
+      kycNextRenewalDate.setDate(kycNextRenewalDate.getDate() - 30); // Remind 30 days before
+
+      // Store in KYC Vault
+      await db.insert(kycVault).values({
+        userId,
+        // Encrypted fields
+        encryptedFullName,
+        encryptedDateOfBirth: encryptedDob,
+        encryptedGender,
+        encryptedFatherName,
+        encryptedAddress,
+        encryptedCity,
+        encryptedState,
+        encryptedPincode,
+        encryptedMobile,
+        encryptedEmail,
+        encryptedCkycKin, // CKYC KIN encrypted (NEVER plain text)
+        // Tokenized fields
+        tokenizedPan,
+        tokenizedAadhaar,
+        tokenizedCkycKin,
+        aadhaarLast4: okycData.aadhaarNumber.slice(-4),
+        // Hashed fields
+        faceImageHash,
+        faceImageHashAlgorithm: 'SHA-256',
+        // Plain text status
+        kycStatus: 'verified',
+        ckycStatus: 'created',
+        source: 'cashfree_okyc',
+        verificationMethod: 'aadhaar_otp',
+        isReusable: false, // Will be set to true after consent
+        // CKYC metadata
+        ckycRegistrationDate: new Date(),
+        ckycExpiryDate: kycExpiryDate,
+        ckycVerificationLevel: 'enhanced',
+        // Verification metadata
+        cashfreeRefId,
+        aadhaarVerifiedAt: new Date(),
+        panVerifiedAt: new Date(),
+        addressVerifiedAt: new Date(),
+        // Validity
+        kycVerifiedAt: new Date(),
+        kycExpiryDate,
+        kycNextRenewalDate,
+        isExpired: false
       });
 
-      // Create Cashfree eKYC session record
-      await storage.createCashfreeEkycSession({
-        sessionId,
+      console.log('✅ KYC data stored securely in vault');
+
+      return {
+        success: true,
+        step: 'vault_storage',
+        message: 'KYC data stored successfully',
+        kycStatus: 'verified',
+        ckycKinNumber
+      };
+    } catch (error: any) {
+      console.error('Vault storage error:', error);
+      return {
+        success: false,
+        step: 'vault_storage',
+        error: error.message || 'Failed to store KYC data'
+      };
+    }
+  }
+
+  /**
+   * Validate Vault Storage
+   * Verifies that stored KYC data can be retrieved and decrypted successfully
+   */
+  async validateVaultStorage(
+    userId: string,
+    expectedPAN: string,
+    expectedName: string
+  ): Promise<WorkflowResult> {
+    try {
+      console.log('🔍 Validating vault storage for user:', userId);
+
+      // Read back vault data with decryption
+      const decryptionResult = await kycVaultDecryptionService.decryptVaultData(userId, {
+        purpose: 'compliance_check',
+        requestId: `validation_${Date.now()}`,
+        fieldsRequired: ['pan', 'fullName', 'dateOfBirth']
+      });
+
+      if (!decryptionResult.success || !decryptionResult.data) {
+        return {
+          success: false,
+          step: 'vault_validation',
+          error: 'Vault data could not be decrypted or retrieved'
+        };
+      }
+
+      const decrypted = decryptionResult.data;
+
+      // Verify critical fields match
+      if (decrypted.pan !== expectedPAN) {
+        return {
+          success: false,
+          step: 'vault_validation',
+          error: 'PAN mismatch: vault data integrity check failed'
+        };
+      }
+
+      if (decrypted.fullName !== expectedName) {
+        return {
+          success: false,
+          step: 'vault_validation',
+          error: 'Name mismatch: vault data integrity check failed'
+        };
+      }
+
+      // Verify essential fields are present
+      if (!decrypted.dateOfBirth || !decrypted.fullName || !decrypted.pan) {
+        return {
+          success: false,
+          step: 'vault_validation',
+          error: 'Missing essential fields in vault data'
+        };
+      }
+
+      console.log(`✅ Vault validation successful for user ${userId} (Audit: ${decryptionResult.auditLogId})`);
+
+      return {
+        success: true,
+        step: 'vault_validation',
+        message: 'Vault data validated successfully'
+      };
+
+    } catch (error: any) {
+      console.error('Vault validation error:', error);
+      return {
+        success: false,
+        step: 'vault_validation',
+        error: error.message || 'Vault validation failed'
+      };
+    }
+  }
+
+  /**
+   * Step 6: Record user consent for KYC reuse
+   */
+  async recordConsent(
+    userId: string,
+    ipAddress?: string,
+    userAgent?: string
+  ): Promise<WorkflowResult> {
+    try {
+      console.log('🔄 Step 6: Recording user consent...');
+
+      const consentText = `I hereby consent to share my KYC data with authorized financial institutions and service providers for the purpose of account opening, investment processing, and regulatory compliance. I understand that my data will be encrypted and stored securely.`;
+
+      // Create HMAC signature for consent
+      const crypto = require('crypto');
+      const consentSignature = crypto
+        .createHmac('sha256', process.env.ENCRYPTION_MASTER_KEY || 'fallback-key')
+        .update(JSON.stringify({ userId, consentText, timestamp: Date.now() }))
+        .digest('hex');
+
+      await db.insert(kycConsentLogs).values({
         userId,
-        cashfreeSessionId: result.sessionId,
-        aadhaarNumber, // Should be encrypted before storage
-        otpSentAt: result.status === 'otp_sent' ? new Date() : undefined,
+        consentType: 'kyc_reuse',
         consentGiven: true,
-        consentIpAddress: ipAddress,
-        consentUserAgent: userAgent,
-        consentTimestamp: new Date(),
-        status: result.status === 'otp_sent' ? 'otp_sent' : 'failed',
-        errorCode: result.errorCode,
-        errorMessage: result.message
-      });
-
-      await this.logStateTransition({
-        sessionId,
-        userId,
-        fromState: 'kra_not_found',
-        toState: result.status === 'otp_sent' ? 'cashfree_otp_sent' : 'cashfree_failed',
-        trigger: 'api_call',
-        performedBy: userId,
-        performedByRole: 'user',
-        metadata: { aadhaarMasked: `XXXX-XXXX-${aadhaarNumber.slice(-4)}` },
+        consentText,
+        purpose: 'Enable KYC data sharing for financial services',
         ipAddress,
-        userAgent
+        userAgent,
+        consentSignature,
+        expiresAt: null // Consent doesn't expire
       });
 
-      if (result.status === 'failed') {
-        return {
-          success: false,
-          errorMessage: result.message || 'OTP sending failed'
-        };
-      }
+      // Update vault to mark KYC as reusable
+      await db
+        .update(kycVault)
+        .set({ isReusable: true })
+        .where(eq(kycVault.userId, userId));
 
-      await storage.updateKycVerificationSession(sessionId, {
-        currentStep: 'cashfree_otp_sent'
-      });
+      console.log('✅ User consent recorded');
 
       return {
         success: true,
-        cashfreeSessionId: result.sessionId,
-        otpSent: true
+        step: 'consent_recording',
+        message: 'Consent recorded successfully'
       };
     } catch (error: any) {
-      console.error('[KycOrchestrator] Cashfree init failed:', error.message);
-      
+      console.error('Consent recording error:', error);
       return {
         success: false,
-        errorMessage: error.message
+        step: 'consent_recording',
+        error: error.message || 'Failed to record consent'
       };
     }
   }
 
   /**
-   * Verify Cashfree OTP and parse XML
+   * Step 7: Generate KYC Reuse Token
    */
-  async verifyCashfreeOtp(
-    sessionId: string,
+  async generateReuseToken(
     userId: string,
-    cashfreeSessionId: string,
+    purpose?: string,
+    issuedTo?: string
+  ): Promise<WorkflowResult> {
+    try {
+      console.log('🔄 Step 7: Generating KYC Reuse Token...');
+
+      const tokenResult = await kycReuseTokenService.generateToken(userId, {
+        purpose,
+        issuedTo,
+        expiryDays: 365 // 1 year validity
+      });
+
+      if (!tokenResult.success || !tokenResult.tokenId) {
+        return {
+          success: false,
+          step: 'token_generation',
+          error: tokenResult.error || 'Failed to generate KYC reuse token'
+        };
+      }
+
+      console.log(`✅ KYC Reuse Token generated: ${tokenResult.tokenId}`);
+
+      return {
+        success: true,
+        step: 'token_generation',
+        message: 'KYC Reuse Token generated successfully',
+        kycReuseToken: tokenResult.tokenId,
+        data: {
+          tokenId: tokenResult.tokenId,
+          expiresAt: tokenResult.expiresAt
+        }
+      };
+    } catch (error: any) {
+      console.error('Token generation error:', error);
+      return {
+        success: false,
+        step: 'token_generation',
+        error: error.message || 'Failed to generate reuse token'
+      };
+    }
+  }
+
+  /**
+   * Store Pre-Verified KYC Data (For Smart KYC Wizard)
+   * Use this when OTP has already been verified and we have Aadhaar data
+   * Skips the OKYC verification step and goes directly to vault storage
+   */
+  async storePreVerifiedKYCData(
+    userId: string,
+    panNumber: string,
+    okycData: OKYCData,
+    cashfreeRefId: string,
+    ipAddress?: string,
+    userAgent?: string
+  ): Promise<WorkflowResult> {
+    try {
+      console.log('🚀 Starting pre-verified KYC storage workflow for user:', userId);
+
+      // Step 1: Check CKYC Registry
+      const ckycCheckResult = await this.checkCKYC(panNumber, okycData.aadhaarNumber);
+      
+      let ckycKinNumber: string;
+
+      if (ckycCheckResult.data?.found && ckycCheckResult.ckycKinNumber) {
+        // CKYC exists
+        console.log('✅ Existing CKYC record found:', ckycCheckResult.ckycKinNumber);
+        ckycKinNumber = ckycCheckResult.ckycKinNumber;
+      } else {
+        // Step 2: Create new CKYC record
+        const ckycCreateResult = await this.createCKYC(okycData, panNumber);
+        if (!ckycCreateResult.success || !ckycCreateResult.ckycKinNumber) {
+          return ckycCreateResult;
+        }
+        ckycKinNumber = ckycCreateResult.ckycKinNumber;
+      }
+
+      // Step 3: Store in Vault
+      const vaultResult = await this.storeInVault(
+        userId,
+        okycData,
+        panNumber,
+        ckycKinNumber,
+        cashfreeRefId
+      );
+      
+      if (!vaultResult.success) {
+        return vaultResult;
+      }
+
+      // Step 3.5: Validate Vault Storage (prevent silent failures)
+      const validationResult = await this.validateVaultStorage(userId, panNumber, okycData.name);
+      if (!validationResult.success) {
+        console.error(`❌ Vault validation failed: ${validationResult.error}`);
+        return {
+          success: false,
+          step: 'vault_validation_failed',
+          error: `Data stored but validation failed: ${validationResult.error}. Please contact support.`
+        };
+      }
+      console.log('✅ Vault storage validated successfully');
+
+      // Step 4: Record Consent
+      const consentResult = await this.recordConsent(userId, ipAddress, userAgent);
+      if (!consentResult.success) {
+        console.warn('⚠️  Consent recording failed, but continuing...');
+      }
+
+      // Step 5: Generate Reuse Token
+      const tokenResult = await this.generateReuseToken(
+        userId,
+        'smart_kyc_wizard',
+        'FintekPro Platform'
+      );
+
+      console.log('🎉 Pre-verified KYC storage completed successfully!');
+
+      return {
+        success: true,
+        step: 'workflow_complete',
+        kycStatus: 'verified',
+        ckycKinNumber,
+        kycReuseToken: tokenResult.kycReuseToken,
+        message: 'Smart KYC data stored successfully in vault',
+        data: {
+          okycVerified: true,
+          ckycKinNumber,
+          kycReuseToken: tokenResult.kycReuseToken,
+          tokenExpiresAt: tokenResult.data?.expiresAt
+        }
+      };
+    } catch (error: any) {
+      console.error('❌ Pre-verified KYC storage error:', error);
+      return {
+        success: false,
+        step: 'vault_storage_error',
+        error: error.message || 'Failed to store pre-verified KYC data'
+      };
+    }
+  }
+
+  /**
+   * Complete Workflow: Execute all steps end-to-end
+   * This is the main orchestrator method
+   */
+  async executeCompleteWorkflow(
+    userId: string,
+    panNumber: string,
+    aadhaarNumber: string,
     otp: string,
-    ipAddress: string,
-    userAgent: string
-  ): Promise<{
-    success: boolean;
-    parsedData?: any;
-    xmlUrl?: string;
-    errorMessage?: string;
-  }> {
+    refId: string,
+    ipAddress?: string,
+    userAgent?: string
+  ): Promise<WorkflowResult> {
     try {
-      const verifyResult = await cashfreeEkycService.verifyOtp({
-        sessionId: cashfreeSessionId,
-        otp
-      });
+      console.log('🚀 Starting complete KYC workflow for user:', userId);
 
-      if (verifyResult.status === 'failed') {
-        const cashfreeSession = await storage.getCashfreeEkycSessionByKycSession(sessionId);
-        if (cashfreeSession) {
-          await storage.updateCashfreeEkycSession(cashfreeSession.id, {
-            status: 'failed',
-            errorCode: verifyResult.errorCode,
-            errorMessage: verifyResult.errorMessage
-          });
+      // Step 1 & 2: Verify OKYC (already initiated, just verify)
+      const okycResult = await this.verifyOKYC(otp, refId);
+      if (!okycResult.success || !okycResult.data) {
+        return okycResult;
+      }
+
+      const okycData = okycResult.data as OKYCData;
+
+      // Step 3: Check CKYC Registry
+      const ckycCheckResult = await this.checkCKYC(panNumber, aadhaarNumber);
+      
+      let ckycKinNumber: string;
+
+      if (ckycCheckResult.data?.found && ckycCheckResult.ckycKinNumber) {
+        // CKYC exists
+        console.log('✅ Existing CKYC record found:', ckycCheckResult.ckycKinNumber);
+        ckycKinNumber = ckycCheckResult.ckycKinNumber;
+      } else {
+        // Step 4: Create new CKYC record
+        const ckycCreateResult = await this.createCKYC(okycData, panNumber);
+        if (!ckycCreateResult.success || !ckycCreateResult.ckycKinNumber) {
+          return ckycCreateResult;
         }
-
-        return {
-          success: false,
-          errorMessage: verifyResult.errorMessage || 'OTP verification failed'
-        };
+        ckycKinNumber = ckycCreateResult.ckycKinNumber;
       }
 
-      // Download and parse XML
-      const xmlContent = await cashfreeEkycService.getXmlDocument(verifyResult.xmlUrl!);
-      const parsedData = xmlContent ? await cashfreeEkycService.parseXmlData(xmlContent) : null;
-
-      if (!parsedData) {
-        return {
-          success: false,
-          errorMessage: 'Failed to parse Aadhaar XML'
-        };
-      }
-
-      // Update Cashfree session with parsed data
-      const cashfreeSession = await storage.getCashfreeEkycSessionByKycSession(sessionId);
-      if (cashfreeSession) {
-        await storage.updateCashfreeEkycSession(cashfreeSession.id, {
-          otpVerifiedAt: new Date(),
-          xmlUrl: verifyResult.xmlUrl,
-          xmlHash: verifyResult.xmlHash,
-          xmlParsed: true,
-          xmlParsedAt: new Date(),
-          parsedData,
-          status: 'verified'
-        });
-      }
-
-      await storage.updateKycVerificationSession(sessionId, {
-        currentStep: 'cashfree_verified'
-      });
-
-      await this.logStateTransition({
-        sessionId,
+      // Step 5: Store in Vault
+      const vaultResult = await this.storeInVault(
         userId,
-        fromState: 'cashfree_otp_sent',
-        toState: 'cashfree_verified',
-        trigger: 'user_action',
-        performedBy: userId,
-        performedByRole: 'user',
-        metadata: { ekycCompleted: true },
-        ipAddress,
-        userAgent
-      });
+        okycData,
+        panNumber,
+        ckycKinNumber,
+        refId
+      );
+      
+      if (!vaultResult.success) {
+        return vaultResult;
+      }
+
+      // Step 5.5: Validate Vault Storage (prevent silent failures)
+      const validationResult = await this.validateVaultStorage(userId, panNumber, okycData.name);
+      if (!validationResult.success) {
+        console.error(`❌ Vault validation failed: ${validationResult.error}`);
+        return {
+          success: false,
+          step: 'vault_validation_failed',
+          error: `Data stored but validation failed: ${validationResult.error}. Please contact support.`
+        };
+      }
+      console.log('✅ Vault storage validated successfully');
+
+      // Step 6: Record Consent
+      const consentResult = await this.recordConsent(userId, ipAddress, userAgent);
+      if (!consentResult.success) {
+        console.warn('⚠️  Consent recording failed, but continuing...');
+      }
+
+      // Step 7: Generate Reuse Token
+      const tokenResult = await this.generateReuseToken(
+        userId,
+        'general_use',
+        'FintekPro Platform'
+      );
+
+      console.log('🎉 KYC workflow completed successfully!');
 
       return {
         success: true,
-        parsedData,
-        xmlUrl: verifyResult.xmlUrl
-      };
-    } catch (error: any) {
-      console.error('[KycOrchestrator] Cashfree OTP verification failed:', error.message);
-      
-      return {
-        success: false,
-        errorMessage: error.message
-      };
-    }
-  }
-
-  /**
-   * Submit CKYC to CERSAI (Tier 3)
-   */
-  async submitCersaiCkyc(
-    sessionId: string,
-    userId: string,
-    personalData: any,
-    addresses: any[],
-    identityProofs: any[],
-    images: any[],
-    ekycSessionId?: string
-  ): Promise<{
-    success: boolean;
-    submissionId?: string;
-    ckycNumber?: string;
-    xmlContent?: string;
-    errorMessage?: string;
-  }> {
-    try {
-      const result = await cersaiCkycService.completeCkycSubmission({
-        personalData,
-        addresses,
-        identityProofs,
-        images,
-        applicationReferenceNumber: `APP_${sessionId}_${Date.now()}`
-      });
-
-      // Create CERSAI submission record
-      await storage.createCersaiSubmission({
-        sessionId,
-        userId,
-        ekycSessionId,
-        submissionId: result.submissionId,
-        ckycNumber: result.ckycNumber,
-        status: result.success ? 'submitted' : 'failed',
-        submittedAt: result.success ? new Date() : undefined,
-        acknowledgmentData: result.acknowledgmentData,
-        rejectionCode: result.errorCode,
-        rejectionMessage: result.errorMessage,
-        xmlStorageUrl: undefined // TODO: Upload to object storage
-      });
-
-      if (!result.success) {
-        return {
-          success: false,
-          errorMessage: result.errorMessage || 'CKYC submission failed'
-        };
-      }
-
-      await storage.updateKycVerificationSession(sessionId, {
-        currentStep: 'cersai_submitted'
-      });
-
-      await this.logStateTransition({
-        sessionId,
-        userId,
-        fromState: 'cashfree_verified',
-        toState: 'cersai_submitted',
-        trigger: 'api_call',
-        performedBy: userId,
-        performedByRole: 'user',
-        metadata: { ckycNumber: result.ckycNumber },
-        ipAddress: '',
-        userAgent: ''
-      });
-
-      return {
-        success: true,
-        submissionId: result.submissionId,
-        ckycNumber: result.ckycNumber,
-        xmlContent: result.xmlContent
-      };
-    } catch (error: any) {
-      console.error('[KycOrchestrator] CERSAI submission failed:', error.message);
-      
-      return {
-        success: false,
-        errorMessage: error.message
-      };
-    }
-  }
-
-  /**
-   * Create BSE UCC (Tier 4 - Final step)
-   */
-  async createBseUcc(
-    sessionId: string,
-    userId: string,
-    personalDetails: any,
-    addressDetails: any,
-    bankDetails: any,
-    kraNumber: string,
-    ckycNumber?: string
-  ): Promise<{
-    success: boolean;
-    uccNumber?: string;
-    clientCode?: string;
-    errorMessage?: string;
-  }> {
-    try {
-      // Validate KRA status
-      const kraCheck = await storage.getKraStatusCheckBySession(sessionId);
-      
-      if (kraCheck) {
-        const validation = bseUccService.validateKraStatus(kraCheck.status, kraCheck.kraNumber || undefined);
-        
-        if (!validation.valid) {
-          return {
-            success: false,
-            errorMessage: validation.reason || 'KRA validation failed'
-          };
+        step: 'workflow_complete',
+        kycStatus: 'verified',
+        ckycKinNumber,
+        kycReuseToken: tokenResult.kycReuseToken,
+        message: 'KYC verification and vault storage completed successfully',
+        data: {
+          okycVerified: true,
+          ckycKinNumber,
+          kycReuseToken: tokenResult.kycReuseToken,
+          tokenExpiresAt: tokenResult.data?.expiresAt
         }
-      }
-
-      const result = await bseUccService.createUcc({
-        personalDetails,
-        addressDetails,
-        bankDetails,
-        kycDetails: {
-          kraNumber,
-          ckycNumber,
-          pepFlag: 'N'
-        }
-      });
-
-      // Create BSE UCC request record
-      await storage.createBseUccRequest({
-        sessionId,
-        userId,
-        kraCheckId: kraCheck?.id,
-        uccNumber: result.uccNumber,
-        requestId: result.requestId,
-        status: result.success ? 'created' : 'failed',
-        attemptCount: 1,
-        lastTriedAt: new Date(),
-        requestPayload: { personalDetails, addressDetails, bankDetails },
-        responseData: result.responseData,
-        rejectionReason: result.errorMessage
-      });
-
-      if (!result.success) {
-        return {
-          success: false,
-          errorMessage: result.errorMessage || 'UCC creation failed'
-        };
-      }
-
-      await storage.updateKycVerificationSession(sessionId, {
-        currentStep: 'ucc_created',
-        completedAt: new Date()
-      });
-
-      await this.logStateTransition({
-        sessionId,
-        userId,
-        fromState: kraCheck ? 'kra_verified' : 'cersai_submitted',
-        toState: 'ucc_created',
-        trigger: 'api_call',
-        performedBy: userId,
-        performedByRole: 'user',
-        metadata: { uccNumber: result.uccNumber, workflowCompleted: true },
-        ipAddress: '',
-        userAgent: ''
-      });
-
-      return {
-        success: true,
-        uccNumber: result.uccNumber,
-        clientCode: result.clientCode
       };
     } catch (error: any) {
-      console.error('[KycOrchestrator] BSE UCC creation failed:', error.message);
-      
+      console.error('❌ Complete workflow error:', error);
       return {
         success: false,
-        errorMessage: error.message
+        step: 'workflow_error',
+        error: error.message || 'Complete workflow failed'
       };
-    }
-  }
-
-  /**
-   * Get workflow status using WorkflowStateAssembler
-   */
-  async getWorkflowStatus(sessionId: string): Promise<WorkflowState | null> {
-    return this.stateAssembler.assembleWorkflowState(sessionId);
-  }
-
-  /**
-   * Log state transition for audit compliance
-   */
-  private async logStateTransition(transition: InsertKycStateTransition): Promise<void> {
-    try {
-      await storage.createKycStateTransition(transition);
-    } catch (error: any) {
-      console.error('[KycOrchestrator] State transition logging failed:', error.message);
     }
   }
 }
 
-export const kycWorkflowOrchestrator = new KycWorkflowOrchestrator();
+export const kycWorkflowOrchestrator = new KYCWorkflowOrchestrator();

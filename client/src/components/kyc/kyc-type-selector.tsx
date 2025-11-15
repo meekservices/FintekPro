@@ -1,13 +1,9 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Building2, User, Plane, ArrowRight, CheckCircle, Loader2, AlertCircle } from "lucide-react";
+import { Building2, User, Plane, ArrowRight, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/hooks/useAuth";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { useToast } from "@/hooks/use-toast";
 import { CorporateKYCWizard } from "./corporate-kyc-wizard";
 import { NRIKYCWizard } from "./nri-kyc-wizard";
 import { MultiStepKYCWizard } from "./multi-step-kyc-wizard";
@@ -76,69 +72,23 @@ function KYCTypeCard({ type, title, description, icon: Icon, features, selected,
 }
 
 export function KYCTypeSelector() {
-  const { user, isLoading } = useAuth();
-  const [, setLocation] = useLocation();
-  const { toast } = useToast();
   const [selectedType, setSelectedType] = useState<KYCType>(null);
   const [isStarted, setIsStarted] = useState(false);
 
-  // Authentication guard - redirect to login if not authenticated
-  useEffect(() => {
-    if (!isLoading && !user) {
-      toast({
-        title: "Authentication Required",
-        description: "Please login to access KYC verification",
-        variant: "destructive"
-      });
-      setLocation("/login");
-    }
-  }, [user, isLoading, setLocation, toast]);
-
-  // Show loading state while checking authentication
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-            <p className="text-muted-foreground">Checking authentication...</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  // Don't render if user is not authenticated (will redirect)
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-full max-w-md px-4">
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Authentication Required</AlertTitle>
-            <AlertDescription>
-              You need to be logged in to access KYC verification. Redirecting to login...
-            </AlertDescription>
-          </Alert>
-        </div>
-      </div>
-    );
-  }
-
-  // Check for incomplete KYC progress on mount - only if user is authenticated
+  // Check for incomplete KYC progress on mount
   const { data: individualProgress } = useQuery({
     queryKey: ["/api/kyc/smart/progress"],
-    enabled: !isStarted && !!user
+    enabled: !isStarted
   });
 
   const { data: corporateProgress } = useQuery({
     queryKey: ["/api/kyc/corporate/progress"],
-    enabled: !isStarted && !!user
+    enabled: !isStarted
   });
 
   const { data: nriProgress } = useQuery({
     queryKey: ["/api/kyc/nri/progress"],
-    enabled: !isStarted && !!user
+    enabled: !isStarted
   });
 
   // Auto-resume incomplete KYC

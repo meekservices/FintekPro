@@ -99,24 +99,6 @@ interface Agent {
   activeClients: number;
   totalRevenue: string;
   createdAt: string;
-  
-  // Regulatory Compliance Fields
-  nismCertificateNumber: string | null;
-  nismValidTill: string | null;
-  nismCertificateUrl: string | null;
-  nismStatus: string | null;
-  kydVerificationStatus: string | null;
-  kydVerifiedAt: string | null;
-  kydReferenceNumber: string | null;
-  kydDocumentUrl: string | null;
-  arnValidTill: string | null;
-  euinValidTill: string | null;
-  arnStatus: string | null;
-  euinStatus: string | null;
-  complianceStatus: string | null;
-  certificationDocuments: any | null;
-  lastComplianceCheckAt: string | null;
-  complianceRemarks: string | null;
 }
 
 interface Supplier {
@@ -408,10 +390,6 @@ export default function StakeholdersPage() {
       partnerType: formData.get("partnerType") as string,
       commissionRate: formData.get("commissionRate") as string || "0.00",
       isActive: formData.get("isActive") === "true",
-      panNumber: formData.get("panNumber") as string || undefined,
-      bankAccountNumber: formData.get("bankAccountNumber") as string || undefined,
-      ifscCode: formData.get("ifscCode") as string || undefined,
-      upiId: formData.get("upiId") as string || undefined,
     };
 
     try {
@@ -441,10 +419,6 @@ export default function StakeholdersPage() {
       partnerType: formData.get("partnerType") as string,
       commissionRate: formData.get("commissionRate") as string || "0.00",
       isActive: formData.get("isActive") === "true",
-      panNumber: formData.get("panNumber") as string || undefined,
-      bankAccountNumber: formData.get("bankAccountNumber") as string || undefined,
-      ifscCode: formData.get("ifscCode") as string || undefined,
-      upiId: formData.get("upiId") as string || undefined,
     };
 
     const password = formData.get("password") as string;
@@ -468,28 +442,6 @@ export default function StakeholdersPage() {
       euinNumber: formData.get("euinNumber") as string || undefined,
       agentType: formData.get("agentType") as string,
       status: formData.get("status") as string,
-      
-      // Payout Details (Required for Cashfree payouts)
-      panNumber: formData.get("panNumber") as string || undefined,
-      bankAccountNumber: formData.get("bankAccountNumber") as string || undefined,
-      ifscCode: formData.get("ifscCode") as string || undefined,
-      upiId: formData.get("upiId") as string || undefined,
-      
-      // NISM Certification
-      nismCertificateNumber: formData.get("nismCertificateNumber") as string || undefined,
-      nismValidTill: formData.get("nismValidTill") as string || undefined,
-      nismStatus: "pending", // Default status for new agents
-      
-      // KYD Verification
-      kydReferenceNumber: formData.get("kydReferenceNumber") as string || undefined,
-      kydVerificationStatus: formData.get("kydVerificationStatus") as string || "pending",
-      
-      // ARN & EUIN Validity
-      arnValidTill: formData.get("arnValidTill") as string || undefined,
-      euinValidTill: formData.get("euinValidTill") as string || undefined,
-      arnStatus: "pending", // Default status for new agents
-      euinStatus: "pending", // Default status for new agents
-      complianceStatus: "incomplete", // Default until verified
     };
 
     try {
@@ -521,28 +473,6 @@ export default function StakeholdersPage() {
       euinNumber: formData.get("euinNumber") as string || undefined,
       agentType: formData.get("agentType") as string,
       status: formData.get("status") as string,
-      
-      // Payout Details (Required for Cashfree payouts)
-      panNumber: formData.get("panNumber") as string || undefined,
-      bankAccountNumber: formData.get("bankAccountNumber") as string || undefined,
-      ifscCode: formData.get("ifscCode") as string || undefined,
-      upiId: formData.get("upiId") as string || undefined,
-      
-      // NISM Certification
-      nismCertificateNumber: formData.get("nismCertificateNumber") as string || undefined,
-      nismValidTill: formData.get("nismValidTill") as string || undefined,
-      nismStatus: editingAgent.nismStatus || "pending",
-      
-      // KYD Verification
-      kydReferenceNumber: formData.get("kydReferenceNumber") as string || undefined,
-      kydVerificationStatus: formData.get("kydVerificationStatus") as string || "pending",
-      
-      // ARN & EUIN Validity
-      arnValidTill: formData.get("arnValidTill") as string || undefined,
-      euinValidTill: formData.get("euinValidTill") as string || undefined,
-      arnStatus: editingAgent.arnStatus || "pending",
-      euinStatus: editingAgent.euinStatus || "pending",
-      complianceStatus: editingAgent.complianceStatus || "incomplete",
     };
 
     updateAgentMutation.mutate({ id: editingAgent.id, data });
@@ -962,7 +892,7 @@ export default function StakeholdersPage() {
                   <TableRow>
                     <TableHead>Name</TableHead>
                     <TableHead>Contact</TableHead>
-                    <TableHead>Certifications</TableHead>
+                    <TableHead>Employee ID</TableHead>
                     <TableHead>Active Clients</TableHead>
                     <TableHead>Revenue</TableHead>
                     <TableHead>Status</TableHead>
@@ -1001,61 +931,7 @@ export default function StakeholdersPage() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="flex flex-col gap-1">
-                            {/* NISM Certification Status */}
-                            {agent.nismCertificateNumber ? (
-                              <Badge 
-                                variant={
-                                  agent.nismStatus === "verified" ? "default" : 
-                                  agent.nismStatus === "expired" ? "destructive" : 
-                                  "secondary"
-                                }
-                                className="text-xs"
-                              >
-                                NISM: {agent.nismStatus || "pending"}
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="text-xs text-muted-foreground">NISM: Not Set</Badge>
-                            )}
-                            
-                            {/* KYD Verification Status */}
-                            {agent.kydReferenceNumber ? (
-                              <Badge 
-                                variant={
-                                  agent.kydVerificationStatus === "verified" ? "default" : 
-                                  agent.kydVerificationStatus === "failed" || agent.kydVerificationStatus === "expired" ? "destructive" : 
-                                  "secondary"
-                                }
-                                className="text-xs"
-                              >
-                                KYD: {agent.kydVerificationStatus || "pending"}
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="text-xs text-muted-foreground">KYD: Not Set</Badge>
-                            )}
-                            
-                            {/* ARN/EUIN Validity */}
-                            {(agent.arnCode || agent.euinNumber) && (
-                              <div className="flex gap-1">
-                                {agent.arnCode && (
-                                  <Badge 
-                                    variant={agent.arnStatus === "active" ? "default" : "secondary"}
-                                    className="text-xs"
-                                  >
-                                    ARN
-                                  </Badge>
-                                )}
-                                {agent.euinNumber && (
-                                  <Badge 
-                                    variant={agent.euinStatus === "active" ? "default" : "secondary"}
-                                    className="text-xs"
-                                  >
-                                    EUIN
-                                  </Badge>
-                                )}
-                              </div>
-                            )}
-                          </div>
+                          <span className="font-mono text-sm">{agent.employeeId || "N/A"}</span>
                         </TableCell>
                         <TableCell>
                           <Badge variant="secondary">{agent.activeClients || 0}</Badge>
@@ -1249,7 +1125,7 @@ export default function StakeholdersPage() {
 
       {/* Add Partner Dialog */}
       <Dialog open={isAddPartnerOpen} onOpenChange={setIsAddPartnerOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add New Partner</DialogTitle>
             <DialogDescription>Create a new partner account with login credentials</DialogDescription>
@@ -1304,28 +1180,6 @@ export default function StakeholdersPage() {
                   </SelectContent>
                 </Select>
               </div>
-              
-              {/* Payout Details Section */}
-              <div className="space-y-2 col-span-2">
-                <h4 className="font-medium text-sm text-muted-foreground border-b pb-2">Payout Details (Required for Commission Payments)</h4>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="panNumber">PAN Number</Label>
-                <Input id="panNumber" name="panNumber" placeholder="e.g., ABCDE1234F" maxLength={10} data-testid="input-partner-panNumber" />
-                <p className="text-xs text-muted-foreground">Required for receiving payouts</p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="bankAccountNumber">Bank Account Number</Label>
-                <Input id="bankAccountNumber" name="bankAccountNumber" placeholder="Bank account number" data-testid="input-partner-bankAccountNumber" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="ifscCode">IFSC Code</Label>
-                <Input id="ifscCode" name="ifscCode" placeholder="e.g., HDFC0000123" data-testid="input-partner-ifscCode" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="upiId">UPI ID (Optional)</Label>
-                <Input id="upiId" name="upiId" placeholder="yourname@upi" data-testid="input-partner-upiId" />
-              </div>
             </div>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setIsAddPartnerOpen(false)} data-testid="button-cancel-partner">
@@ -1341,7 +1195,7 @@ export default function StakeholdersPage() {
 
       {/* Edit Partner Dialog */}
       <Dialog open={!!editingPartner} onOpenChange={(open) => !open && setEditingPartner(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Partner</DialogTitle>
             <DialogDescription>Update partner information</DialogDescription>
@@ -1397,28 +1251,6 @@ export default function StakeholdersPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                
-                {/* Payout Details Section */}
-                <div className="space-y-2 col-span-2">
-                  <h4 className="font-medium text-sm text-muted-foreground border-b pb-2">Payout Details (Required for Commission Payments)</h4>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-panNumber">PAN Number</Label>
-                  <Input id="edit-panNumber" name="panNumber" placeholder="e.g., ABCDE1234F" maxLength={10} defaultValue={(editingPartner as any).panNumber || ""} data-testid="input-edit-partner-panNumber" />
-                  <p className="text-xs text-muted-foreground">Required for receiving payouts</p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-bankAccountNumber">Bank Account Number</Label>
-                  <Input id="edit-bankAccountNumber" name="bankAccountNumber" placeholder="Bank account number" defaultValue={(editingPartner as any).bankAccountNumber || ""} data-testid="input-edit-partner-bankAccountNumber" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-ifscCode">IFSC Code</Label>
-                  <Input id="edit-ifscCode" name="ifscCode" placeholder="e.g., HDFC0000123" defaultValue={(editingPartner as any).ifscCode || ""} data-testid="input-edit-partner-ifscCode" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-upiId">UPI ID (Optional)</Label>
-                  <Input id="edit-upiId" name="upiId" placeholder="yourname@upi" defaultValue={(editingPartner as any).upiId || ""} data-testid="input-edit-partner-upiId" />
-                </div>
               </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setEditingPartner(null)} data-testid="button-cancel-edit-partner">
@@ -1435,7 +1267,7 @@ export default function StakeholdersPage() {
 
       {/* Add Agent Dialog */}
       <Dialog open={isAddAgentOpen} onOpenChange={setIsAddAgentOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add New Agent</DialogTitle>
             <DialogDescription>Create a new agent account</DialogDescription>
@@ -1466,78 +1298,6 @@ export default function StakeholdersPage() {
                 <Label htmlFor="euinNumber">EUIN Number</Label>
                 <Input id="euinNumber" name="euinNumber" data-testid="input-agent-euinNumber" />
               </div>
-              
-              {/* Payout Details Section */}
-              <div className="space-y-2 col-span-2">
-                <h4 className="font-medium text-sm text-muted-foreground border-b pb-2">Payout Details (Required for Commission Payments)</h4>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="panNumber">PAN Number</Label>
-                <Input id="panNumber" name="panNumber" placeholder="e.g., ABCDE1234F" maxLength={10} data-testid="input-agent-panNumber" />
-                <p className="text-xs text-muted-foreground">Required for receiving payouts</p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="bankAccountNumber">Bank Account Number</Label>
-                <Input id="bankAccountNumber" name="bankAccountNumber" placeholder="Bank account number" data-testid="input-agent-bankAccountNumber" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="ifscCode">IFSC Code</Label>
-                <Input id="ifscCode" name="ifscCode" placeholder="e.g., HDFC0000123" data-testid="input-agent-ifscCode" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="upiId">UPI ID (Optional)</Label>
-                <Input id="upiId" name="upiId" placeholder="yourname@upi" data-testid="input-agent-upiId" />
-              </div>
-              
-              {/* NISM-V-A Certification Section */}
-              <div className="space-y-2 col-span-2">
-                <h4 className="font-medium text-sm text-muted-foreground border-b pb-2">NISM-V-A Certification (Mutual Fund Distribution)</h4>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="nismCertificateNumber">NISM Certificate Number</Label>
-                <Input id="nismCertificateNumber" name="nismCertificateNumber" placeholder="e.g., NISM-123456" data-testid="input-agent-nismCertificateNumber" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="nismValidTill">NISM Valid Till</Label>
-                <Input id="nismValidTill" name="nismValidTill" type="date" data-testid="input-agent-nismValidTill" />
-              </div>
-              
-              {/* KYD Verification Section */}
-              <div className="space-y-2 col-span-2">
-                <h4 className="font-medium text-sm text-muted-foreground border-b pb-2">KYD Verification (Know Your Distributor)</h4>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="kydReferenceNumber">KYD Reference Number</Label>
-                <Input id="kydReferenceNumber" name="kydReferenceNumber" placeholder="KYD verification ID" data-testid="input-agent-kydReferenceNumber" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="kydVerificationStatus">KYD Status</Label>
-                <Select name="kydVerificationStatus" defaultValue="pending">
-                  <SelectTrigger data-testid="select-agent-kydVerificationStatus">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="verified">Verified</SelectItem>
-                    <SelectItem value="failed">Failed</SelectItem>
-                    <SelectItem value="expired">Expired</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              {/* ARN & EUIN Validity */}
-              <div className="space-y-2 col-span-2">
-                <h4 className="font-medium text-sm text-muted-foreground border-b pb-2">Registration Validity</h4>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="arnValidTill">ARN Valid Till</Label>
-                <Input id="arnValidTill" name="arnValidTill" type="date" data-testid="input-agent-arnValidTill" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="euinValidTill">EUIN Valid Till</Label>
-                <Input id="euinValidTill" name="euinValidTill" type="date" data-testid="input-agent-euinValidTill" />
-              </div>
-              
               <div className="space-y-2">
                 <Label htmlFor="agentType">Agent Type *</Label>
                 <Select name="agentType" required defaultValue="individual">
@@ -1580,7 +1340,7 @@ export default function StakeholdersPage() {
 
       {/* Edit Agent Dialog */}
       <Dialog open={!!editingAgent} onOpenChange={(open) => !open && setEditingAgent(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Agent</DialogTitle>
             <DialogDescription>Update agent information</DialogDescription>
@@ -1612,78 +1372,6 @@ export default function StakeholdersPage() {
                   <Label htmlFor="edit-euinNumber">EUIN Number</Label>
                   <Input id="edit-euinNumber" name="euinNumber" defaultValue={editingAgent.euinNumber || ""} data-testid="input-edit-agent-euinNumber" />
                 </div>
-                
-                {/* Payout Details Section */}
-                <div className="space-y-2 col-span-2">
-                  <h4 className="font-medium text-sm text-muted-foreground border-b pb-2">Payout Details (Required for Commission Payments)</h4>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-panNumber">PAN Number</Label>
-                  <Input id="edit-panNumber" name="panNumber" placeholder="e.g., ABCDE1234F" maxLength={10} defaultValue={(editingAgent as any).panNumber || ""} data-testid="input-edit-agent-panNumber" />
-                  <p className="text-xs text-muted-foreground">Required for receiving payouts</p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-bankAccountNumber">Bank Account Number</Label>
-                  <Input id="edit-bankAccountNumber" name="bankAccountNumber" placeholder="Bank account number" defaultValue={(editingAgent as any).bankAccountNumber || ""} data-testid="input-edit-agent-bankAccountNumber" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-ifscCode">IFSC Code</Label>
-                  <Input id="edit-ifscCode" name="ifscCode" placeholder="e.g., HDFC0000123" defaultValue={(editingAgent as any).ifscCode || ""} data-testid="input-edit-agent-ifscCode" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-upiId">UPI ID (Optional)</Label>
-                  <Input id="edit-upiId" name="upiId" placeholder="yourname@upi" defaultValue={(editingAgent as any).upiId || ""} data-testid="input-edit-agent-upiId" />
-                </div>
-                
-                {/* NISM-V-A Certification Section */}
-                <div className="space-y-2 col-span-2">
-                  <h4 className="font-medium text-sm text-muted-foreground border-b pb-2">NISM-V-A Certification (Mutual Fund Distribution)</h4>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-nismCertificateNumber">NISM Certificate Number</Label>
-                  <Input id="edit-nismCertificateNumber" name="nismCertificateNumber" defaultValue={editingAgent.nismCertificateNumber || ""} placeholder="e.g., NISM-123456" data-testid="input-edit-agent-nismCertificateNumber" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-nismValidTill">NISM Valid Till</Label>
-                  <Input id="edit-nismValidTill" name="nismValidTill" type="date" defaultValue={editingAgent.nismValidTill ? new Date(editingAgent.nismValidTill).toISOString().split('T')[0] : ""} data-testid="input-edit-agent-nismValidTill" />
-                </div>
-                
-                {/* KYD Verification Section */}
-                <div className="space-y-2 col-span-2">
-                  <h4 className="font-medium text-sm text-muted-foreground border-b pb-2">KYD Verification (Know Your Distributor)</h4>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-kydReferenceNumber">KYD Reference Number</Label>
-                  <Input id="edit-kydReferenceNumber" name="kydReferenceNumber" defaultValue={editingAgent.kydReferenceNumber || ""} placeholder="KYD verification ID" data-testid="input-edit-agent-kydReferenceNumber" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-kydVerificationStatus">KYD Status</Label>
-                  <Select name="kydVerificationStatus" defaultValue={editingAgent.kydVerificationStatus || "pending"}>
-                    <SelectTrigger data-testid="select-edit-agent-kydVerificationStatus">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="verified">Verified</SelectItem>
-                      <SelectItem value="failed">Failed</SelectItem>
-                      <SelectItem value="expired">Expired</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                {/* ARN & EUIN Validity */}
-                <div className="space-y-2 col-span-2">
-                  <h4 className="font-medium text-sm text-muted-foreground border-b pb-2">Registration Validity</h4>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-arnValidTill">ARN Valid Till</Label>
-                  <Input id="edit-arnValidTill" name="arnValidTill" type="date" defaultValue={editingAgent.arnValidTill ? new Date(editingAgent.arnValidTill).toISOString().split('T')[0] : ""} data-testid="input-edit-agent-arnValidTill" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-euinValidTill">EUIN Valid Till</Label>
-                  <Input id="edit-euinValidTill" name="euinValidTill" type="date" defaultValue={editingAgent.euinValidTill ? new Date(editingAgent.euinValidTill).toISOString().split('T')[0] : ""} data-testid="input-edit-agent-euinValidTill" />
-                </div>
-                
                 <div className="space-y-2">
                   <Label htmlFor="edit-agentType">Agent Type *</Label>
                   <Select name="agentType" required defaultValue={editingAgent.agentType}>
@@ -1727,7 +1415,7 @@ export default function StakeholdersPage() {
 
       {/* Add Supplier Dialog */}
       <Dialog open={isAddSupplierOpen} onOpenChange={setIsAddSupplierOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add New Supplier</DialogTitle>
             <DialogDescription>Create a new supplier account</DialogDescription>
@@ -1786,7 +1474,7 @@ export default function StakeholdersPage() {
 
       {/* Edit Supplier Dialog */}
       <Dialog open={!!editingSupplier} onOpenChange={(open) => !open && setEditingSupplier(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Supplier</DialogTitle>
             <DialogDescription>Update supplier information</DialogDescription>

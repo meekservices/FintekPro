@@ -4,10 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
-import { useRebalancePortfolio, useExecuteRebalance } from "@/hooks/use-portfolio";
+import { useRebalancePortfolio } from "@/hooks/use-portfolio";
 import { ASSET_TYPE_LABELS, ASSET_COLORS } from "@/lib/constants";
-import { Calculator, TrendingUp, AlertTriangle, CheckCircle2 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { Calculator, TrendingUp, AlertTriangle } from "lucide-react";
 
 interface RebalanceDashboardProps {
   portfolioId: string;
@@ -29,10 +28,8 @@ export function RebalanceDashboard({ portfolioId, totalValue }: RebalanceDashboa
 
   const [isCalculating, setIsCalculating] = useState(false);
   const [rebalanceResults, setRebalanceResults] = useState<any>(null);
-  const { toast } = useToast();
 
   const { mutate: calculateRebalance, isPending } = useRebalancePortfolio();
-  const { mutate: executeRebalance, isPending: isExecuting } = useExecuteRebalance();
 
   const handleAllocationChange = (assetType: string, percentage: number) => {
     setTargetAllocations(prev => 
@@ -81,43 +78,6 @@ export function RebalanceDashboard({ portfolioId, totalValue }: RebalanceDashboa
       { assetType: "alternative", percentage: 5 },
     ]);
     setRebalanceResults(null);
-  };
-
-  const handleExecuteRebalance = () => {
-    if (!rebalanceResults || !rebalanceResults.rebalanceCalculations) {
-      toast({
-        title: "Error",
-        description: "Please calculate rebalance first",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    executeRebalance(
-      {
-        portfolioId,
-        rebalanceCalculations: rebalanceResults.rebalanceCalculations,
-        portfolioValueBefore: totalValue,
-      },
-      {
-        onSuccess: (data) => {
-          toast({
-            title: "Rebalance Executed Successfully",
-            description: data.message || `${data.successfulTransactions} transactions completed`,
-            variant: "default",
-          });
-          setRebalanceResults(null);
-          setIsCalculating(false);
-        },
-        onError: (error: any) => {
-          toast({
-            title: "Rebalance Execution Failed",
-            description: error.message || "Failed to execute rebalance",
-            variant: "destructive",
-          });
-        },
-      }
-    );
   };
 
   return (
@@ -268,22 +228,10 @@ export function RebalanceDashboard({ portfolioId, totalValue }: RebalanceDashboa
                 </div>
 
                 <Button 
-                  onClick={handleExecuteRebalance}
-                  disabled={isExecuting}
                   className="w-full bg-finance-green text-white hover:bg-green-700"
                   data-testid="execute-rebalance-button"
                 >
-                  {isExecuting ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Executing...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 className="h-4 w-4 mr-2" />
-                      Execute Rebalance
-                    </>
-                  )}
+                  Execute Rebalance
                 </Button>
               </div>
             ) : (

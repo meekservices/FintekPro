@@ -123,7 +123,7 @@ export function PANConsentModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800" data-testid="modal-pan-consent">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="modal-pan-consent">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl" data-testid="heading-pan-consent">
             <Shield className="h-5 w-5 text-blue-600" />

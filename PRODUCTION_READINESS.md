@@ -160,17 +160,12 @@ This document provides a comprehensive checklist for deploying FintekPro to prod
 
 ### 3. Security Review
 - [x] Login authentication working with OTP
-- [x] Password hashing implemented (bcrypt)
-- [x] Session management configured (connect-pg-simple with PostgreSQL)
-- [x] **CSRF protection** - Session-scoped tokens with automatic frontend integration
-- [x] **Session regeneration** - OAuth and local auth flows regenerate sessions on login
-- [x] **Rate limiting** - 100 req/15min general, 5 req/15min for 9 auth endpoints
-- [x] **OTP security** - Scrypt hashing, 5-attempt limit, server-side expiration
-- [x] **User enumeration prevention** - Uniform error messages across auth flows
-- [x] CORS settings appropriate for production domain
-- [x] Security headers configured (Helmet.js already in use)
-- [x] SQL injection protection (using Drizzle ORM - ✅)
-- [x] XSS protection enabled (input sanitization middleware)
+- [x] Password hashing implemented
+- [x] Session management configured
+- [ ] CORS settings appropriate for production domain
+- [ ] Security headers configured (Helmet.js already in use)
+- [ ] SQL injection protection (using Drizzle ORM - ✅)
+- [ ] XSS protection enabled
 
 ### 4. Application Testing
 Critical flows to test before publishing:
@@ -183,21 +178,17 @@ Critical flows to test before publishing:
 - [ ] Market data display
 
 ### 5. Performance Optimization
-- [x] **Console.log cleanup** - 200+ statements migrated to winston logger in 5 critical files
-- [x] **Database connection pooling** - 20 connections (prod) / 10 (dev), 30s idle timeout
-- [x] **HTTP server timeouts** - 65s keep-alive, 66s headers, 120s request timeout
-- [x] API rate limiting configured (general + auth-specific limits)
+- [ ] Check for any console.log statements in production code
 - [ ] Verify caching strategies are in place
-- [ ] Test page load times under load
-- [ ] Database indexes optimization (in progress)
+- [ ] Test page load times
+- [ ] Check database query performance
+- [ ] Verify API rate limiting is configured
 
 ### 6. Monitoring & Logging
-- [x] **Winston logger** - Structured JSON logging in production, human-readable in dev
-- [x] **Production logging** - 5 critical services migrated (KYC, payments, auto-population, AA, reminders)
 - [x] Compliance logging in place
 - [x] Activity tracking configured
-- [x] Error tracking configured (winston with log rotation)
-- [ ] Monitor production logs after deployment (winston daily rotate files)
+- [ ] Error tracking set up
+- [ ] Monitor production logs after deployment
 
 ---
 
@@ -391,141 +382,6 @@ Before clicking "Publish", ensure:
 
 ---
 
-## 🔒 Production Security Hardening (November 2025)
-
-### CSRF Protection (Fully Implemented ✅)
-**Backend Implementation:**
-- Session-scoped CSRF token generation with crypto.randomBytes(32)
-- Dedicated `/api/csrf-token` endpoint for SPA token fetching
-- Automatic validation on all state-changing requests (POST, PUT, PATCH, DELETE)
-- Smart webhook exemptions (Cashfree, Zoho, PhonePe, AA callbacks)
-- Middleware applied before all application routes for comprehensive coverage
-
-**Frontend Integration:**
-- Automatic token fetching on app initialization
-- Token injection into all mutation requests via X-CSRF-Token header
-- Retry logic on 403 CSRF validation failures
-- Token refresh mechanism in queryClient configuration
-
-**Files Modified:**
-- `server/csrf-protection.ts` - Core CSRF middleware and token management
-- `client/src/lib/queryClient.ts` - Frontend auto-fetch and retry logic
-- `server/index.ts` - Middleware integration
-
-### Authentication Security Enhancements
-**Session Regeneration:**
-- OAuth flow (Replit Auth): Session regenerated on successful authentication
-- Local auth flow: Session regenerated after password verification
-- Fresh CSRF tokens generated post-regeneration
-- Prevents session fixation attacks
-
-**Rate Limiting (9 Protected Endpoints):**
-- `/api/login` - 5 requests per 15 minutes
-- `/api/login/verify-otp` - 5 requests per 15 minutes
-- `/api/register` - 5 requests per 15 minutes
-- `/api/register/verify-otp` - 5 requests per 15 minutes
-- `/api/register/resend-otp` - 5 requests per 15 minutes
-- `/api/otp/send` - 5 requests per 15 minutes
-- `/api/otp/verify` - 5 requests per 15 minutes
-- `/api/auth/forgot-password` - 5 requests per 15 minutes
-- `/api/auth/reset-password` - 5 requests per 15 minutes
-
-**OTP Hardening:**
-- OTPs stored with scrypt hashing (not plaintext)
-- 5-attempt limit per OTP with auto-incrementing counter
-- Strict server-side expiration enforcement (5 minutes)
-- Automatic deletion after successful verification or max attempts exceeded
-- Timing-safe comparison to prevent timing attacks
-
-**User Enumeration Prevention:**
-- Uniform "Invalid credentials" error messages across all failure paths
-- No distinction between "user not found" and "wrong password"
-- Consistent response timing across different failure scenarios
-- Multiple accounts detection returns same generic error
-
-### Production Infrastructure Configuration
-**Database Connection Pooling:**
-```javascript
-max: process.env.NODE_ENV === 'production' ? 20 : 10
-idleTimeoutMillis: 30000  // 30 seconds
-connectionTimeoutMillis: 10000  // 10 seconds
-```
-
-**HTTP Server Timeouts:**
-```javascript
-server.keepAliveTimeout = 65000   // 65 seconds (> load balancer timeout)
-server.headersTimeout = 66000     // 66 seconds (> keepAliveTimeout)
-server.requestTimeout = 120000    // 120 seconds for long operations
-```
-
-**CORS Configuration:**
-- Whitelist-based origin validation
-- Credentials enabled for session cookies
-- Replit domain patterns supported (*.replit.dev, *.repl.co, *.replit.app)
-- Custom domain support (fintekpro.com, admin.fintekpro.com)
-
-**Input Sanitization:**
-- XSS pattern removal from all request bodies and query parameters
-- Script tag stripping
-- JavaScript protocol removal
-- Event handler attribute sanitization
-- Webhook exemptions for signature verification
-
-### Logging & Monitoring
-**Winston Logger Integration:**
-- Structured JSON logging in production
-- Human-readable format in development
-- Daily log rotation with 14-day retention
-- Separate logs for combined, error, and exceptions
-- Maximum log file size: 20MB
-
-**Migrated Services (200+ console statements):**
-1. `server/services/reminder-scheduler.ts`
-2. `server/services/kyc-workflow-orchestrator.ts`
-3. `server/services/payment-execution-bridge.ts`
-4. `server/services/auto-population-orchestrator.ts`
-5. `server/services/account-aggregator-service.ts`
-
-**Log Levels:**
-- `info` - Normal operations, service initialization
-- `warn` - Recoverable errors, fallbacks
-- `error` - Critical failures requiring attention
-- `debug` - Detailed troubleshooting (dev only)
-
-### Error Handling Improvements
-**Process-Level Handlers:**
-```javascript
-process.on('uncaughtException') // Logged with winston, process exits gracefully
-process.on('unhandledRejection') // Logged with winston, rejection tracked
-```
-
-**Express Error Middleware:**
-- Centralized error handler logs all errors via winston
-- Never re-throws errors to prevent process termination
-- Structured error responses with status codes
-- Stack traces preserved for debugging
-
-### Security Audit Results
-**Architect Review Status:** ✅ PASS (November 8, 2025)
-
-**Security Coverage:**
-- ✅ CSRF protection comprehensive and correctly implemented
-- ✅ No security gaps identified in authentication flows
-- ✅ Production configurations optimal for financial services platform
-- ✅ No regressions or breaking changes detected
-- ✅ Input validation and sanitization working correctly
-- ✅ Session management secure with regeneration
-- ✅ Rate limiting prevents brute force attacks
-
-**Remaining Recommendations (Non-Blocking):**
-1. End-to-end testing of login → CSRF token fetch → mutation flow
-2. Monitor `CSRF_VALIDATION_FAILED` events in production logs
-3. Validate connection pool metrics under load in staging environment
-4. Database index optimization for high-traffic queries
-5. Performance testing under sustained load
-
----
-
-**Last Updated**: November 8, 2025
-**Status**: Production-hardened and architect-verified ✅
-**Next Steps**: Configure essential secrets → End-to-end testing → Publish
+**Last Updated**: October 31, 2025
+**Status**: Ready for publication with minimal required secrets
+**Next Steps**: Configure essential secrets → Test → Publish

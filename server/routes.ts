@@ -2,7 +2,6 @@ import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { apiResponse } from "./utils/responses";
-import { applyBulkProductMarkup, applyProductMarkup } from "./utils/pricing";
 // Extend Express Request to include partner property
 declare global {
   namespace Express {
@@ -18,15 +17,12 @@ import { setupAuth as setupLocalAuth } from "./auth";
 import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema, insertCapitalGainsReportSchema, insertTransactionReportSchema, insertTransactionRecordSchema, insertCkycRecordSchema, insertCkycDocumentSchema, userCart, userCartItems, storeProducts, storeCategories, fundComparisons, portfolioComparisons, comparisonHistory, insertFamilyGroupSchema, insertFamilyMemberSchema, insertFamilyGoalSchema, insertFamilyGoalContributionSchema, insertFamilyActivityLogSchema, insertFamilyDiscussionSchema, insertFamilyBudgetSchema, kycFormProgress, insertProductAccountPreferenceSchema, familyMembers } from "@shared/schema";
 import { marketStoryService, type MarketData as StoryMarketData } from "./market-story-service";
 import { generateMarketInsight, analyzePortfolio, generateInvestmentStory, explainFinancialConcept } from "./gemini";
-import { generateFinancialChatResponse } from "./gemini-service";
 import { whatsappService } from "./whatsapp";
 import { marketingService } from "./marketing-automation";
 import { portfolioIntelligence } from "./portfolio-intelligence";
 import { adminService } from "./admin-service";
 import { duplicateDetectionService } from "./services/duplicateDetectionService";
 import { partnerService } from "./partner-service";
-import { createProductionKycRouter } from "./productionKycRoutes";
-import kycTierRoutes from "./kyc-tier-routes";
 import { z } from "zod";
 import { NseIndia } from 'stock-nse-india';
 import { comprehensiveAIFPMSAPI } from "./comprehensive-aif-pms-api";
@@ -50,17 +46,6 @@ import { clientEnrichmentService } from './client-enrichment-service';
 import { aiTransactionTrackerService } from './ai-transaction-tracker';
 import { aiInvestSmartMonitorService } from './ai-investsmart-monitor';
 import amlRoutes from './aml-routes';
-import monitoringRoutes from "./monitoringRoutes";
-import auditRoutes from "./auditRoutes";
-import adminAIFixesRouter from "./admin-ai-fixes-routes";
-import marketDataRoutes from "./market-data-routes";
-import { latencyTracker } from "./middleware/latency-tracker";
-import { externalApiMonitor } from "./services/external-api-monitor";
-import { alertingService } from "./services/alerting-service";
-import { errorAggregator } from "./services/error-aggregator";
-import { dataRetentionService } from "./services/data-retention";
-import { logger } from "./logger";
-import aiPortfolioEnhancedRoutes from "./ai-portfolio-enhanced-routes";
 import { ZohoCommerceAPI, type ZohoCommerceConfig } from './zoho-commerce-api';
 import { zohoCommerceConfig, zohoProducts, zohoCategories, zohoOrders, zohoCustomers, zohoInventory, zohoWebhooks, zohoSyncLogs, insertZohoCommerceConfigSchema, insertZohoProductSchema, insertZohoCategorySchema, insertZohoOrderSchema, insertCreditProfileSchema, insertLoanRequestSchema, insertLoanApplicationMarketplaceSchema, insertApplicationDocumentSchema, insertPartnerApplicationDocumentSchema } from '@shared/schema';
 import BBPSService from './services/bbpsService';
@@ -81,6 +66,7 @@ import { taxOrchestrator } from './services/tax-orchestrator';
 import { PANConsentService } from './services/pan-consent-service';
 import { sandboxKYCService } from './services/sandbox-kyc-service';
 import { AadhaarMockService } from './services/aadhaar-mock-service';
+import { CashfreeAadhaarService } from './services/cashfree-aadhaar-service';
 import { DemographicProtectionService } from './services/demographic-protection-service';
 import { providerRegistry, type UnifiedApplicationData } from './partner-application-adapters';
 import { insertPartnerApplicationSchema, insertCashfreeTransactionSchema, insertPhonePeTransactionSchema } from '@shared/schema';
@@ -88,7 +74,6 @@ import { cashfreeService } from './cashfree-service';
 import { phonePeService } from './phonepe-service';
 import { mutualFundsRefreshJob } from './mutual-funds-refresh-job';
 import { initReKYCCron } from './rekyc-cron';
-import { initAutoPopulationSyncCron } from './auto-population-sync-cron';
 import { seedProducts } from './seed-products';
 import { seedDefaultAgent } from './seed-default-agent';
 import { nseNcbApi } from './nseNcbApi';
@@ -100,10 +85,7 @@ import { verifyBankAccountPennyDrop, validateIFSC, validateAccountNumber, isName
 import { lookupIFSC, isValidIFSCFormat } from './ifsc-lookup-service';
 import { ProductAccountService } from './product-account-service';
 import { BSEStarKYCService } from './services/bse-star-kyc-service';
-import { autoPopulationOrchestrator } from './services/auto-population-orchestrator';
 import * as schema from "@shared/schema";
-import { sanitizeError } from "./utils/pii-sanitizer";
-import { validatePayoutFields } from "./payout-validation";
 
 // Tax Calculation Request Validation Schemas
 const calculateCapitalGainsSchema = z.object({
@@ -169,9 +151,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Start Re-KYC reminder cron job (runs daily at 9:00 AM)
   initReKYCCron();
-  
-  // Start Auto-Population scheduled sync cron job (runs every 6 hours)
-  initAutoPopulationSyncCron();
   
   // Auto-seed products if database is empty
   try {
@@ -628,25 +607,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // User Registration endpoint with duplicate detection
   app.post("/api/register", async (req, res) => {
     try {
-      const { email, mobile, password, name, referralCode } = req.body;
-      const queryReferralCode = req.query.agent_id as string || req.query.agentId as string || req.query.referralCode as string;
-      const finalReferralCode = referralCode || queryReferralCode;
+      const { email, mobile, password, name } = req.body;
 
       // Validate required fields
       if (!email || !mobile || !password) {
         return apiResponse.badRequest(res, "Email, mobile, and password are required");
-      }
-
-      // Validate agent referral code if provided
-      let referralAgent = null;
-      if (finalReferralCode) {
-        referralAgent = await storage.getAgentByReferralCode(finalReferralCode);
-        if (!referralAgent) {
-          return apiResponse.badRequest(res, "Invalid referral code");
-        }
-        if (referralAgent.status !== 'active') {
-          return apiResponse.badRequest(res, "Referral agent is not active");
-        }
       }
 
       // Extract name parts if provided, otherwise use email prefix
@@ -715,20 +680,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastLoginAt: null
       } as any);
 
-      // Create agent-client mapping if referral code was used
-      if (referralAgent) {
-        await storage.createAgentClientMapping({
-          clientId: user.id,
-          agentId: referralAgent.id,
-          productType: null, // Applies to all products
-          assignmentType: 'referral',
-          referralSource: 'web',
-          isActive: true,
-          status: 'active',
-          startDate: new Date()
-        });
-      }
-
       console.log("User registered:", user);
 
       // Return response with duplicate warnings if any
@@ -744,11 +695,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         identifier: email,
         otpSentTo: `${email} and ${mobile}`,
         registrationToken: "temp-token-" + Date.now(), // Temporary token for OTP flow
-        referredBy: referralAgent ? {
-          agentId: referralAgent.id,
-          agentName: referralAgent.fullName,
-          arnCode: referralAgent.arnCode
-        } : null,
         warnings: contactDuplicates.length > 0 ? {
           hasDuplicates: true,
           duplicates: contactDuplicates.map(d => ({
@@ -767,6 +713,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return apiResponse.serverError(res, "Registration failed");
     }
   });
+
   // Link user to family group (for duplicate prevention during registration)
   app.post("/api/users/:userId/link-family", async (req, res) => {
     try {
@@ -861,50 +808,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Current user endpoint - returns authenticated user with KYC status (or null if not logged in)
-  app.get("/api/user", async (req, res) => {
-    try {
-      // If no user is authenticated, return null (for useAuth hook)
-      if (!req.user) {
-        return res.json(null);
-      }
-      
-      const userId = req.user.id;
-      const user = await storage.getUser(userId);
-      
-      if (!user) {
-        return res.json(null);
-      }
-      
-      // Determine KYC completion status
-      const kycCompleted = !!(user.smartKycCompletedAt);
-      const kycTier = user.kycTier || 'basic';
-      
-      // Return user with KYC status
-      res.json({
-        id: user.id,
-        userId: user.userId,
-        email: user.email,
-        mobile: user.mobile,
-        firstName: user.firstName,
-        middleName: user.middleName,
-        lastName: user.lastName,
-        profileImageUrl: user.profileImageUrl,
-        roles: user.roles || ['user'],
-        isActive: user.isActive,
-        kycCompleted,
-        kycTier,
-        smartKycCompletedAt: user.smartKycCompletedAt,
-        panNumber: user.panNumber,
-        isEmailVerified: user.isEmailVerified,
-        isMobileVerified: user.isMobileVerified,
-      });
-    } catch (error) {
-      console.error("Error fetching current user:", error);
-      return res.status(500).json({ error: "Failed to fetch user" });
-    }
-  });
-
   // User profile endpoint for clients - allows self-service profile updates
   app.get("/api/user/profile", requireClientOrHigher, async (req, res) => {
     try {
@@ -965,27 +868,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         success: false,
         error: "Failed to fetch KYC status",
-      });
-    }
-  });
-
-  // Complete KYC Status - Unified endpoint aggregating tier status + re-KYC compliance
-  app.get("/api/kyc/complete-status", requireClientOrHigher, async (req, res) => {
-    try {
-      const { getCompleteKYCStatus } = await import("./services/complete-kyc-status-service");
-      const userId = req.user!.id;
-      
-      const completeStatus = await getCompleteKYCStatus(userId);
-      
-      res.json({
-        success: true,
-        data: completeStatus,
-      });
-    } catch (error) {
-      console.error("Error fetching complete KYC status:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to fetch complete KYC status",
       });
     }
   });
@@ -1693,69 +1575,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // eSign Webhook - Handle callbacks from eMudhra/NSDL eSign service
-  app.post("/api/esign/webhook", async (req, res) => {
-    try {
-      const { handleWebhookCallback } = await import("./services/esign-service");
-      const signature = req.headers['x-esign-signature'] as string;
-      
-      console.log("[eSign Webhook] Received callback");
-      
-      const rawBody = (req as any).rawBody as string;
-      
-      if (!rawBody) {
-        console.error("[eSign Webhook] Missing raw body for signature verification");
-        return res.status(400).json({
-          success: false,
-          message: "Missing raw body for signature verification",
-        });
-      }
-      
-      const result = await handleWebhookCallback(rawBody, signature);
-      
-      if (!result.success) {
-        return res.status(400).json(result);
-      }
-      
-      res.json(result);
-    } catch (error) {
-      console.error("Error processing eSign webhook:", error);
-      res.status(500).json({
-        success: false,
-        message: "Failed to process eSign webhook",
-      });
-    }
-  });
-
-  // eSign Status Check - Poll for eSign transaction status
-  app.get("/api/esign/status/:transactionId", requireClientOrHigher, async (req, res) => {
-    try {
-      const { checkESignStatus } = await import("./services/esign-service");
-      const { transactionId } = req.params;
-      const { provider } = req.query;
-      
-      if (!provider || !["emudhra", "nsdl"].includes(provider as string)) {
-        return res.status(400).json({
-          success: false,
-          error: "Provider is required and must be 'emudhra' or 'nsdl'",
-        });
-      }
-      
-      const status = await checkESignStatus(transactionId, provider as "emudhra" | "nsdl");
-      
-      res.json({
-        success: true,
-        status,
-      });
-    } catch (error) {
-      console.error("Error checking eSign status:", error);
-      res.status(500).json({
-        success: false,
-        message: "Failed to check eSign status",
-      });
-    }
-  });
-
   app.get("/api/profile/kyc-tier/product-prompt/:productCode", requireClientOrHigher, async (req, res) => {
     try {
       const { getProductUpgradePrompt } = await import("./kyc-tier-service");
@@ -1992,46 +1811,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Start or get active KYC verification session
   app.post("/api/kyc/wizard/start", requireClientOrHigher, async (req: any, res) => {
-    const userId = req.user?.id;
-    const ipAddress = req.ip;
-    const userAgent = req.headers['user-agent'] || 'unknown';
-    
     try {
-      if (!userId) {
-        console.error('[KYC Wizard] Start session failed: User not authenticated');
-        console.log('[COMPLIANCE] kyc_session_start: POST /api/kyc/wizard/start', {
-          userId: null,
-          outcome: 'failure',
-          reason: 'unauthorized',
-          riskLevel: 'high'
-        });
-        return res.status(401).json({
-          success: false,
-          message: 'User not authenticated'
-        });
-      }
-      
-      // Regulatory Compliance: Log KYC session initiation attempt
-      console.log('[COMPLIANCE] kyc_session_start: POST /api/kyc/wizard/start', {
-        userId,
-        ipAddress,
-        userAgent: userAgent.substring(0, 100), // Truncate for logging
-        outcome: 'initiated',
-        riskLevel: 'medium'
-      });
+      const userId = req.user!.id;
       
       // Check for existing active session
       const existingSession = await storage.getActiveKycSession(userId);
       
       if (existingSession) {
-        console.log(`[KYC Wizard] Resuming existing session for user ${userId}, session ${existingSession.id}`);
-        console.log('[COMPLIANCE] kyc_session_resumed:', {
-          userId,
-          sessionId: existingSession.id,
-          currentStep: existingSession.currentStep,
-          outcome: 'success',
-          riskLevel: 'low'
-        });
         return res.json({
           success: true,
           session: existingSession,
@@ -2040,7 +1826,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Create new session
-      console.log(`[KYC Wizard] Creating new KYC session for user ${userId}`);
       const session = await storage.createKycVerificationSession({
         userId,
         sessionType: "smart_kyc_wizard",
@@ -2056,18 +1841,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         aadhaarOtpVerified: false,
         isActive: true,
         expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes
-        ipAddress,
-        userAgent
-      });
-      
-      console.log(`[KYC Wizard] Session created successfully: ${session.id}`);
-      console.log('[COMPLIANCE] kyc_session_created:', {
-        userId,
-        sessionId: session.id,
-        sessionType: session.sessionType,
-        expiresAt: session.expiresAt,
-        outcome: 'success',
-        riskLevel: 'low'
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'] || 'unknown'
       });
       
       res.json({
@@ -2075,30 +1850,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         session,
         message: "KYC session started successfully"
       });
-    } catch (error: any) {
-      // Sanitize error to prevent PII leakage (PAN/Aadhaar/Email/Phone)
-      const sanitizedError = sanitizeError(error);
-      
-      console.error('[KYC Wizard] Error starting KYC session:', {
-        userId,
-        error: sanitizedError.message,
-        stack: sanitizedError.stack,
-        code: sanitizedError.code
-      });
-      
-      // Regulatory Compliance: Log KYC session failure
-      console.log('[COMPLIANCE] kyc_session_start_failed:', {
-        userId,
-        errorType: sanitizedError.name || 'Unknown',
-        errorMessage: sanitizedError.message || 'Unknown error',
-        outcome: 'failure',
-        riskLevel: 'high'
-      });
-      
+    } catch (error) {
+      console.error('Error starting KYC session:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to start KYC session. Please try again later.',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        message: 'Failed to start KYC session'
       });
     }
   });
@@ -2132,13 +1888,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Step 1: Verify PAN with DOB
   app.post("/api/kyc/wizard/verify-pan", requireClientOrHigher, async (req: any, res) => {
     try {
-      const { sessionId, panNumber, dob } = req.body;
+      const { sessionId, panNumber, fullName, dob } = req.body;
       const userId = req.user!.id;
       
-      if (!sessionId || !panNumber || !dob) {
+      if (!sessionId || !panNumber || !fullName || !dob) {
         return res.status(400).json({
           success: false,
-          message: "Session ID, PAN number, and date of birth are required"
+          message: "Session ID, PAN number, full name, and date of birth are required"
         });
       }
       
@@ -2153,7 +1909,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Verify PAN using Sandbox API with name parameter
-      const verification = await sandboxKYCService.verifyIndividualPAN(panNumber, "", dob);
+      const verification = await sandboxKYCService.verifyIndividualPAN(panNumber, fullName, dob);
       
       
       // verification returns IndividualPANDetails directly (no success wrapper)
@@ -2183,29 +1939,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       
       });
-      
-      // Update user profile with verified PAN data (encrypted)
-      const encryptedPAN = await PANConsentService.encryptPAN(panNumber);
-      const updateData: any = {
-        panNumber: encryptedPAN,
-        dateOfBirth: dob,
-        fatherName: verification.fatherName
-      };
-      
-      // Parse full name and update firstName/lastName if not already set
-      const [currentUser] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
-      if (currentUser && !currentUser.firstName && verification.fullName) {
-        const nameParts = verification.fullName.split(' ');
-        updateData.firstName = nameParts[0];
-        if (nameParts.length > 1) {
-          updateData.lastName = nameParts[nameParts.length - 1];
-        }
-        if (nameParts.length > 2) {
-          updateData.middleName = nameParts.slice(1, -1).join(' ');
-        }
-      }
-      
-      await db.update(users).set(updateData).where(eq(users.id, userId));
       res.json({
         success: true,
         data: {
@@ -2246,8 +1979,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Send OTP using Sandbox API
-      const otpResponse = await sandboxKYCService.generateAadhaarOTP(aadhaarNumber);
+      // Send OTP using Cashfree API
+      const otpResponse = await CashfreeAadhaarService.generateOTP(aadhaarNumber);
       
       if (!otpResponse.success) {
         return res.json(otpResponse);
@@ -2267,7 +2000,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
         // Store ref_id from Cashfree in session metadata
         aadhaarVerificationData: {
-          transactionId: otpResponse.refId // Sandbox uses refId
+          transactionId: otpResponse.ref_id // Cashfree uses ref_id
         }
       });
       
@@ -2289,7 +2022,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Step 3: Verify Aadhaar OTP
   app.post("/api/kyc/wizard/verify-aadhaar-otp", requireClientOrHigher, async (req: any, res) => {
     try {
-      const { sessionId, transactionId, otp, consentGiven } = req.body;
+      const { sessionId, transactionId, otp } = req.body;
       const userId = req.user!.id;
       
       if (!sessionId || !transactionId || !otp) {
@@ -2309,34 +2042,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Verify OTP using Sandbox API
-      const verification = await sandboxKYCService.verifyAadhaarOTP(otp, transactionId);
+      // Verify OTP using Cashfree API
+      const verification = await CashfreeAadhaarService.verifyOTP(otp, transactionId);
       
       if (!verification.success || !verification.verified) {
         return res.json(verification);
-      }
-      
-      // Record KYC consent if given
-      if (consentGiven) {
-        const consentText = `I hereby consent to share my KYC data with authorized financial institutions and service providers for the purpose of account opening, investment processing, and regulatory compliance. I understand that my data will be encrypted and stored securely.`;
-        
-        const crypto = require('crypto');
-        const consentSignature = crypto
-          .createHmac('sha256', process.env.ENCRYPTION_MASTER_KEY || 'fallback-key')
-          .update(JSON.stringify({ userId, consentText, timestamp: Date.now() }))
-          .digest('hex');
-        
-        await db.insert(kycConsentLogs).values({
-          userId,
-          consentType: 'kyc_reuse',
-          consentGiven: true,
-          consentText,
-          purpose: 'Enable KYC data sharing for financial services',
-          ipAddress: req.ip || req.connection.remoteAddress,
-          userAgent: req.headers['user-agent'],
-          consentSignature,
-          expiresAt: null
-        });
       }
       
       // Update session with Aadhaar data
@@ -2358,17 +2068,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         aadhaarVerifiedViaSmartKyc: true,
         aadhaarVerificationDate: new Date()
       });
-      
-      // Auto-generate KYC reuse token silently in background
-      if (consentGiven) {
-        kycReuseTokenService.generateToken(userId, {
-          purpose: 'Financial services KYC reuse',
-          issuedTo: 'FintekPro Platform',
-          expiryDays: 365
-        }).catch(err => {
-          console.error('Failed to generate KYC reuse token:', err);
-        });
-      }
       
       res.json({
         success: true,
@@ -2416,17 +2115,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         smartKycCompletedAt: new Date()
       });
       
-      
-      // Auto-trigger portfolio auto-population after KYC completion (non-blocking)
-      setTimeout(async () => {
-        try {
-          console.log(`🚀 Auto-triggering portfolio sync for user ${userId} after KYC completion`);
-          await autoPopulationOrchestrator.initiateFromKYC(userId, 'kyc_completion');
-        } catch (error) {
-          console.error('Failed to auto-trigger portfolio sync after KYC:', error);
-          // Don't fail KYC completion if auto-population fails
-        }
-      }, 0);
       res.json({
         success: true,
         message: "Smart KYC completed successfully"
@@ -3044,7 +2732,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (limit) filters.limit = parseInt(limit as string);
       
       const products = await storage.getProducts(filters);
-      res.json(applyBulkProductMarkup(products));
+      res.json(products);
     } catch (error) {
       console.error("Error fetching products:", error);
       return apiResponse.serverError(res, "Failed to fetch products");
@@ -3060,7 +2748,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!product) {
         return apiResponse.notFound(res, "Product not found");
       }
-      res.json(applyProductMarkup(product));
+      
+      res.json(product);
     } catch (error) {
       console.error("Error fetching product:", error);
       return apiResponse.serverError(res, "Failed to fetch product");
@@ -3076,7 +2765,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!product) {
         return apiResponse.notFound(res, "Product not found");
       }
-      res.json(applyProductMarkup(product));
+      
+      res.json(product);
     } catch (error) {
       console.error("Error fetching product:", error);
       return apiResponse.serverError(res, "Failed to fetch product");
@@ -3093,7 +2783,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         period as any,
         limit ? parseInt(limit as string) : undefined
       );
-      res.json(applyBulkProductMarkup(products));
+      
+      res.json(products);
     } catch (error) {
       console.error("Error fetching top performers:", error);
       return apiResponse.serverError(res, "Failed to fetch top performers");
@@ -3110,7 +2801,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         category,
         subcategory as string | undefined
       );
-      res.json(applyBulkProductMarkup(products));
+      
+      res.json(products);
     } catch (error) {
       console.error("Error fetching products by category:", error);
       return apiResponse.serverError(res, "Failed to fetch products by category");
@@ -3128,7 +2820,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         limit ? parseInt(limit as string) : undefined
       );
       
-      res.json(applyBulkProductMarkup(products));
+      res.json(products);
     } catch (error) {
       console.error("Error fetching products by theme:", error);
       return apiResponse.serverError(res, "Failed to fetch products by theme");
@@ -3142,7 +2834,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const products = await storage.getFeaturedProducts(
         limit ? parseInt(limit as string) : undefined
       );
-      res.json(applyBulkProductMarkup(products));
+      res.json(products);
     } catch (error) {
       console.error("Error fetching featured products:", error);
       return apiResponse.serverError(res, "Failed to fetch featured products");
@@ -3156,7 +2848,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const products = await storage.getNewProducts(
         limit ? parseInt(limit as string) : undefined
       );
-      res.json(applyBulkProductMarkup(products));
+      res.json(products);
     } catch (error) {
       console.error("Error fetching new products:", error);
       return apiResponse.serverError(res, "Failed to fetch new products");
@@ -3173,7 +2865,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const products = await storage.searchProducts(q as string);
-      res.json(applyBulkProductMarkup(products));
+      res.json(products);
     } catch (error) {
       console.error("Error searching products:", error);
       return apiResponse.serverError(res, "Failed to search products");
@@ -5119,110 +4811,149 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Bonds API endpoints
   
-  // Get government bonds data with markup applied
+  // Get government bonds data
   app.get("/api/bonds/government", async (req, res) => {
     try {
-      // Fetch government securities from database
-      const securities = await db.select().from(governmentSecurities);
-
-      // Map to response format with markup applied
-      const governmentBonds = securities.map((sec: any) => {
-        const currentPrice = parseFloat(sec.currentPrice || '100');
-        const markup = parseFloat(sec.markup || '0');
-        const markupType = sec.markupType || 'percentage';
-
-        let finalPrice = currentPrice;
-        if (markupType === 'percentage') {
-          finalPrice = currentPrice * (1 + markup / 100);
-        } else {
-          finalPrice = currentPrice + markup;
+      const governmentBonds = [
+        {
+          id: "gsec-1",
+          name: "7.17% GS 2028",
+          type: "Government Security",
+          issuer: "Government of India",
+          maturityDate: "2028-01-08",
+          couponRate: 7.17,
+          currentYield: 7.05,
+          ytm: 7.12,
+          rating: "AAA",
+          faceValue: 100,
+          currentPrice: 101.25,
+          minInvestment: 10000,
+          tradingVolume: "₹2,450 Cr",
+          duration: "4.2 years",
+          accrued: 1.25,
+          segment: "Government"
+        },
+        {
+          id: "gsec-2", 
+          name: "6.54% GS 2032",
+          type: "Government Security",
+          issuer: "Government of India",
+          maturityDate: "2032-01-01",
+          couponRate: 6.54,
+          currentYield: 6.48,
+          ytm: 6.52,
+          rating: "AAA",
+          faceValue: 100,
+          currentPrice: 100.85,
+          minInvestment: 10000,
+          tradingVolume: "₹1,890 Cr",
+          duration: "6.8 years",
+          accrued: 0.85,
+          segment: "Government"
+        },
+        {
+          id: "treasury-1",
+          name: "91 Day T-Bill",
+          type: "Treasury Bill",
+          issuer: "Government of India", 
+          maturityDate: "2025-04-15",
+          couponRate: 0,
+          currentYield: 6.95,
+          ytm: 6.95,
+          rating: "AAA",
+          faceValue: 100,
+          currentPrice: 98.23,
+          minInvestment: 25000,
+          tradingVolume: "₹8,750 Cr",
+          duration: "0.25 years",
+          accrued: 0,
+          segment: "Treasury"
         }
+      ];
 
-        return {
-          id: sec.isin,
-          name: sec.securityName,
-          type: sec.securityType,
-          issuer: sec.issuer,
-          maturityDate: sec.maturityDate,
-          couponRate: parseFloat(sec.couponRate || '0'),
-          currentYield: parseFloat(sec.yieldToMaturity || '0'),
-          ytm: parseFloat(sec.yieldToMaturity || '0'),
-          rating: sec.creditRating || 'AAA',
-          faceValue: parseFloat(sec.faceValue || '100'),
-          currentPrice: currentPrice,
-          finalPrice: finalPrice,
-          markup: markup,
-          markupType: markupType,
-          minInvestment: parseFloat(sec.minimumInvestment || '10000'),
-          tradingStatus: sec.tradingStatus,
-          segment: sec.securityType === 'T-Bill' ? 'Treasury' : 'Government'
-        };
+      res.json({
+        status: "success",
+        data: governmentBonds
       });
-
-      return apiResponse.success(res, governmentBonds, "Government bonds retrieved successfully");
     } catch (error) {
       console.error("Error fetching government bonds:", error);
-      return apiResponse.serverError(res, "Failed to fetch government bonds data");
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch government bonds data"
+      });
     }
   });
 
-  // Get corporate bonds data with markup applied
+  // Get corporate bonds data
   app.get("/api/bonds/corporate", async (req, res) => {
     try {
-      // Fetch corporate bonds from database
-      const bonds = await db.select().from(corporateBonds);
-
-      // Map to response format with markup applied
-      const corporateBondsData = bonds.map((bond: any) => {
-        const currentPrice = parseFloat(bond.currentPrice || '1000');
-        const markup = parseFloat(bond.markup || '0');
-        const markupType = bond.markupType || 'percentage';
-
-        let finalPrice = currentPrice;
-        if (markupType === 'percentage') {
-          finalPrice = currentPrice * (1 + markup / 100);
-        } else {
-          finalPrice = currentPrice + markup;
+      const corporateBonds = [
+        {
+          id: "corp-1",
+          name: "HDFC Bank 8.25% 2027",
+          type: "Corporate Bond",
+          issuer: "HDFC Bank Ltd",
+          maturityDate: "2027-03-15",
+          couponRate: 8.25,
+          currentYield: 8.12,
+          ytm: 8.18,
+          rating: "AAA",
+          faceValue: 1000,
+          currentPrice: 1025.50,
+          minInvestment: 100000,
+          tradingVolume: "₹945 Cr",
+          duration: "2.8 years",
+          accrued: 12.50,
+          segment: "Banking"
+        },
+        {
+          id: "corp-2",
+          name: "Reliance Industries 7.95% 2030",
+          type: "Corporate Bond",
+          issuer: "Reliance Industries Ltd",
+          maturityDate: "2030-06-20",
+          couponRate: 7.95,
+          currentYield: 7.88,
+          ytm: 7.91,
+          rating: "AAA",
+          faceValue: 1000,
+          currentPrice: 1018.75,
+          minInvestment: 100000,
+          tradingVolume: "₹1,230 Cr",
+          duration: "5.1 years",
+          accrued: 8.75,
+          segment: "Energy"
+        },
+        {
+          id: "corp-3",
+          name: "TCS 7.50% 2029",
+          type: "Corporate Bond",
+          issuer: "Tata Consultancy Services",
+          maturityDate: "2029-09-10",
+          couponRate: 7.50,
+          currentYield: 7.42,
+          ytm: 7.46,
+          rating: "AAA",
+          faceValue: 1000,
+          currentPrice: 1012.25,
+          minInvestment: 100000,
+          tradingVolume: "₹675 Cr",
+          duration: "4.6 years",
+          accrued: 6.25,
+          segment: "IT Services"
         }
+      ];
 
-        // Map bond type to display segment
-        const segmentMap: Record<string, string> = {
-          'corporate_bond': 'Corporate',
-          'ncd': 'NCD',
-          'debenture': 'Debenture',
-          'perpetual': 'Perpetual Bond',
-          'infrastructure': 'Infrastructure',
-          'tax_free': 'Tax Free'
-        };
-
-        return {
-          id: bond.isin,
-          name: bond.bondName,
-          type: segmentMap[bond.bondType] || 'Corporate Bond',
-          issuer: bond.issuer,
-          maturityDate: bond.maturityDate,
-          couponRate: parseFloat(bond.couponRate || '0'),
-          currentYield: parseFloat(bond.yieldToMaturity || '0'),
-          ytm: parseFloat(bond.yieldToMaturity || '0'),
-          rating: bond.creditRating || 'AA+',
-          faceValue: parseFloat(bond.faceValue || '1000'),
-          currentPrice: currentPrice,
-          finalPrice: finalPrice,
-          markup: markup,
-          markupType: markupType,
-          minInvestment: parseFloat(bond.minimumLotSize || '1') * parseFloat(bond.faceValue || '1000'),
-          tradingStatus: bond.tradingStatus,
-          volume: bond.volume,
-          isPerpetual: bond.isPerpetual || false,
-          segment: bond.bondType,
-          lastTradedPrice: parseFloat(bond.lastTradedPrice || currentPrice)
-        };
+      res.json({
+        status: "success",
+        data: corporateBonds
       });
-
-      return apiResponse.success(res, corporateBondsData, "Corporate bonds retrieved successfully");
     } catch (error) {
       console.error("Error fetching corporate bonds:", error);
-      return apiResponse.serverError(res, "Failed to fetch corporate bonds data");
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch corporate bonds data"
+      });
     }
   });
 
@@ -9496,11 +9227,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Try Finnhub first for US stocks
       try {
         const finnhubQuote = await finnhubService.getQuote(symbol.toUpperCase());
-        if (!finnhubQuote) {
-          console.log("Finnhub API key not configured for", symbol, "trying fallback");
-          // Skip to fallback - don't throw error
-        } else {
-          const data = finnhubService.transformQuoteToMarketData(symbol.toUpperCase(), finnhubQuote);
+        const data = finnhubService.transformQuoteToMarketData(symbol.toUpperCase(), finnhubQuote);
         
         // Store in local cache
         await storage.upsertMarketData(symbol, {
@@ -9513,7 +9240,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         res.json(data);
         return;
-        }
       } catch (finnhubError) {
         console.log("Finnhub failed for", symbol, "trying fallback");
       }
@@ -9553,15 +9279,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           fromTimestamp, 
           toTimestamp
         );
-
-        if (!finnhubCandles) {
-          console.log("Finnhub API key not configured for candles", symbol, "using fallback");
-          // Skip to fallback - don't throw error
-        } else {
-            const data = finnhubService.transformCandlesToMarketCandles(finnhubCandles);
-          res.json(data);
-          return;
-        }
+        
+        const data = finnhubService.transformCandlesToMarketCandles(finnhubCandles);
+        res.json(data);
+        return;
       } catch (finnhubError) {
         console.log("Finnhub candles failed for", symbol, "using fallback");
       }
@@ -11630,59 +11351,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/portfolios/by-pan/holdings", async (req: any, res) => {
-    try {
-      // Require authentication - no demo user fallback
-      if (!req.user) {
-        return res.status(401).json({
-          success: false,
-          message: "Authentication required. Please log in to view your portfolio holdings.",
-          authRequired: true
-        });
-      }
-      
-      const userId = req.user.id;
-      
-      // Get user's PAN from database
-      const [user] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
-      
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: "User not found"
-        });
-      }
-      
-      // Check if PAN is verified
-      if (!user.panNumber) {
-        return res.status(400).json({
-          success: false,
-          message: "KYC not completed. Please complete PAN verification to view your portfolio holdings.",
-          kycRequired: true
-        });
-      }
-      
-      // Fetch actual holdings from user's portfolios
-      const userPortfolios = await storage.getPortfoliosByUserId(userId);
-      
-      // Aggregate holdings from all user portfolios
-      let allHoldings: any[] = [];
-      for (const portfolio of userPortfolios) {
-        const portfolioHoldings = await storage.getPortfolioHoldings(portfolio.id);
-        allHoldings = allHoldings.concat(portfolioHoldings);
-      }
-      
-      // Return holdings
-      res.json({
-        success: true,
-        holdings: allHoldings,
-        holdingsCount: allHoldings.length
-      });
-    } catch (error) {
-      console.error("Error fetching holdings by PAN:", error);
-      return apiResponse.serverError(res, "Failed to fetch portfolio holdings");
-    }
-  });
   // Insurance Holdings Routes
   app.get("/api/insurance-holdings", requireAuth, async (req: any, res) => {
     try {
@@ -11759,8 +11427,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return apiResponse.serverError(res, "Failed to fetch portfolio holdings");
     }
   });
-
-  // Get portfolio holdings by PAN number (for authenticated user)
 
   app.post("/api/portfolios/:portfolioId/holdings", async (req, res) => {
     try {
@@ -12051,19 +11717,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { portfolioId } = req.params;
       const { targetAllocations } = req.body;
-      const userId = (req as any).user.id;
-      
-      // Get user preferences
-      const preferences = await storage.getRebalancingPreferences(userId);
-      const minTransactionAmount = parseFloat(preferences?.minimumTransactionAmount || "1000");
-      // Convert percentage to decimal (e.g., 0.10% becomes 0.001)
-      const transactionCostPct = parseFloat(preferences?.transactionCostPercentage || "0.10") / 100;
-      const toleranceThreshold = parseFloat(preferences?.toleranceThreshold || "5");
       
       // Calculate rebalancing requirements
       const holdings = await storage.getPortfolioHoldings(portfolioId);
       const portfolio = await storage.getPortfolio(portfolioId);
-      
       
       if (!portfolio) {
         return apiResponse.notFound(res, "Portfolio not found");
@@ -12072,7 +11729,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Calculate current allocation and rebalance amounts
       const totalValue = parseFloat(portfolio.totalValue || "0");
       const rebalanceCalculations = [];
-      const filteredCalculations = [];
 
       for (const target of targetAllocations) {
         const targetValue = totalValue * (parseFloat(target.percentage) / 100);
@@ -12081,244 +11737,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return sum + (parseFloat(h.quantity) * parseFloat(h.avgPrice));
         }, 0);
         
-        const targetPercentage = parseFloat(target.percentage);
-        const currentPercentage = (currentValue / totalValue) * 100;
-        const drift = Math.abs(currentPercentage - targetPercentage);
         const rebalanceAmount = targetValue - currentValue;
-        const absRebalanceAmount = Math.abs(rebalanceAmount);
         
-        const calculation = {
+        rebalanceCalculations.push({
           assetType: target.assetType,
           targetValue,
           currentValue,
-          currentPercentage,
-          targetPercentage,
-          drift,
           rebalanceAmount,
-          absRebalanceAmount,
-          transactionCost: absRebalanceAmount * transactionCostPct,
-          action: rebalanceAmount > 0 ? "BUY" : "SELL",
-          shouldRebalance: drift > toleranceThreshold && absRebalanceAmount >= minTransactionAmount
-        };
-        
-        rebalanceCalculations.push(calculation);
-        
-        // Only include transactions that meet threshold criteria
-        if (calculation.shouldRebalance) {
-          filteredCalculations.push(calculation);
-        }
+          action: rebalanceAmount > 0 ? "BUY" : "SELL"
+        });
 
         // Store allocation data
         await storage.upsertAssetAllocation({
           portfolioId,
           assetType: target.assetType,
           targetPercentage: target.percentage,
-          currentPercentage: currentPercentage.toString(),
+          currentPercentage: ((currentValue / totalValue) * 100).toString(),
           targetValue: targetValue.toString(),
           currentValue: currentValue.toString(),
           rebalanceAmount: rebalanceAmount.toString()
         });
       }
 
-      res.json({ 
-        rebalanceCalculations: filteredCalculations,
-        allCalculations: rebalanceCalculations,
-        preferences: {
-          minTransactionAmount,
-          transactionCostPct,
-          toleranceThreshold
-        }
-      });
+      res.json({ rebalanceCalculations });
     } catch (error) {
       console.error("Error calculating rebalance:", error);
       return apiResponse.serverError(res, "Failed to calculate rebalance");
     }
   });
 
-  // Execute rebalance with one-click functionality
-  app.post("/api/portfolios/:portfolioId/rebalance/execute", requireOwnPortfolio, async (req, res) => {
-    try {
-      const { portfolioId } = req.params;
-      const { rebalanceCalculations, portfolioValueBefore } = req.body;
-      const userId = (req as any).user.id;
-      
-      if (!rebalanceCalculations || rebalanceCalculations.length === 0) {
-        return apiResponse.badRequest(res, "Rebalance calculations are required");
-      }
-
-      // Create rebalance execution record
-      const execution = await storage.createRebalanceExecution({
-        portfolioId,
-        userId,
-        status: "executing",
-        portfolioValueBefore: portfolioValueBefore?.toString() || "0",
-        transactionCount: rebalanceCalculations.length,
-        rebalanceDetails: rebalanceCalculations,
-        executionNotes: `Automated rebalance execution with \${rebalanceCalculations.length} transactions`
-      });
-
-      let successCount = 0;
-      let failCount = 0;
-      let totalCost = 0;
-
-      // Process each rebalance transaction
-      for (const calc of rebalanceCalculations) {
-        try {
-          // Skip if rebalance amount is negligible (less than ₹1000)
-          if (Math.abs(calc.rebalanceAmount) < 1000) {
-            continue;
-          }
-
-          const transactionCost = Math.abs(calc.rebalanceAmount) * 0.001; // 0.1% transaction cost
-          totalCost += transactionCost;
-
-          // Create transaction record
-          await storage.createRebalanceTransaction({
-            rebalanceExecutionId: execution.id,
-            portfolioId,
-            assetType: calc.assetType,
-            action: calc.action,
-            amount: Math.abs(calc.rebalanceAmount).toString(),
-            transactionCost: transactionCost.toString(),
-            status: "executed",
-            executedAt: new Date()
-          });
-
-          successCount++;
-        } catch (error: any) {
-          console.error(`Error processing rebalance transaction for \${calc.assetType}:`, error);
-          
-          // Record failed transaction
-          await storage.createRebalanceTransaction({
-            rebalanceExecutionId: execution.id,
-            portfolioId,
-            assetType: calc.assetType,
-            action: calc.action,
-            amount: Math.abs(calc.rebalanceAmount).toString(),
-            status: "failed",
-            errorMessage: error.message || "Transaction execution failed"
-          });
-
-          failCount++;
-        }
-      }
-
-      // Update execution status
-      const finalStatus = failCount === 0 ? "completed" : (successCount > 0 ? "partially_completed" : "failed");
-      await storage.updateRebalanceExecution(execution.id, {
-        status: finalStatus,
-        successfulTransactions: successCount,
-        failedTransactions: failCount,
-        totalTransactionCost: totalCost.toString(),
-        portfolioValueAfter: portfolioValueBefore?.toString() || "0",
-        completedAt: new Date(),
-        executionNotes: `Rebalance \${finalStatus}: \${successCount} successful, \${failCount} failed transactions. Total cost: ₹\${totalCost.toFixed(2)}`
-      });
-
-      res.json({
-        executionId: execution.id,
-        status: finalStatus,
-        successfulTransactions: successCount,
-        failedTransactions: failCount,
-        totalTransactionCost: totalCost,
-        message: `Rebalance \${finalStatus} successfully. \${successCount} transactions processed.`
-      });
-    } catch (error) {
-      console.error("Error executing rebalance:", error);
-      return apiResponse.serverError(res, "Failed to execute rebalance");
-    }
-  });
-
-  // Get rebalance execution history
-  app.get("/api/portfolios/:portfolioId/rebalance/history", requireOwnPortfolio, async (req, res) => {
-    try {
-      const { portfolioId } = req.params;
-      const executions = await storage.getRebalanceExecutionsByPortfolio(portfolioId);
-      res.json(executions);
-    } catch (error) {
-      console.error("Error fetching rebalance history:", error);
-      return apiResponse.serverError(res, "Failed to fetch rebalance history");
-    }
-  });
-
-  // Get specific rebalance execution details with transactions
-  app.get("/api/rebalance/executions/:executionId", async (req, res) => {
-    try {
-      if (!req.user) {
-        return res.status(401).json({ error: "Authentication required" });
-      }
-
-      const { executionId } = req.params;
-      const execution = await storage.getRebalanceExecution(executionId);
-
-      if (!execution) {
-        return apiResponse.notFound(res, "Rebalance execution not found");
-      }
-
-      // Verify user owns this execution
-      if (execution.userId !== req.user.id) {
-        return res.status(403).json({ error: "Access denied" });
-      }
-
-      const transactions = await storage.getRebalanceTransactionsByExecution(executionId);
-
-      res.json({
-        execution,
-        transactions
-      });
-    } catch (error) {
-      console.error("Error fetching rebalance execution details:", error);
-      return apiResponse.serverError(res, "Failed to fetch execution details");
-    }
-  });
-
-
-  // Get user rebalancing preferences
-  app.get("/api/user/rebalance-preferences", requireAuth, async (req, res) => {
-    try {
-      const userId = req.user!.id;
-      const preferences = await storage.getRebalancingPreferences(userId);
-      
-      if (!preferences) {
-        // Return default preferences if none exist
-        return res.json({
-          userId,
-          toleranceThreshold: "5.00",
-          minimumTransactionAmount: "1000.00",
-          transactionCostPercentage: "0.10",
-          autoRebalanceEnabled: false,
-          rebalanceFrequency: "quarterly",
-          notifyOnDrift: true,
-        });
-      }
-      
-      res.json(preferences);
-    } catch (error: any) {
-      logger.error("Error fetching rebalancing preferences:", error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Save/update user rebalancing preferences
-  app.post("/api/user/rebalance-preferences", requireAuth, async (req, res) => {
-    try {
-      const userId = req.user!.id;
-      const preferences = await storage.upsertRebalancingPreferences({
-        userId,
-        toleranceThreshold: req.body.toleranceThreshold,
-        minimumTransactionAmount: req.body.minimumTransactionAmount,
-        transactionCostPercentage: req.body.transactionCostPercentage,
-        autoRebalanceEnabled: req.body.autoRebalanceEnabled,
-        rebalanceFrequency: req.body.rebalanceFrequency,
-        notifyOnDrift: req.body.notifyOnDrift,
-      });
-      
-      res.json(preferences);
-    } catch (error: any) {
-      logger.error("Error saving rebalancing preferences:", error);
-      res.status(500).json({ error: error.message });
-    }
-  });
   // Get rebalancing suggestions for a portfolio - personalized for the specific user
   app.get("/api/portfolios/:portfolioId/rebalancing-suggestions", requireOwnPortfolio, async (req, res) => {
     try {
@@ -16378,375 +15825,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-
-  // ==================== AGENT-CLIENT MAPPING APIS ====================
-  
-  // Generate or regenerate referral code for an agent (Admin only)
-  app.post("/api/admin/agents/:agentId/referral-code", requireAuth, requireAdmin, async (req, res) => {
-    try {
-      const { agentId } = req.params;
-      const { regenerate } = req.body;
-
-      const agent = await storage.getAgent(agentId);
-      if (!agent) {
-        return apiResponse.notFound(res, "Agent not found");
-      }
-
-      // If agent already has a referral code and regenerate is not requested, return existing
-      if (agent.referralCode && !regenerate) {
-        return apiResponse.success(res, { referralCode: agent.referralCode }, "Referral code already exists");
-      }
-
-      // Generate new referral code
-      const referralCode = await storage.generateReferralCodeForAgent(agentId);
-      
-      return apiResponse.success(res, { referralCode }, "Referral code generated successfully");
-    } catch (error) {
-      console.error("Error generating referral code:", error);
-      return apiResponse.serverError(res, "Failed to generate referral code");
-    }
-  });
-
-  // Get agent's referral link and statistics
-  app.get("/api/agents/:agentId/referral-info", requireAuth, async (req, res) => {
-    try {
-      const { agentId } = req.params;
-      const baseUrl = `${req.protocol}://${req.get('host')}`;
-
-      const agent = await storage.getAgent(agentId);
-      if (!agent) {
-        return apiResponse.notFound(res, "Agent not found");
-      }
-
-      // Authorization check: Only the agent themselves or admins can view referral info
-      const isAdmin = req.user?.roles?.includes('admin');
-      const isOwnAgent = agent.userId === req.user?.id;
-      
-      if (!isAdmin && !isOwnAgent) {
-        return apiResponse.forbidden(res, "Not authorized to view this agent's referral information");
-      }
-      const mappings = await storage.getAgentClientMappings({ 
-        agentId, 
-        isActive: true 
-      });
-
-      const referralInfo = {
-        referralCode: agent.referralCode,
-        referralLink: agent.referralCode ? `${baseUrl}/signup?agent_id=${agent.referralCode}` : null,
-        totalReferrals: agent.referralCount || 0,
-        activeClients: mappings.length,
-        totalClients: agent.totalClients || 0
-      };
-
-      return apiResponse.success(res, referralInfo, "Referral information retrieved");
-    } catch (error) {
-      console.error("Error fetching referral info:", error);
-      return apiResponse.serverError(res, "Failed to fetch referral information");
-    }
-  });
-
-  // Get all clients assigned to an agent
-  app.get("/api/agents/:agentId/clients", requireAuth, async (req, res) => {
-    try {
-      const { agentId } = req.params;
-      const { productType, status = 'active' } = req.query;
-
-      // Verify agent exists
-      const agent = await storage.getAgent(agentId);
-      if (!agent) {
-        return apiResponse.notFound(res, "Agent not found");
-      }
-
-      // Authorization check: Only the agent themselves or admins can view client list
-      const isAdmin = req.user?.roles?.includes('admin');
-      const isOwnAgent = agent.userId === req.user?.id;
-      
-      if (!isAdmin && !isOwnAgent) {
-        return apiResponse.forbidden(res, "Not authorized to view this agent's clients");
-      }
-
-      // Get agent-client mappings
-      const mappings = await storage.getAgentClientMappings({
-        agentId,
-        productType: productType as string,
-        isActive: status === 'active'
-      });
-
-      // Fetch client details for each mapping
-      const clientsWithDetails = await Promise.all(
-        mappings.map(async (mapping) => {
-          const client = await storage.getUser(mapping.clientId);
-          return {
-            mapping: {
-              id: mapping.id,
-              productType: mapping.productType,
-              assignmentType: mapping.assignmentType,
-              referralSource: mapping.referralSource,
-              startDate: mapping.startDate,
-              status: mapping.status
-            },
-            client: client ? {
-              id: client.id,
-              firstName: client.firstName,
-              lastName: client.lastName,
-              email: client.email,
-              mobile: client.mobile,
-              panNumber: client.panNumber
-            } : null
-          };
-        })
-      );
-
-      return apiResponse.success(res, { 
-        agent: {
-          id: agent.id,
-          fullName: agent.fullName,
-          arnCode: agent.arnCode
-        },
-        clients: clientsWithDetails,
-        total: clientsWithDetails.length
-      }, "Agent clients retrieved successfully");
-    } catch (error) {
-      console.error("Error fetching agent clients:", error);
-      return apiResponse.serverError(res, "Failed to fetch agent clients");
-    }
-  });
-
-  // Get agent assignments for a client
-  app.get("/api/clients/:clientId/agents", requireAuth, async (req, res) => {
-    try {
-      const { clientId } = req.params;
-      const { productType } = req.query;
-
-      // Verify client exists
-      const client = await storage.getUser(clientId);
-      if (!client) {
-        return apiResponse.notFound(res, "Client not found");
-      }
-
-      // Get all active agent assignments for this client
-      const mappings = await storage.getAgentClientMappings({
-        clientId,
-        productType: productType as string,
-        isActive: true
-      });
-
-      // Fetch agent details for each mapping
-      const agentsWithDetails = await Promise.all(
-        mappings.map(async (mapping) => {
-          const agent = await storage.getAgent(mapping.agentId);
-          return {
-            mapping: {
-              id: mapping.id,
-              productType: mapping.productType,
-              assignmentType: mapping.assignmentType,
-              referralSource: mapping.referralSource,
-              startDate: mapping.startDate,
-              status: mapping.status
-            },
-            agent: agent ? {
-              id: agent.id,
-              fullName: agent.fullName,
-              arnCode: agent.arnCode,
-              euinCode: agent.euinCode,
-              email: agent.email,
-              mobile: agent.mobile,
-              status: agent.status
-            } : null
-          };
-        })
-      );
-
-      return apiResponse.success(res, { 
-        client: {
-          id: client.id,
-          name: `${client.firstName} ${client.lastName}`.trim(),
-          email: client.email
-        },
-        agents: agentsWithDetails,
-        total: agentsWithDetails.length
-      }, "Client agent assignments retrieved successfully");
-    } catch (error) {
-      console.error("Error fetching client agents:", error);
-      return apiResponse.serverError(res, "Failed to fetch client agent assignments");
-    }
-  });
-
-  // Admin: Manually assign agent to client
-  app.post("/api/admin/agent-client-mapping", requireAuth, requireAdmin, async (req, res) => {
-    try {
-      const { clientId, agentId, productType, assignmentType = 'admin_assigned' } = req.body;
-      const adminUserId = req.user?.id;
-
-      // Validate required fields
-      if (!clientId || !agentId) {
-        return apiResponse.badRequest(res, "Client ID and Agent ID are required");
-      }
-
-      // Verify client exists
-      const client = await storage.getUser(clientId);
-      if (!client) {
-        return apiResponse.notFound(res, "Client not found");
-      }
-
-      // Verify agent exists and is active
-      const agent = await storage.getAgent(agentId);
-      if (!agent) {
-        return apiResponse.notFound(res, "Agent not found");
-      }
-      if (agent.status !== 'active') {
-        return apiResponse.badRequest(res, "Agent is not active");
-      }
-
-      // Check if there's already an active assignment for this product type
-      const existingMapping = await storage.getActiveAgentForClient(clientId, productType);
-      if (existingMapping) {
-        return apiResponse.badRequest(res, 
-          `Client already has an active agent for ${productType || 'all products'}. Use switch endpoint to change agents.`
-        );
-      }
-
-      // Create the mapping
-      const mapping = await storage.createAgentClientMapping({
-        clientId,
-        agentId,
-        productType: productType || null,
-        assignmentType,
-        referralSource: 'admin_portal',
-        assignedBy: adminUserId,
-        isActive: true,
-        status: 'active',
-        startDate: new Date()
-      });
-
-      return apiResponse.created(res, {
-        mapping,
-        client: { id: client.id, name: `${client.firstName} ${client.lastName}`.trim() },
-        agent: { id: agent.id, fullName: agent.fullName, arnCode: agent.arnCode }
-      }, "Agent assigned to client successfully");
-    } catch (error) {
-      console.error("Error assigning agent to client:", error);
-      return apiResponse.serverError(res, "Failed to assign agent to client");
-    }
-  });
-
-  // Admin: Switch client's agent
-  app.post("/api/admin/agent-client-mapping/switch", requireAuth, requireAdmin, async (req, res) => {
-    try {
-      const { clientId, newAgentId, productType, switchReason } = req.body;
-      const adminUserId = req.user?.id;
-
-      // Validate required fields
-      if (!clientId || !newAgentId || !switchReason) {
-        return apiResponse.badRequest(res, "Client ID, new Agent ID, and switch reason are required");
-      }
-
-      // Verify client exists
-      const client = await storage.getUser(clientId);
-      if (!client) {
-        return apiResponse.notFound(res, "Client not found");
-      }
-
-      // Verify new agent exists and is active
-      const newAgent = await storage.getAgent(newAgentId);
-      if (!newAgent) {
-        return apiResponse.notFound(res, "New agent not found");
-      }
-      if (newAgent.status !== 'active') {
-        return apiResponse.badRequest(res, "New agent is not active");
-      }
-
-      // Check if there's an existing assignment to switch from
-      const existingMapping = await storage.getActiveAgentForClient(clientId, productType);
-      if (!existingMapping) {
-        return apiResponse.badRequest(res, 
-          `No active agent assignment found for ${productType || 'all products'}. Use assign endpoint instead.`
-        );
-      }
-
-      if (existingMapping.agentId === newAgentId) {
-        return apiResponse.badRequest(res, "Client is already assigned to this agent");
-      }
-
-      // Switch the agent
-      const newMapping = await storage.switchClientAgent(
-        clientId, 
-        newAgentId, 
-        productType || null, 
-        switchReason,
-        adminUserId || 'system'
-      );
-
-      const oldAgent = await storage.getAgent(existingMapping.agentId);
-
-      return apiResponse.success(res, {
-        newMapping,
-        client: { id: client.id, name: `${client.firstName} ${client.lastName}`.trim() },
-        oldAgent: oldAgent ? { id: oldAgent.id, fullName: oldAgent.fullName } : null,
-        newAgent: { id: newAgent.id, fullName: newAgent.fullName, arnCode: newAgent.arnCode },
-        switchReason
-      }, "Agent switched successfully");
-    } catch (error) {
-      console.error("Error switching agent:", error);
-      return apiResponse.serverError(res, "Failed to switch agent");
-    }
-  });
-
-  // Get agent-client mapping history (audit trail)
-  app.get("/api/admin/agent-client-mapping/history/:clientId", requireAuth, requireAdmin, async (req, res) => {
-    try {
-      const { clientId } = req.params;
-      const { productType } = req.query;
-
-      // Verify client exists
-      const client = await storage.getUser(clientId);
-      if (!client) {
-        return apiResponse.notFound(res, "Client not found");
-      }
-
-      // Get all mappings (active and inactive) for audit trail
-      const allMappings = await storage.getAgentClientMappings({
-        clientId,
-        productType: productType as string
-        // Don't filter by isActive - we want full history
-      });
-
-      // Fetch agent details for each mapping
-      const historyWithDetails = await Promise.all(
-        allMappings.map(async (mapping) => {
-          const agent = await storage.getAgent(mapping.agentId);
-          const assignedByUser = mapping.assignedBy ? await storage.getUser(mapping.assignedBy) : null;
-          
-          return {
-            ...mapping,
-            agentDetails: agent ? {
-              fullName: agent.fullName,
-              arnCode: agent.arnCode,
-              email: agent.email
-            } : null,
-            assignedByDetails: assignedByUser ? {
-              name: `${assignedByUser.firstName} ${assignedByUser.lastName}`.trim(),
-              email: assignedByUser.email
-            } : null
-          };
-        })
-      );
-
-      // Sort by start date descending (most recent first)
-      historyWithDetails.sort((a, b) => 
-        new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
-      );
-
-      return apiResponse.success(res, {
-        client: { id: client.id, name: `${client.firstName} ${client.lastName}`.trim() },
-        history: historyWithDetails,
-        total: historyWithDetails.length
-      }, "Agent-client mapping history retrieved successfully");
-    } catch (error) {
-      console.error("Error fetching mapping history:", error);
-      return apiResponse.serverError(res, "Failed to fetch mapping history");
-    }
-  });
   // Marketing Automation API endpoints
   app.post("/api/marketing/campaign", async (req, res) => {
     try {
@@ -19140,95 +18218,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get both users
-      const [keepUser] = await db.select().from(schema.users).where(eq(schema.users.id, keepUserId));
-      const [mergeUser] = await db.select().from(schema.users).where(eq(schema.users.id, mergeUserId));
+      const [keepUser] = await db.select().from(users).where(eq(users.id, keepUserId));
+      const [mergeUser] = await db.select().from(users).where(eq(users.id, mergeUserId));
       
       if (!keepUser || !mergeUser) {
         return apiResponse.notFound(res, "One or both users not found");
       }
       
-      // Comprehensive CKYC merge logic - consolidate all user data
-      console.log(`[CKYC Merge] Merging user ${mergeUserId} into ${keepUserId}`);
-      
-      try {
-        // 1. Transfer unified orders
-        await db.update(unifiedOrders)
-          .set({ userId: keepUserId })
-          .where(eq(unifiedOrders.userId, mergeUserId));
-        console.log(`[CKYC Merge] Transferred orders`);
-        
-        // 2. Transfer portfolios
-        await db.update(portfolios)
-          .set({ userId: keepUserId })
-          .where(eq(portfolios.userId, mergeUserId));
-        console.log(`[CKYC Merge] Transferred portfolios`);
-        
-        // 3. Transfer holdings
-        await db.update(holdings)
-          .set({ userId: keepUserId })
-          .where(eq(holdings.userId, mergeUserId));
-        console.log(`[CKYC Merge] Transferred holdings`);
-        
-        // 4. Transfer KYC records (keep most recent)
-        const mergeKycRecords = await db.select()
-          .from(kycRecords)
-          .where(eq(kycRecords.userId, mergeUserId));
-        
-        if (mergeKycRecords.length > 0) {
-          await db.update(kycRecords)
-            .set({ userId: keepUserId })
-            .where(eq(kycRecords.userId, mergeUserId));
-          console.log(`[CKYC Merge] Transferred ${mergeKycRecords.length} KYC records`);
-        }
-        
-        // 5. Update user profile - merge data, keeping most complete info
-        const [keepProfile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, keepUserId));
-        const [mergeProfile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, mergeUserId));
-        
-        if (mergeProfile) {
-          if (!keepProfile) {
-            // Transfer profile to keep user
-            await db.update(userProfiles)
-              .set({ userId: keepUserId })
-              .where(eq(userProfiles.userId, mergeUserId));
-          } else {
-            // Merge profile data, keeping non-null values from merge user
-            const mergedData: any = {};
-            if (!keepProfile.dateOfBirth && mergeProfile.dateOfBirth) mergedData.dateOfBirth = mergeProfile.dateOfBirth;
-            if (!keepProfile.address && mergeProfile.address) mergedData.address = mergeProfile.address;
-            if (!keepProfile.panNumber && mergeProfile.panNumber) mergedData.panNumber = mergeProfile.panNumber;
-            if (!keepProfile.aadhaarNumber && mergeProfile.aadhaarNumber) mergedData.aadhaarNumber = mergeProfile.aadhaarNumber;
-            
-            if (Object.keys(mergedData).length > 0) {
-              await db.update(userProfiles)
-                .set(mergedData)
-                .where(eq(userProfiles.userId, keepUserId));
-            }
-            
-            // Delete duplicate profile
-            await db.delete(userProfiles).where(eq(userProfiles.userId, mergeUserId));
-          }
-          console.log(`[CKYC Merge] Merged user profiles`);
-        }
-        
-        // 6. Transfer sessions (logout merged user)
-        await db.delete(sessions).where(eq(sessions.userId, mergeUserId));
-        console.log(`[CKYC Merge] Cleared sessions for merged user`);
-        
-        // 7. Deactivate the merged user account
-        await db.update(users)
-          .set({ 
-            isActive: false,
-            email: mergeUser.email ? `${mergeUser.email}.merged.${Date.now()}` : null,
-            mobile: mergeUser.mobile ? `${mergeUser.mobile}.merged.${Date.now()}` : null
-          })
-          .where(eq(users.id, mergeUserId));
-        console.log(`[CKYC Merge] Deactivated merged user account`);
-        
-      } catch (mergeError) {
-        console.error(`[CKYC Merge] Error during data consolidation:`, mergeError);
-        throw new Error(`Data consolidation failed: ${mergeError instanceof Error ? mergeError.message : 'Unknown error'}`);
-      }
+      // TODO: Implement comprehensive merge logic
+      // For now, just deactivate the merge user
+      await db.update(users)
+        .set({ 
+          isActive: false,
+          email: mergeUser.email ? `${mergeUser.email}.merged.${Date.now()}` : null,
+          mobile: mergeUser.mobile ? `${mergeUser.mobile}.merged.${Date.now()}` : null
+        })
+        .where(eq(users.id, mergeUserId));
       
       await adminService.logActivity({
         userId: req.user!.id,
@@ -20858,50 +19863,46 @@ System Security Data:`;
   // Get all agents
   app.get("/api/admin/agents", requireAdmin, async (req, res) => {
     try {
-      const { search, status, agentType, page, limit } = req.query;
+      const agents = await storage.getAllCustomerCareAgents();
       
-      const filters = {
-        search: search as string | undefined,
-        status: status as string | undefined,
-        agentType: agentType as string | undefined,
-        page: page ? parseInt(page as string) : 1,
-        limit: limit ? parseInt(limit as string) : 50
-      };
+      // Get partner mappings and mapping counts for each agent
+      const agentsWithMappings = await Promise.all(agents.map(async (agent) => {
+        const [mappings, mappingCounts] = await Promise.all([
+          storage.getAgentPartnerMappings(agent.id),
+          storage.getAgentMappingCounts(agent.id)
+        ]);
+        
+        return {
+          ...agent,
+          partnerMappings: mappings,
+          partnerCount: mappingCounts.partnerCount,
+          clientCount: mappingCounts.clientCount
+        };
+      }));
       
-      const result = await storage.getAllAgents(filters);
-      res.json(result);
+      res.json(agentsWithMappings);
     } catch (error) {
       console.error("Error fetching agents:", error);
       return apiResponse.serverError(res, "Failed to fetch agents");
     }
   });
 
-  // Create new financial agent
+  // Create new customer care agent
   app.post("/api/admin/agents", requireAdmin, async (req, res) => {
     try {
-      const validationError = validatePayoutFields(req.body, true);
-      if (validationError) {
-        return apiResponse.badRequest(res, validationError);
-      }
-
-      const agent = await storage.createAgent(req.body);
+      const agent = await storage.createCustomerCareAgent(req.body);
       res.status(201).json(agent);
     } catch (error) {
-      console.error("Error creating agent:", error);
+      console.error("Error creating customer care agent:", error);
       return apiResponse.serverError(res, "Failed to create agent");
     }
   });
 
-  // Update financial agent
+  // Update customer care agent
   app.patch("/api/admin/agents/:agentId", requireAdmin, async (req, res) => {
     try {
-      const validationError = validatePayoutFields(req.body, false);
-      if (validationError) {
-        return apiResponse.badRequest(res, validationError);
-      }
-
       const { agentId } = req.params;
-      const updated = await storage.updateAgent(agentId, req.body);
+      const updated = await storage.updateCustomerCareAgent(agentId, req.body);
       
       if (!updated) {
         return apiResponse.notFound(res, "Agent not found");
@@ -20909,24 +19910,28 @@ System Security Data:`;
       
       res.json(updated);
     } catch (error) {
-      console.error("Error updating agent:", error);
+      console.error("Error updating customer care agent:", error);
       return apiResponse.serverError(res, "Failed to update agent");
     }
   });
 
-  // Delete financial agent
+  // Delete customer care agent
   app.delete("/api/admin/agents/:agentId", requireAdmin, async (req, res) => {
     try {
       const { agentId } = req.params;
-      const deleted = await storage.deleteAgent(agentId);
+      const deleted = await storage.deleteCustomerCareAgent(agentId);
       
       if (!deleted) {
         return apiResponse.notFound(res, "Agent not found");
       }
       
+      // Also delete all partner mappings for this agent
+      const mappings = await storage.getAgentPartnerMappings(agentId);
+      await Promise.all(mappings.map(m => storage.deleteAgentPartnerMapping(m.id)));
+      
       res.json({ success: true });
     } catch (error) {
-      console.error("Error deleting agent:", error);
+      console.error("Error deleting customer care agent:", error);
       return apiResponse.serverError(res, "Failed to delete agent");
     }
   });
@@ -21023,11 +20028,6 @@ System Security Data:`;
   // Create new partner
   app.post("/api/admin/partners", requireAdmin, async (req, res) => {
     try {
-      const validationError = validatePayoutFields(req.body, true);
-      if (validationError) {
-        return apiResponse.badRequest(res, validationError);
-      }
-
       const partner = await storage.createPartner(req.body);
       
       await adminService.logActivity({
@@ -21048,11 +20048,6 @@ System Security Data:`;
   // Update partner
   app.patch("/api/admin/partners/:id", requireAdmin, async (req, res) => {
     try {
-      const validationError = validatePayoutFields(req.body, false);
-      if (validationError) {
-        return apiResponse.badRequest(res, validationError);
-      }
-
       const { id } = req.params;
       const updated = await storage.updatePartner(id, req.body);
       
@@ -22269,37 +21264,11 @@ System Security Data:`;
           return res.status(400).json({ error: 'No items found in proposal' });
         }
 
-        // Look up the agent assigned to this client for mutual funds
-        let agentArn: string | undefined;
-        let agentEuin: string | undefined;
-        let euinDeclaration: string | undefined;
-
-        try {
-          const agentMapping = await storage.getActiveAgentForClient(userId, 'mutual_funds');
-          if (agentMapping) {
-            const agent = await storage.getAgent(agentMapping.agentId);
-            if (agent && agent.status === 'active') {
-              agentArn = agent.arnCode || undefined;
-              agentEuin = agent.euinCode || undefined;
-              euinDeclaration = agent.euinCode ? 'Y' : 'N';
-              console.log(`[BSE Order] Using agent ARN: ${agentArn}, EUIN: ${agentEuin} for client ${userId}`);
-            }
-          } else {
-            console.log(`[BSE Order] No agent assigned for client ${userId} - proceeding with direct order`);
-          }
-        } catch (error) {
-          console.error('[BSE Order] Error looking up agent:', error);
-          // Continue without agent info if lookup fails
-        }
-
       // Prepare BSE order request
       const bseOrderRequest = {
         proposalId,
         clientCode: userId, // Using user ID as client code for demo
         orderType: orderType as 'LUMPSUM' | 'SIP',
-        agentArn,
-        agentEuin,
-        euinDeclaration,
         items: proposalItems.map(item => ({
           schemeCode: item.schemeCode,
           amount: item.amount,
@@ -22310,6 +21279,8 @@ System Security Data:`;
           sipEndDate: item.sipEndDate
         }))
       };
+
+      // Import BSE API service
       const { bseStarApi } = await import('./bseStarApi');
       
       // Complete order through BSE Star API
@@ -27127,7 +26098,7 @@ System Security Data:`;
   
   // Initialize DigiLocker app configuration (non-blocking, optional service)
   digilockerService.initializeDigiLockerApp().catch(err => {
-    console.warn('⚠️ DigiLocker optional service unavailable, using Sandbox API fallback');
+    console.warn('⚠️ DigiLocker optional service unavailable, using Cashfree OKYC fallback');
   });
 
   // ==================== DigiLocker Integration Routes ====================
@@ -27153,27 +26124,27 @@ System Security Data:`;
           });
         }
       } catch (digilockerError: any) {
-        console.warn('DigiLocker unavailable, trying Sandbox API fallback:',  digilockerError.message);
+        console.warn('DigiLocker unavailable, trying Cashfree OKYC fallback:',  digilockerError.message);
       }
 
-      // Fallback to Sandbox API
+      // Fallback to Cashfree OKYC
       try {
-        const otpResponse = await sandboxKYCService.generateAadhaarOTP(aadhaarNumber);
+        const otpResponse = await cashfreeAadhaarService.generateOTP(aadhaarNumber);
         
-        if (otpResponse.success && otpResponse.refId) {
+        if (otpResponse.status === 'success' && otpResponse.data?.ref_id) {
           // Store ref_id in session or return to frontend for OTP verification
           return res.json({
             success: true,
-            source: 'sandbox_okyc',
+            source: 'cashfree_okyc',
             requiresOtp: true,
-            refId: otpResponse.refId,
+            ref_id: otpResponse.data.ref_id,
             message: 'OTP sent to Aadhaar-linked mobile. Please verify to fetch details.'
           });
         } else {
           throw new Error(otpResponse.message || 'Failed to generate OTP');
         }
       } catch (cashfreeError: any) {
-        console.error('Sandbox API also failed:',  cashfreeError);
+        console.error('Cashfree OKYC also failed:',  cashfreeError);
         return res.status(503).json({
           success: false,
           error: 'All verification services temporarily unavailable. Please enter details manually.',
@@ -28150,11 +27121,10 @@ System Security Data:`;
           return apiResponse.badRequest(res, "Invalid ITR form type");
       }
       
-      // Check if user has expert ITR filing service
-      // Users with expert service (isFree=true or free_expert_tier) get complimentary tax filing
-      const taxSubscription = await storage.getUserTaxReminderSubscription(userId);
-      const hasExpertService = taxSubscription?.isFree === true || 
-                               taxSubscription?.subscriptionStatus === 'free_expert_tier';
+      // Check if user has expert ITR filing service (would need to check user profile or services)
+      // For now, we'll assume this would be checked against user's purchased services
+      const userProfile = await storage.getUserProfile(userId);
+      const hasExpertService = false; // TODO: Implement actual check for expert ITR filing service
       
       const isFree = hasExpertService;
       if (isFree) {
@@ -29229,10 +28199,10 @@ System Security Data:`;
 
       const { pan, companyName } = req.body;
 
-      if (!pan) {
+      if (!pan || !companyName) {
         return res.status(400).json({ 
           success: false,
-          message: 'PAN is required' 
+          message: 'PAN and company name are required' 
         });
       }
 
@@ -29270,177 +28240,6 @@ System Security Data:`;
       res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Corporate PAN verification failed'
-      });
-    }
-  });
-
-  // Corporate KYC - Verify Authorized Signatory
-  app.post('/api/kyc/corporate/verify-signatory', async (req, res) => {
-    try {
-      if (!req.session?.user?.id) {
-        return res.status(401).json({ message: 'Unauthorized' });
-      }
-
-      const { name, designation, digilockerSessionId, aadhaarData, consentGiven } = req.body;
-
-      if (!name || !designation) {
-        return res.status(400).json({ 
-          success: false,
-          message: 'Name and designation are required' 
-        });
-      }
-
-      const result = await corporateKYCService.verifyAuthorizedSignatory(
-        req.session.user.id,
-        {
-          name,
-          designation,
-          digilockerSessionId: digilockerSessionId || '',
-          aadhaarData: aadhaarData || {}
-        }
-      );
-
-      // Record consent if provided
-      if (consentGiven && result.success) {
-        const consentService = new PANConsentService();
-        await consentService.recordKYCConsent({
-          userId: req.session.user.id,
-          consentType: 'corporate_kyc_signatory',
-          consentGiven: true,
-          ipAddress: req.ip || 'unknown',
-          userAgent: req.get('User-Agent') || 'unknown',
-          verificationType: 'digilocker_aadhaar',
-          dataShared: {
-            signatoryName: name,
-            designation,
-            aadhaarLastFour: result.aadhaarLastFour
-          }
-        });
-
-        // Auto-generate KYC token for Corporate entity
-        const kycToken = await consentService.generateKYCToken(req.session.user.id, 'Corporate');
-        (result as any).kycToken = kycToken;
-      }
-
-      complianceMonitor.logEvent({
-        eventType: 'kyc_verification',
-        action: 'corporate_signatory_verification',
-        resource: name,
-        userId: req.session.user.id,
-        ipAddress: req.ip,
-        userAgent: req.get('User-Agent'),
-        outcome: result.success ? 'success' : 'failure',
-        riskLevel: 'medium',
-        details: {
-          signatoryName: name,
-          designation,
-          consentGiven: consentGiven || false
-        }
-      });
-
-      res.json(result);
-    } catch (error) {
-      console.error('Corporate signatory verification error:', error);
-      complianceMonitor.logEvent({
-        eventType: 'kyc_verification',
-        action: 'corporate_signatory_verification',
-        userId: req.session?.user?.id,
-        ipAddress: req.ip,
-        userAgent: req.get('User-Agent'),
-        outcome: 'failure',
-        riskLevel: 'high',
-        details: { error: error instanceof Error ? error.message : 'Unknown error' }
-      });
-      res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Signatory verification failed'
-      });
-    }
-  });
-
-  // NRI KYC - Verify Passport and PAN
-  app.post('/api/kyc/nri/verify-passport', async (req, res) => {
-    try {
-      if (!req.session?.user?.id) {
-        return res.status(401).json({ message: 'Unauthorized' });
-      }
-
-      const { passportNumber, passportName, passportExpiry, countryOfResidence, pan, dob, consentGiven } = req.body;
-
-      if (!passportNumber || !passportName || !passportExpiry || !countryOfResidence) {
-        return res.status(400).json({ 
-          success: false,
-          message: 'Passport details are required' 
-        });
-      }
-      const { NRIKYCService } = await import("./services/nri-kyc-service");
-      const nriService = new NRIKYCService();
-      const result = await nriService.verifyPassportAndPAN(
-        req.session.user.id,
-        passportNumber,
-        passportName,
-        passportExpiry,
-        countryOfResidence,
-        pan,
-        dob
-      );
-
-      // Record consent if provided
-      if (consentGiven && result.success) {
-        const consentService = new PANConsentService();
-        await consentService.recordKYCConsent({
-          userId: req.session.user.id,
-          consentType: 'nri_kyc_passport',
-          consentGiven: true,
-          ipAddress: req.ip || 'unknown',
-          userAgent: req.get('User-Agent') || 'unknown',
-          verificationType: 'passport',
-          dataShared: {
-            passportNumber,
-            name: passportName,
-            countryOfResidence,
-            pan: pan || 'not_provided'
-          }
-        });
-
-        // Auto-generate KYC token for NRI
-        const kycToken = await consentService.generateKYCToken(req.session.user.id, 'NRI');
-        (result as any).kycToken = kycToken;
-      }
-
-      complianceMonitor.logEvent({
-        eventType: 'kyc_verification',
-        action: 'nri_passport_verification',
-        resource: passportNumber,
-        userId: req.session.user.id,
-        ipAddress: req.ip,
-        userAgent: req.get('User-Agent'),
-        outcome: result.success ? 'success' : 'failure',
-        riskLevel: 'medium',
-        details: {
-          passportNumber,
-          countryOfResidence,
-          hasPAN: !!pan,
-          consentGiven: consentGiven || false
-        }
-      });
-
-      res.json(result);
-    } catch (error) {
-      console.error('NRI passport verification error:', error);
-      complianceMonitor.logEvent({
-        eventType: 'kyc_verification',
-        action: 'nri_passport_verification',
-        userId: req.session?.user?.id,
-        ipAddress: req.ip,
-        userAgent: req.get('User-Agent'),
-        outcome: 'failure',
-        riskLevel: 'high',
-        details: { error: error instanceof Error ? error.message : 'Unknown error' }
-      });
-      res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Passport verification failed'
       });
     }
   });
@@ -32058,762 +30857,6 @@ System Security Data:`;
       console.error('Error generating risk analysis:', error);
       res.status(500).json({ message: 'Failed to generate risk analysis' });
     }
-  });
-
-
-  // ============================================================
-  // PRODUCTION KYC WORKFLOW ROUTES
-  // Smart onboarding with database-first PAN validation
-  // ============================================================
-
-  // Mount production KYC router
-  const productionKycRouter = createProductionKycRouter(storage, requireClientOrHigher);
-  app.use("/api/kyc/production", productionKycRouter);
-  app.use("/api/kyc/tiers", kycTierRoutes);
-  app.use("/api/monitoring", monitoringRoutes);
-  app.use("/api/admin/audit", requireAdmin, auditRoutes);
-  app.use("/api/admin/ai-fixes", requireAdmin, adminAIFixesRouter);
-  app.use("/api/ai-portfolio", aiPortfolioEnhancedRoutes);
-  app.use("/api/market-data", marketDataRoutes);
-  console.log("✅ Production KYC routes registered");
-
-  // Get current user's agent profile
-  app.get("/api/agents/my-agent", requireAuth, async (req, res) => {
-    try {
-      if (!req.user) {
-        return apiResponse.unauthorized(res, "Authentication required");
-      }
-
-      // Find agent by userId
-      const agents = await storage.getAgents({ userId: req.user.id });
-      const agent = agents[0];
-
-      if (!agent) {
-        return apiResponse.notFound(res, "No agent profile found for this user");
-      }
-
-      return apiResponse.success(res, agent, "Agent profile retrieved successfully");
-    } catch (error) {
-      console.error("Error fetching agent profile:", error);
-      return apiResponse.serverError(res, "Failed to fetch agent profile");
-    }
-  });
-
-  // Get agent client mappings
-  app.get("/api/agents/:agentId/client-mappings", requireAuth, async (req, res) => {
-    try {
-      const { agentId } = req.params;
-
-      // Verify agent exists
-      const agent = await storage.getAgent(agentId);
-      if (!agent) {
-        return apiResponse.notFound(res, "Agent not found");
-      }
-
-      // Authorization check
-      const isAdmin = req.user?.roles?.includes('admin');
-      const isOwnAgent = agent.userId === req.user?.id;
-      if (!isAdmin && !isOwnAgent) {
-        return apiResponse.forbidden(res, "Not authorized to view this agent's clients");
-      }
-
-      const mappings = await storage.getAgentClientMappings({ agentId });
-
-      // Fetch client details and portfolio value for each mapping
-      const mappingsWithClients = await Promise.all(
-        mappings.map(async (mapping) => {
-          const client = await storage.getUserById(mapping.clientId);
-          
-          // Get client's portfolio total value
-          let portfolioValue = "0";
-          try {
-            const portfolios = await db.select()
-              .from(schema.portfolios)
-              .where(eq(schema.portfolios.userId, mapping.clientId));
-            
-            if (portfolios.length > 0) {
-              const total = portfolios.reduce((sum, p) => sum + parseFloat(p.totalValue || "0"), 0);
-              portfolioValue = total.toString();
-            }
-          } catch (error) {
-            console.error("Error fetching portfolio for client", mapping.clientId, error);
-          }
-          
-          return {
-            ...mapping,
-            portfolioValue,
-            client: client ? {
-              id: client.id,
-              firstName: client.firstName,
-              lastName: client.lastName,
-              email: client.email,
-              mobile: client.mobile,
-              panNumber: client.panNumber
-            } : undefined
-          };
-        })
-      );
-
-      return apiResponse.success(res, mappingsWithClients, "Client mappings retrieved successfully");
-    } catch (error) {
-      console.error("Error fetching client mappings:", error);
-      return apiResponse.serverError(res, "Failed to fetch client mappings");
-    }
-  });
-  // ===========================
-  // Commission API Endpoints
-  // ===========================
-
-  // Upload and process RTA/CAMS commission report (Admin only)
-  app.post("/api/commissions/upload-report", requireAuth, async (req, res) => {
-    try {
-      // Check admin permission
-      if (!req.user?.roles?.includes('admin')) {
-        return apiResponse.forbidden(res, "Only admins can upload commission reports");
-      }
-
-      const { csvContent, reportDate } = req.body;
-
-      if (!csvContent) {
-        return apiResponse.badRequest(res, "CSV content is required");
-      }
-
-      // Parse commission report
-      const { parseCommissionReport } = await import('./commissionService');
-      const parsedCommissions = parseCommissionReport(csvContent);
-
-      // Match commissions to agents and clients by ARN/PAN
-      const commissionsToInsert = [];
-      const errors = [];
-
-      for (const parsed of parsedCommissions) {
-        // Find agent by ARN code
-        const agent = await storage.getAgentByArnCode(parsed.arnNo);
-        if (!agent) {
-          errors.push(`Agent with ARN ${parsed.arnNo} not found`);
-          continue;
-        }
-
-        // Find client by PAN
-        const client = await storage.getUserByPan(parsed.clientPan);
-        if (!client) {
-          errors.push(`Client with PAN ${parsed.clientPan} not found`);
-          continue;
-        }
-
-        commissionsToInsert.push({
-          agentId: agent.id,
-          clientId: client.id,
-          productType: 'mutual_funds',
-          schemeCode: parsed.schemeCode,
-          schemeName: parsed.schemeName,
-          transactionAmount: parsed.transactionAmount.toString(),
-          units: parsed.units.toString(),
-          nav: parsed.nav.toString(),
-          commissionType: parsed.commissionType,
-          commissionRate: parsed.commissionRate.toString(),
-          commissionAmount: parsed.commissionAmount.toString(),
-          tdsAmount: parsed.tdsAmount.toString(),
-          tdsRate: parsed.tdsRate.toString(),
-          gstAmount: parsed.gstAmount.toString(),
-          netCommission: parsed.netCommission.toString(),
-          trailMonth: parsed.trailMonth,
-          rtaReportDate: reportDate ? new Date(reportDate) : new Date(),
-          rtaReferenceNumber: parsed.rtaReferenceNumber,
-          amcName: parsed.amcName,
-          payoutStatus: 'pending',
-          calculationMethod: 'rta_report',
-        });
-      }
-
-      // Bulk insert commissions
-      const inserted = await storage.bulkCreateCommissions(commissionsToInsert);
-
-      return apiResponse.success(res, {
-        inserted: inserted.length,
-        errors: errors.length > 0 ? errors : undefined,
-        total: parsedCommissions.length
-      }, `Successfully processed ${inserted.length} commissions`);
-    } catch (error) {
-      console.error("Error uploading commission report:", error);
-      return apiResponse.serverError(res, "Failed to process commission report");
-    }
-  });
-
-  // Get agent commissions with filters
-  app.get("/api/agents/:agentId/commissions", requireAuth, async (req, res) => {
-    try {
-      const { agentId } = req.params;
-      const { commissionType, payoutStatus, trailMonth, startDate, endDate, limit } = req.query;
-
-      // Verify agent exists
-      const agent = await storage.getAgent(agentId);
-      if (!agent) {
-        return apiResponse.notFound(res, "Agent not found");
-      }
-
-      // Authorization: Only agent themselves or admin
-      const isAdmin = req.user?.roles?.includes('admin');
-      const isOwnAgent = agent.userId === req.user?.id;
-      if (!isAdmin && !isOwnAgent) {
-        return apiResponse.forbidden(res, "Not authorized to view this agent's commissions");
-      }
-
-      const commissions = await storage.getCommissions({
-        agentId,
-        commissionType: commissionType,
-        payoutStatus: payoutStatus,
-        trailMonth: trailMonth,
-        startDate: startDate ? new Date(startDate) : undefined,
-        endDate: endDate ? new Date(endDate) : undefined,
-        limit: limit ? parseInt(limit) : 1000
-      });
-
-      return apiResponse.success(res, { 
-        commissions,
-        total: commissions.length
-      }, "Commissions retrieved successfully");
-    } catch (error) {
-      console.error("Error fetching commissions:", error);
-      return apiResponse.serverError(res, "Failed to fetch commissions");
-    }
-  });
-
-  // Get agent earnings summary
-  app.get("/api/agents/:agentId/earnings-summary", requireAuth, async (req, res) => {
-    try {
-      const { agentId } = req.params;
-      const { startDate, endDate, productType } = req.query;
-
-      // Verify agent exists
-      const agent = await storage.getAgent(agentId);
-      if (!agent) {
-        return apiResponse.notFound(res, "Agent not found");
-      }
-
-      // Authorization: Only agent themselves or admin
-      const isAdmin = req.user?.roles?.includes('admin');
-      const isOwnAgent = agent.userId === req.user?.id;
-      if (!isAdmin && !isOwnAgent) {
-        return apiResponse.forbidden(res, "Not authorized to view this agent's earnings");
-      }
-
-      const summary = await storage.getAgentEarningsSummary(agentId, {
-        startDate: startDate ? new Date(startDate) : undefined,
-        endDate: endDate ? new Date(endDate) : undefined,
-        productType: productType
-      });
-
-      return apiResponse.success(res, summary, "Earnings summary retrieved successfully");
-    } catch (error) {
-      console.error("Error fetching earnings summary:", error);
-      return apiResponse.serverError(res, "Failed to fetch earnings summary");
-    }
-  });
-
-  // Get agent clients summary (for dashboard)
-  app.get("/api/agents/:agentId/clients-summary", requireAuth, async (req, res) => {
-    try {
-      const { agentId } = req.params;
-      const { productType } = req.query;
-
-      // Verify agent exists
-      const agent = await storage.getAgent(agentId);
-      if (!agent) {
-        return apiResponse.notFound(res, "Agent not found");
-      }
-
-      // Authorization: Only agent themselves or admin
-      const isAdmin = req.user?.roles?.includes('admin');
-      const isOwnAgent = agent.userId === req.user?.id;
-      if (!isAdmin && !isOwnAgent) {
-        return apiResponse.forbidden(res, "Not authorized to view this agent's client summary");
-      }
-
-      const summary = await storage.getAgentClientsSummary(agentId, productType);
-
-      return apiResponse.success(res, summary, "Client summary retrieved successfully");
-    } catch (error) {
-      console.error("Error fetching client summary:", error);
-      return apiResponse.serverError(res, "Failed to fetch client summary");
-    }
-  });
-
-  // ============================================================================
-  // AI CHAT ASSISTANT API ENDPOINTS
-  // ============================================================================
-
-  // Create a new chat session
-  app.post("/api/chat/sessions", requireAuth, async (req: any, res: any) => {
-    try {
-      const { sessionType } = req.body;
-      const userId = req.user.id;
-
-      const newSession = await storage.createChatSession({
-        userId,
-        title: `${sessionType.replace('_', ' ')} session`,
-        sessionType: sessionType || 'general'
-      });
-
-      return apiResponse.success(res, { session: newSession }, "Chat session created successfully");
-    } catch (error) {
-      console.error("Error creating chat session:", error);
-      return apiResponse.serverError(res, "Failed to create chat session");
-    }
-  });
-
-  // Get all chat sessions for the current user
-  app.get("/api/chat/sessions", requireAuth, async (req: any, res: any) => {
-    try {
-      const userId = req.user.id;
-      const sessions = await storage.getChatSessions(userId);
-
-      return apiResponse.success(res, { sessions }, "Chat sessions retrieved successfully");
-    } catch (error) {
-      console.error("Error fetching chat sessions:", error);
-      return apiResponse.serverError(res, "Failed to fetch chat sessions");
-    }
-  });
-
-  // Get messages for a specific chat session
-  app.get("/api/chat/sessions/:sessionId/messages", requireAuth, async (req: any, res: any) => {
-    try {
-      const { sessionId } = req.params;
-      const userId = req.user.id;
-
-      // Verify user owns this session
-      const session = await storage.getChatSession(sessionId);
-      if (!session) {
-        return apiResponse.notFound(res, "Chat session not found");
-      }
-      if (session.userId !== userId) {
-        return apiResponse.forbidden(res, "Not authorized to access this session");
-      }
-
-      const messages = await storage.getChatMessages(sessionId);
-      return apiResponse.success(res, { messages }, "Messages retrieved successfully");
-    } catch (error) {
-      console.error("Error fetching messages:", error);
-      return apiResponse.serverError(res, "Failed to fetch messages");
-    }
-  });
-
-  // Send a message and get AI response
-  app.post("/api/chat/sessions/:sessionId/messages", requireAuth, async (req: any, res: any) => {
-    try {
-      const { sessionId } = req.params;
-      const { content } = req.body;
-      const userId = req.user.id;
-
-      // Verify session exists and user owns it
-      const session = await storage.getChatSession(sessionId);
-      if (!session) {
-        return apiResponse.notFound(res, "Chat session not found");
-      }
-      if (session.userId !== userId) {
-        return apiResponse.forbidden(res, "Not authorized to access this session");
-      }
-
-      // Create user message
-      const userMessage = await storage.createChatMessage({
-        sessionId,
-        role: 'user',
-        content,
-      });
-
-      // Get conversation history
-      const allMessages = await storage.getChatMessages(sessionId);
-      const conversationHistory = allMessages
-        .filter(m => m.id !== userMessage.id) // Exclude the just-added message
-        .map(m => ({
-          role: m.role as 'user' | 'assistant',
-          content: m.content
-        }));
-
-      // Call Gemini AI to get response
-      const aiResponse = await generateFinancialChatResponse(
-        content,
-        conversationHistory,
-        { userId, portfolioId: session.contextPortfolioId || undefined }
-      );
-
-      // Create AI message
-      const aiMessage = await storage.createChatMessage({
-        sessionId,
-        role: 'assistant',
-        content: aiResponse.text || 'I apologize, but I couldn\'t generate a response. Please try again.',
-        model: 'gemini-1.5-flash'
-      });
-
-      return apiResponse.success(res, {
-        userMessage,
-        aiMessage
-      }, "Message sent successfully");
-    } catch (error) {
-      console.error("Error sending message:", error);
-      return apiResponse.serverError(res, "Failed to send message");
-    }
-  });
-
-  // Get pending actions for the user
-  app.get("/api/chat/actions/pending", requireAuth, async (req: any, res: any) => {
-    try {
-      const userId = req.user.id;
-      const pendingActions = await storage.getPendingChatActions(userId);
-
-      return apiResponse.success(res, pendingActions, "Pending actions retrieved successfully");
-    } catch (error) {
-      console.error("Error fetching pending actions:", error);
-      return apiResponse.serverError(res, "Failed to fetch pending actions");
-    }
-  });
-
-  // Confirm or reject a pending action
-  app.post("/api/chat/actions/:actionId/confirm", requireAuth, async (req: any, res: any) => {
-    try {
-      const { actionId } = req.params;
-      const { confirmed } = req.body;
-      const userId = req.user.id;
-
-      // Get the action and verify ownership
-      const actions = await storage.getChatActions('', ''); // Get by ID
-      const action = actions.find((a: any) => a.id === actionId);
-
-      if (!action) {
-        return apiResponse.notFound(res, "Action not found");
-      }
-      if (action.userId !== userId) {
-        return apiResponse.forbidden(res, "Not authorized to confirm this action");
-      }
-
-      if (confirmed) {
-        // TODO: Execute the action based on functionName
-        await storage.updateChatAction(actionId, {
-          status: 'confirmed',
-          userConfirmedAt: new Date()
-        });
-
-        return apiResponse.success(res, null, "Action confirmed successfully");
-      } else {
-        await storage.updateChatAction(actionId, {
-          status: 'rejected',
-          userConfirmedAt: new Date()
-        });
-
-        return apiResponse.success(res, null, "Action rejected");
-      }
-    } catch (error) {
-      console.error("Error confirming action:", error);
-      return apiResponse.serverError(res, "Failed to confirm action");
-    }
-  });
-
-  // ==================================================================================
-  // ADMIN MARKUP MANAGEMENT APIs
-  // ==================================================================================
-
-  // Get all store products for admin (with markup details)
-  app.get("/api/admin/store-products", requireAdmin, async (req, res) => {
-    try {
-      const { category, provider, search } = req.query;
-      
-      let query = `
-        SELECT 
-          id, name, description, category, sub_category as "subCategory", provider,
-          base_price as "basePrice", interest_rate as "interestRate", 
-          minimum_investment as "minimumInvestment",
-          credit_rating as "creditRating", risk_level as "riskLevel",
-          markup, markup_type as "markupType", final_price as "finalPrice",
-          is_perpetual as "isPerpetual", is_public as "isPublic", status,
-          tags, image_url as "imageUrl", created_at as "createdAt"
-        FROM products
-        WHERE 1=1
-      `;
-
-      const params: any[] = [];
-      let paramCount = 1;
-
-      if (category) {
-        query += ` AND category = $${paramCount}`;
-        params.push(category);
-        paramCount++;
-      }
-
-      if (provider) {
-        query += ` AND provider = $${paramCount}`;
-        params.push(provider);
-        paramCount++;
-      }
-
-      if (search) {
-        query += ` AND (name ILIKE $${paramCount} OR description ILIKE $${paramCount})`;
-        params.push(`%${search}%`);
-        paramCount++;
-      }
-
-      query += ` ORDER BY created_at DESC LIMIT 1000`;
-
-      const result = await storage.db.execute(query, params);
-      const products = result.rows || [];
-
-      return apiResponse.success(res, products, "Store products retrieved successfully");
-    } catch (error) {
-      console.error("Error fetching store products:", error);
-      return apiResponse.serverError(res, "Failed to fetch store products");
-    }
-  });
-
-
-  // Populate bonds data from external APIs (admin only)
-  app.post("/api/admin/bonds/populate", requireAdmin, async (req, res) => {
-    try {
-      const { bondCatalogService } = await import('./bond-catalog-service');
-      const catalog = new bondCatalogService.BondCatalogService();
-      
-      console.log('Starting bond data population...');
-      
-      // Refresh all bond types
-      await catalog.refreshGovernmentSecurities();
-      await catalog.refreshCorporateBonds();
-      await catalog.refreshSovereignGoldBonds();
-      await catalog.refreshTaxFreeBonds();
-      await catalog.refreshInfrastructureBonds();
-      
-      return apiResponse.success(res, { message: 'Bond data populated successfully' });
-    } catch (error) {
-      console.error("Error populating bond data:", error);
-      return apiResponse.serverError(res, "Failed to populate bond data");
-    }
-  });
-
-  // Get all store categories
-  app.get("/api/admin/store-categories", requireAdmin, async (req, res) => {
-    try {
-      const query = `
-        SELECT 
-          category, COUNT(*) as count
-        FROM products
-        GROUP BY category
-        ORDER BY count DESC
-      `;
-
-      const result = await storage.db.execute(query);
-      const categories = result.rows?.map((row: any) => ({
-        id: row.category,
-        name: row.category,
-        count: parseInt(row.count),
-        isActive: true
-      })) || [];
-
-      return apiResponse.success(res, categories, "Categories retrieved successfully");
-    } catch (error) {
-      console.error("Error fetching categories:", error);
-      return apiResponse.serverError(res, "Failed to fetch categories");
-    }
-  });
-
-  // Update single product markup
-  app.patch("/api/admin/store-products/:id/markup", requireAdmin, async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { markup, markupType } = req.body;
-
-      if (markup === undefined || !markupType) {
-        return apiResponse.badRequest(res, "Missing markup or markupType");
-      }
-
-      if (!['percentage', 'fixed'].includes(markupType)) {
-        return apiResponse.badRequest(res, "Invalid markupType. Must be 'percentage' or 'fixed'");
-      }
-
-      const markupValue = parseFloat(markup);
-      if (isNaN(markupValue) || markupValue < 0) {
-        return apiResponse.badRequest(res, "Invalid markup value");
-      }
-
-      // Get current product to calculate final price
-      const productQuery = `SELECT base_price, minimum_investment FROM products WHERE id = $1`;
-      const productResult = await storage.db.execute(productQuery, [id]);
-      const product = productResult.rows?.[0];
-
-      if (!product) {
-        return apiResponse.notFound(res, "Product not found");
-      }
-
-      const basePrice = parseFloat(product.base_price || product.minimum_investment || 0);
-      let finalPrice = basePrice;
-
-      if (markupType === 'percentage') {
-        finalPrice = basePrice * (1 + markupValue / 100);
-      } else {
-        finalPrice = basePrice + markupValue;
-      }
-
-      // Update product with markup
-      const updateQuery = `
-        UPDATE products 
-        SET markup = $1, markup_type = $2, final_price = $3, updated_at = NOW()
-        WHERE id = $4
-        RETURNING id, name, markup, markup_type as "markupType", final_price as "finalPrice"
-      `;
-
-      const result = await storage.db.execute(updateQuery, [markupValue, markupType, finalPrice, id]);
-      const updated = result.rows?.[0];
-
-      return apiResponse.success(res, updated, "Product markup updated successfully");
-    } catch (error) {
-      console.error("Error updating product markup:", error);
-      return apiResponse.serverError(res, "Failed to update product markup");
-    }
-  });
-
-  // Bulk update product markup by category/provider
-  app.post("/api/admin/store-products/bulk-markup", requireAdmin, async (req, res) => {
-    try {
-      const { markup, markupType, category, provider, productIds } = req.body;
-
-      if (markup === undefined || !markupType) {
-        return apiResponse.badRequest(res, "Missing markup or markupType");
-      }
-
-      if (!['percentage', 'fixed'].includes(markupType)) {
-        return apiResponse.badRequest(res, "Invalid markupType");
-      }
-
-      const markupValue = parseFloat(markup);
-      if (isNaN(markupValue) || markupValue < 0) {
-        return apiResponse.badRequest(res, "Invalid markup value");
-      }
-
-      // Build WHERE clause
-      let whereConditions = [];
-      const params: any[] = [markupValue, markupType];
-      let paramCount = 3;
-
-      if (productIds && Array.isArray(productIds) && productIds.length > 0) {
-        whereConditions.push(`id = ANY($${paramCount}::varchar[])`);
-        params.push(productIds);
-        paramCount++;
-      } else {
-        if (category) {
-          whereConditions.push(`category = $${paramCount}`);
-          params.push(category);
-          paramCount++;
-        }
-
-        if (provider) {
-          whereConditions.push(`provider = $${paramCount}`);
-          params.push(provider);
-          paramCount++;
-        }
-      }
-
-      if (whereConditions.length === 0) {
-        return apiResponse.badRequest(res, "Must specify category, provider, or productIds");
-      }
-
-      const whereClause = whereConditions.join(' AND ');
-
-      // Calculate final prices based on markup type
-      let updateQuery;
-      if (markupType === 'percentage') {
-        updateQuery = `
-          UPDATE products 
-          SET 
-            markup = $1,
-            markup_type = $2,
-            final_price = COALESCE(base_price, minimum_investment, 0) * (1 + $1 / 100),
-            updated_at = NOW()
-          WHERE ${whereClause}
-          RETURNING id
-        `;
-      } else {
-        updateQuery = `
-          UPDATE products 
-          SET 
-            markup = $1,
-            markup_type = $2,
-            final_price = COALESCE(base_price, minimum_investment, 0) + $1,
-            updated_at = NOW()
-          WHERE ${whereClause}
-          RETURNING id
-        `;
-      }
-
-      const result = await storage.db.execute(updateQuery, params);
-      const updatedCount = result.rows?.length || 0;
-
-      return apiResponse.success(res, {
-        updatedCount,
-        markup: markupValue,
-        markupType
-      }, `${updatedCount} products updated successfully`);
-    } catch (error) {
-      console.error("Error bulk updating product markup:", error);
-      return apiResponse.serverError(res, "Failed to bulk update product markup");
-    }
-  });
-
-  // Update product status
-  app.patch("/api/admin/store-products/:id", requireAdmin, async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { isActive } = req.body;
-
-      const query = `
-        UPDATE products
-        SET is_public = $1, updated_at = NOW()
-        WHERE id = $2
-        RETURNING id, name, is_public as "isActive"
-      `;
-
-      const result = await storage.db.execute(query, [isActive, id]);
-      const updated = result.rows?.[0];
-
-      if (!updated) {
-        return apiResponse.notFound(res, "Product not found");
-      }
-
-      return apiResponse.success(res, updated, "Product status updated successfully");
-    } catch (error) {
-      console.error("Error updating product status:", error);
-      return apiResponse.serverError(res, "Failed to update product status");
-    }
-  });
-
-  app.patch("/api/admin/store-categories/:id", requireAdmin, async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { isActive } = req.body;
-
-      // For categories, we'll just return success as categories are derived from products
-      return apiResponse.success(res, { id, isActive }, "Category status updated");
-    } catch (error) {
-      console.error("Error updating category status:", error);
-      return apiResponse.serverError(res, "Failed to update category status");
-    }
-  });
-
-
-  // Add latency tracking middleware
-  app.use(latencyTracker);
-
-  // Initialize monitoring services
-  logger.info("Starting monitoring services...");
-  
-  // Start external API health monitoring (every 5 minutes)
-  externalApiMonitor.start("*/5 * * * *");
-  
-  // Start error aggregation enhancements (every 2 minutes)
-  errorAggregator.start("*/2 * * * *");
-  
-  // Start data retention cleanup (daily at 2 AM)
-  dataRetentionService.start("0 2 * * *");
-  
-  logger.info("Monitoring services started successfully", {
-    externalApiMonitor: externalApiMonitor.getStatus(),
-    errorAggregator: errorAggregator.getStatus(),
-    dataRetentionService: dataRetentionService.getStatus(),
   });
 
   return server;

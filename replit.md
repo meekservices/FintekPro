@@ -1,11 +1,7 @@
 # FintekPro - Financial Services Platform
 
 ## Overview
-FintekPro is a full-stack TypeScript financial services platform designed for personal finance and investment management. It provides tools for portfolio management, real-time market data, and access to various financial services including stocks, mutual funds, IPOs, bonds, and loans. The platform emphasizes secure financial planning, family collaboration, unified KYC compliance, and an AI-powered financial assistant. Its goal is to equip individual investors and financial advisors with advanced tools and insights, aspiring to become a leading digital financial ecosystem.
-
-## Recent Changes
-**November 14, 2025 - Critical Routing Bug Fix**
-Fixed a severe routing bug in `server/routes.ts` where 730+ lines of route handlers (including production KYC routes, agent routes, and other critical endpoints) were placed AFTER the `return server;` statement, making them unreachable dead code. This caused `/api/kyc/production/*` endpoints to return HTML (404 from Vite) instead of JSON, and broke agent-related functionality entirely. All route registrations have been moved before the return statement, restoring full API functionality.
+FintekPro is a full-stack TypeScript financial services platform for personal finance and investment management. It provides tools for portfolio management, real-time market data, and various financial services including stocks, mutual funds, IPOs, bonds, and loans. The platform aims to offer a secure solution for financial planning, incorporating features such as family collaboration, unified KYC compliance, and an AI-powered financial assistant. Its goal is to empower users with advanced financial tools and insights, serving individual investors and financial advisors, with ambitions to become a leading digital financial ecosystem.
 
 ## User Preferences
 I want iterative development.
@@ -17,44 +13,40 @@ Do not make changes to the file `Y`.
 ## System Architecture
 
 ### UI/UX Decisions
-The frontend is built with React 18, TypeScript, `shadcn/ui` (Radix UI), and Tailwind CSS for a modern, responsive, mobile-first design. Recharts handles data visualization, and custom `ScrollableTabsList` components optimize mobile interaction. A consistent three-part layout (Left Sidebar, Main Content, Footer) with a collapsible, state-persisted sidebar is used. Reusable UI components like `LoadingState` and `EmptyState` are standardized.
+The frontend uses React 18 with TypeScript, employing shadcn/ui components built on Radix UI. Styling is handled with Tailwind CSS and CSS custom properties for a modern, responsive design. Recharts is used for data visualization, and a mobile-first approach is maintained. A custom `ScrollableTabsList` is used for optimized mobile interaction and the `ScrollableTabsList` pattern is utilized for responsive tabbed navigation. All pages maintain a consistent three-part layout: Left Sidebar Navigation, Main Content Area, and Footer, with a collapsible, state-persisted sidebar. Reusable UI components like `LoadingState` and `EmptyState` are standardized across the platform.
 
 ### Technical Implementations
-The frontend uses Wouter for routing, TanStack Query for state management, and React Hook Form with Zod for validation, all powered by Vite. The backend is an Express.js (TypeScript) application, connected to a PostgreSQL database via Drizzle ORM, providing a RESTful API with centralized error handling. Authentication supports simplified login (email, mobile, userId) with mandatory two-factor OTP verification (email/SMS/WhatsApp) via Passport.js, and secure password reset leveraging the OTP infrastructure. Production authentication includes client-side guards, session regeneration with fresh CSRF tokens, comprehensive rate limiting (5 requests per 15 minutes) on critical endpoints with intelligent admin bypass, scrypt-hashed OTP storage with attempt limits and expiration, and user enumeration prevention via generic error messages. Process-level error handlers prevent silent crashes, and input sanitization is implemented. End-to-end CSRF protection uses session-scoped tokens, and database connection pooling, HTTP server timeouts, and CORS whitelist-based validation are configured for production. Winston logger is integrated for structured JSON logging and daily rotation. Session and CSRF cookies use `SameSite=Lax` for improved browser compatibility while maintaining secure and httpOnly flags.
+The frontend leverages Wouter for routing, TanStack Query for state management, and React Hook Form with Zod for form handling, all built with Vite. The backend uses Express.js with TypeScript, connected to a PostgreSQL database via Drizzle ORM. A RESTful API pattern is implemented with centralized error handling. Authentication includes a simplified system with mandatory two-factor OTP verification (email/SMS/WhatsApp) and unified login (email, mobile, or userId), utilizing Passport.js. Secure password reset functionality uses the existing OTP infrastructure. PAN verification has migrated to Cashfree Verification Suite API. Verified KYC profile display is integrated into the KYC dashboard, including real-time product eligibility based on a tiered KYC system. Verified data from Smart KYC is automatically transferred to user and user profile tables. Backend API responses are standardized for consistency, and frontend error handling is updated for backward compatibility. A duplicate detection and prevention system is implemented with Levenshtein fuzzy name matching, risk scoring, and PAN/email/mobile duplicate detection. The Admin portal includes a comprehensive user management system with full CRUD operations for users. A marketing automation platform is implemented with B2B lead prospecting, email campaigns (Zoho Campaigns), and WhatsApp broadcasts (AiSensy). A comprehensive Stakeholders Management System provides separate entity tables and backend APIs for partners, agents, and suppliers (not just role-based user management), with full CRUD operations, search/filtering, pagination, and shared Zod schema validation contract across frontend, backend, and database layers to prevent schema drift.
 
-A production-grade state machine orchestrates a 4-tier KYC Priority Workflow System: CKYC Lookup → KRA eKYC (5 agencies parallel) → Video KYC (HyperVerge/SignDesk) → Manual KYC. It features persistent state tracking, detailed audit logging, agency-specific adapters, data normalization, and early exit optimization. All KYC data is encrypted and tokenized. Sandbox.co.in API (with live production keys) handles basic KYC verification for PAN, Aadhaar OKYC, Bank Account, and UPI. Aadhaar type definitions are consolidated in `server/services/kyc/aadhaar-types.ts` for consistency across services. Backup API options (Digilocker OAuth 2.0, Setu OKYC REST API) are researched and available for implementation if primary API fails. KYC sessions include automatic cleanup of expired sessions (30-minute expiry), user-controlled session management with dialog-based resume/cancel options, and race condition prevention through database-level unique constraints. A duplicate detection system uses fuzzy matching. The Admin portal offers user management. A Payment Execution Bridge handles 7 product types, with security enhancements like PAN/DOB ownership verification and HMAC validation. An Agent/EUIN Mapping System ensures correct ARN/EUIN attribution for mutual fund orders, utilizing intelligent agent resolution, immutable snapshots for historical commission integrity, and administrative controls for default agent configuration.
-
-Key features include real-time portfolio/market data, financial calculators, multi-asset support, family collaboration with permission-based access, a 3-tier intelligent KYC system with SEBI Accredited Investor compliance, and an AI Chat Assistant (Google Gemini). Dynamic wealth management analysis, multi-currency support, and a customizable alert system are included. A financial product marketplace offers category tabs, filtering, wishlist, and cart. Payment processing uses Cashfree and PhonePe with a unified order management system. Advanced features include AI-powered expense tracking, BBPS-Expense integration, a regulation-compliant Client KYC Dashboard, a Partner Revenue Sharing System, and an Agent Onboarding & Management System. Post-KYC, an Auto-Population System aggregates financial data. A Portfolio Analytics Engine provides XIRR/IRR, CAGR, automated asset allocation, risk profiling, and category performance tracking. A one-click Portfolio Rebalancing feature allows executing recommendations with transaction cost optimization and user-configurable preferences.
+### Feature Specifications
+Key features include real-time portfolio and market data tracking, various financial calculators, multi-asset support, and family collaboration with shared financial groups and permission-based access. An intelligent tiered KYC system (3-tier with SEBI Accredited Investor compliance) and an AI Chat Assistant powered by Google Gemini are integrated. Dynamic wealth management analysis, multi-currency support, and a customizable alert system enhance user experience. A financial product marketplace offers category tabs, filtering, wishlist, and cart functionalities. Robust payment processing is handled by Cashfree and PhonePe, with a unified order management system. Advanced features include an AI-powered expense tracking and budgeting system, BBPS-Expense integration for bill payments, and a regulation-compliant Client KYC Dashboard with a Product Eligibility Matrix and access control. A Partner Revenue Sharing System and an Agent Onboarding & Management System with tiered agents and secure Aadhaar verification are also implemented. Post-KYC, an Auto-Population System integrates with various data sources for automated financial data aggregation with multi-source consent management. A comprehensive Portfolio Analytics Engine provides XIRR/IRR calculations, CAGR analysis, automated asset allocation, algorithm-based risk profiling, and category performance tracking across multiple data sources.
 
 ### System Design Choices
-The platform uses a subdomain-based portal architecture for Admin, Partner, and Client portals to ensure isolated experiences, security, and role-based access. Admin Portal registration is disabled.
+The platform employs a subdomain-based portal architecture for Admin, Partner, and Client portals, ensuring isolated and customized experiences, security, and role-based access control. Admin Portal registration is entirely disabled for security.
 
 ## External Dependencies
 
 ### Third-Party APIs
-- **Market Data Sources**: Real-time and historical market information.
+- **Market Data Sources**: For real-time and historical market information.
 - **BSE Star MFD API**: Mutual fund transaction processing.
 - **NSE NCB & BSE Bond API**: Government securities and corporate bond trading.
 - **Bajaj Finance Integration**: Calculators and eligibility checks.
 - **Tata Capital Integration**: Loans, credit checks, CKYC, GST verification.
 - **exchangerate-api.com**: Live currency exchange rates.
 - **Google Gemini API**: AI Chat Assistant.
-- **Sandbox.co.in API** (Primary): KYC and tax compliance (PAN, Aadhaar OKYC, Bank Account/UPI verification, Income Tax, TDS, GST, Tax Payments) with live production keys.
-- **Digilocker API** (Backup Option): OAuth 2.0-based e-Aadhaar verification via government platform.
-- **Setu OKYC API** (Backup Option): OTP-based Aadhaar verification with REST API integration.
-- **eMudhra eSign API** (Production): Digital signature for Tier 3 KYC risk declarations with HMAC-SHA256 webhook validation, async status polling, and PII redaction in logs.
-- **BSE Accreditation API** (Simulation): Production-quality simulation for SEBI Accredited Investor certification. Real API requires BSE partnership (contact bseasl.membership@bseasl.com).
-- **Cashfree (primary) & PhonePe (secondary)**: Payment Gateways.
+- **Cashfree Verification Suite API**: PAN verification and Aadhaar OKYC verification.
+- **Sandbox.co.in API**: Reserved for ITR filing functionality.
+- **Payment Gateways**: Cashfree (primary), PhonePe (secondary).
 - **Cashfree Payout API**: Vendor management, automated commission settlements.
 - **Twilio**: SMS OTP delivery.
 - **WhatsApp (whatsapp-web.js)**: WhatsApp OTP delivery.
 - **Nodemailer**: Email service integration.
-- **AMFI Registry API** (Simulated): ARN validation, EUIN verification.
-- **Turtlefin Insurance API**: Insurance policy details and auto-population.
-- **CIBIL**: Loan liabilities auto-population.
-- **Probe42 Service**: B2B company search and financial data enrichment.
-- **Zoho Campaigns Service**: Email marketing platform.
-- **AiSensy Service**: WhatsApp Business API.
+- **AMFI Registry API** (Simulated): ARN validation, EUIN verification for agent onboarding.
+- **Turtlefin Insurance API**: For insurance policy details and auto-population.
+- **CIBIL**: For loan liabilities auto-population.
+- **Probe42 Service**: B2B company search and financial data enrichment for marketing automation.
+- **Zoho Campaigns Service**: Email marketing platform integration.
+- **AiSensy Service**: WhatsApp Business API for template-based broadcasts.
 
 ### Database Services
 - **Neon Database**: Serverless PostgreSQL hosting.

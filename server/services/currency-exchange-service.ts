@@ -1,7 +1,6 @@
 import { db } from "../db";
 import { currencyRates } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
-import { cacheService, getCacheKey } from "./cache-service";
 
 interface ExchangeRateResponse {
   base: string;
@@ -13,7 +12,6 @@ export class CurrencyExchangeService {
   private static instance: CurrencyExchangeService;
   private supportedCurrencies = ['INR', 'USD', 'EUR', 'GBP', 'JPY', 'AUD', 'CAD', 'SGD', 'AED'];
   private refreshInterval: NodeJS.Timeout | null = null;
-  private readonly CACHE_TTL = 24 * 60 * 60 * 1000;
 
   private constructor() {}
 
@@ -69,9 +67,6 @@ export class CurrencyExchangeService {
         }
       }
 
-      // Invalidate cache for updated rates
-      await cacheService.delPattern(getCacheKey.exchangeRates());
-
       console.log(`✅ Updated exchange rates for ${baseCurrency}`);
     } catch (error) {
       console.error(`❌ Failed to update currency rates for ${baseCurrency}:`, error);
@@ -88,14 +83,6 @@ export class CurrencyExchangeService {
     }
 
     try {
-      const cacheKey = `${getCacheKey.exchangeRate(fromCurrency)}:${toCurrency}`;
-      
-      // Check cache first
-      const cachedRate = await cacheService.get<number>(cacheKey);
-      if (cachedRate !== null) {
-        return amount * cachedRate;
-      }
-
       // Fetch the exchange rate from database
       const rate = await db.query.currencyRates.findFirst({
         where: and(
@@ -105,10 +92,7 @@ export class CurrencyExchangeService {
       });
 
       if (rate) {
-        const exchangeRate = parseFloat(rate.exchangeRate);
-        // Cache the rate for 24 hours
-        await cacheService.set(cacheKey, exchangeRate, { ttl: this.CACHE_TTL });
-        return amount * exchangeRate;
+        return amount * parseFloat(rate.exchangeRate);
       }
 
       // If not found, try inverse rate
@@ -120,9 +104,7 @@ export class CurrencyExchangeService {
       });
 
       if (inverseRate) {
-        const exchangeRate = 1 / parseFloat(inverseRate.exchangeRate);
-        await cacheService.set(cacheKey, exchangeRate, { ttl: this.CACHE_TTL });
-        return amount * exchangeRate;
+        return amount / parseFloat(inverseRate.exchangeRate);
       }
 
       // If still not found, fetch fresh rates
@@ -136,9 +118,7 @@ export class CurrencyExchangeService {
       });
 
       if (freshRate) {
-        const exchangeRate = parseFloat(freshRate.exchangeRate);
-        await cacheService.set(cacheKey, exchangeRate, { ttl: this.CACHE_TTL });
-        return amount * exchangeRate;
+        return amount * parseFloat(freshRate.exchangeRate);
       }
 
       throw new Error(`Unable to find exchange rate from ${fromCurrency} to ${toCurrency}`);

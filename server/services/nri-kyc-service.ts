@@ -2,11 +2,9 @@
  * NRI KYC Service
  * Handles Smart KYC flow for Non-Resident Indians
  * Flow: PAN/Passport → Overseas Address → PIS Permission → FATCA/CRS → Review
- * 
- * Migration Note: Migrated from Cashfree to Sandbox.co.in for PAN verification
  */
 
-import { sandboxKYCService } from './sandbox-kyc-service';
+import { CashfreePANService } from './cashfree-pan-service';
 import { db } from '../db';
 import { nriKycProgress, users } from '@shared/schema';
 import { eq } from 'drizzle-orm';
@@ -39,12 +37,11 @@ interface FatcaDeclarationResult {
 
 export class NRIKYCService {
   constructor() {
-    // No service initialization needed - using Sandbox service instance
+    // No service initialization needed - using static Cashfree methods
   }
 
   /**
    * Step 1: Verify Passport and optional PAN
-   * Uses Sandbox.co.in API for PAN verification (replaces Cashfree)
    */
   async verifyPassportAndPAN(
     userId: string,
@@ -58,10 +55,10 @@ export class NRIKYCService {
     try {
       let panDetails = null;
 
-      // If PAN provided, verify it using Sandbox
+      // If PAN provided, verify it using Cashfree
       if (pan && dob) {
         try {
-          panDetails = await sandboxKYCService.verifyIndividualPAN(pan, passportName, dob);
+          panDetails = await CashfreePANService.verifyIndividualPAN(pan, passportName, dob);
         } catch (error) {
           console.warn('PAN verification failed for NRI, continuing with passport only:', error);
         }
@@ -89,7 +86,7 @@ export class NRIKYCService {
             step1PanNumber: pan,
             step1PassportNumber: passportNumber,
             step1PassportName: passportName,
-            step1PassportExpiry: passportExpiry,
+            step1PassportExpiry: new Date(passportExpiry),
             step1CountryOfResidence: countryOfResidence,
             step1CompletedAt: new Date(),
             step1Data: passportData,
@@ -105,7 +102,7 @@ export class NRIKYCService {
           step1PanNumber: pan,
           step1PassportNumber: passportNumber,
           step1PassportName: passportName,
-          step1PassportExpiry: passportExpiry,
+          step1PassportExpiry: new Date(passportExpiry),
           step1CountryOfResidence: countryOfResidence,
           step1CompletedAt: new Date(),
           step1Data: passportData,
@@ -340,7 +337,13 @@ export class NRIKYCService {
         throw new Error('Failed to update KYC progress');
       }
 
-      // Note: KYC tier tracking has been moved to kycVault table
+      // Update user's KYC tier to enhanced (NRIs get enhanced tier)
+      await db.update(users)
+        .set({
+          kycTier: 'enhanced',
+          kycTierUpgradedAt: new Date(),
+        })
+        .where(eq(users.id, userId));
     } catch (error: any) {
       console.error('KYC confirmation error:', error);
       throw new Error(error.message || 'Failed to complete NRI KYC');

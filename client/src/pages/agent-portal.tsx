@@ -896,7 +896,7 @@ export default function AgentPortal() {
 
         {/* Add Partner Dialog */}
         <Dialog open={showAddPartnerDialog} onOpenChange={setShowAddPartnerDialog}>
-          <DialogContent className="max-w-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
+          <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Add New Partner</DialogTitle>
               <DialogDescription>Add a new partner with or without EUIN/ARN numbers</DialogDescription>
@@ -1058,7 +1058,7 @@ export default function AgentPortal() {
 
         {/* Add Client Dialog */}
         <Dialog open={showAddClientDialog} onOpenChange={setShowAddClientDialog}>
-          <DialogContent className="max-w-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
+          <DialogContent className="max-w-xl">
             <DialogHeader>
               <DialogTitle>Add New Client</DialogTitle>
               <DialogDescription>Add a new client and assign EUIN mapping</DialogDescription>

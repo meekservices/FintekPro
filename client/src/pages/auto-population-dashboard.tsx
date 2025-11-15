@@ -20,24 +20,16 @@ import {
   Building,
   CreditCard,
   FileText,
-  Settings,
-  Briefcase,
-  PiggyBank,
-  Award
+  Settings
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { AutoPopulationProgressIndicator } from '@/components/AutoPopulationProgressIndicator';
-import { ConsentDetailsModal } from '@/components/ConsentDetailsModal';
-import { ExpiredConsentsBanner } from '@/components/ExpiredConsentsBanner';
-import { AAIntegrationCard } from '@/components/aa/AAIntegrationCard';
-import { RecentFetchesWidget } from '@/components/aa/RecentFetchesWidget';
-import { useAuth } from '@/hooks/useAuth';
 
 // Types
 interface ConsentRecord {
   id: string;
   userId: string;
-  dataSource: 'mutual_funds' | 'demat' | 'bank' | 'loans' | 'insurance' | 'epf' | 'nps' | 'apy';
+  dataSource: 'mutual_funds' | 'demat' | 'bank' | 'loans' | 'insurance';
   provider?: string;
   status: 'active' | 'revoked' | 'expired';
   consentPurpose: string;
@@ -73,21 +65,15 @@ const DATA_SOURCE_CONFIG = {
   demat: { icon: Wallet, label: 'Demat Holdings', color: 'text-green-600' },
   bank: { icon: Building, label: 'Bank Accounts', color: 'text-purple-600' },
   loans: { icon: CreditCard, label: 'Loan Liabilities', color: 'text-orange-600' },
-  insurance: { icon: Shield, label: 'Insurance Policies', color: 'text-indigo-600' },
-  epf: { icon: Briefcase, label: 'EPF/VPF Accounts', color: 'text-teal-600' },
-  nps: { icon: PiggyBank, label: 'National Pension System', color: 'text-cyan-600' },
-  apy: { icon: Award, label: 'Atal Pension Yojana', color: 'text-amber-600' }
+  insurance: { icon: Shield, label: 'Insurance Policies', color: 'text-indigo-600' }
 };
 
 export default function AutoPopulationDashboard() {
   const { toast } = useToast();
-  const { user } = useAuth();
   const [selectedWorkflow, setSelectedWorkflow] = useState<string | null>(null);
-  const [selectedConsent, setSelectedConsent] = useState<ConsentRecord | null>(null);
-  const [consentModalOpen, setConsentModalOpen] = useState(false);
 
-  // Get actual user ID from auth context
-  const userId = user?.id;
+  // Fetch user ID from session (demo for now)
+  const userId = 'demo-user-1'; // TODO: Get from auth context
 
   // Query: Get all consents
   const { data: consentsData, isLoading: consentsLoading } = useQuery<{ consents: ConsentRecord[] }>({
@@ -112,32 +98,6 @@ export default function AutoPopulationDashboard() {
       }
       return false;
     }
-  });
-
-  // Query: Get portfolio summary
-  const { data: summaryData, isLoading: summaryLoading } = useQuery<{
-    success: boolean;
-    summary: {
-      totalMarketValue: number;
-      totalInvestedValue: number;
-      totalGainLoss: number;
-      gainLossPercent: number;
-      totalHoldings: number;
-      assetTypeBreakdown: Record<string, { value: number; count: number }>;
-      dataSourceBreakdown: Record<string, { value: number; count: number }>;
-      lastSync: {
-        workflowId: string;
-        status: string;
-        completedAt: string;
-        totalRecordsFetched: number;
-        successfulSources: number;
-        totalDataSources: number;
-        durationMs: number;
-      } | null;
-    };
-  }>({
-    queryKey: ['/api/auto-populate/summary', userId],
-    enabled: !!userId
   });
 
   // Mutation: Initiate auto-population
@@ -201,82 +161,9 @@ export default function AutoPopulationDashboard() {
     }
   });
 
-  // Mutation: Grant all consents (batch operation)
-  const grantAllConsentsMutation = useMutation({
-    mutationFn: async () => {
-      return apiRequest('POST', `/api/auto-populate/consent/grant-all`, {
-        body: { userId }
-      });
-    },
-    onSuccess: (data: any) => {
-      toast({
-        title: 'All consents granted',
-        description: `Successfully granted consent for ${data.totalConsents} data sources`
-      });
-      queryClient.invalidateQueries({ queryKey: ['/api/auto-populate/consent/user', userId] });
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Failed to grant consents',
-        description: error.message,
-        variant: 'destructive'
-      });
-    }
-  });
-
-  // Mutation: Revoke consent
-  const revokeConsentMutation = useMutation({
-    mutationFn: async (consentId: string) => {
-      return apiRequest('POST', `/api/auto-populate/consent/revoke`, {
-        body: { userId, consentId, reason: 'User manually revoked consent from dashboard' }
-      });
-    },
-    onSuccess: () => {
-      toast({
-        title: 'Consent revoked',
-        description: 'Data source access has been revoked. Holdings will be deleted after 90 days.'
-      });
-      queryClient.invalidateQueries({ queryKey: ['/api/auto-populate/consent/user', userId] });
-      setConsentModalOpen(false);
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Failed to revoke consent',
-        description: error.message,
-        variant: 'destructive'
-      });
-    }
-  });
-
-  // Mutation: Renew all expired consents
-  const renewAllConsentsMutation = useMutation({
-    mutationFn: async () => {
-      return apiRequest('POST', `/api/auto-populate/consent/renew-all`, {
-        body: { userId }
-      });
-    },
-    onSuccess: (data: any) => {
-      toast({
-        title: 'Consents renewed',
-        description: `Successfully renewed ${data.renewedCount} expired consent(s)`
-      });
-      queryClient.invalidateQueries({ queryKey: ['/api/auto-populate/consent/user', userId] });
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Failed to renew consents',
-        description: error.message,
-        variant: 'destructive'
-      });
-    }
-  });
-
   const consents = consentsData?.consents || [];
   const workflows = workflowsData?.workflows || [];
   const currentStatus = statusData?.status || workflows.find(w => w.id === selectedWorkflow);
-  
-  // Count expired consents
-  const expiredConsents = consents.filter(c => c.status === 'expired');
 
   // Calculate overall progress
   const getOverallProgress = () => {
@@ -306,15 +193,6 @@ export default function AutoPopulationDashboard() {
         </div>
         <div className="flex gap-2">
           <Button
-            onClick={() => grantAllConsentsMutation.mutate()}
-            disabled={grantAllConsentsMutation.isPending || consents.length === 8}
-            variant="secondary"
-            data-testid="button-grant-all-consents"
-          >
-            <CheckCircle2 className="mr-2 h-4 w-4" />
-            {consents.length === 8 ? 'All Consents Granted' : 'Grant All Consents'}
-          </Button>
-          <Button
             onClick={() => refreshMutation.mutate()}
             disabled={refreshMutation.isPending}
             variant="outline"
@@ -333,113 +211,6 @@ export default function AutoPopulationDashboard() {
           </Button>
         </div>
       </div>
-
-      {/* Expired Consents Banner */}
-      <ExpiredConsentsBanner
-        expiredCount={expiredConsents.length}
-        onRenewAll={() => renewAllConsentsMutation.mutate()}
-        isRenewing={renewAllConsentsMutation.isPending}
-      />
-
-      {/* Portfolio Summary Card */}
-      {summaryData?.summary && (
-        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 border-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-6 w-6 text-blue-600" />
-              Portfolio Summary
-            </CardTitle>
-            <CardDescription>
-              Your complete portfolio overview across all data sources
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              {/* Total Portfolio Value */}
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">Total Portfolio Value</p>
-                <p className="text-3xl font-bold text-blue-600">
-                  ₹{summaryData.summary.totalMarketValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                </p>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <FileText className="h-3 w-3" />
-                  {summaryData.summary.totalHoldings} holdings
-                </div>
-              </div>
-
-              {/* Total Invested */}
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">Total Invested</p>
-                <p className="text-2xl font-semibold">
-                  ₹{summaryData.summary.totalInvestedValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                </p>
-              </div>
-
-              {/* Gain/Loss */}
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">Total Gain/Loss</p>
-                <div className={`text-2xl font-semibold ${summaryData.summary.totalGainLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {summaryData.summary.totalGainLoss >= 0 ? '+' : ''}₹{summaryData.summary.totalGainLoss.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                  <span className="text-sm ml-2">
-                    ({summaryData.summary.gainLossPercent >= 0 ? '+' : ''}{summaryData.summary.gainLossPercent.toFixed(2)}%)
-                  </span>
-                </div>
-              </div>
-
-              {/* Last Sync */}
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">Last Sync</p>
-                {summaryData.summary.lastSync ? (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={summaryData.summary.lastSync.status === 'completed' ? 'default' : 'destructive'}>
-                        {summaryData.summary.lastSync.status}
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {new Date(summaryData.summary.lastSync.completedAt).toLocaleDateString('en-IN', {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {summaryData.summary.lastSync.totalRecordsFetched} records from {summaryData.summary.lastSync.successfulSources}/{summaryData.summary.lastSync.totalDataSources} sources
-                    </p>
-                  </>
-                ) : (
-                  <p className="text-sm text-muted-foreground">No sync yet</p>
-                )}
-              </div>
-            </div>
-
-            {/* Asset Allocation Breakdown */}
-            {Object.keys(summaryData.summary.assetTypeBreakdown).length > 0 && (
-              <div className="mt-6 space-y-3">
-                <h4 className="text-sm font-semibold">Asset Allocation</h4>
-                <div className="grid gap-2 md:grid-cols-2">
-                  {Object.entries(summaryData.summary.assetTypeBreakdown).map(([assetType, data]) => {
-                    const percentage = (data.value / summaryData.summary.totalMarketValue) * 100;
-                    return (
-                      <div key={assetType} className="space-y-1">
-                        <div className="flex justify-between text-sm">
-                          <span className="capitalize">{assetType.replace('_', ' ')}</span>
-                          <span className="font-medium">
-                            ₹{data.value.toLocaleString('en-IN', { maximumFractionDigits: 0 })} ({percentage.toFixed(1)}%)
-                          </span>
-                        </div>
-                        <Progress value={percentage} className="h-2" />
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
 
       {/* Main Content */}
       <Tabs defaultValue="overview" className="w-full">
@@ -535,15 +306,9 @@ export default function AutoPopulationDashboard() {
                     </Card>
                   );
                 })}
-                
-                {/* Account Aggregator Integration Card */}
-                <AAIntegrationCard />
               </div>
             </CardContent>
           </Card>
-
-          {/* Recent AA Data Fetches */}
-          <RecentFetchesWidget />
         </TabsContent>
 
         {/* Consents Tab */}
@@ -577,11 +342,7 @@ export default function AutoPopulationDashboard() {
                     return (
                       <div
                         key={consent.id}
-                        className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-muted/50"
-                        onClick={() => {
-                          setSelectedConsent(consent);
-                          setConsentModalOpen(true);
-                        }}
+                        className="flex items-center justify-between p-4 border rounded-lg"
                         data-testid={`consent-item-${consent.dataSource}`}
                       >
                         <div className="flex items-center gap-4">
@@ -619,7 +380,15 @@ export default function AutoPopulationDashboard() {
                           >
                             {consent.status}
                           </Badge>
-                          <Settings className="h-4 w-4 text-muted-foreground" />
+                          {consent.status === 'active' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              data-testid={`button-manage-${consent.dataSource}`}
+                            >
+                              <Settings className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </div>
                     );
@@ -700,17 +469,6 @@ export default function AutoPopulationDashboard() {
           </Card>
         </TabsContent>
       </Tabs>
-
-      {/* Consent Details Modal */}
-      <ConsentDetailsModal
-        open={consentModalOpen}
-        onOpenChange={setConsentModalOpen}
-        consent={selectedConsent}
-        onGrant={selectedConsent?.status === 'expired' ? () => grantConsentMutation.mutate(selectedConsent.dataSource) : undefined}
-        onRevoke={selectedConsent?.status === 'active' ? () => revokeConsentMutation.mutate(selectedConsent.id) : undefined}
-        isGranting={grantConsentMutation.isPending}
-        isRevoking={revokeConsentMutation.isPending}
-      />
     </div>
   );
 }

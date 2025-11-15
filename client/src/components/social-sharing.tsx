@@ -231,7 +231,7 @@ export function SocialSharing({ achievement, userAchievement, userId }: SocialSh
         </Button>
       </DialogTrigger>
       
-      <DialogContent className="max-w-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Share2 className="h-5 w-5" />

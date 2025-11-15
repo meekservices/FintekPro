@@ -43,30 +43,17 @@ export class FinnhubService {
 
   constructor() {
     this.apiKey = process.env.FINNHUB_API_KEY || '';
-    if (this.apiKey) {
-      console.log('Initializing Finnhub with API key length:', this.apiKey.length);
-      this.client = new finnhub.DefaultApi(this.apiKey);
-    } else {
-      console.warn('FINNHUB_API_KEY not provided, Finnhub service will gracefully degrade');
-      this.client = null;
+    if (!this.apiKey) {
+      throw new Error('FINNHUB_API_KEY environment variable is required');
     }
-  }
-
-  /**
-   * Check if service is available
-   */
-  isAvailable(): boolean {
-    return this.client !== null;
+    console.log('Initializing Finnhub with API key length:', this.apiKey.length);
+    this.client = new finnhub.DefaultApi(this.apiKey);
   }
 
   /**
    * Get real-time quote for a symbol
    */
-  async getQuote(symbol: string): Promise<FinnhubQuote | null> {
-    if (!this.client) {
-      console.warn(`Finnhub getQuote called but API key not configured for ${symbol}`);
-      return null;
-    }
+  async getQuote(symbol: string): Promise<FinnhubQuote> {
     return new Promise((resolve, reject) => {
       this.client.quote(symbol, (error: any, data: FinnhubQuote, response: any) => {
         if (error) {
@@ -81,11 +68,7 @@ export class FinnhubService {
   /**
    * Get historical candlestick data
    */
-  async getCandles(symbol: string, resolution: string, from: number, to: number): Promise<FinnhubCandle | null> {
-    if (!this.client) {
-      console.warn(`Finnhub getCandles called but API key not configured for ${symbol}`);
-      return null;
-    }
+  async getCandles(symbol: string, resolution: string, from: number, to: number): Promise<FinnhubCandle> {
     return new Promise((resolve, reject) => {
       this.client.stockCandles(symbol, resolution, from, to, (error: any, data: FinnhubCandle, response: any) => {
         if (error) {
@@ -100,11 +83,7 @@ export class FinnhubService {
   /**
    * Get company profile
    */
-  async getCompanyProfile(symbol: string): Promise<FinnhubCompanyProfile | null> {
-    if (!this.client) {
-      console.warn(`Finnhub getCompanyProfile called but API key not configured for ${symbol}`);
-      return null;
-    }
+  async getCompanyProfile(symbol: string): Promise<FinnhubCompanyProfile> {
     return new Promise((resolve, reject) => {
       this.client.companyProfile2(symbol, (error: any, data: FinnhubCompanyProfile, response: any) => {
         if (error) {
@@ -119,11 +98,7 @@ export class FinnhubService {
   /**
    * Get company news
    */
-  async getCompanyNews(symbol: string, from: string, to: string): Promise<any[] | null> {
-    if (!this.client) {
-      console.warn(`Finnhub getCompanyNews called but API key not configured for ${symbol}`);
-      return null;
-    }
+  async getCompanyNews(symbol: string, from: string, to: string): Promise<any[]> {
     return new Promise((resolve, reject) => {
       this.client.companyNews(symbol, from, to, (error: any, data: any[], response: any) => {
         if (error) {
@@ -138,11 +113,7 @@ export class FinnhubService {
   /**
    * Get market news
    */
-  async getMarketNews(category: string = 'general'): Promise<any[] | null> {
-    if (!this.client) {
-      console.warn(`Finnhub getMarketNews called but API key not configured, category: ${category}`);
-      return null;
-    }
+  async getMarketNews(category: string = 'general'): Promise<any[]> {
     return new Promise((resolve, reject) => {
       this.client.marketNews(category, (error: any, data: any[], response: any) => {
         if (error) {

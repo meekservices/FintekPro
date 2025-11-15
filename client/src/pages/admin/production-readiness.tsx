@@ -154,7 +154,7 @@ const readinessChecks: ReadinessCheck[] = [
       {
         name: 'KYC System',
         status: 'ready',
-        description: '3-tier progressive KYC with Sandbox API (PAN, Aadhaar, Bank, UPI)',
+        description: '3-tier progressive KYC with DigiLocker & Cashfree OKYC',
       },
       {
         name: 'Tax Filing',

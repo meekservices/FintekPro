@@ -7,8 +7,7 @@ import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
-import { generateUniqueUserId, hashPassword } from "./auth";
-import { randomBytes } from "crypto";
+import { generateUniqueUserId } from "./auth";
 
 if (!process.env.REPLIT_DOMAINS) {
   throw new Error("Environment variable REPLIT_DOMAINS not provided");
@@ -33,7 +32,6 @@ export function getSession() {
     ttl: sessionTtl,
     tableName: "sessions",
   });
-  
   return session({
     name: 'fintekpro.sid',
     secret: process.env.SESSION_SECRET!,
@@ -44,10 +42,11 @@ export function getSession() {
     cookie: {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "lax", // Use 'lax' for better browser compatibility
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: sessionTtl,
       path: '/',
-      domain: undefined, // Will be set dynamically per-request
+      // Share cookie across all fintekpro.com subdomains in production
+      domain: process.env.NODE_ENV === "production" ? ".fintekpro.com" : undefined,
     },
   });
 }
@@ -169,35 +168,9 @@ export async function setupAuth(app: Express) {
   });
 
   app.get("/api/callback", (req, res, next) => {
-    passport.authenticate(`replitauth:${req.hostname}`, (err: any, user: any, info: any) => {
-      if (err) {
-        return next(err);
-      }
-      if (!user) {
-        return res.redirect("/api/login");
-      }
-      
-      // SECURITY FIX: Regenerate session to prevent session fixation
-      req.session.regenerate((regenerateErr) => {
-        if (regenerateErr) {
-          return next(regenerateErr);
-        }
-        
-        // Log in the user with the new session
-        req.logIn(user, (loginErr) => {
-          if (loginErr) {
-            return next(loginErr);
-          }
-          
-          // Regenerate CSRF token as well
-          if (req.session) {
-            req.session.csrfToken = randomBytes(32).toString('hex');
-          }
-          
-          // Success - redirect to home
-          res.redirect("/");
-        });
-      });
+    passport.authenticate(`replitauth:${req.hostname}`, {
+      successReturnToOrRedirect: "/",
+      failureRedirect: "/api/login",
     })(req, res, next);
   });
 

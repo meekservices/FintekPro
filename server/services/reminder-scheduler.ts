@@ -3,7 +3,6 @@ import { db } from "../db";
 import { capitalGainsTaxReminders, taxReminderSubscriptions, users, userProfiles } from "@shared/schema";
 import { eq, and, gte, lte, sql } from "drizzle-orm";
 import { capitalGainsCalculator } from './capital-gains-calculator';
-import { logger } from '../logger';
 
 interface ReminderNotification {
   userId: string;
@@ -23,7 +22,7 @@ export class ReminderSchedulerService {
 
   start(): void {
     if (this.cronJob) {
-      logger.info('⏰ Reminder scheduler already running');
+      console.log('⏰ Reminder scheduler already running');
       return;
     }
 
@@ -34,28 +33,28 @@ export class ReminderSchedulerService {
       timezone: "Asia/Kolkata"
     });
 
-    logger.info('✅ Capital gains reminder scheduler started (runs daily at 9:00 AM IST)');
+    console.log('✅ Capital gains reminder scheduler started (runs daily at 9:00 AM IST)');
     
     // Run once on startup for testing (optional - remove in production)
-    // this.checkAndSendReminders().catch(err => logger.error('Error in reminder check', err));
+    // this.checkAndSendReminders().catch(console.error);
   }
 
   stop(): void {
     if (this.cronJob) {
       this.cronJob.stop();
       this.cronJob = null;
-      logger.info('⏹️ Reminder scheduler stopped');
+      console.log('⏹️ Reminder scheduler stopped');
     }
   }
 
   async checkAndSendReminders(): Promise<void> {
     if (this.isRunning) {
-      logger.info('⏭️ Reminder check already in progress, skipping...');
+      console.log('⏭️ Reminder check already in progress, skipping...');
       return;
     }
 
     this.isRunning = true;
-    logger.info('🔍 Checking for upcoming capital gains tax reminders...');
+    console.log('🔍 Checking for upcoming capital gains tax reminders...');
 
     try {
       // Get reminders due in the next 7 days that haven't been sent
@@ -95,7 +94,7 @@ export class ReminderSchedulerService {
           )
         );
 
-      logger.info(`📋 Found ${upcomingReminders.length} pending reminders`);
+      console.log(`📋 Found ${upcomingReminders.length} pending reminders`);
 
       if (upcomingReminders.length === 0) {
         this.isRunning = false;
@@ -108,7 +107,7 @@ export class ReminderSchedulerService {
         item.subscription?.subscriptionStatus === 'free_expert_tier'
       );
 
-      logger.info(`✅ ${activeReminders.length} reminders with active subscriptions`);
+      console.log(`✅ ${activeReminders.length} reminders with active subscriptions`);
 
       // Send notifications
       for (const item of activeReminders) {
@@ -132,16 +131,16 @@ export class ReminderSchedulerService {
           // Update reminder status to 'sent'
           await capitalGainsCalculator.updateReminderStatus(item.reminder.id, 'sent');
 
-          logger.info(`✉️ Sent reminder for ${notification.quarter} to ${notification.email}`);
+          console.log(`✉️ Sent reminder for ${notification.quarter} to ${notification.email}`);
         } catch (error) {
-          logger.error(`❌ Error sending reminder for user ${item.user?.id}:`, error);
+          console.error(`❌ Error sending reminder for user ${item.user?.id}:`, error);
           // Continue with other reminders even if one fails
         }
       }
 
-      logger.info('✅ Reminder check completed');
+      console.log('✅ Reminder check completed');
     } catch (error) {
-      logger.error('❌ Error checking reminders:', error);
+      console.error('❌ Error checking reminders:', error);
     } finally {
       this.isRunning = false;
     }
@@ -213,11 +212,20 @@ export class ReminderSchedulerService {
   }): Promise<void> {
     // In production, integrate with actual email service (SendGrid, AWS SES, etc.)
     // For now, log the notification
-    logger.info('📧 Email Notification:', {
-      to: data.to,
-      subject: `Capital Gains Tax Reminder - ${data.quarter}`,
-      body: `Dear ${data.firstName}, This is a reminder that your advance tax payment for ${data.quarter} is due on ${data.dueDate}. Tax Breakdown: STCG: ${data.stcgAmount}, LTCG: ${data.ltcgAmount}, Total: ${data.totalTaxLiability}. Please ensure timely payment to avoid penalties. Payment Link: https://www.incometax.gov.in/iec/foportal/`
-    });
+    console.log('📧 Email Notification:');
+    console.log(`   To: ${data.to}`);
+    console.log(`   Subject: Capital Gains Tax Reminder - ${data.quarter}`);
+    console.log(`   Body:`);
+    console.log(`     Dear ${data.firstName},`);
+    console.log(`     This is a reminder that your advance tax payment for ${data.quarter} is due on ${data.dueDate}.`);
+    console.log(`     `);
+    console.log(`     Tax Breakdown:`);
+    console.log(`     - Short-term Capital Gains: ${data.stcgAmount}`);
+    console.log(`     - Long-term Capital Gains: ${data.ltcgAmount}`);
+    console.log(`     - Total Tax Liability: ${data.totalTaxLiability}`);
+    console.log(`     `);
+    console.log(`     Please ensure timely payment to avoid penalties.`);
+    console.log(`     Payment Link: https://www.incometax.gov.in/iec/foportal/`);
 
     // Audit log
     await this.logNotification('email', data.to, data.quarter);
@@ -230,9 +238,8 @@ export class ReminderSchedulerService {
     totalTaxLiability: string;
   }): Promise<void> {
     // In production, integrate with SMS gateway (Twilio, AWS SNS, etc.)
-    logger.info('📱 SMS Notification:', {
-      message: `Dear ${data.firstName}, your advance tax for ${data.quarter} (${data.totalTaxLiability}) is due on ${data.dueDate}. Visit our portal for details.`
-    });
+    console.log('📱 SMS Notification:');
+    console.log(`   Dear ${data.firstName}, your advance tax for ${data.quarter} (${data.totalTaxLiability}) is due on ${data.dueDate}. Visit our portal for details.`);
 
     // Audit log
     await this.logNotification('sms', data.firstName, data.quarter);
@@ -247,10 +254,19 @@ export class ReminderSchedulerService {
     ltcgAmount: string;
   }): Promise<void> {
     // In production, integrate with WhatsApp Business API
-    logger.info('💬 WhatsApp Notification:', {
-      recipient: data.firstName,
-      message: `Hi ${data.firstName}, 🔔 *Capital Gains Tax Reminder* - Quarter: ${data.quarter}, Due Date: ${data.dueDate}, 📊 *Tax Breakdown:* STCG: ${data.stcgAmount}, LTCG: ${data.ltcgAmount}, Total: ${data.totalTaxLiability}. 💳 Pay now: https://www.incometax.gov.in/iec/foportal/`
-    });
+    console.log('💬 WhatsApp Notification:');
+    console.log(`   Hi ${data.firstName},`);
+    console.log(`   🔔 *Capital Gains Tax Reminder*`);
+    console.log(`   `);
+    console.log(`   Quarter: ${data.quarter}`);
+    console.log(`   Due Date: ${data.dueDate}`);
+    console.log(`   `);
+    console.log(`   📊 *Tax Breakdown:*`);
+    console.log(`   • STCG: ${data.stcgAmount}`);
+    console.log(`   • LTCG: ${data.ltcgAmount}`);
+    console.log(`   • Total: ${data.totalTaxLiability}`);
+    console.log(`   `);
+    console.log(`   💳 Pay now: https://www.incometax.gov.in/iec/foportal/`);
 
     // Audit log
     await this.logNotification('whatsapp', data.firstName, data.quarter);
@@ -259,7 +275,7 @@ export class ReminderSchedulerService {
   private async logNotification(channel: string, recipient: string, quarter: string): Promise<void> {
     try {
       // Log to database or audit trail
-      logger.info(`📝 Audit Log: ${channel} notification sent to ${recipient} for ${quarter} at ${new Date().toISOString()}`);
+      console.log(`📝 Audit Log: ${channel} notification sent to ${recipient} for ${quarter} at ${new Date().toISOString()}`);
       
       // In production, insert into notifications audit table
       // await db.insert(notificationLogs).values({
@@ -269,13 +285,13 @@ export class ReminderSchedulerService {
       //   sentAt: new Date()
       // });
     } catch (error) {
-      logger.error('Error logging notification:', error);
+      console.error('Error logging notification:', error);
     }
   }
 
   // Manual trigger for testing
   async triggerManualCheck(): Promise<void> {
-    logger.info('🔧 Manual reminder check triggered');
+    console.log('🔧 Manual reminder check triggered');
     await this.checkAndSendReminders();
   }
 }
