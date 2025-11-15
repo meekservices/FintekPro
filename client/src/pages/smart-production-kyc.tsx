@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useDropzone } from "react-dropzone";
+import { KycSessionKeepAlive } from "@/components/KycSessionKeepAlive";
 
 type UserType = "individual" | "corporate" | "nri";
 
@@ -2225,6 +2226,32 @@ export default function SmartProductionKYCOnboarding() {
   // Session Management Dialog
   return (
     <>
+      {/* Session Keep-Alive Component */}
+      {productionSession && productionSession.expiresAt && (
+        <KycSessionKeepAlive
+          sessionId={productionSession.id}
+          expiresAt={productionSession.expiresAt}
+          onSessionExpired={() => {
+            setProductionSession(null);
+            setSessionId("");
+            setCurrentStep("");
+            toast({
+              title: "Session Expired",
+              description: "Your KYC session has expired. Please start a new session.",
+              variant: "destructive",
+            });
+          }}
+          onSessionExtended={(newExpiresAt: string) => {
+            // Immediately update the session with the new expiration time
+            setProductionSession((prev) => 
+              prev ? { ...prev, expiresAt: newExpiresAt } : null
+            );
+            // Also refresh from backend to ensure consistency
+            queryClient.invalidateQueries({ queryKey: ["/api/kyc/production/status", productionSession.id] });
+          }}
+        />
+      )}
+
       <Dialog open={existingSessionDialogOpen} onOpenChange={setExistingSessionDialogOpen}>
         <DialogContent>
           <DialogHeader>

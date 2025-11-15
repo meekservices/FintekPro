@@ -168,6 +168,48 @@ export function createProductionKycRouter(storage: IStorage, requireClientOrHigh
     }
   });
 
+  // Extend session expiration by 30 minutes
+  router.post("/extend-session", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const { sessionId } = req.body;
+      const userId = req.user.id;
+
+      if (!sessionId) {
+        return apiResponse.badRequest(res, "Session ID is required");
+      }
+
+      // Get session to verify ownership
+      const session = await storage.getKycVerificationSession(sessionId);
+      
+      if (!session || session.userId !== userId) {
+        return apiResponse.notFound(res, "Session not found");
+      }
+
+      // Check if session is still active
+      if (!session.isActive || session.currentStep === 'completed' || session.currentStep === 'cancelled') {
+        return apiResponse.badRequest(res, "Session is not active");
+      }
+
+      // Extend expiration by 30 minutes from now
+      const newExpiresAt = new Date();
+      newExpiresAt.setMinutes(newExpiresAt.getMinutes() + 30);
+
+      await storage.updateKycVerificationSession(sessionId, {
+        expiresAt: newExpiresAt,
+      });
+
+      return apiResponse.success(res, { 
+        success: true, 
+        message: "Session extended successfully",
+        expiresAt: newExpiresAt.toISOString(),
+        minutesUntilExpiry: 30
+      });
+    } catch (error) {
+      console.error("Error extending session:", error);
+      return apiResponse.serverError(res, "Failed to extend session");
+    }
+  });
+
   // Start production KYC workflow (KRA check)
   router.post("/start", requireClientOrHigher, async (req: any, res) => {
     try {
