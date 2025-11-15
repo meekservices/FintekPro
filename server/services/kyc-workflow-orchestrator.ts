@@ -112,11 +112,28 @@ export class KycWorkflowOrchestrator {
 
   /**
    * Start KYC workflow with KRA status check (Tier 1)
+   * Checks for existing active session and resumes it instead of creating duplicate
    */
   async startKycWorkflow(request: StartWorkflowRequest): Promise<WorkflowState> {
     const { userId, panNumber, dob, ipAddress, userAgent } = request;
 
-    // Create KYC verification session
+    // Check for existing active session
+    const existingSession = await storage.getLatestProductionKycSession(userId);
+    
+    if (
+      existingSession &&
+      existingSession.currentStep !== 'completed' &&
+      existingSession.currentStep !== 'cancelled' &&
+      new Date(existingSession.expiresAt || 0) > new Date()
+    ) {
+      // Resume existing session instead of creating duplicate
+      const resumedState = await this.stateAssembler.assembleWorkflowState(existingSession.id);
+      if (resumedState) {
+        return resumedState;
+      }
+    }
+
+    // Create new KYC verification session
     const session = await storage.createKycVerificationSession({
       userId,
       panNumber,
