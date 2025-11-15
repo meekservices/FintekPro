@@ -13,11 +13,13 @@ import { setupAuth as setupReplitAuth } from "./replitAuth";
 import { setupAuth as setupLocalAuth } from "./auth";
 import { subdomainDetection } from "./subdomain-middleware";
 import { requestCorrelationMiddleware } from "./middleware/request-correlation";
+import { requestTracingMiddleware } from "./middleware/request-tracing";
 import { initializeCsrfToken, validateCsrfToken, getCsrfToken } from "./csrf-protection";
 import { shouldSkipAuthRateLimit } from "./admin-rate-limit-bypass";
 import { getCookieDomain } from "./cookie-domain";
 import "./services/sms-service"; // Initialize SMS service
 import { gracefulShutdown } from "./graceful-shutdown";
+import { setupSwagger } from "./swagger";
 
 // CRITICAL: Process-level error handlers to prevent silent crashes
 process.on('uncaughtException', (error: Error) => {
@@ -231,6 +233,9 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 // Request correlation middleware for request ID tracking
 app.use(requestCorrelationMiddleware);
 
+// Request tracing middleware for distributed tracing
+app.use(requestTracingMiddleware);
+
 // Subdomain detection middleware - must come early to be available in all routes
 app.use(subdomainDetection);
 
@@ -356,6 +361,10 @@ app.use((req, res, next) => {
   // Register Interactive Charts routes (Chart analysis with custom date ranges and comparison tool)
   const { registerChartRoutes } = await import('./chart-routes');
   registerChartRoutes(app);
+  
+  // Setup Swagger API Documentation (/api/docs)
+  setupSwagger(app);
+  logger.info('📚 API documentation available at /api/docs');
   
   const server = await registerRoutes(app);
 
