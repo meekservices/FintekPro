@@ -153,6 +153,25 @@
   box-shadow: 0 0 0 2px hsl(var(--primary) / 0.2) !important;
 }
 
+/* Popover styling - Ensure solid background */
+[data-radix-popper-content-wrapper] {
+  z-index: 50 !important;
+}
+
+[role="dialog"][data-state="open"],
+[data-radix-portal] > [role="dialog"] {
+  background: hsl(var(--popover)) !important;
+  border: 2px solid hsl(var(--border)) !important;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1) !important;
+}
+
+.dark [role="dialog"][data-state="open"],
+.dark [data-radix-portal] > [role="dialog"] {
+  background: hsl(var(--popover)) !important;
+  border-color: hsl(var(--border)) !important;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.3) !important;
+}
+
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--accent-foreground));
 }
