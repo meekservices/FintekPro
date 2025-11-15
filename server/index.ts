@@ -17,6 +17,7 @@ import { initializeCsrfToken, validateCsrfToken, getCsrfToken } from "./csrf-pro
 import { shouldSkipAuthRateLimit } from "./admin-rate-limit-bypass";
 import { getCookieDomain } from "./cookie-domain";
 import "./services/sms-service"; // Initialize SMS service
+import { gracefulShutdown } from "./graceful-shutdown";
 
 // CRITICAL: Process-level error handlers to prevent silent crashes
 process.on('uncaughtException', (error: Error) => {
@@ -512,5 +513,31 @@ app.use((req, res, next) => {
     } else {
       console.log('[API Health Monitoring] Disabled via API_HEALTH_MONITORING_ENABLED=false');
     }
+
+    // ✅ Register server for graceful shutdown
+    gracefulShutdown.registerServer(server);
+    
+    // Register cleanup handlers for background services
+    gracefulShutdown.registerHandler({
+      name: 'Cron Jobs',
+      cleanup: async () => {
+        logger.info('Stopping all cron jobs...');
+        // Cron jobs will be stopped automatically when process exits
+      }
+    });
+
+    gracefulShutdown.registerHandler({
+      name: 'Cache Service',
+      cleanup: async () => {
+        logger.info('Clearing cache...');
+        const { cacheService } = await import('./services/cache-service');
+        cacheService.clear();
+      }
+    });
+
+    logger.info('Graceful shutdown handlers registered', { 
+      environment: process.env.NODE_ENV,
+      serverReady: true 
+    });
   });
 })();
