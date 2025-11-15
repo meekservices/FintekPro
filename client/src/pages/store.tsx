@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { ProductDetailsModal } from "@/components/product-details-modal";
+import { ProductEligibilityDialog } from "@/components/ProductEligibilityDialog";
 import { useCart } from "@/hooks/use-cart";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -18,12 +19,13 @@ import { LoanOffersCard } from "@/components/LoanOffersCard";
 import { 
   Heart, ShoppingCart, Search, Star, TrendingUp, Shield, Globe, CreditCard, FileText, 
   Briefcase, Banknote, Target, Crown, Landmark, Store as StoreIcon, ArrowRight, Sparkles, 
-  Zap, ChevronRight, Plus, Building2, Award, Package, Flame, RefreshCw
+  Zap, ChevronRight, Plus, Building2, Award, Package, Flame, RefreshCw, Lock
 } from "lucide-react";
 
 interface Product {
   id: string;
   name: string;
+  productName?: string;
   shortDescription: string;
   category: string;
   subcategory?: string;
@@ -38,6 +40,7 @@ interface Product {
   isPremium?: boolean;
   isNew?: boolean;
   badge?: string;
+  requiredTier?: "basic" | "enhanced" | "accredited_investor";
 }
 
 // Comprehensive FintekPro marketplace products
@@ -288,6 +291,8 @@ export default function StorePage() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedLockedProduct, setSelectedLockedProduct] = useState<Product | null>(null);
+  const [isEligibilityDialogOpen, setIsEligibilityDialogOpen] = useState(false);
   
   const { addToCart, isAddingToCart } = useCart();
   const { toast } = useToast();
@@ -297,6 +302,14 @@ export default function StorePage() {
   const { data: productsData, isLoading: isLoadingProducts } = useQuery<any[]>({
     queryKey: ["/api/products"],
   });
+
+  // Fetch tier status for eligibility checking
+  const { data: tierStatusData } = useQuery<{ success: boolean; data: any }>({
+    queryKey: ["/api/kyc/complete-status"],
+    enabled: isAuthenticated,
+  });
+
+  const tierStatus = tierStatusData?.data;
   
   // Normalize API data to match Product interface
   const normalizeProduct = (apiProduct: any): Product => {
@@ -327,6 +340,52 @@ export default function StorePage() {
       isNew: apiProduct.isNew || false,
       badge: apiProduct.badge
     };
+  };
+  
+  // Map product types to required tier levels
+  const getRequiredTier = (productType: string): "basic" | "enhanced" | "accredited_investor" => {
+    const tierMap: Record<string, "basic" | "enhanced" | "accredited_investor"> = {
+      // Tier 1 (Basic) - Mutual Funds only
+      'mutual_fund': 'basic',
+      'mld': 'basic',
+      
+      // Tier 2 (Enhanced) - Broking, IPO, Bonds, etc.
+      'ipo': 'enhanced',
+      'pre_ipo': 'enhanced',
+      'debenture': 'enhanced',
+      'bond': 'enhanced',
+      'government_securities': 'enhanced',
+      'ncd': 'enhanced',
+      'sgb': 'enhanced',
+      'broking': 'enhanced',
+      
+      // Tier 3 (Accredited Investor) - International & Alternative Investments
+      'international_trading': 'accredited_investor',
+      'alternative_investments': 'accredited_investor',
+      'pms': 'accredited_investor',
+    };
+    
+    return tierMap[productType] || 'basic';
+  };
+  
+  // Check if product is locked based on user's tier
+  const isProductLocked = (product: Product): boolean => {
+    if (!tierStatus || !isAuthenticated) return false;
+    
+    const requiredTier = product.requiredTier || getRequiredTier(product.productType);
+    const currentTier = tierStatus.currentTier;
+    
+    const tierHierarchy = ['basic', 'enhanced', 'accredited_investor'];
+    const requiredIndex = tierHierarchy.indexOf(requiredTier);
+    const currentIndex = tierHierarchy.indexOf(currentTier);
+    
+    return currentIndex < requiredIndex;
+  };
+  
+  // Handle clicking on locked product
+  const handleLockedProductClick = (product: Product) => {
+    setSelectedLockedProduct(product);
+    setIsEligibilityDialogOpen(true);
   };
   
   // Use API data if available, fallback to mock data
@@ -483,6 +542,12 @@ export default function StorePage() {
                 Premium
               </Badge>
             )}
+            {isProductLocked(product) && (
+              <Badge className="bg-orange-600 text-white">
+                <Lock className="h-3 w-3 mr-1" />
+                Locked
+              </Badge>
+            )}
           </div>
           <Button
             variant="ghost"
@@ -522,24 +587,37 @@ export default function StorePage() {
           </Badge>
         </div>
         <div className="flex gap-2">
-          <Button
-            className="flex-1 bg-finance-blue hover:bg-finance-blue/90 group-hover:scale-105 transition-transform"
-            onClick={() => openProductDetails(product)}
-            data-testid={`view-details-${product.id}`}
-          >
-            View Details
-            <ArrowRight className="h-4 w-4 ml-2" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleAddToCart(product)}
-            disabled={isAddingToCart}
-            data-testid={`add-cart-${product.id}`}
-            className="group-hover:scale-105 transition-transform"
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
+          {isProductLocked(product) ? (
+            <Button
+              className="flex-1 bg-orange-600 hover:bg-orange-700 group-hover:scale-105 transition-transform"
+              onClick={() => handleLockedProductClick(product)}
+              data-testid={`view-eligibility-${product.id}`}
+            >
+              <Lock className="h-4 w-4 mr-2" />
+              Upgrade to Access
+            </Button>
+          ) : (
+            <>
+              <Button
+                className="flex-1 bg-finance-blue hover:bg-finance-blue/90 group-hover:scale-105 transition-transform"
+                onClick={() => openProductDetails(product)}
+                data-testid={`view-details-${product.id}`}
+              >
+                View Details
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleAddToCart(product)}
+                disabled={isAddingToCart}
+                data-testid={`add-cart-${product.id}`}
+                className="group-hover:scale-105 transition-transform"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -762,6 +840,30 @@ export default function StorePage() {
         onWishlistToggle={toggleWishlist}
         isWishlisted={selectedProduct ? wishlist.includes(selectedProduct.id) : false}
       />
+
+      {selectedLockedProduct && tierStatus && isEligibilityDialogOpen && (
+        <ProductEligibilityDialog
+          isOpen={isEligibilityDialogOpen}
+          onClose={() => setIsEligibilityDialogOpen(false)}
+          productName={selectedLockedProduct.name || selectedLockedProduct.productName || "This Product"}
+          productCategory={selectedLockedProduct.category || "Financial Product"}
+          requiredTier={selectedLockedProduct.requiredTier || getRequiredTier(selectedLockedProduct.productType)}
+          currentTier={(tierStatus.currentTier || "basic") as "basic" | "enhanced" | "accredited_investor"}
+          currentTierName={tierStatus.currentTierName || "Basic Tier"}
+          requiredTierName={
+            selectedLockedProduct.requiredTier === "enhanced" ? "Enhanced Tier" :
+            selectedLockedProduct.requiredTier === "accredited_investor" ? "Accredited Investor" :
+            tierStatus.nextTierName || "Enhanced Tier"
+          }
+          requiredTierDescription={
+            tierStatus.nextTierDescription || 
+            "Upgrade your tier to access this product and unlock additional features."
+          }
+          missingVerifications={tierStatus.missingVerifications || []}
+          eligibleForUpgrade={tierStatus.eligibleForUpgrade || false}
+          upgradeRequestedAt={tierStatus.upgradeRequestedAt || null}
+        />
+      )}
     </div>
   );
 }
