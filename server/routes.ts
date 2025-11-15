@@ -969,6 +969,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Complete KYC Status - Unified endpoint aggregating tier status + re-KYC compliance
+  app.get("/api/kyc/complete-status", requireClientOrHigher, async (req, res) => {
+    try {
+      const { getCompleteKYCStatus } = await import("./services/complete-kyc-status-service");
+      const userId = req.user!.id;
+      
+      const completeStatus = await getCompleteKYCStatus(userId);
+      
+      res.json({
+        success: true,
+        data: completeStatus,
+      });
+    } catch (error) {
+      console.error("Error fetching complete KYC status:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch complete KYC status",
+      });
+    }
+  });
+
   // Trigger Re-KYC process
   app.post("/api/profile/trigger-rekyc", requireClientOrHigher, async (req, res) => {
     try {
