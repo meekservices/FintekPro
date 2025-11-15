@@ -8,6 +8,13 @@
       "when": 1762826075191,
       "tag": "0000_curvy_the_captain",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1763184019273,
+      "tag": "0001_shiny_caretaker",
+      "breakpoints": true
     }
   ]
 }

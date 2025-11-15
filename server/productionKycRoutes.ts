@@ -178,27 +178,22 @@ export function createProductionKycRouter(storage: IStorage, requireClientOrHigh
         return apiResponse.badRequest(res, "PAN number and user type are required");
       }
 
-      // Create or get production KYC session
-      const session = await storage.createProductionKycSession({
+      // Start KRA verification workflow using orchestrator
+      const { kycWorkflowOrchestrator } = await import('./services/kyc-workflow-orchestrator');
+      const result = await kycWorkflowOrchestrator.startKycWorkflow({
         userId,
         panNumber: panNumber.toUpperCase(),
-        userType,
-        currentStep: "kra_check_pending",
-        panVerified: true,
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-      });
-
-      // Start KRA verification workflow
-      const kraWorkflow = await import('./services/kyc-workflow-orchestrator');
-      const result = await kraWorkflow.startProductionKycWorkflow(session.id, {
-        panNumber: panNumber.toUpperCase(),
         dob: panDob,
-        userType,
+        ipAddress: req.ip || 'unknown',
+        userAgent: req.headers['user-agent'] || 'unknown'
       });
 
       return apiResponse.success(res, {
         success: true,
-        session: result.session,
+        sessionId: result.sessionId,
+        currentStep: result.currentStep,
+        canProceed: result.canProceed,
+        nextAction: result.nextAction,
       });
     } catch (error) {
       console.error("Error starting KYC workflow:", error);
