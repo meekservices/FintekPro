@@ -117,15 +117,10 @@ export class KycWorkflowOrchestrator {
   async startKycWorkflow(request: StartWorkflowRequest): Promise<WorkflowState> {
     const { userId, panNumber, dob, ipAddress, userAgent } = request;
 
-    // Check for existing active session
-    const existingSession = await storage.getLatestProductionKycSession(userId);
+    // Check for existing active session in kyc_verification_sessions table
+    const existingSession = await storage.getActiveKycSession(userId);
     
-    if (
-      existingSession &&
-      existingSession.currentStep !== 'completed' &&
-      existingSession.currentStep !== 'cancelled' &&
-      new Date(existingSession.expiresAt || 0) > new Date()
-    ) {
+    if (existingSession) {
       // Resume existing session instead of creating duplicate
       const resumedState = await this.stateAssembler.assembleWorkflowState(existingSession.id);
       if (resumedState) {
