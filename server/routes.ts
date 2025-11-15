@@ -53,6 +53,12 @@ import monitoringRoutes from "./monitoringRoutes";
 import auditRoutes from "./auditRoutes";
 import adminAIFixesRouter from "./admin-ai-fixes-routes";
 import marketDataRoutes from "./market-data-routes";
+import { latencyTracker } from "./middleware/latency-tracker";
+import { externalApiMonitor } from "./services/external-api-monitor";
+import { alertingService } from "./services/alerting-service";
+import { errorAggregator } from "./services/error-aggregator";
+import { dataRetentionService } from "./services/data-retention";
+import { logger } from "./logger";
 import aiPortfolioEnhancedRoutes from "./ai-portfolio-enhanced-routes";
 import { ZohoCommerceAPI, type ZohoCommerceConfig } from './zoho-commerce-api';
 import { zohoCommerceConfig, zohoProducts, zohoCategories, zohoOrders, zohoCustomers, zohoInventory, zohoWebhooks, zohoSyncLogs, insertZohoCommerceConfigSchema, insertZohoProductSchema, insertZohoCategorySchema, insertZohoOrderSchema, insertCreditProfileSchema, insertLoanRequestSchema, insertLoanApplicationMarketplaceSchema, insertApplicationDocumentSchema, insertPartnerApplicationDocumentSchema } from '@shared/schema';
@@ -32763,6 +32769,28 @@ System Security Data:`;
       console.error("Error updating category status:", error);
       return apiResponse.serverError(res, "Failed to update category status");
     }
+  });
+
+
+  // Add latency tracking middleware
+  app.use(latencyTracker);
+
+  // Initialize monitoring services
+  logger.info("Starting monitoring services...");
+  
+  // Start external API health monitoring (every 5 minutes)
+  externalApiMonitor.start("*/5 * * * *");
+  
+  // Start error aggregation enhancements (every 2 minutes)
+  errorAggregator.start("*/2 * * * *");
+  
+  // Start data retention cleanup (daily at 2 AM)
+  dataRetentionService.start("0 2 * * *");
+  
+  logger.info("Monitoring services started successfully", {
+    externalApiMonitor: externalApiMonitor.getStatus(),
+    errorAggregator: errorAggregator.getStatus(),
+    dataRetentionService: dataRetentionService.getStatus(),
   });
 
   return server;
