@@ -76,56 +76,48 @@ export function createProductionKycRouter(storage: IStorage, requireClientOrHigh
         return apiResponse.badRequest(res, "PAN number, full name, and date of birth are required");
       }
 
-      // Verify PAN via Sandbox API
-      const sandboxResponse = await fetch("https://api.sandbox.co.in/pans", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": process.env.SANDBOX_API_KEY || "",
-          "x-api-key": process.env.SANDBOX_API_KEY || "",
-          "x-api-version": "1.0",
-        },
-        body: JSON.stringify({
-          pan: panNumber.toUpperCase(),
-          consent: "Y",
-          reason: "KYC verification",
-        }),
-      });
-
-      if (!sandboxResponse.ok) {
-        const errorData = await sandboxResponse.json();
-        return apiResponse.error(res, errorData.message || "PAN verification failed", 400);
-      }
-
-      const panData = await sandboxResponse.json();
+      // Use SandboxKYCService for proper authentication
+      const { SandboxKYCService } = await import('./services/sandbox-kyc-service');
+      const sandboxKYC = new SandboxKYCService();
+      
+      // Verify PAN via Sandbox API with proper authentication
+      const panData = await sandboxKYC.verifyIndividualPAN(
+        panNumber.toUpperCase(),
+        fullName,
+        dob
+      );
 
       // Validate PAN data matches user input
-      if (panData.data?.full_name?.toLowerCase() !== fullName.toLowerCase()) {
+      const nameMatch = panData.fullName?.toLowerCase().includes(fullName.toLowerCase()) ||
+                       fullName.toLowerCase().includes(panData.fullName?.toLowerCase() || '');
+      
+      if (!nameMatch) {
         return apiResponse.error(res, "PAN name does not match provided name", 400);
       }
 
       // Save to database
       await storage.saveUserPanDetails({
         userId,
-        panNumber: panNumber.toUpperCase(),
-        fullName: panData.data.full_name,
-        dateOfBirth: dob,
-        panType: panData.data.category || "Individual",
+        panNumber: panData.pan,
+        fullName: panData.fullName,
+        dateOfBirth: panData.dateOfBirth,
+        panType: panData.category || "Individual",
         verified: true,
       });
 
       return apiResponse.success(res, {
         success: true,
         panData: {
-          panNumber: panNumber.toUpperCase(),
-          name: panData.data.full_name,
-          dob,
-          category: panData.data.category,
+          panNumber: panData.pan,
+          name: panData.fullName,
+          dob: panData.dateOfBirth,
+          category: panData.category,
         },
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error verifying PAN:", error);
-      return apiResponse.serverError(res, "Failed to verify PAN");
+      const errorMessage = error.message || "Failed to verify PAN";
+      return apiResponse.error(res, errorMessage, 400);
     }
   });
 
