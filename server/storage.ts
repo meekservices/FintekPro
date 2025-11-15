@@ -13439,7 +13439,10 @@ export class DatabaseStorage implements IStorage, IKycStorage {
   
           eq(schema.kycVerificationSessions.isActive, true),
   
-          gte(schema.kycVerificationSessions.expiresAt, new Date())
+          or(
+            isNull(schema.kycVerificationSessions.expiresAt),
+            gte(schema.kycVerificationSessions.expiresAt, new Date())
+          )
   
         )
   
