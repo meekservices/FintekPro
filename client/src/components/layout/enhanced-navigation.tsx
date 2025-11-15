@@ -148,15 +148,6 @@ export function EnhancedNavigation() {
                 { name: "Smart Mode", href: "/smart-production-kyc", description: "Automated KYC with Protean, Cashfree eKYC, CERSAI & BSE UCC", badge: "RECOMMENDED" },
                 { name: "Manual Mode", href: "/manual-kyc", description: "Traditional document upload via BSE Star API" }
               ]
-            },
-            { 
-              name: "KYC Tier Upgrades", 
-              description: "Unlock premium products",
-              subItems: [
-                { name: "Basic KYC (Tier 1)", href: "/profile?tab=basic", description: "PAN, Aadhaar, basic profile → Unlock MF, IPO, Equity" },
-                { name: "Enhanced KYC (Tier 2)", href: "/profile?tab=enhanced", description: "Video KYC, income proof → Unlock F&O, Commodities, Global" },
-                { name: "Accredited Investor (Tier 3)", href: "/profile?tab=accredited", description: "Net worth ₹7.5Cr+ → Unlock AIF, PMS, Pre-IPO", badge: "PREMIUM" }
-              ]
             }
           ]
         }
