@@ -9,6 +9,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { useState } from "react";
+import { useLocation } from "wouter";
 
 interface CompleteKYCStatus {
   currentTier: string;
@@ -90,6 +91,7 @@ const tierHierarchy: TierInfo[] = [
 
 export function TierUpgradePanel() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [selectedTierForUpgrade, setSelectedTierForUpgrade] = useState<string | null>(null);
 
   const { data: completeStatus, isLoading } = useQuery<{ success: boolean; data: CompleteKYCStatus }>({
@@ -291,7 +293,17 @@ export function TierUpgradePanel() {
                 {isUpgradeable && (
                   <div className="mt-4">
                     <Button
-                      onClick={() => upgradeMutation.mutate(tier.id)}
+                      onClick={() => {
+                        if (tier.id === "accredited_investor") {
+                          setLocation("/smart-production-kyc?tier3=true");
+                          toast({
+                            title: "Tier 3 Upgrade Process",
+                            description: "Complete the Accredited Investor verification workflow to upgrade.",
+                          });
+                        } else {
+                          upgradeMutation.mutate(tier.id);
+                        }
+                      }}
                       disabled={upgradeMutation.isPending || status.upgradeRequestedAt !== null}
                       className="w-full"
                       data-testid={`button-upgrade-to-${tier.id}`}
@@ -303,7 +315,7 @@ export function TierUpgradePanel() {
                       ) : (
                         <>
                           <ArrowRight className="h-4 w-4 mr-2" />
-                          Upgrade to {tier.name}
+                          {tier.id === "accredited_investor" ? "Start Verification Process" : `Upgrade to ${tier.name}`}
                         </>
                       )}
                     </Button>

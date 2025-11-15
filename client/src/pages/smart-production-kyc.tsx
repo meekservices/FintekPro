@@ -180,6 +180,19 @@ export default function SmartProductionKYCOnboarding() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, [panSubStep]);
 
+  // Check for tier3 query parameter and auto-open AI workflow
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("tier3") === "true") {
+      setShowAiWorkflow(true);
+      setCurrentStep("completed");
+      toast({
+        title: "Tier 3 Upgrade Initiated",
+        description: "Complete the Accredited Investor verification to unlock premium products.",
+      });
+    }
+  }, [toast]);
+
   // Check for existing in-progress session
   const checkExistingSession = async () => {
     try {

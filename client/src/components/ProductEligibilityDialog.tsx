@@ -76,7 +76,11 @@ export function ProductEligibilityDialog({
 
   const handleUpgrade = () => {
     onClose();
-    setLocation("/kyc-dashboard");
+    if (requiredTier === "accredited_investor") {
+      setLocation("/smart-production-kyc?tier3=true");
+    } else {
+      setLocation("/kyc-dashboard");
+    }
   };
 
   const isAlreadyUpgrading = upgradeRequestedAt !== null;
