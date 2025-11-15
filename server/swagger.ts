@@ -371,17 +371,46 @@ All errors follow a consistent format:
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
 /**
- * Setup Swagger UI middleware
+ * Setup Swagger UI middleware with production protection
  */
 export function setupSwagger(app: Express): void {
+  // Production protection: Disable Swagger in production unless explicitly enabled
+  if (process.env.NODE_ENV === 'production' && process.env.ENABLE_API_DOCS !== 'true') {
+    logger.warn('API documentation disabled in production (set ENABLE_API_DOCS=true to enable)');
+    app.get('/api/docs', (req, res) => {
+      res.status(403).json({ error: 'API documentation is disabled in production' });
+    });
+    return;
+  }
+
+  // Optional: IP whitelist for production
+  const allowedIPs = process.env.API_DOCS_ALLOWED_IPS?.split(',') || [];
+  const docsMiddleware = (req: any, res: any, next: any) => {
+    // Skip IP check in development
+    if (process.env.NODE_ENV !== 'production') {
+      return next();
+    }
+
+    // Check IP whitelist if configured
+    if (allowedIPs.length > 0) {
+      const clientIP = req.ip || req.connection.remoteAddress;
+      if (!allowedIPs.includes(clientIP)) {
+        logger.warn('Unauthorized API docs access attempt', { ip: clientIP });
+        return res.status(403).json({ error: 'Access denied' });
+      }
+    }
+
+    next();
+  };
+
   // Serve Swagger JSON
-  app.get('/api/docs/swagger.json', (req, res) => {
+  app.get('/api/docs/swagger.json', docsMiddleware, (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     res.send(swaggerSpec);
   });
 
   // Serve Swagger UI
-  app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  app.use('/api/docs', docsMiddleware, swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
     customCss: `
       .swagger-ui .topbar { display: none }
       .swagger-ui .info { margin-top: 20px }

@@ -48,7 +48,7 @@ export function requestTracingMiddleware(req: Request, res: Response, next: Next
   res.setHeader('X-Trace-Id', traceId);
   res.setHeader('X-Span-Id', spanId);
 
-  // Log trace context
+  // Create trace context
   const traceContext: TraceContext = {
     traceId,
     spanId,
@@ -60,7 +60,23 @@ export function requestTracingMiddleware(req: Request, res: Response, next: Next
     ip: req.ip
   };
 
-  logger.debug('Request trace', traceContext);
+  // Store in request for downstream access
+  (req as any).traceContext = traceContext;
+
+  // Log trace with all context
+  logger.debug('Request trace started', traceContext);
+
+  // Add trace IDs to all subsequent logs from this request
+  // Override res.json to include trace in response logging
+  const originalJson = res.json.bind(res);
+  res.json = function(data: any) {
+    logger.debug('Request trace completed', { 
+      ...traceContext,
+      statusCode: res.statusCode,
+      duration: Date.now() - new Date(traceContext.timestamp).getTime()
+    });
+    return originalJson(data);
+  };
 
   next();
 }
