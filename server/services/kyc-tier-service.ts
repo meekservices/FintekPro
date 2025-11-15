@@ -467,3 +467,33 @@ export async function rejectTierUpgrade(
     upgradeEventId: eventId
   };
 }
+
+/**
+ * Get all pending tier upgrade requests (admin function)
+ * Returns list of pending upgrade requests with user details
+ */
+export async function getPendingTierUpgradeRequests() {
+  const pendingRequests = await db
+    .select({
+      eventId: kycTierUpgradeEvents.id,
+      userId: kycTierUpgradeEvents.userId,
+      fromTier: kycTierUpgradeEvents.fromTier,
+      toTier: kycTierUpgradeEvents.toTier,
+      status: kycTierUpgradeEvents.status,
+      reason: kycTierUpgradeEvents.reason,
+      createdAt: kycTierUpgradeEvents.createdAt,
+      userName: users.fullName,
+      userEmail: users.email,
+      userMobile: users.mobile,
+      currentKycTier: users.kycTier,
+      panVerified: users.panVerified,
+      aadhaarVerified: users.aadhaarVerified,
+      bankVerified: users.bankVerified,
+    })
+    .from(kycTierUpgradeEvents)
+    .innerJoin(users, eq(users.id, kycTierUpgradeEvents.userId))
+    .where(eq(kycTierUpgradeEvents.status, 'pending_compliance_review'))
+    .orderBy(desc(kycTierUpgradeEvents.createdAt));
+
+  return pendingRequests;
+}

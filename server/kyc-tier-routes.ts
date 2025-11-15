@@ -12,6 +12,7 @@ import {
   requestTierUpgrade,
   approveTierUpgrade,
   rejectTierUpgrade,
+  getPendingTierUpgradeRequests,
   TierUpgradeRequest
 } from './services/kyc-tier-service';
 import { logger } from './logger';
@@ -287,6 +288,63 @@ router.post('/reject', async (req: any, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to reject upgrade',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/kyc/tiers/pending
+ * 
+ * Admin endpoint: Get all pending tier upgrade requests.
+ * Returns list of pending upgrades with user details for review.
+ */
+router.get('/pending', async (req: any, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Authentication required' 
+      });
+    }
+
+    // Check admin role
+    if (req.user.role !== 'admin') {
+      logger.warn('Unauthorized pending requests access attempt', {
+        userId: req.user.id,
+        userRole: req.user.role
+      });
+      
+      return res.status(403).json({
+        success: false,
+        message: 'Admin privileges required'
+      });
+    }
+
+    // Fetch pending requests
+    const pendingRequests = await getPendingTierUpgradeRequests();
+
+    logger.info('Pending tier upgrade requests retrieved', {
+      adminId: req.user.id,
+      count: pendingRequests.length
+    });
+
+    return res.json({
+      success: true,
+      data: pendingRequests,
+      total: pendingRequests.length
+    });
+
+  } catch (error: any) {
+    logger.error('Error fetching pending tier upgrades', {
+      adminId: req.user?.id,
+      error: error.message,
+      stack: error.stack
+    });
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch pending requests',
       error: error.message
     });
   }
