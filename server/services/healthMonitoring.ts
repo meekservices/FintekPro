@@ -1,5 +1,6 @@
 import type { MonitoringStorage } from '../monitoringStorage';
 import { logger } from './logger';
+import { getThresholdProfile, type ServiceIdentifier } from './healthThresholds';
 
 /**
  * Health Monitoring Service
@@ -23,6 +24,7 @@ export interface HealthCheckResult {
 
 export interface CheckDefinition {
   service: string;
+  serviceId?: ServiceIdentifier; // Optional vendor identifier for threshold lookup
   endpoint: string;
   checkType: HealthCheckType;
   checkFn: () => Promise<{ success: boolean; latencyMs: number; responseCode?: number; error?: string }>;
@@ -46,21 +48,33 @@ export class HealthMonitoringService {
   }
 
   /**
-   * Evaluate health status based on latency and success
+   * Evaluate health status based on latency and success using vendor-specific thresholds
    */
-  private evaluateStatus(success: boolean, latencyMs: number, error?: string): HealthCheckStatus {
+  private evaluateStatus(
+    success: boolean, 
+    latencyMs: number, 
+    serviceId?: ServiceIdentifier | string,
+    error?: string
+  ): HealthCheckStatus {
+    // Get vendor-specific threshold profile
+    const thresholds = getThresholdProfile(serviceId || '');
+
     if (!success) {
-      // Network errors, exceptions, or auth failures = down
+      // Network errors, exceptions, or auth failures
+      if (thresholds.treatErrorAsDown) {
+        return 'down';
+      }
+      // For vendors that distinguish soft failures
       if (error && (error.includes('ECONNREFUSED') || error.includes('ETIMEDOUT') || error.includes('timeout'))) {
         return 'down';
       }
       return 'degraded'; // Soft failures (non-200, partial data)
     }
 
-    // Success cases based on latency
-    if (latencyMs < 500) {
+    // Success cases based on vendor-specific latency bands
+    if (latencyMs < thresholds.healthyMs) {
       return 'healthy';
-    } else if (latencyMs < 2000) {
+    } else if (latencyMs < thresholds.degradedMs) {
       return 'degraded';
     } else {
       return 'down'; // Too slow, treat as down
@@ -82,6 +96,7 @@ export class HealthMonitoringService {
   /**
    * Run a single health check
    * Uses adapter-reported latency instead of wall-clock measurement
+   * Applies vendor-specific thresholds for status evaluation
    */
   private async runCheck(check: CheckDefinition): Promise<HealthCheckResult> {
     try {
@@ -91,7 +106,8 @@ export class HealthMonitoringService {
       // Use adapter-reported latency (not wall-clock measurement)
       const latencyMs = result.latencyMs || 0;
       
-      const status = this.evaluateStatus(result.success, latencyMs, result.error);
+      // Evaluate status using vendor-specific thresholds
+      const status = this.evaluateStatus(result.success, latencyMs, check.serviceId, result.error);
       
       return {
         service: check.service,

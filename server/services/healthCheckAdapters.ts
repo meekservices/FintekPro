@@ -17,6 +17,7 @@ import { sandboxKYCService } from './sandbox-kyc-service';
 export function createBseStarHealthCheck(): CheckDefinition {
   return {
     service: 'BSE_STAR',
+    serviceId: 'BSE_STAR',
     endpoint: 'https://bsestarmf.in',
     checkType: 'ping',
     enabled: true,
@@ -54,6 +55,7 @@ export function createBseStarHealthCheck(): CheckDefinition {
 export function createCashfreeHealthCheck(): CheckDefinition {
   return {
     service: 'CASHFREE',
+    serviceId: 'CASHFREE',
     endpoint: 'https://api.cashfree.com',
     checkType: 'auth',
     enabled: true,
@@ -110,6 +112,7 @@ export function createCashfreeHealthCheck(): CheckDefinition {
 export function createProteanHealthCheck(): CheckDefinition {
   return {
     service: 'PROTEAN_KRA',
+    serviceId: 'PROTEAN_KRA',
     endpoint: 'https://api.protean-tech.com',
     checkType: 'ping',
     enabled: true,
@@ -153,6 +156,7 @@ export function createProteanHealthCheck(): CheckDefinition {
 export function createEMudhraHealthCheck(): CheckDefinition {
   return {
     service: 'EMUDHRA',
+    serviceId: 'EMUDHRA',
     endpoint: 'https://api.emudhra.com',
     checkType: 'ping',
     enabled: false, // Disabled by default - requires document context
@@ -184,6 +188,7 @@ export function createEMudhraHealthCheck(): CheckDefinition {
 export function createSandboxHealthCheck(): CheckDefinition {
   return {
     service: 'SANDBOX_KYC',
+    serviceId: 'SANDBOX_KYC',
     endpoint: 'https://api.sandbox.co.in',
     checkType: 'auth',
     enabled: true,
