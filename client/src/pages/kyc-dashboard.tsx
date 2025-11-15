@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { TierUpgradePanel } from '@/components/TierUpgradePanel';
 
 export default function KYCDashboard() {
   const { toast } = useToast();
@@ -254,6 +255,9 @@ export default function KYCDashboard() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Tier Upgrade Panel */}
+      <TierUpgradePanel />
 
       {/* Current Tier Benefits & Upgrade */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
