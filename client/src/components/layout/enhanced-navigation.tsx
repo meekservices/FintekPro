@@ -143,7 +143,7 @@ export function EnhancedNavigation() {
             { name: "My Profile", href: "/profile", description: "View and edit personal information" },
             { name: "My Net Worth", href: "/net-worth", description: "Complete wealth tracking with assets, liabilities & AI insights", badge: "NEW" },
             { 
-              name: "Complete Onboarding", 
+              name: "Client Onboarding", 
               description: "Choose your KYC type inside",
               subItems: [
                 { name: "Smart Mode", href: "/onboarding", description: "AI-assisted wizard (Individual/Corporate/NRI)" },
