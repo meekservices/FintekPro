@@ -217,72 +217,201 @@ export class CKYCService {
     return !!(this.apiKey && this.apiSecret && this.apiKey.length > 0 && this.apiSecret.length > 0);
   }
 
-  // CKYC Registry Operations
-  async registerCKYC(request: CKYCRegistrationRequest): Promise<CKYCRegistrationResponse> {
-    try {
-      // Simulate CKYC registration API call
-      const response = await fetch(`${this.baseUrl}/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`,
-          'X-API-Version': '2.0',
+  /**
+   * Upload KYC documents to NSDL CKYC registry
+   * Submits personal info + documents in a single package
+   */
+  async uploadCKYCDocuments(request: CKYCUploadRequest): Promise<CKYCUploadResponse> {
+    const isDev = process.env.NODE_ENV === 'development';
+    const hasCredentials = this.hasValidCredentials();
+    
+    // Use mock in dev without credentials
+    if (isDev && !hasCredentials) {
+      console.warn('⚠️ Using mock CKYC upload response (development mode with no credentials)');
+      return this.getMockUploadResponse();
+    }
+
+    console.log('📤 Uploading CKYC documents to NSDL for PAN:', request.personalInfo.panNumber.slice(0, 4) + '***');
+
+    const response = await fetch(`${this.baseUrl}/upload`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': this.apiKey,
+        'X-API-Secret': this.apiSecret,
+        'X-API-Version': '2.0',
+      },
+      body: JSON.stringify({
+        personal_info: {
+          first_name: request.personalInfo.firstName,
+          middle_name: request.personalInfo.middleName,
+          last_name: request.personalInfo.lastName,
+          date_of_birth: request.personalInfo.dateOfBirth,
+          gender: request.personalInfo.gender,
+          nationality: request.personalInfo.nationality,
         },
-        body: JSON.stringify({
-          personal_info: {
-            first_name: request.firstName,
-            middle_name: request.middleName,
-            last_name: request.lastName,
-            date_of_birth: request.dateOfBirth,
-            gender: request.gender,
-            nationality: request.nationality,
-          },
-          identity_documents: {
-            pan_number: request.panNumber,
-            aadhar_number: request.aadharNumber,
-            passport_number: request.passportNumber,
-          },
-          contact_info: {
-            mobile_number: request.mobileNumber,
-            email_address: request.emailAddress,
-          },
-          address: {
-            address_line1: request.addressLine1,
-            address_line2: request.addressLine2,
-            city: request.city,
-            district: request.district,
-            state: request.state,
-            pincode: request.pincode,
-            country: request.country,
-          },
-          financial_info: {
-            occupation: request.occupation,
-            annual_income: request.annualIncome,
-          },
-          compliance: {
-            fatca_status: request.fatcaStatus,
-            pep_status: request.pepStatus,
-          },
-        }),
-      });
+        identity_documents: {
+          pan_number: request.personalInfo.panNumber,
+          aadhar_number: request.personalInfo.aadharNumber,
+          passport_number: request.personalInfo.passportNumber,
+        },
+        contact_info: {
+          mobile_number: request.personalInfo.mobileNumber,
+          email_address: request.personalInfo.emailAddress,
+        },
+        address: {
+          address_line1: request.personalInfo.addressLine1,
+          address_line2: request.personalInfo.addressLine2,
+          city: request.personalInfo.city,
+          district: request.personalInfo.district,
+          state: request.personalInfo.state,
+          pincode: request.personalInfo.pincode,
+          country: request.personalInfo.country,
+        },
+        financial_info: {
+          occupation: request.personalInfo.occupation,
+          annual_income: request.personalInfo.annualIncome,
+        },
+        compliance: {
+          fatca_status: request.personalInfo.fatcaStatus,
+          pep_status: request.personalInfo.pepStatus,
+        },
+        documents: request.documents.map(doc => ({
+          document_type: doc.documentType,
+          document_data: doc.documentData,
+          document_format: doc.documentFormat,
+        })),
+      }),
+    });
 
-      if (!response.ok) {
-        throw new Error(`CKYC registration failed: ${response.statusText}`);
-      }
+    if (!response.ok) {
+      throw new Error(`CKYC upload failed: ${response.status} ${response.statusText}`);
+    }
 
-      const data = await response.json();
-      
+    const data = await response.json();
+    
+    return {
+      success: true,
+      applicationNumber: data.application_number,
+      uploadStatus: data.status || 'submitted',
+      message: data.message || 'CKYC documents uploaded successfully',
+    };
+  }
+
+  /**
+   * Poll NSDL for KIN (CKYC Number) generation status
+   * Should be called periodically after document upload
+   */
+  async pollKINStatus(applicationNumber: string): Promise<KINPollResponse> {
+    const isDev = process.env.NODE_ENV === 'development';
+    const hasCredentials = this.hasValidCredentials();
+    
+    // Use mock in dev without credentials
+    if (isDev && !hasCredentials) {
+      console.warn('⚠️ Using mock KIN poll response (development mode with no credentials)');
+      return this.getMockKINPollResponse(applicationNumber);
+    }
+
+    console.log('🔍 Polling KIN status for application:', applicationNumber);
+
+    const response = await fetch(`${this.baseUrl}/status/${applicationNumber}`, {
+      method: 'GET',
+      headers: {
+        'X-API-Key': this.apiKey,
+        'X-API-Secret': this.apiSecret,
+        'X-API-Version': '2.0',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`KIN status poll failed: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    
+    return {
+      success: true,
+      status: this.normalizeKINStatus(data.status),
+      ckycNumber: data.ckyc_number || data.kin_number,
+      applicationNumber: data.application_number,
+      message: data.message || 'Status retrieved successfully',
+      rejectionReason: data.rejection_reason,
+    };
+  }
+
+  /**
+   * Normalize external KIN status to internal enum
+   */
+  private normalizeKINStatus(externalStatus: string): 'pending' | 'processing' | 'completed' | 'rejected' {
+    const status = externalStatus?.toUpperCase() || '';
+    
+    if (status === 'COMPLETED' || status === 'APPROVED' || status === 'VERIFIED') {
+      return 'completed';
+    }
+    if (status === 'PROCESSING' || status === 'IN_PROGRESS' || status === 'UNDER_REVIEW') {
+      return 'processing';
+    }
+    if (status === 'REJECTED' || status === 'DECLINED' || status === 'FAILED') {
+      return 'rejected';
+    }
+    
+    // Default to pending for unknown/initial statuses
+    return 'pending';
+  }
+
+  /**
+   * Mock upload response for development
+   */
+  private getMockUploadResponse(): CKYCUploadResponse {
+    return {
+      success: true,
+      applicationNumber: `APP${Date.now()}`,
+      uploadStatus: 'submitted',
+      message: 'CKYC documents uploaded successfully (mock)',
+    };
+  }
+
+  /**
+   * Mock KIN poll response for development
+   */
+  private getMockKINPollResponse(applicationNumber: string): KINPollResponse {
+    // Simulate different statuses based on time
+    const elapsed = Date.now() - parseInt(applicationNumber.replace('APP', ''));
+    const seconds = Math.floor(elapsed / 1000);
+    
+    if (seconds < 30) {
       return {
         success: true,
-        ckycNumber: data.ckyc_number,
-        applicationNumber: data.application_number,
-        status: data.status,
-        message: data.message || 'CKYC registration submitted successfully',
+        status: 'pending',
+        applicationNumber,
+        message: 'Application submitted, pending processing (mock)',
       };
-    } catch (error) {
-      console.error('CKYC registration error:', error);
-      
-      // Fallback mock response for development
+    } else if (seconds < 60) {
+      return {
+        success: true,
+        status: 'processing',
+        applicationNumber,
+        message: 'Application under processing (mock)',
+      };
+    } else {
+      return {
+        success: true,
+        status: 'completed',
+        ckycNumber: `KIN${Date.now()}`,
+        applicationNumber,
+        message: 'KIN generated successfully (mock)',
+      };
+    }
+  }
+
+  // CKYC Registry Operations (legacy method - kept for backwards compatibility)
+  async registerCKYC(request: CKYCRegistrationRequest): Promise<CKYCRegistrationResponse> {
+    const isDev = process.env.NODE_ENV === 'development';
+    const hasCredentials = this.hasValidCredentials();
+    
+    // Use mock in dev without credentials
+    if (isDev && !hasCredentials) {
+      console.warn('⚠️ Using mock CKYC registration response (development mode with no credentials)');
       return {
         success: true,
         ckycNumber: `CKYC${Date.now()}`,
@@ -291,6 +420,68 @@ export class CKYCService {
         message: 'CKYC registration submitted successfully (mock)',
       };
     }
+
+    console.log('📝 Registering CKYC for PAN:', request.panNumber.slice(0, 4) + '***');
+
+    const response = await fetch(`${this.baseUrl}/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': this.apiKey,
+        'X-API-Secret': this.apiSecret,
+        'X-API-Version': '2.0',
+      },
+      body: JSON.stringify({
+        personal_info: {
+          first_name: request.firstName,
+          middle_name: request.middleName,
+          last_name: request.lastName,
+          date_of_birth: request.dateOfBirth,
+          gender: request.gender,
+          nationality: request.nationality,
+        },
+        identity_documents: {
+          pan_number: request.panNumber,
+          aadhar_number: request.aadharNumber,
+          passport_number: request.passportNumber,
+        },
+        contact_info: {
+          mobile_number: request.mobileNumber,
+          email_address: request.emailAddress,
+        },
+        address: {
+          address_line1: request.addressLine1,
+          address_line2: request.addressLine2,
+          city: request.city,
+          district: request.district,
+          state: request.state,
+          pincode: request.pincode,
+          country: request.country,
+        },
+        financial_info: {
+          occupation: request.occupation,
+          annual_income: request.annualIncome,
+        },
+        compliance: {
+          fatca_status: request.fatcaStatus,
+          pep_status: request.pepStatus,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`CKYC registration failed: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    
+    return {
+      success: true,
+      ckycNumber: data.ckyc_number,
+      applicationNumber: data.application_number,
+      status: data.status,
+      message: data.message || 'CKYC registration submitted successfully',
+    };
   }
 
   async searchCKYC(request: CKYCSearchRequest): Promise<CKYCSearchResponse> {
@@ -574,3 +765,6 @@ export class CKYCService {
     return results;
   }
 }
+
+// Export singleton instance
+export const ckycService = new CKYCService();

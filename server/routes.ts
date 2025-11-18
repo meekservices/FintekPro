@@ -2198,6 +2198,266 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  // Zod schemas for CKYC upload validation
+  const base64Regex = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+  
+  const kycDocumentUploadSchema = z.object({
+    documentType: z.enum(['pan_card', 'aadhar_card', 'address_proof', 'photograph', 'signature', 'income_proof']),
+    documentData: z.string()
+      .min(1, 'Document data (base64) is required')
+      .regex(base64Regex, 'Document data must be valid base64 encoded'),
+    documentFormat: z.enum(['jpg', 'jpeg', 'png', 'pdf']),
+  });
+
+  const ckycUploadRequestSchema = z.object({
+    sessionId: z.string().min(1, 'Session ID is required'),
+    personalInfo: z.object({
+      firstName: z.string().min(1, 'First name is required'),
+      middleName: z.string().optional(),
+      lastName: z.string().min(1, 'Last name is required'),
+      dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date of birth must be in YYYY-MM-DD format'),
+      gender: z.enum(['M', 'F', 'T']),
+      nationality: z.string().default('Indian'),
+      panNumber: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, 'Invalid PAN format'),
+      aadharNumber: z.string().optional(),
+      passportNumber: z.string().optional(),
+      mobileNumber: z.string().regex(/^\d{10}$/, 'Invalid mobile number'),
+      emailAddress: z.string().email('Invalid email address'),
+      addressLine1: z.string().min(1, 'Address line 1 is required'),
+      addressLine2: z.string().optional(),
+      city: z.string().min(1, 'City is required'),
+      district: z.string().optional(),
+      state: z.string().min(1, 'State is required'),
+      pincode: z.string().regex(/^\d{6}$/, 'Invalid pincode'),
+      country: z.string().default('India'),
+      occupation: z.string().optional(),
+      annualIncome: z.string().optional(),
+      fatcaStatus: z.enum(['Y', 'N']).optional(),
+      pepStatus: z.enum(['Y', 'N']).optional(),
+    }),
+    documents: z.array(kycDocumentUploadSchema).min(1, 'At least one document is required'),
+  });
+
+  const kinPollRequestSchema = z.object({
+    sessionId: z.string().min(1, 'Session ID is required'),
+    applicationNumber: z.string().min(1, 'Application number is required'),
+  });
+
+  // CKYC Document Upload
+  app.post("/api/kyc/wizard/upload-ckyc-documents", requireClientOrHigher, async (req: any, res) => {
+    try {
+      // Validate request payload
+      const validationResult = ckycUploadRequestSchema.safeParse(req.body);
+      
+      if (!validationResult.success) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid request data",
+          errors: validationResult.error.issues.map(issue => `${issue.path.join('.')}: ${issue.message}`)
+        });
+      }
+      
+      const { sessionId, personalInfo, documents } = validationResult.data;
+      const userId = req.user!.id;
+      
+      // Get session
+      const session = await storage.getKycVerificationSession(sessionId);
+      
+      if (!session || session.userId !== userId) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid session"
+        });
+      }
+      
+      // Import CKYC service
+      const { ckycService } = await import('./ckyc-service');
+      
+      // Upload documents to NSDL
+      const result = await ckycService.uploadCKYCDocuments({
+        personalInfo,
+        documents
+      });
+      
+      if (result.success && result.applicationNumber) {
+        // Store application number in session for polling
+        await storage.updateKycSessionStepStatus(sessionId, 'ckyc_upload', {
+          status: 'completed',
+          applicationNumber: result.applicationNumber,
+          uploadedAt: new Date().toISOString()
+        });
+      }
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error('CKYC upload error:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to upload CKYC documents'
+      });
+    }
+  });
+
+  // Poll KIN Status
+  app.post("/api/kyc/wizard/poll-kin-status", requireClientOrHigher, async (req: any, res) => {
+    try {
+      // Validate request payload
+      const validationResult = kinPollRequestSchema.safeParse(req.body);
+      
+      if (!validationResult.success) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid request data",
+          errors: validationResult.error.issues.map(issue => `${issue.path.join('.')}: ${issue.message}`)
+        });
+      }
+      
+      const { sessionId, applicationNumber } = validationResult.data;
+      const userId = req.user!.id;
+      
+      // Get session
+      const session = await storage.getKycVerificationSession(sessionId);
+      
+      if (!session || session.userId !== userId) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid session"
+        });
+      }
+      
+      // Import CKYC service
+      const { ckycService } = await import('./ckyc-service');
+      
+      // Poll KIN status from NSDL
+      const result = await ckycService.pollKINStatus(applicationNumber);
+      
+      if (result.success && result.status === 'completed' && result.ckycNumber) {
+        // Store KIN number in session
+        await storage.updateKycSessionStepStatus(sessionId, 'ckyc_upload', {
+          status: 'verified',
+          ckycNumber: result.ckycNumber,
+          verifiedAt: new Date().toISOString()
+        });
+        
+        // Also update user's CKYC number
+        await storage.updateUser(userId, {
+          ckycNumber: result.ckycNumber
+        });
+      }
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error('KIN poll error:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to poll KIN status'
+      });
+    }
+  });
+  app.post("/api/kyc/wizard/upload-ckyc-documents", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const { sessionId, personalInfo, documents } = req.body;
+      const userId = req.user!.id;
+      
+      if (!sessionId || !personalInfo || !documents) {
+        return res.status(400).json({
+          success: false,
+          message: "Session ID, personal info, and documents are required"
+        });
+      }
+      
+      // Get session
+      const session = await storage.getKycVerificationSession(sessionId);
+      
+      if (!session || session.userId !== userId) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid session"
+        });
+      }
+      
+      // Import CKYC service
+      const { ckycService } = await import('./ckyc-service');
+      
+      // Upload documents to NSDL
+      const result = await ckycService.uploadCKYCDocuments({
+        personalInfo,
+        documents
+      });
+      
+      if (result.success && result.applicationNumber) {
+        // Store application number in session for polling
+        await storage.updateKycSessionStepStatus(sessionId, 'ckyc_upload', {
+          status: 'completed',
+          applicationNumber: result.applicationNumber,
+          uploadedAt: new Date().toISOString()
+        });
+      }
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error('CKYC upload error:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to upload CKYC documents'
+      });
+    }
+  });
+
+  // Poll KIN Status
+  app.post("/api/kyc/wizard/poll-kin-status", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const { sessionId, applicationNumber } = req.body;
+      const userId = req.user!.id;
+      
+      if (!sessionId || !applicationNumber) {
+        return res.status(400).json({
+          success: false,
+          message: "Session ID and application number are required"
+        });
+      }
+      
+      // Get session
+      const session = await storage.getKycVerificationSession(sessionId);
+      
+      if (!session || session.userId !== userId) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid session"
+        });
+      }
+      
+      // Import CKYC service
+      const { ckycService } = await import('./ckyc-service');
+      
+      // Poll KIN status from NSDL
+      const result = await ckycService.pollKINStatus(applicationNumber);
+      
+      if (result.success && result.status === 'completed' && result.ckycNumber) {
+        // Store KIN number in session
+        await storage.updateKycSessionStepStatus(sessionId, 'ckyc_upload', {
+          status: 'verified',
+          ckycNumber: result.ckycNumber,
+          verifiedAt: new Date().toISOString()
+        });
+        
+        // Also update user's CKYC number
+        await storage.updateUser(userId, {
+          ckycNumber: result.ckycNumber
+        });
+      }
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error('KIN poll error:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to poll KIN status'
+      });
+    }
+  });
+
   // Client Auto-Populate API endpoint
   app.post("/api/client/auto-populate", async (req, res) => {
     try {
