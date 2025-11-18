@@ -3045,6 +3045,172 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { mandate_id, status, customer_id } = req.body;
 
+  // ============================================================
+  // STEP 7: Risk Profiling Questionnaire (SEBI Compliance)
+  // ============================================================
+  
+  // Get risk profiling questionnaire
+  app.get("/api/kyc/wizard/risk-profile/questionnaire", requireClientOrHigher, async (req, res) => {
+    try {
+      const { riskProfilingService } = await import('./services/risk-profiling-service.js');
+      const questionnaire = riskProfilingService.getQuestionnaire();
+
+      res.json({
+        success: true,
+        questionnaire,
+        totalQuestions: questionnaire.length,
+        requiredQuestions: questionnaire.filter(q => q.required).length
+      });
+
+    } catch (error: any) {
+      console.error('Risk questionnaire fetch error:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to fetch risk profile questionnaire'
+      });
+    }
+  });
+
+  // Submit risk profile assessment
+  app.post("/api/kyc/wizard/risk-profile/submit", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const schema = z.object({
+        sessionId: z.string().min(1, "Session ID is required"),
+        answers: z.array(z.object({
+          questionId: z.string(),
+          answer: z.union([z.string(), z.array(z.string())])
+        })).min(1, "At least one answer is required")
+      });
+
+      const validated = schema.parse(req.body);
+
+      // Get KYC session
+      const session = await storage.getKycSessionById(validated.sessionId);
+      if (!session) {
+        return res.status(404).json({
+          success: false,
+          message: 'KYC session not found'
+        });
+      }
+
+      // Verify user owns this session
+      if (session.userId !== req.user.id) {
+        return res.status(403).json({
+          success: false,
+          message: 'Unauthorized access to KYC session'
+        });
+      }
+
+      const { riskProfilingService } = await import('./services/risk-profiling-service.js');
+
+      // Score the answers
+      const scoredAnswers = riskProfilingService.scoreAnswers(validated.answers);
+
+      // Validate completeness
+      const validation = riskProfilingService.validateAnswers(scoredAnswers);
+      if (!validation.valid) {
+        return res.status(400).json({
+          success: false,
+          message: 'Incomplete or invalid risk profile assessment',
+          errors: validation.errors
+        });
+      }
+
+      // Calculate risk profile
+      const riskProfile = riskProfilingService.calculateRiskProfile(scoredAnswers);
+
+      // Store risk profile in session
+      await storage.updateKycSessionStepStatus(validated.sessionId, 'risk_profiling', {
+        verified: true,
+        completed: true,
+        category: riskProfile.category,
+        score: riskProfile.score,
+        maxScore: riskProfile.maxScore,
+        percentage: riskProfile.percentage,
+        answers: scoredAnswers,
+        completedAt: new Date().toISOString()
+      });
+
+      console.log(`✅ Risk profile completed for session ${validated.sessionId}: ${riskProfile.category.toUpperCase()} (${riskProfile.percentage}%)`);
+
+      res.json({
+        success: true,
+        message: 'Risk profile assessment completed successfully',
+        riskProfile
+      });
+
+    } catch (error: any) {
+      console.error('Risk profile submission error:', error);
+
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: error.errors
+        });
+      }
+
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to process risk profile assessment'
+      });
+    }
+  });
+
+  // Get risk profile results
+  app.get("/api/kyc/wizard/risk-profile/:sessionId", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const { sessionId } = req.params;
+
+      // Get KYC session
+      const session = await storage.getKycSessionById(sessionId);
+      if (!session) {
+        return res.status(404).json({
+          success: false,
+          message: 'KYC session not found'
+        });
+      }
+
+      // Verify user owns this session
+      if (session.userId !== req.user.id) {
+        return res.status(403).json({
+          success: false,
+          message: 'Unauthorized access to KYC session'
+        });
+      }
+
+      const riskProfileData = session.stepStatus?.risk_profiling;
+
+      if (!riskProfileData || !riskProfileData.completed) {
+        return res.status(404).json({
+          success: false,
+          message: 'Risk profile not completed for this session'
+        });
+      }
+
+      const { riskProfilingService } = await import('./services/risk-profiling-service.js');
+
+      // Recalculate full profile from stored answers
+      const riskProfile = riskProfilingService.calculateRiskProfile(riskProfileData.answers);
+
+      res.json({
+        success: true,
+        riskProfile: {
+          ...riskProfile,
+          completedAt: riskProfileData.completedAt
+        }
+      });
+
+    } catch (error: any) {
+      console.error('Risk profile fetch error:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to fetch risk profile'
+      });
+    }
+  });
+
+
       if (!mandate_id) {
         return res.status(400).json({
           success: false,
