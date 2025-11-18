@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,11 +16,16 @@ import {
   ArrowRight,
   ArrowLeft,
   Clock,
-  Info
+  Info,
+  FileText,
+  Pen
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-type WizardStep = 'pan_verification' | 'aadhaar_otp' | 'aadhaar_verification' | 'data_collection' | 'completed';
+type WizardStep = 'pan_verification' | 'aadhaar_otp' | 'aadhaar_verification' | 'data_collection' | 'risk_profiling' | 'compliance_signoff' | 'completed';
 
 interface SessionData {
   id: string;
@@ -73,6 +78,26 @@ export default function SmartKYCOnboarding() {
   const [aadhaarMasked, setAadhaarMasked] = useState('');
   const [aadhaarOtp, setAadhaarOtp] = useState('');
   const [aadhaarData, setAadhaarData] = useState<any>(null);
+  
+  // Risk Profiling State
+  const [riskProfileAnswers, setRiskProfileAnswers] = useState({
+    investmentObjective: '',
+    investmentHorizon: '',
+    riskTolerance: '',
+    incomeLevel: '',
+    tradingExperience: ''
+  });
+  
+  // Compliance Sign-off State
+  const [fatcaDeclaration, setFatcaDeclaration] = useState(false);
+  const [riskAcknowledgment, setRiskAcknowledgment] = useState(false);
+  const [termsAndConditions, setTermsAndConditions] = useState(false);
+  const [privacyPolicy, setPrivacyPolicy] = useState(false);
+  const [taxResidencyCountry, setTaxResidencyCountry] = useState('India');
+  const [tinNumber, setTinNumber] = useState('');
+  const [digitalSignature, setDigitalSignature] = useState('');
+  const [hasSignature, setHasSignature] = useState(false);
+  const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
   
   // Start or resume session
   const startSessionMutation = useMutation({
@@ -282,6 +307,68 @@ export default function SmartKYCOnboarding() {
     }
   });
   
+  // Submit Risk Profiling
+  const submitRiskProfilingMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest('POST', '/api/kyc/wizard/risk-profiling', {
+        body: {
+          sessionId,
+          ...riskProfileAnswers
+        }
+      });
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        setCurrentStep('compliance_signoff');
+        toast({
+          title: "Success",
+          description: "Risk profile saved successfully!",
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to save risk profile. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
+  
+  // Submit Compliance Sign-off
+  const submitComplianceMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest('POST', '/api/kyc/wizard/compliance-signoff', {
+        body: {
+          sessionId,
+          fatcaDeclaration,
+          riskAcknowledgment,
+          termsAndConditions,
+          privacyPolicy,
+          taxResidencyCountry,
+          tinNumber: tinNumber || undefined,
+          digitalSignature: digitalSignature || undefined
+        }
+      });
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        setCurrentStep('completed');
+        toast({
+          title: "Success",
+          description: "Compliance declarations accepted successfully!",
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to submit compliance. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
+  
   // Complete KYC
   const completeKycMutation = useMutation({
     mutationFn: async () => {
@@ -363,8 +450,66 @@ export default function SmartKYCOnboarding() {
     return () => clearInterval(interval);
   }, [sessionExpiresAt, currentStep, showFiveMinWarning, showOneMinWarning, sessionExpiredShown]);
   
+  // Set up digital signature canvas
+  useEffect(() => {
+    if (currentStep !== 'compliance_signoff' || !signatureCanvasRef.current) return;
+    
+    const canvas = signatureCanvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    // Set canvas size
+    canvas.width = canvas.offsetWidth;
+    canvas.height = 150;
+    
+    // Configure drawing style
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    
+    let isDrawing = false;
+    
+    const startDrawing = (e: MouseEvent) => {
+      isDrawing = true;
+      const rect = canvas.getBoundingClientRect();
+      ctx.beginPath();
+      ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+    };
+    
+    const draw = (e: MouseEvent) => {
+      if (!isDrawing) return;
+      const rect = canvas.getBoundingClientRect();
+      ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+      ctx.stroke();
+      setHasSignature(true);
+    };
+    
+    const stopDrawing = () => {
+      if (isDrawing) {
+        isDrawing = false;
+        // Capture signature after drawing
+        const dataUrl = canvas.toDataURL();
+        setDigitalSignature(dataUrl);
+      }
+    };
+    
+    // Add event listeners
+    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', stopDrawing);
+    canvas.addEventListener('mouseleave', stopDrawing);
+    
+    // Cleanup
+    return () => {
+      canvas.removeEventListener('mousedown', startDrawing);
+      canvas.removeEventListener('mousemove', draw);
+      canvas.removeEventListener('mouseup', stopDrawing);
+      canvas.removeEventListener('mouseleave', stopDrawing);
+    };
+  }, [currentStep]);
+  
   const getStepProgress = () => {
-    const steps: WizardStep[] = ['pan_verification', 'aadhaar_otp', 'aadhaar_verification', 'data_collection', 'completed'];
+    const steps: WizardStep[] = ['pan_verification', 'aadhaar_otp', 'aadhaar_verification', 'data_collection', 'risk_profiling', 'compliance_signoff', 'completed'];
     const currentIndex = steps.indexOf(currentStep);
     return ((currentIndex + 1) / steps.length) * 100;
   };
@@ -680,33 +825,361 @@ export default function SmartKYCOnboarding() {
             <Alert>
               <Sparkles className="h-4 w-4" />
               <AlertDescription>
-                All required information has been automatically collected and verified. You can now complete your KYC process.
+                All required information has been automatically collected and verified. Proceed to complete your risk profile and compliance declarations.
               </AlertDescription>
             </Alert>
             
             <Button
-              data-testid="button-complete-kyc"
-              onClick={() => completeKycMutation.mutate()}
-              disabled={completeKycMutation.isPending}
+              data-testid="button-proceed-risk-profile"
+              onClick={() => setCurrentStep('risk_profiling')}
               className="w-full"
             >
-              {completeKycMutation.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Completing...
-                </>
-              ) : (
-                <>
-                  Complete Smart KYC
-                  <CheckCircle className="ml-2 h-4 w-4" />
-                </>
-              )}
+              Proceed to Risk Profiling
+              <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
         )}
       </CardContent>
     </Card>
   );
+  
+  const renderRiskProfilingStep = () => {
+    const isFormValid = 
+      riskProfileAnswers.investmentObjective &&
+      riskProfileAnswers.investmentHorizon &&
+      riskProfileAnswers.riskTolerance &&
+      riskProfileAnswers.incomeLevel &&
+      riskProfileAnswers.tradingExperience;
+    
+    return (
+      <Card className="max-w-2xl mx-auto">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Shield className="h-6 w-6 text-primary" />
+            <CardTitle>Step 5: Risk Profiling</CardTitle>
+          </div>
+          <CardDescription>
+            Help us understand your investment profile and risk appetite
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-2">
+            <Label>Investment Objective</Label>
+            <RadioGroup
+              value={riskProfileAnswers.investmentObjective}
+              onValueChange={(value) => setRiskProfileAnswers({...riskProfileAnswers, investmentObjective: value})}
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="capital_appreciation" id="cap-app" data-testid="radio-cap-app" />
+                <Label htmlFor="cap-app" className="font-normal">Capital Appreciation</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="regular_income" id="reg-inc" data-testid="radio-reg-inc" />
+                <Label htmlFor="reg-inc" className="font-normal">Regular Income</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="balanced" id="balanced" data-testid="radio-balanced" />
+                <Label htmlFor="balanced" className="font-normal">Balanced Growth & Income</Label>
+              </div>
+            </RadioGroup>
+          </div>
+          
+          <div className="space-y-2">
+            <Label>Investment Horizon</Label>
+            <RadioGroup
+              value={riskProfileAnswers.investmentHorizon}
+              onValueChange={(value) => setRiskProfileAnswers({...riskProfileAnswers, investmentHorizon: value})}
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="short_term" id="short" data-testid="radio-short" />
+                <Label htmlFor="short" className="font-normal">Short Term (Less than 3 years)</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="medium_term" id="medium" data-testid="radio-medium" />
+                <Label htmlFor="medium" className="font-normal">Medium Term (3-5 years)</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="long_term" id="long" data-testid="radio-long" />
+                <Label htmlFor="long" className="font-normal">Long Term (More than 5 years)</Label>
+              </div>
+            </RadioGroup>
+          </div>
+          
+          <div className="space-y-2">
+            <Label>Risk Tolerance</Label>
+            <RadioGroup
+              value={riskProfileAnswers.riskTolerance}
+              onValueChange={(value) => setRiskProfileAnswers({...riskProfileAnswers, riskTolerance: value})}
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="conservative" id="conservative" data-testid="radio-conservative" />
+                <Label htmlFor="conservative" className="font-normal">Conservative (Low Risk)</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="moderate" id="moderate" data-testid="radio-moderate" />
+                <Label htmlFor="moderate" className="font-normal">Moderate (Medium Risk)</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="aggressive" id="aggressive" data-testid="radio-aggressive" />
+                <Label htmlFor="aggressive" className="font-normal">Aggressive (High Risk)</Label>
+              </div>
+            </RadioGroup>
+          </div>
+          
+          <div className="space-y-2">
+            <Label>Annual Income</Label>
+            <Select value={riskProfileAnswers.incomeLevel} onValueChange={(value) => setRiskProfileAnswers({...riskProfileAnswers, incomeLevel: value})}>
+              <SelectTrigger data-testid="select-income">
+                <SelectValue placeholder="Select your income range" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="below_5l">Below ₹5 Lakhs</SelectItem>
+                <SelectItem value="5l_to_10l">₹5-10 Lakhs</SelectItem>
+                <SelectItem value="10l_to_25l">₹10-25 Lakhs</SelectItem>
+                <SelectItem value="25l_to_1cr">₹25 Lakhs - ₹1 Crore</SelectItem>
+                <SelectItem value="above_1cr">Above ₹1 Crore</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="space-y-2">
+            <Label>Trading Experience</Label>
+            <RadioGroup
+              value={riskProfileAnswers.tradingExperience}
+              onValueChange={(value) => setRiskProfileAnswers({...riskProfileAnswers, tradingExperience: value})}
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="beginner" id="beginner" data-testid="radio-beginner" />
+                <Label htmlFor="beginner" className="font-normal">Beginner (Less than 1 year)</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="intermediate" id="intermediate" data-testid="radio-intermediate" />
+                <Label htmlFor="intermediate" className="font-normal">Intermediate (1-3 years)</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="experienced" id="experienced" data-testid="radio-experienced" />
+                <Label htmlFor="experienced" className="font-normal">Experienced (More than 3 years)</Label>
+              </div>
+            </RadioGroup>
+          </div>
+          
+          <Button
+            data-testid="button-submit-risk-profile"
+            onClick={() => submitRiskProfilingMutation.mutate()}
+            disabled={!isFormValid || submitRiskProfilingMutation.isPending}
+            className="w-full"
+          >
+            {submitRiskProfilingMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                Continue to Compliance
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  };
+  
+  const renderComplianceSignoffStep = () => {
+    const clearSignature = () => {
+      if (signatureCanvasRef.current) {
+        const ctx = signatureCanvasRef.current.getContext('2d');
+        if (ctx) {
+          ctx.clearRect(0, 0, signatureCanvasRef.current.width, signatureCanvasRef.current.height);
+        }
+      }
+      setDigitalSignature('');
+      setHasSignature(false);
+    };
+    
+    const isFormValid = fatcaDeclaration && riskAcknowledgment && termsAndConditions && privacyPolicy;
+    const missingDeclarations = [
+      !fatcaDeclaration && 'FATCA Declaration',
+      !riskAcknowledgment && 'Risk Acknowledgment',
+      !termsAndConditions && 'Terms & Conditions',
+      !privacyPolicy && 'Privacy Policy'
+    ].filter(Boolean);
+    
+    return (
+      <Card className="max-w-2xl mx-auto">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <FileText className="h-6 w-6 text-primary" />
+            <CardTitle>Step 6: Compliance & Declarations</CardTitle>
+          </div>
+          <CardDescription>
+            Review and accept the required compliance declarations
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {!isFormValid && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <strong>Required:</strong> Please accept all {missingDeclarations.length} remaining declaration(s): {missingDeclarations.join(', ')}
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          {isFormValid && (
+            <Alert className="bg-green-50 border-green-200">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800">
+                All mandatory declarations accepted. You may now submit your compliance sign-off.
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          <div className="space-y-4">
+            <div className="flex items-start space-x-2">
+              <Checkbox
+                id="fatca"
+                data-testid="checkbox-fatca"
+                checked={fatcaDeclaration}
+                onCheckedChange={(checked) => setFatcaDeclaration(checked as boolean)}
+              />
+              <Label htmlFor="fatca" className="font-normal leading-relaxed cursor-pointer">
+                <strong>FATCA Declaration:</strong> I confirm that I am not a US citizen/resident for tax purposes and I am a tax resident of India.
+              </Label>
+            </div>
+            
+            <div className="flex items-start space-x-2">
+              <Checkbox
+                id="risk-ack"
+                data-testid="checkbox-risk"
+                checked={riskAcknowledgment}
+                onCheckedChange={(checked) => setRiskAcknowledgment(checked as boolean)}
+              />
+              <Label htmlFor="risk-ack" className="font-normal leading-relaxed cursor-pointer">
+                <strong>Risk Acknowledgment:</strong> I understand that investments in securities markets are subject to market risks and I am responsible for my investment decisions.
+              </Label>
+            </div>
+            
+            <div className="flex items-start space-x-2">
+              <Checkbox
+                id="terms"
+                data-testid="checkbox-terms"
+                checked={termsAndConditions}
+                onCheckedChange={(checked) => setTermsAndConditions(checked as boolean)}
+              />
+              <Label htmlFor="terms" className="font-normal leading-relaxed cursor-pointer">
+                <strong>Terms & Conditions:</strong> I have read and agree to the Terms and Conditions of FintekPro.
+              </Label>
+            </div>
+            
+            <div className="flex items-start space-x-2">
+              <Checkbox
+                id="privacy"
+                data-testid="checkbox-privacy"
+                checked={privacyPolicy}
+                onCheckedChange={(checked) => setPrivacyPolicy(checked as boolean)}
+              />
+              <Label htmlFor="privacy" className="font-normal leading-relaxed cursor-pointer">
+                <strong>Privacy Policy:</strong> I acknowledge and consent to the Privacy Policy and data usage terms.
+              </Label>
+            </div>
+          </div>
+          
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="tax-country">Tax Residency Country</Label>
+              <Input
+                id="tax-country"
+                data-testid="input-tax-country"
+                value={taxResidencyCountry}
+                onChange={(e) => setTaxResidencyCountry(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="tin">TIN/Tax ID (Optional)</Label>
+              <Input
+                id="tin"
+                data-testid="input-tin"
+                placeholder="Enter your TIN number"
+                value={tinNumber}
+                onChange={(e) => setTinNumber(e.target.value)}
+              />
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <Label>Digital Signature (Optional)</Label>
+            <div className="border rounded-md p-4 bg-gray-50">
+              <canvas
+                ref={signatureCanvasRef}
+                className="w-full border border-dashed border-gray-300 rounded cursor-crosshair bg-white"
+                style={{ height: '150px' }}
+                data-testid="canvas-signature"
+              />
+              <div className="mt-2 flex justify-between items-center">
+                <p className="text-sm text-muted-foreground">
+                  {hasSignature ? '✓ Signature captured' : 'Sign above using your mouse or touchpad'}
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={clearSignature}
+                  data-testid="button-clear-signature"
+                >
+                  Clear
+                </Button>
+              </div>
+            </div>
+          </div>
+          
+          {!isFormValid && (
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                Complete all required declarations above to enable submission
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          <Button
+            data-testid="button-submit-compliance"
+            onClick={() => {
+              // Final validation before submission
+              if (!isFormValid) {
+                toast({
+                  title: "Incomplete Declarations",
+                  description: `Please accept: ${missingDeclarations.join(', ')}`,
+                  variant: "destructive"
+                });
+                return;
+              }
+              submitComplianceMutation.mutate();
+            }}
+            disabled={!isFormValid || submitComplianceMutation.isPending}
+            className="w-full"
+          >
+            {submitComplianceMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Submitting...
+              </>
+            ) : !isFormValid ? (
+              <>
+                Accept All Declarations to Continue
+                <AlertCircle className="ml-2 h-4 w-4" />
+              </>
+            ) : (
+              <>
+                Submit & Complete KYC
+                <CheckCircle className="ml-2 h-4 w-4" />
+              </>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  };
   
   const renderCompletedStep = () => (
     <Card className="max-w-2xl mx-auto">
@@ -800,7 +1273,7 @@ export default function SmartKYCOnboarding() {
       <div className="mb-8">
         <Progress value={getStepProgress()} className="h-2" />
         <div className="flex justify-between mt-2 text-sm text-muted-foreground">
-          <span>Step {['pan_verification', 'aadhaar_otp', 'aadhaar_verification', 'data_collection', 'completed'].indexOf(currentStep) + 1} of 5</span>
+          <span>Step {['pan_verification', 'aadhaar_otp', 'aadhaar_verification', 'data_collection', 'risk_profiling', 'compliance_signoff', 'completed'].indexOf(currentStep) + 1} of 7</span>
           <span>{Math.round(getStepProgress())}% Complete</span>
         </div>
       </div>
@@ -811,6 +1284,8 @@ export default function SmartKYCOnboarding() {
       {currentStep === 'aadhaar_otp' && renderAadhaarOtpStep()}
       {currentStep === 'aadhaar_verification' && renderAadhaarVerificationStep()}
       {currentStep === 'data_collection' && renderDataCollectionStep()}
+      {currentStep === 'risk_profiling' && renderRiskProfilingStep()}
+      {currentStep === 'compliance_signoff' && renderComplianceSignoffStep()}
       {currentStep === 'completed' && renderCompletedStep()}
     </div>
   );
