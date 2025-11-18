@@ -116,6 +116,56 @@ export default function SmartKYCOnboarding() {
     }
   });
   
+  // KRA Status Check
+  const checkKraStatusMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest('POST', '/api/kyc/wizard/check-kra-status', {
+        body: {
+          sessionId,
+          panNumber: panNumber.toUpperCase(),
+          dateOfBirth: panDob,
+          fullName: panFullName
+        }
+      });
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        if (data.kraStatus === 'VERIFIED') {
+          // KYC already verified - skip Aadhaar verification
+          toast({
+            title: "KYC Already Verified!",
+            description: "Your KYC is already verified in the registry. Skipping Aadhaar verification.",
+          });
+          // Move to completion step
+          setCurrentStep('data_collection');
+        } else if (data.kraStatus === 'ONHOLD') {
+          toast({
+            title: "KYC On Hold",
+            description: "Your KYC is on hold. Please complete Aadhaar verification.",
+            variant: "default"
+          });
+          setCurrentStep('aadhaar_otp');
+        } else {
+          // NOT_FOUND or REJECTED - proceed with Aadhaar verification
+          toast({
+            title: "KYC Not Found",
+            description: "No existing KYC found. Please complete Aadhaar verification.",
+          });
+          setCurrentStep('aadhaar_otp');
+        }
+      }
+    },
+    onError: (error) => {
+      console.error('KRA check error:', error);
+      // On error, proceed with Aadhaar verification anyway
+      setCurrentStep('aadhaar_otp');
+      toast({
+        title: "Continuing with verification",
+        description: "Proceeding to Aadhaar verification",
+      });
+    }
+  });
+
   // PAN Verification
   const verifyPanMutation = useMutation({
     mutationFn: async () => {
@@ -136,11 +186,13 @@ export default function SmartKYCOnboarding() {
     onSuccess: (data) => {
       if (data.success) {
         setPanData(data.data);
-        setCurrentStep('aadhaar_otp');
         toast({
           title: "Success",
           description: `PAN verified successfully for ${data.data.name}`,
         });
+        
+        // After PAN verification, check KRA status
+        checkKraStatusMutation.mutate();
       } else {
         toast({
           title: "Verification Failed",

@@ -67,6 +67,7 @@ import { PANConsentService } from './services/pan-consent-service';
 import { sandboxKYCService } from './services/sandbox-kyc-service';
 import { AadhaarMockService } from './services/aadhaar-mock-service';
 import { CashfreeAadhaarService } from './services/cashfree-aadhaar-service';
+import { kraStatusService } from './services/kra-status-service';
 import { DemographicProtectionService } from './services/demographic-protection-service';
 import { providerRegistry, type UnifiedApplicationData } from './partner-application-adapters';
 import { insertPartnerApplicationSchema, insertCashfreeTransactionSchema, insertPhonePeTransactionSchema } from '@shared/schema';
@@ -1961,6 +1962,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Step 2: Send Aadhaar OTP
+  
+  // Step 1.5: Check KRA Status (NSDL/CVL)
+  app.post("/api/kyc/wizard/check-kra-status", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const { sessionId, panNumber, dateOfBirth, fullName } = req.body;
+      const userId = req.user!.id;
+
+      // Get active session
+      const session = await storage.getKycVerificationSession(sessionId);
+
+      if (!session || session.userId !== userId) {
+        return res.status(404).json({ success: false, message: 'KYC session not found or expired' });
+      }
+
+      // Check KRA status
+      console.log('🔍 Checking KRA status for user:', userId);
+      const kraResult = await kraStatusService.checkKRAStatus({
+        panNumber,
+        dateOfBirth,
+        fullName,
+      });
+
+      // Update session with KRA status
+      const stepStatus = session.stepStatus as any || {};
+      stepStatus.kra_checked = true;
+      stepStatus.kra_status = kraResult.status;
+      stepStatus.kra_ckyc_number = kraResult.ckycNumber;
+      stepStatus.kra_verification_date = kraResult.verificationDate;
+
+      // Determine next step based on KRA status
+      let nextStep = 'aadhaar_otp'; // Default: continue to Aadhaar verification
+      let skipAadhaar = false;
+
+      if (kraResult.status === 'VERIFIED') {
+        nextStep = 'data_collection'; // Skip to data collection (or ucc_creation if that's the next step)
+        skipAadhaar = true;
+        stepStatus.aadhaar_verified = true; // Mark as verified since KRA verified
+        console.log('✅ KYC VERIFIED in KRA - Skipping Aadhaar verification');
+      } else {
+        console.log('⚠️ KYC not found in KRA - Proceeding to Aadhaar verification');
+      }
+
+      await storage.updateKycVerificationSession(sessionId, {
+        stepStatus,
+        currentStep: nextStep,
+      });
+
+      res.json({
+        success: true,
+        kraStatus: kraResult.status,
+        ckycNumber: kraResult.ckycNumber,
+        skipAadhaar,
+        nextStep,
+        kycDetails: kraResult.kycDetails,
+        message: kraResult.message,
+      });
+
+    } catch (error: any) {
+      console.error('KRA status check error:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to check KRA status',
+      });
+    }
+  });
   app.post("/api/kyc/wizard/send-aadhaar-otp", requireClientOrHigher, async (req: any, res) => {
     try {
       const { sessionId, aadhaarNumber } = req.body;

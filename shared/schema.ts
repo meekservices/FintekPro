@@ -1965,7 +1965,7 @@ export const agents = pgTable("agents", {
   totalCommissionsEarned: decimal("total_commissions_earned", { precision: 15, scale: 2 }).default("0.00"),
   
   // Hierarchy and Reporting
-  reportingTo: varchar("reporting_to").references(() => agents.id), // Manager/supervisor agent ID
+  reportingTo: varchar("reporting_to"), // Manager/supervisor agent ID - self-reference
   teamSize: integer("team_size").default(0), // Number of agents reporting to this agent
   hierarchyLevel: integer("hierarchy_level").default(1), // 1 = frontline, 2 = team lead, 3 = manager, etc.
   

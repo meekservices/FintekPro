@@ -169,19 +169,13 @@ export class OrderManagementService {
     }
 
     // Build query with all conditions combined
-    let query = db
+    const query = db
       .select()
       .from(unifiedOrders)
       .where(and(...conditions))
-      .orderBy(desc(unifiedOrders.createdAt));
-
-    if (filters?.limit) {
-      query = query.limit(filters.limit);
-    }
-
-    if (filters?.offset) {
-      query = query.offset(filters.offset);
-    }
+      .orderBy(desc(unifiedOrders.createdAt))
+      .limit(filters?.limit || 50)
+      .offset(filters?.offset || 0);
 
     return await query;
   }
