@@ -1889,6 +1889,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+
+  // Get workflow status with step dependencies and progress
+  app.get("/api/kyc/wizard/workflow-status", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const session = await storage.getActiveKycSession(userId);
+      
+      if (!session) {
+        return res.json({
+          success: false,
+          message: "No active KYC session found"
+        });
+      }
+
+      // Import orchestrator
+      const { KYCOnboardingOrchestrator } = await import('./services/kyc-onboarding-orchestrator.js');
+      
+      // Get comprehensive workflow status
+      const workflowStatus = KYCOnboardingOrchestrator.getWorkflowStatus(session);
+      
+      // Get detailed guidance for current step
+      const currentStepGuidance = KYCOnboardingOrchestrator.getStepGuidance(
+        workflowStatus.currentStep,
+        session.stepStatus as any
+      );
+      
+      // Get next step details if available
+      let nextStepDetails = null;
+      if (workflowStatus.nextStep) {
+        nextStepDetails = {
+          step: workflowStatus.nextStep,
+          displayName: KYCOnboardingOrchestrator.getStepDisplayName(workflowStatus.nextStep),
+          details: KYCOnboardingOrchestrator.getStepDetails(workflowStatus.nextStep),
+          guidance: KYCOnboardingOrchestrator.getStepGuidance(workflowStatus.nextStep, session.stepStatus as any)
+        };
+      }
+      
+      res.json({
+        success: true,
+        sessionId: session.id,
+        workflowStatus,
+        currentStepGuidance,
+        nextStepDetails,
+        message: "Workflow status retrieved successfully"
+      });
+    } catch (error) {
+      console.error('Error fetching workflow status:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch workflow status'
+      });
+    }
+  });
+
   
   // Step 1: Verify PAN with DOB
   app.post("/api/kyc/wizard/verify-pan", requireClientOrHigher, async (req: any, res) => {
