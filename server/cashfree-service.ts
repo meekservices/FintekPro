@@ -392,6 +392,231 @@ export class CashfreeService {
     const similarity = ((maxLength - distance) / maxLength) * 100;
     return Math.round(similarity);
   }
+
+  /**
+   * Create eMandate for NACH (National Automated Clearing House)
+   * Used for SIP (Systematic Investment Plan) auto-debit
+   */
+  async createEMandate(
+    userId: string,
+    accountNumber: string,
+    ifscCode: string,
+    accountHolderName: string,
+    maxAmount: number,
+    frequency: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY' = 'MONTHLY',
+    startDate?: Date,
+    endDate?: Date
+  ): Promise<EMandateCreateResult> {
+    // Check if running in production without credentials
+    if (this.environment === 'PRODUCTION' && !this.hasValidCredentials()) {
+      throw new Error('Cashfree credentials required for eMandate creation in production');
+    }
+
+    // Use mocks in non-production environments when credentials are missing
+    if (!this.hasValidCredentials()) {
+      console.log('⚠️ Using mock eMandate creation (credentials not configured)');
+      return this.mockEMandateCreation(userId, accountNumber, maxAmount);
+    }
+
+    try {
+      // Cashfree eMandate creation endpoint
+      const eMandateUrl = this.environment === 'PRODUCTION'
+        ? 'https://api.cashfree.com/pg/eligibility/emandate'
+        : 'https://sandbox.cashfree.com/pg/eligibility/emandate';
+
+      const mandateId = `mandate_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      const start = startDate || new Date();
+      const end = endDate || new Date(start.getTime() + 10 * 365 * 24 * 60 * 60 * 1000); // 10 years default
+
+      const requestBody = {
+        mandate_id: mandateId,
+        customer_id: userId,
+        mandate_amount: maxAmount,
+        frequency,
+        start_date: start.toISOString().split('T')[0],
+        end_date: end.toISOString().split('T')[0],
+        bank_account: {
+          account_number: accountNumber,
+          ifsc: ifscCode.toUpperCase(),
+          account_holder_name: accountHolderName
+        },
+        authorization_mode: 'DEBIT_CARD', // or NET_BANKING
+        return_url: `${process.env.REPLIT_DEV_DOMAIN || 'http://localhost:5000'}/api/kyc/wizard/emandate-callback`
+      };
+
+      console.log(`📝 Cashfree: Creating eMandate for user ${userId}, max amount ₹${maxAmount}`);
+
+      const response = await axios.post(eMandateUrl, requestBody, {
+        headers: {
+          'x-client-id': this.appId,
+          'x-client-secret': this.secretKey,
+          'Content-Type': 'application/json'
+        },
+        timeout: 30000
+      });
+
+      const data = response.data;
+
+      if (data.status === 'SUCCESS' || data.mandate_url) {
+        console.log(`✅ eMandate created successfully: ${mandateId}`);
+
+        return {
+          success: true,
+          mandateId: data.mandate_id || mandateId,
+          mandateUrl: data.mandate_url,
+          status: 'PENDING_AUTHORIZATION',
+          message: 'eMandate created. User needs to authorize via bank'
+        };
+      }
+
+      return {
+        success: false,
+        status: 'FAILED',
+        message: data.message || 'eMandate creation failed'
+      };
+
+    } catch (error: any) {
+      console.error('❌ Cashfree eMandate creation error:', error.response?.data || error.message);
+
+      if (error.response?.data) {
+        return {
+          success: false,
+          status: 'FAILED',
+          message: error.response.data.message || 'eMandate creation failed',
+          errorCode: error.response.data.code
+        };
+      }
+
+      return {
+        success: false,
+        status: 'FAILED',
+        message: error.message || 'eMandate service unavailable'
+      };
+    }
+  }
+
+  /**
+   * Get eMandate status
+   */
+  async getEMandateStatus(mandateId: string): Promise<EMandateStatusResult> {
+    if (!this.hasValidCredentials()) {
+      return this.mockEMandateStatus(mandateId);
+    }
+
+    try {
+      const statusUrl = this.environment === 'PRODUCTION'
+        ? `https://api.cashfree.com/pg/eligibility/emandate/${mandateId}`
+        : `https://sandbox.cashfree.com/pg/eligibility/emandate/${mandateId}`;
+
+      const response = await axios.get(statusUrl, {
+        headers: {
+          'x-client-id': this.appId,
+          'x-client-secret': this.secretKey
+        },
+        timeout: 15000
+      });
+
+      const data = response.data;
+
+      return {
+        success: true,
+        mandateId: data.mandate_id,
+        status: data.status || 'PENDING',
+        authorizationDate: data.authorization_date,
+        expiryDate: data.end_date,
+        maxAmount: data.mandate_amount,
+        frequency: data.frequency
+      };
+
+    } catch (error: any) {
+      console.error('❌ eMandate status check error:', error.response?.data || error.message);
+
+      return {
+        success: false,
+        status: 'UNKNOWN',
+        message: error.response?.data?.message || error.message || 'Failed to fetch mandate status'
+      };
+    }
+  }
+
+  /**
+   * Cancel eMandate
+   */
+  async cancelEMandate(mandateId: string): Promise<{ success: boolean; message: string }> {
+    if (!this.hasValidCredentials()) {
+      return {
+        success: true,
+        message: `[MOCK] eMandate ${mandateId} cancelled successfully`
+      };
+    }
+
+    try {
+      const cancelUrl = this.environment === 'PRODUCTION'
+        ? `https://api.cashfree.com/pg/eligibility/emandate/${mandateId}/cancel`
+        : `https://sandbox.cashfree.com/pg/eligibility/emandate/${mandateId}/cancel`;
+
+      await axios.post(cancelUrl, {}, {
+        headers: {
+          'x-client-id': this.appId,
+          'x-client-secret': this.secretKey
+        },
+        timeout: 15000
+      });
+
+      console.log(`✅ eMandate cancelled: ${mandateId}`);
+
+      return {
+        success: true,
+        message: 'eMandate cancelled successfully'
+      };
+
+    } catch (error: any) {
+      console.error('❌ eMandate cancellation error:', error.response?.data || error.message);
+
+      return {
+        success: false,
+        message: error.response?.data?.message || error.message || 'Failed to cancel mandate'
+      };
+    }
+  }
+
+  /**
+   * Mock eMandate creation for development/testing
+   */
+  private mockEMandateCreation(
+    userId: string,
+    accountNumber: string,
+    maxAmount: number
+  ): EMandateCreateResult {
+    const mockMandateId = `mock_mandate_${Date.now()}`;
+    const mockMandateUrl = `https://sandbox.cashfree.com/emandate/authorize/${mockMandateId}`;
+
+    console.log(`✅ [MOCK] eMandate created: ${mockMandateId} for ₹${maxAmount}`);
+
+    return {
+      success: true,
+      mandateId: mockMandateId,
+      mandateUrl: mockMandateUrl,
+      status: 'PENDING_AUTHORIZATION',
+      message: 'eMandate created successfully (MOCK). User would authorize via bank in production.'
+    };
+  }
+
+  /**
+   * Mock eMandate status for development/testing
+   */
+  private mockEMandateStatus(mandateId: string): EMandateStatusResult {
+    // Simulate authorized mandate for mock IDs
+    return {
+      success: true,
+      mandateId,
+      status: 'ACTIVE',
+      authorizationDate: new Date().toISOString(),
+      expiryDate: new Date(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000).toISOString(),
+      maxAmount: 50000,
+      frequency: 'MONTHLY'
+    };
+  }
 }
 
 export interface BankVerificationResult {
@@ -404,6 +629,26 @@ export interface BankVerificationResult {
   transactionId?: string;
   message?: string;
   errorCode?: string;
+}
+
+export interface EMandateCreateResult {
+  success: boolean;
+  mandateId?: string;
+  mandateUrl?: string;
+  status: 'PENDING_AUTHORIZATION' | 'ACTIVE' | 'FAILED' | 'CANCELLED';
+  message?: string;
+  errorCode?: string;
+}
+
+export interface EMandateStatusResult {
+  success: boolean;
+  mandateId?: string;
+  status: 'PENDING' | 'ACTIVE' | 'FAILED' | 'CANCELLED' | 'EXPIRED' | 'UNKNOWN';
+  authorizationDate?: string;
+  expiryDate?: string;
+  maxAmount?: number;
+  frequency?: string;
+  message?: string;
 }
 
 export const cashfreeService = new CashfreeService();

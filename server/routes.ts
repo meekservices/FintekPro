@@ -2795,6 +2795,304 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // =================================================================
+
+  // ============================================================
+  // STEP 6: eMandate Registration (Cashfree NACH)
+  // ============================================================
+  app.post("/api/kyc/wizard/create-emandate", requireClientOrHigher, async (req: any, res) => {
+    try {
+      // Validate request payload
+      const eMandateRequestSchema = z.object({
+        sessionId: z.string().min(1, "Session ID is required"),
+        accountNumber: z.string()
+          .min(8, "Account number must be at least 8 characters")
+          .max(20, "Account number must be at most 20 characters"),
+        ifscCode: z.string()
+          .regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Invalid IFSC code format"),
+        accountHolderName: z.string().min(1, "Account holder name is required"),
+        maxAmount: z.number()
+          .min(100, "Maximum amount must be at least ₹100")
+          .max(100000000, "Maximum amount cannot exceed ₹10 crore"),
+        frequency: z.enum(['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY']).default('MONTHLY'),
+        startDate: z.string().optional(),
+        endDate: z.string().optional()
+      });
+
+      const validated = eMandateRequestSchema.parse(req.body);
+
+      // Get KYC session
+      const session = await storage.getKycSessionById(validated.sessionId);
+      if (!session) {
+        return res.status(404).json({
+          success: false,
+          message: 'KYC session not found'
+        });
+      }
+
+      // Verify user owns this session
+      if (session.userId !== req.user.id) {
+        return res.status(403).json({
+          success: false,
+          message: 'Unauthorized access to KYC session'
+        });
+      }
+
+      // Optional: Verify bank account was previously verified
+      const bankStepStatus = session.stepStatus?.bank_verification;
+      if (!bankStepStatus?.verified) {
+        console.warn(`⚠️ Creating eMandate for unverified bank account (session: ${validated.sessionId})`);
+      }
+
+      // Create eMandate via Cashfree
+      const startDate = validated.startDate ? new Date(validated.startDate) : undefined;
+      const endDate = validated.endDate ? new Date(validated.endDate) : undefined;
+
+      const result = await cashfreeService.createEMandate(
+        session.userId,
+        validated.accountNumber,
+        validated.ifscCode,
+        validated.accountHolderName,
+        validated.maxAmount,
+        validated.frequency,
+        startDate,
+        endDate
+      );
+
+      if (!result.success) {
+        return res.status(400).json({
+          success: false,
+          message: result.message || 'eMandate creation failed',
+          errorCode: result.errorCode
+        });
+      }
+
+      // Store mandate details in session (without raw account number)
+      await storage.updateKycSessionStepStatus(validated.sessionId, 'emandate_registration', {
+        verified: false, // Not verified until user authorizes
+        mandateId: result.mandateId,
+        mandateUrl: result.mandateUrl,
+        status: result.status,
+        maxAmount: validated.maxAmount,
+        frequency: validated.frequency,
+        accountNumberMasked: `****${validated.accountNumber.slice(-4)}`,
+        ifscCodeMasked: `${validated.ifscCode.substring(0, 4)}******${validated.ifscCode.slice(-1)}`,
+        accountHolderName: validated.accountHolderName,
+        createdAt: new Date().toISOString()
+      });
+
+      console.log(`✅ eMandate created for session ${validated.sessionId}: ${result.mandateId}`);
+
+      res.json({
+        success: true,
+        message: result.message || 'eMandate created successfully',
+        mandateId: result.mandateId,
+        mandateUrl: result.mandateUrl,
+        status: result.status
+      });
+
+    } catch (error: any) {
+      console.error('eMandate creation API error:', error);
+
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: error.errors
+        });
+      }
+
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to create eMandate'
+      });
+    }
+  });
+
+  // Get eMandate status
+  app.get("/api/kyc/wizard/emandate-status/:mandateId", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const { mandateId } = req.params;
+
+      if (!mandateId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Mandate ID is required'
+        });
+      }
+
+      const result = await cashfreeService.getEMandateStatus(mandateId);
+
+      res.json(result);
+
+    } catch (error: any) {
+      console.error('eMandate status API error:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to fetch eMandate status'
+      });
+    }
+  });
+
+  // Cancel eMandate
+  app.post("/api/kyc/wizard/cancel-emandate", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const schema = z.object({
+        sessionId: z.string().min(1),
+        mandateId: z.string().min(1)
+      });
+
+      const validated = schema.parse(req.body);
+
+      // Get KYC session
+      const session = await storage.getKycSessionById(validated.sessionId);
+      if (!session) {
+        return res.status(404).json({
+          success: false,
+          message: 'KYC session not found'
+        });
+      }
+
+      // Verify user owns this session
+      if (session.userId !== req.user.id) {
+        return res.status(403).json({
+          success: false,
+          message: 'Unauthorized access to KYC session'
+        });
+      }
+
+      const result = await cashfreeService.cancelEMandate(validated.mandateId);
+
+      if (result.success) {
+        // Update session to mark mandate as cancelled
+        await storage.updateKycSessionStepStatus(validated.sessionId, 'emandate_registration', {
+          status: 'CANCELLED',
+          cancelledAt: new Date().toISOString()
+        });
+      }
+
+      res.json(result);
+
+    } catch (error: any) {
+      console.error('eMandate cancellation API error:', error);
+
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: error.errors
+        });
+      }
+
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to cancel eMandate'
+      });
+    }
+  });
+
+  // Cashfree eMandate callback - GET (user redirect after authorization)
+  app.get("/api/kyc/wizard/emandate-callback", async (req, res) => {
+    try {
+      console.log('📥 eMandate GET callback (user redirect):', req.query);
+
+      const { mandate_id, status, order_id } = req.query;
+
+      if (!mandate_id) {
+        console.warn('⚠️ eMandate callback missing mandate_id, redirecting to KYC wizard');
+        return res.redirect('/?kyc=true&error=mandate_callback_failed');
+      }
+
+      // Find KYC session by mandate ID
+      const sessions = await storage.getAllKycSessions();
+      const session = sessions.find(s => 
+        s.stepStatus?.emandate_registration?.mandateId === mandate_id
+      );
+
+      if (session) {
+        // Update mandate status based on callback
+        const verified = status === 'ACTIVE' || status === 'SUCCESS' || status === 'AUTHORIZED';
+        
+        await storage.updateKycSessionStepStatus(session.id, 'emandate_registration', {
+          verified,
+          status: (status as string) || 'PENDING',
+          authorizedAt: verified ? new Date().toISOString() : undefined,
+          callbackReceivedAt: new Date().toISOString()
+        });
+
+        console.log(`✅ eMandate GET callback processed for session ${session.id}: ${status}`);
+
+        // Redirect to KYC wizard with success/failure message
+        const redirectUrl = verified 
+          ? `/?kyc=true&step=emandate&success=true&sessionId=${session.id}`
+          : `/?kyc=true&step=emandate&error=authorization_failed&sessionId=${session.id}`;
+        
+        return res.redirect(redirectUrl);
+      } else {
+        console.warn(`⚠️ No session found for mandate ID: ${mandate_id}`);
+        return res.redirect('/?kyc=true&error=session_not_found');
+      }
+
+    } catch (error: any) {
+      console.error('❌ eMandate GET callback error:', error);
+      return res.redirect('/?kyc=true&error=callback_processing_failed');
+    }
+  });
+
+  // Cashfree eMandate callback/webhook
+  app.post("/api/kyc/wizard/emandate-callback", async (req, res) => {
+    try {
+      console.log('📥 eMandate callback received:', req.body);
+
+      const { mandate_id, status, customer_id } = req.body;
+
+      if (!mandate_id) {
+        return res.status(400).json({
+          success: false,
+          message: 'Mandate ID missing in callback'
+        });
+      }
+
+      // Find KYC session by mandate ID
+      // Note: In production, you'd want to store mandate_id -> sessionId mapping
+      // For now, we'll update based on mandateId in stepStatus
+      const sessions = await storage.getAllKycSessions();
+      const session = sessions.find(s => 
+        s.stepStatus?.emandate_registration?.mandateId === mandate_id
+      );
+
+      if (session) {
+        // Update mandate status based on callback
+        const verified = status === 'ACTIVE' || status === 'SUCCESS';
+        
+        await storage.updateKycSessionStepStatus(session.id, 'emandate_registration', {
+          verified,
+          status: status || 'UNKNOWN',
+          authorizedAt: verified ? new Date().toISOString() : undefined,
+          callbackReceivedAt: new Date().toISOString()
+        });
+
+        console.log(`✅ eMandate callback processed for session ${session.id}: ${status}`);
+      } else {
+        console.warn(`⚠️ No session found for mandate ID: ${mandate_id}`);
+      }
+
+      // Always return 200 to Cashfree to acknowledge receipt
+      res.json({
+        success: true,
+        message: 'Callback received'
+      });
+
+    } catch (error: any) {
+      console.error('eMandate callback error:', error);
+      
+      // Still return 200 to prevent Cashfree from retrying
+      res.json({
+        success: false,
+        message: error.message
+      });
+    }
+  });
+
   // CLIENT ENRICHMENT API ENDPOINTS
   // =================================================================
 
