@@ -3300,6 +3300,130 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { riskProfilingService } = await import('./services/risk-profiling-service.js');
 
+  // Step 9: Compliance Sign-off (FATCA, Risk, EUIN, Terms & Consent)
+  app.post("/api/kyc/wizard/compliance-signoff", requireClientOrHigher, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const { 
+        sessionId,
+        fatcaDeclaration,
+        taxResidencyCountry,
+        tinNumber,
+        isUsCitizen,
+        isGreenCardHolder,
+        riskAcknowledgment,
+        euinDisclosure,
+        euinNumber,
+        arnCode,
+        termsAndConditions,
+        privacyPolicy,
+        digitalSignature
+      } = req.body;
+      
+      if (!sessionId) {
+        return res.status(400).json({
+          success: false,
+          message: "Session ID is required"
+        });
+      }
+      
+      // Validate required declarations
+      if (fatcaDeclaration !== true || riskAcknowledgment !== true || termsAndConditions !== true || privacyPolicy !== true) {
+        return res.status(400).json({
+          success: false,
+          message: "All compliance declarations must be accepted"
+        });
+      }
+      
+      // Get session
+      const session = await storage.getKycVerificationSession(sessionId);
+      
+      if (!session || session.userId !== userId) {
+        return res.status(404).json({
+          success: false,
+          message: "Invalid session"
+        });
+      }
+      
+      // Check prerequisites (risk profiling and aadhaar must be completed)
+      const { KYCOnboardingOrchestrator } = await import('./services/kyc-onboarding-orchestrator.js');
+      const prereqCheck = KYCOnboardingOrchestrator.validateStepPrerequisites(
+        'compliance_signoff',
+        session.stepStatus as any
+      );
+      
+      if (!prereqCheck.valid) {
+        return res.status(400).json({
+          success: false,
+          message: prereqCheck.missingSteps && prereqCheck.missingSteps.length > 0
+            ? `Complete ${prereqCheck.missingSteps.join(', ')} first`
+            : 'Prerequisites not met for compliance sign-off'
+        });
+      }
+      
+      // Update user profile with FATCA and compliance data
+      await storage.upsertUserProfile({
+        userId,
+        fatcaStatus: 'Y', // User accepted FATCA declaration
+        fatcaDeclarationDate: new Date(),
+        fatcaTinNumber: tinNumber || null,
+        fatcaCountryOfTaxResidence: taxResidencyCountry || null,
+        pepStatus: 'N', // User self-declares as non-PEP during compliance
+        pepRelatedPersonStatus: 'N'
+      });
+      
+      // If EUIN/ARN provided, store it
+      if (euinNumber || arnCode) {
+        await storage.upsertUserProfile({
+          userId,
+          euinNumber: euinNumber || null,
+          arnCode: arnCode || null
+        });
+      }
+      
+      // Update KYC session with compliance sign-off
+      await storage.updateKycSessionStepStatus(sessionId, 'compliance_signoff', {
+        status: 'completed',
+        completedAt: new Date(),
+        data: {
+          fatcaDeclaration,
+          taxResidencyCountry,
+          tinNumber,
+          isUsCitizen,
+          isGreenCardHolder,
+          riskAcknowledgment,
+          euinDisclosure,
+          euinNumber,
+          arnCode,
+          termsAndConditions,
+          privacyPolicy,
+          digitalSignature,
+          signedAt: new Date().toISOString(),
+          ipAddress: req.ip || req.connection.remoteAddress
+        }
+      });
+      
+      // Move to next step
+      await storage.updateKycSession(sessionId, {
+        currentStep: 'final_approval',
+        lastActivityAt: new Date()
+      });
+      
+      res.json({
+        success: true,
+        message: "Compliance declarations submitted successfully",
+        nextStep: "final_approval"
+      });
+    } catch (error) {
+      console.error('Error submitting compliance sign-off:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to submit compliance declarations'
+      });
+    }
+  });
+
+
       // Recalculate full profile from stored answers
       const riskProfile = riskProfilingService.calculateRiskProfile(riskProfileData.answers);
 
