@@ -53,99 +53,117 @@ export class KRAStatusService {
   }
 
   /**
+   * Normalize external KRA status to internal enum
+   */
+  private normalizeKRAStatus(externalStatus: string): 'VERIFIED' | 'ONHOLD' | 'KYC_NOT_FOUND' | 'REJECTED' {
+    const status = externalStatus?.toUpperCase() || '';
+    
+    // Map various external status values to our enum
+    if (status === 'VERIFIED' || status === 'ACTIVE' || status === 'APPROVED') {
+      return 'VERIFIED';
+    }
+    if (status === 'ONHOLD' || status === 'PENDING' || status === 'HOLD') {
+      return 'ONHOLD';
+    }
+    if (status === 'REJECTED' || status === 'DECLINED' || status === 'INVALID') {
+      return 'REJECTED';
+    }
+    
+    // Default to NOT_FOUND for unknown/empty statuses
+    console.warn('⚠️ Unknown KRA status received:', externalStatus, '- defaulting to KYC_NOT_FOUND');
+    return 'KYC_NOT_FOUND';
+  }
+
+  /**
    * Check KYC status with NSDL KRA
+   * Throws error on failure to enable CVL fallback
    */
   async checkNSDLStatus(request: KRAStatusRequest): Promise<KRAStatusResponse> {
-    try {
-      console.log('🔍 Checking NSDL KRA status for PAN:', request.panNumber.slice(0, 4) + '***');
+    console.log('🔍 Checking NSDL KRA status for PAN:', request.panNumber.slice(0, 4) + '***');
 
-      const response = await fetch(`${this.nsdlApiUrl}/kyc-status`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': this.apiKey,
-          'X-API-Secret': this.apiSecret,
-        },
-        body: JSON.stringify({
-          pan: request.panNumber,
-          dob: request.dateOfBirth,
-          name: request.fullName,
-        }),
-      });
+    const response = await fetch(`${this.nsdlApiUrl}/kyc-status`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': this.apiKey,
+        'X-API-Secret': this.apiSecret,
+      },
+      body: JSON.stringify({
+        pan: request.panNumber,
+        dob: request.dateOfBirth,
+        name: request.fullName,
+      }),
+    });
 
-      if (!response.ok) {
-        throw new Error(`NSDL KRA API error: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-
-      return {
-        success: true,
-        status: data.status || 'KYC_NOT_FOUND',
-        ckycNumber: data.ckyc_number || data.kin,
-        verificationDate: data.verification_date,
-        expiryDate: data.expiry_date,
-        kycDetails: data.kyc_details ? {
-          name: data.kyc_details.name,
-          dob: data.kyc_details.dob,
-          address: data.kyc_details.address,
-          mobile: data.kyc_details.mobile,
-          email: data.kyc_details.email,
-        } : undefined,
-        message: data.message || 'KYC status check completed',
-      };
-    } catch (error: any) {
-      console.error('NSDL KRA status check error:', error);
-      
-      // Return mock response for development/testing
-      return this.getMockKRAStatus(request);
+    if (!response.ok) {
+      throw new Error(`NSDL KRA API error: ${response.status} ${response.statusText}`);
     }
+
+    const data = await response.json();
+
+    // Normalize the status to our enum
+    const normalizedStatus = this.normalizeKRAStatus(data.status);
+
+    return {
+      success: true,
+      status: normalizedStatus,
+      ckycNumber: data.ckyc_number || data.kin,
+      verificationDate: data.verification_date,
+      expiryDate: data.expiry_date,
+      kycDetails: data.kyc_details ? {
+        name: data.kyc_details.name,
+        dob: data.kyc_details.dob,
+        address: data.kyc_details.address,
+        mobile: data.kyc_details.mobile,
+        email: data.kyc_details.email,
+      } : undefined,
+      message: data.message || 'KYC status check completed',
+    };
   }
 
   /**
    * Check KYC status with CVL KRA (fallback)
+   * Throws error on failure
    */
   async checkCVLStatus(request: KRAStatusRequest): Promise<KRAStatusResponse> {
-    try {
-      console.log('🔍 Checking CVL KRA status for PAN:', request.panNumber.slice(0, 4) + '***');
+    console.log('🔍 Checking CVL KRA status for PAN:', request.panNumber.slice(0, 4) + '***');
 
-      const response = await fetch(`${this.cvlApiUrl}/search`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify({
-          pan_number: request.panNumber,
-          date_of_birth: request.dateOfBirth,
-        }),
-      });
+    const response = await fetch(`${this.cvlApiUrl}/search`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify({
+        pan_number: request.panNumber,
+        date_of_birth: request.dateOfBirth,
+      }),
+    });
 
-      if (!response.ok) {
-        throw new Error(`CVL KRA API error: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-
-      return {
-        success: true,
-        status: data.kyc_status || 'KYC_NOT_FOUND',
-        ckycNumber: data.application_id,
-        verificationDate: data.verified_on,
-        expiryDate: data.valid_till,
-        kycDetails: data.applicant_details ? {
-          name: data.applicant_details.name,
-          dob: data.applicant_details.dob,
-          address: data.applicant_details.address,
-          mobile: data.applicant_details.mobile,
-          email: data.applicant_details.email,
-        } : undefined,
-        message: data.message || 'KYC status retrieved',
-      };
-    } catch (error: any) {
-      console.error('CVL KRA status check error:', error);
-      throw error;
+    if (!response.ok) {
+      throw new Error(`CVL KRA API error: ${response.status} ${response.statusText}`);
     }
+
+    const data = await response.json();
+
+    // Normalize the status to our enum
+    const normalizedStatus = this.normalizeKRAStatus(data.kyc_status);
+
+    return {
+      success: true,
+      status: normalizedStatus,
+      ckycNumber: data.application_id,
+      verificationDate: data.verified_on,
+      expiryDate: data.valid_till,
+      kycDetails: data.applicant_details ? {
+        name: data.applicant_details.name,
+        dob: data.applicant_details.dob,
+        address: data.applicant_details.address,
+        mobile: data.applicant_details.mobile,
+        email: data.applicant_details.email,
+      } : undefined,
+      message: data.message || 'KYC status retrieved',
+    };
   }
 
   /**
@@ -172,6 +190,15 @@ export class KRAStatusService {
       };
     }
 
+    // If in development mode with no API credentials, use mocks explicitly
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    const hasCredentials = this.apiKey && this.apiSecret;
+    
+    if (isDevelopment && !hasCredentials) {
+      console.warn('⚠️ KRA API credentials not configured - using mock responses in development mode');
+      return this.getMockKRAStatus(request);
+    }
+
     try {
       // Try NSDL first (primary KRA)
       const nsdlResult = await this.checkNSDLStatus(request);
@@ -188,11 +215,32 @@ export class KRAStatusService {
       console.log('✅ CVL KRA status:', cvlResult.status);
       return cvlResult;
 
-    } catch (error: any) {
-      console.error('KRA status check failed:', error);
+    } catch (nsdlError: any) {
+      console.error('❌ NSDL KRA check failed:', nsdlError.message);
       
-      // Return mock for development
-      return this.getMockKRAStatus(request);
+      // Try CVL fallback before giving up
+      try {
+        console.log('🔄 Attempting CVL KRA fallback due to NSDL failure...');
+        const cvlResult = await this.checkCVLStatus(request);
+        console.log('✅ CVL KRA status (fallback):', cvlResult.status);
+        return cvlResult;
+      } catch (cvlError: any) {
+        console.error('❌ CVL KRA fallback also failed:', cvlError.message);
+        
+        // Both KRAs failed - return error in production, mock only in dev without credentials
+        if (!isDevelopment || hasCredentials) {
+          return {
+            success: false,
+            status: 'KYC_NOT_FOUND',
+            message: 'Unable to verify KRA status. Please proceed with Aadhaar verification.',
+            errors: [`NSDL: ${nsdlError.message}`, `CVL: ${cvlError.message}`],
+          };
+        }
+        
+        // Only use mock in development mode WITHOUT credentials
+        console.warn('⚠️ Using mock KRA response (development mode with no credentials)');
+        return this.getMockKRAStatus(request);
+      }
     }
   }
 

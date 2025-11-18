@@ -38,6 +38,18 @@ export class CashfreeService {
     this.secretKey = process.env.CASHFREE_SECRET_KEY || '';
     this.environment = process.env.CASHFREE_ENVIRONMENT || 'SANDBOX';
     
+    // Validate credentials are present
+    if (!this.appId || !this.secretKey) {
+      const isDev = process.env.NODE_ENV === 'development';
+      if (isDev) {
+        console.warn('⚠️ Cashfree credentials (CASHFREE_APP_ID, CASHFREE_SECRET_KEY) not configured');
+        console.warn('⚠️ Cashfree payment and verification APIs will not function properly');
+      } else {
+        // In production, throw error if credentials are missing
+        throw new Error('Cashfree credentials (CASHFREE_APP_ID, CASHFREE_SECRET_KEY) are required in production');
+      }
+    }
+    
     // Set base URL based on environment
     this.baseUrl = this.environment === 'PRODUCTION' 
       ? 'https://api.cashfree.com/pg'
@@ -55,7 +67,15 @@ export class CashfreeService {
       }
     });
 
-    console.log(`✅ Cashfree service initialized (${this.environment} mode)`);
+    const credentialsStatus = this.appId && this.secretKey ? 'with credentials' : 'WITHOUT CREDENTIALS';
+    console.log(`✅ Cashfree service initialized (${this.environment} mode) ${credentialsStatus}`);
+  }
+
+  /**
+   * Check if service has valid credentials configured
+   */
+  hasValidCredentials(): boolean {
+    return !!(this.appId && this.secretKey && this.appId.length > 0 && this.secretKey.length > 0);
   }
 
   /**

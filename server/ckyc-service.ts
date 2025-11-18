@@ -158,13 +158,63 @@ export interface CVLRegistrationResponse {
   errors?: string[];
 }
 
+export interface KYCDocumentUpload {
+  documentType: 'pan_card' | 'aadhar_card' | 'address_proof' | 'photograph' | 'signature' | 'income_proof';
+  documentData: string; // Base64 encoded document
+  documentFormat: 'jpg' | 'jpeg' | 'png' | 'pdf';
+}
+
+export interface CKYCUploadRequest {
+  personalInfo: CKYCRegistrationRequest;
+  documents: KYCDocumentUpload[];
+}
+
+export interface CKYCUploadResponse {
+  success: boolean;
+  applicationNumber?: string;
+  uploadStatus: 'submitted' | 'pending' | 'failed';
+  message: string;
+  errors?: string[];
+}
+
+export interface KINPollResponse {
+  success: boolean;
+  status: 'pending' | 'processing' | 'completed' | 'rejected';
+  ckycNumber?: string; // KIN number
+  applicationNumber: string;
+  message: string;
+  rejectionReason?: string;
+}
+
 export class CKYCService {
   private baseUrl: string;
   private apiKey: string;
+  private apiSecret: string;
   
   constructor() {
-    this.baseUrl = process.env.CKYC_API_BASE_URL || 'https://api.ckyc.in/v1';
-    this.apiKey = process.env.CKYC_API_KEY || 'demo-api-key';
+    this.baseUrl = process.env.CKYC_API_BASE_URL || 'https://api.nsdl.com/ckyc/v1';
+    this.apiKey = process.env.CKYC_API_KEY || '';
+    this.apiSecret = process.env.CKYC_API_SECRET || '';
+    
+    // Validate credentials
+    const isDev = process.env.NODE_ENV === 'development';
+    const hasCredentials = this.apiKey && this.apiSecret;
+    
+    if (!hasCredentials) {
+      if (isDev) {
+        console.warn('⚠️ CKYC API credentials (CKYC_API_KEY, CKYC_API_SECRET) not configured');
+        console.warn('⚠️ CKYC registration and KIN polling will use mock responses in development');
+      } else {
+        throw new Error('CKYC API credentials (CKYC_API_KEY, CKYC_API_SECRET) are required in production');
+      }
+    }
+  }
+  
+  /**
+   * Check if service has valid credentials configured
+   */
+  hasValidCredentials(): boolean {
+    return !!(this.apiKey && this.apiSecret && this.apiKey.length > 0 && this.apiSecret.length > 0);
   }
 
   // CKYC Registry Operations
