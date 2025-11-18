@@ -2458,7 +2458,113 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Client Auto-Populate API endpoint
+
+  // Zod schema for UCC creation validation
+  const uccCreationSchema = z.object({
+    sessionId: z.string().min(1, 'Session ID is required'),
+    
+    // Personal Information
+    firstName: z.string().min(1, 'First name is required'),
+    middleName: z.string().optional(),
+    lastName: z.string().min(1, 'Last name is required'),
+    dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date of birth must be in YYYY-MM-DD format'),
+    gender: z.enum(['M', 'F', 'T']),
+    
+    // Identity
+    panNumber: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, 'Invalid PAN format'),
+    ckycNumber: z.string().optional(),
+    
+    // Contact
+    mobile: z.string().regex(/^\d{10}$/, 'Invalid mobile number'),
+    email: z.string().email('Invalid email address'),
+    
+    // Address
+    addressLine1: z.string().min(1, 'Address line 1 is required'),
+    addressLine2: z.string().optional(),
+    city: z.string().min(1, 'City is required'),
+    state: z.string().min(1, 'State is required'),
+    pincode: z.string().regex(/^\d{6}$/, 'Invalid pincode'),
+    country: z.string().default('India'),
+    
+    // Bank Details
+    bankAccountNumber: z.string().min(1, 'Bank account number is required'),
+    bankIfscCode: z.string().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, 'Invalid IFSC code'),
+    bankAccountType: z.enum(['SB', 'CA', 'CC', 'NRE', 'NRO']),
+    
+    // Occupation & Income
+    occupation: z.string().optional(),
+    annualIncome: z.string().optional(),
+    
+    // Nominee Details (optional)
+    nomineeName: z.string().optional(),
+    nomineeRelationship: z.string().optional(),
+    nomineeDob: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    
+    // Tax Status
+    taxStatus: z.enum(['INDIVIDUAL', 'MINOR', 'NRI', 'HUF', 'COMPANY', 'TRUST']),
+    
+    // FATCA & PEP
+    taxResidency: z.string().optional(),
+    isTaxResident: z.boolean().default(true),
+    isPEP: z.boolean().default(false),
+  });
+
+  // Create UCC (Unique Client Code) for BSE Star MFD
+  app.post("/api/kyc/wizard/create-ucc", requireClientOrHigher, async (req: any, res) => {
+    try {
+      // Validate request payload
+      const validationResult = uccCreationSchema.safeParse(req.body);
+      
+      if (!validationResult.success) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid request data",
+          errors: validationResult.error.issues.map(issue => `${issue.path.join('.')}: ${issue.message}`)
+        });
+      }
+      
+      const userId = req.user!.id;
+      const { sessionId, ...uccData } = validationResult.data;
+      
+      // Get session
+      const session = await storage.getKycVerificationSession(sessionId);
+      
+      if (!session || session.userId !== userId) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid session"
+        });
+      }
+      
+      // Import BSE UCC service
+      const { bseUCCService } = await import('./services/bse-ucc-service');
+      
+      // Create UCC
+      const result = await bseUCCService.createUCC(uccData);
+      
+      if (result.success && result.uccCode) {
+        // Store UCC code in session for now (TODO: Add to user profile/database)
+        await storage.updateKycSessionStepStatus(sessionId, 'ucc_creation', {
+          status: 'completed',
+          uccCode: result.uccCode,
+          clientCode: result.clientCode,
+          bseReference: result.bseReference,
+          createdAt: new Date().toISOString()
+        });
+        
+        // TODO: Store UCC in user profile/database
+        // This requires schema migration to add uccCode field to users or userProfiles table
+      }
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error('UCC creation error:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to create UCC'
+      });
+    }
+  });
   app.post("/api/client/auto-populate", async (req, res) => {
     try {
       const minimalData = req.body;
