@@ -1825,6 +1825,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Deactivate any old active sessions before creating a new one
+      // This handles cases where expired sessions are still marked as active
+      await storage.deactivateAllUserKycSessions(userId);
+      
       // Create new session
       const session = await storage.createKycVerificationSession({
         userId,

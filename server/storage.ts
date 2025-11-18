@@ -817,6 +817,7 @@ export interface IStorage {
   createKycVerificationSession(session: InsertKycVerificationSession): Promise<KycVerificationSession>;
   getKycVerificationSession(id: string): Promise<KycVerificationSession | undefined>;
   getActiveKycSession(userId: string): Promise<KycVerificationSession | undefined>;
+  deactivateAllUserKycSessions(userId: string): Promise<void>;
   updateKycVerificationSession(id: string, updates: Partial<KycVerificationSession>): Promise<KycVerificationSession | undefined>;
   completeKycSession(id: string): Promise<void>;
   
@@ -5819,6 +5820,17 @@ export class DatabaseStorage implements IStorage {
         isActive: false
       })
       .where(eq(schema.kycVerificationSessions.id, id));
+  }
+
+  async deactivateAllUserKycSessions(userId: string): Promise<void> {
+    await db.update(schema.kycVerificationSessions)
+      .set({ isActive: false })
+      .where(
+        and(
+          eq(schema.kycVerificationSessions.userId, userId),
+          eq(schema.kycVerificationSessions.isActive, true)
+        )
+      );
   }
   
   // Manual KYC Submission implementation
