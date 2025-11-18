@@ -1,7 +1,9 @@
-import React, { Component, ReactNode } from 'react';
+import { Component, ReactNode } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AlertCircle, RefreshCw, Home } from 'lucide-react';
+import { ApiError } from '@/lib/queryClient';
 
 interface Props {
   children: ReactNode;
@@ -50,6 +52,20 @@ export class ErrorBoundary extends Component<Props, State> {
     this.setState({ hasError: false, error: undefined, errorInfo: undefined });
   };
 
+  handleGoHome = () => {
+    window.location.href = '/';
+  };
+
+  getUserFriendlyMessage(): string {
+    if (!this.state.error) return 'An unexpected error occurred';
+    
+    if (this.state.error instanceof ApiError) {
+      return this.state.error.getUserFriendlyMessage();
+    }
+    
+    return this.state.error.message || 'An unexpected error occurred';
+  }
+
   render() {
     if (this.state.hasError) {
       if (this.props.fallback) {
@@ -69,30 +85,72 @@ export class ErrorBoundary extends Component<Props, State> {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {import.meta.env.DEV && this.state.error && (
-                <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-md" data-testid="error-message">
-                  <p className="text-sm font-mono text-red-600 dark:text-red-400">
-                    {this.state.error.message}
-                  </p>
-                  {this.state.errorInfo && (
-                    <details className="mt-2 cursor-pointer">
-                      <summary className="text-xs text-muted-foreground">Stack trace</summary>
-                      <pre className="mt-1 text-xs overflow-auto max-h-32">
-                        {this.state.errorInfo.componentStack}
-                      </pre>
-                    </details>
-                  )}
-                </div>
+              <Alert variant="destructive" data-testid="error-message">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  {this.getUserFriendlyMessage()}
+                </AlertDescription>
+              </Alert>
+
+              {this.state.error instanceof ApiError && this.state.error.traceId && (
+                <p className="text-xs text-muted-foreground text-center">
+                  Error ID: {this.state.error.traceId}
+                </p>
               )}
-              <div className="flex gap-2">
+
+              {import.meta.env.DEV && this.state.error && (
+                <details className="text-sm">
+                  <summary className="cursor-pointer font-medium mb-2 text-muted-foreground">
+                    Technical Details (Development Only)
+                  </summary>
+                  <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-md space-y-2">
+                    <p className="text-sm font-mono text-red-600 dark:text-red-400">
+                      {this.state.error.message}
+                    </p>
+                    {this.state.error instanceof ApiError && (
+                      <div className="text-xs space-y-1">
+                        {this.state.error.code && <p><strong>Code:</strong> {this.state.error.code}</p>}
+                        {this.state.error.status && <p><strong>Status:</strong> {this.state.error.status}</p>}
+                        {this.state.error.details && (
+                          <details>
+                            <summary className="cursor-pointer">Error Details</summary>
+                            <pre className="mt-1 overflow-auto max-h-32">
+                              {JSON.stringify(this.state.error.details, null, 2)}
+                            </pre>
+                          </details>
+                        )}
+                      </div>
+                    )}
+                    {this.state.errorInfo && (
+                      <details className="cursor-pointer">
+                        <summary className="text-xs text-muted-foreground">Component Stack</summary>
+                        <pre className="mt-1 text-xs overflow-auto max-h-32">
+                          {this.state.errorInfo.componentStack}
+                        </pre>
+                      </details>
+                    )}
+                  </div>
+                </details>
+              )}
+
+              <div className="flex gap-2 flex-wrap">
                 <Button onClick={this.handleReset} variant="outline" className="flex-1" data-testid="button-try-again">
+                  <RefreshCw className="h-4 w-4 mr-2" />
                   Try Again
                 </Button>
-                <Button onClick={this.handleReload} className="flex-1" data-testid="button-refresh">
+                <Button onClick={this.handleReload} variant="default" className="flex-1" data-testid="button-refresh">
                   <RefreshCw className="h-4 w-4 mr-2" />
-                  Refresh Page
+                  Reload Page
+                </Button>
+                <Button onClick={this.handleGoHome} variant="outline" className="flex-1" data-testid="button-home">
+                  <Home className="h-4 w-4 mr-2" />
+                  Home
                 </Button>
               </div>
+
+              <p className="text-sm text-muted-foreground text-center">
+                If this problem persists, please contact support with the error ID above.
+              </p>
             </CardContent>
           </Card>
         </div>

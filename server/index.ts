@@ -238,6 +238,12 @@ app.use((req, res, next) => {
   const { registerStakeholderRoutes } = await import('./stakeholder-routes');
   registerStakeholderRoutes(app);
   
+  // Register error testing routes (development only)
+  if (process.env.NODE_ENV === 'development') {
+    const testErrorRoutes = await import('./test-error-handling');
+    app.use('/api', testErrorRoutes.default);
+  }
+  
   const server = await registerRoutes(app);
 
   // Centralized error handling middleware (must be after all routes)
