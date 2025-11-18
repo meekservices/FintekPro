@@ -2569,9 +2569,135 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const minimalData = req.body;
       
+
+  // ============================================================
+
+  // ============================================================
+  // STEP 5: Bank Account Verification (Cashfree Penny Drop)
+  // ============================================================
+  app.post("/api/kyc/wizard/verify-bank", requireClientOrHigher, async (req: any, res) => {
+    try {
+      // Validate request payload
+      const bankVerificationSchema = z.object({
+        sessionId: z.string().min(1, "Session ID is required"),
+        accountNumber: z.string()
+          .min(9, "Account number must be at least 9 digits")
+          .max(18, "Account number must be at most 18 digits")
+          .regex(/^[0-9]+$/, "Account number must contain only digits"),
+        ifscCode: z.string()
+          .length(11, "IFSC code must be exactly 11 characters")
+          .regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Invalid IFSC code format"),
+        accountHolderName: z.string()
+          .min(2, "Account holder name is required")
+          .max(100, "Account holder name is too long"),
+        bankName: z.string().optional(),
+        accountType: z.enum(['SAVINGS', 'CURRENT']).optional()
+      });
+
+      const validationResult = bankVerificationSchema.safeParse(req.body);
+      
+      if (!validationResult.success) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid request data",
+          errors: validationResult.error.issues.map(issue => `${issue.path.join('.')}: ${issue.message}`)
+        });
+      }
+      
+      const userId = req.user!.id;
+      const { sessionId, accountNumber, ifscCode, accountHolderName } = validationResult.data;
+      
+      // Get session
+      const session = await storage.getKycVerificationSession(sessionId);
+      
+      if (!session || session.userId !== userId) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid session"
+        });
+      }
+      
+      // Verify bank account using Cashfree
+      const verificationResult = await cashfreeService.verifyBankAccount(
+        accountNumber,
+        ifscCode,
+        accountHolderName
+      );
+      
+      // Check if verification was successful
+      if (!verificationResult.success || !verificationResult.verified) {
+        return res.status(422).json({
+          success: false,
+          verified: false,
+          message: verificationResult.message || 'Bank account verification failed'
+        });
+      }
+      
+      // Enforce name match threshold (80%)
+      const nameMatchScore = verificationResult.nameMatchScore || 0;
+      const nameMatchAcceptable = nameMatchScore >= 80;
+      
+      if (!nameMatchAcceptable) {
+        return res.status(422).json({
+          success: false,
+          verified: false,
+          nameMatchAcceptable: false,
+          nameMatchScore,
+          verifiedName: verificationResult.verifiedName,
+          providedName: accountHolderName,
+          message: `Name mismatch detected. Bank name: "${verificationResult.verifiedName}", Provided: "${accountHolderName}". Match score: ${nameMatchScore}% (minimum 80% required)`
+        });
+      }
+      
+      // Mask sensitive data for storage (store only last 4 digits + hash)
+      const crypto = await import('crypto');
+      const accountHash = crypto.createHash('sha256').update(accountNumber).digest('hex').substring(0, 16);
+      const maskedAccount = `****${accountNumber.slice(-4)}`;
+      const maskedIfsc = `${ifscCode.substring(0, 4)}******${ifscCode.slice(-1)}`;
+      
+      // Store bank verification in session with masked data
+      await storage.updateKycSessionStepStatus(sessionId, 'bank_verification', {
+        status: 'completed',
+        accountNumberMasked: maskedAccount,
+        accountNumberHash: accountHash,
+        ifscCodeMasked: maskedIfsc,
+        accountHolderName,
+        verifiedName: verificationResult.verifiedName,
+        nameMatchScore,
+        nameMatchAcceptable: true,
+        accountStatus: verificationResult.accountStatus,
+        transactionId: verificationResult.transactionId,
+        verifiedAt: new Date().toISOString()
+      });
+      
+      // Return success with verification details
+      return res.json({
+        success: true,
+        verified: true,
+        accountExists: true,
+        verifiedName: verificationResult.verifiedName,
+        nameMatchScore,
+        nameMatchAcceptable: true,
+        accountStatus: verificationResult.accountStatus,
+        transactionId: verificationResult.transactionId,
+        message: 'Bank account verified successfully'
+      });
+      
+    } catch (error: any) {
+      console.error('Bank verification error:', error);
+      res.status(500).json({
+        success: false,
+        verified: false,
+        message: error.message || 'Failed to verify bank account'
+      });
+    }
+  });
+  app.post("/api/client/auto-populate", async (req, res) => {
+    try {
+      const minimalData = req.body;
       // Validate required fields
-      if (!minimalData.panNumber || !minimalData.mobile || !minimalData.email) {
-        return res.status(400).json({ 
+        return res.status(400).json({
+          message: 'Missing required fields: panNumber, mobile, email'
           message: 'Missing required fields: panNumber, mobile, email' 
         });
       }

@@ -199,6 +199,211 @@ export class CashfreeService {
       testUPI: 'test@payu'
     };
   }
+
+  /**
+   * Bank Account Verification (Penny Drop) using Cashfree Verification Suite
+   */
+  async verifyBankAccount(
+    accountNumber: string,
+    ifsc: string,
+    accountHolderName: string
+  ): Promise<BankVerificationResult> {
+    // Check if running in production without credentials
+    if (this.environment === 'PRODUCTION' && !this.hasValidCredentials()) {
+      throw new Error('Cashfree credentials required for bank verification in production');
+    }
+
+    // Use mocks in non-production environments when credentials are missing
+    if (!this.hasValidCredentials()) {
+      console.log('⚠️ Using mock bank verification (credentials not configured)');
+      return this.mockBankVerification(accountNumber, ifsc, accountHolderName);
+    }
+
+    try {
+      // Cashfree Verification Suite - Bank Account Verification endpoint
+      const verificationUrl = this.environment === 'PRODUCTION'
+        ? 'https://api.cashfree.com/verification/bank-account'
+        : 'https://sandbox.cashfree.com/verification/bank-account';
+
+      const requestBody = {
+        bank_account: accountNumber,
+        ifsc: ifsc.toUpperCase(),
+        name: accountHolderName,
+        phone: '' // Optional for some banks
+      };
+
+      console.log(`🏦 Cashfree: Verifying bank account ${accountNumber.slice(-4)} with IFSC ${ifsc}`);
+
+      const response = await axios.post(verificationUrl, requestBody, {
+        headers: {
+          'x-client-id': this.appId,
+          'x-client-secret': this.secretKey,
+          'Content-Type': 'application/json'
+        },
+        timeout: 30000
+      });
+
+      const data = response.data;
+
+      if (data.status === 'SUCCESS' || data.verification_status === 'SUCCESS') {
+        const verifiedName = data.registered_name || data.name_at_bank || '';
+        const nameMatchScore = this.calculateNameMatchScore(accountHolderName, verifiedName);
+
+        console.log(`✅ Bank verified. Name match: ${nameMatchScore}%`);
+
+        return {
+          success: true,
+          verified: true,
+          accountExists: true,
+          verifiedName,
+          nameMatchScore,
+          accountStatus: data.account_status || 'active',
+          transactionId: data.reference_id || data.transaction_id,
+          message: 'Bank account verified successfully'
+        };
+      }
+
+      return {
+        success: false,
+        verified: false,
+        accountExists: false,
+        message: data.message || 'Bank account verification failed'
+      };
+
+    } catch (error: any) {
+      console.error('❌ Cashfree bank verification error:', error.response?.data || error.message);
+
+      if (error.response?.data) {
+        return {
+          success: false,
+          verified: false,
+          accountExists: false,
+          message: error.response.data.message || 'Verification failed',
+          errorCode: error.response.data.code
+        };
+      }
+
+      return {
+        success: false,
+        verified: false,
+        accountExists: false,
+        message: error.message || 'Bank verification service unavailable'
+      };
+    }
+  }
+
+  /**
+   * Mock bank verification for development/testing
+   */
+  private mockBankVerification(
+    accountNumber: string,
+    ifsc: string,
+    accountHolderName: string
+  ): BankVerificationResult {
+    // Validate IFSC format
+    const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+    if (!ifscRegex.test(ifsc.toUpperCase())) {
+      return {
+        success: false,
+        verified: false,
+        accountExists: false,
+        message: 'Invalid IFSC code format'
+      };
+    }
+
+    // Validate account number format
+    const accountRegex = /^[0-9]{9,18}$/;
+    if (!accountRegex.test(accountNumber)) {
+      return {
+        success: false,
+        verified: false,
+        accountExists: false,
+        message: 'Invalid account number format'
+      };
+    }
+
+    // Mock successful verification
+    const mockVerifiedName = accountHolderName.toUpperCase();
+    const nameMatchScore = 100;
+
+    console.log(`✅ [MOCK] Bank account verified: ${accountNumber.slice(-4)}`);
+
+    return {
+      success: true,
+      verified: true,
+      accountExists: true,
+      verifiedName: mockVerifiedName,
+      nameMatchScore,
+      accountStatus: 'active',
+      transactionId: `mock_txn_${Date.now()}`,
+      message: 'Bank account verified successfully (MOCK)'
+    };
+  }
+
+  /**
+   * Calculate name match score using Levenshtein distance
+   * Returns similarity percentage (0-100)
+   */
+  private calculateNameMatchScore(name1: string, name2: string): number {
+    if (!name1 || !name2) return 0;
+
+    // Normalize: uppercase, remove special chars, trim
+    const normalize = (str: string) =>
+      str.toUpperCase()
+        .replace(/[^A-Z0-9\s]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    const n1 = normalize(name1);
+    const n2 = normalize(name2);
+
+    if (n1 === n2) return 100;
+
+    // Levenshtein distance
+    const matrix: number[][] = [];
+    
+    for (let i = 0; i <= n1.length; i++) {
+      matrix[i] = [i];
+    }
+    
+    for (let j = 0; j <= n2.length; j++) {
+      matrix[0][j] = j;
+    }
+    
+    for (let i = 1; i <= n1.length; i++) {
+      for (let j = 1; j <= n2.length; j++) {
+        if (n1[i - 1] === n2[j - 1]) {
+          matrix[i][j] = matrix[i - 1][j - 1];
+        } else {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j - 1] + 1,
+            matrix[i][j - 1] + 1,
+            matrix[i - 1][j] + 1
+          );
+        }
+      }
+    }
+    
+    const distance = matrix[n1.length][n2.length];
+    const maxLength = Math.max(n1.length, n2.length);
+    
+    if (maxLength === 0) return 100;
+    
+    const similarity = ((maxLength - distance) / maxLength) * 100;
+    return Math.round(similarity);
+  }
+}
+
+export interface BankVerificationResult {
+  success: boolean;
+  verified: boolean;
+  accountExists: boolean;
+  verifiedName?: string;
+  nameMatchScore?: number;
+  accountStatus?: 'active' | 'inactive' | 'dormant';
+  transactionId?: string;
+  message?: string;
+  errorCode?: string;
 }
 
 export const cashfreeService = new CashfreeService();
