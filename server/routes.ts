@@ -2565,12 +2565,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
-  app.post("/api/client/auto-populate", async (req, res) => {
-    try {
-      const minimalData = req.body;
-      
-
-  // ============================================================
 
   // ============================================================
   // STEP 5: Bank Account Verification (Cashfree Penny Drop)
@@ -2695,9 +2689,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/client/auto-populate", async (req, res) => {
     try {
       const minimalData = req.body;
+      
       // Validate required fields
-        return res.status(400).json({
-          message: 'Missing required fields: panNumber, mobile, email'
+      if (!minimalData.panNumber || !minimalData.mobile || !minimalData.email) {
+        return res.status(400).json({ 
           message: 'Missing required fields: panNumber, mobile, email' 
         });
       }

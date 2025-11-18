@@ -819,6 +819,7 @@ export interface IStorage {
   getActiveKycSession(userId: string): Promise<KycVerificationSession | undefined>;
   deactivateAllUserKycSessions(userId: string): Promise<void>;
   updateKycVerificationSession(id: string, updates: Partial<KycVerificationSession>): Promise<KycVerificationSession | undefined>;
+  updateKycSessionStepStatus(sessionId: string, stepKey: string, stepData: any): Promise<KycVerificationSession | undefined>;
   completeKycSession(id: string): Promise<void>;
   
   // Manual KYC Submission methods
@@ -5810,6 +5811,41 @@ export class DatabaseStorage implements IStorage {
       .where(eq(schema.kycVerificationSessions.id, id))
       .returning();
     return updated || undefined;
+  }
+
+  async updateKycSessionStepStatus(
+    sessionId: string, 
+    stepKey: string, 
+    stepData: any
+  ): Promise<KycVerificationSession | undefined> {
+    // Get current session
+    const session = await this.getKycVerificationSession(sessionId);
+    if (!session) {
+      return undefined;
+    }
+    
+    // Get current stepStatus (or empty object)
+    const currentStepStatus = (session.stepStatus as any) || {};
+    
+    // Get existing step data (or empty object) for deep merge
+    const existingStepData = currentStepStatus[stepKey] || {};
+    
+    // Merge existing and new step data (preserves existing fields)
+    const mergedStepData = {
+      ...existingStepData,
+      ...stepData
+    };
+    
+    // Update the specific step with merged data
+    const updatedStepStatus = {
+      ...currentStepStatus,
+      [stepKey]: mergedStepData
+    };
+    
+    // Update the session with new stepStatus
+    return await this.updateKycVerificationSession(sessionId, {
+      stepStatus: updatedStepStatus
+    });
   }
   
   async completeKycSession(id: string): Promise<void> {
