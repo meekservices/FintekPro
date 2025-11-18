@@ -137,41 +137,17 @@ export function EnhancedNavigation() {
         {
           name: "Profile & KYC",
           icon: UserCheck,
-          description: "Progressive KYC for complete product access",
+          description: "Complete your profile and KYC verification",
           subItems: [
-            { name: "KYC Dashboard", href: "/kyc-dashboard", description: "Current tier, product access & upgrade paths", badge: "OVERVIEW" },
+            { name: "KYC Dashboard", href: "/kyc-dashboard", description: "Tier status, product access & upgrade options", badge: "OVERVIEW" },
+            { name: "My Profile", href: "/profile", description: "View and edit personal information" },
             { name: "My Net Worth", href: "/net-worth", description: "Complete wealth tracking with assets, liabilities & AI insights", badge: "NEW" },
             { 
-              name: "Individual KYC", 
-              description: "For individual investors",
+              name: "Complete Onboarding", 
+              description: "Choose your KYC type inside",
               subItems: [
-                { name: "Smart Mode", href: "/onboarding", description: "AI-assisted wizard with auto-fill & progressive save" },
-                { name: "Manual Mode", href: "/manual-kyc?type=individual", description: "Traditional document upload via BSE Star API" }
-              ]
-            },
-            { 
-              name: "Corporate/Non-Individual KYC", 
-              description: "For companies and organizations",
-              subItems: [
-                { name: "Smart Mode", href: "/corporate-kyc", description: "Step-by-step corporate wizard with entity verification" },
-                { name: "Manual Mode", href: "/manual-kyc?type=corporate", description: "Document submission via BSE Star API" }
-              ]
-            },
-            { 
-              name: "NRI KYC", 
-              description: "For Non-Resident Indians",
-              subItems: [
-                { name: "Smart Mode", href: "#", description: "NRI-specific intelligent wizard", badge: "COMING SOON" },
-                { name: "Manual Mode", href: "/manual-kyc?type=nri", description: "Passport & OCI verification via BSE Star API" }
-              ]
-            },
-            { 
-              name: "KYC Tier Upgrades", 
-              description: "Unlock premium products",
-              subItems: [
-                { name: "Basic KYC (Tier 1)", href: "/profile?tab=basic", description: "PAN, Aadhaar, basic profile → Unlock MF, IPO, Equity" },
-                { name: "Enhanced KYC (Tier 2)", href: "/profile?tab=enhanced", description: "Video KYC, income proof → Unlock F&O, Commodities, Global" },
-                { name: "Accredited Investor (Tier 3)", href: "/profile?tab=accredited", description: "Net worth ₹7.5Cr+ → Unlock AIF, PMS, Pre-IPO", badge: "PREMIUM" }
+                { name: "Smart Mode", href: "/onboarding", description: "AI-assisted wizard (Individual/Corporate/NRI)" },
+                { name: "Manual Mode", href: "/manual-kyc", description: "Document upload (Individual/Corporate/NRI)" }
               ]
             }
           ]
@@ -324,8 +300,7 @@ export function EnhancedNavigation() {
           subItems: [
             { name: "Pay Bills", href: "/bbps", description: "Electricity, water, gas, mobile, DTH, broadband" },
             { name: "Bill History", href: "/bbps?tab=history", description: "Transaction history and receipts" },
-            { name: "Recurring Payments", href: "/bbps?tab=recurring", description: "Set up auto-pay for bills" },
-            { name: "My Expenses", href: "/expenses-budgets", description: "Track all expenses including bills", badge: "AI POWERED" }
+            { name: "Recurring Payments", href: "/bbps?tab=recurring", description: "Set up auto-pay for bills" }
           ]
         }
       ]
@@ -613,18 +588,6 @@ export function EnhancedNavigation() {
           <div className="p-2 border-t border-gray-200">
             {isAuthenticated ? (
               <div className="space-y-1">
-                <Link href="/profile">
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    className={`${isCollapsed ? 'w-full justify-center px-0' : 'w-full justify-start'}`}
-                    data-testid="sidebar-profile-button"
-                    title={isCollapsed ? "Profile" : undefined}
-                  >
-                    <UserIcon className="h-4 w-4" />
-                    {!isCollapsed && <span className="ml-3">Profile</span>}
-                  </Button>
-                </Link>
                 <Button 
                   variant="ghost" 
                   size="sm"
