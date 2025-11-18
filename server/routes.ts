@@ -833,6 +833,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  // Get user's product access based on KYC tier
+  app.get("/api/user/product-access", requireClientOrHigher, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const { getUserProductAccess } = await import('./kyc-tier-service.js');
+      
+      const access = await getUserProductAccess(userId);
+      
+      res.json({
+        success: true,
+        ...access
+      });
+    } catch (error) {
+      console.error('Error fetching product access:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch product access'
+      });
+    }
+  });
+
+  // Check eligibility for specific product
+  app.post("/api/products/check-eligibility", requireClientOrHigher, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const { productType } = req.body;
+      
+      if (!productType) {
+        return res.status(400).json({
+          success: false,
+          message: 'Product type is required'
+        });
+      }
+      
+      const { getUserProductAccess, getProductUpgradePrompt } = await import('./kyc-tier-service.js');
+      const { tier, unlockedProducts } = await getUserProductAccess(userId);
+      
+      const hasAccess = unlockedProducts.includes(productType);
+      const upgradeInfo = getProductUpgradePrompt(tier, productType);
+      
+      res.json({
+        success: true,
+        hasAccess,
+        currentTier: tier,
+        ...upgradeInfo
+      });
+    } catch (error) {
+      console.error('Error checking product eligibility:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to check product eligibility'
+      });
+    }
+  });
+
   app.put("/api/user/profile", requireClientOrHigher, async (req, res) => {
     try {
       const userId = req.user!.id;

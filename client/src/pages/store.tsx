@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { ProductDetailsModal } from "@/components/product-details-modal";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useCart } from "@/hooks/use-cart";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -18,7 +19,7 @@ import { LoanOffersCard } from "@/components/LoanOffersCard";
 import { 
   Heart, ShoppingCart, Search, Star, TrendingUp, Shield, Globe, CreditCard, FileText, 
   Briefcase, Banknote, Target, Crown, Landmark, Store as StoreIcon, ArrowRight, Sparkles, 
-  Zap, ChevronRight, Plus, Building2, Award, Package, Flame, RefreshCw
+  Zap, ChevronRight, Plus, Building2, Award, Package, Flame, RefreshCw, Lock, AlertCircle
 } from "lucide-react";
 
 interface Product {
@@ -28,6 +29,7 @@ interface Product {
   category: string;
   subcategory?: string;
   productType: string;
+  kycProductCode?: string;
   price?: number;
   minimumInvestment: number;
   riskLevel: string;
@@ -50,6 +52,7 @@ const mockProducts: Product[] = [
     category: "Investment Products",
     subcategory: "Mutual Funds",
     productType: "mutual_fund",
+    kycProductCode: "mutual_funds_regular",
     minimumInvestment: 500,
     riskLevel: "medium",
     expectedReturns: 12.5,
@@ -64,6 +67,7 @@ const mockProducts: Product[] = [
     category: "Investment Products",
     subcategory: "Mutual Funds",
     productType: "mutual_fund",
+    kycProductCode: "mutual_funds_regular",
     minimumInvestment: 500,
     riskLevel: "high",
     expectedReturns: 15.8,
@@ -80,6 +84,7 @@ const mockProducts: Product[] = [
     category: "Investment Products",
     subcategory: "IPO & Pre-IPO",
     productType: "ipo",
+    kycProductCode: "ipo_retail",
     minimumInvestment: 15000,
     riskLevel: "high",
     expectedReturns: 18.5,
@@ -95,6 +100,7 @@ const mockProducts: Product[] = [
     category: "Investment Products",
     subcategory: "IPO & Pre-IPO",
     productType: "pre_ipo",
+    kycProductCode: "pre_ipo_investments",
     minimumInvestment: 500000,
     riskLevel: "high",
     expectedReturns: 25.0,
@@ -113,6 +119,7 @@ const mockProducts: Product[] = [
     category: "Investment Products",
     subcategory: "Debentures & Bonds",
     productType: "debenture",
+    kycProductCode: "bonds_ncds",
     minimumInvestment: 10000,
     riskLevel: "medium",
     expectedReturns: 9.5,
@@ -127,6 +134,7 @@ const mockProducts: Product[] = [
     category: "Investment Products",
     subcategory: "Debentures & Bonds",
     productType: "debenture",
+    kycProductCode: "bonds_ncds",
     minimumInvestment: 25000,
     riskLevel: "low",
     expectedReturns: 8.8,
@@ -143,6 +151,7 @@ const mockProducts: Product[] = [
     category: "Global Products",
     subcategory: "International Stocks",
     productType: "global_equity",
+    kycProductCode: "global_trading",
     minimumInvestment: 100000,
     riskLevel: "high",
     expectedReturns: 15.2,
@@ -159,6 +168,7 @@ const mockProducts: Product[] = [
     category: "Global Products",
     subcategory: "International Funds",
     productType: "global_fund",
+    kycProductCode: "global_trading",
     minimumInvestment: 50000,
     riskLevel: "medium",
     expectedReturns: 12.8,
@@ -175,6 +185,7 @@ const mockProducts: Product[] = [
     category: "Insurance",
     subcategory: "Life Insurance",
     productType: "insurance",
+    kycProductCode: "savings_products",
     price: 18000,
     minimumInvestment: 15000,
     riskLevel: "low",
@@ -190,6 +201,7 @@ const mockProducts: Product[] = [
     category: "Insurance",
     subcategory: "Health Insurance",
     productType: "insurance",
+    kycProductCode: "savings_products",
     price: 25000,
     minimumInvestment: 8000,
     riskLevel: "low",
@@ -207,6 +219,7 @@ const mockProducts: Product[] = [
     category: "Banking Products",
     subcategory: "Fixed Deposits",
     productType: "fixed_deposit",
+    kycProductCode: "fixed_deposits",
     minimumInvestment: 25000,
     riskLevel: "low",
     expectedReturns: 8.5,
@@ -221,6 +234,7 @@ const mockProducts: Product[] = [
     category: "Banking Products",
     subcategory: "Credit Cards",
     productType: "credit_card",
+    kycProductCode: "savings_products",
     minimumInvestment: 0,
     riskLevel: "low",
     expectedReturns: 0,
@@ -237,6 +251,7 @@ const mockProducts: Product[] = [
     category: "Professional Services",
     subcategory: "Advisory Services",
     productType: "advisory",
+    kycProductCode: "pms",
     minimumInvestment: 1000000,
     riskLevel: "low",
     expectedReturns: 0,
@@ -253,7 +268,6 @@ const mockProducts: Product[] = [
     category: "Professional Services",
     subcategory: "Tax Services",
     productType: "tax_service",
-    price: 2999,
     minimumInvestment: 2999,
     riskLevel: "low",
     expectedReturns: 0,
@@ -288,10 +302,22 @@ export default function StorePage() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const [selectedLockedProduct, setSelectedLockedProduct] = useState<Product | null>(null);
+  const [requiredTier, setRequiredTier] = useState<string>("");
   
   const { addToCart, isAddingToCart } = useCart();
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
+  
+  const { data: productAccess, isLoading: isLoadingAccess } = useQuery<{
+    tier: string;
+    unlockedProducts: string[];
+    tierProducts: Record<string, string[]>;
+  }>({
+    queryKey: ["/api/user/product-access"],
+    enabled: isAuthenticated,
+  });
   
   // Fetch products from API
   const { data: productsData, isLoading: isLoadingProducts } = useQuery<any[]>({
@@ -335,6 +361,41 @@ export default function StorePage() {
   // Get unique categories from products
   const categories = ["all", ...Array.from(new Set(products.map(p => p.category)))];
 
+  const isProductLocked = (product: Product): boolean => {
+    if (!isAuthenticated) return false;
+    if (!product.kycProductCode) return false;
+    if (!productAccess) return false;
+    return !productAccess.unlockedProducts.includes(product.kycProductCode);
+  };
+
+  const getRequiredTierForProduct = (productCode: string): string => {
+    if (!productAccess) return "enhanced";
+    const { tierProducts } = productAccess;
+    
+    if (tierProducts.basic?.includes(productCode)) return "basic";
+    if (tierProducts.enhanced?.includes(productCode)) return "enhanced";
+    if (tierProducts.accredited_investor?.includes(productCode)) return "accredited_investor";
+    
+    return "enhanced";
+  };
+
+  const getTierDisplayName = (tier: string): string => {
+    switch(tier) {
+      case "basic": return "Basic KYC";
+      case "enhanced": return "Enhanced KYC";
+      case "accredited_investor": return "Accredited Investor";
+      default: return tier;
+    }
+  };
+
+  const showUpgradeModal = (product: Product) => {
+    if (!product.kycProductCode) return;
+    const tier = getRequiredTierForProduct(product.kycProductCode);
+    setSelectedLockedProduct(product);
+    setRequiredTier(tier);
+    setUpgradeModalOpen(true);
+  };
+
   const handleAddToCart = (product: Product) => {
     if (!isAuthenticated) {
       toast({
@@ -351,6 +412,11 @@ export default function StorePage() {
           </Button>
         ),
       });
+      return;
+    }
+
+    if (isProductLocked(product)) {
+      showUpgradeModal(product);
       return;
     }
 
@@ -393,7 +459,7 @@ export default function StorePage() {
     // Filter by search
     if (searchTerm) {
       filtered = filtered.filter(product =>
-        (product.name || product.productName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (product.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (product.shortDescription || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (product.provider || '').toLowerCase().includes(searchTerm.toLowerCase())
       );
@@ -409,7 +475,7 @@ export default function StorePage() {
       let comparison = 0;
       switch(sortField) {
         case "name":
-          comparison = (a.name || a.productName || '').localeCompare(b.name || b.productName || '');
+          comparison = (a.name || '').localeCompare(b.name || '');
           break;
         case "returns":
           comparison = (a.expectedReturns || 0) - (b.expectedReturns || 0);
@@ -437,6 +503,10 @@ export default function StorePage() {
   };
 
   const openProductDetails = (product: Product) => {
+    if (isAuthenticated && isProductLocked(product)) {
+      showUpgradeModal(product);
+      return;
+    }
     setSelectedProduct(product);
     setIsModalOpen(true);
   };
@@ -459,91 +529,121 @@ export default function StorePage() {
     }
   };
 
-  // Render product card
-  const renderProductCard = (product: Product) => (
-    <Card key={product.id} className="group hover:shadow-xl hover:scale-[1.02] transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 overflow-hidden" data-testid={`product-card-${product.id}`}>
-      <div className="absolute inset-0 bg-gradient-to-r from-finance-blue/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-      <CardHeader className="relative pb-4">
-        <div className="flex justify-between items-start mb-3">
-          <div className="flex gap-2 flex-wrap">
-            {product.isFeatured && (
-              <Badge className="bg-gradient-to-r from-finance-blue to-blue-600 text-white text-xs">
-                <Star className="h-3 w-3 mr-1" />
-                Featured
-              </Badge>
-            )}
-            {product.badge && (
-              <Badge className={getBadgeColor(product.badge)}>
-                {product.badge}
-              </Badge>
-            )}
-            {product.isPremium && (
-              <Badge className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white">
-                <Crown className="h-3 w-3 mr-1" />
-                Premium
-              </Badge>
-            )}
+  const renderProductCard = (product: Product) => {
+    const isLocked = isProductLocked(product);
+    
+    return (
+      <Card 
+        key={product.id} 
+        className={`group hover:shadow-xl hover:scale-[1.02] transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 overflow-hidden ${isLocked ? 'opacity-60' : ''}`}
+        data-testid={`product-card-${product.id}`}
+      >
+        <div className="absolute inset-0 bg-gradient-to-r from-finance-blue/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        {isLocked && (
+          <div className="absolute top-4 right-4 z-10">
+            <div className="bg-gray-900/90 text-white px-3 py-1.5 rounded-full flex items-center gap-2 text-xs font-medium">
+              <Lock className="h-3 w-3" />
+              Locked
+            </div>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => toggleWishlist(product.id)}
-            className="opacity-0 group-hover:opacity-100 transition-opacity"
-            data-testid={`wishlist-${product.id}`}
-          >
-            <Heart className={`h-4 w-4 ${wishlist.includes(product.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
-          </Button>
-        </div>
-        <CardTitle className="text-lg group-hover:text-finance-blue transition-colors">
-          {product.name || product.productName}
-        </CardTitle>
-        <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
-          {product.shortDescription}
-        </p>
-        <div className="flex items-center gap-2 mt-2">
-          <Building2 className="h-3 w-3 text-gray-400" />
-          <span className="text-xs text-gray-500">{product.provider || 'FintekPro'}</span>
-        </div>
-      </CardHeader>
-      <CardContent className="relative space-y-4">
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <span className="text-gray-500 block">Expected Returns</span>
-            <span className="font-semibold text-green-600">{product.expectedReturns || 0}%</span>
+        )}
+        <CardHeader className="relative pb-4">
+          <div className="flex justify-between items-start mb-3">
+            <div className="flex gap-2 flex-wrap">
+              {isLocked && (
+                <Badge className="bg-orange-500 text-white">
+                  <Lock className="h-3 w-3 mr-1" />
+                  Upgrade KYC
+                </Badge>
+              )}
+              {product.isFeatured && (
+                <Badge className="bg-gradient-to-r from-finance-blue to-blue-600 text-white text-xs">
+                  <Star className="h-3 w-3 mr-1" />
+                  Featured
+                </Badge>
+              )}
+              {product.badge && (
+                <Badge className={getBadgeColor(product.badge)}>
+                  {product.badge}
+                </Badge>
+              )}
+              {product.isPremium && (
+                <Badge className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white">
+                  <Crown className="h-3 w-3 mr-1" />
+                  Premium
+                </Badge>
+              )}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => toggleWishlist(product.id)}
+              className="opacity-0 group-hover:opacity-100 transition-opacity"
+              data-testid={`wishlist-${product.id}`}
+            >
+              <Heart className={`h-4 w-4 ${wishlist.includes(product.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
+            </Button>
           </div>
-          <div>
-            <span className="text-gray-500 block">Min Investment</span>
-            <span className="font-semibold">₹{(product.minimumInvestment || 0).toLocaleString()}</span>
+          <CardTitle className="text-lg group-hover:text-finance-blue transition-colors">
+            {product.name}
+          </CardTitle>
+          <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
+            {product.shortDescription}
+          </p>
+          <div className="flex items-center gap-2 mt-2">
+            <Building2 className="h-3 w-3 text-gray-400" />
+            <span className="text-xs text-gray-500">{product.provider || 'FintekPro'}</span>
           </div>
-        </div>
-        <div className="flex items-center justify-between">
-          <Badge className={getRiskColor(product.riskLevel || 'medium')}>
-            {(product.riskLevel || 'medium').charAt(0).toUpperCase() + (product.riskLevel || 'medium').slice(1)} Risk
-          </Badge>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            className="flex-1 bg-finance-blue hover:bg-finance-blue/90 group-hover:scale-105 transition-transform"
-            onClick={() => openProductDetails(product)}
-            data-testid={`view-details-${product.id}`}
-          >
-            View Details
-            <ArrowRight className="h-4 w-4 ml-2" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleAddToCart(product)}
-            disabled={isAddingToCart}
-            data-testid={`add-cart-${product.id}`}
-            className="group-hover:scale-105 transition-transform"
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
+        </CardHeader>
+        <CardContent className="relative space-y-4">
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <span className="text-gray-500 block">Expected Returns</span>
+              <span className="font-semibold text-green-600">{product.expectedReturns || 0}%</span>
+            </div>
+            <div>
+              <span className="text-gray-500 block">Min Investment</span>
+              <span className="font-semibold">₹{(product.minimumInvestment || 0).toLocaleString()}</span>
+            </div>
+          </div>
+          <div className="flex items-center justify-between">
+            <Badge className={getRiskColor(product.riskLevel || 'medium')}>
+              {(product.riskLevel || 'medium').charAt(0).toUpperCase() + (product.riskLevel || 'medium').slice(1)} Risk
+            </Badge>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              className="flex-1 bg-finance-blue hover:bg-finance-blue/90 group-hover:scale-105 transition-transform"
+              onClick={() => openProductDetails(product)}
+              data-testid={`view-details-${product.id}`}
+            >
+              {isLocked ? (
+                <>
+                  <Lock className="h-4 w-4 mr-2" />
+                  Upgrade to View
+                </>
+              ) : (
+                <>
+                  View Details
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleAddToCart(product)}
+              disabled={isAddingToCart || isLocked}
+              data-testid={`add-cart-${product.id}`}
+              className="group-hover:scale-105 transition-transform"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-blue-900 p-6">
