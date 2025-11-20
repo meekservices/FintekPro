@@ -398,6 +398,7 @@ export default function CreateBuyRequest() {
                               step="0.01"
                               placeholder="Your preferred price per share"
                               {...field}
+                              value={field.value ?? ''}
                               disabled={!isKycEligible}
                               data-testid="input-target-price"
                             />
@@ -446,6 +447,7 @@ export default function CreateBuyRequest() {
                               type="number"
                               placeholder="0"
                               {...field}
+                              value={field.value ?? ''}
                               onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
                               disabled={!isKycEligible}
                               data-testid="input-preferred-lot-size"
@@ -472,6 +474,7 @@ export default function CreateBuyRequest() {
                               className="resize-none"
                               rows={4}
                               {...field}
+                              value={field.value ?? ''}
                               disabled={!isKycEligible}
                               data-testid="textarea-notes"
                             />

@@ -9,10 +9,10 @@
  */
 
 import { Router, type Request, type Response } from 'express';
-import { storage } from './storage';
-import { apiResponse } from './utils/responses';
+import { storage } from '../storage';
+import { apiResponse } from '../utils/responses';
 import { z } from 'zod';
-import { probe42Service } from './services/probe42-service';
+import { probe42Service } from '../services/probe42-service';
 import {
   insertUnlistedCompanySchema,
   insertSellListingSchema,
@@ -42,10 +42,10 @@ router.get('/companies', async (req: Request, res: Response) => {
     if (sector && typeof sector === 'string') filters.sector = sector;
     
     const companies = await storage.getAllUnlistedCompanies(filters);
-    return res.json(apiResponse(companies));
+    return apiResponse.success(res, companies);
   } catch (error: any) {
     console.error('Error fetching unlisted companies:', error);
-    return res.status(500).json(apiResponse(null, 'Failed to fetch companies', false));
+    return apiResponse.serverError(res, 'Failed to fetch companies');
   }
 });
 
@@ -59,13 +59,13 @@ router.get('/companies/:id', async (req: Request, res: Response) => {
     
     const company = await storage.getUnlistedCompanyById(id);
     if (!company) {
-      return res.status(404).json(apiResponse(null, 'Company not found', false));
+      return apiResponse.notFound(res, 'Company not found');
     }
     
-    return res.json(apiResponse(company));
+    return apiResponse.success(res, company);
   } catch (error: any) {
     console.error('Error fetching company:', error);
-    return res.status(500).json(apiResponse(null, 'Failed to fetch company details', false));
+    return apiResponse.serverError(res, 'Failed to fetch company details');
   }
 });
 
@@ -76,8 +76,8 @@ router.get('/companies/:id', async (req: Request, res: Response) => {
 router.post('/companies', async (req: Request, res: Response) => {
   try {
     // Check if user is admin
-    if (!req.user || req.user.role !== 'admin') {
-      return res.status(403).json(apiResponse(null, 'Unauthorized: Admin access required', false));
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
     }
     
     const validatedData = insertUnlistedCompanySchema.parse(req.body);
@@ -86,7 +86,7 @@ router.post('/companies', async (req: Request, res: Response) => {
     if (validatedData.cin) {
       const existing = await storage.getUnlistedCompanyByCIN(validatedData.cin);
       if (existing) {
-        return res.status(409).json(apiResponse(null, 'Company with this CIN already exists', false));
+        return apiResponse.badRequest(res, 'Company with this CIN already exists');
       }
     }
     
@@ -95,15 +95,15 @@ router.post('/companies', async (req: Request, res: Response) => {
       createdBy: req.user.id,
     });
     
-    return res.status(201).json(apiResponse(company, 'Company created successfully'));
+    return apiResponse.created(res, company, 'Company created successfully');
   } catch (error: any) {
     console.error('Error creating company:', error);
     
     if (error instanceof z.ZodError) {
-      return res.status(400).json(apiResponse(null, 'Invalid input data', false, error.errors));
+      return apiResponse.badRequest(res, 'Invalid input data', error.errors);
     }
     
-    return res.status(500).json(apiResponse(null, 'Failed to create company', false));
+    return apiResponse.serverError(res, 'Failed to create company');
   }
 });
 
@@ -114,8 +114,8 @@ router.post('/companies', async (req: Request, res: Response) => {
 router.patch('/companies/:id', async (req: Request, res: Response) => {
   try {
     // Check if user is admin
-    if (!req.user || req.user.role !== 'admin') {
-      return res.status(403).json(apiResponse(null, 'Unauthorized: Admin access required', false));
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
     }
     
     const { id } = req.params;
@@ -123,21 +123,21 @@ router.patch('/companies/:id', async (req: Request, res: Response) => {
     // Verify company exists
     const existing = await storage.getUnlistedCompanyById(id);
     if (!existing) {
-      return res.status(404).json(apiResponse(null, 'Company not found', false));
+      return apiResponse.notFound(res, 'Company not found');
     }
     
     const validatedData = insertUnlistedCompanySchema.partial().parse(req.body);
     const updated = await storage.updateUnlistedCompany(id, validatedData);
     
-    return res.json(apiResponse(updated, 'Company updated successfully'));
+    return apiResponse.success(res, updated, 'Company updated successfully');
   } catch (error: any) {
     console.error('Error updating company:', error);
     
     if (error instanceof z.ZodError) {
-      return res.status(400).json(apiResponse(null, 'Invalid input data', false, error.errors));
+      return apiResponse.badRequest(res, 'Invalid input data', error.errors);
     }
     
-    return res.status(500).json(apiResponse(null, 'Failed to update company', false));
+    return apiResponse.serverError(res, 'Failed to update company');
   }
 });
 
@@ -154,18 +154,18 @@ router.get('/probe42/search', async (req: Request, res: Response) => {
     const { q } = req.query;
     
     if (!q || typeof q !== 'string') {
-      return res.status(400).json(apiResponse(null, 'Query parameter "q" is required', false));
+      return apiResponse.badRequest(res, 'Query parameter "q" is required');
     }
     
     if (q.length < 3) {
-      return res.status(400).json(apiResponse(null, 'Query must be at least 3 characters long', false));
+      return apiResponse.badRequest(res, 'Query must be at least 3 characters long');
     }
     
     const results = await probe42Service.searchCompanyByNameOrCIN(q);
-    return res.json(apiResponse(results));
+    return apiResponse.success(res, results);
   } catch (error: any) {
     console.error('Error searching Probe42:', error);
-    return res.status(500).json(apiResponse(null, error.message || 'Failed to search companies', false));
+    return apiResponse.serverError(res, error.message || 'Failed to search companies');
   }
 });
 
@@ -176,8 +176,8 @@ router.get('/probe42/search', async (req: Request, res: Response) => {
 router.post('/probe42/sync/:companyId', async (req: Request, res: Response) => {
   try {
     // Check if user is admin
-    if (!req.user || req.user.role !== 'admin') {
-      return res.status(403).json(apiResponse(null, 'Unauthorized: Admin access required', false));
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
     }
     
     const { companyId } = req.params;
@@ -185,17 +185,17 @@ router.post('/probe42/sync/:companyId', async (req: Request, res: Response) => {
     // Get company
     const company = await storage.getUnlistedCompanyById(companyId);
     if (!company) {
-      return res.status(404).json(apiResponse(null, 'Company not found', false));
+      return apiResponse.notFound(res, 'Company not found');
     }
     
     if (!company.probe42CompanyId) {
-      return res.status(400).json(apiResponse(null, 'Company does not have Probe42 integration', false));
+      return apiResponse.badRequest(res, 'Company does not have Probe42 integration');
     }
     
     // Fetch company details from Probe42
     const probe42Details = await probe42Service.getCompanyDetails(company.probe42CompanyId);
     if (!probe42Details) {
-      return res.status(404).json(apiResponse(null, 'Company not found on Probe42', false));
+      return apiResponse.notFound(res, 'Company not found on Probe42');
     }
     
     // Fetch financials (last 3 years)
@@ -241,12 +241,12 @@ router.post('/probe42/sync/:companyId', async (req: Request, res: Response) => {
       recordsFailed: 0,
     });
     
-    return res.json(apiResponse({
+    return apiResponse.success(res, {
       success: true,
       financialsCount,
       ratiosCount,
       message: `Synced ${financialsCount} financial records and ${ratiosCount} ratio records`,
-    }));
+    });
   } catch (error: any) {
     console.error('Error syncing from Probe42:', error);
     
@@ -266,7 +266,7 @@ router.post('/probe42/sync/:companyId', async (req: Request, res: Response) => {
       });
     }
     
-    return res.status(500).json(apiResponse(null, error.message || 'Failed to sync company data', false));
+    return apiResponse.serverError(res, error.message || 'Failed to sync company data');
   }
 });
 
@@ -285,14 +285,14 @@ router.get('/companies/:id/financials', async (req: Request, res: Response) => {
     // Verify company exists
     const company = await storage.getUnlistedCompanyById(id);
     if (!company) {
-      return res.status(404).json(apiResponse(null, 'Company not found', false));
+      return apiResponse.notFound(res, 'Company not found');
     }
     
     const financials = await storage.getCompanyFinancials(id);
-    return res.json(apiResponse(financials));
+    return apiResponse.success(res, financials);
   } catch (error: any) {
     console.error('Error fetching financials:', error);
-    return res.status(500).json(apiResponse(null, 'Failed to fetch financial data', false));
+    return apiResponse.serverError(res, 'Failed to fetch financial data');
   }
 });
 
@@ -307,14 +307,14 @@ router.get('/companies/:id/ratios', async (req: Request, res: Response) => {
     // Verify company exists
     const company = await storage.getUnlistedCompanyById(id);
     if (!company) {
-      return res.status(404).json(apiResponse(null, 'Company not found', false));
+      return apiResponse.notFound(res, 'Company not found');
     }
     
     const ratios = await storage.getCompanyRatios(id);
-    return res.json(apiResponse(ratios));
+    return apiResponse.success(res, ratios);
   } catch (error: any) {
     console.error('Error fetching ratios:', error);
-    return res.status(500).json(apiResponse(null, 'Failed to fetch ratio data', false));
+    return apiResponse.serverError(res, 'Failed to fetch ratio data');
   }
 });
 
@@ -330,16 +330,16 @@ router.get('/companies/:id/price-history', async (req: Request, res: Response) =
     // Verify company exists
     const company = await storage.getUnlistedCompanyById(id);
     if (!company) {
-      return res.status(404).json(apiResponse(null, 'Company not found', false));
+      return apiResponse.notFound(res, 'Company not found');
     }
     
     const limitNum = limit ? parseInt(limit as string, 10) : undefined;
     const priceHistory = await storage.getPriceHistory(id, limitNum);
     
-    return res.json(apiResponse(priceHistory));
+    return apiResponse.success(res, priceHistory);
   } catch (error: any) {
     console.error('Error fetching price history:', error);
-    return res.status(500).json(apiResponse(null, 'Failed to fetch price history', false));
+    return apiResponse.serverError(res, 'Failed to fetch price history');
   }
 });
 
@@ -356,7 +356,7 @@ router.get('/listings', async (req: Request, res: Response) => {
     const { companyId, status } = req.query;
     
     if (!companyId || typeof companyId !== 'string') {
-      return res.status(400).json(apiResponse(null, 'Company ID is required', false));
+      return apiResponse.badRequest(res, 'Company ID is required');
     }
     
     const listings = await storage.getSellListingsByCompany(companyId);
@@ -367,10 +367,10 @@ router.get('/listings', async (req: Request, res: Response) => {
       filteredListings = listings.filter(l => l.status === status);
     }
     
-    return res.json(apiResponse(filteredListings));
+    return apiResponse.success(res, filteredListings);
   } catch (error: any) {
     console.error('Error fetching listings:', error);
-    return res.status(500).json(apiResponse(null, 'Failed to fetch sell listings', false));
+    return apiResponse.serverError(res, 'Failed to fetch sell listings');
   }
 });
 
@@ -381,7 +381,7 @@ router.get('/listings', async (req: Request, res: Response) => {
 router.post('/listings', async (req: Request, res: Response) => {
   try {
     if (!req.user) {
-      return res.status(401).json(apiResponse(null, 'Authentication required', false));
+      return apiResponse.unauthorized(res, 'Authentication required');
     }
     
     const validatedData = insertSellListingSchema.parse(req.body);
@@ -389,7 +389,7 @@ router.post('/listings', async (req: Request, res: Response) => {
     // Verify company exists
     const company = await storage.getUnlistedCompanyById(validatedData.companyId);
     if (!company) {
-      return res.status(404).json(apiResponse(null, 'Company not found', false));
+      return apiResponse.notFound(res, 'Company not found');
     }
     
     // Create listing
@@ -399,15 +399,15 @@ router.post('/listings', async (req: Request, res: Response) => {
       quantityRemaining: validatedData.quantity,
     });
     
-    return res.status(201).json(apiResponse(listing, 'Sell listing created successfully'));
+    return apiResponse.created(res, listing, 'Sell listing created successfully');
   } catch (error: any) {
     console.error('Error creating sell listing:', error);
     
     if (error instanceof z.ZodError) {
-      return res.status(400).json(apiResponse(null, 'Invalid input data', false, error.errors));
+      return apiResponse.badRequest(res, 'Invalid input data', error.errors);
     }
     
-    return res.status(500).json(apiResponse(null, 'Failed to create sell listing', false));
+    return apiResponse.serverError(res, 'Failed to create sell listing');
   }
 });
 
@@ -424,7 +424,7 @@ router.get('/buy-requests', async (req: Request, res: Response) => {
     const { companyId, status } = req.query;
     
     if (!companyId || typeof companyId !== 'string') {
-      return res.status(400).json(apiResponse(null, 'Company ID is required', false));
+      return apiResponse.badRequest(res, 'Company ID is required');
     }
     
     const requests = await storage.getBuyRequestsByCompany(companyId);
@@ -435,10 +435,10 @@ router.get('/buy-requests', async (req: Request, res: Response) => {
       filteredRequests = requests.filter(r => r.status === status);
     }
     
-    return res.json(apiResponse(filteredRequests));
+    return apiResponse.success(res, filteredRequests);
   } catch (error: any) {
     console.error('Error fetching buy requests:', error);
-    return res.status(500).json(apiResponse(null, 'Failed to fetch buy requests', false));
+    return apiResponse.serverError(res, 'Failed to fetch buy requests');
   }
 });
 
@@ -449,7 +449,7 @@ router.get('/buy-requests', async (req: Request, res: Response) => {
 router.post('/buy-requests', async (req: Request, res: Response) => {
   try {
     if (!req.user) {
-      return res.status(401).json(apiResponse(null, 'Authentication required', false));
+      return apiResponse.unauthorized(res, 'Authentication required');
     }
     
     const validatedData = insertBuyRequestSchema.parse(req.body);
@@ -457,7 +457,7 @@ router.post('/buy-requests', async (req: Request, res: Response) => {
     // Verify company exists
     const company = await storage.getUnlistedCompanyById(validatedData.companyId);
     if (!company) {
-      return res.status(404).json(apiResponse(null, 'Company not found', false));
+      return apiResponse.notFound(res, 'Company not found');
     }
     
     // Create buy request
@@ -466,15 +466,15 @@ router.post('/buy-requests', async (req: Request, res: Response) => {
       buyerUserId: req.user.id,
     });
     
-    return res.status(201).json(apiResponse(request, 'Buy request created successfully'));
+    return apiResponse.created(res, request, 'Buy request created successfully');
   } catch (error: any) {
     console.error('Error creating buy request:', error);
     
     if (error instanceof z.ZodError) {
-      return res.status(400).json(apiResponse(null, 'Invalid input data', false, error.errors));
+      return apiResponse.badRequest(res, 'Invalid input data', error.errors);
     }
     
-    return res.status(500).json(apiResponse(null, 'Failed to create buy request', false));
+    return apiResponse.serverError(res, 'Failed to create buy request');
   }
 });
 
@@ -491,14 +491,14 @@ router.get('/deals', async (req: Request, res: Response) => {
     const { companyId } = req.query;
     
     if (!companyId || typeof companyId !== 'string') {
-      return res.status(400).json(apiResponse(null, 'Company ID is required', false));
+      return apiResponse.badRequest(res, 'Company ID is required');
     }
     
     const deals = await storage.getUnlistedDealsByCompany(companyId);
-    return res.json(apiResponse(deals));
+    return apiResponse.success(res, deals);
   } catch (error: any) {
     console.error('Error fetching deals:', error);
-    return res.status(500).json(apiResponse(null, 'Failed to fetch deals', false));
+    return apiResponse.serverError(res, 'Failed to fetch deals');
   }
 });
 
@@ -512,13 +512,13 @@ router.get('/deals/:id', async (req: Request, res: Response) => {
     
     const deal = await storage.getUnlistedDealById(id);
     if (!deal) {
-      return res.status(404).json(apiResponse(null, 'Deal not found', false));
+      return apiResponse.notFound(res, 'Deal not found');
     }
     
-    return res.json(apiResponse(deal));
+    return apiResponse.success(res, deal);
   } catch (error: any) {
     console.error('Error fetching deal:', error);
-    return res.status(500).json(apiResponse(null, 'Failed to fetch deal details', false));
+    return apiResponse.serverError(res, 'Failed to fetch deal details');
   }
 });
 

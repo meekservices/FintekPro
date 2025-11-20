@@ -346,6 +346,7 @@ export default function CreateSellListing() {
                           type="number"
                           placeholder="0"
                           {...field}
+                          value={field.value ?? ''}
                           onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
                           disabled={!isKycEligible}
                           data-testid="input-lock-in-period"
@@ -371,6 +372,7 @@ export default function CreateSellListing() {
                           type="number"
                           placeholder="0"
                           {...field}
+                          value={field.value ?? ''}
                           onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
                           disabled={!isKycEligible}
                           data-testid="input-minimum-lot-size"
@@ -397,6 +399,7 @@ export default function CreateSellListing() {
                           className="resize-none"
                           rows={4}
                           {...field}
+                          value={field.value ?? ''}
                           disabled={!isKycEligible}
                           data-testid="textarea-notes"
                         />

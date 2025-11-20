@@ -131,7 +131,7 @@ function CompanyListView({
   // Sync mutation
   const syncMutation = useMutation({
     mutationFn: async (companyId: string) => {
-      return apiRequest('POST', `/api/unlisted/probe42/sync/${companyId}`);
+      return apiRequest(`/api/unlisted/probe42/sync/${companyId}`, { method: 'POST' });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/unlisted/companies'] });
@@ -313,14 +313,14 @@ function Probe42SearchDialog({ onClose }: { onClose: () => void }) {
   // Create company mutation
   const createCompanyMutation = useMutation({
     mutationFn: async (data: { name: string; cin?: string; probe42CompanyId: string }) => {
-      return apiRequest('POST', '/api/unlisted/companies', { body: data });
+      return apiRequest('/api/unlisted/companies', { method: 'POST', body: JSON.stringify(data) });
     },
     onSuccess: async (result) => {
       const companyId = result.data?.id;
       if (companyId) {
         // Auto-trigger sync
         try {
-          await apiRequest('POST', `/api/unlisted/probe42/sync/${companyId}`);
+          await apiRequest(`/api/unlisted/probe42/sync/${companyId}`, { method: 'POST' });
           queryClient.invalidateQueries({ queryKey: ['/api/unlisted/companies'] });
           toast({ title: 'Company linked and synced successfully' });
           onClose();

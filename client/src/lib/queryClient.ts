@@ -64,11 +64,10 @@ async function throwIfResNotOk(res: Response) {
 }
 
 export async function apiRequest(
-  method: string,
   url: string,
-  options?: { body?: unknown; headers?: Record<string, string> }
+  options?: RequestInit
 ): Promise<any> {
-  const { body, headers = {} } = options || {};
+  const { method = "GET", body, headers = {}, ...restOptions } = options || {};
   
   // Don't send body for GET requests
   const shouldSendBody = method !== "GET" && body !== undefined;
@@ -76,8 +75,9 @@ export async function apiRequest(
   const res = await fetch(url, {
     method,
     headers: shouldSendBody ? { "Content-Type": "application/json", ...headers } : headers,
-    body: shouldSendBody ? JSON.stringify(body) : undefined,
+    body: shouldSendBody ? body : undefined,
     credentials: "include",
+    ...restOptions,
   });
 
   await throwIfResNotOk(res);
