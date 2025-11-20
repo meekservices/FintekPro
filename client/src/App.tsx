@@ -121,6 +121,10 @@ import MarketingAnalytics from "@/pages/admin/marketing-analytics";
 import UserManagement from "@/pages/admin/user-management";
 import PredictiveAnalytics from "@/pages/PredictiveAnalytics";
 import UnlistedCompaniesAdmin from "@/pages/admin/UnlistedCompaniesAdmin";
+import BrowseUnlisted from "@/pages/unlisted/BrowseUnlisted";
+import CompanyDetails from "@/pages/unlisted/CompanyDetails";
+import CreateSellListing from "@/pages/unlisted/CreateSellListing";
+import CreateBuyRequest from "@/pages/unlisted/CreateBuyRequest";
 
 function UserProtectedRoutes() {
   return (
@@ -142,6 +146,10 @@ function UserProtectedRoutes() {
         <Route path="/fund-comparison" component={FundComparison} />
         <Route path="/portfolio-comparison" component={PortfolioComparison} />
         <Route path="/unlisted" component={Unlisted} />
+        <Route path="/unlisted/browse" component={BrowseUnlisted} />
+        <Route path="/unlisted/company/:id" component={CompanyDetails} />
+        <Route path="/unlisted/sell" component={CreateSellListing} />
+        <Route path="/unlisted/buy" component={CreateBuyRequest} />
         <Route path="/bonds" component={Bonds} />
         <Route path="/mlds" component={MLDs} />
         <Route path="/insurance" component={Insurance} />

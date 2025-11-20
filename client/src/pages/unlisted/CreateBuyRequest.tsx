@@ -35,6 +35,10 @@ export default function CreateBuyRequest() {
   const [activeTab, setActiveTab] = useState("browse");
   const [selectedCompanyFilter, setSelectedCompanyFilter] = useState<string>("all");
 
+  // Get pre-selected company from URL params
+  const urlParams = new URLSearchParams(window.location.search);
+  const preSelectedCompanyId = urlParams.get('company') || "";
+
   // Fetch companies
   const { data: companies = [], isLoading: isLoadingCompanies } = useQuery<UnlistedCompany[]>({
     queryKey: ['/api/unlisted/companies'],
@@ -53,7 +57,7 @@ export default function CreateBuyRequest() {
   const form = useForm<BuyRequestFormData>({
     resolver: zodResolver(buyRequestFormSchema),
     defaultValues: {
-      companyId: "",
+      companyId: preSelectedCompanyId,
       quantity: 0,
       maxPrice: "0",
       targetPrice: "0",

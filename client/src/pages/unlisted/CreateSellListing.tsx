@@ -43,6 +43,10 @@ export default function CreateSellListing() {
   const { toast } = useToast();
   const { user } = useAuth();
 
+  // Get pre-selected company from URL params
+  const urlParams = new URLSearchParams(window.location.search);
+  const preSelectedCompanyId = urlParams.get('company') || "";
+
   // Fetch companies
   const { data: companies = [], isLoading: isLoadingCompanies } = useQuery<UnlistedCompany[]>({
     queryKey: ['/api/unlisted/companies'],
@@ -55,7 +59,7 @@ export default function CreateSellListing() {
   const form = useForm<SellListingFormData>({
     resolver: zodResolver(sellListingFormSchema),
     defaultValues: {
-      companyId: "",
+      companyId: preSelectedCompanyId,
       quantity: 0,
       askPrice: "0",
       landingPrice: "0",
