@@ -1,6 +1,6 @@
 import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Partner, type InsertPartner, type Agent, type InsertAgent, type Supplier, type InsertSupplier, type EpfHolding, type PpfHolding, type EpsHolding, type GovernmentSchemeConsent, type InsertGovernmentSchemeConsent, type InsuranceHolding, type InsertInsuranceHolding, type UserBankAccount, type InsertUserBankAccount, type UserDematAccount, type InsertUserDematAccount, type AchievementCategory, type InsertAchievementCategory, type Achievement, type InsertAchievement, type UserAchievement, type InsertUserAchievement, type LearningProgress, type InsertLearningProgress, type SocialShare, type InsertSocialShare, type FinancialGoal, type InsertFinancialGoal, type TaxDocument, type InsertTaxDocument, type StructuredTaxData, type InsertStructuredTaxData, type UserAlert, type InsertUserAlert, type AlertHistory, type InsertAlertHistory, type AlertTemplate, type InsertAlertTemplate, type FamilyGroup, type InsertFamilyGroup, type FamilyMember, type InsertFamilyMember, type FamilyGoal, type InsertFamilyGoal, type FamilyGoalContribution, type InsertFamilyGoalContribution, type FamilyActivityLog, type InsertFamilyActivityLog, type FamilyDiscussion, type InsertFamilyDiscussion, type FamilyBudget, type InsertFamilyBudget, type FamilyPortfolioPermission, type InsertFamilyPortfolioPermission, type TaxCalculation, type InsertTaxCalculation, type TaxDocumentAccessLog, type InsertTaxDocumentAccessLog, type TaxSession, type InsertTaxSession, type TaxDataSource, type InsertTaxDataSource, type ValidationIssue, type InsertValidationIssue, type FilingRecord, type InsertFilingRecord, type AiOptimizationSuggestion, type InsertAiOptimizationSuggestion, type FundExtended, type Provenance, type FundSearchParams, type FundListResponse, type SourceStatus, type MultiSourceStatus, type LoanProduct, type InsertLoanProduct, type LoanProvider, type InsertLoanProvider, type ProviderProduct, type InsertProviderProduct, type CreditProfile, type InsertCreditProfile, type LoanRequest, type InsertLoanRequest, type LoanOffer, type InsertLoanOffer, type LoanApplicationMarketplace, type InsertLoanApplicationMarketplace, type ProviderIntegration, type InsertProviderIntegration, type PartnerApplicationDocument, type InsertPartnerApplicationDocument, type InvestmentIdea, type InsertInvestmentIdea, type InvestmentIdeaTracking, type InsertInvestmentIdeaTracking, type InvestmentIdeaAlert, type InsertInvestmentIdeaAlert, type YieldTracker, type InsertYieldTracker, type PartnerApplication, type InsertPartnerApplication, type TaxRule, type InsertTaxRule, type TaxReminderSubscription, type InsertTaxReminderSubscription, type CapitalGainsTaxReminder, type InsertCapitalGainsTaxReminder, type UserExpense, type InsertUserExpense, type UserBudget, type InsertUserBudget, type ExpenseInsight, type InsertExpenseInsight } from "@shared/schema";
 import { type CashfreeTransaction, type InsertCashfreeTransaction, type PhonePeTransaction, type InsertPhonePeTransaction, type AgentDocument, type InsertAgentDocument, type AgentCommissionSplit, type InsertAgentCommissionSplit, type AgentCommission, type InsertAgentCommission, type AmfiVerificationLog, type InsertAmfiVerificationLog } from "@shared/schema";
-import { type Product, type InsertProduct, type ApplicationDocument, type InsertApplicationDocument, type ProductAccountPreference, type InsertProductAccountPreference, type ICICILoanApplication, type InsertICICILoanApplication, type ICICICreditScore, type InsertICICICreditScore, type PortfolioComparison, type InsertPortfolioComparison, type ChatSession, type InsertChatSession, type ChatMessage, type InsertChatMessage, type ChatAction, type InsertChatAction, type ChatFunction, type InsertChatFunction, type CurrencyRate, type InsertCurrencyRate, type CkycNotificationTrigger, type InsertCkycNotificationTrigger, type KycVerificationSession, type InsertKycVerificationSession, type ManualKycSubmission, type InsertManualKycSubmission, type ManualKycDocument, type InsertManualKycDocument } from "@shared/schema";
+import { type Product, type InsertProduct, type ApplicationDocument, type InsertApplicationDocument, type ProductAccountPreference, type InsertProductAccountPreference, type ICICILoanApplication, type InsertICICILoanApplication, type ICICICreditScore, type InsertICICICreditScore, type PortfolioComparison, type InsertPortfolioComparison, type ChatSession, type InsertChatSession, type ChatMessage, type InsertChatMessage, type ChatAction, type InsertChatAction, type ChatFunction, type InsertChatFunction, type CurrencyRate, type InsertCurrencyRate, type CkycNotificationTrigger, type InsertCkycNotificationTrigger, type KycVerificationSession, type InsertKycVerificationSession, type ManualKycSubmission, type InsertManualKycSubmission, type ManualKycDocument, type InsertManualKycDocument, type UnlistedCompany, type InsertUnlistedCompany, type CompanyFinancials, type InsertCompanyFinancials, type CompanyRatios, type InsertCompanyRatios, type UnlistedPriceHistory, type InsertUnlistedPriceHistory, type SellListing, type InsertSellListing, type BuyRequest, type InsertBuyRequest, type UnlistedDeal, type InsertUnlistedDeal, type Probe42SyncLog, type InsertProbe42SyncLog } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, and, or, desc, asc, gte, lte, like, ilike, sql } from "drizzle-orm";
@@ -1065,6 +1065,52 @@ export interface IStorage {
   createAssetForecast(forecast: any): Promise<any>;
   createRiskAnalysis(analysis: any): Promise<any>;
   createPredictionAccuracy(accuracy: any): Promise<any>;
+
+  // ===================================================================
+  // UNLISTED MARKETPLACE METHODS
+  // ===================================================================
+  
+  // Unlisted Companies
+  createUnlistedCompany(data: InsertUnlistedCompany): Promise<UnlistedCompany>;
+  getUnlistedCompanyById(id: string): Promise<UnlistedCompany | null>;
+  getUnlistedCompanyByCIN(cin: string): Promise<UnlistedCompany | null>;
+  getAllUnlistedCompanies(filters?: { status?: string; sector?: string }): Promise<UnlistedCompany[]>;
+  updateUnlistedCompany(id: string, data: Partial<InsertUnlistedCompany>): Promise<UnlistedCompany>;
+  
+  // Company Financials
+  createCompanyFinancials(data: InsertCompanyFinancials): Promise<CompanyFinancials>;
+  getCompanyFinancials(companyId: string): Promise<CompanyFinancials[]>;
+  getCompanyFinancialsByYear(companyId: string, financialYear: string): Promise<CompanyFinancials | null>;
+  
+  // Company Ratios
+  createCompanyRatios(data: InsertCompanyRatios): Promise<CompanyRatios>;
+  getCompanyRatios(companyId: string): Promise<CompanyRatios[]>;
+  
+  // Price History
+  createPriceHistory(data: InsertUnlistedPriceHistory): Promise<UnlistedPriceHistory>;
+  getPriceHistory(companyId: string, limit?: number): Promise<UnlistedPriceHistory[]>;
+  
+  // Sell Listings
+  createSellListing(data: InsertSellListing): Promise<SellListing>;
+  getSellListingById(id: string): Promise<SellListing | null>;
+  getSellListingsByCompany(companyId: string): Promise<SellListing[]>;
+  updateSellListing(id: string, data: Partial<InsertSellListing>): Promise<SellListing>;
+  
+  // Buy Requests
+  createBuyRequest(data: InsertBuyRequest): Promise<BuyRequest>;
+  getBuyRequestById(id: string): Promise<BuyRequest | null>;
+  getBuyRequestsByCompany(companyId: string): Promise<BuyRequest[]>;
+  updateBuyRequest(id: string, data: Partial<InsertBuyRequest>): Promise<BuyRequest>;
+  
+  // Deals
+  createUnlistedDeal(data: InsertUnlistedDeal): Promise<UnlistedDeal>;
+  getUnlistedDealById(id: string): Promise<UnlistedDeal | null>;
+  getUnlistedDealsByCompany(companyId: string): Promise<UnlistedDeal[]>;
+  updateUnlistedDeal(id: string, data: Partial<InsertUnlistedDeal>): Promise<UnlistedDeal>;
+  
+  // Probe42 Sync Log
+  createProbe42SyncLog(data: InsertProbe42SyncLog): Promise<Probe42SyncLog>;
+  getLatestSyncLog(companyId: string): Promise<Probe42SyncLog | null>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -7497,6 +7543,232 @@ export class DatabaseStorage implements IStorage {
       .values(accuracy)
       .returning();
     return newAccuracy;
+  }
+
+  // ===================================================================
+  // UNLISTED MARKETPLACE METHODS IMPLEMENTATION
+  // ===================================================================
+
+  // Unlisted Companies
+  async createUnlistedCompany(data: InsertUnlistedCompany): Promise<UnlistedCompany> {
+    const [company] = await db.insert(schema.unlistedCompanies)
+      .values(data)
+      .returning();
+    return company;
+  }
+
+  async getUnlistedCompanyById(id: string): Promise<UnlistedCompany | null> {
+    const [company] = await db.select()
+      .from(schema.unlistedCompanies)
+      .where(eq(schema.unlistedCompanies.id, id));
+    return company || null;
+  }
+
+  async getUnlistedCompanyByCIN(cin: string): Promise<UnlistedCompany | null> {
+    const [company] = await db.select()
+      .from(schema.unlistedCompanies)
+      .where(eq(schema.unlistedCompanies.cin, cin));
+    return company || null;
+  }
+
+  async getAllUnlistedCompanies(filters?: { status?: string; sector?: string }): Promise<UnlistedCompany[]> {
+    let query = db.select().from(schema.unlistedCompanies);
+    
+    const conditions = [];
+    if (filters?.status) {
+      conditions.push(eq(schema.unlistedCompanies.status, filters.status));
+    }
+    if (filters?.sector) {
+      conditions.push(eq(schema.unlistedCompanies.sector, filters.sector));
+    }
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+    
+    const companies = await query.orderBy(desc(schema.unlistedCompanies.createdAt));
+    return companies;
+  }
+
+  async updateUnlistedCompany(id: string, data: Partial<InsertUnlistedCompany>): Promise<UnlistedCompany> {
+    const [updated] = await db.update(schema.unlistedCompanies)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(schema.unlistedCompanies.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Company Financials
+  async createCompanyFinancials(data: InsertCompanyFinancials): Promise<CompanyFinancials> {
+    const [financials] = await db.insert(schema.companyFinancials)
+      .values(data)
+      .returning();
+    return financials;
+  }
+
+  async getCompanyFinancials(companyId: string): Promise<CompanyFinancials[]> {
+    const financials = await db.select()
+      .from(schema.companyFinancials)
+      .where(eq(schema.companyFinancials.companyId, companyId))
+      .orderBy(desc(schema.companyFinancials.financialYear));
+    return financials;
+  }
+
+  async getCompanyFinancialsByYear(companyId: string, financialYear: string): Promise<CompanyFinancials | null> {
+    const [financials] = await db.select()
+      .from(schema.companyFinancials)
+      .where(and(
+        eq(schema.companyFinancials.companyId, companyId),
+        eq(schema.companyFinancials.financialYear, financialYear)
+      ));
+    return financials || null;
+  }
+
+  // Company Ratios
+  async createCompanyRatios(data: InsertCompanyRatios): Promise<CompanyRatios> {
+    const [ratios] = await db.insert(schema.companyRatios)
+      .values(data)
+      .returning();
+    return ratios;
+  }
+
+  async getCompanyRatios(companyId: string): Promise<CompanyRatios[]> {
+    const ratios = await db.select()
+      .from(schema.companyRatios)
+      .where(eq(schema.companyRatios.companyId, companyId))
+      .orderBy(desc(schema.companyRatios.financialYear));
+    return ratios;
+  }
+
+  // Price History
+  async createPriceHistory(data: InsertUnlistedPriceHistory): Promise<UnlistedPriceHistory> {
+    const [priceHistory] = await db.insert(schema.unlistedPriceHistory)
+      .values(data)
+      .returning();
+    return priceHistory;
+  }
+
+  async getPriceHistory(companyId: string, limit?: number): Promise<UnlistedPriceHistory[]> {
+    let query = db.select()
+      .from(schema.unlistedPriceHistory)
+      .where(eq(schema.unlistedPriceHistory.companyId, companyId))
+      .orderBy(desc(schema.unlistedPriceHistory.date));
+    
+    if (limit) {
+      query = query.limit(limit) as any;
+    }
+    
+    return await query;
+  }
+
+  // Sell Listings
+  async createSellListing(data: InsertSellListing): Promise<SellListing> {
+    const [listing] = await db.insert(schema.sellListings)
+      .values(data)
+      .returning();
+    return listing;
+  }
+
+  async getSellListingById(id: string): Promise<SellListing | null> {
+    const [listing] = await db.select()
+      .from(schema.sellListings)
+      .where(eq(schema.sellListings.id, id));
+    return listing || null;
+  }
+
+  async getSellListingsByCompany(companyId: string): Promise<SellListing[]> {
+    const listings = await db.select()
+      .from(schema.sellListings)
+      .where(eq(schema.sellListings.companyId, companyId))
+      .orderBy(desc(schema.sellListings.createdAt));
+    return listings;
+  }
+
+  async updateSellListing(id: string, data: Partial<InsertSellListing>): Promise<SellListing> {
+    const [updated] = await db.update(schema.sellListings)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(schema.sellListings.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Buy Requests
+  async createBuyRequest(data: InsertBuyRequest): Promise<BuyRequest> {
+    const [request] = await db.insert(schema.buyRequests)
+      .values(data)
+      .returning();
+    return request;
+  }
+
+  async getBuyRequestById(id: string): Promise<BuyRequest | null> {
+    const [request] = await db.select()
+      .from(schema.buyRequests)
+      .where(eq(schema.buyRequests.id, id));
+    return request || null;
+  }
+
+  async getBuyRequestsByCompany(companyId: string): Promise<BuyRequest[]> {
+    const requests = await db.select()
+      .from(schema.buyRequests)
+      .where(eq(schema.buyRequests.companyId, companyId))
+      .orderBy(desc(schema.buyRequests.createdAt));
+    return requests;
+  }
+
+  async updateBuyRequest(id: string, data: Partial<InsertBuyRequest>): Promise<BuyRequest> {
+    const [updated] = await db.update(schema.buyRequests)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(schema.buyRequests.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Deals
+  async createUnlistedDeal(data: InsertUnlistedDeal): Promise<UnlistedDeal> {
+    const [deal] = await db.insert(schema.unlistedDeals)
+      .values(data)
+      .returning();
+    return deal;
+  }
+
+  async getUnlistedDealById(id: string): Promise<UnlistedDeal | null> {
+    const [deal] = await db.select()
+      .from(schema.unlistedDeals)
+      .where(eq(schema.unlistedDeals.id, id));
+    return deal || null;
+  }
+
+  async getUnlistedDealsByCompany(companyId: string): Promise<UnlistedDeal[]> {
+    const deals = await db.select()
+      .from(schema.unlistedDeals)
+      .where(eq(schema.unlistedDeals.companyId, companyId))
+      .orderBy(desc(schema.unlistedDeals.matchedAt));
+    return deals;
+  }
+
+  async updateUnlistedDeal(id: string, data: Partial<InsertUnlistedDeal>): Promise<UnlistedDeal> {
+    const [updated] = await db.update(schema.unlistedDeals)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(schema.unlistedDeals.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Probe42 Sync Log
+  async createProbe42SyncLog(data: InsertProbe42SyncLog): Promise<Probe42SyncLog> {
+    const [log] = await db.insert(schema.probe42SyncLog)
+      .values(data)
+      .returning();
+    return log;
+  }
+
+  async getLatestSyncLog(companyId: string): Promise<Probe42SyncLog | null> {
+    const [log] = await db.select()
+      .from(schema.probe42SyncLog)
+      .where(eq(schema.probe42SyncLog.companyId, companyId))
+      .orderBy(desc(schema.probe42SyncLog.lastSyncAt))
+      .limit(1);
+    return log || null;
   }
 }
 

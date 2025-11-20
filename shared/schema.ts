@@ -9735,3 +9735,376 @@ export const insertPredictionAccuracySchema = createInsertSchema(predictionAccur
 export type PredictionAccuracy = typeof predictionAccuracy.$inferSelect;
 export type InsertPredictionAccuracy = z.infer<typeof insertPredictionAccuracySchema>;
 
+// ===================================================================
+// UNLISTED MARKETPLACE - Company Master & Financial Data
+// ===================================================================
+
+// Unlisted Companies table
+export const unlistedCompanies = pgTable("unlisted_companies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  cin: varchar("cin").unique(), // Corporate Identification Number
+  isin: varchar("isin"), // International Securities Identification Number
+  sector: varchar("sector"),
+  industry: varchar("industry"),
+  rocState: varchar("roc_state"), // Registrar of Companies state
+  incorporationDate: date("incorporation_date"),
+  paidUpCapital: decimal("paid_up_capital", { precision: 20, scale: 2 }),
+  authorizedCapital: decimal("authorized_capital", { precision: 20, scale: 2 }),
+  faceValue: decimal("face_value", { precision: 10, scale: 2 }),
+  totalShares: bigint("total_shares", { mode: "number" }),
+  
+  // Probe42 Integration
+  probe42CompanyId: varchar("probe42_company_id"),
+  lastSyncedAt: timestamp("last_synced_at"),
+  
+  // Company Status
+  status: varchar("status").default("active").notNull(), // active, inactive, delisted
+  listingStage: varchar("listing_stage"), // unlisted, pre_ipo, growth, mature
+  
+  // Additional Info
+  website: varchar("website"),
+  description: text("description"),
+  logo: varchar("logo"),
+  tags: jsonb("tags").default([]),
+  
+  // Metadata
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_unlisted_companies_cin").on(table.cin),
+  index("idx_unlisted_companies_probe42").on(table.probe42CompanyId),
+  index("idx_unlisted_companies_status").on(table.status),
+  index("idx_unlisted_companies_sector").on(table.sector),
+]);
+
+// Company Financials table
+export const companyFinancials = pgTable("company_financials", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").references(() => unlistedCompanies.id).notNull(),
+  financialYear: varchar("financial_year").notNull(), // e.g., "FY2023-24"
+  periodStart: date("period_start"),
+  periodEnd: date("period_end"),
+  
+  // Income Statement
+  revenue: decimal("revenue", { precision: 20, scale: 2 }),
+  ebitda: decimal("ebitda", { precision: 20, scale: 2 }),
+  ebit: decimal("ebit", { precision: 20, scale: 2 }),
+  pbt: decimal("pbt", { precision: 20, scale: 2 }), // Profit Before Tax
+  pat: decimal("pat", { precision: 20, scale: 2 }), // Profit After Tax
+  netProfit: decimal("net_profit", { precision: 20, scale: 2 }),
+  
+  // Balance Sheet
+  totalAssets: decimal("total_assets", { precision: 20, scale: 2 }),
+  totalLiabilities: decimal("total_liabilities", { precision: 20, scale: 2 }),
+  networth: decimal("networth", { precision: 20, scale: 2 }),
+  shareCapital: decimal("share_capital", { precision: 20, scale: 2 }),
+  reserves: decimal("reserves", { precision: 20, scale: 2 }),
+  
+  // Debt Information
+  totalDebt: decimal("total_debt", { precision: 20, scale: 2 }),
+  longTermDebt: decimal("long_term_debt", { precision: 20, scale: 2 }),
+  shortTermDebt: decimal("short_term_debt", { precision: 20, scale: 2 }),
+  
+  // Cash Flow
+  operatingCashFlow: decimal("operating_cash_flow", { precision: 20, scale: 2 }),
+  investingCashFlow: decimal("investing_cash_flow", { precision: 20, scale: 2 }),
+  financingCashFlow: decimal("financing_cash_flow", { precision: 20, scale: 2 }),
+  freeCashFlow: decimal("free_cash_flow", { precision: 20, scale: 2 }),
+  
+  // Source & Metadata
+  dataSource: varchar("data_source").default("probe42"), // probe42, manual, company_filing
+  verified: boolean("verified").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_company_financials_company").on(table.companyId),
+  index("idx_company_financials_fy").on(table.financialYear),
+]);
+
+// Company Ratios table
+export const companyRatios = pgTable("company_ratios", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").references(() => unlistedCompanies.id).notNull(),
+  financialYear: varchar("financial_year").notNull(),
+  
+  // Valuation Ratios
+  peRatio: decimal("pe_ratio", { precision: 10, scale: 2 }),
+  pbRatio: decimal("pb_ratio", { precision: 10, scale: 2 }),
+  evEbitda: decimal("ev_ebitda", { precision: 10, scale: 2 }),
+  priceToSales: decimal("price_to_sales", { precision: 10, scale: 2 }),
+  
+  // Profitability Ratios
+  roe: decimal("roe", { precision: 10, scale: 4 }), // Return on Equity
+  roce: decimal("roce", { precision: 10, scale: 4 }), // Return on Capital Employed
+  roa: decimal("roa", { precision: 10, scale: 4 }), // Return on Assets
+  marginEbitda: decimal("margin_ebitda", { precision: 10, scale: 4 }),
+  marginPat: decimal("margin_pat", { precision: 10, scale: 4 }),
+  marginOperating: decimal("margin_operating", { precision: 10, scale: 4 }),
+  
+  // Leverage Ratios
+  debtEquity: decimal("debt_equity", { precision: 10, scale: 4 }),
+  debtToAssets: decimal("debt_to_assets", { precision: 10, scale: 4 }),
+  interestCoverage: decimal("interest_coverage", { precision: 10, scale: 2 }),
+  
+  // Liquidity Ratios
+  currentRatio: decimal("current_ratio", { precision: 10, scale: 2 }),
+  quickRatio: decimal("quick_ratio", { precision: 10, scale: 2 }),
+  
+  // Efficiency Ratios
+  assetTurnover: decimal("asset_turnover", { precision: 10, scale: 4 }),
+  inventoryTurnover: decimal("inventory_turnover", { precision: 10, scale: 2 }),
+  
+  // Growth Metrics
+  revenueGrowth: decimal("revenue_growth", { precision: 10, scale: 4 }),
+  profitGrowth: decimal("profit_growth", { precision: 10, scale: 4 }),
+  
+  // Source & Metadata
+  dataSource: varchar("data_source").default("probe42"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_company_ratios_company").on(table.companyId),
+  index("idx_company_ratios_fy").on(table.financialYear),
+]);
+
+// Unlisted Price History table
+export const unlistedPriceHistory = pgTable("unlisted_price_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").references(() => unlistedCompanies.id).notNull(),
+  date: timestamp("date").notNull(),
+  
+  // Price Information
+  price: decimal("price", { precision: 20, scale: 2 }).notNull(),
+  volume: bigint("volume", { mode: "number" }),
+  
+  // Price Source
+  sourceType: varchar("source_type").notNull(), // DEAL, SELLER_FEED, ADMIN_INPUT, PROBE42_COMPARABLE
+  sourceDealId: varchar("source_deal_id"), // Reference to deal if sourceType is DEAL
+  
+  // Additional Context
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_price_history_company").on(table.companyId),
+  index("idx_price_history_date").on(table.date),
+]);
+
+// Sell Listings table
+export const sellListings = pgTable("sell_listings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sellerUserId: varchar("seller_user_id").references(() => users.id).notNull(),
+  companyId: varchar("company_id").references(() => unlistedCompanies.id).notNull(),
+  
+  // Listing Details
+  quantity: bigint("quantity", { mode: "number" }).notNull(),
+  askPrice: decimal("ask_price", { precision: 20, scale: 2 }).notNull(), // Initial asking price
+  landingPrice: decimal("landing_price", { precision: 20, scale: 2 }).notNull(), // Target/acceptable price
+  floorPrice: decimal("floor_price", { precision: 20, scale: 2 }).notNull(), // Minimum acceptable price
+  
+  // Listing Status
+  status: varchar("status").default("pending").notNull(), // pending, active, matched, partial, cancelled, expired
+  quantityRemaining: bigint("quantity_remaining", { mode: "number" }),
+  
+  // Validity
+  validUntil: timestamp("valid_until"),
+  autoRenew: boolean("auto_renew").default(false),
+  
+  // Additional Terms
+  lockInPeriod: integer("lock_in_period"), // in days
+  minimumLotSize: bigint("minimum_lot_size", { mode: "number" }),
+  notes: text("notes"),
+  
+  // KYC Compliance
+  kycVerified: boolean("kyc_verified").default(false),
+  dematVerified: boolean("demat_verified").default(false),
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_sell_listings_seller").on(table.sellerUserId),
+  index("idx_sell_listings_company").on(table.companyId),
+  index("idx_sell_listings_status").on(table.status),
+]);
+
+// Buy Requests table
+export const buyRequests = pgTable("buy_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  buyerUserId: varchar("buyer_user_id").references(() => users.id).notNull(),
+  companyId: varchar("company_id").references(() => unlistedCompanies.id).notNull(),
+  
+  // Request Details
+  quantity: bigint("quantity", { mode: "number" }).notNull(),
+  maxPrice: decimal("max_price", { precision: 20, scale: 2 }).notNull(), // Maximum price willing to pay
+  targetPrice: decimal("target_price", { precision: 20, scale: 2 }), // Preferred price
+  
+  // Request Status
+  status: varchar("status").default("pending").notNull(), // pending, active, matched, partial, cancelled, expired
+  quantityFilled: bigint("quantity_filled", { mode: "number" }).default(0),
+  
+  // Validity
+  validUntil: timestamp("valid_until"),
+  
+  // Additional Preferences
+  preferredLotSize: bigint("preferred_lot_size", { mode: "number" }),
+  notes: text("notes"),
+  
+  // KYC Compliance
+  kycVerified: boolean("kyc_verified").default(false),
+  fundsVerified: boolean("funds_verified").default(false),
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_buy_requests_buyer").on(table.buyerUserId),
+  index("idx_buy_requests_company").on(table.companyId),
+  index("idx_buy_requests_status").on(table.status),
+]);
+
+// Deals table (matched transactions)
+export const unlistedDeals = pgTable("unlisted_deals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sellListingId: varchar("sell_listing_id").references(() => sellListings.id).notNull(),
+  buyRequestId: varchar("buy_request_id").references(() => buyRequests.id).notNull(),
+  companyId: varchar("company_id").references(() => unlistedCompanies.id).notNull(),
+  sellerUserId: varchar("seller_user_id").references(() => users.id).notNull(),
+  buyerUserId: varchar("buyer_user_id").references(() => users.id).notNull(),
+  
+  // Deal Terms
+  quantity: bigint("quantity", { mode: "number" }).notNull(),
+  agreedPrice: decimal("agreed_price", { precision: 20, scale: 2 }).notNull(),
+  totalValue: decimal("total_value", { precision: 20, scale: 2 }).notNull(),
+  
+  // Deal Status
+  status: varchar("status").default("pending").notNull(), // pending, escrowed, completed, cancelled, failed
+  
+  // Payment & Transfer
+  escrowId: varchar("escrow_id"),
+  escrowedAt: timestamp("escrowed_at"),
+  paymentCompletedAt: timestamp("payment_completed_at"),
+  sharesTransferredAt: timestamp("shares_transferred_at"),
+  
+  // Platform Fees
+  platformFee: decimal("platform_fee", { precision: 20, scale: 2 }),
+  sellerFee: decimal("seller_fee", { precision: 20, scale: 2 }),
+  buyerFee: decimal("buyer_fee", { precision: 20, scale: 2 }),
+  
+  // Settlement
+  sellerPayout: decimal("seller_payout", { precision: 20, scale: 2 }),
+  buyerCharge: decimal("buyer_charge", { precision: 20, scale: 2 }),
+  settlementDate: timestamp("settlement_date"),
+  
+  // Compliance
+  complianceChecked: boolean("compliance_checked").default(false),
+  complianceNotes: text("compliance_notes"),
+  
+  // Metadata
+  matchedAt: timestamp("matched_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  cancelledAt: timestamp("cancelled_at"),
+  cancellationReason: text("cancellation_reason"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_unlisted_deals_seller").on(table.sellerUserId),
+  index("idx_unlisted_deals_buyer").on(table.buyerUserId),
+  index("idx_unlisted_deals_company").on(table.companyId),
+  index("idx_unlisted_deals_status").on(table.status),
+  index("idx_unlisted_deals_matched").on(table.matchedAt),
+]);
+
+// Probe42 Sync Log table
+export const probe42SyncLog = pgTable("probe42_sync_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").references(() => unlistedCompanies.id).notNull(),
+  probe42CompanyId: varchar("probe42_company_id").notNull(),
+  
+  // Sync Details
+  syncType: varchar("sync_type").notNull(), // full, financials_only, ratios_only, incremental
+  lastSyncAt: timestamp("last_sync_at").notNull(),
+  status: varchar("status").notNull(), // success, failed, partial
+  
+  // Sync Results
+  recordsSynced: integer("records_synced"),
+  recordsFailed: integer("records_failed"),
+  errorMessage: text("error_message"),
+  errorDetails: jsonb("error_details"),
+  
+  // Next Sync
+  nextSyncScheduled: timestamp("next_sync_scheduled"),
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_probe42_sync_company").on(table.companyId),
+  index("idx_probe42_sync_status").on(table.status),
+  index("idx_probe42_sync_date").on(table.lastSyncAt),
+]);
+
+// Zod schemas for unlisted marketplace
+export const insertUnlistedCompanySchema = createInsertSchema(unlistedCompanies).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type UnlistedCompany = typeof unlistedCompanies.$inferSelect;
+export type InsertUnlistedCompany = z.infer<typeof insertUnlistedCompanySchema>;
+
+export const insertCompanyFinancialsSchema = createInsertSchema(companyFinancials).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type CompanyFinancials = typeof companyFinancials.$inferSelect;
+export type InsertCompanyFinancials = z.infer<typeof insertCompanyFinancialsSchema>;
+
+export const insertCompanyRatiosSchema = createInsertSchema(companyRatios).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type CompanyRatios = typeof companyRatios.$inferSelect;
+export type InsertCompanyRatios = z.infer<typeof insertCompanyRatiosSchema>;
+
+export const insertUnlistedPriceHistorySchema = createInsertSchema(unlistedPriceHistory).omit({
+  id: true,
+  createdAt: true,
+});
+export type UnlistedPriceHistory = typeof unlistedPriceHistory.$inferSelect;
+export type InsertUnlistedPriceHistory = z.infer<typeof insertUnlistedPriceHistorySchema>;
+
+export const insertSellListingSchema = createInsertSchema(sellListings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type SellListing = typeof sellListings.$inferSelect;
+export type InsertSellListing = z.infer<typeof insertSellListingSchema>;
+
+export const insertBuyRequestSchema = createInsertSchema(buyRequests).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type BuyRequest = typeof buyRequests.$inferSelect;
+export type InsertBuyRequest = z.infer<typeof insertBuyRequestSchema>;
+
+export const insertUnlistedDealSchema = createInsertSchema(unlistedDeals).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type UnlistedDeal = typeof unlistedDeals.$inferSelect;
+export type InsertUnlistedDeal = z.infer<typeof insertUnlistedDealSchema>;
+
+export const insertProbe42SyncLogSchema = createInsertSchema(probe42SyncLog).omit({
+  id: true,
+  createdAt: true,
+});
+export type Probe42SyncLog = typeof probe42SyncLog.$inferSelect;
+export type InsertProbe42SyncLog = z.infer<typeof insertProbe42SyncLogSchema>;
+

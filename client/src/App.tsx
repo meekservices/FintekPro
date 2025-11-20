@@ -120,6 +120,7 @@ import ClientIntelligence from "@/pages/admin/client-intelligence";
 import MarketingAnalytics from "@/pages/admin/marketing-analytics";
 import UserManagement from "@/pages/admin/user-management";
 import PredictiveAnalytics from "@/pages/PredictiveAnalytics";
+import UnlistedCompaniesAdmin from "@/pages/admin/UnlistedCompaniesAdmin";
 
 function UserProtectedRoutes() {
   return (
@@ -393,6 +394,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <UserManagement />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/unlisted/companies">
+        {() => (
+          <AdminLayout>
+            <UnlistedCompaniesAdmin />
           </AdminLayout>
         )}
       </Route>
