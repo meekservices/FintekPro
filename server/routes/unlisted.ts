@@ -13,6 +13,7 @@ import { storage } from '../storage';
 import { apiResponse } from '../utils/responses';
 import { z } from 'zod';
 import { probe42Service } from '../services/probe42-service';
+import { PriceSuggestionService } from '../services/price-suggestion';
 import {
   insertUnlistedCompanySchema,
   insertSellListingSchema,
@@ -519,6 +520,59 @@ router.get('/deals/:id', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error fetching deal:', error);
     return apiResponse.serverError(res, 'Failed to fetch deal details');
+  }
+});
+
+// ===================================================================
+// PRICE SUGGESTION ROUTES
+// ===================================================================
+
+/**
+ * GET /api/unlisted/companies/:id/price-suggestion
+ * Get AI-powered price suggestion for a company
+ */
+router.get('/companies/:id/price-suggestion', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const priceSuggestionService = new PriceSuggestionService(storage);
+    const suggestion = await priceSuggestionService.calculateSuggestedPrice(id);
+    
+    return apiResponse.success(res, suggestion);
+  } catch (error: any) {
+    console.error('Error calculating price suggestion:', error);
+    
+    if (error.message === 'Company not found') {
+      return apiResponse.notFound(res, 'Company not found');
+    }
+    
+    if (error.message === 'Insufficient data to calculate price suggestion') {
+      return apiResponse.badRequest(res, 'Insufficient data to calculate price suggestion');
+    }
+    
+    return apiResponse.serverError(res, 'Failed to calculate price suggestion');
+  }
+});
+
+/**
+ * POST /api/unlisted/price-suggestions/batch
+ * Get price suggestions for multiple companies
+ */
+router.post('/price-suggestions/batch', async (req: Request, res: Response) => {
+  try {
+    const { companyIds } = req.body;
+    
+    if (!Array.isArray(companyIds) || companyIds.length === 0) {
+      return apiResponse.badRequest(res, 'Company IDs array is required');
+    }
+    
+    const priceSuggestionService = new PriceSuggestionService(storage);
+    const suggestions = await priceSuggestionService.calculateBatchSuggestions(companyIds);
+    
+    return apiResponse.success(res, suggestions);
+  } catch (error: any) {
+    console.error('Error calculating batch price suggestions:', error);
+    return apiResponse.serverError(res, 'Failed to calculate price suggestions');
   }
 });
 
