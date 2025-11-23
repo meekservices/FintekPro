@@ -157,7 +157,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   
   const logoutMutation = useMutation({
-    mutationFn: () => apiRequest("POST", "/api/logout"),
+    mutationFn: () => apiRequest("/api/logout", { method: "POST" }),
     onSuccess: () => {
       window.location.href = "/";
     },
