@@ -247,19 +247,18 @@ app.use((req, res, next) => {
   
   const server = await registerRoutes(app);
 
-  // Centralized error handling middleware (must be after all routes)
-  const { errorHandler, notFoundHandler } = await import('./middleware/error-handler');
-  app.use(notFoundHandler);
-  app.use(errorHandler);
-
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
+  // Setup Vite BEFORE error handlers so it can serve the frontend
+  // and its catch-all middleware doesn't conflict with API error handling
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
     serveStatic(app);
   }
+
+  // Centralized error handling middleware (must be after all routes and Vite)
+  const { errorHandler, notFoundHandler } = await import('./middleware/error-handler');
+  app.use(notFoundHandler);
+  app.use(errorHandler);
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
   // Other ports are firewalled. Default to 5000 if not specified.
