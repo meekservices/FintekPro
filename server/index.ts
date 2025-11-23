@@ -12,6 +12,7 @@ import { storage } from "./storage";
 import { setupAuth as setupReplitAuth } from "./replitAuth";
 import { setupAuth as setupLocalAuth } from "./auth";
 import { subdomainDetection } from "./subdomain-middleware";
+import { initializeCronJobs } from "./cron-jobs";
 import "./services/sms-service"; // Initialize SMS service
 
 const app = express();
@@ -330,6 +331,14 @@ app.use((req, res, next) => {
       });
     } catch (error) {
       console.error('❌ Error importing session cleanup cron:', error);
+    }
+    
+    // Initialize Unlisted Marketplace Cron Jobs
+    try {
+      initializeCronJobs();
+      logger.service('Unlisted Marketplace Cron', 'Cron jobs initialized successfully');
+    } catch (error) {
+      logger.serviceError('Unlisted Marketplace Cron', 'Failed to initialize cron jobs', error instanceof Error ? error : undefined);
     }
   });
 })();

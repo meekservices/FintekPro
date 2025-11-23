@@ -4,7 +4,7 @@ import { nanoid } from 'nanoid';
 import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq } from 'drizzle-orm';
-import { generateDealTicket } from '../utils/deal-ticket-generator';
+import { complianceService } from './compliance-service';
 
 export interface MatchResult {
   matched: boolean;
@@ -265,6 +265,7 @@ export class DealMatcherService {
   /**
    * Create a deal from a match
    * All operations are wrapped in a transaction for atomicity
+   * Compliance checks prevent deal creation if high-risk flags detected
    */
   async createDealFromMatch(match: MatchResult, agreedPrice?: number): Promise<string> {
     if (!match.matched) {
@@ -272,6 +273,12 @@ export class DealMatcherService {
     }
 
     const { sellListing, buyRequest } = match;
+
+    // Check compliance flags - block if high-risk
+    const hasBlockingFlags = await complianceService.hasBlockingFlags(sellListing.companyId);
+    if (hasBlockingFlags) {
+      throw new Error('Deal creation blocked: Company has high-risk compliance flags. Contact admin for review.');
+    }
 
     // Determine agreed price
     const finalPrice = agreedPrice || Number(sellListing.landingPrice);
@@ -285,13 +292,9 @@ export class DealMatcherService {
 
     // Execute all DB operations in a transaction for atomicity
     return await this.storage.withTransaction(async (tx) => {
-      // Generate unique deal ticket within transaction
-      const dealTicket = await generateDealTicket(tx);
-
-      // Create the deal
+      // Create the deal with auto-generated UUID as ID (serves as ticket reference)
       const [deal] = await tx.insert(schema.unlistedDeals)
         .values({
-          dealTicket,
           sellListingId: sellListing.id,
           buyRequestId: buyRequest.id,
           companyId: sellListing.companyId,

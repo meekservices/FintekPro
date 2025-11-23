@@ -9967,7 +9967,6 @@ export const buyRequests = pgTable("buy_requests", {
 // Deals table (matched transactions)
 export const unlistedDeals = pgTable("unlisted_deals", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  dealTicket: varchar("deal_ticket").unique().notNull(), // FTX-UNL-XXXXX format (generated from sequence)
   sellListingId: varchar("sell_listing_id").references(() => sellListings.id).notNull(),
   buyRequestId: varchar("buy_request_id").references(() => buyRequests.id).notNull(),
   companyId: varchar("company_id").references(() => unlistedCompanies.id).notNull(),
