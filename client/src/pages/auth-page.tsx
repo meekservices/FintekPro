@@ -195,7 +195,7 @@ export default function AuthPage() {
     mutationFn: async (identifier: string) => {
       const response = await apiRequest("/api/sessions/check", {
         method: "POST",
-        body: { identifier }
+        body: JSON.stringify({ identifier })
       });
       return response;
     },
@@ -224,7 +224,7 @@ export default function AuthPage() {
     mutationFn: async (identifier: string) => {
       const response = await apiRequest("/api/sessions/force-logout", {
         method: "POST",
-        body: { identifier }
+        body: JSON.stringify({ identifier })
       });
       return response;
     },
@@ -255,10 +255,10 @@ export default function AuthPage() {
     mutationFn: async (data: LoginFormData) => {
       const response = await apiRequest("/api/login", {
         method: "POST",
-        body: {
+        body: JSON.stringify({
           identifier: data.identifier,
           password: data.password
-        }
+        })
       });
       return response;
     },
@@ -304,10 +304,10 @@ export default function AuthPage() {
       setOtpSending(true);
       const response = await apiRequest("/api/login", {
         method: "POST",
-        body: {
+        body: JSON.stringify({
           identifier: loginIdentifier,
           password: loginForm.getValues("password")
-        }
+        })
       });
       return response;
     },
@@ -335,10 +335,10 @@ export default function AuthPage() {
     mutationFn: async (data: OtpVerificationFormData) => {
       const response = await apiRequest("/api/login/verify-otp", {
         method: "POST",
-        body: {
+        body: JSON.stringify({
           identifier: data.identifier,
           otp: data.otp
-        }
+        })
       });
       return response;
     },
@@ -367,11 +367,11 @@ export default function AuthPage() {
     mutationFn: async (data: RegisterFormData) => {
       const response = await apiRequest("/api/register", {
         method: "POST",
-        body: {
+        body: JSON.stringify({
           email: data.email,
           mobile: data.mobile,
           password: data.password
-        }
+        })
       });
       return response;
     },
@@ -423,10 +423,10 @@ export default function AuthPage() {
       setRegistrationOtpSending(true);
       const response = await apiRequest("/api/register/resend-otp", {
         method: "POST",
-        body: {
+        body: JSON.stringify({
           identifier: registrationIdentifier,
           registrationToken: registrationToken
-        }
+        })
       });
       return response;
     },
@@ -453,10 +453,10 @@ export default function AuthPage() {
     mutationFn: async (otp: string) => {
       const response = await apiRequest("/api/register/verify-otp", {
         method: "POST",
-        body: {
+        body: JSON.stringify({
           identifier: registrationIdentifier,
           otp: otp
-        }
+        })
       });
       return response;
     },
@@ -501,7 +501,7 @@ export default function AuthPage() {
     mutationFn: async (data: ForgotPasswordFormData) => {
       const response = await apiRequest("/api/auth/forgot-password", {
         method: "POST",
-        body: { identifier: data.identifier }
+        body: JSON.stringify({ identifier: data.identifier })
       });
       return response;
     },
@@ -527,11 +527,11 @@ export default function AuthPage() {
     mutationFn: async (data: ResetPasswordFormData) => {
       const response = await apiRequest("/api/auth/reset-password", {
         method: "POST",
-        body: {
+        body: JSON.stringify({
           identifier: data.identifier,
           otp: data.otp,
           newPassword: data.newPassword
-        }
+        })
       });
       return response;
     },
