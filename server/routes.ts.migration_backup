@@ -53,6 +53,8 @@ import { digilockerService } from './services/digilockerService';
 import { amfiService } from './amfi-service';
 import { bseService } from './bse-service';
 import { validateKYC } from './kyc-middleware';
+import complianceRoutes from './routes/compliance';
+// And in the function: app.use('/api/compliance', complianceRoutes);
 import { MultiSourceMFService } from './services/multisource-mf-service';
 import { ObjectStorageService, ObjectNotFoundError } from './objectStorage';
 import { randomUUID } from 'crypto';

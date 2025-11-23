@@ -1,5 +1,6 @@
 import { DatabaseStorage } from '../storage';
 import type { CompanyFinancials, CompanyRatios } from '@shared/schema';
+import { storage } from '../storage';
 
 export interface ComplianceFlag {
   flagType: string;
@@ -143,4 +144,4 @@ export class ComplianceService {
   }
 }
 
-export const complianceService = new ComplianceService(require('../storage').storage);
+export const complianceService = new ComplianceService(storage);
