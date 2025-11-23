@@ -193,7 +193,8 @@ export default function AuthPage() {
   // Check for active sessions before attempting login
   const sessionCheckMutation = useMutation({
     mutationFn: async (identifier: string) => {
-      const response = await apiRequest("POST", "/api/sessions/check", {
+      const response = await apiRequest("/api/sessions/check", {
+        method: "POST",
         body: { identifier }
       });
       return response;
@@ -221,7 +222,8 @@ export default function AuthPage() {
   // Force logout all sessions for the user
   const forceLogoutMutation = useMutation({
     mutationFn: async (identifier: string) => {
-      const response = await apiRequest("POST", "/api/sessions/force-logout", {
+      const response = await apiRequest("/api/sessions/force-logout", {
+        method: "POST",
         body: { identifier }
       });
       return response;
@@ -251,7 +253,8 @@ export default function AuthPage() {
 
   const loginMutation = useMutation({
     mutationFn: async (data: LoginFormData) => {
-      const response = await apiRequest("POST", "/api/login", {
+      const response = await apiRequest("/api/login", {
+        method: "POST",
         body: {
           identifier: data.identifier,
           password: data.password
@@ -299,7 +302,8 @@ export default function AuthPage() {
   const resendOtpMutation = useMutation({
     mutationFn: async () => {
       setOtpSending(true);
-      const response = await apiRequest("POST", "/api/login", {
+      const response = await apiRequest("/api/login", {
+        method: "POST",
         body: {
           identifier: loginIdentifier,
           password: loginForm.getValues("password")
@@ -329,7 +333,8 @@ export default function AuthPage() {
 
   const otpVerificationMutation = useMutation({
     mutationFn: async (data: OtpVerificationFormData) => {
-      const response = await apiRequest("POST", "/api/login/verify-otp", {
+      const response = await apiRequest("/api/login/verify-otp", {
+        method: "POST",
         body: {
           identifier: data.identifier,
           otp: data.otp
@@ -360,7 +365,8 @@ export default function AuthPage() {
 
   const registerMutation = useMutation({
     mutationFn: async (data: RegisterFormData) => {
-      const response = await apiRequest("POST", "/api/register", {
+      const response = await apiRequest("/api/register", {
+        method: "POST",
         body: {
           email: data.email,
           mobile: data.mobile,
@@ -415,7 +421,8 @@ export default function AuthPage() {
         throw new Error("No registration session found");
       }
       setRegistrationOtpSending(true);
-      const response = await apiRequest("POST", "/api/register/resend-otp", {
+      const response = await apiRequest("/api/register/resend-otp", {
+        method: "POST",
         body: {
           identifier: registrationIdentifier,
           registrationToken: registrationToken
@@ -444,7 +451,8 @@ export default function AuthPage() {
 
   const registrationOtpVerificationMutation = useMutation({
     mutationFn: async (otp: string) => {
-      const response = await apiRequest("POST", "/api/register/verify-otp", {
+      const response = await apiRequest("/api/register/verify-otp", {
+        method: "POST",
         body: {
           identifier: registrationIdentifier,
           otp: otp
@@ -491,7 +499,8 @@ export default function AuthPage() {
 
   const forgotPasswordMutation = useMutation({
     mutationFn: async (data: ForgotPasswordFormData) => {
-      const response = await apiRequest("POST", "/api/auth/forgot-password", {
+      const response = await apiRequest("/api/auth/forgot-password", {
+        method: "POST",
         body: { identifier: data.identifier }
       });
       return response;
@@ -516,7 +525,8 @@ export default function AuthPage() {
 
   const resetPasswordMutation = useMutation({
     mutationFn: async (data: ResetPasswordFormData) => {
-      const response = await apiRequest("POST", "/api/auth/reset-password", {
+      const response = await apiRequest("/api/auth/reset-password", {
+        method: "POST",
         body: {
           identifier: data.identifier,
           otp: data.otp,
