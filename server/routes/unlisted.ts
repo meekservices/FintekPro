@@ -10,8 +10,10 @@
 
 import { Router, type Request, type Response } from 'express';
 import { storage } from '../storage';
+import { db } from '../db';
 import { apiResponse } from '../utils/responses';
 import { z } from 'zod';
+import { eq } from 'drizzle-orm';
 import { probe42Service } from '../services/probe42-service';
 import { PriceSuggestionService } from '../services/price-suggestion';
 import {
@@ -19,6 +21,9 @@ import {
   insertSellListingSchema,
   insertBuyRequestSchema,
   insertUnlistedDealSchema,
+  sellListings,
+  buyRequests,
+  unlistedDeals,
   type UnlistedCompany,
   type SellListing,
   type BuyRequest,
@@ -528,8 +533,41 @@ router.get('/deals/:id', async (req: Request, res: Response) => {
 // ===================================================================
 
 /**
- * GET /api/unlisted/companies/:id/price-suggestion
+ * POST /api/unlisted/price/suggest
  * Get AI-powered price suggestion for a company
+ * Request body: { companyId: string }
+ */
+router.post('/price/suggest', async (req: Request, res: Response) => {
+  try {
+    const { companyId } = req.body;
+    
+    if (!companyId) {
+      return apiResponse.badRequest(res, 'Company ID is required');
+    }
+    
+    const priceSuggestionService = new PriceSuggestionService(storage);
+    const suggestion = await priceSuggestionService.calculateSuggestedPrice(companyId);
+    
+    return apiResponse.success(res, suggestion);
+  } catch (error: any) {
+    console.error('Error calculating price suggestion:', error);
+    
+    if (error.message === 'Company not found') {
+      return apiResponse.notFound(res, 'Company not found');
+    }
+    
+    if (error.message === 'Insufficient data to calculate price suggestion') {
+      return apiResponse.badRequest(res, 'Insufficient data to calculate price suggestion');
+    }
+    
+    return apiResponse.serverError(res, 'Failed to calculate price suggestion');
+  }
+});
+
+/**
+ * GET /api/unlisted/companies/:id/price-suggestion
+ * DEPRECATED: Use POST /api/unlisted/price/suggest instead
+ * Kept for backward compatibility
  */
 router.get('/companies/:id/price-suggestion', async (req: Request, res: Response) => {
   try {
@@ -573,6 +611,188 @@ router.post('/price-suggestions/batch', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error calculating batch price suggestions:', error);
     return apiResponse.serverError(res, 'Failed to calculate price suggestions');
+  }
+});
+
+/**
+ * GET /api/unlisted/admin/negotiations
+ * Get all active negotiations (sell listings with matching buy requests)
+ * Admin only endpoint
+ */
+router.get('/admin/negotiations', async (req: Request, res: Response) => {
+  try {
+    // Check if user is admin
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { 
+      page = '1', 
+      limit = '50',
+      companySearch,
+      minMatchScore,
+      minPrice,
+      maxPrice 
+    } = req.query;
+    
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const offset = (pageNum - 1) * limitNum;
+    
+    // Get all active sell listings
+    const allSellListings = await db.select()
+      .from(sellListings)
+      .where(eq(sellListings.status, 'active'));
+    
+    // Get all active buy requests
+    const allBuyRequests = await db.select()
+      .from(buyRequests)
+      .where(eq(buyRequests.status, 'active'));
+    
+    // Group buy requests by company
+    const buyRequestsByCompany = allBuyRequests.reduce((acc: Record<string, BuyRequest[]>, buyRequest: BuyRequest) => {
+      if (!acc[buyRequest.companyId]) {
+        acc[buyRequest.companyId] = [];
+      }
+      acc[buyRequest.companyId].push(buyRequest);
+      return acc;
+    }, {} as Record<string, BuyRequest[]>);
+    
+    // Build negotiations data
+    const negotiations = [];
+    const priceSuggestionService = new PriceSuggestionService(storage);
+    
+    for (const sellListing of allSellListings) {
+      const matchingBuyRequests = buyRequestsByCompany[sellListing.companyId] || [];
+      
+      if (matchingBuyRequests.length === 0) continue;
+      
+      // Get company details
+      const company = await storage.getUnlistedCompanyById(sellListing.companyId);
+      if (!company) continue;
+      
+      // Apply company search filter
+      if (companySearch && typeof companySearch === 'string') {
+        const query = companySearch.toLowerCase();
+        if (!company.name.toLowerCase().includes(query) && 
+            !company.cin?.toLowerCase().includes(query)) {
+          continue;
+        }
+      }
+      
+      // Get latest ratios
+      const ratios = await storage.getCompanyRatios(sellListing.companyId);
+      const latestRatios = ratios[0];
+      
+      // Get last deal price
+      const recentDeals = await db.select()
+        .from(unlistedDeals)
+        .where(eq(unlistedDeals.companyId, sellListing.companyId));
+      const lastDeal = recentDeals.sort((a: any, b: any) => 
+        new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
+      )[0];
+      
+      // Get price suggestion
+      let priceSuggestion;
+      try {
+        priceSuggestion = await priceSuggestionService.calculateSuggestedPrice(sellListing.companyId);
+      } catch (error) {
+        console.error(`Error calculating price suggestion for ${company.name}:`, error);
+      }
+      
+      // Find best matching buy request (highest max price)
+      const bestBuyRequest = matchingBuyRequests.reduce((best: BuyRequest, current: BuyRequest) => {
+        const bestPrice = parseFloat(best.maxPrice);
+        const currentPrice = parseFloat(current.maxPrice);
+        return currentPrice > bestPrice ? current : best;
+      });
+      
+      // Calculate match score (0-100)
+      const sellerLandingPrice = parseFloat(sellListing.landingPrice);
+      const buyerMaxPrice = parseFloat(bestBuyRequest.maxPrice);
+      const suggestedMidpoint = priceSuggestion?.suggestedPrice || (sellerLandingPrice + buyerMaxPrice) / 2;
+      
+      let matchScore = 0;
+      if (buyerMaxPrice >= sellerLandingPrice) {
+        matchScore = 100; // Perfect match
+      } else {
+        // Calculate based on how close they are
+        const gap = sellerLandingPrice - buyerMaxPrice;
+        const range = sellerLandingPrice;
+        matchScore = Math.max(0, Math.round((1 - gap / range) * 100));
+      }
+      
+      // Apply match score filter
+      if (minMatchScore && matchScore < parseFloat(minMatchScore as string)) {
+        continue;
+      }
+      
+      // Apply price range filter
+      if (minPrice && sellerLandingPrice < parseFloat(minPrice as string)) {
+        continue;
+      }
+      if (maxPrice && sellerLandingPrice > parseFloat(maxPrice as string)) {
+        continue;
+      }
+      
+      negotiations.push({
+        id: sellListing.id,
+        company: {
+          id: company.id,
+          name: company.name,
+          cin: company.cin,
+          sector: company.sector,
+        },
+        sellListing: {
+          id: sellListing.id,
+          sellerUserId: sellListing.sellerUserId,
+          quantity: sellListing.quantity,
+          landingPrice: sellListing.landingPrice,
+          floorPrice: sellListing.floorPrice,
+          askPrice: sellListing.askPrice,
+        },
+        buyRequest: {
+          id: bestBuyRequest.id,
+          buyerUserId: bestBuyRequest.buyerUserId,
+          quantity: bestBuyRequest.quantity,
+          maxPrice: bestBuyRequest.maxPrice,
+          targetPrice: bestBuyRequest.targetPrice,
+        },
+        matchingBuyRequestsCount: matchingBuyRequests.length,
+        suggestedMidpoint,
+        matchScore,
+        confidence: priceSuggestion?.confidence || 'low',
+        ratios: latestRatios ? {
+          roe: latestRatios.roe,
+          roce: latestRatios.roce,
+          debtToEquity: latestRatios.debtEquity,
+          currentRatio: latestRatios.currentRatio,
+          peRatio: latestRatios.peRatio,
+        } : null,
+        lastDealPrice: lastDeal ? lastDeal.agreedPrice : null,
+        lastDealDate: lastDeal ? lastDeal.createdAt : null,
+      });
+    }
+    
+    // Sort by match score (highest first)
+    negotiations.sort((a, b) => b.matchScore - a.matchScore);
+    
+    // Apply pagination
+    const total = negotiations.length;
+    const paginatedNegotiations = negotiations.slice(offset, offset + limitNum);
+    
+    return apiResponse.success(res, {
+      negotiations: paginatedNegotiations,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum),
+      },
+    });
+  } catch (error: any) {
+    console.error('Error fetching negotiations:', error);
+    return apiResponse.serverError(res, 'Failed to fetch negotiations');
   }
 });
 

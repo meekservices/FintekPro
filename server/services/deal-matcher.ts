@@ -4,6 +4,7 @@ import { nanoid } from 'nanoid';
 import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq } from 'drizzle-orm';
+import { generateDealTicket } from '../utils/deal-ticket-generator';
 
 export interface MatchResult {
   matched: boolean;
@@ -284,9 +285,13 @@ export class DealMatcherService {
 
     // Execute all DB operations in a transaction for atomicity
     return await this.storage.withTransaction(async (tx) => {
+      // Generate unique deal ticket within transaction
+      const dealTicket = await generateDealTicket(tx);
+
       // Create the deal
       const [deal] = await tx.insert(schema.unlistedDeals)
         .values({
+          dealTicket,
           sellListingId: sellListing.id,
           buyRequestId: buyRequest.id,
           companyId: sellListing.companyId,

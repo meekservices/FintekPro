@@ -121,6 +121,7 @@ import MarketingAnalytics from "@/pages/admin/marketing-analytics";
 import UserManagement from "@/pages/admin/user-management";
 import PredictiveAnalytics from "@/pages/PredictiveAnalytics";
 import UnlistedCompaniesAdmin from "@/pages/admin/UnlistedCompaniesAdmin";
+import UnlistedNegotiations from "@/pages/admin/UnlistedNegotiations";
 import BrowseUnlisted from "@/pages/unlisted/BrowseUnlisted";
 import CompanyDetails from "@/pages/unlisted/CompanyDetails";
 import CreateSellListing from "@/pages/unlisted/CreateSellListing";
@@ -409,6 +410,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <UnlistedCompaniesAdmin />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/unlisted/negotiations">
+        {() => (
+          <AdminLayout>
+            <UnlistedNegotiations />
           </AdminLayout>
         )}
       </Route>
