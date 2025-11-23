@@ -88,10 +88,21 @@ export class PriceSuggestionService {
     }
 
     // Weighted average calculation
-    const { suggestedPrice, minPrice, maxPrice, confidence, methodology } = this.calculateWeightedPrice(
+    let { suggestedPrice, minPrice, maxPrice, confidence, methodology } = this.calculateWeightedPrice(
       factors,
       valuationFactors
     );
+
+    // Apply risk adjustment discount if Probe42 data shows high risk
+    const riskDiscount = this.calculateRiskDiscount(latestFinancials, latestRatios);
+    if (riskDiscount > 0) {
+      const discountMultiplier = 1 - riskDiscount;
+      suggestedPrice = Math.round(suggestedPrice * discountMultiplier);
+      minPrice = Math.round(minPrice * discountMultiplier);
+      maxPrice = Math.round(maxPrice * discountMultiplier);
+      
+      rationale.push(`Risk discount applied: ${(riskDiscount * 100).toFixed(0)}% due to high Debt/Equity or negative Networth`);
+    }
 
     return {
       companyId,
@@ -104,6 +115,35 @@ export class PriceSuggestionService {
       rationale,
       lastUpdated: new Date(),
     };
+  }
+
+  /**
+   * Calculate risk discount based on Probe42 financial health indicators
+   * Returns 0.10 (10%) if Debt/Equity > 2 OR Networth < 0, otherwise 0
+   */
+  private calculateRiskDiscount(
+    financials: CompanyFinancials | undefined,
+    ratios: CompanyRatios | undefined
+  ): number {
+    const RISK_DISCOUNT_RATE = 0.10; // 10% discount
+
+    // Check networth from financials
+    if (financials) {
+      const networth = Number(financials.networth);
+      if (networth < 0) {
+        return RISK_DISCOUNT_RATE;
+      }
+    }
+
+    // Check debt-to-equity ratio
+    if (ratios) {
+      const debtEquity = Number(ratios.debtEquity);
+      if (debtEquity > 2) {
+        return RISK_DISCOUNT_RATE;
+      }
+    }
+
+    return 0; // No risk discount
   }
 
   /**
