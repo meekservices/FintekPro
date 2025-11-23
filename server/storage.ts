@@ -1111,6 +1111,9 @@ export interface IStorage {
   // Probe42 Sync Log
   createProbe42SyncLog(data: InsertProbe42SyncLog): Promise<Probe42SyncLog>;
   getLatestSyncLog(companyId: string): Promise<Probe42SyncLog | null>;
+  
+  // Transaction Support
+  withTransaction<T>(callback: (tx: any) => Promise<T>): Promise<T>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -7790,6 +7793,11 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(schema.probe42SyncLog.lastSyncAt))
       .limit(1);
     return log || null;
+  }
+
+  // Transaction Support
+  async withTransaction<T>(callback: (tx: any) => Promise<T>): Promise<T> {
+    return await db.transaction(callback);
   }
 }
 
