@@ -1,6 +1,9 @@
 import { DatabaseStorage } from '../storage';
 import type { SellListing, BuyRequest, User } from '@shared/schema';
 import { nanoid } from 'nanoid';
+import { db } from '../db';
+import * as schema from '@shared/schema';
+import { eq } from 'drizzle-orm';
 
 export interface MatchResult {
   matched: boolean;
@@ -260,6 +263,7 @@ export class DealMatcherService {
 
   /**
    * Create a deal from a match
+   * All operations are wrapped in a transaction for atomicity
    */
   async createDealFromMatch(match: MatchResult, agreedPrice?: number): Promise<string> {
     if (!match.matched) {
@@ -278,44 +282,62 @@ export class DealMatcherService {
     const totalValue = (finalPrice * quantity).toFixed(2);
     const platformFee = (finalPrice * quantity * 0.01).toFixed(2);
 
-    // Create the deal
-    const deal = await this.storage.createUnlistedDeal({
-      sellListingId: sellListing.id,
-      buyRequestId: buyRequest.id,
-      companyId: sellListing.companyId,
-      sellerUserId: sellListing.sellerUserId,
-      buyerUserId: buyRequest.buyerUserId,
-      quantity,
-      agreedPrice: finalPrice.toString(),
-      totalValue,
-      platformFee,
-      status: 'pending_payment',
-    });
+    // Execute all DB operations in a transaction for atomicity
+    return await this.storage.withTransaction(async (tx) => {
+      // Create the deal
+      const [deal] = await tx.insert(schema.unlistedDeals)
+        .values({
+          sellListingId: sellListing.id,
+          buyRequestId: buyRequest.id,
+          companyId: sellListing.companyId,
+          sellerUserId: sellListing.sellerUserId,
+          buyerUserId: buyRequest.buyerUserId,
+          quantity,
+          agreedPrice: finalPrice.toString(),
+          totalValue,
+          platformFee,
+          status: 'pending_payment',
+        })
+        .returning();
 
-    // Update listing and request quantities
-    const newListingQuantity = sellListing.quantity - quantity;
-    await this.storage.updateSellListing(sellListing.id, {
-      quantity: newListingQuantity,
-      status: newListingQuantity === 0 ? 'filled' : 'active',
-    });
+      if (!deal) {
+        throw new Error('Failed to create deal');
+      }
 
-    const newRequestQuantity = buyRequest.quantity - quantity;
-    await this.storage.updateBuyRequest(buyRequest.id, {
-      quantity: newRequestQuantity,
-      status: newRequestQuantity === 0 ? 'filled' : 'active',
-    });
+      // Update listing quantity and status
+      const newListingQuantity = sellListing.quantity - quantity;
+      await tx.update(schema.sellListings)
+        .set({
+          quantity: newListingQuantity,
+          status: newListingQuantity === 0 ? 'filled' : 'active',
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.sellListings.id, sellListing.id));
 
-    // Record price in history
-    await this.storage.createPriceHistory({
-      companyId: sellListing.companyId,
-      date: new Date(),
-      price: finalPrice.toString(),
-      volume: quantity,
-      sourceType: 'DEAL',
-      sourceDealId: deal.id,
-    });
+      // Update request quantity and status
+      const newRequestQuantity = buyRequest.quantity - quantity;
+      await tx.update(schema.buyRequests)
+        .set({
+          quantity: newRequestQuantity,
+          status: newRequestQuantity === 0 ? 'filled' : 'active',
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.buyRequests.id, buyRequest.id));
 
-    return deal.id;
+      // Record price in history
+      await tx.insert(schema.unlistedPriceHistory)
+        .values({
+          companyId: sellListing.companyId,
+          date: new Date(),
+          price: finalPrice.toString(),
+          volume: quantity,
+          sourceType: 'DEAL',
+          sourceDealId: deal.id,
+        });
+
+      // Return deal ID
+      return deal.id;
+    });
   }
 
   /**
