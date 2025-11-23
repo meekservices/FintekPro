@@ -265,7 +265,8 @@ export class PriceSuggestionService {
   }
 
   /**
-   * Calculate weighted price with confidence bands
+   * Calculate weighted price using exact formula:
+   * Landing_Price(35%) + Recent_Deal_Price(30%) + Market_Feed_Price(20%) + Intrinsic_Value(15%)
    */
   private calculateWeightedPrice(
     factors: PriceSuggestion['factors'],
@@ -277,65 +278,70 @@ export class PriceSuggestionService {
     confidence: 'high' | 'medium' | 'low';
     methodology: string;
   } {
-    const prices: { value: number; weight: number; source: string }[] = [];
+    // Fixed weights as per specification
+    const LANDING_PRICE_WEIGHT = 0.35;      // Seller feed (marketValue)
+    const RECENT_DEAL_WEIGHT = 0.30;        // Deal history
+    const MARKET_FEED_WEIGHT = 0.20;        // Price history (sellerFeedValue)
+    const INTRINSIC_VALUE_WEIGHT = 0.15;    // Probe42 fundamentals
 
-    // Weight allocation based on data availability and quality
-    if (factors.fundamentalValue) {
-      prices.push({
-        value: factors.fundamentalValue,
-        weight: 0.4 * (valuationFactors.fundamentalScore || 0.5),
-        source: 'fundamental',
-      });
+    let totalWeightedPrice = 0;
+    let actualTotalWeight = 0;
+    const components: string[] = [];
+
+    // Landing Price (35%) - from active sell listings
+    if (factors.marketValue && factors.marketValue > 0) {
+      totalWeightedPrice += factors.marketValue * LANDING_PRICE_WEIGHT;
+      actualTotalWeight += LANDING_PRICE_WEIGHT;
+      components.push(`Landing(35%)`);
     }
 
-    if (factors.dealHistoryValue) {
-      prices.push({
-        value: factors.dealHistoryValue,
-        weight: 0.35 * (valuationFactors.liquidityScore || 0.5),
-        source: 'dealHistory',
-      });
+    // Recent Deal Price (30%) - from deal history
+    if (factors.dealHistoryValue && factors.dealHistoryValue > 0) {
+      totalWeightedPrice += factors.dealHistoryValue * RECENT_DEAL_WEIGHT;
+      actualTotalWeight += RECENT_DEAL_WEIGHT;
+      components.push(`Deals(30%)`);
     }
 
-    if (factors.marketValue) {
-      prices.push({
-        value: factors.marketValue,
-        weight: 0.15 * (valuationFactors.marketSentiment || 0.5),
-        source: 'market',
-      });
+    // Market Feed Price (20%) - from price history
+    if (factors.sellerFeedValue && factors.sellerFeedValue > 0) {
+      totalWeightedPrice += factors.sellerFeedValue * MARKET_FEED_WEIGHT;
+      actualTotalWeight += MARKET_FEED_WEIGHT;
+      components.push(`Feed(20%)`);
     }
 
-    if (factors.sellerFeedValue) {
-      prices.push({
-        value: factors.sellerFeedValue,
-        weight: 0.10,
-        source: 'sellerFeed',
-      });
+    // Intrinsic Value (15%) - from Probe42 financials
+    if (factors.fundamentalValue && factors.fundamentalValue > 0) {
+      totalWeightedPrice += factors.fundamentalValue * INTRINSIC_VALUE_WEIGHT;
+      actualTotalWeight += INTRINSIC_VALUE_WEIGHT;
+      components.push(`Intrinsic(15%)`);
     }
 
-    if (prices.length === 0) {
+    if (actualTotalWeight === 0) {
       throw new Error('Insufficient data to calculate price suggestion');
     }
 
-    // Normalize weights
-    const totalWeight = prices.reduce((sum: number, p: { value: number; weight: number; source: string }) => sum + p.weight, 0);
-    prices.forEach((p: { value: number; weight: number; source: string }) => p.weight /= totalWeight);
+    // Normalize if not all components are available
+    const suggestedPrice = Math.round(totalWeightedPrice / actualTotalWeight);
 
-    // Calculate weighted average
-    const suggestedPrice = Math.round(
-      prices.reduce((sum: number, p: { value: number; weight: number; source: string }) => sum + (p.value * p.weight), 0)
-    );
+    // Calculate confidence bands based on data availability and quality
+    const priceValues = [
+      factors.marketValue,
+      factors.dealHistoryValue,
+      factors.sellerFeedValue,
+      factors.fundamentalValue
+    ].filter((v): v is number => v !== undefined && v > 0);
 
-    // Calculate confidence bands
-    const priceVariance = this.calculateVariance(prices.map((p: { value: number; weight: number; source: string }) => p.value));
-    const coefficientOfVariation = Math.sqrt(priceVariance) / suggestedPrice;
+    const priceVariance = this.calculateVariance(priceValues);
+    const coefficientOfVariation = priceValues.length > 0 ? Math.sqrt(priceVariance) / suggestedPrice : 1;
+    const dataCompleteness = actualTotalWeight / 1.0; // How many of the 4 components we have
 
     let confidence: 'high' | 'medium' | 'low';
     let bandWidth: number;
 
-    if (valuationFactors.confidence > 0.7 && coefficientOfVariation < 0.15) {
+    if (dataCompleteness >= 0.85 && valuationFactors.confidence > 0.6 && coefficientOfVariation < 0.15) {
       confidence = 'high';
       bandWidth = 0.1; // ±10%
-    } else if (valuationFactors.confidence > 0.4 && coefficientOfVariation < 0.3) {
+    } else if (dataCompleteness >= 0.6 && valuationFactors.confidence > 0.4 && coefficientOfVariation < 0.3) {
       confidence = 'medium';
       bandWidth = 0.2; // ±20%
     } else {
@@ -346,7 +352,7 @@ export class PriceSuggestionService {
     const minPrice = Math.round(suggestedPrice * (1 - bandWidth));
     const maxPrice = Math.round(suggestedPrice * (1 + bandWidth));
 
-    const methodology = prices.map((p: { value: number; weight: number; source: string }) => `${p.source}(${(p.weight * 100).toFixed(0)}%)`).join(', ');
+    const methodology = components.join(' + ');
 
     return {
       suggestedPrice,
