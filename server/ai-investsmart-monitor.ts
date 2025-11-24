@@ -66,9 +66,9 @@ class AIInvestSmartMonitor {
       ]);
 
       // Mock dashboard metrics based on real user data
-      const estimatedIncome = typeof enrichmentRecords?.estimatedIncome === 'string' 
-        ? parseInt(enrichmentRecords.estimatedIncome) || 180000
-        : (enrichmentRecords?.estimatedIncome as number) || 180000;
+      const estimatedIncome = (typeof enrichmentRecords?.estimatedIncome === 'string' 
+        ? parseInt(enrichmentRecords.estimatedIncome) 
+        : (enrichmentRecords?.estimatedIncome as number)) || 180000;
       
       const dashboardMetrics = {
         monthlyIncome: estimatedIncome,
@@ -539,7 +539,12 @@ export const aiInvestSmartMonitorService = {
       const pageStructure = await aiInvestSmartMonitor.analyzePageStructure(userId);
       
       // Calculate health metrics
-      const healthMetrics = {
+      const healthMetrics: {
+        overallScore: number;
+        categories: { portfolio: number; obligations: number; liquidity: number; compliance: number };
+        alerts: { type: string; severity: string; message: string }[];
+        recommendations: string[];
+      } = {
         overallScore: 85,
         categories: {
           portfolio: pageStructure.portfolioData.length > 0 ? 90 : 50,

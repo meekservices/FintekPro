@@ -305,7 +305,7 @@ export default function OneClickTaxFiling() {
                   <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
                 </div>
               ) : (
-                dataSources.map((source) => (
+                (dataSources || []).map((source) => (
                   <div key={source.id} className="flex items-center gap-3 p-4 border rounded-lg">
                     <source.icon className="h-8 w-8 text-blue-600" />
                     <div className="flex-1">
