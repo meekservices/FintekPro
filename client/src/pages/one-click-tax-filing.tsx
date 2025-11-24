@@ -68,10 +68,12 @@ export default function OneClickTaxFiling() {
   const userId = user?.id || '';
 
   // Fetch available data sources
-  const { data: dataSources = [], isLoading: sourcesLoading } = useQuery<DataSource[]>({
+  const { data: dataSources, isLoading: sourcesLoading } = useQuery<DataSource[]>({
     queryKey: ['/api/itr/data-sources', userId],
     enabled: !!userId,
   });
+  
+  const dataSourcesList = dataSources || [];
 
   // Fetch ITR filing data
   const { data: itrData, isLoading: itrLoading, refetch: refetchITR } = useQuery<ITRFilingData>({
@@ -100,7 +102,7 @@ export default function OneClickTaxFiling() {
   // One-click auto-populate
   const oneClickPopulateMutation = useMutation({
     mutationFn: async () => {
-      const connectedSources = dataSources
+      const connectedSources = dataSourcesList
         .filter(s => s.status === 'connected')
         .map(s => s.id);
 
@@ -211,8 +213,8 @@ export default function OneClickTaxFiling() {
     }).format(amount);
   };
 
-  const connectedSourcesCount = dataSources.filter(s => s.status === 'connected').length;
-  const totalSourcesCount = dataSources.length;
+  const connectedSourcesCount = dataSourcesList.filter(s => s.status === 'connected').length;
+  const totalSourcesCount = dataSourcesList.length;
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
