@@ -84,10 +84,11 @@ export default function OneClickTaxFiling() {
   // Auto-detect and connect all available data sources
   const connectAllSourcesMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('POST', '/api/itr/connect-all-sources', {
-        body: { userId }
+      const response = await apiRequest('/api/itr/connect-all-sources', {
+        method: 'POST',
+        body: JSON.stringify({ userId })
       });
-      return response.json();
+      return response;
     },
     onSuccess: (data) => {
       toast({
@@ -102,20 +103,21 @@ export default function OneClickTaxFiling() {
   // One-click auto-populate
   const oneClickPopulateMutation = useMutation({
     mutationFn: async () => {
-      const connectedSources = dataSourcesList
+      const connectedSources = (dataSources || [])
         .filter(s => s.status === 'connected')
         .map(s => s.id);
 
-      const response = await apiRequest('POST', '/api/itr/one-click-populate', {
-        body: {
+      const response = await apiRequest('/api/itr/one-click-populate', {
+        method: 'POST',
+        body: JSON.stringify({
           userId,
           assessmentYear: `20${selectedYear.split('-')[0].slice(-2)}-${selectedYear.split('-')[1]}`,
           financialYear: selectedYear,
           taxRegime,
           dataSources: connectedSources
-        }
+        })
       });
-      return response.json();
+      return response;
     },
     onSuccess: () => {
       toast({
@@ -130,10 +132,11 @@ export default function OneClickTaxFiling() {
   // Auto-validate ITR
   const autoValidateMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('POST', `/api/itr/auto-validate/${itrData?.id}`, {
-        body: {}
+      const response = await apiRequest(`/api/itr/auto-validate/${itrData?.id}`, {
+        method: 'POST',
+        body: JSON.stringify({})
       });
-      return response.json();
+      return response;
     },
     onSuccess: (data) => {
       const errorCount = data.validationErrors?.filter((e: any) => e.severity === 'error').length || 0;
@@ -159,10 +162,11 @@ export default function OneClickTaxFiling() {
   // File ITR
   const fileITRMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('POST', '/api/itr/file-return', {
-        body: { itrId: itrData?.id }
+      const response = await apiRequest('/api/itr/file-return', {
+        method: 'POST',
+        body: JSON.stringify({ itrId: itrData?.id })
       });
-      return response.json();
+      return response;
     },
     onSuccess: (data) => {
       toast({
