@@ -70,9 +70,9 @@ export function Footer() {
   ];
 
   const taxLinks = [
-    { name: "Tax Hub", href: "/tax-hub" },
-    { name: "Tax Filing", href: "/tax" },
-    { name: "ITR Services", href: "/itr-tax-services" },
+    { name: "One-Click Tax Filing", href: "/one-click-tax-filing" },
+    { name: "Smart Tax Hub", href: "/tax-hub" },
+    { name: "ITR Filing Services", href: "/itr-tax-services" },
   ];
 
   const familyAlertsLinks = [

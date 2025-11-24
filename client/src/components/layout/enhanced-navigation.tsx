@@ -278,13 +278,35 @@ export function EnhancedNavigation() {
           description: "AI-powered tax filing and compliance",
           badge: "NEW",
           subItems: [
-            { name: "One-Click Tax Filing", href: "/one-click-tax-filing", description: "File ITR in minutes with auto-population", badge: "⚡ NEW" },
-            { name: "Smart Tax Hub", href: "/tax-hub", description: "Unified AI-powered dashboard", badge: "NEW" },
-            { name: "Tax Smart Filing", href: "/tax", description: "Intelligent ITR filing" },
-            { name: "ITR Services", href: "/itr-tax-services", description: "ITR-1 to ITR-7 filing" },
-            { name: "Tax Data Center", href: "/tax-data-center", description: "AIS, 26AS, mutual fund data" },
-            { name: "Tax Documents", href: "/tax-documents", description: "Form 16, 26AS, TDS certificates" },
-            { name: "Prefilled ITR", href: "/itr-prefilled", description: "Auto-populated tax forms" }
+            {
+              name: "Filing Workflows",
+              description: "Quick and intelligent tax filing options",
+              subItems: [
+                { name: "One-Click Tax Filing", href: "/one-click-tax-filing", description: "Quick 6-step wizard", badge: "⚡ RECOMMENDED" },
+                { name: "Tax Smart Filing", href: "/tax", description: "Consent-driven filing with AI optimization" }
+              ]
+            },
+            {
+              name: "AI Insights & Prefill",
+              description: "Smart tax assistance and auto-population",
+              subItems: [
+                { name: "Smart Tax Hub", href: "/tax-hub", description: "AI dashboard with health score", badge: "NEW" },
+                { name: "Prefilled ITR", href: "/itr-prefilled", description: "Review & edit auto-populated forms" }
+              ]
+            },
+            {
+              name: "Data & Records",
+              description: "Tax data sources and document management",
+              subItems: [
+                { name: "Tax Data Center", href: "/tax-data-center", description: "View AIS, 26AS, Form 16" },
+                { name: "Tax Documents", href: "/tax-documents", description: "Manage uploaded documents" }
+              ]
+            },
+            {
+              name: "ITR Filing Services",
+              href: "/itr-tax-services",
+              description: "Comprehensive ITR-1 to ITR-7 filing services"
+            }
           ]
         }
       ]
