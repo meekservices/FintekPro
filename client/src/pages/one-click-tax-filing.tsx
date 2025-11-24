@@ -73,7 +73,7 @@ export default function OneClickTaxFiling() {
     enabled: !!userId,
   });
   
-  const dataSourcesList = dataSources || [];
+  const dataSourcesList = Array.isArray(dataSources) ? dataSources : [];
 
   // Fetch ITR filing data
   const { data: itrData, isLoading: itrLoading, refetch: refetchITR } = useQuery<ITRFilingData>({
