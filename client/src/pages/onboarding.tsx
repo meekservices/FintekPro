@@ -102,7 +102,7 @@ export default function SmartKYCOnboarding() {
   // Start or resume session
   const startSessionMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest('POST', '/api/kyc/wizard/start');
+      return await apiRequest('/api/kyc/wizard/start', { method: 'POST' });
     },
     onSuccess: (data) => {
       if (data.success && data.session) {
@@ -144,13 +144,14 @@ export default function SmartKYCOnboarding() {
   // KRA Status Check
   const checkKraStatusMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest('POST', '/api/kyc/wizard/check-kra-status', {
-        body: {
+      return await apiRequest('/api/kyc/wizard/check-kra-status', {
+        method: 'POST',
+        body: JSON.stringify({
           sessionId,
           panNumber: panNumber.toUpperCase(),
           dateOfBirth: panDob,
           fullName: panFullName
-        }
+        })
       });
     },
     onSuccess: (data) => {
@@ -199,13 +200,14 @@ export default function SmartKYCOnboarding() {
         throw new Error("Session not initialized. Please refresh the page.");
       }
       
-      return await apiRequest('POST', '/api/kyc/wizard/verify-pan', {
-        body: {
+      return await apiRequest('/api/kyc/wizard/verify-pan', {
+        method: 'POST',
+        body: JSON.stringify({
           sessionId,
           panNumber: panNumber.toUpperCase(),
           fullName: panFullName,
           dob: panDob
-        }
+        })
       });
     },
     onSuccess: (data) => {
@@ -238,11 +240,12 @@ export default function SmartKYCOnboarding() {
   // Send Aadhaar OTP
   const sendAadhaarOtpMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest('POST', '/api/kyc/wizard/send-aadhaar-otp', {
-        body: {
+      return await apiRequest('/api/kyc/wizard/send-aadhaar-otp', {
+        method: 'POST',
+        body: JSON.stringify({
           sessionId,
           aadhaarNumber
-        }
+        })
       });
     },
     onSuccess: (data) => {
@@ -274,12 +277,13 @@ export default function SmartKYCOnboarding() {
   // Verify Aadhaar OTP
   const verifyAadhaarOtpMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest('POST', '/api/kyc/wizard/verify-aadhaar-otp', {
-        body: {
+      return await apiRequest('/api/kyc/wizard/verify-aadhaar-otp', {
+        method: 'POST',
+        body: JSON.stringify({
           sessionId,
           transactionId: aadhaarTransactionId,
           otp: aadhaarOtp
-        }
+        })
       });
     },
     onSuccess: (data) => {
@@ -310,11 +314,12 @@ export default function SmartKYCOnboarding() {
   // Submit Risk Profiling
   const submitRiskProfilingMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest('POST', '/api/kyc/wizard/risk-profiling', {
-        body: {
+      return await apiRequest('/api/kyc/wizard/risk-profiling', {
+        method: 'POST',
+        body: JSON.stringify({
           sessionId,
           ...riskProfileAnswers
-        }
+        })
       });
     },
     onSuccess: (data) => {
@@ -338,8 +343,9 @@ export default function SmartKYCOnboarding() {
   // Submit Compliance Sign-off
   const submitComplianceMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest('POST', '/api/kyc/wizard/compliance-signoff', {
-        body: {
+      return await apiRequest('/api/kyc/wizard/compliance-signoff', {
+        method: 'POST',
+        body: JSON.stringify({
           sessionId,
           fatcaDeclaration,
           riskAcknowledgment,
@@ -348,7 +354,7 @@ export default function SmartKYCOnboarding() {
           taxResidencyCountry,
           tinNumber: tinNumber || undefined,
           digitalSignature: digitalSignature || undefined
-        }
+        })
       });
     },
     onSuccess: (data) => {
@@ -372,10 +378,11 @@ export default function SmartKYCOnboarding() {
   // Complete KYC
   const completeKycMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest('POST', '/api/kyc/wizard/complete', {
-        body: {
+      return await apiRequest('/api/kyc/wizard/complete', {
+        method: 'POST',
+        body: JSON.stringify({
           sessionId
-        }
+        })
       });
     },
     onSuccess: (data) => {
