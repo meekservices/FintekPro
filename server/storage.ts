@@ -3564,17 +3564,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTaxDocuments(userId: string, financialYear?: string): Promise<TaxDocument[]> {
-    const conditions = [eq(schema.taxDocuments.userId, userId)];
-    
-    if (financialYear) {
-      conditions.push(eq(schema.taxDocuments.financialYear, financialYear));
-    }
+    try {
+      const conditions = [eq(schema.taxDocuments.userId, userId)];
+      
+      if (financialYear) {
+        conditions.push(eq(schema.taxDocuments.financialYear, financialYear));
+      }
 
-    return await this.db
-      .select()
-      .from(schema.taxDocuments)
-      .where(and(...conditions))
-      .orderBy(desc(schema.taxDocuments.createdAt));
+      return await this.db
+        .select()
+        .from(schema.taxDocuments)
+        .where(and(...conditions))
+        .orderBy(desc(schema.taxDocuments.createdAt));
+    } catch (error) {
+      console.error("Error fetching tax documents:", error);
+      return [];
+    }
   }
 
   async getTaxDocument(id: string): Promise<TaxDocument | undefined> {
@@ -3619,20 +3624,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getStructuredTaxDataByUser(userId: string, financialYear?: string): Promise<StructuredTaxData[]> {
-    const conditions = [eq(schema.structuredTaxData.userId, userId)];
-    
-    if (financialYear) {
-      conditions.push(eq(schema.taxDocuments.financialYear, financialYear));
-    }
-
-    const results = await this.db
-      .select()
-      .from(schema.structuredTaxData)
-      .innerJoin(schema.taxDocuments, eq(schema.structuredTaxData.documentId, schema.taxDocuments.id))
-      .where(and(...conditions))
-      .orderBy(desc(schema.structuredTaxData.createdAt));
+    try {
+      const conditions = [eq(schema.structuredTaxData.userId, userId)];
       
-    return results.map(r => r.structured_tax_data) as StructuredTaxData[];
+      if (financialYear) {
+        conditions.push(eq(schema.taxDocuments.financialYear, financialYear));
+      }
+
+      const results = await this.db
+        .select()
+        .from(schema.structuredTaxData)
+        .innerJoin(schema.taxDocuments, eq(schema.structuredTaxData.documentId, schema.taxDocuments.id))
+        .where(and(...conditions))
+        .orderBy(desc(schema.structuredTaxData.createdAt));
+        
+      return results.map(r => r.structured_tax_data) as StructuredTaxData[];
+    } catch (error) {
+      console.error("Error fetching user tax data:", error);
+      return [];
+    }
   }
 
   async updateStructuredTaxData(id: string, updates: Partial<StructuredTaxData>): Promise<StructuredTaxData | undefined> {
@@ -3661,18 +3671,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTaxCalculations(userId: string, financialYear?: string): Promise<TaxCalculation[]> {
-    const conditions = [eq(schema.taxCalculations.userId, userId)];
-    
-    if (financialYear) {
-      conditions.push(eq(schema.taxCalculations.financialYear, financialYear));
+    try {
+      const conditions = [eq(schema.taxCalculations.userId, userId)];
+      
+      if (financialYear) {
+        conditions.push(eq(schema.taxCalculations.financialYear, financialYear));
+      }
+
+      const query = this.db
+        .select()
+        .from(schema.taxCalculations)
+        .where(and(...conditions));
+
+      return await query.orderBy(desc(schema.taxCalculations.createdAt));
+    } catch (error) {
+      console.error("Error fetching tax calculations:", error);
+      return [];
     }
-
-    const query = this.db
-      .select()
-      .from(schema.taxCalculations)
-      .where(and(...conditions));
-
-    return await query.orderBy(desc(schema.taxCalculations.createdAt));
   }
 
   async getTaxCalculation(id: string): Promise<TaxCalculation | undefined> {
