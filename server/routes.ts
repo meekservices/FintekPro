@@ -454,7 +454,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const profile = await storage.getUserProfile(userId);
       
       if (!profile) {
-        return res.status(404).json({ error: "Profile not found" });
+        const newProfile = await storage.upsertUserProfile({ userId });
+        return res.json(newProfile);
       }
       
       res.json(profile);
