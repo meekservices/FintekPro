@@ -72,7 +72,7 @@ app.use(cors({
 // Rate limiting with proper proxy configuration
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  max: 1000, // Limit each IP to 1000 requests per windowMs (increased for SPA with multiple concurrent API calls)
   message: { message: "Too many requests, please try again later." },
   standardHeaders: true,
   legacyHeaders: false,
