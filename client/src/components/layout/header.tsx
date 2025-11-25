@@ -248,6 +248,28 @@ export function Header() {
                           <p className="text-sm text-gray-500">{user?.email}</p>
                         </div>
                       </div>
+                      <Link href="/kyc-dashboard">
+                        <Button 
+                          className="w-full" 
+                          variant="outline"
+                          onClick={() => setIsOpen(false)}
+                          data-testid="mobile-kyc-dashboard-button"
+                        >
+                          <Shield className="h-4 w-4 mr-2" />
+                          KYC Dashboard
+                        </Button>
+                      </Link>
+                      <Link href="/profile">
+                        <Button 
+                          className="w-full" 
+                          variant="outline"
+                          onClick={() => setIsOpen(false)}
+                          data-testid="mobile-profile-button"
+                        >
+                          <UserIcon className="h-4 w-4 mr-2" />
+                          Profile
+                        </Button>
+                      </Link>
                       <Button 
                         className="w-full" 
                         variant="outline"
