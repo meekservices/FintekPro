@@ -159,28 +159,6 @@ export function Header() {
                     )}
                   </div>
                 </div>
-                <Link href="/ckyc">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    className="whitespace-nowrap"
-                    data-testid="ckyc-button"
-                  >
-                    <Shield className="h-4 w-4 lg:mr-2" />
-                    <span className="hidden lg:inline">CKYC</span>
-                  </Button>
-                </Link>
-                <Link href="/profile">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    className="whitespace-nowrap"
-                    data-testid="profile-button"
-                  >
-                    <UserIcon className="h-4 w-4 lg:mr-2" />
-                    <span className="hidden lg:inline">Profile</span>
-                  </Button>
-                </Link>
                 <Button 
                   variant="outline" 
                   size="sm"
