@@ -218,6 +218,12 @@ export const userProfiles = pgTable("user_profiles", {
   kycLevel: varchar("kyc_level").default("0"), // "0" (basic profile), "1" (PAN verified), "2" (full KYC)
   kycLevelUpgradedAt: timestamp("kyc_level_upgraded_at"),
   
+  // BSE UCC (Unique Client Code) for Mutual Fund Trading
+  bseUccCode: varchar("bse_ucc_code"), // BSE Star UCC for mutual fund transactions
+  bseClientCode: varchar("bse_client_code"), // BSE Star client code (same as UCC)
+  bseUccCreatedAt: timestamp("bse_ucc_created_at"),
+  bseUccStatus: varchar("bse_ucc_status"), // active/inactive/blocked
+  
   // Level 1: PAN Verification via Sandbox.co.in
   panVerificationProvider: varchar("pan_verification_provider").default("sandbox"), // sandbox/cashfree
   panVerifiedViaSandbox: boolean("pan_verified_via_sandbox").default(false),

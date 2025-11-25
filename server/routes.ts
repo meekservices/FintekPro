@@ -26169,6 +26169,217 @@ System Security Data:`;
     }
   });
 
+  // ===== BSE UCC (Unique Client Code) ROUTES =====
+
+  // Create UCC for mutual fund trading (requires Level 2 KYC)
+  app.post("/api/bse/ucc/create", requireLevel2, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      
+      // Import BSE UCC service
+      const { bseUCCService } = await import('./services/bse-ucc-service');
+      
+      // Double-check KYC Level 2 (middleware already validates, but extra safety)
+      const { level } = await getUserKYCLevel(userId);
+      if (level !== '2') {
+        return res.status(403).json({
+          success: false,
+          error: 'KYC Level 2 required',
+          message: 'You must complete full KYC verification before creating a UCC for mutual fund trading',
+          kycLevel: level,
+          requiredLevel: '2',
+          nextStep: {
+            action: 'complete_full_kyc',
+            url: '/onboarding',
+            description: 'Complete CKYC and KRA verification to unlock mutual fund trading'
+          }
+        });
+      }
+      
+      // Check if user already has a UCC
+      const existingProfile = await storage.getUserProfile(userId);
+      if (existingProfile?.bseUccCode) {
+        return res.status(400).json({
+          success: false,
+          error: 'UCC already exists',
+          message: 'You already have a BSE UCC code',
+          uccCode: existingProfile.bseUccCode,
+          clientCode: existingProfile.bseClientCode
+        });
+      }
+      
+      // Validate required fields from request body
+      const {
+        panNumber,
+        firstName,
+        middleName,
+        lastName,
+        dateOfBirth,
+        gender,
+        mobile,
+        email,
+        addressLine1,
+        addressLine2,
+        city,
+        state,
+        pincode,
+        country,
+        bankAccountNumber,
+        bankIfscCode,
+        bankAccountType,
+        occupation,
+        annualIncome,
+        nomineeName,
+        nomineeRelationship,
+        nomineeDob,
+        taxStatus,
+        taxResidency,
+        isTaxResident,
+        isPEP,
+        ckycNumber
+      } = req.body;
+      
+      // Validate required fields
+      if (!panNumber || !firstName || !lastName || !dateOfBirth || !gender || !mobile || !email) {
+        return res.status(400).json({
+          success: false,
+          error: 'Missing required fields',
+          message: 'PAN number, first name, last name, date of birth, gender, mobile, and email are required'
+        });
+      }
+      
+      if (!addressLine1 || !city || !state || !pincode) {
+        return res.status(400).json({
+          success: false,
+          error: 'Missing address fields',
+          message: 'Address line 1, city, state, and pincode are required'
+        });
+      }
+      
+      if (!bankAccountNumber || !bankIfscCode || !bankAccountType) {
+        return res.status(400).json({
+          success: false,
+          error: 'Missing bank details',
+          message: 'Bank account number, IFSC code, and account type are required'
+        });
+      }
+      
+      // Create UCC via BSE Star API
+      const uccRequest = {
+        firstName,
+        middleName,
+        lastName,
+        dateOfBirth,
+        gender,
+        panNumber,
+        ckycNumber,
+        mobile,
+        email,
+        addressLine1,
+        addressLine2,
+        city,
+        state,
+        pincode,
+        country: country || 'India',
+        bankAccountNumber,
+        bankIfscCode,
+        bankAccountType,
+        occupation,
+        annualIncome,
+        nomineeName,
+        nomineeRelationship,
+        nomineeDob,
+        taxStatus: taxStatus || 'INDIVIDUAL',
+        taxResidency,
+        isTaxResident,
+        isPEP
+      };
+      
+      const uccResult = await bseUCCService.createUCC(uccRequest);
+      
+      if (!uccResult.success) {
+        return res.status(400).json({
+          success: false,
+          error: 'UCC creation failed',
+          message: uccResult.message,
+          errors: uccResult.errors
+        });
+      }
+      
+      // Store UCC code in user profile
+      await db.update(schema.userProfiles)
+        .set({
+          bseUccCode: uccResult.uccCode,
+          bseClientCode: uccResult.clientCode || uccResult.uccCode,
+          bseUccCreatedAt: new Date(),
+          bseUccStatus: "active"
+        })
+        .where(eq(schema.userProfiles.userId, userId));
+      // Log activity
+      adminService.logActivity({
+        userId,
+        action: 'bse_ucc_created',
+        resource: '/api/bse/ucc/create',
+        ipAddress: req.ip || req.connection.remoteAddress,
+        userAgent: req.get('User-Agent'),
+        details: {
+          uccCode: uccResult.uccCode,
+          clientCode: uccResult.clientCode,
+          bseReference: uccResult.bseReference
+        }
+      }).catch(console.error);
+      
+      res.json({
+        success: true,
+        message: 'UCC created successfully',
+        uccCode: uccResult.uccCode,
+        clientCode: uccResult.clientCode,
+        bseReference: uccResult.bseReference
+      });
+    } catch (error) {
+      console.error("BSE UCC creation error:", error);
+      res.status(500).json({
+        success: false,
+        error: 'UCC creation failed',
+        message: error instanceof Error ? error.message : 'Unknown error occurred'
+      });
+    }
+  });
+
+  // Get UCC status for current user
+  app.get("/api/bse/ucc/status", requireLevel2, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      
+      // Fetch user profile
+      const profile = await storage.getUserProfile(userId);
+      
+      if (!profile) {
+        return res.status(404).json({
+          success: false,
+          error: 'Profile not found',
+          message: 'User profile not found'
+        });
+      }
+      
+      res.json({
+        success: true,
+        hasUCC: !!profile.bseUccCode,
+        uccCode: profile.bseUccCode || null,
+        clientCode: profile.bseClientCode || null,
+        uccStatus: profile.bseUccStatus || null,
+        createdAt: profile.bseUccCreatedAt || null
+      });
+    } catch (error) {
+      console.error("BSE UCC status error:", error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch UCC status',
+        message: error instanceof Error ? error.message : 'Unknown error occurred'
+      });
+    }
+  });
+
   // Fetch document content (force refresh)
   app.post("/api/digilocker/documents/:documentId/fetch", async (req, res) => {
     try {
