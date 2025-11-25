@@ -500,9 +500,9 @@ export default function ProfilePage() {
             <User className="h-8 w-8" />
             Client Profile & KYC Onboarding
           </h1>
-          {user?.id && (
+          {user?.userId && (
             <p className="text-sm text-gray-500 mt-1" data-testid="profile-user-id">
-              User ID: {user.id}
+              UID - {user.userId}
             </p>
           )}
           <p className="text-gray-600 mt-2">
