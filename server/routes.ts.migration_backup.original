@@ -1955,153 +1955,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/kyc/wizard/check-kra-status", requireClientOrHigher, async (req: any, res) => {
-    try {
-      const { sessionId, panNumber, fullName, dateOfBirth } = req.body;
-      const userId = req.user!.id;
-
-      if (!sessionId || !panNumber) {
-        return res.status(400).json({
-          success: false,
-          message: "Session ID and PAN number are required"
-        });
-      }
-
-      const session = await storage.getKycVerificationSession(sessionId);
-      if (!session || session.userId !== userId) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid session"
-        });
-      }
-
-      const user = await storage.getUser(userId);
-      let kraStatus = "NOT_FOUND";
-      if (user?.panVerifiedViaSmartKyc) {
-        kraStatus = "VERIFIED";
-      } else if (user?.kycTier === "basic") {
-        kraStatus = "ONHOLD";
-      }
-
-      await storage.updateKycVerificationSession(sessionId, {
-        stepStatus: { ...session.stepStatus as any, kra_checked: true }
-      });
-
-      res.json({
-        success: true,
-        kraStatus,
-        message: 'KRA status: ' + kraStatus
-      });
-    } catch (error) {
-      console.error("Error checking KRA status:", error);
-      res.status(500).json({
-        success: false,
-        message: "Failed to check KRA status"
-      });
-    }
-  });
-
-  // Step 3: Risk Profiling
-  app.post("/api/kyc/wizard/risk-profiling", requireClientOrHigher, async (req: any, res) => {
-    try {
-      const { sessionId, investmentObjective, investmentHorizon, riskTolerance, incomeLevel, tradingExperience } = req.body;
-      const userId = req.user!.id;
-
-      if (!sessionId) {
-        return res.status(400).json({
-          success: false,
-          message: "Session ID is required"
-        });
-      }
-
-      const session = await storage.getKycVerificationSession(sessionId);
-      if (!session || session.userId !== userId) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid session"
-        });
-      }
-
-      const riskScores = { "conservative": 1, "moderate": 2, "aggressive": 3 };
-      const riskScore = (riskScores[riskTolerance as keyof typeof riskScores] || 2) * 20;
-
-      await storage.updateKycVerificationSession(sessionId, {
-        riskProfile: { investmentObjective, investmentHorizon, riskTolerance, incomeLevel, tradingExperience, riskScore },
-        stepStatus: { ...session.stepStatus as any, risk_profiled: true }
-      });
-
-      await storage.updateUser(userId, {
-        riskProfile: riskTolerance,
-        investmentObjective
-      });
-
-      res.json({
-        success: true,
-        riskScore,
-        message: "Risk profile saved successfully"
-      });
-    } catch (error) {
-      console.error("Error saving risk profile:", error);
-      res.status(500).json({
-        success: false,
-        message: "Failed to save risk profile"
-      });
-    }
-  });
-
-  // Step 4: Compliance Sign-off
-  app.post("/api/kyc/wizard/compliance-signoff", requireClientOrHigher, async (req: any, res) => {
-    try {
-      const { sessionId, fatcaDeclaration, riskAcknowledgment, termsAndConditions, privacyPolicy, taxResidencyCountry, tinNumber, digitalSignature } = req.body;
-      const userId = req.user!.id;
-
-      if (!sessionId) {
-        return res.status(400).json({
-          success: false,
-          message: "Session ID is required"
-        });
-      }
-
-      if (!fatcaDeclaration || !riskAcknowledgment || !termsAndConditions || !privacyPolicy) {
-        return res.status(400).json({
-          success: false,
-          message: "All compliance declarations must be accepted"
-        });
-      }
-
-      const session = await storage.getKycVerificationSession(sessionId);
-      if (!session || session.userId !== userId) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid session"
-        });
-      }
-
-      await storage.updateKycVerificationSession(sessionId, {
-        complianceData: { fatcaDeclaration, riskAcknowledgment, termsAndConditions, privacyPolicy, taxResidencyCountry, tinNumber: tinNumber || undefined, digitalSignature: digitalSignature || undefined, completedAt: new Date() },
-        currentStep: "completed",
-        stepStatus: { ...session.stepStatus as any, compliance_signed: true }
-      });
-
-      await storage.updateUser(userId, {
-        taxResidencyCountry,
-        tinNumber: tinNumber || undefined,
-        complianceAcceptedAt: new Date()
-      });
-
-      res.json({
-        success: true,
-        message: "Compliance declarations accepted successfully"
-      });
-    } catch (error) {
-      console.error("Error saving compliance data:", error);
-      res.status(500).json({
-        success: false,
-        message: "Failed to save compliance data"
-      });
-    }
-  });
-
   // Client Auto-Populate API endpoint
   app.post("/api/client/auto-populate", async (req, res) => {
     try {
@@ -2115,6 +1968,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Step 2a: Check KRA Status
+      app.post("/api/kyc/wizard/check-kra-status", requireClientOrHigher, async (req: any, res) => {
+        try {
+          const { sessionId, panNumber } = req.body;
+          const userId = req.user!.id;
+
+          if (!sessionId || !panNumber) {
+            return res.status(400).json({ success: false, message: "Session ID and PAN number required" });
+          }
+
+          const session = await storage.getKycVerificationSession(sessionId);
+          if (!session || session.userId !== userId) {
+            return res.status(400).json({ success: false, message: "Invalid session" });
+          }
+
+          const user = await storage.getUser(userId);
+          let kraStatus = "NOT_FOUND";
+          if (user?.panVerifiedViaSmartKyc) kraStatus = "VERIFIED";
+
+          await storage.updateKycVerificationSession(sessionId, {
+            stepStatus: { ...session.stepStatus as any, kra_checked: true }
+          });
+
+          res.json({ success: true, kraStatus, message: `KRA status: ${kraStatus}` });
+        } catch (error) {
+          console.error("Error checking KRA status:", error);
+          res.status(500).json({ success: false, message: "Failed to check KRA status" });
+        }
+      });
+
+      // Step 3: Risk Profiling
+      app.post("/api/kyc/wizard/risk-profiling", requireClientOrHigher, async (req: any, res) => {
+        try {
+          const { sessionId, investmentObjective, investmentHorizon, riskTolerance, incomeLevel, tradingExperience } = req.body;
+          const userId = req.user!.id;
+
+          if (!sessionId) {
+            return res.status(400).json({ success: false, message: "Session ID required" });
+          }
+
+          const session = await storage.getKycVerificationSession(sessionId);
+          if (!session || session.userId !== userId) {
+            return res.status(400).json({ success: false, message: "Invalid session" });
+          }
+
+          const riskScores = { "conservative": 1, "moderate": 2, "aggressive": 3 };
+          const riskScore = (riskScores[riskTolerance as keyof typeof riskScores] || 2) * 20;
+
+          await storage.updateKycVerificationSession(sessionId, {
+            riskProfile: { investmentObjective, investmentHorizon, riskTolerance, incomeLevel, tradingExperience, riskScore },
+            stepStatus: { ...session.stepStatus as any, risk_profiled: true }
+          });
+
+          await storage.updateUser(userId, { riskProfile: riskTolerance, investmentObjective });
+
+          res.json({ success: true, riskScore, message: "Risk profile saved successfully" });
+        } catch (error) {
+          console.error("Error saving risk profile:", error);
+          res.status(500).json({ success: false, message: "Failed to save risk profile" });
+        }
+      });
+
+      // Step 4: Compliance Sign-off
+      app.post("/api/kyc/wizard/compliance-signoff", requireClientOrHigher, async (req: any, res) => {
+        try {
+          const { sessionId, fatcaDeclaration, riskAcknowledgment, termsAndConditions, privacyPolicy, taxResidencyCountry } = req.body;
+          const userId = req.user!.id;
+
+          if (!sessionId) {
+            return res.status(400).json({ success: false, message: "Session ID required" });
+          }
+
+          if (!fatcaDeclaration || !riskAcknowledgment || !termsAndConditions || !privacyPolicy) {
+            return res.status(400).json({ success: false, message: "All compliance declarations must be accepted" });
+          }
+
+          const session = await storage.getKycVerificationSession(sessionId);
+          if (!session || session.userId !== userId) {
+            return res.status(400).json({ success: false, message: "Invalid session" });
+          }
+
+          await storage.updateKycVerificationSession(sessionId, {
+            complianceData: { fatcaDeclaration, riskAcknowledgment, termsAndConditions, privacyPolicy, taxResidencyCountry, completedAt: new Date() },
+            currentStep: "completed",
+            stepStatus: { ...session.stepStatus as any, compliance_signed: true }
+          });
+
+          await storage.updateUser(userId, { taxResidencyCountry, complianceAcceptedAt: new Date() });
+
+          res.json({ success: true, message: "Compliance declarations accepted successfully" });
+        } catch (error) {
+          console.error("Error saving compliance data:", error);
+          res.status(500).json({ success: false, message: "Failed to save compliance data" });
+        }
+      });
       // Auto-populate result with API integrations
       const result = {
         personalInfo: {
