@@ -77,7 +77,6 @@ import ManualKYCPage from "@/pages/manual-kyc";
 import KYCDashboard from "@/pages/kyc-dashboard";
 import NetWorthPage from "@/pages/net-worth";
 import AdminProposalsPage from "@/pages/admin-proposals";
-import AdminWhatsAppSetup from "@/pages/admin-whatsapp-setup";
 import ClientProposalsPage from "@/pages/client-proposals";
 import TaxDocuments from "@/pages/tax-documents";
 import ITRPrefilled from "@/pages/itr-prefilled";
@@ -498,7 +497,6 @@ function Router() {
         {/* Agent/Admin routes - bypass profile completion but require authentication */}
         <Route path="/admin" component={AdminPanel} />
         <Route path="/admin/proposals" component={AdminProposalsPage} />
-        <Route path="/admin/whatsapp-setup" component={AdminWhatsAppSetup} />
         <Route path="/agent" component={AgentDashboard} />
         
         {/* User routes - require both authentication and profile completion */}

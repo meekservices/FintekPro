@@ -5,6 +5,7 @@ import { MarketNews } from "@/components/dashboard/market-news";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { KYCStatusBanner } from "@/components/kyc-status-banner";
 import { 
   Calculator, 
   TrendingUp, 
@@ -244,6 +245,9 @@ export default function Home() {
 
   return (
     <div className="space-y-8" data-testid="home-page">
+        {/* KYC Status Banner - Only for authenticated users */}
+        {isAuthenticated && <KYCStatusBanner />}
+        
         {/* Hero Section with Enhanced Design */}
         <section className="relative bg-gradient-to-r from-blue-900 via-blue-800 to-purple-900 text-white py-20 overflow-hidden">
           {/* Animated background elements */}

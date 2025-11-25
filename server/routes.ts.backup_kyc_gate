@@ -53,7 +53,6 @@ import { digilockerService } from './services/digilockerService';
 import { amfiService } from './amfi-service';
 import { bseService } from './bse-service';
 import { validateKYC } from './kyc-middleware';
-import { requireLevel1, requireLevel2, injectKYCLevel, checkProductAccess, getAccessibleProducts, getUserKYCLevel } from './middleware/kyc-level-gate';
 import { MultiSourceMFService } from './services/multisource-mf-service';
 import { ObjectStorageService, ObjectNotFoundError } from './objectStorage';
 import { randomUUID } from 'crypto';
@@ -1483,36 +1482,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // KYC Status API endpoint - Returns user's KYC level and accessible products
-  app.get("/api/kyc/status", requireClientOrHigher, async (req: any, res) => {
+  // KYC Status API endpoint
+  app.get("/api/kyc/status", async (req, res) => {
     try {
-      const userId = req.user!.id;
-      const products = await getAccessibleProducts(userId);
-      const { level, profile } = await getUserKYCLevel(userId);
-      
-      res.json({
-        success: true,
-        data: {
-          kycLevel: level,
-          kycLevelName: level === '0' ? 'Basic Profile' : level === '1' ? 'PAN Verified' : 'Full KYC',
-          accessibleProducts: products.accessibleProducts,
-          blockedProducts: products.blockedProducts,
-          canAccessLoans: level >= '1',
-          canAccessInsurance: level >= '1',
-          canAccessInvestments: level >= '2',
-          nextAction: level === '0' ? 'Complete PAN verification' : level === '1' ? 'Complete full KYC' : null,
-          profile: {
-            panVerified: profile?.panVerifiedViaSandbox || false,
-            ckycFetched: profile?.ckycFetchedViaAuthBridge || false,
-            kraVerified: profile?.kraVerifiedViaProtean || false
-          }
-        }
-      });
+      // Mock KYC status data for demonstration
+      // In real implementation, this would connect to KRA, AMC, and broking databases
+      const mockKycStatusData = {
+        mutualFundKyc: "in_progress" as const,
+        brokingKyc: "pending" as const,
+        kraKyc: "completed" as const,
+        lastUpdated: new Date().toISOString(),
+        completionPercentage: 33, // Based on completed KYC types (1/3 completed)
+      };
+
+      res.json(mockKycStatusData);
     } catch (error) {
       console.error('KYC status error:', error);
       res.status(500).json({
         success: false,
-        error: 'Failed to fetch KYC status'
+        message: 'Failed to fetch KYC status'
       });
     }
   });
@@ -2588,7 +2576,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
   // Bond market data API endpoints
-  app.get("/api/bonds/categories", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/categories", async (req, res) => {
     try {
       // Real-time bond categories with current market rates
       const bondCategories = [
@@ -2649,7 +2637,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/bonds/live-rates", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/live-rates", async (req, res) => {
     try {
       // Fetch current bond yields from market data
       const liveRates = {
@@ -4828,7 +4816,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Bonds API endpoints
   
   // Get government bonds data
-  app.get("/api/bonds/government", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/government", async (req, res) => {
     try {
       const governmentBonds = [
         {
@@ -4901,7 +4889,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get corporate bonds data
-  app.get("/api/bonds/corporate", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/corporate", async (req, res) => {
     try {
       const corporateBonds = [
         {
@@ -4974,7 +4962,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get tax-free bonds data
-  app.get("/api/bonds/tax-free", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/tax-free", async (req, res) => {
     try {
       const taxFreeBonds = [
         {
@@ -5031,7 +5019,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get NSE listed bonds data
-  app.get("/api/bonds/nse-listed", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/nse-listed", async (req, res) => {
     try {
       // Real NSE listed bonds with live data
       const nseBonds = [
@@ -5154,7 +5142,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get BSE listed bonds data
-  app.get("/api/bonds/bse-listed", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/bse-listed", async (req, res) => {
     try {
       // Real BSE listed bonds with live data
       const bseBonds = [
@@ -5278,7 +5266,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get combined NSE & BSE bonds market data
-  app.get("/api/bonds/listed-bonds", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/listed-bonds", async (req, res) => {
     try {
       const exchange = req.query.exchange as string;
       const category = req.query.category as string;
@@ -5347,7 +5335,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Advanced bond search with comprehensive filters
-  app.get("/api/bonds/search/advanced", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/search/advanced", async (req, res) => {
     try {
       const filters = {
         creditRatings: req.query.creditRatings ? (req.query.creditRatings as string).split(',') : undefined,
@@ -5382,7 +5370,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get bonds by credit rating
-  app.get("/api/bonds/filter/rating", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/filter/rating", async (req, res) => {
     try {
       const ratings = req.query.ratings ? (req.query.ratings as string).split(',') : ['AAA'];
       const bonds = await bseBondApi.getBondsByRating(ratings);
@@ -5403,7 +5391,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get bonds by yield range
-  app.get("/api/bonds/filter/yield", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/filter/yield", async (req, res) => {
     try {
       const minYield = req.query.min ? parseFloat(req.query.min as string) : 0;
       const maxYield = req.query.max ? parseFloat(req.query.max as string) : 15;
@@ -5426,7 +5414,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get bonds by maturity
-  app.get("/api/bonds/filter/maturity", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/filter/maturity", async (req, res) => {
     try {
       const params = {
         minYears: req.query.minYears ? parseInt(req.query.minYears as string) : undefined,
@@ -5452,7 +5440,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get tax-free bonds
-  app.get("/api/bonds/tax-free-bonds", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/tax-free-bonds", async (req, res) => {
     try {
       const bonds = await bseBondApi.getTaxFreeBonds();
 
@@ -5472,7 +5460,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get infrastructure bonds
-  app.get("/api/bonds/infrastructure-bonds", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/infrastructure-bonds", async (req, res) => {
     try {
       const bonds = await bseBondApi.getInfrastructureBonds();
 
@@ -5492,7 +5480,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get NSE NCB yield curve data
-  app.get("/api/bonds/yield-curve", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/yield-curve", async (req, res) => {
     try {
       const yieldCurve = await nseNcbApi.getYieldCurve();
 
@@ -5511,7 +5499,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get historical auction results
-  app.get("/api/bonds/auctions/historical", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/auctions/historical", async (req, res) => {
     try {
       const params = {
         securityType: req.query.type as string,
@@ -5538,7 +5526,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get Sovereign Gold Bonds data
-  app.get("/api/bonds/sgb", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/sgb", async (req, res) => {
     try {
       const sgbs = await nseNcbApi.getSGBData();
 
@@ -5558,7 +5546,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get real-time bond market prices
-  app.post("/api/bonds/market-prices", requireLevel2, async (req, res) => {
+  app.post("/api/bonds/market-prices", async (req, res) => {
     try {
       const { isins } = req.body;
       
@@ -5587,7 +5575,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get bonds market overview
-  app.get("/api/bonds/market-overview", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/market-overview", async (req, res) => {
     try {
       const marketOverview = {
         totalMarketSize: "₹45,68,450 Cr",
@@ -5628,7 +5616,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get MCX listed bonds data (commodity-linked bonds)
-  app.get("/api/bonds/mcx-listed", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/mcx-listed", async (req, res) => {
     try {
       // MCX commodity-linked bonds and structured products
       const mcxBonds = [
@@ -6505,7 +6493,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get comprehensive AIF data from all AMCs with complete fund details
-  app.get("/api/aif/comprehensive", requireLevel2, async (req, res) => {
+  app.get("/api/aif/comprehensive", async (req, res) => {
     try {
       const { amc, category, subCategory, riskRating } = req.query;
       const amcStr = typeof amc === 'string' ? amc : Array.isArray(amc) ? amc[0] : undefined;
@@ -6900,7 +6888,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get NSE AIF funds data
-  app.get("/api/aif/nse-funds", requireLevel2, async (req, res) => {
+  app.get("/api/aif/nse-funds", async (req, res) => {
     try {
       const nseFunds = [
         {
@@ -6989,7 +6977,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get BSE AIF funds data
-  app.get("/api/aif/bse-funds", requireLevel2, async (req, res) => {
+  app.get("/api/aif/bse-funds", async (req, res) => {
     try {
       const bseFunds = [
         {
@@ -7078,7 +7066,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get MCX AIF funds data (commodity-focused)
-  app.get("/api/aif/mcx-funds", requireLevel2, async (req, res) => {
+  app.get("/api/aif/mcx-funds", async (req, res) => {
     try {
       const mcxFunds = [
         {
@@ -7170,7 +7158,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get NCDEX AIF funds data (agricultural-focused)
-  app.get("/api/aif/ncdex-funds", requireLevel2, async (req, res) => {
+  app.get("/api/aif/ncdex-funds", async (req, res) => {
     try {
       const ncdexFunds = [
         {
@@ -7262,7 +7250,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get MSEI AIF funds data (SME and specialized)
-  app.get("/api/aif/msei-funds", requireLevel2, async (req, res) => {
+  app.get("/api/aif/msei-funds", async (req, res) => {
     try {
       const mseiFunds = [
         {
@@ -7354,7 +7342,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get comprehensive multi-exchange AIF data
-  app.get("/api/aif/all-exchanges", requireLevel2, async (req, res) => {
+  app.get("/api/aif/all-exchanges", async (req, res) => {
     try {
       const exchange = req.query.exchange as string;
       const category = req.query.category as string;
@@ -10594,7 +10582,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Loan Products
-  app.get("/api/marketplace/loan-products", requireLevel1, async (req: any, res: any) => {
+  app.get("/api/marketplace/loan-products", async (req: any, res: any) => {
     try {
       const products = await storage.getLoanProducts();
       
@@ -10611,7 +10599,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/marketplace/loan-products/:productKey", requireLevel1, async (req: any, res: any) => {
+  app.get("/api/marketplace/loan-products/:productKey", async (req: any, res: any) => {
     try {
       const { productKey } = req.params;
       const product = await storage.getLoanProductByKey(productKey);
@@ -10637,7 +10625,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Loan Providers
-  app.get("/api/marketplace/loan-providers", requireLevel1, async (req: any, res: any) => {
+  app.get("/api/marketplace/loan-providers", async (req: any, res: any) => {
     try {
       const providers = await storage.getLoanProviders();
       
@@ -10654,7 +10642,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/marketplace/loan-providers/:providerKey/products", requireLevel1, async (req: any, res: any) => {
+  app.get("/api/marketplace/loan-providers/:providerKey/products", async (req: any, res: any) => {
     try {
       const { providerKey } = req.params;
       const { productKey } = req.query;
@@ -10684,7 +10672,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Loan Request and Offer Generation
-  app.post("/api/marketplace/loan-requests", requireLevel1, async (req: any, res: any) => {
+  app.post("/api/marketplace/loan-requests", requireAuth, async (req: any, res: any) => {
     try {
       const userId = req.user!.id;
       
@@ -10720,7 +10708,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/marketplace/loan-requests/:requestId/generate-offers", requireLevel1, async (req: any, res: any) => {
+  app.post("/api/marketplace/loan-requests/:requestId/generate-offers", requireAuth, async (req: any, res: any) => {
     try {
       const { requestId } = req.params;
       const userId = req.user!.id;
@@ -10750,7 +10738,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/marketplace/loan-requests/:requestId/offers", requireLevel1, async (req: any, res: any) => {
+  app.get("/api/marketplace/loan-requests/:requestId/offers", requireAuth, async (req: any, res: any) => {
     try {
       const { requestId } = req.params;
       const userId = req.user!.id;
@@ -10780,7 +10768,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Loan Application Management
-  app.post("/api/marketplace/applications", requireLevel1, async (req: any, res: any) => {
+  app.post("/api/marketplace/applications", requireAuth, async (req: any, res: any) => {
     try {
       const userId = req.user!.id;
       
@@ -10817,7 +10805,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/marketplace/applications", requireLevel1, async (req: any, res: any) => {
+  app.get("/api/marketplace/applications", requireAuth, async (req: any, res: any) => {
     try {
       const userId = req.user!.id;
       const applications = await storage.getLoanApplicationsMarketplace(userId);
@@ -10835,7 +10823,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/marketplace/applications/:applicationId", requireLevel1, async (req: any, res: any) => {
+  app.get("/api/marketplace/applications/:applicationId", requireAuth, async (req: any, res: any) => {
     try {
       const { applicationId } = req.params;
       const userId = req.user!.id;
@@ -10861,7 +10849,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/marketplace/applications/:applicationId", requireLevel1, async (req: any, res: any) => {
+  app.patch("/api/marketplace/applications/:applicationId", requireAuth, async (req: any, res: any) => {
     try {
       const { applicationId } = req.params;
       const userId = req.user!.id;
@@ -10894,7 +10882,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Application Documents
-  app.get("/api/marketplace/applications/:applicationId/documents", requireLevel1, async (req: any, res: any) => {
+  app.get("/api/marketplace/applications/:applicationId/documents", requireAuth, async (req: any, res: any) => {
     try {
       const { applicationId } = req.params;
       const userId = req.user!.id;
@@ -10923,7 +10911,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/marketplace/applications/:applicationId/documents", requireLevel1, async (req: any, res: any) => {
+  app.post("/api/marketplace/applications/:applicationId/documents", requireAuth, async (req: any, res: any) => {
     try {
       const { applicationId } = req.params;
       const userId = req.user!.id;
@@ -10969,7 +10957,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // User's Loan Requests
-  app.get("/api/marketplace/my-requests", requireLevel1, async (req: any, res: any) => {
+  app.get("/api/marketplace/my-requests", requireAuth, async (req: any, res: any) => {
     try {
       const userId = req.user!.id;
       const requests = await storage.getLoanRequests(userId);
@@ -12754,7 +12742,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Enhanced Mutual Fund API endpoints with MultiSource integration
-  app.get("/api/mutual-funds", requireLevel2, async (req, res) => {
+  app.get("/api/mutual-funds", async (req, res) => {
     try {
       const { 
         category, 
@@ -12855,7 +12843,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/mutual-funds/popular", requireLevel2, async (req, res) => {
+  app.get("/api/mutual-funds/popular", async (req, res) => {
     try {
       console.log("📈 Fetching best performing mutual funds with MultiSource service...");
       
@@ -13009,7 +12997,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/mutual-funds/:schemeCode", requireLevel2, async (req, res) => {
+  app.get("/api/mutual-funds/:schemeCode", async (req, res) => {
     try {
       const { schemeCode } = req.params;
       console.log(`📊 Fetching fund details for scheme: ${schemeCode} with MultiSource service`);
@@ -13189,7 +13177,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/mutual-funds/search/:query", requireLevel2, async (req, res) => {
+  app.get("/api/mutual-funds/search/:query", async (req, res) => {
     try {
       const { query } = req.params;
       console.log(`🔍 Searching funds with query: ${query}`);
@@ -22419,7 +22407,7 @@ System Security Data:`;
 
 
   // Enhanced AIF Analytics API
-  app.get('/api/aif/analytics', requireLevel2, async (req, res) => {
+  app.get('/api/aif/analytics', async (req, res) => {
     try {
       const { timeframe = '1Y', category } = req.query;
       
@@ -24913,8 +24901,8 @@ System Security Data:`;
   app.post("/api/policybazaar/status", InsuranceMarketplaceAPI.getPolicyStatus);
   
   // New Marketplace Features
-  app.post("/api/insurance/compare", requireLevel1, InsuranceMarketplaceAPI.compareInsurancePlans);
-  app.get("/api/insurance/providers/:type", requireLevel1, (req, res) => {
+  app.post("/api/insurance/compare", InsuranceMarketplaceAPI.compareInsurancePlans);
+  app.get("/api/insurance/providers/:type", (req, res) => {
     const insuranceType = req.params.type;
     const providers = InsuranceMarketplaceAPI.getProvidersByType(insuranceType);
     res.json({ success: true, data: providers });

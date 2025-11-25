@@ -214,6 +214,32 @@ export const userProfiles = pgTable("user_profiles", {
   kycTierUpgradedAt: timestamp("kyc_tier_upgraded_at"),
   kycTierUpgradeRequestedAt: timestamp("kyc_tier_upgrade_requested_at"),
   
+  // Progressive KYC Level System (3-Level)
+  kycLevel: varchar("kyc_level").default("0"), // "0" (basic profile), "1" (PAN verified), "2" (full KYC)
+  kycLevelUpgradedAt: timestamp("kyc_level_upgraded_at"),
+  
+  // Level 1: PAN Verification via Sandbox.co.in
+  panVerificationProvider: varchar("pan_verification_provider").default("sandbox"), // sandbox/cashfree
+  panVerifiedViaSandbox: boolean("pan_verified_via_sandbox").default(false),
+  panSandboxVerifiedAt: timestamp("pan_sandbox_verified_at"),
+  panSandboxResponse: jsonb("pan_sandbox_response"), // Store Sandbox API response
+  panSandboxStatus: varchar("pan_sandbox_status"), // valid/invalid/not_found
+  
+  // Level 2: CKYC Fetch via AuthBridge  
+  ckycProvider: varchar("ckyc_provider").default("authbridge"), // authbridge/nsdl
+  ckycFetchedViaAuthBridge: boolean("ckyc_fetched_via_authbridge").default(false),
+  ckycAuthBridgeFetchedAt: timestamp("ckyc_authbridge_fetched_at"),
+  ckycAuthBridgeKin: varchar("ckyc_authbridge_kin"), // CKYC KIN from AuthBridge
+  ckycAuthBridgeResponse: jsonb("ckyc_authbridge_response"), // Store AuthBridge response
+  ckycAuthBridgeStatus: varchar("ckyc_authbridge_status"), // found/not_found/pending
+  
+  // Level 2: KRA Status via Protean (NSDL KRA)
+  kraProvider: varchar("kra_provider").default("protean"), // protean/cvl/dotex/camskra/karvy
+  kraVerifiedViaProtean: boolean("kra_verified_via_protean").default(false),
+  kraProteanVerifiedAt: timestamp("kra_protean_verified_at"),
+  kraProteanResponse: jsonb("kra_protean_response"), // Store Protean API response  
+  kraProteanStatus: varchar("kra_protean_status"), // verified/on_hold/rejected/not_found
+  
   // Accredited Investor Verification (Tier 3)
   accreditedInvestorStatus: varchar("accredited_investor_status").default("not_applicable"), // not_applicable/pending/verified/rejected
   accreditedInvestorType: varchar("accredited_investor_type"), // income_based/networth_based/portfolio_based/professional

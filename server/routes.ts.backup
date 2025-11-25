@@ -53,7 +53,6 @@ import { digilockerService } from './services/digilockerService';
 import { amfiService } from './amfi-service';
 import { bseService } from './bse-service';
 import { validateKYC } from './kyc-middleware';
-import { requireLevel1, requireLevel2, injectKYCLevel, checkProductAccess, getAccessibleProducts, getUserKYCLevel } from './middleware/kyc-level-gate';
 import { MultiSourceMFService } from './services/multisource-mf-service';
 import { ObjectStorageService, ObjectNotFoundError } from './objectStorage';
 import { randomUUID } from 'crypto';
@@ -68,9 +67,6 @@ import { sandboxKYCService } from './services/sandbox-kyc-service';
 import { AadhaarMockService } from './services/aadhaar-mock-service';
 import { CashfreeAadhaarService } from './services/cashfree-aadhaar-service';
 import { DemographicProtectionService } from './services/demographic-protection-service';
-import { sandboxPANService } from './sandbox-pan-api';
-import { authBridgeCKYCService } from './authbridge-ckyc-api';
-import { KRAStatusService } from './services/kra-status-service';
 import { providerRegistry, type UnifiedApplicationData } from './partner-application-adapters';
 import { insertPartnerApplicationSchema, insertCashfreeTransactionSchema, insertPhonePeTransactionSchema } from '@shared/schema';
 import { cashfreeService } from './cashfree-service';
@@ -446,6 +442,150 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // WhatsApp Authentication API endpoints
+  app.post("/api/whatsapp/auth/initiate", async (req, res) => {
+    try {
+      const { phoneNumber } = req.body;
+      
+      if (!phoneNumber) {
+        return res.status(400).json({ error: "Phone number is required" });
+      }
+
+      // Create authentication session
+      const sessionId = await whatsappService.createAuthSession(phoneNumber);
+      
+      res.json({ 
+        success: true, 
+        sessionId,
+        message: "Verification code sent to your WhatsApp" 
+      });
+    } catch (error) {
+      console.error("Error initiating WhatsApp auth:", error);
+      res.status(500).json({ error: "Failed to initiate WhatsApp authentication" });
+    }
+  });
+
+  app.post("/api/whatsapp/auth/verify", async (req, res) => {
+    try {
+      const { sessionId, code } = req.body;
+      
+      if (!sessionId || !code) {
+        return res.status(400).json({ error: "Session ID and verification code are required" });
+      }
+
+      const result = await whatsappService.verifyCode(sessionId, code);
+      
+      if (!result.success) {
+        return res.status(400).json({ error: "Invalid or expired verification code" });
+      }
+
+      if (result.userId) {
+        // Get user data for login
+        const user = await storage.getUser(result.userId);
+        if (user) {
+          // Simulate login session (you may need to integrate with your session management)
+          res.json({ 
+            success: true, 
+            user: {
+              id: user.id,
+              email: user.email,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              roles: user.roles || ['user']
+            },
+            message: "Authentication successful" 
+          });
+        } else {
+          res.status(404).json({ error: "User not found" });
+        }
+      } else {
+        res.status(400).json({ error: "Authentication failed" });
+      }
+    } catch (error) {
+      console.error("Error verifying WhatsApp auth:", error);
+      res.status(500).json({ error: "Failed to verify authentication" });
+    }
+  });
+
+  // Public endpoint to check WhatsApp service status
+  app.get("/api/whatsapp/status", async (req, res) => {
+    try {
+      const status = whatsappService.getStatus();
+      
+      res.json({ 
+        isReady: status.isReady,
+        hasQrCode: status.hasQrCode,
+        message: status.isReady 
+          ? "WhatsApp service is ready" 
+          : status.hasQrCode 
+            ? "WhatsApp service is waiting for QR code scan" 
+            : "WhatsApp service is initializing" 
+      });
+    } catch (error) {
+      console.error("Error getting WhatsApp status:", error);
+      res.status(500).json({ error: "Failed to get WhatsApp status" });
+    }
+  });
+
+  // Admin-only endpoint for QR code access during setup
+  app.get("/api/admin/whatsapp/qr", requireAdmin, async (req, res) => {
+    try {
+      const status = whatsappService.getStatus();
+      const qrCode = whatsappService.getQrCode();
+      
+      if (status.isReady) {
+        return res.json({ 
+          isReady: true,
+          qrCode: null,
+          message: "WhatsApp client is already authenticated" 
+        });
+      }
+
+      res.json({ 
+        isReady: false,
+        qrCode,
+        hasQrCode: status.hasQrCode,
+        message: qrCode 
+          ? "Scan this QR code with WhatsApp to authenticate" 
+          : "QR code not yet generated. Please wait..." 
+      });
+    } catch (error) {
+      console.error("Error getting WhatsApp QR code:", error);
+      res.status(500).json({ error: "Failed to get WhatsApp QR code" });
+    }
+  });
+
+  app.post("/api/whatsapp/auth/phone-login", async (req, res) => {
+    try {
+      const { phoneNumber } = req.body;
+      
+      if (!phoneNumber) {
+        return res.status(400).json({ error: "Phone number is required" });
+      }
+
+      // Check if user exists with this phone number
+      const users = await storage.getAllUsers();
+      const user = users.find(u => u.mobile === phoneNumber);
+      
+      if (!user) {
+        return res.status(404).json({ 
+          error: "No account found with this phone number. Please register first." 
+        });
+      }
+
+      // Create authentication session
+      const sessionId = await whatsappService.createAuthSession(phoneNumber);
+      
+      res.json({ 
+        success: true, 
+        sessionId,
+        message: "Verification code sent to your WhatsApp. Please check your messages." 
+      });
+    } catch (error) {
+      console.error("Error initiating phone login:", error);
+      res.status(500).json({ error: "Failed to initiate phone login" });
+    }
+  });
   
   // User Profile API endpoints
   app.get("/api/profile", requireClientOrHigher, async (req, res) => {
@@ -1483,36 +1623,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // KYC Status API endpoint - Returns user's KYC level and accessible products
-  app.get("/api/kyc/status", requireClientOrHigher, async (req: any, res) => {
+  // KYC Status API endpoint
+  app.get("/api/kyc/status", async (req, res) => {
     try {
-      const userId = req.user!.id;
-      const products = await getAccessibleProducts(userId);
-      const { level, profile } = await getUserKYCLevel(userId);
-      
-      res.json({
-        success: true,
-        data: {
-          kycLevel: level,
-          kycLevelName: level === '0' ? 'Basic Profile' : level === '1' ? 'PAN Verified' : 'Full KYC',
-          accessibleProducts: products.accessibleProducts,
-          blockedProducts: products.blockedProducts,
-          canAccessLoans: level >= '1',
-          canAccessInsurance: level >= '1',
-          canAccessInvestments: level >= '2',
-          nextAction: level === '0' ? 'Complete PAN verification' : level === '1' ? 'Complete full KYC' : null,
-          profile: {
-            panVerified: profile?.panVerifiedViaSandbox || false,
-            ckycFetched: profile?.ckycFetchedViaAuthBridge || false,
-            kraVerified: profile?.kraVerifiedViaProtean || false
-          }
-        }
-      });
+      // Mock KYC status data for demonstration
+      // In real implementation, this would connect to KRA, AMC, and broking databases
+      const mockKycStatusData = {
+        mutualFundKyc: "in_progress" as const,
+        brokingKyc: "pending" as const,
+        kraKyc: "completed" as const,
+        lastUpdated: new Date().toISOString(),
+        completionPercentage: 33, // Based on completed KYC types (1/3 completed)
+      };
+
+      res.json(mockKycStatusData);
     } catch (error) {
       console.error('KYC status error:', error);
       res.status(500).json({
         success: false,
-        error: 'Failed to fetch KYC status'
+        message: 'Failed to fetch KYC status'
       });
     }
   });
@@ -1596,10 +1725,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Step 1: Verify PAN with DOB
-  // Step 1: Verify PAN with DOB
   app.post("/api/kyc/wizard/verify-pan", requireClientOrHigher, async (req: any, res) => {
     try {
-      const { sessionId, panNumber, dob, fullName } = req.body;
+      const { sessionId, panNumber, dob } = req.body;
       const userId = req.user!.id;
       
       if (!sessionId || !panNumber || !dob) {
@@ -1619,14 +1747,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Verify PAN using Sandbox.co.in API
-      const verification = await sandboxPANService.verifyPAN(panNumber, fullName, dob);
+      // Verify PAN using Sandbox API
+      const verification = await sandboxKYCService.verifyIndividualPAN(panNumber, dob);
       
-      // Check if verification was successful
-      if (!verification || verification.status !== 'success' || !verification.data) {
+      
+      // verification returns IndividualPANDetails directly (no success wrapper)
+      if (!verification || !verification.pan) {
         return res.json({
           success: false,
-          message: verification?.message || "PAN verification failed"
+          message: "PAN verification failed"
         });
       }
       
@@ -1636,8 +1765,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         panDob: new Date(dob),
         panVerified: true,
         panVerificationData: {
-          name: verification.data.full_name || fullName,
-          fatherName: verification.data.father_name
+          name: verification.fullName,
+          fatherName: verification.fatherName
         },
         panVerifiedAt: new Date(),
         currentStep: "aadhaar_otp",
@@ -1649,48 +1778,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
       
-      // Upgrade user to KYC Level 1 (PAN Verified)
-      // Get or create user profile
-      const existingProfile = await db.select()
-        .from(schema.userProfiles)
-        .where(eq(schema.userProfiles.userId, userId))
-        .limit(1);
-      
-      if (existingProfile && existingProfile.length > 0) {
-        // Update existing profile to Level 1
-        await db.update(schema.userProfiles)
-          .set({
-            kycLevel: '1',
-            kycLevelUpgradedAt: new Date(),
-            panVerifiedViaSandbox: true,
-            panSandboxVerifiedAt: new Date(),
-            panSandboxResponse: verification.data,
-            panSandboxStatus: verification.data?.status || 'VALID',
-            panNumber: panNumber
-          })
-          .where(eq(schema.userProfiles.userId, userId));
-      } else {
-        // Create new profile with Level 1
-        await db.insert(schema.userProfiles)
-          .values({
-            userId: userId,
-            kycLevel: '1',
-            kycLevelUpgradedAt: new Date(),
-            panVerifiedViaSandbox: true,
-            panSandboxVerifiedAt: new Date(),
-            panSandboxResponse: verification.data,
-            panSandboxStatus: verification.data?.status || 'VALID',
-            panNumber: panNumber
-          });
-      }
-      
       res.json({
         success: true,
         data: {
-          name: verification.data.full_name || fullName,
-          fatherName: verification.data.father_name
+          name: verification.fullName,
+          fatherName: verification.fatherName
         },
-        message: "PAN verified. You can now access loans and insurance marketplace."
+        message: "PAN verified successfully"
       });
     } catch (error) {
       console.error('Error verifying PAN:', error);
@@ -1701,7 +1795,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-
+  // Step 2: Send Aadhaar OTP
   app.post("/api/kyc/wizard/send-aadhaar-otp", requireClientOrHigher, async (req: any, res) => {
     try {
       const { sessionId, aadhaarNumber } = req.body;
@@ -1830,7 +1924,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Step 4: Complete KYC wizard
-  // Step 4: Complete KYC wizard
   app.post("/api/kyc/wizard/complete", requireClientOrHigher, async (req: any, res) => {
     try {
       const { sessionId } = req.body;
@@ -1853,21 +1946,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Check user's KYC level before allowing completion
-      const userProfile = await db.select()
-        .from(schema.userProfiles)
-        .where(eq(schema.userProfiles.userId, userId))
-        .limit(1);
-      
-      if (!userProfile || userProfile.length === 0 || !userProfile[0].kycLevel || parseInt(userProfile[0].kycLevel) < 1) {
-        return res.status(400).json({
-          success: false,
-          message: "KYC Level 1 (PAN verification) required before completing KYC wizard. Please verify your PAN first."
-        });
-      }
-      
-      const kycLevel = parseInt(userProfile[0].kycLevel);
-      
       // Mark session as completed
       await storage.completeKycSession(sessionId);
       
@@ -1876,32 +1954,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         smartKycCompletedAt: new Date()
       });
       
-      // For Level 2 users, update kycTier to 'enhanced'
-      if (kycLevel >= 2) {
-        await db.update(schema.userProfiles)
-          .set({
-            kycTier: 'enhanced'
-          })
-          .where(eq(schema.userProfiles.userId, userId));
-      }
-      
-      // Prepare success message based on KYC level
-      let message = '';
-      let accessibleProducts = [];
-      
-      if (kycLevel >= 2) {
-        message = "Smart KYC completed successfully. You have full access to all financial products.";
-        accessibleProducts = ['Loans', 'Insurance', 'Mutual Funds', 'PMS', 'AIF', 'Unlisted Securities'];
-      } else if (kycLevel >= 1) {
-        message = "Smart KYC completed successfully. You can now access loans and insurance products.";
-        accessibleProducts = ['Loans', 'Insurance'];
-      }
-      
       res.json({
         success: true,
-        message,
-        kycLevel,
-        accessibleProducts
+        message: "Smart KYC completed successfully"
       });
     } catch (error) {
       console.error('Error completing KYC:', error);
@@ -1914,16 +1969,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
   // Step 2a: Check KRA Status
-  // Step 2a: Check KRA Status
   app.post("/api/kyc/wizard/check-kra-status", requireClientOrHigher, async (req: any, res) => {
     try {
       const { sessionId, panNumber, fullName, dateOfBirth } = req.body;
       const userId = req.user!.id;
 
-      if (!sessionId || !panNumber || !fullName || !dateOfBirth) {
+      if (!sessionId || !panNumber) {
         return res.status(400).json({
           success: false,
-          message: "Session ID, PAN number, full name, and date of birth are required"
+          message: "Session ID and PAN number are required"
         });
       }
 
@@ -1935,134 +1989,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Step 1: Call AuthBridge CKYC API to fetch CKYC record
-      console.log('📋 Fetching CKYC record via AuthBridge for PAN:', panNumber);
-      const ckycResult = await authBridgeCKYCService.fetchCKYC({
-        pan: panNumber,
-        full_name: fullName,
-        date_of_birth: dateOfBirth
-      });
-
-      // Get or create user profile
-      const existingProfile = await db.select()
-        .from(schema.userProfiles)
-        .where(eq(schema.userProfiles.userId, userId))
-        .limit(1);
-
-      let ckycFound = false;
-      let ckycKin = null;
-
-      // Update user profile with CKYC data if found
-      if (ckycResult.status === 'success' && ckycResult.data) {
-        console.log('✅ CKYC record found via AuthBridge. KIN:', ckycResult.data.kin);
-        ckycFound = true;
-        ckycKin = ckycResult.data.kin;
-
-        const ckycUpdateData = {
-          ckycFetchedViaAuthBridge: true,
-          ckycAuthBridgeFetchedAt: new Date(),
-          ckycAuthBridgeKin: ckycResult.data.kin,
-          ckycAuthBridgeResponse: ckycResult.data,
-          ckycAuthBridgeStatus: 'found'
-        };
-
-        if (existingProfile && existingProfile.length > 0) {
-          await db.update(schema.userProfiles)
-            .set(ckycUpdateData)
-            .where(eq(schema.userProfiles.userId, userId));
-        } else {
-          await db.insert(schema.userProfiles)
-            .values({
-              userId: userId,
-              ...ckycUpdateData
-            });
-        }
-      } else {
-        console.log('ℹ️ CKYC record not found via AuthBridge for PAN:', panNumber);
+      const user = await storage.getUser(userId);
+      let kraStatus = "NOT_FOUND";
+      if (user?.panVerifiedViaSmartKyc) {
+        kraStatus = "VERIFIED";
+      } else if (user?.kycTier === "basic") {
+        kraStatus = "ONHOLD";
       }
 
-      // Step 2: Check KRA status using existing Protean/KRA integration
-      console.log('🔍 Checking KRA status for PAN:', panNumber);
-      const kraStatusService = new KRAStatusService();
-      let kraStatus = "KYC_NOT_FOUND";
-      let kraVerified = false;
-
-      try {
-        const kraResult = await kraStatusService.checkStatus({
-          panNumber: panNumber,
-          fullName: fullName,
-          dateOfBirth: dateOfBirth
-        });
-
-        if (kraResult.success && kraResult.status === 'VERIFIED') {
-          console.log('✅ KRA verified for PAN:', panNumber);
-          kraStatus = "VERIFIED";
-          kraVerified = true;
-
-          // Upgrade user to Level 2 (Full KYC)
-          const level2UpdateData = {
-            kycLevel: '2',
-            kycLevelUpgradedAt: new Date(),
-            kraVerifiedViaProtean: true,
-            kraProteanVerifiedAt: new Date(),
-            kraProteanStatus: 'VERIFIED',
-            kycTier: 'enhanced'
-          };
-
-          const currentProfile = await db.select()
-            .from(schema.userProfiles)
-            .where(eq(schema.userProfiles.userId, userId))
-            .limit(1);
-
-          if (currentProfile && currentProfile.length > 0) {
-            await db.update(schema.userProfiles)
-              .set(level2UpdateData)
-              .where(eq(schema.userProfiles.userId, userId));
-          } else {
-            await db.insert(schema.userProfiles)
-              .values({
-                userId: userId,
-                ...level2UpdateData
-              });
-          }
-
-          console.log('✅ User upgraded to KYC Level 2');
-        } else {
-          kraStatus = kraResult.status || "KYC_NOT_FOUND";
-          console.log('ℹ️ KRA status:', kraStatus);
-        }
-      } catch (kraError) {
-        console.error('❌ Error checking KRA status:', kraError);
-        kraStatus = "ERROR";
-      }
-
-      // Update session with KRA check status
       await storage.updateKycVerificationSession(sessionId, {
         stepStatus: { ...session.stepStatus as any, kra_checked: true }
       });
 
-      // Prepare response based on results
-      let message = '';
-      let level = 0;
-
-      if (kraVerified) {
-        message = 'Full KYC verified! You can now access mutual funds, PMS, AIF, and unlisted securities.';
-        level = 2;
-      } else if (ckycFound) {
-        message = 'CKYC record found but KRA verification pending. You currently have access to loans and insurance.';
-        level = 1;
-      } else {
-        message = 'KYC verification pending. Please complete the full KYC process.';
-        level = 1;
-      }
-
       res.json({
         success: true,
         kraStatus,
-        ckycFound,
-        ckycKin,
-        kycLevel: level,
-        message
+        message: 'KRA status: ' + kraStatus
       });
     } catch (error) {
       console.error("Error checking KRA status:", error);
@@ -2073,7 +2015,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-
+  // Step 3: Risk Profiling
   app.post("/api/kyc/wizard/risk-profiling", requireClientOrHigher, async (req: any, res) => {
     try {
       const { sessionId, investmentObjective, investmentHorizon, riskTolerance, incomeLevel, tradingExperience } = req.body;
@@ -2588,7 +2530,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
   // Bond market data API endpoints
-  app.get("/api/bonds/categories", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/categories", async (req, res) => {
     try {
       // Real-time bond categories with current market rates
       const bondCategories = [
@@ -2649,7 +2591,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/bonds/live-rates", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/live-rates", async (req, res) => {
     try {
       // Fetch current bond yields from market data
       const liveRates = {
@@ -4828,7 +4770,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Bonds API endpoints
   
   // Get government bonds data
-  app.get("/api/bonds/government", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/government", async (req, res) => {
     try {
       const governmentBonds = [
         {
@@ -4901,7 +4843,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get corporate bonds data
-  app.get("/api/bonds/corporate", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/corporate", async (req, res) => {
     try {
       const corporateBonds = [
         {
@@ -4974,7 +4916,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get tax-free bonds data
-  app.get("/api/bonds/tax-free", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/tax-free", async (req, res) => {
     try {
       const taxFreeBonds = [
         {
@@ -5031,7 +4973,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get NSE listed bonds data
-  app.get("/api/bonds/nse-listed", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/nse-listed", async (req, res) => {
     try {
       // Real NSE listed bonds with live data
       const nseBonds = [
@@ -5154,7 +5096,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get BSE listed bonds data
-  app.get("/api/bonds/bse-listed", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/bse-listed", async (req, res) => {
     try {
       // Real BSE listed bonds with live data
       const bseBonds = [
@@ -5278,7 +5220,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get combined NSE & BSE bonds market data
-  app.get("/api/bonds/listed-bonds", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/listed-bonds", async (req, res) => {
     try {
       const exchange = req.query.exchange as string;
       const category = req.query.category as string;
@@ -5347,7 +5289,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Advanced bond search with comprehensive filters
-  app.get("/api/bonds/search/advanced", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/search/advanced", async (req, res) => {
     try {
       const filters = {
         creditRatings: req.query.creditRatings ? (req.query.creditRatings as string).split(',') : undefined,
@@ -5382,7 +5324,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get bonds by credit rating
-  app.get("/api/bonds/filter/rating", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/filter/rating", async (req, res) => {
     try {
       const ratings = req.query.ratings ? (req.query.ratings as string).split(',') : ['AAA'];
       const bonds = await bseBondApi.getBondsByRating(ratings);
@@ -5403,7 +5345,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get bonds by yield range
-  app.get("/api/bonds/filter/yield", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/filter/yield", async (req, res) => {
     try {
       const minYield = req.query.min ? parseFloat(req.query.min as string) : 0;
       const maxYield = req.query.max ? parseFloat(req.query.max as string) : 15;
@@ -5426,7 +5368,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get bonds by maturity
-  app.get("/api/bonds/filter/maturity", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/filter/maturity", async (req, res) => {
     try {
       const params = {
         minYears: req.query.minYears ? parseInt(req.query.minYears as string) : undefined,
@@ -5452,7 +5394,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get tax-free bonds
-  app.get("/api/bonds/tax-free-bonds", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/tax-free-bonds", async (req, res) => {
     try {
       const bonds = await bseBondApi.getTaxFreeBonds();
 
@@ -5472,7 +5414,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get infrastructure bonds
-  app.get("/api/bonds/infrastructure-bonds", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/infrastructure-bonds", async (req, res) => {
     try {
       const bonds = await bseBondApi.getInfrastructureBonds();
 
@@ -5492,7 +5434,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get NSE NCB yield curve data
-  app.get("/api/bonds/yield-curve", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/yield-curve", async (req, res) => {
     try {
       const yieldCurve = await nseNcbApi.getYieldCurve();
 
@@ -5511,7 +5453,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get historical auction results
-  app.get("/api/bonds/auctions/historical", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/auctions/historical", async (req, res) => {
     try {
       const params = {
         securityType: req.query.type as string,
@@ -5538,7 +5480,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get Sovereign Gold Bonds data
-  app.get("/api/bonds/sgb", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/sgb", async (req, res) => {
     try {
       const sgbs = await nseNcbApi.getSGBData();
 
@@ -5558,7 +5500,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get real-time bond market prices
-  app.post("/api/bonds/market-prices", requireLevel2, async (req, res) => {
+  app.post("/api/bonds/market-prices", async (req, res) => {
     try {
       const { isins } = req.body;
       
@@ -5587,7 +5529,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get bonds market overview
-  app.get("/api/bonds/market-overview", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/market-overview", async (req, res) => {
     try {
       const marketOverview = {
         totalMarketSize: "₹45,68,450 Cr",
@@ -5628,7 +5570,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get MCX listed bonds data (commodity-linked bonds)
-  app.get("/api/bonds/mcx-listed", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/mcx-listed", async (req, res) => {
     try {
       // MCX commodity-linked bonds and structured products
       const mcxBonds = [
@@ -6505,7 +6447,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get comprehensive AIF data from all AMCs with complete fund details
-  app.get("/api/aif/comprehensive", requireLevel2, async (req, res) => {
+  app.get("/api/aif/comprehensive", async (req, res) => {
     try {
       const { amc, category, subCategory, riskRating } = req.query;
       const amcStr = typeof amc === 'string' ? amc : Array.isArray(amc) ? amc[0] : undefined;
@@ -6900,7 +6842,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get NSE AIF funds data
-  app.get("/api/aif/nse-funds", requireLevel2, async (req, res) => {
+  app.get("/api/aif/nse-funds", async (req, res) => {
     try {
       const nseFunds = [
         {
@@ -6989,7 +6931,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get BSE AIF funds data
-  app.get("/api/aif/bse-funds", requireLevel2, async (req, res) => {
+  app.get("/api/aif/bse-funds", async (req, res) => {
     try {
       const bseFunds = [
         {
@@ -7078,7 +7020,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get MCX AIF funds data (commodity-focused)
-  app.get("/api/aif/mcx-funds", requireLevel2, async (req, res) => {
+  app.get("/api/aif/mcx-funds", async (req, res) => {
     try {
       const mcxFunds = [
         {
@@ -7170,7 +7112,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get NCDEX AIF funds data (agricultural-focused)
-  app.get("/api/aif/ncdex-funds", requireLevel2, async (req, res) => {
+  app.get("/api/aif/ncdex-funds", async (req, res) => {
     try {
       const ncdexFunds = [
         {
@@ -7262,7 +7204,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get MSEI AIF funds data (SME and specialized)
-  app.get("/api/aif/msei-funds", requireLevel2, async (req, res) => {
+  app.get("/api/aif/msei-funds", async (req, res) => {
     try {
       const mseiFunds = [
         {
@@ -7354,7 +7296,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get comprehensive multi-exchange AIF data
-  app.get("/api/aif/all-exchanges", requireLevel2, async (req, res) => {
+  app.get("/api/aif/all-exchanges", async (req, res) => {
     try {
       const exchange = req.query.exchange as string;
       const category = req.query.category as string;
@@ -10594,7 +10536,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Loan Products
-  app.get("/api/marketplace/loan-products", requireLevel1, async (req: any, res: any) => {
+  app.get("/api/marketplace/loan-products", async (req: any, res: any) => {
     try {
       const products = await storage.getLoanProducts();
       
@@ -10611,7 +10553,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/marketplace/loan-products/:productKey", requireLevel1, async (req: any, res: any) => {
+  app.get("/api/marketplace/loan-products/:productKey", async (req: any, res: any) => {
     try {
       const { productKey } = req.params;
       const product = await storage.getLoanProductByKey(productKey);
@@ -10637,7 +10579,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Loan Providers
-  app.get("/api/marketplace/loan-providers", requireLevel1, async (req: any, res: any) => {
+  app.get("/api/marketplace/loan-providers", async (req: any, res: any) => {
     try {
       const providers = await storage.getLoanProviders();
       
@@ -10654,7 +10596,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/marketplace/loan-providers/:providerKey/products", requireLevel1, async (req: any, res: any) => {
+  app.get("/api/marketplace/loan-providers/:providerKey/products", async (req: any, res: any) => {
     try {
       const { providerKey } = req.params;
       const { productKey } = req.query;
@@ -10684,7 +10626,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Loan Request and Offer Generation
-  app.post("/api/marketplace/loan-requests", requireLevel1, async (req: any, res: any) => {
+  app.post("/api/marketplace/loan-requests", requireAuth, async (req: any, res: any) => {
     try {
       const userId = req.user!.id;
       
@@ -10720,7 +10662,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/marketplace/loan-requests/:requestId/generate-offers", requireLevel1, async (req: any, res: any) => {
+  app.post("/api/marketplace/loan-requests/:requestId/generate-offers", requireAuth, async (req: any, res: any) => {
     try {
       const { requestId } = req.params;
       const userId = req.user!.id;
@@ -10750,7 +10692,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/marketplace/loan-requests/:requestId/offers", requireLevel1, async (req: any, res: any) => {
+  app.get("/api/marketplace/loan-requests/:requestId/offers", requireAuth, async (req: any, res: any) => {
     try {
       const { requestId } = req.params;
       const userId = req.user!.id;
@@ -10780,7 +10722,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Loan Application Management
-  app.post("/api/marketplace/applications", requireLevel1, async (req: any, res: any) => {
+  app.post("/api/marketplace/applications", requireAuth, async (req: any, res: any) => {
     try {
       const userId = req.user!.id;
       
@@ -10817,7 +10759,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/marketplace/applications", requireLevel1, async (req: any, res: any) => {
+  app.get("/api/marketplace/applications", requireAuth, async (req: any, res: any) => {
     try {
       const userId = req.user!.id;
       const applications = await storage.getLoanApplicationsMarketplace(userId);
@@ -10835,7 +10777,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/marketplace/applications/:applicationId", requireLevel1, async (req: any, res: any) => {
+  app.get("/api/marketplace/applications/:applicationId", requireAuth, async (req: any, res: any) => {
     try {
       const { applicationId } = req.params;
       const userId = req.user!.id;
@@ -10861,7 +10803,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/marketplace/applications/:applicationId", requireLevel1, async (req: any, res: any) => {
+  app.patch("/api/marketplace/applications/:applicationId", requireAuth, async (req: any, res: any) => {
     try {
       const { applicationId } = req.params;
       const userId = req.user!.id;
@@ -10894,7 +10836,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Application Documents
-  app.get("/api/marketplace/applications/:applicationId/documents", requireLevel1, async (req: any, res: any) => {
+  app.get("/api/marketplace/applications/:applicationId/documents", requireAuth, async (req: any, res: any) => {
     try {
       const { applicationId } = req.params;
       const userId = req.user!.id;
@@ -10923,7 +10865,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/marketplace/applications/:applicationId/documents", requireLevel1, async (req: any, res: any) => {
+  app.post("/api/marketplace/applications/:applicationId/documents", requireAuth, async (req: any, res: any) => {
     try {
       const { applicationId } = req.params;
       const userId = req.user!.id;
@@ -10969,7 +10911,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // User's Loan Requests
-  app.get("/api/marketplace/my-requests", requireLevel1, async (req: any, res: any) => {
+  app.get("/api/marketplace/my-requests", requireAuth, async (req: any, res: any) => {
     try {
       const userId = req.user!.id;
       const requests = await storage.getLoanRequests(userId);
@@ -12754,7 +12696,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Enhanced Mutual Fund API endpoints with MultiSource integration
-  app.get("/api/mutual-funds", requireLevel2, async (req, res) => {
+  app.get("/api/mutual-funds", async (req, res) => {
     try {
       const { 
         category, 
@@ -12855,7 +12797,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/mutual-funds/popular", requireLevel2, async (req, res) => {
+  app.get("/api/mutual-funds/popular", async (req, res) => {
     try {
       console.log("📈 Fetching best performing mutual funds with MultiSource service...");
       
@@ -13009,7 +12951,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/mutual-funds/:schemeCode", requireLevel2, async (req, res) => {
+  app.get("/api/mutual-funds/:schemeCode", async (req, res) => {
     try {
       const { schemeCode } = req.params;
       console.log(`📊 Fetching fund details for scheme: ${schemeCode} with MultiSource service`);
@@ -13189,7 +13131,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/mutual-funds/search/:query", requireLevel2, async (req, res) => {
+  app.get("/api/mutual-funds/search/:query", async (req, res) => {
     try {
       const { query } = req.params;
       console.log(`🔍 Searching funds with query: ${query}`);
@@ -22419,7 +22361,7 @@ System Security Data:`;
 
 
   // Enhanced AIF Analytics API
-  app.get('/api/aif/analytics', requireLevel2, async (req, res) => {
+  app.get('/api/aif/analytics', async (req, res) => {
     try {
       const { timeframe = '1Y', category } = req.query;
       
@@ -24913,8 +24855,8 @@ System Security Data:`;
   app.post("/api/policybazaar/status", InsuranceMarketplaceAPI.getPolicyStatus);
   
   // New Marketplace Features
-  app.post("/api/insurance/compare", requireLevel1, InsuranceMarketplaceAPI.compareInsurancePlans);
-  app.get("/api/insurance/providers/:type", requireLevel1, (req, res) => {
+  app.post("/api/insurance/compare", InsuranceMarketplaceAPI.compareInsurancePlans);
+  app.get("/api/insurance/providers/:type", (req, res) => {
     const insuranceType = req.params.type;
     const providers = InsuranceMarketplaceAPI.getProvidersByType(insuranceType);
     res.json({ success: true, data: providers });

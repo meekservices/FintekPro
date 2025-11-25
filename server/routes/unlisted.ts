@@ -28,6 +28,7 @@ import {
   type SellListing,
   type BuyRequest,
 } from '@shared/schema';
+import { requireLevel2 } from '../middleware/kyc-level-gate';
 
 const router = Router();
 
@@ -39,7 +40,7 @@ const router = Router();
  * GET /api/unlisted/companies
  * List all unlisted companies with optional filters
  */
-router.get('/companies', async (req: Request, res: Response) => {
+router.get('/companies', requireLevel2, async (req: Request, res: Response) => {
   try {
     const { status, sector } = req.query;
     
@@ -59,7 +60,7 @@ router.get('/companies', async (req: Request, res: Response) => {
  * GET /api/unlisted/companies/:id
  * Get detailed information about a specific company
  */
-router.get('/companies/:id', async (req: Request, res: Response) => {
+router.get('/companies/:id', requireLevel2, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     
@@ -79,7 +80,7 @@ router.get('/companies/:id', async (req: Request, res: Response) => {
  * POST /api/unlisted/companies
  * Create a new unlisted company (admin only)
  */
-router.post('/companies', async (req: Request, res: Response) => {
+router.post('/companies', requireLevel2, async (req: Request, res: Response) => {
   try {
     // Check if user is admin
     if (!req.user?.roles?.includes('admin')) {
@@ -155,7 +156,7 @@ router.patch('/companies/:id', async (req: Request, res: Response) => {
  * GET /api/unlisted/probe42/search
  * Search for companies on Probe42
  */
-router.get('/probe42/search', async (req: Request, res: Response) => {
+router.get('/probe42/search', requireLevel2, async (req: Request, res: Response) => {
   try {
     const { q } = req.query;
     
@@ -179,7 +180,7 @@ router.get('/probe42/search', async (req: Request, res: Response) => {
  * POST /api/unlisted/probe42/sync/:companyId
  * Sync company data from Probe42
  */
-router.post('/probe42/sync/:companyId', async (req: Request, res: Response) => {
+router.post('/probe42/sync/:companyId', requireLevel2, async (req: Request, res: Response) => {
   try {
     // Check if user is admin
     if (!req.user?.roles?.includes('admin')) {
@@ -284,7 +285,7 @@ router.post('/probe42/sync/:companyId', async (req: Request, res: Response) => {
  * GET /api/unlisted/companies/:id/financials
  * Get company financial statements
  */
-router.get('/companies/:id/financials', async (req: Request, res: Response) => {
+router.get('/companies/:id/financials', requireLevel2, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     
@@ -306,7 +307,7 @@ router.get('/companies/:id/financials', async (req: Request, res: Response) => {
  * GET /api/unlisted/companies/:id/ratios
  * Get company financial ratios
  */
-router.get('/companies/:id/ratios', async (req: Request, res: Response) => {
+router.get('/companies/:id/ratios', requireLevel2, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     
@@ -328,7 +329,7 @@ router.get('/companies/:id/ratios', async (req: Request, res: Response) => {
  * GET /api/unlisted/companies/:id/price-history
  * Get price history for a company
  */
-router.get('/companies/:id/price-history', async (req: Request, res: Response) => {
+router.get('/companies/:id/price-history', requireLevel2, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { limit } = req.query;
@@ -357,7 +358,7 @@ router.get('/companies/:id/price-history', async (req: Request, res: Response) =
  * GET /api/unlisted/listings
  * Get active sell listings
  */
-router.get('/listings', async (req: Request, res: Response) => {
+router.get('/listings', requireLevel2, async (req: Request, res: Response) => {
   try {
     const { companyId, status } = req.query;
     
@@ -384,7 +385,7 @@ router.get('/listings', async (req: Request, res: Response) => {
  * POST /api/unlisted/listings
  * Create a new sell listing
  */
-router.post('/listings', async (req: Request, res: Response) => {
+router.post('/listings', requireLevel2, async (req: Request, res: Response) => {
   try {
     if (!req.user) {
       return apiResponse.unauthorized(res, 'Authentication required');
@@ -425,7 +426,7 @@ router.post('/listings', async (req: Request, res: Response) => {
  * GET /api/unlisted/buy-requests
  * Get active buy requests
  */
-router.get('/buy-requests', async (req: Request, res: Response) => {
+router.get('/buy-requests', requireLevel2, async (req: Request, res: Response) => {
   try {
     const { companyId, status } = req.query;
     
@@ -452,7 +453,7 @@ router.get('/buy-requests', async (req: Request, res: Response) => {
  * POST /api/unlisted/buy-requests
  * Create a new buy request
  */
-router.post('/buy-requests', async (req: Request, res: Response) => {
+router.post('/buy-requests', requireLevel2, async (req: Request, res: Response) => {
   try {
     if (!req.user) {
       return apiResponse.unauthorized(res, 'Authentication required');
@@ -492,7 +493,7 @@ router.post('/buy-requests', async (req: Request, res: Response) => {
  * GET /api/unlisted/deals
  * Get matched deals
  */
-router.get('/deals', async (req: Request, res: Response) => {
+router.get('/deals', requireLevel2, async (req: Request, res: Response) => {
   try {
     const { companyId } = req.query;
     
@@ -512,7 +513,7 @@ router.get('/deals', async (req: Request, res: Response) => {
  * GET /api/unlisted/deals/:id
  * Get detailed information about a specific deal
  */
-router.get('/deals/:id', async (req: Request, res: Response) => {
+router.get('/deals/:id', requireLevel2, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     
@@ -537,7 +538,7 @@ router.get('/deals/:id', async (req: Request, res: Response) => {
  * Get AI-powered price suggestion for a company
  * Request body: { companyId: string }
  */
-router.post('/price/suggest', async (req: Request, res: Response) => {
+router.post('/price/suggest', requireLevel2, async (req: Request, res: Response) => {
   try {
     const { companyId } = req.body;
     
@@ -569,7 +570,7 @@ router.post('/price/suggest', async (req: Request, res: Response) => {
  * DEPRECATED: Use POST /api/unlisted/price/suggest instead
  * Kept for backward compatibility
  */
-router.get('/companies/:id/price-suggestion', async (req: Request, res: Response) => {
+router.get('/companies/:id/price-suggestion', requireLevel2, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     
@@ -596,7 +597,7 @@ router.get('/companies/:id/price-suggestion', async (req: Request, res: Response
  * POST /api/unlisted/price-suggestions/batch
  * Get price suggestions for multiple companies
  */
-router.post('/price-suggestions/batch', async (req: Request, res: Response) => {
+router.post('/price-suggestions/batch', requireLevel2, async (req: Request, res: Response) => {
   try {
     const { companyIds } = req.body;
     
