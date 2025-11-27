@@ -335,18 +335,129 @@ export default function ProfilePage() {
   const form = useForm<ProfileFormData>({
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
+      // Client Type
       clientType: "individual",
+      
+      // Individual Information
+      firstName: "",
+      middleName: "",
+      lastName: "",
+      dateOfBirth: "",
+      gender: undefined,
+      fatherName: "",
+      motherName: "",
+      spouseName: "",
+      maritalStatus: undefined,
+      
+      // Non-Individual Entity Information
+      entityType: undefined,
+      companyName: "",
+      entityRegistrationNumber: "",
+      incorporationDate: "",
+      businessNature: "",
+      companyPanNumber: "",
+      
+      // Common Contact Information
+      email: "",
+      mobile: "",
+      alternateContactNumber: "",
+      
+      // Identity Documents
+      panNumber: "",
+      aadharNumber: "",
+      passportNumber: "",
+      passportCountry: "",
+      passportExpiryDate: "",
+      drivingLicense: "",
+      voterIdNumber: "",
+      
+      // Residency Status
       residentStatus: "resident_indian",
       countryOfResidence: "India",
       countryOfCitizenship: "India",
+      countryOfBirth: "",
+      taxResidencyCountry: "",
+      
+      // NRI and Foreign National Specific Information
+      nriSubType: undefined,
+      visaType: "",
+      permanentResidenceStatus: undefined,
+      nriRepatriationType: undefined,
+      overseasTaxId: "",
+      
+      // Address Information
+      presentAddress: "",
+      presentCity: "",
+      presentState: "",
+      presentPincode: "",
       presentCountry: "India",
-      fatcaStatus: "non_us_person",
-      pepStatus: "no",
+      permanentAddress: "",
+      permanentCity: "",
+      permanentState: "",
+      permanentPincode: "",
+      permanentCountry: "",
+      isAddressSame: false,
+      
+      // Financial Profile
+      occupation: "",
+      employer: "",
+      designation: "",
+      workExperience: "",
+      annualIncome: undefined,
+      sourceOfWealth: "",
+      netWorth: "",
+      
+      // Investment Profile
       riskTolerance: "moderate",
       investmentExperience: "beginner",
       investmentObjective: "balanced",
       investmentHorizon: "medium",
-      isAddressSame: false,
+      
+      // Banking and Account Details
+      bankAccountNumber: "",
+      ifscCode: "",
+      bankName: "",
+      branchAddress: "",
+      accountType: undefined,
+      
+      // Demat Account Information
+      nsdlDpId: "",
+      nsdlClientId: "",
+      cdslBoId: "",
+      cdslDpId: "",
+      krvNumber: "",
+      cvlKycNumber: "",
+      
+      // Regulatory Compliance - FATCA & CRS
+      fatcaStatus: "non_us_person",
+      fatcaTinNumber: "",
+      fatcaCountryOfTaxResidence: "",
+      crsStatus: undefined,
+      crsTaxResidentCountries: [],
+      crsTinNumbers: [],
+      
+      // PEP Declaration
+      pepStatus: "no",
+      pepDetails: "",
+      pepRelatedPersonStatus: undefined,
+      pepRelationshipDetails: "",
+      
+      // UBO - For Non-Individuals
+      isUbo: false,
+      uboDetails: "",
+      beneficialOwnershipPercentage: "",
+      
+      // Nominee Information
+      nomineeDetails: "",
+      nomineeRelation: "",
+      nomineeContactNumber: "",
+      guardianDetails: "",
+      
+      // Professional Qualifications
+      educationalQualifications: "",
+      professionalCertifications: "",
+      
+      // Consent and Declarations
       panVerificationConsent: false,
       amlScreeningConsent: false,
       fatcaDeclarationConsent: false,
