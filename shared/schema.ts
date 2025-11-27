@@ -9154,6 +9154,148 @@ export const autoPopulationStatus = pgTable("auto_population_status", {
   index("idx_auto_pop_initiated").on(table.initiatedAt),
 ]);
 
+// Account Aggregator Consent Sessions - Track AA consent flow with FIUs
+export const aaConsentSessions = pgTable("aa_consent_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  panNumber: varchar("pan_number").notNull(),
+  
+  aaProvider: varchar("aa_provider").notNull().default("finvu"),
+  fiuEntityId: varchar("fiu_entity_id"),
+  
+  consentHandleId: varchar("consent_handle_id").unique(),
+  consentId: varchar("consent_id"),
+  consentArtefactId: varchar("consent_artefact_id"),
+  
+  redirectUrl: text("redirect_url"),
+  callbackUrl: text("callback_url"),
+  
+  assetTypes: jsonb("asset_types").default(sql`'["MF", "DEMAT", "PPF", "NPS", "LOANS"]'::jsonb`),
+  validityDays: integer("validity_days").default(90),
+  syncFrequencyDays: integer("sync_frequency_days").default(30),
+  fetchType: varchar("fetch_type").default("PERIODIC"),
+  
+  status: varchar("status").notNull().default("initiated"),
+  
+  initiatedAt: timestamp("initiated_at").defaultNow(),
+  approvedAt: timestamp("approved_at"),
+  rejectedAt: timestamp("rejected_at"),
+  expiresAt: timestamp("expires_at"),
+  lastDataFetchAt: timestamp("last_data_fetch_at"),
+  
+  errorCode: varchar("error_code"),
+  errorMessage: text("error_message"),
+  
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_aa_consent_user").on(table.userId),
+  index("idx_aa_consent_handle").on(table.consentHandleId),
+  index("idx_aa_consent_status").on(table.status),
+  index("idx_aa_consent_pan").on(table.panNumber),
+]);
+
+// Account Aggregator Raw Payloads - Store fetched AA data (JSONB) with retention
+export const aaRawPayloads = pgTable("aa_raw_payloads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  consentSessionId: varchar("consent_session_id").references(() => aaConsentSessions.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  fetchSessionId: varchar("fetch_session_id").notNull(),
+  fiuName: varchar("fiu_name"),
+  dataType: varchar("data_type").notNull(),
+  
+  rawPayload: jsonb("raw_payload").notNull(),
+  
+  isDecrypted: boolean("is_decrypted").default(false),
+  decryptedAt: timestamp("decrypted_at"),
+  
+  isProcessed: boolean("is_processed").default(false),
+  processedAt: timestamp("processed_at"),
+  recordsExtracted: integer("records_extracted").default(0),
+  processingErrors: jsonb("processing_errors"),
+  
+  dataQualityScore: integer("data_quality_score"),
+  missingFields: jsonb("missing_fields"),
+  
+  retentionDays: integer("retention_days").default(180),
+  expiresAt: timestamp("expires_at"),
+  isArchived: boolean("is_archived").default(false),
+  archivedAt: timestamp("archived_at"),
+  
+  fetchedAt: timestamp("fetched_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_aa_payload_consent").on(table.consentSessionId),
+  index("idx_aa_payload_user").on(table.userId),
+  index("idx_aa_payload_type").on(table.dataType),
+  index("idx_aa_payload_fetch").on(table.fetchSessionId),
+  index("idx_aa_payload_expires").on(table.expiresAt),
+]);
+
+// AA Data Fetch Logs - Track individual FIU data fetches with fallback support
+export const aaDataFetchLogs = pgTable("aa_data_fetch_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  consentSessionId: varchar("consent_session_id").references(() => aaConsentSessions.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  fiuName: varchar("fiu_name").notNull(),
+  dataType: varchar("data_type").notNull(),
+  
+  status: varchar("status").notNull().default("initiated"),
+  
+  usedFallback: boolean("used_fallback").default(false),
+  fallbackSource: varchar("fallback_source"),
+  fallbackReason: text("fallback_reason"),
+  
+  startedAt: timestamp("started_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  durationMs: integer("duration_ms"),
+  
+  recordsFetched: integer("records_fetched").default(0),
+  totalValue: numeric("total_value", { precision: 15, scale: 2 }),
+  
+  errorCode: varchar("error_code"),
+  errorMessage: text("error_message"),
+  retryCount: integer("retry_count").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_aa_fetch_consent").on(table.consentSessionId),
+  index("idx_aa_fetch_user").on(table.userId),
+  index("idx_aa_fetch_fiu").on(table.fiuName),
+  index("idx_aa_fetch_status").on(table.status),
+]);
+
+// Insert schemas and types for AA tables
+export const insertAAConsentSessionSchema = createInsertSchema(aaConsentSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type AAConsentSession = typeof aaConsentSessions.$inferSelect;
+export type InsertAAConsentSession = z.infer<typeof insertAAConsentSessionSchema>;
+
+export const insertAARawPayloadSchema = createInsertSchema(aaRawPayloads).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type AARawPayload = typeof aaRawPayloads.$inferSelect;
+export type InsertAARawPayload = z.infer<typeof insertAARawPayloadSchema>;
+
+export const insertAADataFetchLogSchema = createInsertSchema(aaDataFetchLogs).omit({
+  id: true,
+  createdAt: true,
+});
+export type AADataFetchLog = typeof aaDataFetchLogs.$inferSelect;
+export type InsertAADataFetchLog = z.infer<typeof insertAADataFetchLogSchema>;
+
 // Insert schemas and types for KYC Vault System
 export const insertKycVaultSchema = createInsertSchema(kycVault).omit({
   id: true,

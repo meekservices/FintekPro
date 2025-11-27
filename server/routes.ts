@@ -13154,6 +13154,262 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  // =====================================================
+  // Account Aggregator (AA) Endpoints for Portfolio Sync
+  // =====================================================
+
+  // Create AA consent request - Step 1: Initiate consent flow
+  app.post("/api/aa/consent/create", async (req, res) => {
+    try {
+      const { userId, panNumber, assetTypes, validityDays, syncFrequencyDays } = req.body;
+      
+      if (!userId || !panNumber) {
+        return res.status(400).json({ error: "userId and panNumber are required" });
+      }
+
+      const { aaFIUService } = await import("./services/aa-fiu-service");
+      
+      const callbackUrl = `${req.protocol}://${req.get('host')}/api/aa/consent/callback`;
+      
+      const result = await aaFIUService.createConsentRequest({
+        userId,
+        panNumber,
+        assetTypes: assetTypes || ['MF', 'DEMAT', 'NPS', 'EPF', 'PPF'],
+        validityDays: validityDays || 90,
+        syncFrequencyDays: syncFrequencyDays || 30,
+        callbackUrl
+      });
+
+      console.log(`🔐 [AA] Consent request created for user \${userId}`);
+      
+      res.json({
+        success: true,
+        consentHandleId: result.consentHandleId,
+        redirectUrl: result.redirectUrl,
+        expiresAt: result.expiresAt,
+        message: "Redirect user to AA portal for OTP approval"
+      });
+    } catch (error: any) {
+      console.error("Error creating AA consent:", error);
+      res.status(500).json({ error: error.message || "Failed to create AA consent" });
+    }
+  });
+
+  // AA Consent callback - Step 2: Handle approval from AA portal
+  app.post("/api/aa/consent/callback", async (req, res) => {
+    try {
+      const { consentHandleId, status } = req.body;
+      
+      if (!consentHandleId || !status) {
+        return res.status(400).json({ error: "consentHandleId and status are required" });
+      }
+
+      const { aaFIUService } = await import("./services/aa-fiu-service");
+      
+      const result = await aaFIUService.handleConsentCallback(consentHandleId, status);
+
+      console.log(`📥 [AA] Consent callback processed: \${consentHandleId} - \${status}`);
+      
+      res.json({
+        success: result.success,
+        consentId: result.consentId,
+        message: result.success ? "Consent approved, data fetch initiated" : "Consent not approved"
+      });
+    } catch (error: any) {
+      console.error("Error handling AA consent callback:", error);
+      res.status(500).json({ error: error.message || "Failed to process consent callback" });
+    }
+  });
+
+  // Check AA consent status
+  app.get("/api/aa/consent/status/:consentHandleId", async (req, res) => {
+    try {
+      const { consentHandleId } = req.params;
+
+      const { aaFIUService } = await import("./services/aa-fiu-service");
+      
+      const result = await aaFIUService.checkConsentStatus(consentHandleId);
+
+      res.json({
+        success: true,
+        status: result.status,
+        session: result.session
+      });
+    } catch (error: any) {
+      console.error("Error checking AA consent status:", error);
+      res.status(500).json({ error: error.message || "Failed to check consent status" });
+    }
+  });
+
+  // Get active consent session for user
+  app.get("/api/aa/consent/active/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+
+      const { aaFIUService } = await import("./services/aa-fiu-service");
+      
+      const session = await aaFIUService.getActiveConsentSession(userId);
+
+      res.json({
+        success: true,
+        hasActiveConsent: !!session,
+        session: session
+      });
+    } catch (error: any) {
+      console.error("Error getting active consent:", error);
+      res.status(500).json({ error: error.message || "Failed to get active consent" });
+    }
+  });
+
+  // Fetch aggregated data using existing consent - Step 3 & 4
+  app.post("/api/aa/data/fetch", async (req, res) => {
+    try {
+      const { consentSessionId, userId } = req.body;
+      
+      if (!consentSessionId && !userId) {
+        return res.status(400).json({ error: "consentSessionId or userId is required" });
+      }
+
+      const { aaFIUService } = await import("./services/aa-fiu-service");
+      
+      let sessionId = consentSessionId;
+      
+      if (!sessionId && userId) {
+        const session = await aaFIUService.getActiveConsentSession(userId);
+        if (!session) {
+          return res.status(404).json({ error: "No active consent found. Please create a new consent." });
+        }
+        sessionId = session.id;
+      }
+
+      const portfolio = await aaFIUService.fetchAggregatedData(sessionId);
+
+      console.log(`🔄 [AA] Aggregated data fetched for session \${sessionId}`);
+      
+      res.json({
+        success: true,
+        data: portfolio,
+        summary: {
+          mutualFundsCount: portfolio.mutualFunds.length,
+          dematHoldingsCount: portfolio.dematHoldings.length,
+          npsCount: portfolio.nps.length,
+          epfCount: portfolio.epf.length,
+          ppfCount: portfolio.ppf.length,
+          loansCount: portfolio.loans.length,
+          fetchedAt: portfolio.fetchedAt
+        }
+      });
+    } catch (error: any) {
+      console.error("Error fetching AA data:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch aggregated data" });
+    }
+  });
+
+  // Sync AA data to portfolio holdings
+  app.post("/api/aa/sync-to-portfolio", async (req, res) => {
+    try {
+      const { userId, portfolioId, consentSessionId } = req.body;
+      
+      if (!userId || !portfolioId) {
+        return res.status(400).json({ error: "userId and portfolioId are required" });
+      }
+
+      const { aaFIUService } = await import("./services/aa-fiu-service");
+      
+      let sessionId = consentSessionId;
+      
+      if (!sessionId) {
+        const session = await aaFIUService.getActiveConsentSession(userId);
+        if (!session) {
+          return res.status(404).json({ error: "No active consent found. Please create a new consent." });
+        }
+        sessionId = session.id;
+      }
+
+      const portfolio = await aaFIUService.fetchAggregatedData(sessionId);
+
+      let syncedCount = 0;
+
+      for (const mf of portfolio.mutualFunds) {
+        try {
+          await storage.createPortfolioHolding({
+            portfolioId,
+            symbol: mf.isin || mf.name,
+            quantity: String(mf.units || 0),
+            avgPrice: String(mf.nav || 0),
+            currency: "INR",
+            assetType: "mutual_fund",
+            assetClass: "equity",
+            sector: "Mutual Fund"
+          });
+          syncedCount++;
+        } catch (err) {
+          console.error(`Failed to sync MF \${mf.name}:`, err);
+        }
+      }
+
+      for (const stock of portfolio.dematHoldings) {
+        try {
+          await storage.createPortfolioHolding({
+            portfolioId,
+            symbol: stock.isin || stock.name,
+            quantity: String(stock.qty || 0),
+            avgPrice: String(stock.avgPrice || 0),
+            currency: "INR",
+            assetType: "equity",
+            assetClass: "large_cap",
+            sector: stock.sector || "Equity"
+          });
+          syncedCount++;
+        } catch (err) {
+          console.error(`Failed to sync stock \${stock.name}:`, err);
+        }
+      }
+
+      console.log(`✅ [AA] Synced \${syncedCount} holdings to portfolio \${portfolioId}`);
+      
+      res.json({
+        success: true,
+        syncedCount,
+        summary: {
+          mutualFunds: portfolio.mutualFunds.length,
+          dematHoldings: portfolio.dematHoldings.length,
+          nps: portfolio.nps.length,
+          epf: portfolio.epf.length
+        },
+        message: `Successfully synced \${syncedCount} holdings from Account Aggregator`
+      });
+    } catch (error: any) {
+      console.error("Error syncing AA data to portfolio:", error);
+      res.status(500).json({ error: error.message || "Failed to sync AA data to portfolio" });
+    }
+  });
+
+  // Revoke AA consent
+  app.post("/api/aa/consent/revoke", async (req, res) => {
+    try {
+      const { consentSessionId, reason } = req.body;
+      
+      if (!consentSessionId) {
+        return res.status(400).json({ error: "consentSessionId is required" });
+      }
+
+      const { aaFIUService } = await import("./services/aa-fiu-service");
+      
+      await aaFIUService.revokeConsent(consentSessionId, reason || "User requested revocation");
+
+      console.log(`🚫 [AA] Consent revoked: \${consentSessionId}`);
+      
+      res.json({
+        success: true,
+        message: "Consent revoked successfully"
+      });
+    } catch (error: any) {
+      console.error("Error revoking AA consent:", error);
+      res.status(500).json({ error: error.message || "Failed to revoke consent" });
+    }
+  });
   // External API Integration Endpoints for Fetching Reports
   app.post("/api/reports/fetch-from-mf-central", async (req, res) => {
     try {

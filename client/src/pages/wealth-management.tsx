@@ -38,6 +38,7 @@ import { RetirementPlanning } from "@/components/wealth/retirement-planning";
 import { RiskAssessment } from "@/components/wealth/risk-assessment";
 import { InvestmentRecommendations } from "@/components/wealth/investment-recommendations";
 import { Proposals } from "@/components/wealth/proposals";
+import { ExternalPortfolioSync } from "@/components/portfolio-sync/ExternalPortfolioSync";
 
 interface FinancialAnalysis {
   monthlyIncome: number;
@@ -242,6 +243,9 @@ export default function PremiumInvestments() {
               </CardContent>
             </Card>
             
+            {/* External Portfolio Sync */}
+            <ExternalPortfolioSync />
+
             {/* Current Portfolio Performance */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <Card data-testid="card-total-portfolio-value">
@@ -346,6 +350,15 @@ export default function PremiumInvestments() {
                               <div className="flex items-center gap-2">
                                 <Badge variant="outline" className="text-xs">
                                   {holding.assetType}
+                                </Badge>
+                                <Badge variant="secondary" className={`text-xs ${
+                                  holding.sector === "Mutual Fund" || (holding as any).dataSource === "AA" || (holding as any).dataSource === "CAS"
+                                    ? "bg-blue-100 text-blue-700"
+                                    : (holding as any).dataSource === "NSDL" || (holding as any).dataSource === "CDSL"
+                                    ? "bg-green-100 text-green-700"
+                                    : "bg-gray-100 text-gray-700"
+                                }`}>
+                                  {(holding as any).dataSource || "Manual"}
                                 </Badge>
                                 {holding.sector && (
                                   <span className="text-xs text-muted-foreground">{holding.sector}</span>
