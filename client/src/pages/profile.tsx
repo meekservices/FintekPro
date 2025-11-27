@@ -410,6 +410,12 @@ export default function ProfilePage() {
     enabled: !!user
   });
 
+  // Extract verification status from KYC profile
+  const kycData = (kycProfile as any)?.data;
+  const isPanVerified = kycData?.panVerified || false;
+  const isEmailVerified = kycData?.email ? true : false; // Email is verified if present in KYC profile
+  const isMobileVerified = kycData?.mobile ? true : false; // Mobile is verified if present in KYC profile
+
   // Fetch product eligibility
   const { data: eligibilityData, isLoading: eligibilityLoading } = useQuery({
     queryKey: ['/api/kyc/product-eligibility'],
@@ -1150,10 +1156,29 @@ export default function ProfilePage() {
                       name="email"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Email Address *</FormLabel>
+                          <FormLabel className="flex items-center gap-2">
+                            Email Address *
+                            {isEmailVerified && (
+                              <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Verified
+                              </Badge>
+                            )}
+                          </FormLabel>
                           <FormControl>
-                            <Input {...field} type="email" placeholder="Enter email address" />
+                            <Input 
+                              {...field} 
+                              type="email" 
+                              placeholder="Enter email address" 
+                              disabled={isEmailVerified}
+                              className={isEmailVerified ? "bg-gray-100 dark:bg-gray-800 cursor-not-allowed" : ""}
+                            />
                           </FormControl>
+                          {isEmailVerified && (
+                            <FormDescription className="text-xs text-gray-500">
+                              This field is verified and cannot be edited
+                            </FormDescription>
+                          )}
                           <FormMessage />
                         </FormItem>
                       )}
@@ -1163,10 +1188,28 @@ export default function ProfilePage() {
                       name="mobile"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Mobile Number *</FormLabel>
+                          <FormLabel className="flex items-center gap-2">
+                            Mobile Number *
+                            {isMobileVerified && (
+                              <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Verified
+                              </Badge>
+                            )}
+                          </FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="Enter mobile number" />
+                            <Input 
+                              {...field} 
+                              placeholder="Enter mobile number" 
+                              disabled={isMobileVerified}
+                              className={isMobileVerified ? "bg-gray-100 dark:bg-gray-800 cursor-not-allowed" : ""}
+                            />
                           </FormControl>
+                          {isMobileVerified && (
+                            <FormDescription className="text-xs text-gray-500">
+                              This field is verified and cannot be edited
+                            </FormDescription>
+                          )}
                           <FormMessage />
                         </FormItem>
                       )}
@@ -1302,10 +1345,28 @@ export default function ProfilePage() {
                       name="panNumber"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>PAN Number *</FormLabel>
+                          <FormLabel className="flex items-center gap-2">
+                            PAN Number *
+                            {isPanVerified && (
+                              <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Verified
+                              </Badge>
+                            )}
+                          </FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="ABCDE1234F" className="uppercase" />
+                            <Input 
+                              {...field} 
+                              placeholder="ABCDE1234F" 
+                              className={`uppercase ${isPanVerified ? "bg-gray-100 dark:bg-gray-800 cursor-not-allowed" : ""}`}
+                              disabled={isPanVerified}
+                            />
                           </FormControl>
+                          {isPanVerified && (
+                            <FormDescription className="text-xs text-gray-500">
+                              This field is verified and cannot be edited
+                            </FormDescription>
+                          )}
                           <FormMessage />
                         </FormItem>
                       )}
