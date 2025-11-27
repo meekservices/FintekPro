@@ -859,15 +859,16 @@ export default function ProfilePage() {
                               <div className="flex justify-between items-center mb-3">
                                 <h3 className="font-semibold dark:text-white">Verification Progress</h3>
                                 {(() => {
-                                  const verifications = [
+                                  const summary = kycProfileData?.verificationSummary;
+                                  const completed = summary?.completedVerifications ?? [
                                     kycProfileData?.panVerified,
                                     kycProfileData?.aadhaarVerified,
                                     kycProfileData?.bankVerified,
                                     kycProfileData?.videoKycCompleted,
-                                    kycProfileData?.ckycVerified
-                                  ];
-                                  const completed = verifications.filter(Boolean).length;
-                                  const total = verifications.length;
+                                    kycProfileData?.ckycVerified,
+                                    kycProfileData?.kraVerified
+                                  ].filter(Boolean).length;
+                                  const total = summary?.totalVerifications ?? 6;
                                   return (
                                     <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
                                       {completed}/{total} Complete
@@ -877,19 +878,21 @@ export default function ProfilePage() {
                               </div>
                               <Progress 
                                 value={(() => {
-                                  const verifications = [
+                                  const summary = kycProfileData?.verificationSummary;
+                                  const completed = summary?.completedVerifications ?? [
                                     kycProfileData?.panVerified,
                                     kycProfileData?.aadhaarVerified,
                                     kycProfileData?.bankVerified,
                                     kycProfileData?.videoKycCompleted,
-                                    kycProfileData?.ckycVerified
-                                  ];
-                                  const completed = verifications.filter(Boolean).length;
-                                  return (completed / verifications.length) * 100;
+                                    kycProfileData?.ckycVerified,
+                                    kycProfileData?.kraVerified
+                                  ].filter(Boolean).length;
+                                  const total = summary?.totalVerifications ?? 6;
+                                  return (completed / total) * 100;
                                 })()} 
                                 className="h-2 mb-4" 
                               />
-                              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                                 <VerificationBadge 
                                   label="PAN" 
                                   verified={kycProfileData?.panVerified} 
@@ -914,6 +917,11 @@ export default function ProfilePage() {
                                   label="CKYC" 
                                   verified={kycProfileData?.ckycVerified} 
                                   testId="status-ckyc-verified"
+                                />
+                                <VerificationBadge 
+                                  label="KRA" 
+                                  verified={kycProfileData?.kraVerified} 
+                                  testId="status-kra-verified"
                                 />
                               </div>
                             </div>
