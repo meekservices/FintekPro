@@ -129,18 +129,17 @@ export function EnhancedNavigation() {
       title: "Getting Started",
       items: [
         {
-          name: "Portfolio Overview",
+          name: "Dashboard",
           href: "/",
           icon: Home,
-          description: "Portfolio dashboard and market summary"
+          description: "Portfolio overview and market summary"
         },
         {
           name: "Profile & KYC",
           icon: UserCheck,
           description: "Complete your profile and KYC verification",
           subItems: [
-            { name: "KYC Dashboard", href: "/kyc-dashboard", description: "Tier status, product access & upgrade options", badge: "OVERVIEW" },
-            { name: "My Profile", href: "/profile", description: "View and edit personal information" },
+            { name: "My Profile", href: "/profile", description: "Personal info, KYC status & verification", badge: "UNIFIED" },
             { name: "My Net Worth", href: "/net-worth", description: "Complete wealth tracking with assets, liabilities & AI insights", badge: "NEW" },
             { 
               name: "Client Onboarding", 
