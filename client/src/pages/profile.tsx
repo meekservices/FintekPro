@@ -812,6 +812,25 @@ export default function ProfilePage() {
 
                     return (
                       <>
+                        {/* Personalized Greeting */}
+                        {kycProfileData?.fullName && (
+                          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 rounded-lg p-4 mb-2">
+                            <div className="flex items-center gap-3">
+                              <div className="h-12 w-12 rounded-full bg-blue-500 flex items-center justify-center text-white text-xl font-bold">
+                                {kycProfileData.fullName.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <h2 className="text-2xl font-bold text-blue-900 dark:text-blue-100" data-testid="greeting-message">
+                                  Welcome, {kycProfileData.fullName}!
+                                </h2>
+                                <p className="text-blue-700 dark:text-blue-300 text-sm">
+                                  UID: {kycProfileData?.userId} | PAN Verified Account
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
                         {/* Header Section */}
                         <div className="flex justify-between items-center">
                           <div>
