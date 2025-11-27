@@ -2,8 +2,6 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -20,12 +18,14 @@ import {
   Download,
   Shield,
   Building,
-  AlertTriangle
+  AlertTriangle,
+  ChevronDown
 } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 
 export default function Support() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [expandedFaqCard, setExpandedFaqCard] = useState<string | null>(null);
 
   const faqCategories = [
     {
@@ -255,7 +255,7 @@ export default function Support() {
           {/* FAQ Section */}
           <div>
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-900" data-testid="faq-title">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white" data-testid="faq-title">
                 Frequently Asked Questions
               </h2>
               {searchQuery && (
@@ -265,53 +265,68 @@ export default function Support() {
               )}
             </div>
 
-            <Tabs defaultValue="general" className="w-full">
-              <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-2 mb-6">
-                <ScrollableTabsList className="grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 bg-transparent h-auto">
-                  {faqCategories.map((category) => (
-                    <TabsTrigger 
-                      key={category.id} 
-                      value={category.id} 
-                      className="flex items-center justify-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg py-2.5 transition-all"
-                      data-testid={`tab-${category.id}`}
-                    >
-                      <category.icon className="h-4 w-4" />
-                      <span>{category.title}</span>
-                    </TabsTrigger>
-                  ))}
-                </ScrollableTabsList>
-              </div>
-
-              {filteredFaqs.map((category) => (
-                <TabsContent key={category.id} value={category.id}>
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <category.icon className="h-5 w-5 text-finance-blue" />
-                        {category.title}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {filteredFaqs.map((category) => {
+                const isExpanded = expandedFaqCard === category.id;
+                
+                return (
+                  <Card 
+                    key={category.id}
+                    className={`cursor-pointer transition-all hover:shadow-lg ${
+                      isExpanded ? 'lg:col-span-4 sm:col-span-2' : ''
+                    }`}
+                    onClick={() => setExpandedFaqCard(isExpanded ? null : category.id)}
+                    data-testid={`faq-card-${category.id}`}
+                  >
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <category.icon className="h-5 w-5 text-primary" />
+                          <span className="text-base sm:text-lg">{category.title}</span>
+                        </div>
+                        <ChevronDown 
+                          className={`h-5 w-5 text-muted-foreground transition-transform ${
+                            isExpanded ? 'rotate-180' : ''
+                          }`}
+                        />
                       </CardTitle>
-                      <CardDescription>
-                        Find answers to common questions about {category.title.toLowerCase()}.
-                      </CardDescription>
+                      {!isExpanded && (
+                        <CardDescription className="text-sm">
+                          {category.faqs.length} questions
+                        </CardDescription>
+                      )}
                     </CardHeader>
-                    <CardContent>
-                      <Accordion type="single" collapsible className="w-full">
-                        {category.faqs.map((faq, index) => (
-                          <AccordionItem key={index} value={`item-${index}`}>
-                            <AccordionTrigger className="text-left hover:no-underline" data-testid={`faq-question-${category.id}-${index}`}>
-                              {faq.question}
-                            </AccordionTrigger>
-                            <AccordionContent className="text-muted-foreground" data-testid={`faq-answer-${category.id}-${index}`}>
-                              {faq.answer}
-                            </AccordionContent>
-                          </AccordionItem>
-                        ))}
-                      </Accordion>
-                    </CardContent>
+                    
+                    {isExpanded && (
+                      <CardContent className="pt-0">
+                        <CardDescription className="mb-4">
+                          Find answers to common questions about {category.title.toLowerCase()}.
+                        </CardDescription>
+                        <Accordion type="single" collapsible className="w-full">
+                          {category.faqs.map((faq, index) => (
+                            <AccordionItem key={index} value={`item-${index}`}>
+                              <AccordionTrigger 
+                                className="text-left hover:no-underline" 
+                                data-testid={`faq-question-${category.id}-${index}`}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {faq.question}
+                              </AccordionTrigger>
+                              <AccordionContent 
+                                className="text-muted-foreground" 
+                                data-testid={`faq-answer-${category.id}-${index}`}
+                              >
+                                {faq.answer}
+                              </AccordionContent>
+                            </AccordionItem>
+                          ))}
+                        </Accordion>
+                      </CardContent>
+                    )}
                   </Card>
-                </TabsContent>
-              ))}
-            </Tabs>
+                );
+              })}
+            </div>
           </div>
 
           {/* Support Hours */}
