@@ -622,16 +622,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // 1. AGGREGATE ASSETS - Portfolio Holdings with real-time market values
+      // First fetch portfolios, then fetch holdings separately to avoid relational query issues
       const userPortfolios = await db.query.portfolios.findMany({
         where: sql`${portfolios.userId} = ANY(${targetUserIds})`,
-        with: {
-          holdings: true
-        }
       });
       
+      // Fetch all holdings for these portfolios
+      const portfolioIds = userPortfolios.map(p => p.id);
+      const allHoldings = portfolioIds.length > 0 
+        ? await db.query.portfolioHoldings.findMany({
+            where: sql`${portfolioHoldings.portfolioId} = ANY(${portfolioIds})`,
+          })
+        : [];
+      
+      // Map holdings to portfolios
+      const holdingsByPortfolio = new Map();
+      for (const holding of allHoldings) {
+        const existing = holdingsByPortfolio.get(holding.portfolioId) || [];
+        existing.push(holding);
+        holdingsByPortfolio.set(holding.portfolioId, existing);
+      }
+      
+      // Add holdings to portfolios
+      const portfoliosWithHoldings = userPortfolios.map(p => ({
+        ...p,
+        holdings: holdingsByPortfolio.get(p.id) || []
+      }));
+      
       // OPTIMIZATION: Batch fetch all unique symbols for market data (avoid N+1 queries)
-      const allSymbols = new Set<string>();
-      for (const portfolio of userPortfolios) {
+      const allSymbols = new Set();
+      for (const portfolio of portfoliosWithHoldings) {
         for (const holding of portfolio.holdings || []) {
           allSymbols.add(holding.symbol);
         }
@@ -656,7 +676,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let illiquidAssets = [];
       let totalPortfolioValue = 0;
       
-      for (const portfolio of userPortfolios) {
+      for (const portfolio of portfoliosWithHoldings) {
         for (const holding of portfolio.holdings || []) {
           // Get current market price from pre-fetched data
           const marketInfo = marketDataMap.get(holding.symbol);
