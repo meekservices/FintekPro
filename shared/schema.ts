@@ -5144,7 +5144,6 @@ export const insertLoanOfferSchema = createInsertSchema(loanOffers).omit({
 
 export const insertLoanApplicationMarketplaceSchema = createInsertSchema(loanApplicationsMarketplace).omit({
   id: true,
-  applicationNumber: true,
   createdAt: true,
   updatedAt: true,
 });
