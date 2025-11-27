@@ -216,8 +216,7 @@ export function EnhancedNavigation() {
             { name: "Global Markets", href: "/global-trading", description: "US, Europe, Asia stocks" },
             { name: "IPO Center", href: "/ipo", description: "Current and pre-IPO opportunities" },
             { name: "F&O Trading", href: "/derivatives", description: "Futures and options" },
-            { name: "Commodities", href: "/commodities", description: "MCX and NCDEX trading" },
-            { name: "Portfolio", href: "/portfolio", description: "Holdings and performance" }
+            { name: "Commodities", href: "/commodities", description: "MCX and NCDEX trading" }
           ]
         }
       ]
