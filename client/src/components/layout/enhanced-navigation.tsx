@@ -175,7 +175,8 @@ export function EnhancedNavigation() {
           icon: Calculator,
           description: "Financial planning and analysis tools",
           subItems: [
-            { name: "Calculators", href: "/calculators", description: "SIP, EMI, Tax & more calculators" }
+            { name: "Calculators", href: "/calculators", description: "SIP, EMI, Tax & more calculators" },
+            { name: "Reports Hub", href: "/reports", description: "Transaction, capital gains & compliance reports" }
           ]
         }
       ]
