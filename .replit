@@ -105,4 +105,4 @@ externalPort = 3002
 [userenv]
 
 [userenv.shared]
-CASHFREE_ENVIRONMENT = "SANDBOX"
+CASHFREE_ENVIRONMENT = "PRODUCTION"
