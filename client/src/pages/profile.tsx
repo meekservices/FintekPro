@@ -717,11 +717,6 @@ export default function ProfilePage() {
             <User className="h-8 w-8" />
             Client Profile & KYC Onboarding
           </h1>
-          {user?.userId && (
-            <p className="text-sm text-gray-500 mt-1" data-testid="profile-user-id">
-              UID - {user.userId}
-            </p>
-          )}
           <p className="text-gray-600 mt-2">
             Complete your profile for regulatory compliance and enhanced services
           </p>
@@ -853,19 +848,7 @@ export default function ProfilePage() {
                             <CardDescription>Your unique identification and verification status</CardDescription>
                           </CardHeader>
                           <CardContent className="space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                              {/* User ID */}
-                              <div>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">User ID</p>
-                                <p className="font-semibold dark:text-white" data-testid="text-user-id">{kycProfileData?.userId}</p>
-                              </div>
-
-                              {/* Full Name */}
-                              <div>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">Full Name</p>
-                                <p className="font-semibold dark:text-white" data-testid="text-full-name">{kycProfileData?.fullName || 'Not provided'}</p>
-                              </div>
-
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                               {/* Email */}
                               <div>
                                 <p className="text-sm text-gray-600 dark:text-gray-400">Email</p>
