@@ -1634,9 +1634,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userProfile = await storage.getUserProfile(userId);
       
       // Check for existing verified data
-      const hasPanVerified = userProfile?.panVerifiedViaSandbox && userProfile?.panNumber;
-      const hasCkycData = userProfile?.ckycFetchedViaAuthBridge && userProfile?.ckycAuthBridgeResponse;
-      const hasAadhaarVerified = userProfile?.aadharNumber && userProfile?.aadharNumber.length === 12;
+      const hasPanVerified = !!(userProfile?.panVerifiedViaSandbox && userProfile?.panNumber);
+      const hasCkycData = !!(userProfile?.ckycFetchedViaAuthBridge && userProfile?.ckycAuthBridgeResponse);
+      const hasAadhaarVerified = !!(userProfile?.aadharNumber && userProfile?.aadharNumber.length === 12);
       
       // Determine current step smartly based on existing data
       let currentStep = "pan_verification";
