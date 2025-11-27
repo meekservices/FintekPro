@@ -1,4 +1,4 @@
-import { Switch, Route, useLocation } from "wouter";
+import { Switch, Route, useLocation, Redirect } from "wouter";
 import { lazy, useEffect } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -74,7 +74,6 @@ import BrokingPage from "@/pages/broking";
 import AgentPortal from "@/pages/agent-portal";
 import OnboardingPage from "@/pages/onboarding";
 import ManualKYCPage from "@/pages/manual-kyc";
-import KYCDashboard from "@/pages/kyc-dashboard";
 import NetWorthPage from "@/pages/net-worth";
 import AdminProposalsPage from "@/pages/admin-proposals";
 import ClientProposalsPage from "@/pages/client-proposals";
@@ -489,7 +488,9 @@ function Router() {
         <Route path="/profile" component={Profile} />
         <Route path="/onboarding" component={OnboardingPage} />
         <Route path="/manual-kyc" component={ManualKYCPage} />
-        <Route path="/kyc-dashboard" component={KYCDashboard} />
+        <Route path="/kyc-dashboard">
+          <Redirect to="/profile?tab=kyc-dashboard" />
+        </Route>
         <Route path="/net-worth" component={NetWorthPage} />
         <Route path="/privacy" component={Privacy} />
         <Route path="/terms" component={Terms} />
