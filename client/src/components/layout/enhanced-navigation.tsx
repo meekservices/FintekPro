@@ -173,7 +173,7 @@ export function EnhancedNavigation() {
           icon: Calculator,
           description: "Financial planning and analysis tools",
           subItems: [
-            { name: "All Calculators", href: "/calculators", description: "SIP, EMI, Tax & more calculators" }
+            { name: "Calculators", href: "/calculators", description: "SIP, EMI, Tax & more calculators" }
           ]
         }
       ]
