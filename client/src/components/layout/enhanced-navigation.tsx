@@ -129,10 +129,10 @@ export function EnhancedNavigation() {
       title: "Getting Started",
       items: [
         {
-          name: "Dashboard",
+          name: "Portfolio Overview",
           href: "/",
           icon: Home,
-          description: "Portfolio overview and market summary"
+          description: "Portfolio dashboard and market summary"
         },
         {
           name: "Profile & KYC",
