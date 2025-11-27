@@ -47,9 +47,15 @@ export class CashfreeAadhaarService {
   private static readonly SANDBOX_URL = 'https://sandbox.cashfree.com/verification';
   private static readonly PRODUCTION_URL = 'https://api.cashfree.com/verification';
   
+  private static isProduction(): boolean {
+    if (process.env.CASHFREE_ENVIRONMENT) {
+      return process.env.CASHFREE_ENVIRONMENT === 'PRODUCTION';
+    }
+    return process.env.NODE_ENV === 'production';
+  }
+  
   private static getBaseUrl(): string {
-    const env = process.env.CASHFREE_ENVIRONMENT || 'SANDBOX';
-    return env === 'PRODUCTION' ? this.PRODUCTION_URL : this.SANDBOX_URL;
+    return this.isProduction() ? this.PRODUCTION_URL : this.SANDBOX_URL;
   }
   
   private static getHeaders() {

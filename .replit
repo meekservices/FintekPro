@@ -105,4 +105,3 @@ externalPort = 3002
 [userenv]
 
 [userenv.shared]
-CASHFREE_ENVIRONMENT = "PRODUCTION"

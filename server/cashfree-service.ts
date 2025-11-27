@@ -36,7 +36,13 @@ export class CashfreeService {
   constructor() {
     this.appId = process.env.CASHFREE_APP_ID || '';
     this.secretKey = process.env.CASHFREE_SECRET_KEY || '';
-    this.environment = process.env.CASHFREE_ENVIRONMENT || 'SANDBOX';
+    
+    // Auto-detect environment: use explicit CASHFREE_ENVIRONMENT if set, otherwise use NODE_ENV
+    if (process.env.CASHFREE_ENVIRONMENT) {
+      this.environment = process.env.CASHFREE_ENVIRONMENT;
+    } else {
+      this.environment = process.env.NODE_ENV === 'production' ? 'PRODUCTION' : 'SANDBOX';
+    }
     
     // Validate credentials are present
     if (!this.appId || !this.secretKey) {
