@@ -53,6 +53,23 @@ interface FinancialAnalysis {
   creditScore?: number;
 }
 
+interface PortfolioHolding {
+  id: string;
+  portfolioId: string;
+  symbol: string;
+  quantity: string;
+  avgPrice: string;
+  currency: string;
+  assetType: string;
+  assetClass: string | null;
+  sector: string | null;
+  marketCap: string | null;
+  beta: string | null;
+  dividendYield: string | null;
+  peRatio: string | null;
+  updatedAt: string;
+}
+
 export default function PremiumInvestments() {
   const [location] = useLocation();
   const { user } = useAuth();
@@ -76,6 +93,12 @@ export default function PremiumInvestments() {
     enabled: !!user?.id,
   });
   const portfolioId = (portfolios && Array.isArray(portfolios) && portfolios.length > 0) ? portfolios[0]?.id : '';
+
+  // Fetch portfolio holdings automatically
+  const { data: holdings, isLoading: holdingsLoading } = useQuery<PortfolioHolding[]>({
+    queryKey: ['/api/portfolios', portfolioId, 'holdings'],
+    enabled: !!portfolioId,
+  });
 
   // Fetch real-time financial analysis data
   const { data: financialAnalysis, isLoading, error } = useQuery<FinancialAnalysis>({
@@ -273,6 +296,96 @@ export default function PremiumInvestments() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Portfolio Holdings - Auto-fetched */}
+            <Card data-testid="card-portfolio-holdings">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-indigo-600" />
+                  Your Holdings
+                </CardTitle>
+                <CardDescription>
+                  Real-time view of your investment portfolio
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {holdingsLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div className="space-y-2">
+                          <Skeleton className="h-4 w-24" />
+                          <Skeleton className="h-3 w-16" />
+                        </div>
+                        <div className="text-right space-y-2">
+                          <Skeleton className="h-4 w-20" />
+                          <Skeleton className="h-3 w-12" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : holdings && holdings.length > 0 ? (
+                  <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                    {holdings.map((holding) => {
+                      const quantity = parseFloat(holding.quantity) || 0;
+                      const avgPrice = parseFloat(holding.avgPrice) || 0;
+                      const investedValue = quantity * avgPrice;
+                      
+                      return (
+                        <div 
+                          key={holding.id} 
+                          className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                          data-testid={`holding-${holding.symbol}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center text-white font-semibold text-sm">
+                              {holding.symbol.slice(0, 2).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="font-semibold text-gray-900">{holding.symbol}</p>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-xs">
+                                  {holding.assetType}
+                                </Badge>
+                                {holding.sector && (
+                                  <span className="text-xs text-muted-foreground">{holding.sector}</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold text-gray-900">{formatCurrency(investedValue)}</p>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <span>{quantity.toFixed(2)} units</span>
+                              <span>@</span>
+                              <span>{formatCurrency(avgPrice)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+                      <BarChart3 className="w-8 h-8 text-gray-400" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No Holdings Yet</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Start building your investment portfolio today
+                    </p>
+                    <Button 
+                      onClick={() => setActiveTab("recommendations")}
+                      className="bg-gradient-to-r from-indigo-600 to-purple-600"
+                      data-testid="button-start-investing-holdings"
+                    >
+                      <TrendingUp className="w-4 h-4 mr-2" />
+                      Explore Investment Options
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
             {/* Credit & Obligations Overview */}
             <Card data-testid="card-credit-obligations">
