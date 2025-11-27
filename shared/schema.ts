@@ -4950,25 +4950,13 @@ export const creditProfiles = pgTable("credit_profiles", {
 export const loanRequests = pgTable("loan_requests", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id).notNull(),
-  productId: varchar("product_id").references(() => loanProducts.id).notNull(),
-  
-  // Loan Requirements
-  requestedAmount: decimal("requested_amount", { precision: 15, scale: 2 }).notNull(),
-  preferredTenure: integer("preferred_tenure").notNull(), // months
-  purpose: text("purpose"),
-  
-  // Collateral Information (for secured loans)
-  collateralDetails: jsonb("collateral_details"),
-  estimatedCollateralValue: decimal("estimated_collateral_value", { precision: 15, scale: 2 }),
-  
-  // Request Status
-  status: varchar("status").default("active"), // active, expired, converted
-  validityExpiry: timestamp("validity_expiry").default(sql`NOW() + INTERVAL '7 days'`),
-  
-  // Metadata
-  sourceChannel: varchar("source_channel").default("web"), // web, mobile, agent
-  referralCode: varchar("referral_code"),
-  utmSource: varchar("utm_source"),
+  loanType: varchar("loan_type"),
+  requestedAmount: decimal("requested_amount", { precision: 15, scale: 2 }),
+  tenureMonths: integer("tenure_months"),
+  purpose: varchar("purpose"),
+  employmentType: varchar("employment_type"),
+  monthlyIncome: decimal("monthly_income", { precision: 15, scale: 2 }),
+  status: varchar("status").default("active"),
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -5022,51 +5010,24 @@ export const loanOffers = pgTable("loan_offers", {
 export const loanApplicationsMarketplace = pgTable("loan_applications_marketplace", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id).notNull(),
-  offerId: varchar("offer_id").references(() => loanOffers.id).notNull(),
-  providerId: varchar("provider_id").references(() => loanProviders.id).notNull(),
-  productId: varchar("product_id").references(() => loanProducts.id).notNull(),
+  loanRequestId: varchar("loan_request_id").references(() => loanRequests.id),
+  productKey: varchar("product_key"),
+  providerKey: varchar("provider_key"),
   
-  // Application Reference
-  applicationNumber: varchar("application_number").unique(),
-  providerApplicationRef: varchar("provider_application_ref"), // Provider's internal reference
+  // Application Amount and Terms
+  requestedAmount: decimal("requested_amount", { precision: 15, scale: 2 }),
+  approvedAmount: decimal("approved_amount", { precision: 15, scale: 2 }),
+  interestRate: decimal("interest_rate", { precision: 5, scale: 2 }),
+  tenureMonths: integer("tenure_months"),
   
   // Application Status
-  status: varchar("status").default("draft"), // draft, submitted, under_review, approved, rejected, disbursed, cancelled
-  stage: varchar("stage").default("initiated"), // initiated, documents_pending, documents_submitted, processing, approved, disbursed
-  
-  // KYC and Document Status
-  kycStatus: varchar("kyc_status").default("pending"), // pending, in_progress, completed, rejected
-  documentStatus: varchar("document_status").default("pending"), // pending, uploaded, verified, rejected
-  
-  // Application Details
-  finalAmount: decimal("final_amount", { precision: 15, scale: 2 }).notNull(),
-  finalInterestRate: decimal("final_interest_rate", { precision: 5, scale: 2 }).notNull(),
-  finalTenure: integer("final_tenure").notNull(),
-  finalEMI: decimal("final_emi", { precision: 15, scale: 2 }).notNull(),
+  status: varchar("status"), // draft, submitted, under_review, approved, rejected, disbursed, cancelled
   
   // Processing Information
-  submittedAt: timestamp("submitted_at"),
-  approvedAt: timestamp("approved_at"),
-  rejectedAt: timestamp("rejected_at"),
-  disbursedAt: timestamp("disbursed_at"),
+  applicationDate: timestamp("application_date"),
+  decisionDate: timestamp("decision_date"),
+  disbursementDate: timestamp("disbursement_date"),
   rejectionReason: text("rejection_reason"),
-  
-  // Disbursement Details
-  disbursalAmount: decimal("disbursal_amount", { precision: 15, scale: 2 }),
-  disbursalMethod: varchar("disbursal_method"), // bank_transfer, rtgs, neft
-  disbursalAccountNumber: varchar("disbursal_account_number"),
-  disbursalIfsc: varchar("disbursal_ifsc"),
-  
-  // Application Checklist
-  checklist: jsonb("checklist").default([]),
-  nextSteps: jsonb("next_steps").default([]),
-  
-  // Timeline
-  timeline: jsonb("timeline").default([]),
-  
-  // Communication
-  lastCommunicationDate: timestamp("last_communication_date"),
-  communicationPreference: varchar("communication_preference").default("email"), // email, sms, whatsapp
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
