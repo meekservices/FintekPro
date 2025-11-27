@@ -746,43 +746,19 @@ export default function ProfilePage() {
             <ScrollableTabsList>
               <TabsTrigger value="kyc-dashboard" data-testid="tab-kyc-dashboard" className="flex-shrink-0">
                 <Award className="h-4 w-4 mr-2" />
-                KYC Dashboard
-              </TabsTrigger>
-              <TabsTrigger value="basic" data-testid="tab-basic" className="flex-shrink-0">
-                <User className="h-4 w-4 mr-2" />
-                Basic KYC (Tier 1)
+                Dashboard
               </TabsTrigger>
               <TabsTrigger value="kyc-verification" data-testid="tab-kyc-verification" className="flex-shrink-0">
                 <Shield className="h-4 w-4 mr-2" />
-                KYC & Verification
+                Verifications
               </TabsTrigger>
-              <TabsTrigger value="identity" data-testid="tab-identity" className="flex-shrink-0">
-                <FileText className="h-4 w-4 mr-2" />
-                Documents
-              </TabsTrigger>
-              <TabsTrigger value="address" data-testid="tab-address" className="flex-shrink-0">
-                <MapPin className="h-4 w-4 mr-2" />
-                Address
-              </TabsTrigger>
-              <TabsTrigger value="financial" data-testid="tab-financial" className="flex-shrink-0">
-                <Banknote className="h-4 w-4 mr-2" />
-                Financial Info
+              <TabsTrigger value="accounts" data-testid="tab-accounts" className="flex-shrink-0">
+                <CreditCard className="h-4 w-4 mr-2" />
+                Accounts
               </TabsTrigger>
               <TabsTrigger value="compliance" data-testid="tab-compliance" className="flex-shrink-0">
-                <Shield className="h-4 w-4 mr-2" />
+                <FileText className="h-4 w-4 mr-2" />
                 Compliance
-              </TabsTrigger>
-              <TabsTrigger value="banking" data-testid="tab-banking" className="flex-shrink-0">
-                <CreditCard className="h-4 w-4 mr-2" />
-                Banking
-              </TabsTrigger>
-              <TabsTrigger value="demat" data-testid="tab-demat" className="flex-shrink-0">
-                <Building2 className="h-4 w-4 mr-2" />
-                Demat
-              </TabsTrigger>
-              <TabsTrigger value="preferences" data-testid="tab-preferences" className="flex-shrink-0">
-                <Globe className="h-4 w-4 mr-2" />
-                Preferences
               </TabsTrigger>
             </ScrollableTabsList>
 
@@ -1973,75 +1949,35 @@ export default function ProfilePage() {
               </Card>
             </TabsContent>
 
-            {/* Banking Tab */}
-            <TabsContent value="banking" className="space-y-6">
-              <BankingTab />
-            </TabsContent>
-
-            {/* Demat Tab */}
-            <TabsContent value="demat" className="space-y-6">
-              <DematTab />
-            </TabsContent>
-
-            {/* Preferences Tab */}
-            <TabsContent value="preferences" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Currency Preferences</CardTitle>
-                  <CardDescription>
-                    Set your preferred base currency for displaying portfolio values and market data
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="base-currency">Base Currency</Label>
-                      <p className="text-sm text-gray-500 mb-2">
-                        All portfolio values and market data will be displayed in this currency
-                      </p>
-                      <CurrencySelector 
-                        value={form.watch("baseCurrency") || "INR"}
-                        onChange={(value) => form.setValue("baseCurrency", value)}
-                        className="w-48"
-                      />
-                    </div>
-
-                    <div className="pt-4 border-t">
-                      <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-lg font-semibold">Current Exchange Rates</h3>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={async () => {
-                            try {
-                              await apiRequest("POST", "/api/currencies/refresh", { 
-                                baseCurrency: form.watch("baseCurrency") || "INR"
-                              });
-                              toast({ 
-                                title: "Success", 
-                                description: "Exchange rates refreshed successfully" 
-                              });
-                              queryClient.invalidateQueries({ queryKey: ["/api/currencies/rates"] });
-                            } catch (error) {
-                              toast({ 
-                                title: "Error", 
-                                description: "Failed to refresh exchange rates",
-                                variant: "destructive" 
-                              });
-                            }
-                          }}
-                          data-testid="button-refresh-rates"
-                        >
-                          <RefreshCw className="h-4 w-4 mr-2" />
-                          Refresh Rates
-                        </Button>
-                      </div>
-
-                      <ExchangeRatesTable baseCurrency={form.watch("baseCurrency") || "INR"} />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+            {/* Accounts Tab - Banking & Demat */}
+            <TabsContent value="accounts" className="space-y-6">
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <CreditCard className="h-5 w-5" />
+                      Bank Accounts
+                    </CardTitle>
+                    <CardDescription>Your linked bank accounts for transactions</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <BankingTab />
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Building2 className="h-5 w-5" />
+                      Demat Accounts
+                    </CardTitle>
+                    <CardDescription>Your linked demat accounts for securities</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <DematTab />
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
           </Tabs>
 
@@ -2061,13 +1997,13 @@ export default function ProfilePage() {
                 type="button"
                 variant="outline"
                 onClick={() => {
-                  const tabs = ["basic", "identity", "address", "financial", "compliance", "banking", "demat"];
+                  const tabs = ["kyc-dashboard", "kyc-verification", "accounts", "compliance"];
                   const currentIndex = tabs.indexOf(activeTab);
                   if (currentIndex > 0) {
                     setActiveTab(tabs[currentIndex - 1]);
                   }
                 }}
-                disabled={activeTab === "basic"}
+                disabled={activeTab === "kyc-dashboard"}
               >
                 Previous
               </Button>
@@ -2076,13 +2012,13 @@ export default function ProfilePage() {
                 type="button"
                 variant="outline"
                 onClick={() => {
-                  const tabs = ["basic", "identity", "address", "financial", "compliance", "banking", "demat"];
+                  const tabs = ["kyc-dashboard", "kyc-verification", "accounts", "compliance"];
                   const currentIndex = tabs.indexOf(activeTab);
                   if (currentIndex < tabs.length - 1) {
                     setActiveTab(tabs[currentIndex + 1]);
                   }
                 }}
-                disabled={activeTab === "demat"}
+                disabled={activeTab === "compliance"}
               >
                 Next
               </Button>
