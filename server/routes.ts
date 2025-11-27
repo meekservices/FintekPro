@@ -1695,9 +1695,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error('Error verifying PAN:', error);
+      
+      // Provide user-friendly error messages
+      if (error instanceof Error) {
+        const errorMessage = error.message;
+        
+        // Check for specific error types
+        if (errorMessage.includes('Authentication failed') || errorMessage.includes('credentials')) {
+          return res.status(500).json({
+            success: false,
+            message: 'PAN verification service is not configured. Please contact support.'
+          });
+        }
+        
+        if (errorMessage.includes('Invalid PAN format')) {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid PAN format. PAN must be in format: ABCDE1234F'
+          });
+        }
+        
+        if (errorMessage.includes('PAN_NOT_FOUND') || errorMessage.includes('not found')) {
+          return res.status(400).json({
+            success: false,
+            message: 'PAN not found in database. Please verify the PAN number.'
+          });
+        }
+      }
+      
       res.status(500).json({
         success: false,
-        message: 'Failed to verify PAN'
+        message: 'Failed to verify PAN. Please try again or contact support.'
       });
     }
   });

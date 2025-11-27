@@ -34,14 +34,14 @@ interface SandboxPANResponse {
 class SandboxPANService {
   private baseUrl: string;
   private apiKey: string;
-  private clientId: string;
+  private apiSecret: string;
 
   constructor() {
     this.baseUrl = process.env.SANDBOX_BASE_URL || 'https://api.sandbox.co.in';
     this.apiKey = process.env.SANDBOX_API_KEY || '';
-    this.clientId = process.env.SANDBOX_CLIENT_ID || '';
+    this.apiSecret = process.env.SANDBOX_API_SECRET || '';
 
-    if (!this.apiKey || !this.clientId) {
+    if (!this.apiKey || !this.apiSecret) {
       console.warn('⚠️ [Sandbox PAN API] API credentials not configured. Using mock mode.');
     }
   }
@@ -58,7 +58,7 @@ class SandboxPANService {
       }
 
       // If no API credentials, use mock response for development
-      if (!this.apiKey || !this.clientId) {
+      if (!this.apiKey || !this.apiSecret) {
         return this.mockPANVerification(panNumber, fullName);
       }
 
@@ -76,8 +76,8 @@ class SandboxPANService {
           headers: {
             'Content-Type': 'application/json',
             'x-api-key': this.apiKey,
-            'x-api-version': '1.0',
-            'x-client-id': this.clientId
+            'x-api-secret': this.apiSecret,
+            'x-api-version': '1.0'
           },
           timeout: 30000
         }
