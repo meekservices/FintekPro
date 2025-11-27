@@ -1638,21 +1638,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const hasCkycData = !!(userProfile?.ckycFetchedViaAuthBridge && userProfile?.ckycAuthBridgeResponse);
       const hasAadhaarVerified = !!(userProfile?.aadharNumber && userProfile?.aadharNumber.length === 12);
       
-      // Determine current step smartly - send to first incomplete step
+      // Determine current step smartly based on existing data
       let currentStep = "pan_verification";
-      if (hasPanVerified) {
-        // PAN done, check Aadhaar next
-        if (hasAadhaarVerified) {
-          // Aadhaar done, check data collection
-          if (hasCkycData) {
-            // Data collection done, go to risk profiling
-            currentStep = "risk_profiling";
-          } else {
-            currentStep = "data_collection";
-          }
-        } else {
-          currentStep = "aadhaar_otp";
-        }
+      if (hasPanVerified && hasCkycData) {
+        currentStep = "completion";
+      } else if (hasPanVerified) {
+        currentStep = "data_collection";
       }
       
       // Build session data object with required fields
