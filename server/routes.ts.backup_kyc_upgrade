@@ -1534,7 +1534,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             mobile: user.mobile,
             fullName: `${user.firstName || ''} ${user.middleName || ''} ${user.lastName || ''}`.trim(),
             kycLevel: level,
-            kycTier: level === '0' ? 'basic' : level === '1' ? 'standard' : level === '2' ? 'enhanced' : 'accredited_investor',
+            kycTier: level === '0' ? 'basic' : level === '1' ? 'enhanced' : 'accredited_investor',
             kycStatus: 'pending',
             panNumber: null,
             panVerified: false,
@@ -1563,7 +1563,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           mobile: user.mobile,
           fullName: `${user.firstName || ''} ${user.middleName || ''} ${user.lastName || ''}`.trim(),
           kycLevel: level,
-          kycTier: level === '0' ? 'basic' : level === '1' ? 'standard' : level === '2' ? 'enhanced' : 'accredited_investor',
+          kycTier: level === '0' ? 'basic' : level === '1' ? 'enhanced' : 'accredited_investor',
           kycStatus: profile.kycStatus || 'pending',
           panNumber: profile.panNumber || null,
           panVerified: profile.panVerifiedViaSandbox || false,
@@ -2130,10 +2130,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ckycAuthBridgeFetchedAt: new Date(),
           ckycAuthBridgeKin: ckycResult.data.kin,
           ckycAuthBridgeResponse: ckycResult.data,
-          ckycAuthBridgeStatus: 'found',
-          kycLevel: '2',
-          kycLevelUpgradedAt: new Date(),
-          kycTier: 'enhanced'
+          ckycAuthBridgeStatus: 'found'
         };
 
         if (existingProfile && existingProfile.length > 0) {
@@ -2147,7 +2144,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               ...ckycUpdateData
             });
         }
-        console.log('✅ Upgraded user to KYC Level 2 (CKYC verified)');
       } else {
         console.log('ℹ️ CKYC record not found via AuthBridge for PAN:', panNumber);
       }
