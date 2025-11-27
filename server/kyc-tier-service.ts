@@ -242,28 +242,37 @@ export async function getUserProductAccess(userId: string): Promise<{
   unlockedProducts: string[];
   tierProducts: Record<string, string[]>;
 }> {
-  const profile = await db.query.userProfiles.findFirst({
-    where: eq(userProfiles.userId, userId),
-  });
-
+  // Import dynamic KYC level calculator
+  const { getUserKYCLevel } = await import("./middleware/kyc-level-gate");
+  
+  const { level, profile } = await getUserKYCLevel(userId);
+  
   if (!profile) {
     throw new Error("User profile not found");
   }
 
-  const tier = profile.kycTier || "basic";
+  // Map dynamic KYC level to tier names
+  // Level 0 = basic, Level 1 = basic (PAN only), Level 2 = enhanced (full KYC)
+  let tier: string;
   let unlockedProducts: string[] = [];
 
-  // Accumulate products based on tier (higher tiers get all lower tier products)
-  if (tier === "basic") {
-    unlockedProducts = [...PRODUCT_ACCESS_MATRIX.basic];
-  } else if (tier === "enhanced") {
-    unlockedProducts = [...PRODUCT_ACCESS_MATRIX.basic, ...PRODUCT_ACCESS_MATRIX.enhanced];
-  } else if (tier === "accredited_investor") {
+  // Check for accredited investor status first
+  const isAccredited = profile.accreditedInvestorStatus === "verified";
+  
+  if (isAccredited) {
+    tier = "accredited_investor";
     unlockedProducts = [
       ...PRODUCT_ACCESS_MATRIX.basic,
       ...PRODUCT_ACCESS_MATRIX.enhanced,
       ...PRODUCT_ACCESS_MATRIX.accredited_investor,
     ];
+  } else if (level === "2") {
+    tier = "enhanced";
+    unlockedProducts = [...PRODUCT_ACCESS_MATRIX.basic, ...PRODUCT_ACCESS_MATRIX.enhanced];
+  } else {
+    // Level 0 or 1 = basic tier
+    tier = "basic";
+    unlockedProducts = [...PRODUCT_ACCESS_MATRIX.basic];
   }
 
   return {
