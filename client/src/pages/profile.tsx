@@ -17,10 +17,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
-import { User, Shield, AlertTriangle, CheckCircle, FileText, Building2, Globe, Star, Award, Lock, Heart, MapPin, Phone, Mail, CreditCard, Banknote, Users, Calendar, RefreshCw } from "lucide-react";
+import { User, Shield, AlertTriangle, CheckCircle, FileText, Building2, Globe, Star, Award, Lock, Heart, MapPin, Phone, Mail, CreditCard, Banknote, Users, Calendar, RefreshCw, ShieldCheck, Crown, CheckCircle2, XCircle, Edit, ArrowRight, Unlock, TrendingUp, Clock, AlertCircle } from "lucide-react";
 import { BankingTab } from "@/components/BankingDematTab";
 import { DematTab } from "@/components/DematTab";
 import { KYCStatusCard } from "@/components/KYCStatusCard";
@@ -400,6 +401,87 @@ export default function ProfilePage() {
     },
   });
 
+  // KYC Dashboard State and Queries
+  const [selectedTier, setSelectedTier] = useState<string>('');
+
+  // Fetch user's KYC profile
+  const { data: kycProfile, isLoading: kycProfileLoading } = useQuery({
+    queryKey: ['/api/kyc/my-profile'],
+    enabled: !!user
+  });
+
+  // Fetch product eligibility
+  const { data: eligibilityData, isLoading: eligibilityLoading } = useQuery({
+    queryKey: ['/api/kyc/product-eligibility'],
+    enabled: !!user
+  });
+
+  // KYC upgrade request mutation
+  const upgradeMutation = useMutation({
+    mutationFn: async (targetTier: string) => {
+      return await apiRequest('POST', '/api/kyc/request-upgrade', { body: { targetTier } });
+    },
+    onSuccess: (data) => {
+      toast({
+        title: 'Upgrade Requested',
+        description: data.message || 'Your KYC tier upgrade request has been submitted.',
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/kyc/my-profile'] });
+      setSelectedTier('');
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Upgrade Failed',
+        description: error.message || 'Failed to request KYC upgrade',
+        variant: 'destructive',
+      });
+    }
+  });
+
+  // KYC Helper Functions
+  const getTierIcon = (tier: string) => {
+    switch (tier) {
+      case 'basic':
+        return <Shield className="h-5 w-5" />;
+      case 'enhanced':
+        return <ShieldCheck className="h-5 w-5" />;
+      case 'accredited_investor':
+        return <Crown className="h-5 w-5" />;
+      default:
+        return <Shield className="h-5 w-5" />;
+    }
+  };
+
+  const getTierColor = (tier: string) => {
+    switch (tier) {
+      case 'basic':
+        return 'bg-blue-500';
+      case 'enhanced':
+        return 'bg-green-500';
+      case 'accredited_investor':
+        return 'bg-purple-500';
+      default:
+        return 'bg-gray-500';
+    }
+  };
+
+  const getTierBadgeVariant = (tier: string): "default" | "secondary" | "destructive" | "outline" => {
+    switch (tier) {
+      case 'basic':
+        return 'default';
+      case 'enhanced':
+        return 'secondary';
+      case 'accredited_investor':
+        return 'outline';
+      default:
+        return 'default';
+    }
+  };
+
+  const formatTierName = (tier: string) => {
+    return tier.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
+
   // Calculate profile completeness
   const calculateCompleteness = useCallback(() => {
     const values = form.getValues();
@@ -576,7 +658,293 @@ export default function ProfilePage() {
 
             {/* KYC Dashboard Tab */}
             <TabsContent value="kyc-dashboard" className="space-y-6">
-              <KYCVerificationDashboard />
+              {/* KYC Dashboard Implementation */}
+              {!user ? (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>Please log in to view your KYC dashboard</AlertDescription>
+                </Alert>
+              ) : kycProfileLoading || eligibilityLoading ? (
+                <div className="animate-pulse space-y-4">
+                  <div className="h-32 bg-gray-200 dark:bg-gray-800 rounded-lg"></div>
+                  <div className="h-64 bg-gray-200 dark:bg-gray-800 rounded-lg"></div>
+                </div>
+              ) : (
+                <>
+                  {(() => {
+                    const kycProfileData = (kycProfile as any)?.data;
+                    const eligibility = (eligibilityData as any)?.data;
+
+                    return (
+                      <>
+                        {/* Header Section */}
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <h1 className="text-3xl font-bold dark:text-white" data-testid="heading-kyc-dashboard">My KYC Dashboard</h1>
+                            <p className="text-gray-600 dark:text-gray-400">Manage your verification and access</p>
+                          </div>
+                          <Badge className={`${getTierColor(kycProfileData?.kycTier || 'basic')} text-white px-4 py-2 text-lg`} data-testid="badge-kyc-tier">
+                            {getTierIcon(kycProfileData?.kycTier || 'basic')}
+                            <span className="ml-2">{formatTierName(kycProfileData?.kycTier || 'basic')}</span>
+                          </Badge>
+                        </div>
+
+                        {/* KYC Profile Overview */}
+                        <Card data-testid="card-kyc-profile">
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              <FileText className="h-5 w-5" />
+                              KYC Profile Overview
+                            </CardTitle>
+                            <CardDescription>Your unique identification and verification status</CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                              {/* User ID */}
+                              <div>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">User ID</p>
+                                <p className="font-semibold dark:text-white" data-testid="text-user-id">{kycProfileData?.userId}</p>
+                              </div>
+
+                              {/* Full Name */}
+                              <div>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">Full Name</p>
+                                <p className="font-semibold dark:text-white" data-testid="text-full-name">{kycProfileData?.fullName || 'Not provided'}</p>
+                              </div>
+
+                              {/* Email */}
+                              <div>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">Email</p>
+                                <p className="font-semibold dark:text-white" data-testid="text-email">{kycProfileData?.email}</p>
+                              </div>
+
+                              {/* Mobile */}
+                              <div>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">Mobile</p>
+                                <p className="font-semibold dark:text-white" data-testid="text-mobile">{kycProfileData?.mobile}</p>
+                              </div>
+
+                              {/* PAN Number */}
+                              <div>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">PAN Number</p>
+                                <p className="font-semibold dark:text-white" data-testid="text-pan">{kycProfileData?.panNumber || 'Not verified'}</p>
+                              </div>
+
+                              {/* KYC Status */}
+                              <div>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">KYC Status</p>
+                                <Badge variant={kycProfileData?.kycStatus === 'approved' ? 'default' : 'secondary'} data-testid="badge-kyc-status">
+                                  {kycProfileData?.kycStatus || 'pending'}
+                                </Badge>
+                              </div>
+                            </div>
+
+                            <Separator />
+
+                            {/* Verification Status */}
+                            <div>
+                              <h3 className="font-semibold mb-3 dark:text-white">Verification Status</h3>
+                              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                                <VerificationBadge 
+                                  label="PAN" 
+                                  verified={kycProfileData?.panVerified} 
+                                  testId="status-pan-verified"
+                                />
+                                <VerificationBadge 
+                                  label="Aadhaar" 
+                                  verified={kycProfileData?.aadhaarVerified} 
+                                  testId="status-aadhaar-verified"
+                                />
+                                <VerificationBadge 
+                                  label="Bank" 
+                                  verified={kycProfileData?.bankVerified} 
+                                  testId="status-bank-verified"
+                                />
+                                <VerificationBadge 
+                                  label="Video KYC" 
+                                  verified={kycProfileData?.videoKycCompleted} 
+                                  testId="status-video-kyc"
+                                />
+                                <VerificationBadge 
+                                  label="CKYC" 
+                                  verified={kycProfileData?.ckycVerified} 
+                                  testId="status-ckyc-verified"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Compliance Status */}
+                            <div>
+                              <h3 className="font-semibold mb-3 dark:text-white">Compliance Status</h3>
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <ComplianceItem 
+                                  label="Risk Category" 
+                                  value={kycProfileData?.riskCategory || 'low'} 
+                                  testId="text-risk-category"
+                                />
+                                <ComplianceItem 
+                                  label="PEP Status" 
+                                  value={kycProfileData?.pepStatus === 'Y' ? 'Yes' : 'No'} 
+                                  testId="text-pep-status"
+                                />
+                                <ComplianceItem 
+                                  label="FATCA Status" 
+                                  value={kycProfileData?.fatcaStatus === 'Y' ? 'Declared' : 'Not Applicable'} 
+                                  testId="text-fatca-status"
+                                />
+                                <ComplianceItem 
+                                  label="AML Status" 
+                                  value={kycProfileData?.amlStatus || 'clear'} 
+                                  testId="text-aml-status"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Edit KYC Button */}
+                            <div className="flex justify-end">
+                              <Button variant="outline" className="gap-2" data-testid="button-edit-kyc">
+                                <Edit className="h-4 w-4" />
+                                Edit KYC Details
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        {/* Current Tier Benefits & Upgrade */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                          {/* Current Tier Benefits */}
+                          <Card data-testid="card-current-tier">
+                            <CardHeader>
+                              <CardTitle className="flex items-center gap-2">
+                                {getTierIcon(kycProfileData?.kycTier || 'basic')}
+                                Your Current Tier
+                              </CardTitle>
+                              <CardDescription>{kycProfileData?.kycTierMetadata?.description}</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="space-y-3">
+                                <div className="flex items-center gap-2">
+                                  <CheckCircle2 className="h-5 w-5 text-green-500" />
+                                  <span className="text-sm dark:text-white">
+                                    {kycProfileData?.kycTierMetadata?.productsUnlocked?.length || 0} Products Unlocked
+                                  </span>
+                                </div>
+                                {kycProfileData?.kycTierMetadata?.maxAnnualInvestment && (
+                                  <div className="flex items-center gap-2">
+                                    <TrendingUp className="h-5 w-5 text-blue-500" />
+                                    <span className="text-sm dark:text-white">
+                                      Max Investment: ₹{(kycProfileData.kycTierMetadata.maxAnnualInvestment / 1000).toFixed(0)}K/year
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
+
+                          {/* Upgrade Option */}
+                          {eligibility?.nextTier && (
+                            <Card className="border-2 border-primary" data-testid="card-upgrade-tier">
+                              <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                  <ArrowRight className="h-5 w-5" />
+                                  Upgrade to {formatTierName(eligibility.nextTier)}
+                                </CardTitle>
+                                <CardDescription>Unlock more investment products and higher limits</CardDescription>
+                              </CardHeader>
+                              <CardContent>
+                                <Dialog>
+                                  <DialogTrigger asChild>
+                                    <Button 
+                                      className="w-full" 
+                                      onClick={() => setSelectedTier(eligibility.nextTier)}
+                                      data-testid="button-upgrade-tier"
+                                    >
+                                      Request Upgrade
+                                    </Button>
+                                  </DialogTrigger>
+                                  <DialogContent>
+                                    <DialogHeader>
+                                      <DialogTitle>Request KYC Tier Upgrade</DialogTitle>
+                                      <DialogDescription>
+                                        You are requesting an upgrade to {formatTierName(eligibility.nextTier)}. 
+                                        Our compliance team will review your request within 24-48 hours.
+                                      </DialogDescription>
+                                    </DialogHeader>
+                                    <Button 
+                                      onClick={() => upgradeMutation.mutate(eligibility.nextTier)}
+                                      disabled={upgradeMutation.isPending}
+                                      data-testid="button-confirm-upgrade"
+                                    >
+                                      {upgradeMutation.isPending ? 'Submitting...' : 'Confirm Upgrade Request'}
+                                    </Button>
+                                  </DialogContent>
+                                </Dialog>
+                              </CardContent>
+                            </Card>
+                          )}
+                        </div>
+
+                        {/* Product Eligibility */}
+                        <Card data-testid="card-product-eligibility">
+                          <CardHeader>
+                            <CardTitle>Product Eligibility</CardTitle>
+                            <CardDescription>Products you can access based on your KYC tier</CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-6">
+                              {/* Accessible Products */}
+                              <div>
+                                <h3 className="font-semibold mb-3 text-green-600 dark:text-green-400 flex items-center gap-2">
+                                  <Unlock className="h-5 w-5" />
+                                  Unlocked Products ({eligibility?.totalProductsAccessible || 0})
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                  {eligibility?.accessibleProducts?.slice(0, 6).map((product: any) => (
+                                    <ProductCard 
+                                      key={product.productCode}
+                                      product={product}
+                                      isAccessible={true}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* Locked Products */}
+                              {eligibility?.lockedProducts && eligibility.lockedProducts.length > 0 && (
+                                <div>
+                                  <h3 className="font-semibold mb-3 text-gray-600 dark:text-gray-400 flex items-center gap-2">
+                                    <Lock className="h-5 w-5" />
+                                    Locked Products ({eligibility?.totalProductsLocked || 0})
+                                  </h3>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {eligibility?.lockedProducts?.slice(0, 6).map((product: any) => (
+                                      <ProductCard 
+                                        key={product.productCode}
+                                        product={product}
+                                        isAccessible={false}
+                                      />
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        {/* Re-KYC Information (if applicable) */}
+                        {kycProfileData?.riskNextReview && (
+                          <Alert data-testid="alert-rekyc">
+                            <Clock className="h-4 w-4" />
+                            <AlertDescription>
+                              Next KYC Review Due: {new Date(kycProfileData.riskNextReview).toLocaleDateString('en-IN')}
+                            </AlertDescription>
+                          </Alert>
+                        )}
+                      </>
+                    );
+                  })()}
+                </>
+              )}
             </TabsContent>
 
             {/* Basic Information Tab */}
@@ -1555,6 +1923,62 @@ export default function ProfilePage() {
           </div>
         </form>
       </Form>
+    </div>
+  );
+}
+
+// KYC Dashboard Helper Components
+
+// Verification Badge Component
+function VerificationBadge({ label, verified, testId }: { label: string; verified: boolean; testId: string }) {
+  return (
+    <div className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg" data-testid={testId}>
+      {verified ? (
+        <CheckCircle2 className="h-4 w-4 text-green-500" />
+      ) : (
+        <XCircle className="h-4 w-4 text-gray-400" />
+      )}
+      <span className="text-sm dark:text-white">{label}</span>
+    </div>
+  );
+}
+
+// Compliance Item Component
+function ComplianceItem({ label, value, testId }: { label: string; value: string; testId: string }) {
+  return (
+    <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+      <p className="text-xs text-gray-600 dark:text-gray-400">{label}</p>
+      <p className="font-semibold capitalize dark:text-white" data-testid={testId}>{value}</p>
+    </div>
+  );
+}
+
+// Product Card Component
+function ProductCard({ product, isAccessible }: { product: any; isAccessible: boolean }) {
+  return (
+    <div 
+      className={`p-3 rounded-lg border ${
+        isAccessible 
+          ? 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800' 
+          : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+      }`}
+      data-testid={`card-product-${product.productCode}`}
+    >
+      <div className="flex items-start justify-between">
+        <div className="flex-1">
+          <p className="font-semibold text-sm dark:text-white">{product.productName}</p>
+          {!isAccessible && (
+            <Badge variant="outline" className="mt-1 text-xs">
+              Requires: {product.requiredUpgrade?.replace(/_/g, ' ')}
+            </Badge>
+          )}
+        </div>
+        {isAccessible ? (
+          <Unlock className="h-4 w-4 text-green-500" />
+        ) : (
+          <Lock className="h-4 w-4 text-gray-400" />
+        )}
+      </div>
     </div>
   );
 }
