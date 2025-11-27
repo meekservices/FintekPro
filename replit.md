@@ -18,6 +18,14 @@ The frontend uses React 18 with TypeScript, employing shadcn/ui components built
 #### Technical Implementations
 The frontend leverages Wouter for routing, TanStack Query for state management, and React Hook Form with Zod for form handling, all built with Vite. The backend uses Express.js with TypeScript, connected to a PostgreSQL database via Drizzle ORM. A RESTful API pattern is implemented with production-grade error handling and resilience infrastructure including AppError taxonomy, automatic retry utility, circuit breaker pattern, resilient client wrappers, and centralized error handling middleware. Authentication includes a simplified system with mandatory two-factor OTP verification (email/SMS) and unified login (email, mobile, or userId), utilizing Passport.js. PAN verification uses Cashfree Verification Suite API. Verified KYC profile display is integrated into the KYC dashboard, including real-time product eligibility based on a tiered KYC system. A duplicate detection and prevention system is implemented with Levenshtein fuzzy name matching, risk scoring, and PAN/email/mobile duplicate detection. The Admin portal includes a comprehensive user management system with full CRUD operations for users. A marketing automation platform is implemented with B2B lead prospecting, email campaigns (Zoho Campaigns), and WhatsApp broadcasts (AiSensy). A comprehensive Stakeholders Management System provides separate entity tables and backend APIs for partners, agents, and suppliers, with full CRUD operations, search/filtering, pagination, and shared Zod schema validation.
 
+#### Environment Configuration
+The platform uses environment-based auto-detection for API endpoints:
+-   **Development Environment**: Automatically uses SANDBOX mode for Cashfree services (safe testing without affecting production APIs)
+-   **Production Environment**: Automatically uses PRODUCTION mode when published
+-   **Auto-Detection Logic**: Services check `CASHFREE_ENVIRONMENT` if explicitly set, otherwise fall back to `NODE_ENV` detection
+-   **Credential Management**: Production credentials stored in production secrets vault, development uses sandbox credentials
+-   **Graceful Degradation**: Development mode shows warnings for missing credentials instead of failing
+
 #### Unlisted Marketplace
 A SEBI/RBI-compliant Unlisted Marketplace for trading unlisted company shares with:
 -   **Price Suggestion Engine**: Multi-methodology weighted formula (35% landing price + 30% recent deals + 20% market feed + 15% intrinsic value) with automatic 10% risk discount for high debt or negative net worth.
