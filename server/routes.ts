@@ -1518,6 +1518,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  // Product Eligibility API - Returns detailed product access for KYC dashboard
+  app.get("/api/kyc/product-eligibility", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { level } = await getUserKYCLevel(userId);
+      
+      // Define product catalog with details
+      const productCatalog = {
+        // Level 0 - Browse Only
+        BROWSE: { productCode: 'BROWSE', productName: 'Browse Products', category: 'General', requiredLevel: '0' },
+        
+        // Level 1 - Loans & Insurance
+        LOANS_PERSONAL: { productCode: 'LOANS_PERSONAL', productName: 'Personal Loans', category: 'Loans', requiredLevel: '1' },
+        LOANS_HOME: { productCode: 'LOANS_HOME', productName: 'Home Loans', category: 'Loans', requiredLevel: '1' },
+        LOANS_VEHICLE: { productCode: 'LOANS_VEHICLE', productName: 'Vehicle Loans', category: 'Loans', requiredLevel: '1' },
+        LOANS_BUSINESS: { productCode: 'LOANS_BUSINESS', productName: 'Business Loans', category: 'Loans', requiredLevel: '1' },
+        INSURANCE_LIFE: { productCode: 'INSURANCE_LIFE', productName: 'Life Insurance', category: 'Insurance', requiredLevel: '1' },
+        INSURANCE_HEALTH: { productCode: 'INSURANCE_HEALTH', productName: 'Health Insurance', category: 'Insurance', requiredLevel: '1' },
+        INSURANCE_GENERAL: { productCode: 'INSURANCE_GENERAL', productName: 'General Insurance', category: 'Insurance', requiredLevel: '1' },
+        
+        // Level 2 - Investments
+        MUTUAL_FUNDS: { productCode: 'MUTUAL_FUNDS', productName: 'Mutual Funds', category: 'Investments', requiredLevel: '2' },
+        PMS: { productCode: 'PMS', productName: 'Portfolio Management', category: 'Investments', requiredLevel: '2' },
+        AIF: { productCode: 'AIF', productName: 'Alternative Investment Funds', category: 'Investments', requiredLevel: '2' },
+        UNLISTED_SECURITIES: { productCode: 'UNLISTED_SECURITIES', productName: 'Unlisted Securities', category: 'Investments', requiredLevel: '2' },
+        EQUITY_TRADING: { productCode: 'EQUITY_TRADING', productName: 'Equity Trading', category: 'Trading', requiredLevel: '2' },
+        DERIVATIVES: { productCode: 'DERIVATIVES', productName: 'Derivatives (F&O)', category: 'Trading', requiredLevel: '2' },
+        COMMODITIES: { productCode: 'COMMODITIES', productName: 'Commodities', category: 'Trading', requiredLevel: '2' },
+        BONDS: { productCode: 'BONDS', productName: 'Bonds & NCDs', category: 'Fixed Income', requiredLevel: '2' },
+        NCDS: { productCode: 'NCDS', productName: 'Non-Convertible Debentures', category: 'Fixed Income', requiredLevel: '2' },
+        GLOBAL_TRADING: { productCode: 'GLOBAL_TRADING', productName: 'Global Trading', category: 'Trading', requiredLevel: '2' },
+        PORTFOLIO_ANALYTICS: { productCode: 'PORTFOLIO_ANALYTICS', productName: 'Portfolio Analytics', category: 'Tools', requiredLevel: '2' }
+      };
+
+      const levelHierarchy = { '0': 0, '1': 1, '2': 2 };
+      const accessibleProducts: any[] = [];
+      const lockedProducts: any[] = [];
+
+      for (const [key, product] of Object.entries(productCatalog)) {
+        const hasAccess = levelHierarchy[level] >= levelHierarchy[product.requiredLevel as '0' | '1' | '2'];
+        if (hasAccess) {
+          accessibleProducts.push({
+            productCode: product.productCode,
+            productName: product.productName,
+            category: product.category
+          });
+        } else {
+          lockedProducts.push({
+            productCode: product.productCode,
+            productName: product.productName,
+            category: product.category,
+            requiredLevel: product.requiredLevel
+          });
+        }
+      }
+
+      // Determine next tier for upgrade prompt
+      const nextTier = level === '0' ? 'standard' : level === '1' ? 'enhanced' : null;
+
+      res.json({
+        success: true,
+        data: {
+          currentLevel: level,
+          currentTier: level === '0' ? 'basic' : level === '1' ? 'standard' : 'enhanced',
+          accessibleProducts,
+          lockedProducts,
+          totalProductsAccessible: accessibleProducts.length,
+          totalProductsLocked: lockedProducts.length,
+          nextTier
+        }
+      });
+    } catch (error) {
+      console.error('Product eligibility error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch product eligibility'
+      });
+    }
+  });
   // Get detailed KYC profile for dashboard
   app.get("/api/kyc/my-profile", requireClientOrHigher, async (req: any, res) => {
     try {
