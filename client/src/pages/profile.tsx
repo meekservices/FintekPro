@@ -21,7 +21,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
-import { User, Shield, AlertTriangle, CheckCircle, FileText, Building2, Globe, Star, Award, Lock, Heart, MapPin, Phone, Mail, CreditCard, Banknote, Users, Calendar, RefreshCw, ShieldCheck, Crown, CheckCircle2, XCircle, Edit, ArrowRight, Unlock, TrendingUp, Clock, AlertCircle } from "lucide-react";
+import { User, Shield, AlertTriangle, CheckCircle, FileText, Building2, Globe, Star, Award, Lock, Heart, MapPin, Phone, Mail, CreditCard, Banknote, Users, Calendar, RefreshCw, ShieldCheck, Crown, CheckCircle2, XCircle, Edit, ArrowRight, Unlock, TrendingUp, Clock, AlertCircle, Sparkles } from "lucide-react";
+import { useLocation } from 'wouter';
 import { BankingTab } from "@/components/BankingDematTab";
 import { DematTab } from "@/components/DematTab";
 import { KYCStatusCard } from "@/components/KYCStatusCard";
@@ -325,6 +326,7 @@ export default function ProfilePage() {
   const [isAmlScreening, setIsAmlScreening] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
+  const [, setLocation] = useLocation();
 
   // Fetch existing profile data
   const { data: profile, isLoading: profileLoading } = useQuery({
@@ -513,8 +515,6 @@ export default function ProfilePage() {
   });
 
   // KYC Dashboard State and Queries
-  const [selectedTier, setSelectedTier] = useState<string>('');
-
   // Fetch user's KYC profile
   const { data: kycProfile, isLoading: kycProfileLoading } = useQuery({
     queryKey: ['/api/kyc/my-profile'],
@@ -531,28 +531,6 @@ export default function ProfilePage() {
   const { data: eligibilityData, isLoading: eligibilityLoading } = useQuery({
     queryKey: ['/api/kyc/product-eligibility'],
     enabled: !!user
-  });
-
-  // KYC upgrade request mutation
-  const upgradeMutation = useMutation({
-    mutationFn: async (targetTier: string) => {
-      return await apiRequest('POST', '/api/kyc/request-upgrade', { body: { targetTier } });
-    },
-    onSuccess: (data) => {
-      toast({
-        title: 'Upgrade Requested',
-        description: data.message || 'Your KYC tier upgrade request has been submitted.',
-      });
-      queryClient.invalidateQueries({ queryKey: ['/api/kyc/my-profile'] });
-      setSelectedTier('');
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Upgrade Failed',
-        description: error.message || 'Failed to request KYC upgrade',
-        variant: 'destructive',
-      });
-    }
   });
 
   // KYC Helper Functions
@@ -1006,36 +984,20 @@ export default function ProfilePage() {
                                   <ArrowRight className="h-5 w-5" />
                                   Upgrade to {formatTierName(eligibility.nextTier)}
                                 </CardTitle>
-                                <CardDescription>Unlock more investment products and higher limits</CardDescription>
+                                <CardDescription>Complete your KYC in minutes with our smart wizard</CardDescription>
                               </CardHeader>
                               <CardContent>
-                                <Dialog>
-                                  <DialogTrigger asChild>
-                                    <Button 
-                                      className="w-full" 
-                                      onClick={() => setSelectedTier(eligibility.nextTier)}
-                                      data-testid="button-upgrade-tier"
-                                    >
-                                      Request Upgrade
-                                    </Button>
-                                  </DialogTrigger>
-                                  <DialogContent>
-                                    <DialogHeader>
-                                      <DialogTitle>Request KYC Tier Upgrade</DialogTitle>
-                                      <DialogDescription>
-                                        You are requesting an upgrade to {formatTierName(eligibility.nextTier)}. 
-                                        Our compliance team will review your request within 24-48 hours.
-                                      </DialogDescription>
-                                    </DialogHeader>
-                                    <Button 
-                                      onClick={() => upgradeMutation.mutate(eligibility.nextTier)}
-                                      disabled={upgradeMutation.isPending}
-                                      data-testid="button-confirm-upgrade"
-                                    >
-                                      {upgradeMutation.isPending ? 'Submitting...' : 'Confirm Upgrade Request'}
-                                    </Button>
-                                  </DialogContent>
-                                </Dialog>
+                                <Button 
+                                  className="w-full gap-2" 
+                                  onClick={() => setLocation('/onboarding')}
+                                  data-testid="button-start-smart-kyc"
+                                >
+                                  <Sparkles className="h-4 w-4" />
+                                  Start Smart KYC Onboarding
+                                </Button>
+                                <p className="text-sm text-muted-foreground mt-3 text-center">
+                                  Our smart wizard will auto-detect your verified data and guide you through only the missing steps
+                                </p>
                               </CardContent>
                             </Card>
                           )}
