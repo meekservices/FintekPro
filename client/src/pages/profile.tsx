@@ -554,6 +554,46 @@ export default function ProfilePage() {
     }
   }, [profile, profileLoading, form, calculateCompleteness]);
 
+  // Pre-fill form with KYC profile data when available
+  useEffect(() => {
+    if (kycProfile && !kycProfileLoading) {
+      const kycData = (kycProfile as any)?.data;
+      if (kycData) {
+        // Pre-fill email if available
+        if (kycData.email && !form.getValues('email')) {
+          form.setValue('email', kycData.email);
+        }
+        
+        // Pre-fill mobile if available
+        if (kycData.mobile && !form.getValues('mobile')) {
+          form.setValue('mobile', kycData.mobile);
+        }
+        
+        // Pre-fill name fields from fullName if available
+        if (kycData.fullName && !form.getValues('firstName')) {
+          const nameParts = kycData.fullName.trim().split(' ');
+          if (nameParts.length === 1) {
+            form.setValue('firstName', nameParts[0]);
+          } else if (nameParts.length === 2) {
+            form.setValue('firstName', nameParts[0]);
+            form.setValue('lastName', nameParts[1]);
+          } else if (nameParts.length >= 3) {
+            form.setValue('firstName', nameParts[0]);
+            form.setValue('middleName', nameParts.slice(1, -1).join(' '));
+            form.setValue('lastName', nameParts[nameParts.length - 1]);
+          }
+        }
+        
+        // Pre-fill PAN if available
+        if (kycData.panNumber && !form.getValues('panNumber')) {
+          form.setValue('panNumber', kycData.panNumber);
+        }
+        
+        calculateCompleteness();
+      }
+    }
+  }, [kycProfile, kycProfileLoading, form, calculateCompleteness]);
+
   if (profileLoading) {
     return (
       <div className="container mx-auto p-6">
