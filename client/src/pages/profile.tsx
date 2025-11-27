@@ -854,9 +854,41 @@ export default function ProfilePage() {
 
                             <Separator />
 
-                            {/* Verification Status */}
+                            {/* Verification Progress */}
                             <div>
-                              <h3 className="font-semibold mb-3 dark:text-white">Verification Status</h3>
+                              <div className="flex justify-between items-center mb-3">
+                                <h3 className="font-semibold dark:text-white">Verification Progress</h3>
+                                {(() => {
+                                  const verifications = [
+                                    kycProfileData?.panVerified,
+                                    kycProfileData?.aadhaarVerified,
+                                    kycProfileData?.bankVerified,
+                                    kycProfileData?.videoKycCompleted,
+                                    kycProfileData?.ckycVerified
+                                  ];
+                                  const completed = verifications.filter(Boolean).length;
+                                  const total = verifications.length;
+                                  return (
+                                    <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                                      {completed}/{total} Complete
+                                    </span>
+                                  );
+                                })()}
+                              </div>
+                              <Progress 
+                                value={(() => {
+                                  const verifications = [
+                                    kycProfileData?.panVerified,
+                                    kycProfileData?.aadhaarVerified,
+                                    kycProfileData?.bankVerified,
+                                    kycProfileData?.videoKycCompleted,
+                                    kycProfileData?.ckycVerified
+                                  ];
+                                  const completed = verifications.filter(Boolean).length;
+                                  return (completed / verifications.length) * 100;
+                                })()} 
+                                className="h-2 mb-4" 
+                              />
                               <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                                 <VerificationBadge 
                                   label="PAN" 
