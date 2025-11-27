@@ -200,6 +200,11 @@ export default function ReportsHub() {
     enabled: !!user?.id,
   });
 
+  const { data: userProfile } = useQuery({
+    queryKey: ['/api/profile'],
+    enabled: !!user?.id,
+  });
+
   const { data: portfolios } = useQuery({
     queryKey: ['/api/portfolios', user?.id],
     enabled: !!user?.id,
@@ -207,8 +212,14 @@ export default function ReportsHub() {
 
   const portfolioId = (portfolios && Array.isArray(portfolios) && portfolios.length > 0) ? portfolios[0]?.id : '';
 
-  const userKYCLevel = (kycStatus as any)?.panVerified ? 1 : 0;
-  const userPAN = (kycStatus as any)?.panNumber || '';
+  // Extract KYC data from correct API response structure
+  const kycData = (kycStatus as any)?.data;
+  const userKYCLevel = parseInt(kycData?.kycLevel) || 0;
+  const kycLevelName = kycData?.kycLevelName || 'Not Verified';
+  const isPanVerified = kycData?.profile?.panVerified || false;
+  const isCkycFetched = kycData?.profile?.ckycFetched || false;
+  const isKraVerified = kycData?.profile?.kraVerified || false;
+  const userPAN = (userProfile as any)?.panNumber || '';
 
   const syncMFMutation = useMutation({
     mutationFn: async () => {
@@ -263,10 +274,18 @@ export default function ReportsHub() {
   });
 
   const handleSyncToPortfolio = (type: 'mf' | 'demat') => {
-    if (!portfolioId || !userPAN) {
+    if (!isPanVerified) {
       toast({
-        title: "Cannot Sync",
-        description: "Please complete your PAN verification to sync holdings.",
+        title: "PAN Verification Required",
+        description: "Please verify your PAN card to sync holdings from external sources.",
+        variant: "destructive"
+      });
+      return;
+    }
+    if (!portfolioId) {
+      toast({
+        title: "No Portfolio Found",
+        description: "Please create a portfolio first to sync holdings.",
         variant: "destructive"
       });
       return;
@@ -499,7 +518,36 @@ export default function ReportsHub() {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-blue-700">Current Level</span>
-                      <Badge className="bg-blue-600">Level {userKYCLevel}</Badge>
+                      <Badge className={userKYCLevel >= 2 ? "bg-green-600" : userKYCLevel >= 1 ? "bg-blue-600" : "bg-gray-500"}>
+                        {kycLevelName}
+                      </Badge>
+                    </div>
+                    <Separator />
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-blue-700">PAN Verified</span>
+                        {isPanVerified ? (
+                          <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        ) : (
+                          <AlertCircle className="w-4 h-4 text-amber-500" />
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-blue-700">CKYC Fetched</span>
+                        {isCkycFetched ? (
+                          <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        ) : (
+                          <AlertCircle className="w-4 h-4 text-amber-500" />
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-blue-700">KRA Verified</span>
+                        {isKraVerified ? (
+                          <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        ) : (
+                          <AlertCircle className="w-4 h-4 text-amber-500" />
+                        )}
+                      </div>
                     </div>
                     <Separator />
                     <div className="text-sm text-blue-700">
@@ -541,9 +589,9 @@ export default function ReportsHub() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <Button
-                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50"
                     onClick={() => handleSyncToPortfolio('mf')}
-                    disabled={isSyncing === 'mf' || !userPAN}
+                    disabled={isSyncing === 'mf' || !isPanVerified}
                     data-testid="sync-mf-button"
                   >
                     {isSyncing === 'mf' ? (
@@ -554,9 +602,9 @@ export default function ReportsHub() {
                     Sync Mutual Funds from BSE STAR
                   </Button>
                   <Button
-                    className="w-full bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700"
+                    className="w-full bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 disabled:opacity-50"
                     onClick={() => handleSyncToPortfolio('demat')}
-                    disabled={isSyncing === 'demat' || !userPAN}
+                    disabled={isSyncing === 'demat' || !isPanVerified}
                     data-testid="sync-demat-button"
                   >
                     {isSyncing === 'demat' ? (
@@ -566,9 +614,15 @@ export default function ReportsHub() {
                     )}
                     Sync Demat from NSDL/CDSL
                   </Button>
-                  {!userPAN && (
+                  {!isPanVerified && (
                     <p className="text-xs text-amber-600 text-center">
-                      Complete PAN verification to sync holdings
+                      Complete PAN verification to enable sync
+                    </p>
+                  )}
+                  {isPanVerified && (
+                    <p className="text-xs text-green-600 text-center flex items-center justify-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" />
+                      PAN verified - Sync enabled
                     </p>
                   )}
                 </CardContent>
