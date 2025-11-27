@@ -161,6 +161,7 @@ export function EnhancedNavigation() {
           icon: Briefcase,
           description: "AI-powered investment planning and portfolio management",
           subItems: [
+            { name: "My Portfolio", href: "/portfolio", description: "Holdings and performance tracking" },
             { name: "AI Recommendations", href: "/wealth-management?tab=recommendations", description: "Smart allocation system", badge: "AI POWERED" },
             { name: "Goal Planning", href: "/wealth-management?tab=goals", description: "Financial goal setting" },
             { name: "Risk Assessment", href: "/wealth-management?tab=risk", description: "Portfolio risk analysis" },
