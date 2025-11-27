@@ -80,6 +80,29 @@ export default function Portfolio() {
     window.location.reload(); // Simple refresh for now
   };
 
+  // Handle unauthenticated users
+  if (!isAuthenticated && !portfoliosLoading) {
+    return (
+      <div className="min-h-screen bg-finance-light" data-testid="portfolio-page">
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0">
+          <div className="text-center py-16">
+            <Shield className="h-16 w-16 text-blue-500 mx-auto mb-4" />
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Sign In Required</h1>
+            <p className="text-gray-600 mb-4">
+              Please sign in to view your portfolio holdings and performance
+            </p>
+            <Button 
+              className="bg-blue-500 text-white hover:bg-blue-600"
+              onClick={() => window.location.href = '/auth'}
+            >
+              Sign In
+            </Button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   // Handle PAN-related errors
   if (portfoliosError && !portfoliosLoading) {
     return (
