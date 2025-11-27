@@ -86,13 +86,22 @@ export async function getKYCStatus(userId: string): Promise<KYCStatus> {
     };
   }
 
-  // Determine current KYC level
-  const hasBasic = profile.panNumber && profile.firstName && profile.lastName && profile.address;
-  const hasFull = hasBasic && profile.bankAccountNumber && profile.isProfileCompleted;
-  const hasEnhanced = hasFull && profile.videoKycCompleted;
+  // Determine current KYC level based on verified statuses
+  // Basic: PAN verified (via Sandbox or Cashfree) OR CKYC fetched (minimum KYC requirement)
+  const hasBasicVerification = profile.panVerifiedViaSandbox || profile.ckycFetchedViaAuthBridge || profile.kraVerifiedViaProtean;
+  
+  // Full: Basic + (KRA verified OR has completed profile with bank) - actual verification matters
+  const hasFullVerification = hasBasicVerification && (
+    profile.kraVerifiedViaProtean || 
+    profile.ckycFetchedViaAuthBridge || 
+    (profile.bankAccountNumber && profile.isProfileCompleted)
+  );
+  
+  // Enhanced: Full + Video KYC completed
+  const hasEnhancedVerification = hasFullVerification && profile.videoKycCompleted;
 
   const currentLevel: "none" | "basic" | "full" | "enhanced" = 
-    hasEnhanced ? "enhanced" : hasFull ? "full" : hasBasic ? "basic" : "none";
+    hasEnhancedVerification ? "enhanced" : hasFullVerification ? "full" : hasBasicVerification ? "basic" : "none";
 
   // Calculate or get due date
   let dueDate = profile.kycUpdateDueDate;
