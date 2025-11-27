@@ -266,14 +266,21 @@ export default function Support() {
             </div>
 
             <Tabs defaultValue="general" className="w-full">
-              <ScrollableTabsList className="grid w-full grid-cols-4">
-                {faqCategories.map((category) => (
-                  <TabsTrigger key={category.id} value={category.id} className="flex items-center gap-2">
-                    <category.icon className="h-4 w-4" />
-                    <span className="hidden sm:inline">{category.title}</span>
-                  </TabsTrigger>
-                ))}
-              </ScrollableTabsList>
+              <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-2 mb-6">
+                <ScrollableTabsList className="grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 bg-transparent h-auto">
+                  {faqCategories.map((category) => (
+                    <TabsTrigger 
+                      key={category.id} 
+                      value={category.id} 
+                      className="flex items-center justify-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg py-2.5 transition-all"
+                      data-testid={`tab-${category.id}`}
+                    >
+                      <category.icon className="h-4 w-4" />
+                      <span>{category.title}</span>
+                    </TabsTrigger>
+                  ))}
+                </ScrollableTabsList>
+              </div>
 
               {filteredFaqs.map((category) => (
                 <TabsContent key={category.id} value={category.id}>
