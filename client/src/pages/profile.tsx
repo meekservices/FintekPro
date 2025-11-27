@@ -1035,8 +1035,8 @@ export default function ProfilePage() {
                                   <Unlock className="h-5 w-5" />
                                   Unlocked Products ({eligibility?.totalProductsAccessible || 0})
                                 </h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                  {eligibility?.accessibleProducts?.slice(0, 6).map((product: any) => (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-80 overflow-y-auto">
+                                  {eligibility?.accessibleProducts?.map((product: any) => (
                                     <ProductCard 
                                       key={product.productCode}
                                       product={product}
@@ -1053,8 +1053,8 @@ export default function ProfilePage() {
                                     <Lock className="h-5 w-5" />
                                     Locked Products ({eligibility?.totalProductsLocked || 0})
                                   </h3>
-                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                    {eligibility?.lockedProducts?.slice(0, 6).map((product: any) => (
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-80 overflow-y-auto">
+                                    {eligibility?.lockedProducts?.map((product: any) => (
                                       <ProductCard 
                                         key={product.productCode}
                                         product={product}
