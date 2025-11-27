@@ -1607,6 +1607,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user!.id;
       const { forceNew } = req.body;
       
+      // Deactivate all existing sessions (including expired ones) to prevent duplicate key violations
+      await storage.deactivateAllUserKycSessions(userId);
       // Check for existing active session
       const existingSession = await storage.getActiveKycSession(userId);
       
