@@ -164,7 +164,8 @@ export function EnhancedNavigation() {
             { name: "AI Recommendations", href: "/wealth-management?tab=recommendations", description: "Smart allocation system", badge: "AI POWERED" },
             { name: "Goal Planning", href: "/wealth-management?tab=goals", description: "Financial goal setting" },
             { name: "Risk Assessment", href: "/wealth-management?tab=risk", description: "Portfolio risk analysis" },
-            { name: "Asset Allocation", href: "/wealth-management?tab=dashboard", description: "Core, Alternative, Premium" }
+            { name: "Asset Allocation", href: "/wealth-management?tab=dashboard", description: "Core, Alternative, Premium" },
+            { name: "Retirement Planning", href: "/wealth-management?tab=retirement", description: "Retirement corpus planning" }
           ]
         },
         {
@@ -172,13 +173,7 @@ export function EnhancedNavigation() {
           icon: Calculator,
           description: "Financial planning and analysis tools",
           subItems: [
-            { name: "Expenses & Budgets", href: "/expenses-budgets", description: "AI-powered expense tracking and budgeting", badge: "AI POWERED" },
-            { name: "SIP Calculator", href: "/calculators?tool=sip", description: "Systematic investment planning" },
-            { name: "EMI Calculator", href: "/calculators?tool=emi", description: "Loan EMI and eligibility" },
-            { name: "Tax Calculator", href: "/calculators?tool=tax", description: "Tax planning and optimization" },
-            { name: "Retirement Planner", href: "/calculators?tool=retirement", description: "Retirement corpus planning" },
-            { name: "Goal Planner", href: "/calculators?tool=goals", description: "Financial goal achievement" },
-            { name: "All Calculators", href: "/calculators", description: "Complete calculator suite" }
+            { name: "All Calculators", href: "/calculators", description: "SIP, EMI, Tax & more calculators" }
           ]
         }
       ]
@@ -320,6 +315,7 @@ export function EnhancedNavigation() {
           badge: "INTEGRATED",
           subItems: [
             { name: "Pay Bills", href: "/bbps", description: "Electricity, water, gas, mobile, DTH, broadband" },
+            { name: "Expenses & Budgets", href: "/expenses-budgets", description: "AI-powered expense tracking and budgeting", badge: "AI POWERED" },
             { name: "Bill History", href: "/bbps?tab=history", description: "Transaction history and receipts" },
             { name: "Recurring Payments", href: "/bbps?tab=recurring", description: "Set up auto-pay for bills" }
           ]
