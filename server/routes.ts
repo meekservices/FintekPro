@@ -1524,15 +1524,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/kyc/wizard/start", requireClientOrHigher, async (req: any, res) => {
     try {
       const userId = req.user!.id;
+      const { forceNew } = req.body;
       
       // Check for existing active session
       const existingSession = await storage.getActiveKycSession(userId);
       
-      if (existingSession) {
+      if (existingSession && !forceNew) {
+        // Return existing session with resumable flag
         return res.json({
           success: true,
           session: existingSession,
-          message: "Resuming existing KYC session"
+          resumable: true,
+          message: "You have an existing KYC session. You can resume it or start fresh."
+        });
+      }
+      
+      // If forceNew is true, cancel the existing session
+      if (existingSession && forceNew) {
+        await storage.updateKycVerificationSession(existingSession.id, {
+          isActive: false,
+          completedAt: new Date()
         });
       }
       

@@ -7,6 +7,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { 
   CheckCircle, 
   Loader2,
@@ -22,7 +32,7 @@ import {
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { RadioGroup, RadioGroupItem} from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type WizardStep = 'pan_verification' | 'aadhaar_otp' | 'aadhaar_verification' | 'data_collection' | 'risk_profiling' | 'compliance_signoff' | 'completed';
@@ -33,6 +43,7 @@ interface SessionData {
   panVerified: boolean;
   aadhaarOtpSent: boolean;
   aadhaarOtpVerified: boolean;
+  aadhaarNumber?: string;
   expiresAt?: string;
   panVerificationData?: {
     name: string;
@@ -58,6 +69,10 @@ export default function SmartKYCOnboarding() {
   const [currentStep, setCurrentStep] = useState<WizardStep>('pan_verification');
   const [sessionId, setSessionId] = useState<string>('');
   const [sessionError, setSessionError] = useState<string>('');
+  
+  // Resume Session Dialog State
+  const [showResumeDialog, setShowResumeDialog] = useState(false);
+  const [pendingSession, setPendingSession] = useState<SessionData | null>(null);
   
   // Session Timer State
   const [sessionExpiresAt, setSessionExpiresAt] = useState<Date | null>(null);
@@ -101,11 +116,23 @@ export default function SmartKYCOnboarding() {
   
   // Start or resume session
   const startSessionMutation = useMutation({
-    mutationFn: async () => {
-      return await apiRequest('/api/kyc/wizard/start', { method: 'POST' });
+    mutationFn: async (forceNew: boolean = false) => {
+      return await apiRequest('/api/kyc/wizard/start', {
+        method: 'POST',
+        body: JSON.stringify({ forceNew })
+      });
     },
     onSuccess: (data) => {
       if (data.success && data.session) {
+        // Check if this is a resumable session
+        if (data.resumable && !data.session.panVerified) {
+          // Show resume dialog only if user hasn't completed PAN yet
+          setPendingSession(data.session);
+          setShowResumeDialog(true);
+          return;
+        }
+        
+        // Otherwise, load the session normally
         setSessionId(data.session.id);
         setCurrentStep(data.session.currentStep);
         setSessionError(''); // Clear any previous errors
@@ -128,6 +155,11 @@ export default function SmartKYCOnboarding() {
         if (data.session.aadhaarOtpVerified) {
           setAadhaarData(data.session.aadhaarVerificationData);
         }
+        
+        toast({
+          title: "Session Ready",
+          description: data.resumable ? "Resuming your KYC session" : "New KYC session started",
+        });
       }
     },
     onError: (error) => {
@@ -140,6 +172,47 @@ export default function SmartKYCOnboarding() {
       });
     }
   });
+  
+  // Handle resuming existing session
+  const handleResumeSession = () => {
+    if (pendingSession) {
+      setSessionId(pendingSession.id);
+      setCurrentStep(pendingSession.currentStep);
+      setSessionError('');
+      
+      if (pendingSession.expiresAt) {
+        setSessionExpiresAt(new Date(pendingSession.expiresAt));
+        setShowFiveMinWarning(false);
+        setShowOneMinWarning(false);
+        setSessionExpiredShown(false);
+      }
+      
+      if (pendingSession.panVerified) {
+        setPanData(pendingSession.panVerificationData);
+      }
+      if (pendingSession.aadhaarOtpSent) {
+        setAadhaarMasked(pendingSession.aadhaarNumber || '');
+      }
+      if (pendingSession.aadhaarOtpVerified) {
+        setAadhaarData(pendingSession.aadhaarVerificationData);
+      }
+      
+      setShowResumeDialog(false);
+      setPendingSession(null);
+      
+      toast({
+        title: "Session Resumed",
+        description: "Continuing from where you left off",
+      });
+    }
+  };
+  
+  // Handle starting fresh (cancel old session and create new)
+  const handleStartFresh = () => {
+    setShowResumeDialog(false);
+    setPendingSession(null);
+    startSessionMutation.mutate(true); // Pass forceNew=true
+  };
   
   // KRA Status Check
   const checkKraStatusMutation = useMutation({
@@ -405,7 +478,7 @@ export default function SmartKYCOnboarding() {
   
   // Start session on mount
   useEffect(() => {
-    startSessionMutation.mutate();
+    startSessionMutation.mutate(false);
   }, []);
   
   // Session countdown timer
@@ -1249,7 +1322,7 @@ export default function SmartKYCOnboarding() {
           </AlertDescription>
         </Alert>
         <Button 
-          onClick={() => startSessionMutation.mutate()}
+          onClick={() => startSessionMutation.mutate(false)}
           data-testid="button-retry-session"
         >
           Retry
@@ -1270,6 +1343,26 @@ export default function SmartKYCOnboarding() {
   
   return (
     <div className="container mx-auto py-8 px-4">
+      {/* Resume Session Dialog */}
+      <AlertDialog open={showResumeDialog} onOpenChange={setShowResumeDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Resume KYC Session?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have an incomplete KYC session from earlier. Would you like to continue where you left off or start fresh?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleStartFresh}>
+              Start Fresh
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleResumeSession}>
+              Resume Session
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Smart KYC Onboarding</h1>
         <p className="text-muted-foreground">
