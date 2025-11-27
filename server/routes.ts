@@ -1518,6 +1518,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get detailed KYC profile for dashboard
+  app.get("/api/kyc/my-profile", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { level, profile } = await getUserKYCLevel(userId);
+      const user = req.user;
+      
+      if (!profile) {
+        return res.json({
+          success: true,
+          data: {
+            userId: user.userId || user.id,
+            email: user.email,
+            mobile: user.mobile,
+            fullName: `${user.firstName || ''} ${user.middleName || ''} ${user.lastName || ''}`.trim(),
+            kycLevel: level,
+            kycTier: level === '0' ? 'basic' : level === '1' ? 'enhanced' : 'accredited_investor',
+            kycStatus: 'pending',
+            panNumber: null,
+            panVerified: false,
+            aadhaarVerified: false,
+            bankVerified: false,
+            videoKycCompleted: false,
+            ckycVerified: false,
+            riskCategory: 'low',
+            pepStatus: 'N',
+            fatcaStatus: 'N',
+            amlStatus: 'clear',
+            kycTierMetadata: {
+              description: 'Basic profile - browse products only',
+              productsUnlocked: [],
+              maxAnnualInvestment: 0
+            }
+          }
+        });
+      }
+      
+      res.json({
+        success: true,
+        data: {
+          userId: user.userId || user.id,
+          email: user.email,
+          mobile: user.mobile,
+          fullName: `${user.firstName || ''} ${user.middleName || ''} ${user.lastName || ''}`.trim(),
+          kycLevel: level,
+          kycTier: level === '0' ? 'basic' : level === '1' ? 'enhanced' : 'accredited_investor',
+          kycStatus: profile.kycStatus || 'pending',
+          panNumber: profile.panNumber || null,
+          panVerified: profile.panVerifiedViaSandbox || false,
+          aadhaarVerified: profile.aadhaarVerifiedViaCashfree || false,
+          bankVerified: profile.bankVerified || false,
+          videoKycCompleted: profile.videoKycCompleted || false,
+          ckycVerified: profile.ckycFetchedViaAuthBridge || false,
+          riskCategory: profile.riskCategory || 'low',
+          pepStatus: profile.pepStatus || 'N',
+          fatcaStatus: profile.fatcaStatus || 'N',
+          amlStatus: profile.amlStatus || 'clear',
+          kycTierMetadata: {
+            description: level === '0' 
+              ? 'Basic profile - browse products only' 
+              : level === '1' 
+                ? 'PAN Verified - access loans and insurance' 
+                : 'Full KYC - access all investment products',
+            productsUnlocked: level === '0' 
+              ? [] 
+              : level === '1' 
+                ? ['loans', 'insurance'] 
+                : ['loans', 'insurance', 'mutual_funds', 'equities', 'derivatives', 'unlisted'],
+            maxAnnualInvestment: level === '0' ? 0 : level === '1' ? 1000000 : 10000000
+          }
+        }
+      });
+    } catch (error) {
+      console.error('KYC profile error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch KYC profile'
+      });
+    }
+  });
+
   // Smart KYC Wizard Routes
   
   // Start or get active KYC verification session
