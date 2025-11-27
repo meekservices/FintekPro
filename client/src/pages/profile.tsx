@@ -476,7 +476,7 @@ export default function ProfilePage() {
 
   // Profile update mutation
   const profileMutation = useMutation({
-    mutationFn: (data: ProfileFormData) => apiRequest("PUT", "/api/profile", { body: data }),
+    mutationFn: (data: ProfileFormData) => apiRequest("/api/profile", { method: "PUT", body: JSON.stringify(data) }),
     onSuccess: () => {
       toast({
         title: "Profile Updated",
@@ -496,7 +496,7 @@ export default function ProfilePage() {
 
   // AML Screening mutation
   const amlScreeningMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("POST", "/api/aml/screen", { body: data }),
+    mutationFn: (data: any) => apiRequest("/api/aml/screen", { method: "POST", body: JSON.stringify(data) }),
     onSuccess: () => {
       toast({
         title: "AML Screening Complete",
