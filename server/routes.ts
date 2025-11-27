@@ -12927,6 +12927,233 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================
+  // REPORTS HUB API ENDPOINTS
+  // Comprehensive financial reports from multiple sources
+  // ============================================
+
+  // MF Holdings Report - BSE STAR MF
+  app.post("/api/reports/mf-holdings", async (req, res) => {
+    try {
+      const { userId, panNumber } = req.body;
+      
+      if (!userId || !panNumber) {
+        return res.status(400).json({ error: "userId and panNumber are required" });
+      }
+
+      const { reportsHubService } = await import("./services/reports-hub-service");
+      const report = await reportsHubService.fetchMFHoldings({ userId, panNumber });
+      
+      console.log(`📝 [Audit] MF Holdings report generated for user ${userId}`);
+      
+      res.json(report);
+    } catch (error) {
+      console.error("Error fetching MF Holdings:", error);
+      res.status(500).json({ error: "Failed to fetch MF holdings report" });
+    }
+  });
+
+  // MF Transactions Report - BSE STAR MF
+  app.post("/api/reports/mf-transactions", async (req, res) => {
+    try {
+      const { userId, panNumber, financialYear, fromDate, toDate } = req.body;
+      
+      if (!userId || !panNumber) {
+        return res.status(400).json({ error: "userId and panNumber are required" });
+      }
+
+      const { reportsHubService } = await import("./services/reports-hub-service");
+      const report = await reportsHubService.fetchMFTransactions({ 
+        userId, panNumber, financialYear, fromDate, toDate 
+      });
+      
+      console.log(`📝 [Audit] MF Transactions report generated for user ${userId}`);
+      
+      res.json(report);
+    } catch (error) {
+      console.error("Error fetching MF Transactions:", error);
+      res.status(500).json({ error: "Failed to fetch MF transactions report" });
+    }
+  });
+
+  // SIP Summary Report - BSE STAR MF
+  app.post("/api/reports/sip-summary", async (req, res) => {
+    try {
+      const { userId, panNumber } = req.body;
+      
+      if (!userId || !panNumber) {
+        return res.status(400).json({ error: "userId and panNumber are required" });
+      }
+
+      const { reportsHubService } = await import("./services/reports-hub-service");
+      const report = await reportsHubService.fetchSIPSummary({ userId, panNumber });
+      
+      console.log(`📝 [Audit] SIP Summary report generated for user ${userId}`);
+      
+      res.json(report);
+    } catch (error) {
+      console.error("Error fetching SIP Summary:", error);
+      res.status(500).json({ error: "Failed to fetch SIP summary report" });
+    }
+  });
+
+  // Demat Snapshot Report - NSDL/CDSL via Account Aggregator
+  app.post("/api/reports/demat-snapshot", async (req, res) => {
+    try {
+      const { userId, panNumber, depository = "NSDL" } = req.body;
+      
+      if (!userId || !panNumber) {
+        return res.status(400).json({ error: "userId and panNumber are required" });
+      }
+
+      const { reportsHubService } = await import("./services/reports-hub-service");
+      const report = await reportsHubService.fetchDematSnapshot({ userId, panNumber }, depository);
+      
+      console.log(`📝 [Audit] ${depository} Demat Snapshot generated for user ${userId}`);
+      
+      res.json(report);
+    } catch (error) {
+      console.error("Error fetching Demat Snapshot:", error);
+      res.status(500).json({ error: "Failed to fetch demat snapshot report" });
+    }
+  });
+
+  // EPF Passbook Report - EPFO API
+  app.post("/api/reports/epf-passbook", async (req, res) => {
+    try {
+      const { userId, panNumber } = req.body;
+      
+      if (!userId || !panNumber) {
+        return res.status(400).json({ error: "userId and panNumber are required" });
+      }
+
+      const { reportsHubService } = await import("./services/reports-hub-service");
+      const report = await reportsHubService.fetchEPFPassbook({ userId, panNumber });
+      
+      console.log(`📝 [Audit] EPF Passbook report generated for user ${userId}`);
+      
+      res.json(report);
+    } catch (error) {
+      console.error("Error fetching EPF Passbook:", error);
+      res.status(500).json({ error: "Failed to fetch EPF passbook report" });
+    }
+  });
+
+  // NPS Statement Report - Protean CRA API
+  app.post("/api/reports/nps-statement", async (req, res) => {
+    try {
+      const { userId, panNumber } = req.body;
+      
+      if (!userId || !panNumber) {
+        return res.status(400).json({ error: "userId and panNumber are required" });
+      }
+
+      const { reportsHubService } = await import("./services/reports-hub-service");
+      const report = await reportsHubService.fetchNPSStatement({ userId, panNumber });
+      
+      console.log(`📝 [Audit] NPS Statement report generated for user ${userId}`);
+      
+      res.json(report);
+    } catch (error) {
+      console.error("Error fetching NPS Statement:", error);
+      res.status(500).json({ error: "Failed to fetch NPS statement report" });
+    }
+  });
+
+  // Sync MF Holdings to Portfolio
+  app.post("/api/reports/sync-mf-to-portfolio", async (req, res) => {
+    try {
+      const { userId, portfolioId, panNumber } = req.body;
+      
+      if (!userId || !portfolioId || !panNumber) {
+        return res.status(400).json({ error: "userId, portfolioId, and panNumber are required" });
+      }
+
+      const { reportsHubService } = await import("./services/reports-hub-service");
+      const mfReport = await reportsHubService.fetchMFHoldings({ userId, panNumber });
+      
+      if (!mfReport.success || !mfReport.holdings.length) {
+        return res.json({ success: true, syncedCount: 0, message: "No MF holdings found to sync" });
+      }
+
+      for (const holding of mfReport.holdings) {
+        try {
+          await storage.createPortfolioHolding({
+            portfolioId,
+            symbol: holding.schemeCode,
+            quantity: String(holding.units),
+            avgPrice: String(holding.averageNav),
+            currency: "INR",
+            assetType: "mutual_fund",
+            assetClass: holding.schemeOption === "direct" ? "direct" : "regular",
+            sector: holding.schemePlan
+          });
+        } catch (err) {
+          console.error(`Failed to sync holding ${holding.schemeCode}:`, err);
+        }
+      }
+
+      console.log(`🔄 [Sync] Synced ${mfReport.holdings.length} MF holdings to portfolio ${portfolioId}`);
+      
+      res.json({ 
+        success: true, 
+        syncedCount: mfReport.holdings.length,
+        totalValue: mfReport.summary.totalCurrentValue,
+        message: `Successfully synced ${mfReport.holdings.length} mutual fund holdings to your portfolio`
+      });
+    } catch (error) {
+      console.error("Error syncing MF to portfolio:", error);
+      res.status(500).json({ error: "Failed to sync MF holdings to portfolio" });
+    }
+  });
+
+  // Sync Demat Holdings to Portfolio
+  app.post("/api/reports/sync-demat-to-portfolio", async (req, res) => {
+    try {
+      const { userId, portfolioId, panNumber, depository = "NSDL" } = req.body;
+      
+      if (!userId || !portfolioId || !panNumber) {
+        return res.status(400).json({ error: "userId, portfolioId, and panNumber are required" });
+      }
+
+      const { reportsHubService } = await import("./services/reports-hub-service");
+      const dematReport = await reportsHubService.fetchDematSnapshot({ userId, panNumber }, depository);
+      
+      if (!dematReport.success || !dematReport.holdings.length) {
+        return res.json({ success: true, syncedCount: 0, message: "No demat holdings found to sync" });
+      }
+
+      for (const holding of dematReport.holdings) {
+        try {
+          await storage.createPortfolioHolding({
+            portfolioId,
+            symbol: holding.symbol,
+            quantity: String(holding.quantity),
+            avgPrice: String(holding.averagePrice),
+            currency: "INR",
+            assetType: "equity",
+            assetClass: "large_cap",
+            sector: holding.sector || "Other"
+          });
+        } catch (err) {
+          console.error(`Failed to sync holding ${holding.symbol}:`, err);
+        }
+      }
+
+      console.log(`🔄 [Sync] Synced ${dematReport.holdings.length} demat holdings to portfolio ${portfolioId}`);
+      
+      res.json({ 
+        success: true, 
+        syncedCount: dematReport.holdings.length,
+        totalValue: dematReport.summary.totalCurrentValue,
+        message: `Successfully synced ${dematReport.holdings.length} equity holdings to your portfolio`
+      });
+    } catch (error) {
+      console.error("Error syncing demat to portfolio:", error);
+      res.status(500).json({ error: "Failed to sync demat holdings to portfolio" });
+    }
+  });
+
   // External API Integration Endpoints for Fetching Reports
   app.post("/api/reports/fetch-from-mf-central", async (req, res) => {
     try {

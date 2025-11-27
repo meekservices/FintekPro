@@ -30,6 +30,7 @@ import Support from "@/pages/support";
 import InvestSmart from "@/pages/wealth-management";
 import Achievements from "@/pages/achievements";
 import CapitalGainsReports from "@/pages/capital-gains-reports";
+import ReportsHub from "@/pages/reports-hub";
 import AgentDashboard from "@/pages/agent-dashboard";
 import IBTradingPage from "@/pages/ib-trading";
 import StorePage from "@/pages/store";
@@ -169,6 +170,7 @@ function UserProtectedRoutes() {
         <Route path="/my-proposals" component={ClientProposalsPage} />
         <Route path="/achievements" component={Achievements} />
         <Route path="/capital-gains" component={CapitalGainsReports} />
+        <Route path="/reports" component={ReportsHub} />
         {/* Unified Tax Services - Primary Route */}
         <Route path="/tax-hub" component={IntelligentTaxHub} />
         <Route path="/tax" component={TaxSmartFiling} />
