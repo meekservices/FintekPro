@@ -1555,6 +1555,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Calculate Re-KYC review date dynamically based on risk category
+      // Low: 10 years, Medium: 8 years, High: 2 years from KYC completion
+      const calculateReKycDate = (riskCat: string, completedAt: Date | null): Date | null => {
+        if (!completedAt && level === '0') return null;
+        const baseDate = completedAt || new Date();
+        const yearsToAdd = riskCat === 'high' ? 2 : riskCat === 'medium' ? 8 : 10;
+        const reviewDate = new Date(baseDate);
+        reviewDate.setFullYear(reviewDate.getFullYear() + yearsToAdd);
+        return reviewDate;
+      };
+
+      const riskCategory = profile.riskCategory || 'low';
+      const kycCompletedAt = profile.kycCompletedAt || (level !== '0' ? new Date() : null);
+      const riskNextReview = profile.riskNextReview || calculateReKycDate(riskCategory, kycCompletedAt);
+
+      // Mask bank account number for security
+      const maskedBankAccount = profile.bankAccountNumber 
+        ? 'XXXX' + profile.bankAccountNumber.slice(-4)
+        : null;
+
       res.json({
         success: true,
         data: {
@@ -1571,10 +1591,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           bankVerified: profile.bankVerified || false,
           videoKycCompleted: profile.videoKycCompleted || false,
           ckycVerified: profile.ckycFetchedViaAuthBridge || false,
-          riskCategory: profile.riskCategory || 'low',
+          kraVerified: profile.kraVerifiedViaProtean || false,
+          riskCategory: riskCategory,
+          riskCategoryReason: profile.riskCategoryReason || null,
           pepStatus: profile.pepStatus || 'N',
           fatcaStatus: profile.fatcaStatus || 'N',
           amlStatus: profile.amlStatus || 'clear',
+          riskNextReview: riskNextReview,
+          kycCompletedAt: kycCompletedAt,
+          bankAccountNumber: maskedBankAccount,
+          bankIfscCode: profile.bankIfscCode || null,
+          bankName: profile.bankName || null,
           kycTierMetadata: {
             description: level === '0' 
               ? 'Basic profile - browse products only' 
@@ -1587,6 +1614,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 ? ['loans', 'insurance'] 
                 : ['loans', 'insurance', 'mutual_funds', 'equities', 'derivatives', 'unlisted'],
             maxAnnualInvestment: level === '0' ? 0 : level === '1' ? 1000000 : 10000000
+          },
+          verificationSummary: {
+            panVerified: profile.panVerifiedViaSandbox || false,
+            ckycFetched: profile.ckycFetchedViaAuthBridge || false,
+            kraVerified: profile.kraVerifiedViaProtean || false,
+            aadhaarVerified: profile.aadhaarVerifiedViaCashfree || false,
+            bankVerified: profile.bankVerified || false,
+            videoKycCompleted: profile.videoKycCompleted || false,
+            totalVerifications: 6,
+            completedVerifications: [
+              profile.panVerifiedViaSandbox,
+              profile.ckycFetchedViaAuthBridge,
+              profile.kraVerifiedViaProtean,
+              profile.aadhaarVerifiedViaCashfree,
+              profile.bankVerified,
+              profile.videoKycCompleted
+            ].filter(Boolean).length
           }
         }
       });
