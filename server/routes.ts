@@ -1630,30 +1630,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Create new session
-      const session = await storage.createKycVerificationSession({
+      // Fetch user profile to check for existing verified data
+      const userProfile = await storage.getUserProfile(userId);
+      
+      // Check for existing verified data
+      const hasPanVerified = userProfile?.panVerifiedViaSandbox && userProfile?.panNumber;
+      const hasCkycData = userProfile?.ckycFetchedViaAuthBridge && userProfile?.ckycAuthBridgeResponse;
+      const hasAadhaarVerified = userProfile?.aadharNumber && userProfile?.aadharNumber.length === 12;
+      
+      // Determine current step smartly based on existing data
+      let currentStep = "pan_verification";
+      if (hasPanVerified && hasCkycData) {
+        currentStep = "completion";
+      } else if (hasPanVerified) {
+        currentStep = "data_collection";
+      }
+      
+      // Build session data object with required fields
+      const sessionData: any = {
         userId,
         sessionType: "smart_kyc_wizard",
-        currentStep: "pan_verification",
+        currentStep,
         stepStatus: {
-          pan_verified: false,
+          pan_verified: hasPanVerified,
           aadhaar_otp_sent: false,
-          aadhaar_verified: false,
-          data_collected: false
+          aadhaar_verified: hasAadhaarVerified,
+          data_collected: hasCkycData
         },
-        panVerified: false,
+        panVerified: hasPanVerified,
         aadhaarOtpSent: false,
-        aadhaarOtpVerified: false,
+        aadhaarOtpVerified: hasAadhaarVerified,
         isActive: true,
         expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes
         ipAddress: req.ip,
         userAgent: req.headers['user-agent'] || 'unknown'
-      });
+      };
+      
+      // Add PAN fields if verified
+      if (hasPanVerified) {
+        sessionData.panNumber = userProfile.panNumber;
+        sessionData.panVerifiedAt = userProfile.panSandboxVerifiedAt;
+        sessionData.panVerificationData = userProfile.panSandboxResponse;
+        if (userProfile.panSandboxResponse?.date_of_birth) {
+          sessionData.panDob = userProfile.panSandboxResponse.date_of_birth;
+        }
+      }
+      
+      // Add Aadhaar fields if verified
+      if (hasAadhaarVerified) {
+        sessionData.aadhaarNumber = userProfile.aadharNumber;
+        sessionData.aadhaarVerifiedAt = new Date();
+      }
+      
+      // Create new session with smart pre-population
+      const session = await storage.createKycVerificationSession(sessionData);
       
       res.json({
         success: true,
         session,
-        message: "KYC session started successfully"
+        message: hasPanVerified ? "KYC session started with existing verified data" : "KYC session started successfully"
       });
     } catch (error) {
       console.error('Error starting KYC session:', error);

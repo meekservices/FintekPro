@@ -45,6 +45,8 @@ interface SessionData {
   aadhaarOtpVerified: boolean;
   aadhaarNumber?: string;
   expiresAt?: string;
+  panNumber?: string;
+  panDob?: string;
   panVerificationData?: {
     name: string;
     fatherName: string;
@@ -148,6 +150,11 @@ export default function SmartKYCOnboarding() {
         // Restore state if resuming
         if (data.session.panVerified) {
           setPanData(data.session.panVerificationData);
+          setPanNumber(data.session.panNumber || '');
+          setPanDob(data.session.panDob || '');
+          if (data.session.panVerificationData?.name) {
+            setPanFullName(data.session.panVerificationData.name);
+          }
         }
         if (data.session.aadhaarOtpSent) {
           setAadhaarMasked(data.session.aadhaarNumber || '');
@@ -189,6 +196,11 @@ export default function SmartKYCOnboarding() {
       
       if (pendingSession.panVerified) {
         setPanData(pendingSession.panVerificationData);
+        setPanNumber(pendingSession.panNumber || '');
+        setPanDob(pendingSession.panDob || '');
+        if (pendingSession.panVerificationData?.name) {
+          setPanFullName(pendingSession.panVerificationData.name);
+        }
       }
       if (pendingSession.aadhaarOtpSent) {
         setAadhaarMasked(pendingSession.aadhaarNumber || '');
@@ -624,93 +636,177 @@ export default function SmartKYCOnboarding() {
     );
   };
   
-  const renderPanVerificationStep = () => (
-    <Card className="max-w-2xl mx-auto">
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <Shield className="h-6 w-6 text-primary" />
-          <CardTitle>Step 1: PAN Verification</CardTitle>
-        </div>
-        <CardDescription>
-          Enter your PAN number and date of birth to verify your identity
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {sessionId && (
-          <Alert className="bg-blue-50 border-blue-200">
-            <CheckCircle className="h-4 w-4 text-blue-600" />
-            <AlertDescription className="text-blue-800">
-              <strong>Session Active:</strong> Your KYC session is ready
-            </AlertDescription>
-          </Alert>
-        )}
-        
-        <Alert>
-          <Sparkles className="h-4 w-4" />
-          <AlertDescription>
-            Smart KYC will automatically fetch your details from government databases after verification
-          </AlertDescription>
-        </Alert>
-        
-        <div className="space-y-2">
-          <Label htmlFor="pan">PAN Number</Label>
-          <Input
-            id="pan"
-            data-testid="input-pan"
-            placeholder="ABCDE1234F"
-            value={panNumber}
-            onChange={(e) => setPanNumber(e.target.value.toUpperCase())}
-            maxLength={10}
-            className="uppercase"
-          />
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="fullName">Full Name (as per PAN)</Label>
-          <Input
-            id="fullName"
-            data-testid="input-fullname"
-            placeholder="John Doe"
-            value={panFullName}
-            onChange={(e) => setPanFullName(e.target.value)}
-          />
-          <p className="text-sm text-muted-foreground">
-            Enter your name exactly as it appears on your PAN card
-          </p>
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="dob">Date of Birth</Label>
-          <Input
-            id="dob"
-            data-testid="input-dob"
-            type="date"
-            value={panDob}
-            onChange={(e) => setPanDob(e.target.value)}
-          />
-        </div>
-        
-        <Button
-          data-testid="button-verify-pan"
-          onClick={() => verifyPanMutation.mutate()}
-          disabled={!sessionId || !panNumber || !panFullName || !panDob || verifyPanMutation.isPending}
-          className="w-full"
-        >
-          {verifyPanMutation.isPending ? (
+  const renderPanVerificationStep = () => {
+    const isPanAlreadyVerified = sessionId && panNumber && panData;
+    
+    // Mask PAN number for display (show first 5 and last character)
+    const maskedPan = panNumber ? `${panNumber.substring(0, 5)}****${panNumber.charAt(9)}` : '';
+    
+    return (
+      <Card className="max-w-2xl mx-auto">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Shield className="h-6 w-6 text-primary" />
+            <CardTitle>Step 1: PAN Verification</CardTitle>
+          </div>
+          <CardDescription>
+            {isPanAlreadyVerified 
+              ? "Your PAN has been verified successfully"
+              : "Enter your PAN number and date of birth to verify your identity"
+            }
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {isPanAlreadyVerified ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Verifying...
+              <Alert className="bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800">
+                <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                <AlertDescription className="text-green-800 dark:text-green-300">
+                  <strong>PAN Already Verified:</strong> Your PAN ({maskedPan}) is already verified in our system
+                </AlertDescription>
+              </Alert>
+              
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                    <CheckCircle className="h-4 w-4" />
+                    PAN Number
+                  </Label>
+                  <Input
+                    value={panNumber}
+                    disabled
+                    className="bg-gray-50 dark:bg-gray-900 border-green-200 dark:border-green-800"
+                    data-testid="input-pan-verified"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                    <CheckCircle className="h-4 w-4" />
+                    Full Name (as per PAN)
+                  </Label>
+                  <Input
+                    value={panFullName}
+                    disabled
+                    className="bg-gray-50 dark:bg-gray-900 border-green-200 dark:border-green-800"
+                    data-testid="input-fullname-verified"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                    <CheckCircle className="h-4 w-4" />
+                    Date of Birth
+                  </Label>
+                  <Input
+                    value={panDob}
+                    disabled
+                    type="date"
+                    className="bg-gray-50 dark:bg-gray-900 border-green-200 dark:border-green-800"
+                    data-testid="input-dob-verified"
+                  />
+                </div>
+              </div>
+              
+              <Button
+                data-testid="button-continue-next"
+                onClick={() => checkKraStatusMutation.mutate()}
+                disabled={checkKraStatusMutation.isPending}
+                className="w-full"
+              >
+                {checkKraStatusMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Checking KRA Status...
+                  </>
+                ) : (
+                  <>
+                    Continue to Next Step
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </>
+                )}
+              </Button>
             </>
           ) : (
             <>
-              Verify PAN
-              <ArrowRight className="ml-2 h-4 w-4" />
+              {sessionId && (
+                <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800">
+                  <CheckCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  <AlertDescription className="text-blue-800 dark:text-blue-300">
+                    <strong>Session Active:</strong> Your KYC session is ready
+                  </AlertDescription>
+                </Alert>
+              )}
+              
+              <Alert>
+                <Sparkles className="h-4 w-4" />
+                <AlertDescription>
+                  Smart KYC will automatically fetch your details from government databases after verification
+                </AlertDescription>
+              </Alert>
+              
+              <div className="space-y-2">
+                <Label htmlFor="pan">PAN Number</Label>
+                <Input
+                  id="pan"
+                  data-testid="input-pan"
+                  placeholder="ABCDE1234F"
+                  value={panNumber}
+                  onChange={(e) => setPanNumber(e.target.value.toUpperCase())}
+                  maxLength={10}
+                  className="uppercase"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="fullName">Full Name (as per PAN)</Label>
+                <Input
+                  id="fullName"
+                  data-testid="input-fullname"
+                  placeholder="John Doe"
+                  value={panFullName}
+                  onChange={(e) => setPanFullName(e.target.value)}
+                />
+                <p className="text-sm text-muted-foreground">
+                  Enter your name exactly as it appears on your PAN card
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="dob">Date of Birth</Label>
+                <Input
+                  id="dob"
+                  data-testid="input-dob"
+                  type="date"
+                  value={panDob}
+                  onChange={(e) => setPanDob(e.target.value)}
+                />
+              </div>
+              
+              <Button
+                data-testid="button-verify-pan"
+                onClick={() => verifyPanMutation.mutate()}
+                disabled={!sessionId || !panNumber || !panFullName || !panDob || verifyPanMutation.isPending}
+                className="w-full"
+              >
+                {verifyPanMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Verifying...
+                  </>
+                ) : (
+                  <>
+                    Verify PAN
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </>
+                )}
+              </Button>
             </>
           )}
-        </Button>
-      </CardContent>
-    </Card>
-  );
+        </CardContent>
+      </Card>
+    );
+  };
   
   const renderAadhaarOtpStep = () => (
     <Card className="max-w-2xl mx-auto">
