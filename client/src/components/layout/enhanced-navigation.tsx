@@ -165,7 +165,8 @@ export function EnhancedNavigation() {
             { name: "Goal Planning", href: "/wealth-management?tab=goals", description: "Financial goal setting" },
             { name: "Risk Assessment", href: "/wealth-management?tab=risk", description: "Portfolio risk analysis" },
             { name: "Asset Allocation", href: "/wealth-management?tab=dashboard", description: "Core, Alternative, Premium" },
-            { name: "Retirement Planning", href: "/wealth-management?tab=retirement", description: "Retirement corpus planning" }
+            { name: "Retirement Planning", href: "/wealth-management?tab=retirement", description: "Retirement corpus planning" },
+            { name: "Obligations", href: "/wealth-management?tab=obligations", description: "Track loans, EMIs & recurring payments" }
           ]
         },
         {
