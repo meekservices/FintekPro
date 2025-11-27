@@ -50,7 +50,7 @@ export const PRODUCT_KYC_REQUIREMENTS = {
 } as const;
 
 /**
- * Get user's KYC level from database
+ * Get user's KYC level from database - dynamically computed based on verification statuses
  */
 export async function getUserKYCLevel(userId: string): Promise<{
   level: '0' | '1' | '2';
@@ -67,8 +67,26 @@ export async function getUserKYCLevel(userId: string): Promise<{
     return { level: '0', profile: null };
   }
 
-  const kycLevel = (profile.kycLevel || '0') as '0' | '1' | '2';
-  return { level: kycLevel, profile };
+  // Dynamically compute KYC level based on actual verification statuses
+  // Level 1: PAN verified (via Sandbox or CKYC)
+  const hasLevel1 = profile.panVerifiedViaSandbox || profile.ckycFetchedViaAuthBridge;
+  
+  // Level 2: Level 1 + (CKYC OR KRA verified OR bank verified with completed profile)
+  const hasLevel2 = hasLevel1 && (
+    profile.ckycFetchedViaAuthBridge || 
+    profile.kraVerifiedViaProtean || 
+    (profile.bankAccountNumber && profile.isProfileCompleted)
+  );
+
+  // Determine level
+  let computedLevel: '0' | '1' | '2' = '0';
+  if (hasLevel2) {
+    computedLevel = '2';
+  } else if (hasLevel1) {
+    computedLevel = '1';
+  }
+
+  return { level: computedLevel, profile };
 }
 
 /**
