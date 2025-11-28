@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import { complianceService } from '../services/compliance-service';
 import { storage } from '../storage';
-import { apiResponse } from '../utils/api-response';
+import { apiResponse } from '../utils/responses';
 
 const router = express.Router();
 

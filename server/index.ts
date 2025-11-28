@@ -239,6 +239,14 @@ app.use((req, res, next) => {
   const { registerStakeholderRoutes } = await import('./stakeholder-routes');
   registerStakeholderRoutes(app);
   
+  // Register Unlisted Marketplace routes
+  const unlistedRoutes = await import('./routes/unlisted');
+  app.use('/api/unlisted', unlistedRoutes.default);
+  
+  // Register Compliance routes
+  const complianceRoutes = await import('./routes/compliance');
+  app.use('/api/compliance', complianceRoutes.default);
+  
   // Register error testing routes (development only)
   if (process.env.NODE_ENV === 'development') {
     const testErrorRoutes = await import('./test-error-handling');
