@@ -190,6 +190,19 @@ class Probe42Service {
 
       return response.data.companies || [];
     } catch (error: any) {
+      // Handle authentication errors gracefully - fall back to mock data in development
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        console.warn('⚠️ Probe42 API authentication failed (token may be expired). Using mock data.');
+        if (process.env.NODE_ENV === 'development') {
+          return this.getMockSearchResults(query);
+        }
+        throw new ExternalServiceError(
+          'Probe42',
+          'Probe42 API authentication failed. The API key may be expired or invalid.',
+          error,
+          false
+        );
+      }
       throw new ExternalServiceError(
         'Probe42',
         `Company search failed: ${error.message}`,
@@ -217,6 +230,13 @@ class Probe42Service {
     } catch (error: any) {
       if (error.response?.status === 404) {
         return null;
+      }
+      // Handle authentication errors gracefully - fall back to mock data in development
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        console.warn('⚠️ Probe42 API authentication failed (token may be expired). Using mock data.');
+        if (process.env.NODE_ENV === 'development') {
+          return this.getMockCompanyDetails(probe42CompanyId);
+        }
       }
       throw new ExternalServiceError(
         'Probe42',
@@ -249,6 +269,13 @@ class Probe42Service {
 
       return response.data.financials || [];
     } catch (error: any) {
+      // Handle authentication errors gracefully - fall back to mock data in development
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        console.warn('⚠️ Probe42 API authentication failed (token may be expired). Using mock data.');
+        if (process.env.NODE_ENV === 'development') {
+          return this.getMockFinancials(probe42CompanyId, years);
+        }
+      }
       throw new ExternalServiceError(
         'Probe42',
         `Failed to fetch company financials: ${error.message}`,
@@ -280,6 +307,13 @@ class Probe42Service {
 
       return response.data.ratios || [];
     } catch (error: any) {
+      // Handle authentication errors gracefully - fall back to mock data in development
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        console.warn('⚠️ Probe42 API authentication failed (token may be expired). Using mock data.');
+        if (process.env.NODE_ENV === 'development') {
+          return this.getMockRatios(probe42CompanyId, years);
+        }
+      }
       throw new ExternalServiceError(
         'Probe42',
         `Failed to fetch company ratios: ${error.message}`,
