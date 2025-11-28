@@ -737,6 +737,65 @@ router.post('/moneycontrol/add-company', requireLevel2, async (req: Request, res
 });
 
 // ===================================================================
+// NSDL ISIN LOOKUP ROUTES
+// ===================================================================
+
+/**
+ * GET /api/unlisted/nsdl/search-isin
+ * Search for ISIN codes by company name from NSDL database
+ */
+router.get('/nsdl/search-isin', requireLevel2, async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { name, securityType, limit } = req.query;
+    
+    if (!name || typeof name !== 'string' || name.trim().length < 3) {
+      return apiResponse.badRequest(res, 'Company name must be at least 3 characters');
+    }
+    
+    const { nsdlISINService } = await import('../services/nsdl-isin-service');
+    
+    const results = await nsdlISINService.searchByCompanyName(name.trim(), {
+      securityType: (securityType as any) || 'equity',
+      limit: parseInt(limit as string) || 10,
+    });
+    
+    return apiResponse.success(res, {
+      query: name.trim(),
+      results,
+      resultCount: results.length,
+    });
+  } catch (error: any) {
+    console.error('Error searching NSDL ISIN:', error);
+    return apiResponse.serverError(res, `Failed to search ISIN: ${error.message}`);
+  }
+});
+
+/**
+ * POST /api/unlisted/nsdl/refresh-cache
+ * Refresh the NSDL ISIN data cache
+ */
+router.post('/nsdl/refresh-cache', requireLevel2, async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { nsdlISINService } = await import('../services/nsdl-isin-service');
+    
+    const result = await nsdlISINService.refreshCache();
+    
+    return apiResponse.success(res, result, `ISIN cache refreshed with ${result.recordCount} records`);
+  } catch (error: any) {
+    console.error('Error refreshing NSDL cache:', error);
+    return apiResponse.serverError(res, `Failed to refresh cache: ${error.message}`);
+  }
+});
+
+// ===================================================================
 // TRADING ROUTES - SELL LISTINGS
 // ===================================================================
 
