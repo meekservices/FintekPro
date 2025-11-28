@@ -431,16 +431,16 @@ function UnlistedMarketplaceTab() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
       });
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.message || 'Failed to seed data');
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || result.error || 'Failed to seed data');
       }
-      return response.json();
+      return result.data;
     },
     onSuccess: (data) => {
       toast({
         title: 'Sample Data Added',
-        description: `Added ${data.companiesCreated || 5} sample companies with listings and buy requests`,
+        description: `Added ${data?.companiesCreated || 5} sample companies with listings and buy requests`,
       });
       setIsSeeding(false);
     },
