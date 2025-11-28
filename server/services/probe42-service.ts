@@ -426,6 +426,7 @@ class Probe42Service {
         roc_state: 'Delhi',
         status: 'Active',
         incorporation_date: '2010-01-18',
+        keywords: ['zomato', 'food', 'delivery'],
       },
       {
         company_id: 'mock_oyo',
@@ -434,6 +435,7 @@ class Probe42Service {
         roc_state: 'Delhi',
         status: 'Active',
         incorporation_date: '2012-09-18',
+        keywords: ['oyo', 'oravel', 'hotel', 'stays'],
       },
       {
         company_id: 'mock_swiggy',
@@ -442,13 +444,82 @@ class Probe42Service {
         roc_state: 'Karnataka',
         status: 'Active',
         incorporation_date: '2013-07-22',
+        keywords: ['swiggy', 'bundl', 'food', 'delivery'],
+      },
+      {
+        company_id: 'mock_nse',
+        name: 'National Stock Exchange of India Limited',
+        cin: 'U67120MH1992PLC069769',
+        roc_state: 'Maharashtra',
+        status: 'Active',
+        incorporation_date: '1992-11-27',
+        keywords: ['nse', 'stock', 'exchange', 'national'],
+      },
+      {
+        company_id: 'mock_tata_tech',
+        name: 'Tata Technologies Limited',
+        cin: 'U72200MH1994PLC083847',
+        roc_state: 'Maharashtra',
+        status: 'Active',
+        incorporation_date: '1994-08-22',
+        keywords: ['tata', 'technologies', 'engineering'],
+      },
+      {
+        company_id: 'mock_phonepe',
+        name: 'PhonePe Private Limited',
+        cin: 'U74999KA2015PTC082263',
+        roc_state: 'Karnataka',
+        status: 'Active',
+        incorporation_date: '2015-12-28',
+        keywords: ['phonepe', 'phone', 'payments', 'upi'],
+      },
+      {
+        company_id: 'mock_hdb',
+        name: 'HDB Financial Services Limited',
+        cin: 'U65990MH2007PLC173708',
+        roc_state: 'Maharashtra',
+        status: 'Active',
+        incorporation_date: '2007-08-31',
+        keywords: ['hdb', 'hdfc', 'financial', 'nbfc'],
+      },
+      {
+        company_id: 'mock_byju',
+        name: 'Think and Learn Private Limited',
+        cin: 'U80301KA2011PTC060419',
+        roc_state: 'Karnataka',
+        status: 'Active',
+        incorporation_date: '2011-04-22',
+        keywords: ['byju', 'think', 'learn', 'education', 'edtech'],
+      },
+      {
+        company_id: 'mock_flipkart',
+        name: 'Flipkart Internet Private Limited',
+        cin: 'U51109KA2011PTC060368',
+        roc_state: 'Karnataka',
+        status: 'Active',
+        incorporation_date: '2011-09-29',
+        keywords: ['flipkart', 'ecommerce', 'online', 'shopping'],
+      },
+      {
+        company_id: 'mock_paytm',
+        name: 'One97 Communications Limited',
+        cin: 'U72200DL2000PLC108985',
+        roc_state: 'Delhi',
+        status: 'Active',
+        incorporation_date: '2000-12-22',
+        keywords: ['paytm', 'one97', 'payments', 'fintech'],
       },
     ];
 
-    return mockCompanies.filter(c => 
-      c.name.toLowerCase().includes(query.toLowerCase()) ||
-      c.cin.toLowerCase().includes(query.toLowerCase())
-    );
+    const queryLower = query.toLowerCase();
+    
+    return mockCompanies
+      .filter(c => 
+        c.name.toLowerCase().includes(queryLower) ||
+        c.cin.toLowerCase().includes(queryLower) ||
+        c.keywords.some(k => k.includes(queryLower) || queryLower.includes(k))
+      )
+      .map(({ keywords, ...company }) => company);
   }
 
   private getMockCompanyDetails(companyId: string): Probe42CompanyDetails {
