@@ -270,7 +270,15 @@ router.post('/probe42/sync/:companyId', requireLevel2, async (req: Request, res:
     if (!isinResult.isin) {
       try {
         const { nsdlISINService } = await import('../services/nsdl-isin-service');
-        const nsdlResults = await nsdlISINService.searchByCompanyName(company.name, 'equity', 5);
+        const nsdlResults = await nsdlISINService.searchByCompanyName(company.name, { 
+          securityType: 'equity', 
+          limit: 5 
+        });
+        
+        console.log(`[Unlisted Sync] NSDL search for "${company.name}" returned ${nsdlResults.length} results`);
+        if (nsdlResults.length > 0) {
+          console.log(`[Unlisted Sync] Best match: ${nsdlResults[0].issuerName} (${nsdlResults[0].matchScore}% match) - ISIN: ${nsdlResults[0].isin}`);
+        }
         
         // Use highest confidence match (must be at least 70% match)
         if (nsdlResults.length > 0 && nsdlResults[0].matchScore >= 70) {
@@ -280,6 +288,8 @@ router.post('/probe42/sync/:companyId', requireLevel2, async (req: Request, res:
             matchScore: nsdlResults[0].matchScore
           };
           console.log(`[Unlisted Sync] Auto-populated ISIN ${nsdlResults[0].isin} for ${company.name} (${nsdlResults[0].matchScore}% match)`);
+        } else if (nsdlResults.length > 0) {
+          console.log(`[Unlisted Sync] Best match score (${nsdlResults[0].matchScore}%) below 70% threshold, skipping auto-population`);
         }
       } catch (nsdlError) {
         console.warn('[Unlisted Sync] Failed to fetch ISIN from NSDL:', nsdlError);
