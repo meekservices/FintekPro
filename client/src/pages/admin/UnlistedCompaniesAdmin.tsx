@@ -57,6 +57,8 @@ export default function UnlistedCompaniesAdmin() {
     );
   }
 
+  const [activeTab, setActiveTab] = useState('companies');
+
   if (selectedCompanyId) {
     return <CompanyDetailsView companyId={selectedCompanyId} onBack={() => setSelectedCompanyId(null)} />;
   }
@@ -65,8 +67,8 @@ export default function UnlistedCompaniesAdmin() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-white">Unlisted Companies</h1>
-          <p className="text-gray-400 mt-1">Manage unlisted marketplace companies and Probe42 integration</p>
+          <h1 className="text-3xl font-bold text-white">Unlisted Marketplace Management</h1>
+          <p className="text-gray-400 mt-1">Manage companies, listings, and buy requests</p>
         </div>
         <Dialog open={isProbe42DialogOpen} onOpenChange={setIsProbe42DialogOpen}>
           <DialogTrigger asChild>
@@ -81,15 +83,42 @@ export default function UnlistedCompaniesAdmin() {
         </Dialog>
       </div>
 
-      <CompanyListView
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        statusFilter={statusFilter}
-        setStatusFilter={setStatusFilter}
-        sectorFilter={sectorFilter}
-        setSectorFilter={setSectorFilter}
-        onSelectCompany={setSelectedCompanyId}
-      />
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="bg-gray-800 border-gray-700">
+          <TabsTrigger value="companies" className="data-[state=active]:bg-blue-600">
+            <Building2 className="w-4 h-4 mr-2" />
+            Companies
+          </TabsTrigger>
+          <TabsTrigger value="listings" className="data-[state=active]:bg-blue-600">
+            <TrendingUp className="w-4 h-4 mr-2" />
+            Sell Listings
+          </TabsTrigger>
+          <TabsTrigger value="buy-requests" className="data-[state=active]:bg-blue-600">
+            <BarChart3 className="w-4 h-4 mr-2" />
+            Buy Requests
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="companies">
+          <CompanyListView
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            statusFilter={statusFilter}
+            setStatusFilter={setStatusFilter}
+            sectorFilter={sectorFilter}
+            setSectorFilter={setSectorFilter}
+            onSelectCompany={setSelectedCompanyId}
+          />
+        </TabsContent>
+
+        <TabsContent value="listings">
+          <AllListingsView />
+        </TabsContent>
+
+        <TabsContent value="buy-requests">
+          <AllBuyRequestsView />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
@@ -301,6 +330,304 @@ function CompanyListView({
         </CardContent>
       </Card>
     </>
+  );
+}
+
+// ===================================================================
+// ALL LISTINGS VIEW (Admin)
+// ===================================================================
+function AllListingsView() {
+  const { toast } = useToast();
+  const [statusFilter, setStatusFilter] = useState('all');
+
+  const { data, isLoading } = useQuery<any>({
+    queryKey: ['/api/unlisted/admin/all-listings', statusFilter],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (statusFilter !== 'all') params.append('status', statusFilter);
+      const response = await fetch(`/api/unlisted/admin/all-listings?${params.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch listings');
+      const result = await response.json();
+      return result.data;
+    },
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      return apiRequest(`/api/unlisted/admin/listings/${id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/all-listings'] });
+      toast({ title: 'Listing status updated' });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Failed to update status', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const listings = data?.listings || [];
+
+  const formatCurrency = (value: string | number) => {
+    const num = typeof value === 'string' ? parseFloat(value) : value;
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(num);
+  };
+
+  const getStatusBadge = (status: string) => {
+    const colors: Record<string, string> = {
+      active: 'bg-green-500',
+      cancelled: 'bg-gray-500',
+      suspended: 'bg-yellow-500',
+      expired: 'bg-red-500',
+      completed: 'bg-blue-500',
+    };
+    return colors[status] || 'bg-gray-500';
+  };
+
+  if (isLoading) return <LoadingState variant="table" />;
+
+  return (
+    <Card className="bg-gray-900 border-gray-800">
+      <CardHeader>
+        <div className="flex justify-between items-center">
+          <div>
+            <CardTitle className="text-white">Sell Listings ({listings.length})</CardTitle>
+            <CardDescription className="text-gray-400">Manage all sell listings across companies</CardDescription>
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-40 bg-gray-800 border-gray-700 text-white">
+              <SelectValue placeholder="Filter status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="suspended">Suspended</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
+              <SelectItem value="expired">Expired</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="rounded-md border border-gray-800">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-gray-800">
+                <TableHead className="text-gray-400">Company</TableHead>
+                <TableHead className="text-gray-400">Seller</TableHead>
+                <TableHead className="text-gray-400">Quantity</TableHead>
+                <TableHead className="text-gray-400">Ask Price</TableHead>
+                <TableHead className="text-gray-400">Landing Price</TableHead>
+                <TableHead className="text-gray-400">Status</TableHead>
+                <TableHead className="text-gray-400">Created</TableHead>
+                <TableHead className="text-right text-gray-400">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {listings.length === 0 ? (
+                <TableRow className="border-gray-800">
+                  <TableCell colSpan={8} className="text-center text-gray-400 py-8">
+                    No sell listings found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                listings.map((listing: any) => (
+                  <TableRow key={listing.id} className="border-gray-800 hover:bg-gray-800/50">
+                    <TableCell className="font-medium text-white">
+                      <div>
+                        <p>{listing.companyName}</p>
+                        <p className="text-xs text-gray-400">{listing.companySector}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-gray-300">
+                      <div>
+                        <p>{listing.sellerName}</p>
+                        <p className="text-xs text-gray-400">{listing.sellerEmail}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-gray-300">{listing.quantity?.toLocaleString()}</TableCell>
+                    <TableCell className="text-gray-300">{formatCurrency(listing.askPrice)}</TableCell>
+                    <TableCell className="text-gray-300">{formatCurrency(listing.landingPrice)}</TableCell>
+                    <TableCell>
+                      <Badge className={getStatusBadge(listing.status)}>{listing.status}</Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-gray-400">
+                      {listing.createdAt ? format(new Date(listing.createdAt), 'MMM dd, yyyy') : 'N/A'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Select
+                        value={listing.status}
+                        onValueChange={(value) => updateStatusMutation.mutate({ id: listing.id, status: value })}
+                      >
+                        <SelectTrigger className="w-28 h-8 bg-gray-800 border-gray-700 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="suspended">Suspend</SelectItem>
+                          <SelectItem value="cancelled">Cancel</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ===================================================================
+// ALL BUY REQUESTS VIEW (Admin)
+// ===================================================================
+function AllBuyRequestsView() {
+  const { toast } = useToast();
+  const [statusFilter, setStatusFilter] = useState('all');
+
+  const { data, isLoading } = useQuery<any>({
+    queryKey: ['/api/unlisted/admin/all-buy-requests', statusFilter],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (statusFilter !== 'all') params.append('status', statusFilter);
+      const response = await fetch(`/api/unlisted/admin/all-buy-requests?${params.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch buy requests');
+      const result = await response.json();
+      return result.data;
+    },
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      return apiRequest(`/api/unlisted/admin/buy-requests/${id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/all-buy-requests'] });
+      toast({ title: 'Buy request status updated' });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Failed to update status', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const buyRequests = data?.buyRequests || [];
+
+  const formatCurrency = (value: string | number) => {
+    const num = typeof value === 'string' ? parseFloat(value) : value;
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(num);
+  };
+
+  const getStatusBadge = (status: string) => {
+    const colors: Record<string, string> = {
+      active: 'bg-green-500',
+      cancelled: 'bg-gray-500',
+      suspended: 'bg-yellow-500',
+      expired: 'bg-red-500',
+      matched: 'bg-blue-500',
+    };
+    return colors[status] || 'bg-gray-500';
+  };
+
+  if (isLoading) return <LoadingState variant="table" />;
+
+  return (
+    <Card className="bg-gray-900 border-gray-800">
+      <CardHeader>
+        <div className="flex justify-between items-center">
+          <div>
+            <CardTitle className="text-white">Buy Requests ({buyRequests.length})</CardTitle>
+            <CardDescription className="text-gray-400">Manage all buy requests across companies</CardDescription>
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-40 bg-gray-800 border-gray-700 text-white">
+              <SelectValue placeholder="Filter status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="suspended">Suspended</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
+              <SelectItem value="expired">Expired</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="rounded-md border border-gray-800">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-gray-800">
+                <TableHead className="text-gray-400">Company</TableHead>
+                <TableHead className="text-gray-400">Buyer</TableHead>
+                <TableHead className="text-gray-400">Quantity</TableHead>
+                <TableHead className="text-gray-400">Max Price</TableHead>
+                <TableHead className="text-gray-400">Target Price</TableHead>
+                <TableHead className="text-gray-400">Status</TableHead>
+                <TableHead className="text-gray-400">Created</TableHead>
+                <TableHead className="text-right text-gray-400">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {buyRequests.length === 0 ? (
+                <TableRow className="border-gray-800">
+                  <TableCell colSpan={8} className="text-center text-gray-400 py-8">
+                    No buy requests found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                buyRequests.map((request: any) => (
+                  <TableRow key={request.id} className="border-gray-800 hover:bg-gray-800/50">
+                    <TableCell className="font-medium text-white">
+                      <div>
+                        <p>{request.companyName}</p>
+                        <p className="text-xs text-gray-400">{request.companySector}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-gray-300">
+                      <div>
+                        <p>{request.buyerName}</p>
+                        <p className="text-xs text-gray-400">{request.buyerEmail}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-gray-300">{request.quantity?.toLocaleString()}</TableCell>
+                    <TableCell className="text-gray-300">{formatCurrency(request.maxPrice)}</TableCell>
+                    <TableCell className="text-gray-300">{request.targetPrice ? formatCurrency(request.targetPrice) : 'N/A'}</TableCell>
+                    <TableCell>
+                      <Badge className={getStatusBadge(request.status)}>{request.status}</Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-gray-400">
+                      {request.createdAt ? format(new Date(request.createdAt), 'MMM dd, yyyy') : 'N/A'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Select
+                        value={request.status}
+                        onValueChange={(value) => updateStatusMutation.mutate({ id: request.id, status: value })}
+                      >
+                        <SelectTrigger className="w-28 h-8 bg-gray-800 border-gray-700 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="suspended">Suspend</SelectItem>
+                          <SelectItem value="cancelled">Cancel</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

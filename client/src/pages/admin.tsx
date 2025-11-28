@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertTriangle, Users, Activity, TrendingUp, MessageSquare, Settings, Search, Filter, Shield, FileText, Building2, Plus, Edit3, Trash2, Server, Brain, Zap, Lock, Receipt, CheckCircle, Calendar, Download, Loader2, IndianRupee, Clock, Eye, Edit, Send, UserPlus, MoreVertical, ShieldCheck, ShieldAlert, Bot, Monitor, BarChart, Globe, Mail, Target, TrendingDown, Share2, Megaphone, MousePointer, Users2, BarChart3, PieChart, LineChart, Phone, ChevronLeft, ChevronRight, Menu, MessageCircle, Smartphone, Link, UserCheck, Building, Network, ArrowRightLeft, Handshake, Lightbulb, TestTube, AlertCircle, Info, Database, RefreshCw } from "lucide-react";
+import { AlertTriangle, Users, Activity, TrendingUp, MessageSquare, Settings, Search, Filter, Shield, FileText, Building2, Plus, Edit3, Trash2, Server, Brain, Zap, Lock, Receipt, CheckCircle, Calendar, Download, Loader2, IndianRupee, Clock, Eye, Edit, Send, UserPlus, MoreVertical, ShieldCheck, ShieldAlert, Bot, Monitor, BarChart, Globe, Mail, Target, TrendingDown, Share2, Megaphone, MousePointer, Users2, BarChart3, PieChart, LineChart, Phone, ChevronLeft, ChevronRight, Menu, MessageCircle, Smartphone, Link, UserCheck, Building, Network, ArrowRightLeft, Handshake, Lightbulb, TestTube, AlertCircle, Info, Database, RefreshCw, Briefcase } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -956,6 +956,14 @@ export default function AdminPanel() {
                 <AlertCircle className="w-4 h-4 mr-2" />
                 Errors
               </TabsTrigger>
+              <TabsTrigger 
+                value="unlisted" 
+                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg py-2.5"
+                data-testid="tab-unlisted"
+              >
+                <Briefcase className="w-4 h-4 mr-2" />
+                Unlisted
+              </TabsTrigger>
             </ScrollableTabsList>
           </div>
 
@@ -1892,6 +1900,64 @@ export default function AdminPanel() {
                     )}
                   </TableBody>
                 </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Unlisted Marketplace Tab */}
+          <TabsContent value="unlisted" className="space-y-6" data-testid="unlisted-content">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Briefcase className="w-5 h-5 text-primary" />
+                  Unlisted Marketplace Management
+                </CardTitle>
+                <CardDescription>Manage unlisted companies, listings, and trading activity</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <RouterLink href="/admin/unlisted/companies">
+                    <Button 
+                      className="h-24 w-full flex flex-col items-center justify-center gap-2"
+                      variant="outline"
+                      data-testid="button-unlisted-companies"
+                    >
+                      <Building2 className="w-8 h-8" />
+                      <span>Company Management</span>
+                    </Button>
+                  </RouterLink>
+                  <RouterLink href="/admin/unlisted/negotiations">
+                    <Button 
+                      className="h-24 w-full flex flex-col items-center justify-center gap-2"
+                      variant="outline"
+                      data-testid="button-unlisted-negotiations"
+                    >
+                      <Handshake className="w-8 h-8" />
+                      <span>Negotiations Console</span>
+                    </Button>
+                  </RouterLink>
+                  <RouterLink href="/unlisted">
+                    <Button 
+                      className="h-24 w-full flex flex-col items-center justify-center gap-2"
+                      variant="outline"
+                      data-testid="button-view-marketplace"
+                    >
+                      <Globe className="w-8 h-8" />
+                      <span>View Marketplace</span>
+                    </Button>
+                  </RouterLink>
+                </div>
+                <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+                  <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2 flex items-center gap-2">
+                    <Info className="w-4 h-4" />
+                    Quick Links
+                  </h4>
+                  <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+                    <li>• Companies: Add/edit unlisted companies with Probe42 integration</li>
+                    <li>• Negotiations: View sell listings, buy requests, and facilitate deals</li>
+                    <li>• Marketplace: Preview the public marketplace view</li>
+                  </ul>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

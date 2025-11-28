@@ -797,4 +797,358 @@ router.get('/admin/negotiations', async (req: Request, res: Response) => {
   }
 });
 
+// ===================================================================
+// ADMIN LISTINGS MANAGEMENT ROUTES
+// ===================================================================
+
+/**
+ * GET /api/unlisted/admin/all-listings
+ * Get all sell listings across companies (admin only)
+ */
+router.get('/admin/all-listings', async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { status, page = '1', limit = '50' } = req.query;
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const offset = (pageNum - 1) * limitNum;
+    
+    // Get all sell listings with company info
+    let query = db.select().from(sellListings);
+    if (status && typeof status === 'string') {
+      query = query.where(eq(sellListings.status, status)) as any;
+    }
+    
+    const allListings = await query;
+    
+    // Enrich with company and user details
+    const enrichedListings = await Promise.all(
+      allListings.map(async (listing: any) => {
+        const company = await storage.getUnlistedCompanyById(listing.companyId);
+        const seller = await storage.getUser(listing.sellerUserId);
+        return {
+          ...listing,
+          companyName: company?.name || 'Unknown',
+          companySector: company?.sector || '',
+          sellerName: seller ? `${seller.firstName} ${seller.lastName}` : 'Unknown',
+          sellerEmail: seller?.email || '',
+        };
+      })
+    );
+    
+    // Sort by creation date (newest first)
+    enrichedListings.sort((a: any, b: any) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    
+    const total = enrichedListings.length;
+    const paginatedListings = enrichedListings.slice(offset, offset + limitNum);
+    
+    return apiResponse.success(res, {
+      listings: paginatedListings,
+      pagination: { page: pageNum, limit: limitNum, total, totalPages: Math.ceil(total / limitNum) }
+    });
+  } catch (error: any) {
+    console.error('Error fetching all listings:', error);
+    return apiResponse.serverError(res, 'Failed to fetch listings');
+  }
+});
+
+/**
+ * GET /api/unlisted/admin/all-buy-requests
+ * Get all buy requests across companies (admin only)
+ */
+router.get('/admin/all-buy-requests', async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { status, page = '1', limit = '50' } = req.query;
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const offset = (pageNum - 1) * limitNum;
+    
+    // Get all buy requests
+    let query = db.select().from(buyRequests);
+    if (status && typeof status === 'string') {
+      query = query.where(eq(buyRequests.status, status)) as any;
+    }
+    
+    const allRequests = await query;
+    
+    // Enrich with company and user details
+    const enrichedRequests = await Promise.all(
+      allRequests.map(async (request: any) => {
+        const company = await storage.getUnlistedCompanyById(request.companyId);
+        const buyer = await storage.getUser(request.buyerUserId);
+        return {
+          ...request,
+          companyName: company?.name || 'Unknown',
+          companySector: company?.sector || '',
+          buyerName: buyer ? `${buyer.firstName} ${buyer.lastName}` : 'Unknown',
+          buyerEmail: buyer?.email || '',
+        };
+      })
+    );
+    
+    // Sort by creation date (newest first)
+    enrichedRequests.sort((a: any, b: any) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    
+    const total = enrichedRequests.length;
+    const paginatedRequests = enrichedRequests.slice(offset, offset + limitNum);
+    
+    return apiResponse.success(res, {
+      buyRequests: paginatedRequests,
+      pagination: { page: pageNum, limit: limitNum, total, totalPages: Math.ceil(total / limitNum) }
+    });
+  } catch (error: any) {
+    console.error('Error fetching all buy requests:', error);
+    return apiResponse.serverError(res, 'Failed to fetch buy requests');
+  }
+});
+
+/**
+ * PATCH /api/unlisted/admin/listings/:id/status
+ * Update listing status (admin only)
+ */
+router.patch('/admin/listings/:id/status', async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { id } = req.params;
+    const { status, reason } = req.body;
+    
+    if (!['active', 'cancelled', 'suspended', 'expired'].includes(status)) {
+      return apiResponse.badRequest(res, 'Invalid status');
+    }
+    
+    await db.update(sellListings)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(sellListings.id, id));
+    
+    return apiResponse.success(res, { message: 'Listing status updated successfully' });
+  } catch (error: any) {
+    console.error('Error updating listing status:', error);
+    return apiResponse.serverError(res, 'Failed to update listing status');
+  }
+});
+
+/**
+ * PATCH /api/unlisted/admin/buy-requests/:id/status
+ * Update buy request status (admin only)
+ */
+router.patch('/admin/buy-requests/:id/status', async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { id } = req.params;
+    const { status, reason } = req.body;
+    
+    if (!['active', 'cancelled', 'suspended', 'expired'].includes(status)) {
+      return apiResponse.badRequest(res, 'Invalid status');
+    }
+    
+    await db.update(buyRequests)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(buyRequests.id, id));
+    
+    return apiResponse.success(res, { message: 'Buy request status updated successfully' });
+  } catch (error: any) {
+    console.error('Error updating buy request status:', error);
+    return apiResponse.serverError(res, 'Failed to update buy request status');
+  }
+});
+
+// ===================================================================
+// WATCHLIST & EXPRESS INTEREST ROUTES
+// ===================================================================
+
+/**
+ * GET /api/unlisted/watchlist
+ * Get user's unlisted company watchlist
+ */
+router.get('/watchlist', requireLevel2, async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return apiResponse.unauthorized(res, 'Authentication required');
+    }
+    
+    // Get user's watchlist (stored in user preferences or dedicated table)
+    const user = await storage.getUser(req.user.id);
+    const watchlistCompanyIds = (user as any)?.unlistedWatchlist || [];
+    
+    if (watchlistCompanyIds.length === 0) {
+      return apiResponse.success(res, []);
+    }
+    
+    // Get company details for each
+    const watchlistCompanies = await Promise.all(
+      watchlistCompanyIds.map(async (id: string) => {
+        const company = await storage.getUnlistedCompanyById(id);
+        if (!company) return null;
+        
+        // Get latest price
+        const priceHistory = await storage.getPriceHistory(id, 1);
+        const latestPrice = priceHistory[0]?.price || null;
+        
+        return {
+          ...company,
+          latestPrice,
+          addedAt: new Date().toISOString(), // This would come from a join table ideally
+        };
+      })
+    );
+    
+    return apiResponse.success(res, watchlistCompanies.filter(Boolean));
+  } catch (error: any) {
+    console.error('Error fetching watchlist:', error);
+    return apiResponse.serverError(res, 'Failed to fetch watchlist');
+  }
+});
+
+/**
+ * POST /api/unlisted/watchlist/:companyId
+ * Add company to watchlist
+ */
+router.post('/watchlist/:companyId', requireLevel2, async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return apiResponse.unauthorized(res, 'Authentication required');
+    }
+    
+    const { companyId } = req.params;
+    
+    // Verify company exists
+    const company = await storage.getUnlistedCompanyById(companyId);
+    if (!company) {
+      return apiResponse.notFound(res, 'Company not found');
+    }
+    
+    // Get current watchlist
+    const user = await storage.getUser(req.user.id);
+    const currentWatchlist = (user as any)?.unlistedWatchlist || [];
+    
+    if (currentWatchlist.includes(companyId)) {
+      return apiResponse.badRequest(res, 'Company already in watchlist');
+    }
+    
+    // Add to watchlist
+    const updatedWatchlist = [...currentWatchlist, companyId];
+    await storage.updateUser(req.user.id, { unlistedWatchlist: updatedWatchlist } as any);
+    
+    return apiResponse.success(res, { message: 'Added to watchlist', watchlist: updatedWatchlist });
+  } catch (error: any) {
+    console.error('Error adding to watchlist:', error);
+    return apiResponse.serverError(res, 'Failed to add to watchlist');
+  }
+});
+
+/**
+ * DELETE /api/unlisted/watchlist/:companyId
+ * Remove company from watchlist
+ */
+router.delete('/watchlist/:companyId', requireLevel2, async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return apiResponse.unauthorized(res, 'Authentication required');
+    }
+    
+    const { companyId } = req.params;
+    
+    // Get current watchlist
+    const user = await storage.getUser(req.user.id);
+    const currentWatchlist = (user as any)?.unlistedWatchlist || [];
+    
+    // Remove from watchlist
+    const updatedWatchlist = currentWatchlist.filter((id: string) => id !== companyId);
+    await storage.updateUser(req.user.id, { unlistedWatchlist: updatedWatchlist } as any);
+    
+    return apiResponse.success(res, { message: 'Removed from watchlist', watchlist: updatedWatchlist });
+  } catch (error: any) {
+    console.error('Error removing from watchlist:', error);
+    return apiResponse.serverError(res, 'Failed to remove from watchlist');
+  }
+});
+
+/**
+ * POST /api/unlisted/express-interest/:companyId
+ * Express interest in a company (before formal buy request)
+ */
+router.post('/express-interest/:companyId', requireLevel2, async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return apiResponse.unauthorized(res, 'Authentication required');
+    }
+    
+    const { companyId } = req.params;
+    const { interestedQuantity, maxBudget, notes } = req.body;
+    
+    // Verify company exists
+    const company = await storage.getUnlistedCompanyById(companyId);
+    if (!company) {
+      return apiResponse.notFound(res, 'Company not found');
+    }
+    
+    // Store express interest (simplified - could use dedicated table)
+    console.log(`Express interest: User ${req.user.id} interested in ${company.name}`, {
+      interestedQuantity,
+      maxBudget,
+      notes
+    });
+    
+    // In a full implementation, this would:
+    // 1. Store in a dedicated express_interests table
+    // 2. Notify sellers who have listings for this company
+    // 3. Send email notifications to the admin
+    
+    return apiResponse.success(res, { 
+      message: 'Interest expressed successfully',
+      company: company.name,
+      note: 'You will be notified when shares become available'
+    });
+  } catch (error: any) {
+    console.error('Error expressing interest:', error);
+    return apiResponse.serverError(res, 'Failed to express interest');
+  }
+});
+
+/**
+ * GET /api/unlisted/all-listings
+ * Get all active sell listings (for buyers to browse)
+ */
+router.get('/all-listings', requireLevel2, async (req: Request, res: Response) => {
+  try {
+    const allListings = await db.select()
+      .from(sellListings)
+      .where(eq(sellListings.status, 'active'));
+    
+    // Enrich with company info
+    const enrichedListings = await Promise.all(
+      allListings.map(async (listing) => {
+        const company = await storage.getUnlistedCompanyById(listing.companyId);
+        return {
+          ...listing,
+          companyName: company?.name || 'Unknown',
+          companySector: company?.sector || '',
+        };
+      })
+    );
+    
+    return apiResponse.success(res, enrichedListings);
+  } catch (error: any) {
+    console.error('Error fetching all listings:', error);
+    return apiResponse.serverError(res, 'Failed to fetch listings');
+  }
+});
+
 export default router;

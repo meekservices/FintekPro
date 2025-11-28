@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,18 +7,36 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { LoadingState } from "@/components/LoadingState";
-import { Building2, Search, TrendingUp, ShoppingCart, Eye } from "lucide-react";
+import { Building2, Search, TrendingUp, ShoppingCart, Eye, Heart, MessageSquarePlus } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { UnlistedCompany, CompanyRatios, UnlistedPriceHistory } from "@shared/schema";
+
+interface WatchlistCompany {
+  id: string;
+  [key: string]: any;
+}
 
 export default function UnlistedMarketplace() {
   const [, navigate] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSector, setSelectedSector] = useState<string>("all");
+  const { isAuthenticated } = useAuth();
 
   // Fetch companies
   const { data: companies = [], isLoading: isLoadingCompanies } = useQuery<UnlistedCompany[]>({
     queryKey: ['/api/unlisted/companies'],
   });
+
+  // Fetch user's watchlist to determine which companies are watched
+  const { data: watchlistData } = useQuery<WatchlistCompany[]>({
+    queryKey: ['/api/unlisted/watchlist'],
+    enabled: isAuthenticated,
+  });
+
+  // Extract company IDs from watchlist for quick lookup
+  const watchlistIds = new Set((watchlistData || []).map(c => c.id));
 
   // Filter companies
   const filteredCompanies = companies.filter(company => {
@@ -117,7 +135,11 @@ export default function UnlistedMarketplace() {
         {filteredCompanies.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredCompanies.map((company) => (
-              <CompanyCard key={company.id} company={company} />
+              <CompanyCard 
+                key={company.id} 
+                company={company} 
+                isInWatchlist={watchlistIds.has(company.id)}
+              />
             ))}
           </div>
         ) : (
@@ -137,8 +159,15 @@ export default function UnlistedMarketplace() {
   );
 }
 
-function CompanyCard({ company }: { company: UnlistedCompany }) {
+interface CompanyCardProps {
+  company: UnlistedCompany;
+  isInWatchlist: boolean;
+}
+
+function CompanyCard({ company, isInWatchlist }: CompanyCardProps) {
   const [, navigate] = useLocation();
+  const { toast } = useToast();
+  const { isAuthenticated } = useAuth();
 
   // Fetch latest ratio data for this company
   const { data: ratios = [] } = useQuery<CompanyRatios[]>({
@@ -149,6 +178,75 @@ function CompanyCard({ company }: { company: UnlistedCompany }) {
   const { data: priceHistory = [] } = useQuery<UnlistedPriceHistory[]>({
     queryKey: ['/api/unlisted/companies', company.id, 'price-history'],
   });
+
+  // Watchlist mutation - add
+  const addToWatchlistMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest(`/api/unlisted/watchlist/${company.id}`, { method: 'POST' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/unlisted/watchlist'] });
+      toast({ title: 'Added to watchlist', description: `${company.name} added to your watchlist` });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Error', description: error.message || 'Failed to add to watchlist', variant: 'destructive' });
+    },
+  });
+
+  // Watchlist mutation - remove
+  const removeFromWatchlistMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest(`/api/unlisted/watchlist/${company.id}`, { method: 'DELETE' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/unlisted/watchlist'] });
+      toast({ title: 'Removed from watchlist', description: `${company.name} removed from your watchlist` });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Error', description: error.message || 'Failed to remove from watchlist', variant: 'destructive' });
+    },
+  });
+
+  // Express interest mutation
+  const expressInterestMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest(`/api/unlisted/express-interest/${company.id}`, { 
+        method: 'POST',
+        body: JSON.stringify({ notes: 'Interest expressed from marketplace' }),
+      });
+    },
+    onSuccess: () => {
+      toast({ 
+        title: 'Interest Registered', 
+        description: `You'll be notified when ${company.name} shares become available` 
+      });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Error', description: error.message || 'Failed to express interest', variant: 'destructive' });
+    },
+  });
+
+  const handleWatchlistToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isAuthenticated) {
+      toast({ title: 'Login Required', description: 'Please login to use the watchlist feature', variant: 'destructive' });
+      return;
+    }
+    if (isInWatchlist) {
+      removeFromWatchlistMutation.mutate();
+    } else {
+      addToWatchlistMutation.mutate();
+    }
+  };
+
+  const handleExpressInterest = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isAuthenticated) {
+      toast({ title: 'Login Required', description: 'Please login to express interest', variant: 'destructive' });
+      return;
+    }
+    expressInterestMutation.mutate();
+  };
 
   const latestRatio = ratios[0];
   const lastPrice = priceHistory.find(p => p.sourceType === 'DEAL')?.price;
@@ -242,6 +340,25 @@ function CompanyCard({ company }: { company: UnlistedCompany }) {
             >
               <Eye className="h-3 w-3 mr-1" />
               View Details
+            </Button>
+            <Button
+              size="sm"
+              variant={isInWatchlist ? "default" : "outline"}
+              onClick={handleWatchlistToggle}
+              disabled={addToWatchlistMutation.isPending || removeFromWatchlistMutation.isPending}
+              data-testid={`button-watchlist-${company.id}`}
+            >
+              <Heart className={`h-3 w-3 ${isInWatchlist ? 'fill-current' : ''}`} />
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleExpressInterest}
+              disabled={expressInterestMutation.isPending}
+              title="Express Interest"
+              data-testid={`button-interest-${company.id}`}
+            >
+              <MessageSquarePlus className="h-3 w-3" />
             </Button>
           </div>
         </div>
