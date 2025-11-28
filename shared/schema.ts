@@ -3398,54 +3398,27 @@ export const externalDataSources = pgTable("external_data_sources", {
 });
 
 // Client Data Enrichment records - stores enriched data from various external sources
+// NOTE: Schema matches actual database structure. See tech-debt: original expanded schema preserved below as comment.
 export const clientEnrichmentData = pgTable("client_enrichment_data", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id).notNull(),
-  sourceId: varchar("source_id").references(() => externalDataSources.id).notNull(),
-  
-  // Enrichment metadata
-  enrichmentType: varchar("enrichment_type").notNull(), // financial_profile, business_details, social_insights, credit_analysis
-  dataCategory: varchar("data_category").notNull(), // income_verification, business_turnover, social_connections, credit_behavior
-  
-  // Raw and processed data
+  dataType: varchar("data_type"), // Type of enrichment data
+  enrichmentSource: varchar("enrichment_source"), // Source of the enrichment
   rawData: jsonb("raw_data"), // Original API response
   processedData: jsonb("processed_data"), // AI-processed insights
-  enrichmentScore: integer("enrichment_score"), // 0-100 quality score
-  confidenceLevel: varchar("confidence_level"), // high, medium, low
-  
-  // Financial insights (if applicable)
-  estimatedIncome: decimal("estimated_income", { precision: 15, scale: 2 }),
-  incomeStability: varchar("income_stability"), // stable, volatile, seasonal
-  spendingPattern: jsonb("spending_pattern"), // Category-wise spending analysis
-  creditworthiness: varchar("creditworthiness"), // excellent, good, fair, poor
-  riskIndicators: jsonb("risk_indicators"), // Array of identified risk factors
-  
-  // Business insights (if applicable)
-  businessTurnover: decimal("business_turnover", { precision: 15, scale: 2 }),
-  businessType: varchar("business_type"), 
-  industryRisk: varchar("industry_risk"), // low, medium, high
-  businessVintage: integer("business_vintage_months"),
-  gstCompliance: varchar("gst_compliance"), // compliant, irregular, non_compliant
-  
-  // Social and behavioral insights
-  digitalFootprint: jsonb("digital_footprint"), // Online presence analysis
-  socialConnections: jsonb("social_connections"), // Professional network insights
-  lifestyleIndicators: jsonb("lifestyle_indicators"), // Spending on lifestyle categories
-  
-  // Verification status and metadata
-  isVerified: boolean("is_verified").default(false),
-  verificationMethod: varchar("verification_method"),
-  lastUpdated: timestamp("last_updated").defaultNow(),
-  expiryDate: timestamp("expiry_date"), // When this data becomes stale
-  
-  // AI processing metadata
-  aiModelUsed: varchar("ai_model_used"), // Which AI model processed this data
-  processingTime: integer("processing_time_ms"),
-  apiCallCount: integer("api_call_count").default(1), // Number of API calls made for this enrichment
-  
+  isProcessed: boolean("is_processed").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+/* TODO: Future schema expansion for client_enrichment_data
+   Original expanded schema included: sourceId, enrichmentType, dataCategory, enrichmentScore,
+   confidenceLevel, estimatedIncome, incomeStability, spendingPattern, creditworthiness,
+   riskIndicators, businessTurnover, businessType, industryRisk, businessVintage, gstCompliance,
+   digitalFootprint, socialConnections, lifestyleIndicators, isVerified, verificationMethod,
+   lastUpdated, expiryDate, aiModelUsed, processingTime, apiCallCount
+   Requires ALTER TABLE migration before enabling.
+*/
 
 // AI Transaction Tracking - comprehensive transaction monitoring both on-site and external
 export const aiTransactionTracking = pgTable("ai_transaction_tracking", {
@@ -3519,50 +3492,29 @@ export const aiTransactionTracking = pgTable("ai_transaction_tracking", {
 });
 
 // Transaction Enrichment Analysis - stores AI-generated insights and patterns
+// NOTE: Schema matches actual database structure. See tech-debt: original expanded schema preserved below as comment.
 export const transactionEnrichmentAnalysis = pgTable("transaction_enrichment_analysis", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id).notNull(),
-  analysisType: varchar("analysis_type").notNull(), // monthly_pattern, spending_behavior, income_analysis, risk_assessment
-  
-  // Analysis period
-  fromDate: date("from_date").notNull(),
-  toDate: date("to_date").notNull(),
-  transactionCount: integer("transaction_count").default(0),
-  
-  // Financial insights
-  totalInflow: decimal("total_inflow", { precision: 15, scale: 2 }),
-  totalOutflow: decimal("total_outflow", { precision: 15, scale: 2 }),
-  netCashFlow: decimal("net_cash_flow", { precision: 15, scale: 2 }),
-  averageMonthlyIncome: decimal("average_monthly_income", { precision: 15, scale: 2 }),
-  averageMonthlyExpense: decimal("average_monthly_expense", { precision: 15, scale: 2 }),
-  
-  // Behavioral patterns
-  spendingPatterns: jsonb("spending_patterns"), // Category-wise spending analysis
-  incomePatterns: jsonb("income_patterns"), // Income source analysis
-  timingPatterns: jsonb("timing_patterns"), // When user typically transacts
-  frequencyPatterns: jsonb("frequency_patterns"), // Transaction frequency analysis
-  
-  // Risk assessment
-  riskFactors: jsonb("risk_factors"), // Identified risk factors
-  riskScore: integer("risk_score"), // Overall risk score 0-100
-  riskCategory: varchar("risk_category"), // low, medium, high, very_high
-  creditworthinessScore: integer("creditworthiness_score"), // 0-100
-  
-  // Investment capacity analysis
-  disposableIncome: decimal("disposable_income", { precision: 15, scale: 2 }),
-  investmentCapacity: decimal("investment_capacity", { precision: 15, scale: 2 }),
-  emergencyFundStatus: varchar("emergency_fund_status"), // adequate, partial, insufficient
-  debtToIncomeRatio: decimal("debt_to_income_ratio", { precision: 5, scale: 2 }),
-  
-  // AI model metadata
-  aiModelVersion: varchar("ai_model_version"),
-  analysisConfidence: integer("analysis_confidence"), // 0-100 confidence in analysis
-  lastUpdated: timestamp("last_updated").defaultNow(),
-  nextAnalysisDate: timestamp("next_analysis_date"),
-  
+  transactionId: varchar("transaction_id"), // Reference to transaction
+  analysisType: varchar("analysis_type"), // Type of analysis performed
+  category: varchar("category"), // Category of the analysis
+  insights: jsonb("insights"), // AI-generated insights
+  patterns: jsonb("patterns"), // Detected patterns
+  recommendations: jsonb("recommendations"), // AI recommendations
+  confidenceScore: integer("confidence_score"), // 0-100 confidence
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+/* TODO: Future schema expansion for transaction_enrichment_analysis
+   Original expanded schema included: fromDate, toDate, transactionCount, totalInflow,
+   totalOutflow, netCashFlow, averageMonthlyIncome, averageMonthlyExpense, spendingPatterns,
+   incomePatterns, timingPatterns, frequencyPatterns, riskFactors, riskScore, riskCategory,
+   creditworthinessScore, disposableIncome, investmentCapacity, emergencyFundStatus,
+   debtToIncomeRatio, aiModelVersion, analysisConfidence, lastUpdated, nextAnalysisDate
+   Requires ALTER TABLE migration before enabling.
+*/
 
 // Real-time Transaction Alerts for monitoring and compliance
 export const transactionAlerts = pgTable("transaction_alerts", {

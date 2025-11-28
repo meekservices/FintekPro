@@ -65,16 +65,17 @@ class AIInvestSmartMonitor {
         this.getTransactionAnalysis(userId)
       ]);
 
-      // Mock dashboard metrics based on real user data
-      const estimatedIncome = (typeof enrichmentRecords?.estimatedIncome === 'string' 
-        ? parseInt(enrichmentRecords.estimatedIncome) 
-        : (enrichmentRecords?.estimatedIncome as number)) || 180000;
+      // Extract financial data from enrichment records (stored in processedData JSON)
+      const processedData = enrichmentRecords?.processedData as Record<string, any> | null;
+      const estimatedIncome = (typeof processedData?.estimatedIncome === 'string' 
+        ? parseInt(processedData.estimatedIncome) 
+        : (processedData?.estimatedIncome as number)) || 180000;
       
       const dashboardMetrics = {
         monthlyIncome: estimatedIncome,
         monthlyObligations: 63000, // From CIBIL analysis
         availableForInvestment: estimatedIncome - 63000,
-        creditScore: enrichmentRecords?.creditworthiness === 'excellent' ? 785 : 750,
+        creditScore: processedData?.creditworthiness === 'excellent' ? 785 : 750,
         totalPortfolioValue: this.calculateTotalPortfolioValue(userPortfolios),
         obligationRatio: Math.round((63000 / estimatedIncome) * 100)
       };
@@ -174,8 +175,13 @@ Provide insights in this JSON format:
       // Validate and enhance insights
       return this.validateAndEnhanceInsights(insights, pageStructure);
 
-    } catch (error) {
-      console.error('Error generating AI insights:', error);
+    } catch (error: any) {
+      // Handle OpenAI quota errors quietly to reduce log spam
+      if (error?.code === 'insufficient_quota' || error?.status === 429) {
+        console.warn('[AI InvestSmart] OpenAI quota exceeded - using fallback insights');
+      } else {
+        console.error('Error generating AI insights:', error);
+      }
       // Return fallback insights if AI fails
       return this.generateFallbackInsights(pageStructure);
     }
