@@ -91,19 +91,22 @@ export default function SupplierDashboard() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   // Fetch suppliers
-  const { data: suppliers, isLoading: suppliersLoading } = useQuery<Supplier[]>({
+  const { data: suppliersData, isLoading: suppliersLoading } = useQuery<any>({
     queryKey: ['/api/admin/suppliers'],
   });
+  const suppliers = Array.isArray(suppliersData) ? suppliersData : (suppliersData?.suppliers || []);
 
   // Fetch product performance data
-  const { data: productPerformance, isLoading: performanceLoading } = useQuery<ProductPerformance[]>({
+  const { data: productPerformanceData, isLoading: performanceLoading } = useQuery<any>({
     queryKey: ['/api/admin/product-performance', selectedSupplier],
   });
+  const productPerformance = Array.isArray(productPerformanceData) ? productPerformanceData : (productPerformanceData?.performance || []);
 
   // Fetch optimization suggestions
-  const { data: optimizationSuggestions, isLoading: suggestionsLoading } = useQuery<ProductOptimizationSuggestion[]>({
+  const { data: optimizationSuggestionsData, isLoading: suggestionsLoading } = useQuery<any>({
     queryKey: ['/api/admin/product-optimization'],
   });
+  const optimizationSuggestions = Array.isArray(optimizationSuggestionsData) ? optimizationSuggestionsData : (optimizationSuggestionsData?.suggestions || []);
 
   // Promote product mutation
   const promoteProductMutation = useMutation({
