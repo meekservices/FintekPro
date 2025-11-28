@@ -39,15 +39,20 @@ const router = Router();
 
 /**
  * GET /api/unlisted/companies
- * List all unlisted companies with optional filters
+ * List all unlisted companies with optional filters (public - no KYC required for browsing)
  */
-router.get('/companies', requireLevel2, async (req: Request, res: Response) => {
+router.get('/companies', async (req: Request, res: Response) => {
   try {
     const { status, sector } = req.query;
     
     const filters: { status?: string; sector?: string } = {};
     if (status && typeof status === 'string') filters.status = status;
     if (sector && typeof sector === 'string') filters.sector = sector;
+    
+    // Only return active companies for public browsing
+    if (!filters.status) {
+      filters.status = 'active';
+    }
     
     const companies = await storage.getAllUnlistedCompanies(filters);
     return apiResponse.success(res, companies);
@@ -443,6 +448,208 @@ router.post('/probe42/sync/:companyId', requireLevel2, async (req: Request, res:
     }
     
     return apiResponse.serverError(res, error.message || 'Failed to sync company data');
+  }
+});
+
+/**
+ * POST /api/unlisted/probe42/sync-all
+ * Bulk sync all companies with Probe42 (admin only)
+ */
+router.post('/probe42/sync-all', requireLevel2, async (req: Request, res: Response) => {
+  try {
+    // Check if user is admin
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { onlyUnsynced } = req.body;
+    
+    // Get all companies (or only unsynced ones)
+    const allCompanies = await storage.getAllUnlistedCompanies({});
+    const companies = onlyUnsynced 
+      ? allCompanies.filter(c => !c.lastSyncedAt)
+      : allCompanies;
+    
+    if (companies.length === 0) {
+      return apiResponse.success(res, {
+        success: true,
+        message: 'No companies to sync',
+        results: []
+      });
+    }
+    
+    console.log(`[Bulk Sync] Starting sync for ${companies.length} companies...`);
+    
+    const results: Array<{
+      companyId: string;
+      companyName: string;
+      success: boolean;
+      probe42Linked: boolean;
+      message: string;
+    }> = [];
+    
+    for (const company of companies) {
+      try {
+        console.log(`[Bulk Sync] Processing: ${company.name}`);
+        
+        // If company doesn't have probe42CompanyId, try to find and link it
+        let probe42Id = company.probe42CompanyId;
+        
+        if (!probe42Id) {
+          // Search Probe42 by company name or CIN
+          const searchResults = await probe42Service.searchCompanyByNameOrCIN(company.cin || company.name);
+          
+          if (searchResults.length > 0) {
+            // Take the best match
+            const bestMatch = searchResults[0];
+            probe42Id = bestMatch.company_id;
+            
+            // Link the company to Probe42
+            await storage.updateUnlistedCompany(company.id, {
+              probe42CompanyId: probe42Id,
+              cin: bestMatch.cin || company.cin,
+            });
+            
+            console.log(`[Bulk Sync] Linked ${company.name} to Probe42 ID: ${probe42Id}`);
+          } else {
+            console.log(`[Bulk Sync] No Probe42 match for ${company.name}`);
+            results.push({
+              companyId: company.id,
+              companyName: company.name,
+              success: false,
+              probe42Linked: false,
+              message: 'No match found on Probe42'
+            });
+            continue;
+          }
+        }
+        
+        // Now sync the company data
+        const probe42Details = await probe42Service.getCompanyDetails(probe42Id);
+        if (!probe42Details) {
+          results.push({
+            companyId: company.id,
+            companyName: company.name,
+            success: false,
+            probe42Linked: !!company.probe42CompanyId,
+            message: 'Failed to fetch details from Probe42'
+          });
+          continue;
+        }
+        
+        // Fetch financials and ratios
+        const financialsData = await probe42Service.getCompanyFinancials(probe42Id, 3);
+        const ratiosData = await probe42Service.getCompanyRatios(probe42Id, 3);
+        
+        // Auto-populate ISIN if not available
+        let isin = probe42Details.isin || company.isin;
+        
+        if (!isin) {
+          try {
+            const { moneyControlScraper } = await import('../services/moneycontrol-scraper');
+            const mcResult = await moneyControlScraper.searchISINByCompanyName(company.name);
+            if (mcResult.isin && mcResult.matchScore >= 60) {
+              isin = mcResult.isin;
+              console.log(`[Bulk Sync] Auto-populated ISIN ${isin} from MoneyControl for ${company.name}`);
+              
+              // Save price if available
+              if (mcResult.price) {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                await storage.upsertPriceHistory({
+                  companyId: company.id,
+                  date: today,
+                  price: mcResult.price.toString(),
+                  sourceType: 'MONEYCONTROL',
+                  notes: `Auto-imported during bulk sync`,
+                });
+              }
+            }
+          } catch (e) {
+            console.warn(`[Bulk Sync] Failed to fetch ISIN from MoneyControl for ${company.name}`);
+          }
+        }
+        
+        // Save financials
+        for (const finData of financialsData) {
+          const dbFinancials = probe42Service.convertFinancialsToDbFormat(company.id, finData);
+          const existing = await storage.getCompanyFinancialsByYear(company.id, finData.financial_year);
+          if (existing) {
+            await storage.updateCompanyFinancials(existing.id, dbFinancials);
+          } else {
+            await storage.createCompanyFinancials(dbFinancials);
+          }
+        }
+        
+        // Save ratios
+        for (const ratioData of ratiosData) {
+          const dbRatios = probe42Service.convertRatiosToDbFormat(company.id, ratioData);
+          const existing = await storage.getCompanyRatiosByYear(company.id, ratioData.financial_year);
+          if (existing) {
+            await storage.updateCompanyRatios(existing.id, dbRatios);
+          } else {
+            await storage.createCompanyRatios(dbRatios);
+          }
+        }
+        
+        // Update company metadata
+        await storage.updateUnlistedCompany(company.id, {
+          lastSyncedAt: new Date(),
+          sector: probe42Details.sector || company.sector,
+          industry: probe42Details.industry || company.industry,
+          rocState: probe42Details.roc_state || company.rocState,
+          incorporationDate: probe42Details.incorporation_date || company.incorporationDate,
+          paidUpCapital: probe42Details.paid_up_capital?.toString() || company.paidUpCapital,
+          authorizedCapital: probe42Details.authorized_capital?.toString() || company.authorizedCapital,
+          faceValue: probe42Details.face_value?.toString() || company.faceValue,
+          totalShares: probe42Details.total_shares || company.totalShares,
+          website: probe42Details.website || company.website,
+          description: probe42Details.description || company.description,
+          isin: isin || company.isin,
+        });
+        
+        results.push({
+          companyId: company.id,
+          companyName: company.name,
+          success: true,
+          probe42Linked: true,
+          message: `Synced ${financialsData.length} financials, ${ratiosData.length} ratios`
+        });
+        
+        console.log(`[Bulk Sync] Successfully synced ${company.name}`);
+        
+      } catch (companyError: any) {
+        console.error(`[Bulk Sync] Error syncing ${company.name}:`, companyError.message);
+        results.push({
+          companyId: company.id,
+          companyName: company.name,
+          success: false,
+          probe42Linked: !!company.probe42CompanyId,
+          message: companyError.message || 'Sync failed'
+        });
+      }
+      
+      // Small delay to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    
+    const successCount = results.filter(r => r.success).length;
+    const failedCount = results.filter(r => !r.success).length;
+    
+    console.log(`[Bulk Sync] Completed: ${successCount} success, ${failedCount} failed`);
+    
+    return apiResponse.success(res, {
+      success: true,
+      message: `Synced ${successCount} companies successfully, ${failedCount} failed`,
+      totalProcessed: results.length,
+      successCount,
+      failedCount,
+      results
+    });
+    
+  } catch (error: any) {
+    console.error('Error in bulk sync:', error);
+    return apiResponse.serverError(res, error.message || 'Bulk sync failed');
   }
 });
 
