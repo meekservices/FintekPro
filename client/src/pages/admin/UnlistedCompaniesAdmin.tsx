@@ -36,6 +36,7 @@ export default function UnlistedCompaniesAdmin() {
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const [isProbe42DialogOpen, setIsProbe42DialogOpen] = useState(false);
   const [probe42SearchQuery, setProbe42SearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState('companies');
 
   // Check admin access
   if (authLoading) {
@@ -56,8 +57,6 @@ export default function UnlistedCompaniesAdmin() {
       </div>
     );
   }
-
-  const [activeTab, setActiveTab] = useState('companies');
 
   if (selectedCompanyId) {
     return <CompanyDetailsView companyId={selectedCompanyId} onBack={() => setSelectedCompanyId(null)} />;

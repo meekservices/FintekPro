@@ -73,6 +73,31 @@ export default function UnlistedNegotiations() {
   const [page, setPage] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
 
+  // Fetch negotiations - must be before conditional returns
+  const { data, isLoading, error } = useQuery<NegotiationsResponse>({
+    queryKey: ['/api/unlisted/admin/negotiations', { 
+      page,
+      companySearch: companySearch || undefined,
+      minMatchScore: minMatchScore > 0 ? minMatchScore : undefined,
+      minPrice: minPrice || undefined,
+      maxPrice: maxPrice || undefined,
+    }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.append('page', page.toString());
+      params.append('limit', '20');
+      if (companySearch) params.append('companySearch', companySearch);
+      if (minMatchScore > 0) params.append('minMatchScore', minMatchScore.toString());
+      if (minPrice) params.append('minPrice', minPrice);
+      if (maxPrice) params.append('maxPrice', maxPrice);
+      
+      const res = await fetch(`/api/unlisted/admin/negotiations?${params}`);
+      if (!res.ok) throw new Error('Failed to fetch negotiations');
+      return res.json();
+    },
+    enabled: !!user && user.roles?.includes('admin'),
+  });
+
   // Check admin access
   if (authLoading) {
     return <LoadingState />;
@@ -92,32 +117,6 @@ export default function UnlistedNegotiations() {
       </div>
     );
   }
-
-  // Fetch negotiations
-  const { data, isLoading, error } = useQuery<NegotiationsResponse>({
-    queryKey: ['/api/unlisted/admin/negotiations', { 
-      page,
-      companySearch: companySearch || undefined,
-      minMatchScore: minMatchScore > 0 ? minMatchScore : undefined,
-      minPrice: minPrice || undefined,
-      maxPrice: maxPrice || undefined,
-    }],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      params.append('page', page.toString());
-      params.append('limit', '50');
-      
-      if (companySearch) params.append('companySearch', companySearch);
-      if (minMatchScore > 0) params.append('minMatchScore', minMatchScore.toString());
-      if (minPrice) params.append('minPrice', minPrice);
-      if (maxPrice) params.append('maxPrice', maxPrice);
-      
-      const response = await fetch(`/api/unlisted/admin/negotiations?${params.toString()}`);
-      if (!response.ok) throw new Error('Failed to fetch negotiations');
-      const result = await response.json();
-      return result.data;
-    },
-  });
 
   const handleViewDetails = (companyId: string) => {
     window.location.href = `/admin/unlisted/companies?id=${companyId}`;
