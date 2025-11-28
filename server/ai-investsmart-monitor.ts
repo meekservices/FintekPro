@@ -47,6 +47,79 @@ interface AIInsightsGeneration {
 
 class AIInvestSmartMonitor {
   
+  // Parse income value from various formats and return monthly income
+  private parseIncomeValue(incomeValue: string | number): number {
+    if (typeof incomeValue === 'number') {
+      // If already a number, check if it looks like annual or monthly
+      if (incomeValue > 1000000) {
+        // Likely annual income in rupees, convert to monthly
+        return incomeValue / 12;
+      } else if (incomeValue > 10000) {
+        // Could be monthly income in rupees
+        return incomeValue;
+      } else {
+        // Small number, probably in lakhs (annual)
+        return (incomeValue * 100000) / 12;
+      }
+    }
+    
+    // Normalize string: remove currency symbols and grouping separators
+    let normalizedStr = String(incomeValue).trim();
+    
+    // Remove currency symbols (₹, Rs, Rs., INR, etc.)
+    normalizedStr = normalizedStr.replace(/[₹$]/g, '');
+    normalizedStr = normalizedStr.replace(/\b(Rs\.?|INR|rupees?)\b/gi, '');
+    normalizedStr = normalizedStr.trim();
+    
+    const lowerStr = normalizedStr.toLowerCase();
+    
+    // Check if it contains unit indicators
+    const hasLakhUnit = lowerStr.includes('lakh') || lowerStr.includes('lac');
+    const hasCroreUnit = lowerStr.includes('crore') || lowerStr.includes('cr');
+    
+    // Remove commas to handle formats like "1,20,000" or "1,200,000"
+    const numericStr = normalizedStr.replace(/,/g, '');
+    
+    // Extract numeric value (including decimals)
+    const match = numericStr.match(/(\d+(?:\.\d+)?)/);
+    if (!match) {
+      return 0;
+    }
+    
+    const numericValue = parseFloat(match[1]);
+    let monthlyIncome = 0;
+    
+    if (hasCroreUnit) {
+      // Convert crores to rupees (1 crore = 10,000,000), then to monthly
+      monthlyIncome = (numericValue * 10000000) / 12;
+    } else if (hasLakhUnit) {
+      // Convert lakhs to rupees (1 lakh = 100,000), then to monthly
+      monthlyIncome = (numericValue * 100000) / 12;
+    } else if (numericValue < 1000) {
+      // Small numbers without units are likely in lakhs (e.g., "10" means 10 lakhs annual)
+      monthlyIncome = (numericValue * 100000) / 12;
+    } else if (numericValue >= 10000000) {
+      // 1 crore+ without units is definitely annual income
+      monthlyIncome = numericValue / 12;
+    } else if (numericValue >= 1000000) {
+      // 10 lakhs to 1 crore range - likely annual income (typical salary range)
+      monthlyIncome = numericValue / 12;
+    } else {
+      // Values under 10 lakhs (100000-999999) are treated as monthly salary
+      // Common monthly salaries: 50k, 1L, 2L, etc.
+      monthlyIncome = numericValue;
+    }
+    
+    // Sanity check - cap at reasonable max (50L/month = 6Cr/year)
+    const MAX_MONTHLY = 5000000;
+    if (monthlyIncome > MAX_MONTHLY) {
+      console.warn(`Unusually high monthly income calculated: ₹${monthlyIncome}, capping to ₹${MAX_MONTHLY}`);
+      monthlyIncome = MAX_MONTHLY;
+    }
+    
+    return monthlyIncome;
+  }
+
   // Analyze complete InvestSmart page structure and data
   async analyzePageStructure(userId: string): Promise<InvestSmartPageStructure> {
     try {
@@ -70,26 +143,24 @@ class AIInvestSmartMonitor {
       // Extract real monthly income from user profile
       let monthlyIncome = 0;
       if (userProfile?.annualIncome) {
-        // Parse annual income (could be string like "50-100 Lakhs" or a number)
-        const annualIncomeStr = userProfile.annualIncome;
-        if (typeof annualIncomeStr === 'string') {
-          // Handle formats like "10-25 Lakhs", "25-50 Lakhs", "50+ Lakhs"
-          const match = annualIncomeStr.match(/(\d+)/);
-          if (match) {
-            const lakhValue = parseInt(match[1]);
-            monthlyIncome = (lakhValue * 100000) / 12;
-          }
-        } else if (typeof annualIncomeStr === 'number') {
-          monthlyIncome = annualIncomeStr / 12;
-        }
+        monthlyIncome = this.parseIncomeValue(userProfile.annualIncome);
       }
       
       // Fallback: Extract from enrichment data if user profile doesn't have income
       const processedData = enrichmentRecords?.processedData as Record<string, any> | null;
       if (monthlyIncome === 0 && processedData?.estimatedIncome) {
-        monthlyIncome = typeof processedData.estimatedIncome === 'string' 
-          ? parseInt(processedData.estimatedIncome) 
-          : (processedData.estimatedIncome as number);
+        // parseIncomeValue already returns monthly income based on heuristics
+        // If the enrichment data explicitly says it's annual, pass it directly
+        if (processedData.incomeFrequency === 'annual') {
+          // For explicit annual values, ensure it's converted to monthly
+          const annualValue = typeof processedData.estimatedIncome === 'number' 
+            ? processedData.estimatedIncome 
+            : parseFloat(String(processedData.estimatedIncome).replace(/[₹,]/g, ''));
+          monthlyIncome = annualValue / 12;
+        } else {
+          // Otherwise use parseIncomeValue which handles format detection
+          monthlyIncome = this.parseIncomeValue(processedData.estimatedIncome);
+        }
       }
       
       // Final fallback if no income data found
