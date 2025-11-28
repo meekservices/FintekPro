@@ -132,7 +132,7 @@ Respond with JSON:
 }`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-1.5-pro",
+        model: "gemini-2.0-flash",
         config: {
           responseMimeType: "application/json",
           responseSchema: {
@@ -193,7 +193,7 @@ Respond with JSON:
 }`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-1.5-pro",
+        model: "gemini-2.0-flash",
         config: {
           responseMimeType: "application/json",
           responseSchema: {

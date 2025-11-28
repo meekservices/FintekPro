@@ -141,7 +141,7 @@ Provide budget suggestions following the 50/30/20 rule (50% needs, 30% wants, 20
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-pro",
+      model: "gemini-2.0-flash",
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -223,7 +223,7 @@ Each insight should have a clear title, description, actionable recommendations,
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-pro",
+      model: "gemini-2.0-flash",
       config: {
         responseMimeType: "application/json",
         responseSchema: {

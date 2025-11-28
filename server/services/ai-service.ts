@@ -15,7 +15,7 @@ const geminiApiKey = process.env.GEMINI_API_KEY;
 const gemini = geminiApiKey ? new GoogleGenAI({ apiKey: geminiApiKey }) : null;
 
 export type AIProvider = 'openai' | 'gemini';
-export type AIModel = 'gpt-5' | 'gpt-5-mini' | 'gpt-4.1' | 'gpt-4o' | 'gemini-2.0-flash-exp' | 'gemini-1.5-pro';
+export type AIModel = 'gpt-5' | 'gpt-5-mini' | 'gpt-4.1' | 'gpt-4o' | 'gemini-2.0-flash-exp' | 'gemini-2.0-flash';
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
