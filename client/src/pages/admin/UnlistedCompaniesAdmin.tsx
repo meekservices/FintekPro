@@ -40,6 +40,7 @@ export default function UnlistedCompaniesAdmin() {
   const [activeTab, setActiveTab] = useState('companies');
   const [isMoneyControlDialogOpen, setIsMoneyControlDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isNSDLDialogOpen, setIsNSDLDialogOpen] = useState(false);
 
   // Check admin access
   if (authLoading) {
@@ -73,6 +74,17 @@ export default function UnlistedCompaniesAdmin() {
           <p className="text-gray-400 mt-1">Manage companies, listings, and buy requests</p>
         </div>
         <div className="flex gap-2">
+          <Dialog open={isNSDLDialogOpen} onOpenChange={setIsNSDLDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="border-purple-600 text-purple-400 hover:bg-purple-600/20" data-testid="button-nsdl-isin-search">
+                <Search className="w-4 h-4 mr-2" />
+                Find ISIN
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto bg-gray-900 border-gray-800">
+              <NSDLISINSearchDialog onClose={() => setIsNSDLDialogOpen(false)} />
+            </DialogContent>
+          </Dialog>
           <Dialog open={isMoneyControlDialogOpen} onOpenChange={setIsMoneyControlDialogOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" className="border-green-600 text-green-400 hover:bg-green-600/20" data-testid="button-moneycontrol-import">
@@ -726,6 +738,175 @@ function AllBuyRequestsView() {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+interface NSDLISINResult {
+  isin: string;
+  issuerName: string;
+  securityDescription: string;
+  securityType: 'equity' | 'debt' | 'preference' | 'warrant' | 'other';
+  matchScore: number;
+}
+
+function NSDLISINSearchDialog({ onClose }: { onClose: () => void }) {
+  const { toast } = useToast();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<NSDLISINResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [securityType, setSecurityType] = useState<string>('equity');
+
+  const handleSearch = async () => {
+    if (searchQuery.length < 3) {
+      toast({
+        title: 'Query too short',
+        description: 'Please enter at least 3 characters',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const response = await fetch(
+        `/api/unlisted/nsdl/search-isin?name=${encodeURIComponent(searchQuery)}&securityType=${securityType}&limit=15`
+      );
+      if (!response.ok) throw new Error('Search failed');
+      const result = await response.json();
+      setSearchResults(result.data?.results || []);
+      
+      if (result.data?.results?.length === 0) {
+        toast({
+          title: 'No results found',
+          description: 'Try a different company name or check the spelling',
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Search failed',
+        description: error.message || 'Failed to search ISIN',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const copyToClipboard = (isin: string) => {
+    navigator.clipboard.writeText(isin);
+    toast({
+      title: 'Copied!',
+      description: `ISIN ${isin} copied to clipboard`,
+    });
+  };
+
+  const getSecurityTypeBadge = (type: string) => {
+    switch (type) {
+      case 'equity': return 'bg-green-600/20 text-green-400 border-green-600';
+      case 'debt': return 'bg-blue-600/20 text-blue-400 border-blue-600';
+      case 'preference': return 'bg-purple-600/20 text-purple-400 border-purple-600';
+      case 'warrant': return 'bg-yellow-600/20 text-yellow-400 border-yellow-600';
+      default: return 'bg-gray-600/20 text-gray-400 border-gray-600';
+    }
+  };
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle className="text-white">Search ISIN from NSDL</DialogTitle>
+        <DialogDescription className="text-gray-400">
+          Enter the full company name to find the ISIN code from NSDL database
+        </DialogDescription>
+      </DialogHeader>
+
+      <div className="space-y-4 mt-4">
+        <div className="flex gap-2">
+          <Input
+            placeholder="Enter full company name (e.g., Reliance Industries Limited)..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+            className="bg-gray-800 border-gray-700 text-white"
+            data-testid="input-nsdl-search"
+          />
+          <Select value={securityType} onValueChange={setSecurityType}>
+            <SelectTrigger className="w-32 bg-gray-800 border-gray-700 text-white">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="equity">Equity</SelectItem>
+              <SelectItem value="debt">Debt</SelectItem>
+              <SelectItem value="preference">Preference</SelectItem>
+              <SelectItem value="all">All Types</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button onClick={handleSearch} disabled={isSearching} data-testid="button-nsdl-search">
+            {isSearching ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Search className="w-4 h-4" />
+            )}
+          </Button>
+        </div>
+
+        {searchResults.length > 0 && (
+          <div className="rounded-md border border-gray-800">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-gray-800">
+                  <TableHead className="text-gray-400">ISIN</TableHead>
+                  <TableHead className="text-gray-400">Company Name</TableHead>
+                  <TableHead className="text-gray-400">Type</TableHead>
+                  <TableHead className="text-gray-400">Match</TableHead>
+                  <TableHead className="text-right text-gray-400">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {searchResults.map((result, index) => (
+                  <TableRow key={`${result.isin}-${index}`} className="border-gray-800" data-testid={`row-isin-${result.isin}`}>
+                    <TableCell className="font-mono text-sm text-blue-400">{result.isin}</TableCell>
+                    <TableCell className="font-medium text-white max-w-xs truncate" title={result.issuerName}>
+                      {result.issuerName}
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={getSecurityTypeBadge(result.securityType)}>
+                        {result.securityType}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-gray-300">
+                      <div className="flex items-center gap-1">
+                        <div className="w-16 bg-gray-700 rounded-full h-2">
+                          <div 
+                            className="bg-green-500 h-2 rounded-full" 
+                            style={{ width: `${result.matchScore}%` }}
+                          />
+                        </div>
+                        <span className="text-xs text-gray-400">{result.matchScore}%</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => copyToClipboard(result.isin)}
+                        className="text-blue-400 border-blue-600 hover:bg-blue-600/20"
+                        data-testid={`button-copy-${result.isin}`}
+                      >
+                        Copy ISIN
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+
+        <p className="text-xs text-gray-500">
+          Data source: NSDL (National Securities Depository Limited) daily updated ISIN registry
+        </p>
+      </div>
+    </>
   );
 }
 

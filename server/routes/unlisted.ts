@@ -743,8 +743,9 @@ router.post('/moneycontrol/add-company', requireLevel2, async (req: Request, res
 /**
  * GET /api/unlisted/nsdl/search-isin
  * Search for ISIN codes by company name from NSDL database
+ * Admin only - no KYC requirement as this is an admin tool
  */
-router.get('/nsdl/search-isin', requireLevel2, async (req: Request, res: Response) => {
+router.get('/nsdl/search-isin', async (req: Request, res: Response) => {
   try {
     if (!req.user?.roles?.includes('admin')) {
       return apiResponse.forbidden(res, 'Admin access required');
@@ -777,8 +778,9 @@ router.get('/nsdl/search-isin', requireLevel2, async (req: Request, res: Respons
 /**
  * POST /api/unlisted/nsdl/refresh-cache
  * Refresh the NSDL ISIN data cache
+ * Admin only - no KYC requirement as this is an admin tool
  */
-router.post('/nsdl/refresh-cache', requireLevel2, async (req: Request, res: Response) => {
+router.post('/nsdl/refresh-cache', async (req: Request, res: Response) => {
   try {
     if (!req.user?.roles?.includes('admin')) {
       return apiResponse.forbidden(res, 'Admin access required');
