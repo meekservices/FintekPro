@@ -284,15 +284,15 @@ export default function CompanyDetails() {
             </CardContent>
           </Card>
 
-          {latestRatios?.roe && (
+          {latestRatios?.roe != null && (
             <Card data-testid="card-metric-roe">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium text-muted-foreground">ROE</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold flex items-center gap-2">
-                  {latestRatios.roe.toFixed(2)}%
-                  {latestRatios.roe > 15 ? (
+                  {Number(latestRatios.roe).toFixed(2)}%
+                  {Number(latestRatios.roe) > 15 ? (
                     <TrendingUp className="w-5 h-5 text-green-500" />
                   ) : (
                     <TrendingDown className="w-5 h-5 text-red-500" />
@@ -303,14 +303,14 @@ export default function CompanyDetails() {
             </Card>
           )}
 
-          {latestRatios?.peRatio && (
+          {latestRatios?.peRatio != null && (
             <Card data-testid="card-metric-pe">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium text-muted-foreground">P/E Ratio</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {latestRatios.peRatio.toFixed(2)}x
+                  {Number(latestRatios.peRatio).toFixed(2)}x
                 </div>
                 <p className="text-xs text-muted-foreground">FY {latestRatios.financialYear}</p>
               </CardContent>
@@ -469,52 +469,52 @@ export default function CompanyDetails() {
                           <h3 className="font-semibold">FY {r.financialYear}</h3>
                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                          {r.peRatio && (
+                          {r.peRatio != null && (
                             <div>
                               <span className="text-muted-foreground">P/E:</span>
-                              <div className="font-medium">{r.peRatio.toFixed(2)}x</div>
+                              <div className="font-medium">{Number(r.peRatio).toFixed(2)}x</div>
                             </div>
                           )}
-                          {r.pbRatio && (
+                          {r.pbRatio != null && (
                             <div>
                               <span className="text-muted-foreground">P/B:</span>
-                              <div className="font-medium">{r.pbRatio.toFixed(2)}x</div>
+                              <div className="font-medium">{Number(r.pbRatio).toFixed(2)}x</div>
                             </div>
                           )}
-                          {r.roe && (
+                          {r.roe != null && (
                             <div>
                               <span className="text-muted-foreground">ROE:</span>
-                              <div className="font-medium">{r.roe.toFixed(2)}%</div>
+                              <div className="font-medium">{Number(r.roe).toFixed(2)}%</div>
                             </div>
                           )}
-                          {r.roa && (
+                          {r.roa != null && (
                             <div>
                               <span className="text-muted-foreground">ROA:</span>
-                              <div className="font-medium">{r.roa.toFixed(2)}%</div>
+                              <div className="font-medium">{Number(r.roa).toFixed(2)}%</div>
                             </div>
                           )}
-                          {r.npm && (
+                          {r.npm != null && (
                             <div>
                               <span className="text-muted-foreground">NPM:</span>
-                              <div className="font-medium">{r.npm.toFixed(2)}%</div>
+                              <div className="font-medium">{Number(r.npm).toFixed(2)}%</div>
                             </div>
                           )}
-                          {r.debtToEquity && (
+                          {r.debtToEquity != null && (
                             <div>
                               <span className="text-muted-foreground">D/E:</span>
-                              <div className="font-medium">{r.debtToEquity.toFixed(2)}</div>
+                              <div className="font-medium">{Number(r.debtToEquity).toFixed(2)}</div>
                             </div>
                           )}
-                          {r.currentRatio && (
+                          {r.currentRatio != null && (
                             <div>
                               <span className="text-muted-foreground">Current Ratio:</span>
-                              <div className="font-medium">{r.currentRatio.toFixed(2)}</div>
+                              <div className="font-medium">{Number(r.currentRatio).toFixed(2)}</div>
                             </div>
                           )}
-                          {r.evToEbitda && (
+                          {r.evToEbitda != null && (
                             <div>
                               <span className="text-muted-foreground">EV/EBITDA:</span>
-                              <div className="font-medium">{r.evToEbitda.toFixed(2)}x</div>
+                              <div className="font-medium">{Number(r.evToEbitda).toFixed(2)}x</div>
                             </div>
                           )}
                         </div>
