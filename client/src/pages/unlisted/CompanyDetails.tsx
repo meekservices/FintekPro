@@ -570,12 +570,14 @@ export default function CompanyDetails() {
                         <div className="flex items-center gap-3">
                           <Calendar className="w-4 h-4 text-muted-foreground" />
                           <span className="text-sm">{format(new Date(p.date), 'dd MMM yyyy')}</span>
-                          <Badge variant="outline" className="text-xs">
-                            {p.source.replace('_', ' ')}
-                          </Badge>
+                          {p.source && (
+                            <Badge variant="outline" className="text-xs">
+                              {p.source.replace('_', ' ')}
+                            </Badge>
+                          )}
                         </div>
                         <div className="font-semibold">
-                          ₹{p.price.toLocaleString('en-IN')}
+                          ₹{Number(p.price).toLocaleString('en-IN')}
                           {p.quantity && <span className="text-xs text-muted-foreground ml-2">({p.quantity} shares)</span>}
                         </div>
                       </div>
