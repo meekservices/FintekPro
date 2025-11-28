@@ -19,11 +19,11 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, L
 import { format } from 'date-fns';
 
 interface Probe42SearchResult {
-  id: string;
+  company_id: string;
   name: string;
   cin: string;
-  rocState?: string;
-  incorporationDate?: string;
+  roc_state?: string;
+  incorporation_date?: string;
   status?: string;
 }
 
@@ -647,24 +647,36 @@ function Probe42SearchDialog({ onClose }: { onClose: () => void }) {
         // Auto-trigger sync
         try {
           await apiRequest(`/api/unlisted/probe42/sync/${companyId}`, { method: 'POST' });
+          queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/companies'] });
           queryClient.invalidateQueries({ queryKey: ['/api/unlisted/companies'] });
           toast({ title: 'Company linked and synced successfully' });
           onClose();
         } catch (error: any) {
+          queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/companies'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/unlisted/companies'] });
           toast({
             title: 'Company linked but sync failed',
             description: error.message,
             variant: 'destructive'
           });
+          onClose();
         }
       }
     },
     onError: (error: any) => {
-      toast({
-        title: 'Failed to link company',
-        description: error.message || 'An error occurred',
-        variant: 'destructive'
-      });
+      const errorMessage = error.message || 'An error occurred';
+      if (errorMessage.includes('CIN already exists')) {
+        toast({
+          title: 'Company already exists',
+          description: 'This company is already in your database. You can find it in the Companies list.',
+        });
+      } else {
+        toast({
+          title: 'Failed to link company',
+          description: errorMessage,
+          variant: 'destructive'
+        });
+      }
     }
   });
 
@@ -699,7 +711,7 @@ function Probe42SearchDialog({ onClose }: { onClose: () => void }) {
     createCompanyMutation.mutate({
       name: result.name,
       cin: result.cin,
-      probe42CompanyId: result.id,
+      probe42CompanyId: result.company_id,
     });
   };
 
@@ -745,19 +757,19 @@ function Probe42SearchDialog({ onClose }: { onClose: () => void }) {
               </TableHeader>
               <TableBody>
                 {searchResults.map((result) => (
-                  <TableRow key={result.id} className="border-gray-800" data-testid={`row-result-${result.id}`}>
+                  <TableRow key={result.company_id} className="border-gray-800" data-testid={`row-result-${result.company_id}`}>
                     <TableCell className="font-medium text-white">{result.name}</TableCell>
                     <TableCell className="font-mono text-sm text-gray-300">{result.cin}</TableCell>
-                    <TableCell className="text-gray-300">{result.rocState || 'N/A'}</TableCell>
+                    <TableCell className="text-gray-300">{result.roc_state || 'N/A'}</TableCell>
                     <TableCell className="text-gray-300">
-                      {result.incorporationDate ? format(new Date(result.incorporationDate), 'MMM dd, yyyy') : 'N/A'}
+                      {result.incorporation_date ? format(new Date(result.incorporation_date), 'MMM dd, yyyy') : 'N/A'}
                     </TableCell>
                     <TableCell className="text-right">
                       <Button
                         size="sm"
                         onClick={() => handleLinkAndSync(result)}
                         disabled={createCompanyMutation.isPending}
-                        data-testid={`button-link-${result.id}`}
+                        data-testid={`button-link-${result.company_id}`}
                       >
                         {createCompanyMutation.isPending ? (
                           <Loader2 className="w-4 h-4 animate-spin mr-2" />
