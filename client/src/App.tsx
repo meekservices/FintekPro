@@ -500,6 +500,20 @@ function Router() {
         {/* Agent/Admin routes - bypass profile completion but require authentication */}
         <Route path="/admin" component={AdminPanel} />
         <Route path="/admin/proposals" component={AdminProposalsPage} />
+        <Route path="/admin/unlisted/companies">
+          {() => (
+            <AdminLayout>
+              <UnlistedCompaniesAdmin />
+            </AdminLayout>
+          )}
+        </Route>
+        <Route path="/admin/unlisted/negotiations">
+          {() => (
+            <AdminLayout>
+              <UnlistedNegotiations />
+            </AdminLayout>
+          )}
+        </Route>
         <Route path="/agent" component={AgentDashboard} />
         
         {/* User routes - require both authentication and profile completion */}
