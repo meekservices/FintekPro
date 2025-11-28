@@ -180,6 +180,8 @@ function CompanyListView({
 }) {
   const { toast } = useToast();
   const [syncingCompanyId, setSyncingCompanyId] = useState<string | null>(null);
+  const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+  const [updatingStageId, setUpdatingStageId] = useState<string | null>(null);
 
   // Fetch companies with filters (admin endpoint - no KYC requirement)
   const { data: companies, isLoading } = useQuery<UnlistedCompany[]>({
@@ -250,6 +252,7 @@ function CompanyListView({
   // Update status mutation
   const updateStatusMutation = useMutation({
     mutationFn: async ({ companyId, status }: { companyId: string; status: string }) => {
+      setUpdatingStatusId(companyId);
       return apiRequest(`/api/unlisted/companies/${companyId}`, { 
         method: 'PATCH',
         body: JSON.stringify({ status })
@@ -258,6 +261,7 @@ function CompanyListView({
     onSuccess: (_, { status }) => {
       queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/companies'] });
       toast({ title: 'Status updated', description: `Company status changed to ${status}` });
+      setUpdatingStatusId(null);
     },
     onError: (error: any) => {
       toast({
@@ -265,6 +269,37 @@ function CompanyListView({
         description: error.message || 'Failed to update status',
         variant: 'destructive'
       });
+      setUpdatingStatusId(null);
+    }
+  });
+
+  // Update listing stage mutation
+  const updateStageMutation = useMutation({
+    mutationFn: async ({ companyId, listingStage }: { companyId: string; listingStage: string }) => {
+      setUpdatingStageId(companyId);
+      return apiRequest(`/api/unlisted/companies/${companyId}`, { 
+        method: 'PATCH',
+        body: JSON.stringify({ listingStage })
+      });
+    },
+    onSuccess: (_, { listingStage }) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/companies'] });
+      const stageLabels: Record<string, string> = {
+        unlisted: 'Unlisted',
+        pre_ipo: 'Pre-IPO',
+        growth: 'Growth',
+        mature: 'Mature'
+      };
+      toast({ title: 'Stage updated', description: `Company stage changed to ${stageLabels[listingStage] || listingStage}` });
+      setUpdatingStageId(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Update failed',
+        description: error.message || 'Failed to update stage',
+        variant: 'destructive'
+      });
+      setUpdatingStageId(null);
     }
   });
 
@@ -379,8 +414,37 @@ function CompanyListView({
                       <TableCell className="text-gray-300" data-testid={`text-sector-${company.id}`}>
                         {company.sector || 'N/A'}
                       </TableCell>
-                      <TableCell className="text-gray-300" data-testid={`text-stage-${company.id}`}>
-                        {company.listingStage || 'N/A'}
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Select
+                          value={company.listingStage || 'unlisted'}
+                          onValueChange={(value) => {
+                            updateStageMutation.mutate({ companyId: company.id, listingStage: value });
+                          }}
+                          disabled={updatingStageId === company.id}
+                        >
+                          <SelectTrigger 
+                            className={`w-28 h-8 text-xs border-0 ${
+                              updatingStageId === company.id ? 'opacity-50' :
+                              company.listingStage === 'pre_ipo' ? 'bg-blue-600/20 text-blue-400' :
+                              company.listingStage === 'growth' ? 'bg-purple-600/20 text-purple-400' :
+                              company.listingStage === 'mature' ? 'bg-cyan-600/20 text-cyan-400' :
+                              'bg-gray-600/20 text-gray-400'
+                            }`}
+                            data-testid={`select-stage-${company.id}`}
+                          >
+                            {updatingStageId === company.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <SelectValue />
+                            )}
+                          </SelectTrigger>
+                          <SelectContent className="bg-gray-900 border-gray-700">
+                            <SelectItem value="unlisted" className="text-gray-400">Unlisted</SelectItem>
+                            <SelectItem value="pre_ipo" className="text-blue-400">Pre-IPO</SelectItem>
+                            <SelectItem value="growth" className="text-purple-400">Growth</SelectItem>
+                            <SelectItem value="mature" className="text-cyan-400">Mature</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <Select
@@ -388,10 +452,11 @@ function CompanyListView({
                           onValueChange={(value) => {
                             updateStatusMutation.mutate({ companyId: company.id, status: value });
                           }}
-                          disabled={updateStatusMutation.isPending}
+                          disabled={updatingStatusId === company.id}
                         >
                           <SelectTrigger 
                             className={`w-28 h-8 text-xs border-0 ${
+                              updatingStatusId === company.id ? 'opacity-50' :
                               company.status === 'active' ? 'bg-green-600/20 text-green-400' :
                               company.status === 'inactive' ? 'bg-yellow-600/20 text-yellow-400' :
                               company.status === 'delisted' ? 'bg-red-600/20 text-red-400' :
@@ -399,7 +464,11 @@ function CompanyListView({
                             }`}
                             data-testid={`select-status-${company.id}`}
                           >
-                            <SelectValue />
+                            {updatingStatusId === company.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <SelectValue />
+                            )}
                           </SelectTrigger>
                           <SelectContent className="bg-gray-900 border-gray-700">
                             <SelectItem value="active" className="text-green-400">Active</SelectItem>
