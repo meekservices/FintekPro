@@ -798,6 +798,34 @@ router.get('/admin/negotiations', async (req: Request, res: Response) => {
 });
 
 // ===================================================================
+// ADMIN COMPANY MANAGEMENT ROUTES
+// ===================================================================
+
+/**
+ * GET /api/unlisted/admin/companies
+ * Get all companies (admin only, no KYC requirement)
+ */
+router.get('/admin/companies', async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { status, sector } = req.query;
+    
+    const filters: { status?: string; sector?: string } = {};
+    if (status && typeof status === 'string') filters.status = status;
+    if (sector && typeof sector === 'string') filters.sector = sector;
+    
+    const companies = await storage.getAllUnlistedCompanies(filters);
+    return apiResponse.success(res, companies);
+  } catch (error: any) {
+    console.error('Error fetching unlisted companies (admin):', error);
+    return apiResponse.serverError(res, 'Failed to fetch companies');
+  }
+});
+
+// ===================================================================
 // ADMIN LISTINGS MANAGEMENT ROUTES
 // ===================================================================
 

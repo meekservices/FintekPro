@@ -141,15 +141,15 @@ function CompanyListView({
 }) {
   const { toast } = useToast();
 
-  // Fetch companies with filters
+  // Fetch companies with filters (admin endpoint - no KYC requirement)
   const { data: companies, isLoading } = useQuery<UnlistedCompany[]>({
-    queryKey: ['/api/unlisted/companies', { status: statusFilter !== 'all' ? statusFilter : undefined, sector: sectorFilter !== 'all' ? sectorFilter : undefined }],
+    queryKey: ['/api/unlisted/admin/companies', { status: statusFilter !== 'all' ? statusFilter : undefined, sector: sectorFilter !== 'all' ? sectorFilter : undefined }],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (statusFilter !== 'all') params.append('status', statusFilter);
       if (sectorFilter !== 'all') params.append('sector', sectorFilter);
       
-      const response = await fetch(`/api/unlisted/companies?${params.toString()}`);
+      const response = await fetch(`/api/unlisted/admin/companies?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch companies');
       const result = await response.json();
       return result.data || [];
