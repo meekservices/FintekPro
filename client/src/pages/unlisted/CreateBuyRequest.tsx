@@ -40,15 +40,17 @@ export default function CreateBuyRequest() {
   const preSelectedCompanyId = urlParams.get('company') || "";
 
   // Fetch companies
-  const { data: companies = [], isLoading: isLoadingCompanies } = useQuery<UnlistedCompany[]>({
+  const { data: companiesResponse, isLoading: isLoadingCompanies } = useQuery<{ data: UnlistedCompany[] }>({
     queryKey: ['/api/unlisted/companies'],
   });
+  const companies = companiesResponse?.data || [];
 
   // Fetch all sell listings
-  const { data: allListings = [], isLoading: isLoadingListings } = useQuery<SellListing[]>({
+  const { data: listingsResponse, isLoading: isLoadingListings } = useQuery<{ data: SellListing[] }>({
     queryKey: ['/api/unlisted/all-listings'],
     enabled: activeTab === 'browse',
   });
+  const allListings = listingsResponse?.data || [];
 
   // Check KYC tier
   const kycTier = (user as any)?.kycTier || 'basic';
