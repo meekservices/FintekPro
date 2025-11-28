@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -38,35 +39,40 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
   const [selectedRecommendation, setSelectedRecommendation] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedRiskProfile, setSelectedRiskProfile] = useState<'conservative' | 'moderate' | 'aggressive'>('moderate');
+  
+  // Get authentication status
+  const { isAuthenticated } = useAuth();
 
   // Fetch goal-based recommendations if goalId is provided
   const { data: goalRecommendations, isLoading: goalLoading } = useQuery<any[]>({
     queryKey: ["/api/recommendations/goal", goalId],
-    enabled: !!goalId,
+    enabled: !!goalId && isAuthenticated,
   });
 
   // Fetch portfolio rebalance recommendations if portfolioId is provided  
   const { data: rebalanceRecommendations, isLoading: rebalanceLoading } = useQuery<any[]>({
     queryKey: ["/api/recommendations/portfolio", portfolioId, "rebalance"],
-    enabled: !!portfolioId,
+    enabled: !!portfolioId && isAuthenticated,
   });
 
-  // Fetch AI-powered insights from the new monitoring service
+  // Fetch AI-powered insights from the new monitoring service (only when authenticated)
   const { data: aiInsights, isLoading: aiInsightsLoading } = useQuery<any>({
     queryKey: ["/api/ai-investsmart-insights"],
-    refetchInterval: 30000, // Refresh every 30 seconds for real-time insights
+    enabled: isAuthenticated,
+    refetchInterval: isAuthenticated ? 30000 : false, // Refresh every 30 seconds for real-time insights
   });
 
-  // Fetch actionables based on selected category
+  // Fetch actionables based on selected category (only when authenticated)
   const { data: aiActionables, isLoading: actionablesLoading } = useQuery<any>({
     queryKey: ["/api/ai-investsmart-actionables", selectedCategory],
-    enabled: true,
+    enabled: isAuthenticated,
   });
 
-  // Fetch page health metrics
+  // Fetch page health metrics (only when authenticated)
   const { data: pageHealth, isLoading: healthLoading } = useQuery<any>({
     queryKey: ["/api/ai-investsmart-health"],
-    refetchInterval: 60000, // Refresh every minute
+    enabled: isAuthenticated,
+    refetchInterval: isAuthenticated ? 60000 : false, // Refresh every minute
   });
 
   // Comprehensive allocation models based on risk profile
