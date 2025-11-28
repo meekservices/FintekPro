@@ -260,6 +260,33 @@ router.post('/probe42/sync/:companyId', requireLevel2, async (req: Request, res:
     const financialsData = await probe42Service.getCompanyFinancials(company.probe42CompanyId, 3);
     const ratiosData = await probe42Service.getCompanyRatios(company.probe42CompanyId, 3);
     
+    // Auto-populate ISIN from NSDL if not available from Probe42
+    let isinResult: { isin: string | null; source: string; matchScore: number } = { 
+      isin: probe42Details.isin || company.isin || null, 
+      source: probe42Details.isin ? 'probe42' : (company.isin ? 'existing' : 'none'),
+      matchScore: 100 
+    };
+    
+    if (!isinResult.isin) {
+      try {
+        const { nsdlISINService } = await import('../services/nsdl-isin-service');
+        const nsdlResults = await nsdlISINService.searchByCompanyName(company.name, 'equity', 5);
+        
+        // Use highest confidence match (must be at least 70% match)
+        if (nsdlResults.length > 0 && nsdlResults[0].matchScore >= 70) {
+          isinResult = {
+            isin: nsdlResults[0].isin,
+            source: 'nsdl',
+            matchScore: nsdlResults[0].matchScore
+          };
+          console.log(`[Unlisted Sync] Auto-populated ISIN ${nsdlResults[0].isin} for ${company.name} (${nsdlResults[0].matchScore}% match)`);
+        }
+      } catch (nsdlError) {
+        console.warn('[Unlisted Sync] Failed to fetch ISIN from NSDL:', nsdlError);
+        // Continue without ISIN - not a critical error
+      }
+    }
+    
     // Save financials with upsert logic
     let financialsCount = 0;
     let financialsUpdated = 0;
@@ -294,7 +321,7 @@ router.post('/probe42/sync/:companyId', requireLevel2, async (req: Request, res:
       }
     }
     
-    // Update company metadata with full overview data
+    // Update company metadata with full overview data (including auto-populated ISIN)
     await storage.updateUnlistedCompany(companyId, {
       lastSyncedAt: new Date(),
       sector: probe42Details.sector || company.sector,
@@ -307,7 +334,7 @@ router.post('/probe42/sync/:companyId', requireLevel2, async (req: Request, res:
       totalShares: probe42Details.total_shares || company.totalShares,
       website: probe42Details.website || company.website,
       description: probe42Details.description || company.description,
-      isin: probe42Details.isin || company.isin,
+      isin: isinResult.isin || company.isin,
     });
     
     // Create sync log
@@ -328,7 +355,13 @@ router.post('/probe42/sync/:companyId', requireLevel2, async (req: Request, res:
       financials: { created: financialsCount, updated: financialsUpdated },
       ratios: { created: ratiosCount, updated: ratiosUpdated },
       companyUpdated: true,
-      message: `Synced ${totalNew} new records, updated ${totalUpdated} existing records`,
+      isin: {
+        value: isinResult.isin,
+        source: isinResult.source,
+        matchScore: isinResult.matchScore,
+        autoPopulated: isinResult.source === 'nsdl'
+      },
+      message: `Synced ${totalNew} new records, updated ${totalUpdated} existing records${isinResult.source === 'nsdl' ? `. ISIN auto-populated from NSDL (${isinResult.matchScore}% match)` : ''}`,
     });
   } catch (error: any) {
     console.error('Error syncing from Probe42:', error);

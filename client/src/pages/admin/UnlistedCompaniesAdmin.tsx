@@ -202,9 +202,16 @@ function CompanyListView({
       setSyncingCompanyId(companyId);
       return apiRequest(`/api/unlisted/probe42/sync/${companyId}`, { method: 'POST' });
     },
-    onSuccess: () => {
+    onSuccess: (result: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/companies'] });
-      toast({ title: 'Company synced successfully with Probe42' });
+      
+      // Show detailed sync result including ISIN info
+      const message = result?.data?.message || 'Sync completed';
+      
+      toast({ 
+        title: 'Company synced successfully', 
+        description: message
+      });
       setSyncingCompanyId(null);
     },
     onError: (error: any) => {
@@ -926,10 +933,18 @@ function Probe42SearchDialog({ onClose }: { onClose: () => void }) {
       if (companyId) {
         // Auto-trigger sync
         try {
-          await apiRequest(`/api/unlisted/probe42/sync/${companyId}`, { method: 'POST' });
+          const syncResult = await apiRequest(`/api/unlisted/probe42/sync/${companyId}`, { method: 'POST' });
           queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/companies'] });
           queryClient.invalidateQueries({ queryKey: ['/api/unlisted/companies'] });
-          toast({ title: 'Company linked and synced successfully' });
+          
+          // Show sync result including ISIN info
+          const isinInfo = (syncResult as any)?.data?.isin;
+          let description = 'Company data synced from Probe42';
+          if (isinInfo?.autoPopulated) {
+            description = `${description}. ISIN auto-populated from NSDL (${isinInfo.matchScore}% match)`;
+          }
+          
+          toast({ title: 'Company linked and synced successfully', description });
           onClose();
         } catch (error: any) {
           queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/companies'] });
