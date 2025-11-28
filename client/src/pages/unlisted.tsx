@@ -8,6 +8,7 @@ import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Gem, TrendingUp, Calendar, IndianRupee, Building2, Calculator, Star, Eye, Lock } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 
 // Unlisted Securities Categories Component
 function UnlistedCategoriesSection() {
@@ -121,6 +122,8 @@ function UnlistedCategoriesSection() {
 
 // Main Unlisted Securities Page
 export default function Unlisted() {
+  const [, setLocation] = useLocation();
+  
   // Navigation state for responsive layout
   const [isNavCollapsed, setIsNavCollapsed] = useState(() => {
     try {
@@ -281,7 +284,9 @@ export default function Unlisted() {
               </CardHeader>
               <CardContent>
                 <p className="text-gray-600">Start investing in unlisted securities to track your portfolio here.</p>
-                <Button className="mt-4">Explore Opportunities</Button>
+                <Button className="mt-4" onClick={() => setLocation('/unlisted/browse')} data-testid="button-explore-opportunities">
+                  Explore Opportunities
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>
@@ -293,7 +298,9 @@ export default function Unlisted() {
               </CardHeader>
               <CardContent>
                 <p className="text-gray-600">Add unlisted securities to your watchlist to get updates on pricing and availability.</p>
-                <Button className="mt-4">Browse Securities</Button>
+                <Button className="mt-4" onClick={() => setLocation('/unlisted/browse')} data-testid="button-browse-securities">
+                  Browse Securities
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>
