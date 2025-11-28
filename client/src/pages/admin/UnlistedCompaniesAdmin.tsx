@@ -182,6 +182,7 @@ function CompanyListView({
   const [syncingCompanyId, setSyncingCompanyId] = useState<string | null>(null);
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
   const [updatingStageId, setUpdatingStageId] = useState<string | null>(null);
+  const [isBulkSyncing, setIsBulkSyncing] = useState(false);
 
   // Fetch companies with filters (admin endpoint - no KYC requirement)
   const { data: companies, isLoading } = useQuery<UnlistedCompany[]>({
@@ -270,6 +271,33 @@ function CompanyListView({
         variant: 'destructive'
       });
       setUpdatingStatusId(null);
+    }
+  });
+
+  // Bulk sync mutation
+  const bulkSyncMutation = useMutation({
+    mutationFn: async ({ onlyUnsynced }: { onlyUnsynced: boolean }) => {
+      setIsBulkSyncing(true);
+      return apiRequest('/api/unlisted/probe42/sync-all', { 
+        method: 'POST',
+        body: JSON.stringify({ onlyUnsynced })
+      });
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/companies'] });
+      toast({ 
+        title: 'Bulk Sync Complete', 
+        description: data.message || `Synced ${data.successCount} companies` 
+      });
+      setIsBulkSyncing(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Bulk sync failed',
+        description: error.message || 'Failed to sync companies',
+        variant: 'destructive'
+      });
+      setIsBulkSyncing(false);
     }
   });
 
@@ -367,11 +395,45 @@ function CompanyListView({
 
       {/* Companies Table */}
       <Card className="bg-gray-900 border-gray-800">
-        <CardHeader>
-          <CardTitle className="text-white">Companies ({filteredCompanies.length})</CardTitle>
-          <CardDescription className="text-gray-400">
-            Click on a company to view details
-          </CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-white">Companies ({filteredCompanies.length})</CardTitle>
+            <CardDescription className="text-gray-400">
+              Click on a company to view details
+            </CardDescription>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => bulkSyncMutation.mutate({ onlyUnsynced: true })}
+              disabled={isBulkSyncing}
+              className="bg-gray-800 border-gray-700 text-white hover:bg-gray-700"
+              data-testid="button-sync-unsynced"
+            >
+              {isBulkSyncing ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <RefreshCw className="w-4 h-4 mr-2" />
+              )}
+              Sync Unsynced
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => bulkSyncMutation.mutate({ onlyUnsynced: false })}
+              disabled={isBulkSyncing}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              data-testid="button-sync-all"
+            >
+              {isBulkSyncing ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <RefreshCw className="w-4 h-4 mr-2" />
+              )}
+              Sync All
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border border-gray-800">
