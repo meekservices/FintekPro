@@ -491,6 +491,53 @@ router.post('/companies/:id/price-history/bulk', requireLevel2, async (req: Requ
 });
 
 // ===================================================================
+// MONEYCONTROL PRICE SYNC
+// ===================================================================
+
+/**
+ * GET /api/unlisted/moneycontrol/preview
+ * Preview what companies would be matched and imported from MoneyControl
+ */
+router.get('/moneycontrol/preview', requireLevel2, async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { moneyControlScraper } = await import('../services/moneycontrol-scraper');
+    const result = await moneyControlScraper.previewImport();
+    
+    return apiResponse.success(res, result);
+  } catch (error: any) {
+    console.error('Error previewing MoneyControl import:', error);
+    return apiResponse.serverError(res, `Failed to preview MoneyControl data: ${error.message}`);
+  }
+});
+
+/**
+ * POST /api/unlisted/moneycontrol/import
+ * Execute import of prices from MoneyControl
+ */
+router.post('/moneycontrol/import', requireLevel2, async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { moneyControlScraper } = await import('../services/moneycontrol-scraper');
+    const result = await moneyControlScraper.executeImport();
+    
+    return apiResponse.success(res, {
+      ...result,
+      message: `Imported ${result.imported} prices from MoneyControl. ${result.unmatchedCompanies.length} companies could not be matched.`,
+    });
+  } catch (error: any) {
+    console.error('Error importing from MoneyControl:', error);
+    return apiResponse.serverError(res, `Failed to import from MoneyControl: ${error.message}`);
+  }
+});
+
+// ===================================================================
 // TRADING ROUTES - SELL LISTINGS
 // ===================================================================
 

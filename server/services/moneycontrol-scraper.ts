@@ -1,0 +1,270 @@
+import axios from 'axios';
+import * as cheerio from 'cheerio';
+import { storage } from '../storage';
+import type { InsertUnlistedPriceHistory } from '@shared/schema';
+
+export interface MoneyControlCompany {
+  name: string;
+  isin: string;
+  price: number;
+  change: number;
+  changePercent: number;
+  previousClose: number;
+  week1Change?: number;
+  month1Change?: number;
+  year1Change?: number;
+}
+
+export interface PriceImportResult {
+  total: number;
+  matched: number;
+  imported: number;
+  skipped: number;
+  errors: string[];
+  matchedCompanies: {
+    moneyControlName: string;
+    isin: string;
+    matchedTo: string;
+    matchedById: string;
+    price: number;
+    matchType: 'isin' | 'name';
+  }[];
+  unmatchedCompanies: {
+    name: string;
+    isin: string;
+    price: number;
+  }[];
+}
+
+class MoneyControlScraperService {
+  private readonly baseUrl = 'https://www.moneycontrol.com/markets/unlisted-shares/top-companies/';
+  private readonly userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
+  async scrapeUnlistedPrices(): Promise<MoneyControlCompany[]> {
+    console.log('[MoneyControl Scraper] Fetching unlisted share prices...');
+    
+    try {
+      const response = await axios.get(this.baseUrl, {
+        headers: {
+          'User-Agent': this.userAgent,
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.5',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Connection': 'keep-alive',
+          'Upgrade-Insecure-Requests': '1',
+        },
+        timeout: 30000,
+      });
+
+      const $ = cheerio.load(response.data);
+      const companies: MoneyControlCompany[] = [];
+
+      $('table tbody tr').each((_, row) => {
+        try {
+          const $row = $(row);
+          const cells = $row.find('td');
+          
+          if (cells.length < 5) return;
+
+          const imgSrc = $row.find('img').first().attr('src') || '';
+          const isinMatch = imgSrc.match(/\/([A-Z0-9]{12})\./);
+          const isin = isinMatch ? isinMatch[1] : '';
+
+          const nameCell = $(cells[0]);
+          const name = nameCell.text().replace(/\[Invest\].*$/i, '').replace(/!\[.*?\]\(.*?\)/g, '').trim();
+          
+          const priceText = $(cells[1]).text().replace(/,/g, '').trim();
+          const changeText = $(cells[2]).text().replace(/,/g, '').trim();
+          const changePercentText = $(cells[3]).text().replace(/,/g, '').trim();
+          const prevCloseText = $(cells[4]).text().replace(/,/g, '').trim();
+
+          const price = parseFloat(priceText) || 0;
+          const change = parseFloat(changeText) || 0;
+          const changePercent = parseFloat(changePercentText) || 0;
+          const previousClose = parseFloat(prevCloseText) || 0;
+
+          if (name && price > 0 && isin) {
+            companies.push({
+              name: this.cleanCompanyName(name),
+              isin,
+              price,
+              change,
+              changePercent,
+              previousClose,
+            });
+          }
+        } catch (err) {
+        }
+      });
+
+      console.log(`[MoneyControl Scraper] Found ${companies.length} companies with prices`);
+      return companies;
+    } catch (error: any) {
+      console.error('[MoneyControl Scraper] Error fetching data:', error.message);
+      throw new Error(`Failed to fetch MoneyControl data: ${error.message}`);
+    }
+  }
+
+  private cleanCompanyName(name: string): string {
+    return name
+      .replace(/!\[.*?\]\(.*?\)/g, '')
+      .replace(/\[Invest\].*$/i, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  async matchAndImportPrices(dryRun: boolean = false): Promise<PriceImportResult> {
+    const result: PriceImportResult = {
+      total: 0,
+      matched: 0,
+      imported: 0,
+      skipped: 0,
+      errors: [],
+      matchedCompanies: [],
+      unmatchedCompanies: [],
+    };
+
+    try {
+      const mcCompanies = await this.scrapeUnlistedPrices();
+      result.total = mcCompanies.length;
+
+      const ourCompanies = await storage.getAllUnlistedCompanies({});
+      
+      const isinIndex = new Map<string, typeof ourCompanies[0]>();
+      const nameIndex = new Map<string, typeof ourCompanies[0]>();
+      
+      for (const company of ourCompanies) {
+        if (company.isin) {
+          isinIndex.set(company.isin.toUpperCase(), company);
+        }
+        nameIndex.set(this.normalizeForMatch(company.name), company);
+      }
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      for (const mcCompany of mcCompanies) {
+        let matchedCompany = isinIndex.get(mcCompany.isin.toUpperCase());
+        let matchType: 'isin' | 'name' = 'isin';
+
+        if (!matchedCompany) {
+          const normalizedMcName = this.normalizeForMatch(mcCompany.name);
+          matchedCompany = nameIndex.get(normalizedMcName);
+          
+          if (!matchedCompany) {
+            const entries = Array.from(nameIndex.entries());
+            for (let i = 0; i < entries.length; i++) {
+              const [normalizedName, company] = entries[i];
+              if (this.fuzzyMatch(normalizedMcName, normalizedName)) {
+                matchedCompany = company;
+                break;
+              }
+            }
+          }
+          
+          if (matchedCompany) {
+            matchType = 'name';
+          }
+        }
+
+        if (matchedCompany) {
+          result.matched++;
+          result.matchedCompanies.push({
+            moneyControlName: mcCompany.name,
+            isin: mcCompany.isin,
+            matchedTo: matchedCompany.name,
+            matchedById: matchedCompany.id,
+            price: mcCompany.price,
+            matchType,
+          });
+
+          if (!dryRun) {
+            try {
+              const priceData: InsertUnlistedPriceHistory = {
+                companyId: matchedCompany.id,
+                date: today,
+                price: mcCompany.price.toString(),
+                sourceType: 'MONEYCONTROL',
+                notes: `Auto-imported from MoneyControl. ISIN: ${mcCompany.isin}`,
+              };
+
+              await storage.upsertPriceHistory(priceData);
+              result.imported++;
+            } catch (err: any) {
+              result.errors.push(`Failed to import price for ${mcCompany.name}: ${err.message}`);
+              result.skipped++;
+            }
+          }
+        } else {
+          result.unmatchedCompanies.push({
+            name: mcCompany.name,
+            isin: mcCompany.isin,
+            price: mcCompany.price,
+          });
+        }
+      }
+
+      console.log(`[MoneyControl Scraper] Import complete: ${result.matched} matched, ${result.imported} imported, ${result.unmatchedCompanies.length} unmatched`);
+      return result;
+    } catch (error: any) {
+      result.errors.push(error.message);
+      throw error;
+    }
+  }
+
+  private normalizeForMatch(name: string): string {
+    return name
+      .toLowerCase()
+      .replace(/\b(ltd|limited|pvt|private|inc|incorporated|llp|llc)\b/gi, '')
+      .replace(/[^\w\s]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private fuzzyMatch(name1: string, name2: string): boolean {
+    if (name1.includes(name2) || name2.includes(name1)) {
+      return true;
+    }
+
+    const distance = this.levenshteinDistance(name1, name2);
+    const maxLen = Math.max(name1.length, name2.length);
+    const similarity = 1 - distance / maxLen;
+
+    return similarity >= 0.8;
+  }
+
+  private levenshteinDistance(s1: string, s2: string): number {
+    const m = s1.length;
+    const n = s2.length;
+    const dp: number[][] = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
+
+    for (let i = 0; i <= m; i++) dp[i][0] = i;
+    for (let j = 0; j <= n; j++) dp[0][j] = j;
+
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        if (s1[i - 1] === s2[j - 1]) {
+          dp[i][j] = dp[i - 1][j - 1];
+        } else {
+          dp[i][j] = Math.min(
+            dp[i - 1][j] + 1,
+            dp[i][j - 1] + 1,
+            dp[i - 1][j - 1] + 1
+          );
+        }
+      }
+    }
+
+    return dp[m][n];
+  }
+
+  async previewImport(): Promise<PriceImportResult> {
+    return this.matchAndImportPrices(true);
+  }
+
+  async executeImport(): Promise<PriceImportResult> {
+    return this.matchAndImportPrices(false);
+  }
+}
+
+export const moneyControlScraper = new MoneyControlScraperService();
