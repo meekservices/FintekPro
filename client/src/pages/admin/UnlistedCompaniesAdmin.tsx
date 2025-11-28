@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Building2, Search, RefreshCw, ArrowLeft, Plus, Loader2, TrendingUp, BarChart3, History, Activity } from 'lucide-react';
+import { Building2, Search, RefreshCw, ArrowLeft, Plus, Loader2, TrendingUp, BarChart3, History, Activity, Download, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { LoadingState } from '@/components/LoadingState';
@@ -37,6 +37,7 @@ export default function UnlistedCompaniesAdmin() {
   const [isProbe42DialogOpen, setIsProbe42DialogOpen] = useState(false);
   const [probe42SearchQuery, setProbe42SearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('companies');
+  const [isMoneyControlDialogOpen, setIsMoneyControlDialogOpen] = useState(false);
 
   // Check admin access
   if (authLoading) {
@@ -69,17 +70,30 @@ export default function UnlistedCompaniesAdmin() {
           <h1 className="text-3xl font-bold text-white">Unlisted Marketplace Management</h1>
           <p className="text-gray-400 mt-1">Manage companies, listings, and buy requests</p>
         </div>
-        <Dialog open={isProbe42DialogOpen} onOpenChange={setIsProbe42DialogOpen}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-add-company">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Company
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-3xl bg-gray-900 border-gray-800">
-            <Probe42SearchDialog onClose={() => setIsProbe42DialogOpen(false)} />
-          </DialogContent>
-        </Dialog>
+        <div className="flex gap-2">
+          <Dialog open={isMoneyControlDialogOpen} onOpenChange={setIsMoneyControlDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="border-green-600 text-green-400 hover:bg-green-600/20" data-testid="button-moneycontrol-import">
+                <Download className="w-4 h-4 mr-2" />
+                Import Prices
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto bg-gray-900 border-gray-800">
+              <MoneyControlImportDialog onClose={() => setIsMoneyControlDialogOpen(false)} />
+            </DialogContent>
+          </Dialog>
+          <Dialog open={isProbe42DialogOpen} onOpenChange={setIsProbe42DialogOpen}>
+            <DialogTrigger asChild>
+              <Button data-testid="button-add-company">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Company
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-3xl bg-gray-900 border-gray-800">
+              <Probe42SearchDialog onClose={() => setIsProbe42DialogOpen(false)} />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
@@ -1337,5 +1351,257 @@ function SyncStatusTab({ company }: { company: UnlistedCompany }) {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+interface MoneyControlMatchResult {
+  total: number;
+  matched: number;
+  imported: number;
+  skipped: number;
+  errors: string[];
+  matchedCompanies: {
+    moneyControlName: string;
+    isin: string;
+    matchedTo: string;
+    matchedById: string;
+    price: number;
+    matchType: 'isin' | 'name';
+  }[];
+  unmatchedCompanies: {
+    name: string;
+    isin: string;
+    price: number;
+  }[];
+  message?: string;
+}
+
+function MoneyControlImportDialog({ onClose }: { onClose: () => void }) {
+  const { toast } = useToast();
+  const [previewData, setPreviewData] = useState<MoneyControlMatchResult | null>(null);
+
+  const previewMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/unlisted/moneycontrol/preview');
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to preview import');
+      }
+      const result = await response.json();
+      return result.data as MoneyControlMatchResult;
+    },
+    onSuccess: (data) => {
+      setPreviewData(data);
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Preview Failed',
+        description: error.message || 'Failed to fetch data from MoneyControl',
+        variant: 'destructive'
+      });
+    }
+  });
+
+  const importMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('/api/unlisted/moneycontrol/import', { method: 'POST' });
+      return response as MoneyControlMatchResult;
+    },
+    onSuccess: (data) => {
+      toast({
+        title: 'Import Successful',
+        description: `Imported ${data.imported} prices from MoneyControl`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/unlisted'] });
+      onClose();
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Import Failed',
+        description: error.message || 'Failed to import prices',
+        variant: 'destructive'
+      });
+    }
+  });
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle className="text-white flex items-center gap-2">
+          <Download className="w-5 h-5 text-green-400" />
+          Import Prices from MoneyControl
+        </DialogTitle>
+        <DialogDescription className="text-gray-400">
+          Fetch the latest unlisted share prices from MoneyControl and import them into your marketplace.
+          Companies are matched by ISIN code or name.
+        </DialogDescription>
+      </DialogHeader>
+
+      <div className="space-y-4">
+        {!previewData && !previewMutation.isPending && (
+          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+            <p className="text-blue-400 text-sm mb-4">
+              Click "Preview Import" to see which companies from MoneyControl can be matched to your existing unlisted companies.
+            </p>
+            <Button
+              onClick={() => previewMutation.mutate()}
+              className="bg-blue-600 hover:bg-blue-700"
+              data-testid="button-preview-moneycontrol"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Preview Import
+            </Button>
+          </div>
+        )}
+
+        {previewMutation.isPending && (
+          <div className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-400 mb-4" />
+            <p className="text-gray-400">Fetching data from MoneyControl...</p>
+          </div>
+        )}
+
+        {previewData && (
+          <>
+            <div className="grid grid-cols-4 gap-4">
+              <Card className="bg-gray-800 border-gray-700">
+                <CardContent className="pt-4">
+                  <div className="text-2xl font-bold text-white">{previewData.total}</div>
+                  <div className="text-sm text-gray-400">Total Found</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-gray-800 border-gray-700">
+                <CardContent className="pt-4">
+                  <div className="text-2xl font-bold text-green-400">{previewData.matched}</div>
+                  <div className="text-sm text-gray-400">Matched</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-gray-800 border-gray-700">
+                <CardContent className="pt-4">
+                  <div className="text-2xl font-bold text-yellow-400">{previewData.unmatchedCompanies.length}</div>
+                  <div className="text-sm text-gray-400">Unmatched</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-gray-800 border-gray-700">
+                <CardContent className="pt-4">
+                  <div className="text-2xl font-bold text-blue-400">{previewData.imported}</div>
+                  <div className="text-sm text-gray-400">To Import</div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {previewData.matchedCompanies.length > 0 && (
+              <Card className="bg-gray-800 border-gray-700">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-white text-sm flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-400" />
+                    Matched Companies ({previewData.matchedCompanies.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="max-h-48 overflow-y-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-gray-700">
+                          <TableHead className="text-gray-400 text-xs">MoneyControl Name</TableHead>
+                          <TableHead className="text-gray-400 text-xs">Matched To</TableHead>
+                          <TableHead className="text-gray-400 text-xs">Match Type</TableHead>
+                          <TableHead className="text-gray-400 text-xs text-right">Price</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {previewData.matchedCompanies.map((match, idx) => (
+                          <TableRow key={idx} className="border-gray-700">
+                            <TableCell className="text-white text-sm py-2">{match.moneyControlName}</TableCell>
+                            <TableCell className="text-gray-300 text-sm py-2">{match.matchedTo}</TableCell>
+                            <TableCell className="py-2">
+                              <Badge variant="outline" className={match.matchType === 'isin' ? 'border-green-500 text-green-400' : 'border-yellow-500 text-yellow-400'}>
+                                {match.matchType === 'isin' ? 'ISIN' : 'Name'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right text-green-400 font-medium text-sm py-2">
+                              ₹{match.price.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {previewData.unmatchedCompanies.length > 0 && (
+              <Card className="bg-gray-800 border-gray-700">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-white text-sm flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-yellow-400" />
+                    Unmatched Companies ({previewData.unmatchedCompanies.length})
+                  </CardTitle>
+                  <CardDescription className="text-gray-500 text-xs">
+                    These companies from MoneyControl don't match any companies in your database
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="max-h-32 overflow-y-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-gray-700">
+                          <TableHead className="text-gray-400 text-xs">Company Name</TableHead>
+                          <TableHead className="text-gray-400 text-xs">ISIN</TableHead>
+                          <TableHead className="text-gray-400 text-xs text-right">Price</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {previewData.unmatchedCompanies.slice(0, 10).map((company, idx) => (
+                          <TableRow key={idx} className="border-gray-700">
+                            <TableCell className="text-gray-300 text-sm py-2">{company.name}</TableCell>
+                            <TableCell className="text-gray-400 font-mono text-xs py-2">{company.isin}</TableCell>
+                            <TableCell className="text-right text-gray-300 text-sm py-2">
+                              ₹{company.price.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {previewData.unmatchedCompanies.length > 10 && (
+                          <TableRow className="border-gray-700">
+                            <TableCell colSpan={3} className="text-center text-gray-500 text-xs py-2">
+                              ... and {previewData.unmatchedCompanies.length - 10} more
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            <div className="flex justify-end gap-2 pt-4 border-t border-gray-700">
+              <Button variant="outline" onClick={onClose} className="border-gray-600 text-gray-300">
+                Cancel
+              </Button>
+              <Button
+                onClick={() => importMutation.mutate()}
+                disabled={importMutation.isPending || previewData.matched === 0}
+                className="bg-green-600 hover:bg-green-700"
+                data-testid="button-execute-moneycontrol-import"
+              >
+                {importMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Importing...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4 mr-2" />
+                    Import {previewData.matched} Prices
+                  </>
+                )}
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
+    </>
   );
 }

@@ -78,5 +78,20 @@ export function initializeCronJobs(): void {
     }
   });
 
+  // MoneyControl Price Sync - Run daily at 9 PM IST (3:30 PM UTC)
+  cron.schedule('30 15 * * *', async () => {
+    console.log('[CRON] Starting MoneyControl price sync...');
+    try {
+      const { moneyControlScraper } = await import('./services/moneycontrol-scraper');
+      const result = await moneyControlScraper.executeImport();
+      
+      console.log(
+        `[CRON] MoneyControl sync completed: ${result.imported} prices imported, ${result.matched} matched, ${result.unmatchedCompanies.length} unmatched`
+      );
+    } catch (error: any) {
+      console.error('[CRON] MoneyControl price sync failed:', error.message);
+    }
+  });
+
   console.log('✓ Cron jobs initialized successfully');
 }
