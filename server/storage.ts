@@ -1081,13 +1081,18 @@ export interface IStorage {
   createCompanyFinancials(data: InsertCompanyFinancials): Promise<CompanyFinancials>;
   getCompanyFinancials(companyId: string): Promise<CompanyFinancials[]>;
   getCompanyFinancialsByYear(companyId: string, financialYear: string): Promise<CompanyFinancials | null>;
+  updateCompanyFinancials(id: string, data: Partial<InsertCompanyFinancials>): Promise<CompanyFinancials>;
   
   // Company Ratios
   createCompanyRatios(data: InsertCompanyRatios): Promise<CompanyRatios>;
   getCompanyRatios(companyId: string): Promise<CompanyRatios[]>;
+  getCompanyRatiosByYear(companyId: string, financialYear: string): Promise<CompanyRatios | null>;
+  updateCompanyRatios(id: string, data: Partial<InsertCompanyRatios>): Promise<CompanyRatios>;
   
   // Price History
   createPriceHistory(data: InsertUnlistedPriceHistory): Promise<UnlistedPriceHistory>;
+  getPriceHistoryByDate(companyId: string, date: Date): Promise<UnlistedPriceHistory | null>;
+  upsertPriceHistory(data: InsertUnlistedPriceHistory): Promise<UnlistedPriceHistory>;
   getPriceHistory(companyId: string, limit?: number): Promise<UnlistedPriceHistory[]>;
   
   // Sell Listings
@@ -7663,6 +7668,15 @@ export class DatabaseStorage implements IStorage {
     return financials || null;
   }
 
+  async updateCompanyFinancials(id: string, data: Partial<InsertCompanyFinancials>): Promise<CompanyFinancials> {
+    const { companyId, financialYear, ...mutableData } = data;
+    const [updated] = await db.update(schema.companyFinancials)
+      .set({ ...mutableData, updatedAt: new Date() })
+      .where(eq(schema.companyFinancials.id, id))
+      .returning();
+    return updated;
+  }
+
   // Company Ratios
   async createCompanyRatios(data: InsertCompanyRatios): Promise<CompanyRatios> {
     const [ratios] = await db.insert(schema.companyRatios)
@@ -7679,12 +7693,59 @@ export class DatabaseStorage implements IStorage {
     return ratios;
   }
 
+  async getCompanyRatiosByYear(companyId: string, financialYear: string): Promise<CompanyRatios | null> {
+    const [ratios] = await db.select()
+      .from(schema.companyRatios)
+      .where(and(
+        eq(schema.companyRatios.companyId, companyId),
+        eq(schema.companyRatios.financialYear, financialYear)
+      ));
+    return ratios || null;
+  }
+
+  async updateCompanyRatios(id: string, data: Partial<InsertCompanyRatios>): Promise<CompanyRatios> {
+    const { companyId, financialYear, ...mutableData } = data;
+    const [updated] = await db.update(schema.companyRatios)
+      .set({ ...mutableData, updatedAt: new Date() })
+      .where(eq(schema.companyRatios.id, id))
+      .returning();
+    return updated;
+  }
+
   // Price History
   async createPriceHistory(data: InsertUnlistedPriceHistory): Promise<UnlistedPriceHistory> {
     const [priceHistory] = await db.insert(schema.unlistedPriceHistory)
       .values(data)
       .returning();
     return priceHistory;
+  }
+
+  async getPriceHistoryByDate(companyId: string, date: Date): Promise<UnlistedPriceHistory | null> {
+    const [priceHistory] = await db.select()
+      .from(schema.unlistedPriceHistory)
+      .where(and(
+        eq(schema.unlistedPriceHistory.companyId, companyId),
+        eq(schema.unlistedPriceHistory.date, date)
+      ));
+    return priceHistory || null;
+  }
+
+  async upsertPriceHistory(data: InsertUnlistedPriceHistory): Promise<UnlistedPriceHistory> {
+    const existing = await this.getPriceHistoryByDate(data.companyId, data.date);
+    if (existing) {
+      const [updated] = await db.update(schema.unlistedPriceHistory)
+        .set({
+          price: data.price,
+          volume: data.volume,
+          sourceType: data.sourceType,
+          sourceDealId: data.sourceDealId,
+          notes: data.notes,
+        })
+        .where(eq(schema.unlistedPriceHistory.id, existing.id))
+        .returning();
+      return updated;
+    }
+    return this.createPriceHistory(data);
   }
 
   async getPriceHistory(companyId: string, limit?: number): Promise<UnlistedPriceHistory[]> {

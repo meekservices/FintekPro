@@ -143,6 +143,7 @@ export interface SyncResult {
 class Probe42Service {
   private client: AxiosInstance;
   private isConfigured: boolean;
+  private lastHealthCheck: { status: string; timestamp: Date; error?: string } | null = null;
 
   constructor() {
     this.isConfigured = Boolean(PROBE42_API_KEY);
@@ -150,8 +151,9 @@ class Probe42Service {
     this.client = axios.create({
       baseURL: PROBE42_BASE_URL,
       headers: {
-        'Authorization': `Bearer ${PROBE42_API_KEY}`,
+        'x-api-key': PROBE42_API_KEY,
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
       },
       timeout: 30000,
     });
@@ -168,6 +170,79 @@ class Probe42Service {
    */
   isReady(): boolean {
     return this.isConfigured;
+  }
+
+  /**
+   * Get current service status and configuration
+   */
+  getStatus(): {
+    configured: boolean;
+    baseUrl: string;
+    lastHealthCheck: { status: string; timestamp: Date; error?: string } | null;
+  } {
+    return {
+      configured: this.isConfigured,
+      baseUrl: PROBE42_BASE_URL,
+      lastHealthCheck: this.lastHealthCheck,
+    };
+  }
+
+  /**
+   * Health check - verify API connectivity and authentication
+   */
+  async healthCheck(): Promise<{
+    status: 'healthy' | 'unhealthy' | 'unconfigured';
+    message: string;
+    responseTime?: number;
+  }> {
+    if (!this.isConfigured) {
+      this.lastHealthCheck = {
+        status: 'unconfigured',
+        timestamp: new Date(),
+        error: 'PROBE42_API_KEY not set',
+      };
+      return {
+        status: 'unconfigured',
+        message: 'Probe42 API key not configured. Using mock data in development.',
+      };
+    }
+
+    const startTime = Date.now();
+    try {
+      // Use a simple search query to test connectivity
+      const response = await this.client.get('/companies/search', {
+        params: { q: 'test', limit: 1 }
+      });
+      
+      const responseTime = Date.now() - startTime;
+      this.lastHealthCheck = {
+        status: 'healthy',
+        timestamp: new Date(),
+      };
+      
+      return {
+        status: 'healthy',
+        message: 'Probe42 API is accessible and authenticated',
+        responseTime,
+      };
+    } catch (error: any) {
+      const responseTime = Date.now() - startTime;
+      const errorMessage = error.response?.status === 401 || error.response?.status === 403
+        ? 'Authentication failed - API key may be invalid or expired'
+        : `API error: ${error.message}`;
+      
+      this.lastHealthCheck = {
+        status: 'unhealthy',
+        timestamp: new Date(),
+        error: errorMessage,
+      };
+      
+      return {
+        status: 'unhealthy',
+        message: errorMessage,
+        responseTime,
+      };
+    }
   }
 
   /**

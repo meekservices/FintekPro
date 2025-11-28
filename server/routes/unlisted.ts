@@ -18,6 +18,7 @@ import { probe42Service } from '../services/probe42-service';
 import { PriceSuggestionService } from '../services/price-suggestion';
 import {
   insertUnlistedCompanySchema,
+  insertUnlistedPriceHistorySchema,
   insertSellListingSchema,
   insertBuyRequestSchema,
   insertUnlistedDealSchema,
@@ -153,6 +154,30 @@ router.patch('/companies/:id', async (req: Request, res: Response) => {
 // ===================================================================
 
 /**
+ * GET /api/unlisted/probe42/status
+ * Check Probe42 API health and configuration status
+ */
+router.get('/probe42/status', requireLevel2, async (req: Request, res: Response) => {
+  try {
+    // Check if user is admin
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const currentStatus = probe42Service.getStatus();
+    const healthCheck = await probe42Service.healthCheck();
+    
+    return apiResponse.success(res, {
+      ...currentStatus,
+      healthCheck,
+    });
+  } catch (error: any) {
+    console.error('Error checking Probe42 status:', error);
+    return apiResponse.serverError(res, 'Failed to check Probe42 status');
+  }
+});
+
+/**
  * GET /api/unlisted/probe42/search
  * Search for companies on Probe42
  */
@@ -209,50 +234,75 @@ router.post('/probe42/sync/:companyId', requireLevel2, async (req: Request, res:
     const financialsData = await probe42Service.getCompanyFinancials(company.probe42CompanyId, 3);
     const ratiosData = await probe42Service.getCompanyRatios(company.probe42CompanyId, 3);
     
-    // Save financials
+    // Save financials with upsert logic
     let financialsCount = 0;
+    let financialsUpdated = 0;
     for (const finData of financialsData) {
       const dbFinancials = probe42Service.convertFinancialsToDbFormat(companyId, finData);
       
-      // Check if already exists
+      // Check if already exists - update if so, create if not
       const existing = await storage.getCompanyFinancialsByYear(companyId, finData.financial_year);
-      if (!existing) {
+      if (existing) {
+        await storage.updateCompanyFinancials(existing.id, dbFinancials);
+        financialsUpdated++;
+      } else {
         await storage.createCompanyFinancials(dbFinancials);
         financialsCount++;
       }
     }
     
-    // Save ratios
+    // Save ratios with upsert logic
     let ratiosCount = 0;
+    let ratiosUpdated = 0;
     for (const ratioData of ratiosData) {
       const dbRatios = probe42Service.convertRatiosToDbFormat(companyId, ratioData);
-      await storage.createCompanyRatios(dbRatios);
-      ratiosCount++;
+      
+      // Check if already exists
+      const existing = await storage.getCompanyRatiosByYear(companyId, ratioData.financial_year);
+      if (existing) {
+        await storage.updateCompanyRatios(existing.id, dbRatios);
+        ratiosUpdated++;
+      } else {
+        await storage.createCompanyRatios(dbRatios);
+        ratiosCount++;
+      }
     }
     
-    // Update company metadata
+    // Update company metadata with full overview data
     await storage.updateUnlistedCompany(companyId, {
       lastSyncedAt: new Date(),
       sector: probe42Details.sector || company.sector,
       industry: probe42Details.industry || company.industry,
+      rocState: probe42Details.roc_state || company.rocState,
+      incorporationDate: probe42Details.incorporation_date || company.incorporationDate,
+      paidUpCapital: probe42Details.paid_up_capital?.toString() || company.paidUpCapital,
+      authorizedCapital: probe42Details.authorized_capital?.toString() || company.authorizedCapital,
+      faceValue: probe42Details.face_value?.toString() || company.faceValue,
+      totalShares: probe42Details.total_shares || company.totalShares,
+      website: probe42Details.website || company.website,
+      description: probe42Details.description || company.description,
+      isin: probe42Details.isin || company.isin,
     });
     
     // Create sync log
+    const totalNew = financialsCount + ratiosCount;
+    const totalUpdated = financialsUpdated + ratiosUpdated;
     await storage.createProbe42SyncLog({
       companyId,
       probe42CompanyId: company.probe42CompanyId,
       syncType: 'full',
       lastSyncAt: new Date(),
       status: 'success',
-      recordsSynced: financialsCount + ratiosCount,
+      recordsSynced: totalNew + totalUpdated,
       recordsFailed: 0,
     });
     
     return apiResponse.success(res, {
       success: true,
-      financialsCount,
-      ratiosCount,
-      message: `Synced ${financialsCount} financial records and ${ratiosCount} ratio records`,
+      financials: { created: financialsCount, updated: financialsUpdated },
+      ratios: { created: ratiosCount, updated: ratiosUpdated },
+      companyUpdated: true,
+      message: `Synced ${totalNew} new records, updated ${totalUpdated} existing records`,
     });
   } catch (error: any) {
     console.error('Error syncing from Probe42:', error);
@@ -347,6 +397,96 @@ router.get('/companies/:id/price-history', requireLevel2, async (req: Request, r
   } catch (error: any) {
     console.error('Error fetching price history:', error);
     return apiResponse.serverError(res, 'Failed to fetch price history');
+  }
+});
+
+/**
+ * POST /api/unlisted/companies/:id/price-history
+ * Admin: Add price history entry for a company
+ * Since there's no public API for unlisted stock prices, this allows manual entry
+ */
+router.post('/companies/:id/price-history', requireLevel2, async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { id } = req.params;
+    
+    const company = await storage.getUnlistedCompanyById(id);
+    if (!company) {
+      return apiResponse.notFound(res, 'Company not found');
+    }
+    
+    const validatedData = insertUnlistedPriceHistorySchema.parse({
+      ...req.body,
+      companyId: id,
+    });
+    
+    const priceHistory = await storage.createPriceHistory(validatedData);
+    return apiResponse.created(res, priceHistory, 'Price history entry added successfully');
+  } catch (error: any) {
+    console.error('Error adding price history:', error);
+    
+    if (error instanceof z.ZodError) {
+      return apiResponse.badRequest(res, 'Invalid price data', error.errors);
+    }
+    
+    return apiResponse.serverError(res, 'Failed to add price history');
+  }
+});
+
+/**
+ * POST /api/unlisted/companies/:id/price-history/bulk
+ * Admin: Bulk upload price history from CSV/array data
+ */
+router.post('/companies/:id/price-history/bulk', requireLevel2, async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { id } = req.params;
+    const { prices } = req.body;
+    
+    if (!Array.isArray(prices) || prices.length === 0) {
+      return apiResponse.badRequest(res, 'Prices array is required');
+    }
+    
+    const company = await storage.getUnlistedCompanyById(id);
+    if (!company) {
+      return apiResponse.notFound(res, 'Company not found');
+    }
+    
+    let successCount = 0;
+    let failedCount = 0;
+    const errors: string[] = [];
+    
+    for (const priceEntry of prices) {
+      try {
+        const validatedData = insertUnlistedPriceHistorySchema.parse({
+          ...priceEntry,
+          companyId: id,
+        });
+        
+        await storage.upsertPriceHistory(validatedData);
+        successCount++;
+      } catch (err: any) {
+        failedCount++;
+        errors.push(`Row with date ${priceEntry.date}: ${err.message}`);
+      }
+    }
+    
+    return apiResponse.success(res, {
+      success: true,
+      imported: successCount,
+      failed: failedCount,
+      errors: errors.slice(0, 10),
+      message: `Imported ${successCount} price entries, ${failedCount} failed`,
+    });
+  } catch (error: any) {
+    console.error('Error bulk importing price history:', error);
+    return apiResponse.serverError(res, 'Failed to import price history');
   }
 });
 
