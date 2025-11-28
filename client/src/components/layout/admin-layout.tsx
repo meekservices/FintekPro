@@ -262,32 +262,32 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                 const isActive = location === item.href;
                 
                 return (
-                  <Link key={item.href} href={item.href}>
-                    <a
-                      className={cn(
-                        "flex items-start gap-3 px-4 py-3 rounded-lg transition-colors group",
-                        isActive
-                          ? "bg-blue-600 text-white"
-                          : "text-gray-400 hover:bg-gray-800 hover:text-white"
-                      )}
-                      data-testid={`link-admin-${item.href.split('/').pop()}`}
-                    >
-                      <Icon className="h-5 w-5 mt-0.5 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className={cn(
-                          "text-sm font-medium",
-                          isActive ? "text-white" : "text-gray-300 group-hover:text-white"
-                        )}>
-                          {item.title}
-                        </p>
-                        <p className={cn(
-                          "text-xs mt-0.5",
-                          isActive ? "text-blue-100" : "text-gray-500 group-hover:text-gray-400"
-                        )}>
-                          {item.description}
-                        </p>
-                      </div>
-                    </a>
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      "flex items-start gap-3 px-4 py-3 rounded-lg transition-colors group",
+                      isActive
+                        ? "bg-blue-600 text-white"
+                        : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                    )}
+                    data-testid={`link-admin-${item.href.split('/').pop()}`}
+                  >
+                    <Icon className="h-5 w-5 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className={cn(
+                        "text-sm font-medium",
+                        isActive ? "text-white" : "text-gray-300 group-hover:text-white"
+                      )}>
+                        {item.title}
+                      </p>
+                      <p className={cn(
+                        "text-xs mt-0.5",
+                        isActive ? "text-blue-100" : "text-gray-500 group-hover:text-gray-400"
+                      )}>
+                        {item.description}
+                      </p>
+                    </div>
                   </Link>
                 );
               })}
