@@ -978,18 +978,24 @@ export default function ProfilePage() {
                               <div className="space-y-3">
                                 <div className="flex items-center gap-2">
                                   <CheckCircle2 className="h-5 w-5 text-green-500" />
-                                  <span className="text-sm dark:text-white">
-                                    {kycProfileData?.kycTierMetadata?.productsUnlocked?.length || 0} Products Unlocked
+                                  <span className="text-sm dark:text-white" data-testid="text-products-unlocked">
+                                    {eligibility?.totalProductsAccessible || 0} Products Unlocked
                                   </span>
                                 </div>
                                 {kycProfileData?.kycTierMetadata?.maxAnnualInvestment && (
                                   <div className="flex items-center gap-2">
                                     <TrendingUp className="h-5 w-5 text-blue-500" />
-                                    <span className="text-sm dark:text-white">
-                                      Max Investment: ₹{(kycProfileData.kycTierMetadata.maxAnnualInvestment / 1000).toFixed(0)}K/year
+                                    <span className="text-sm dark:text-white" data-testid="text-max-investment">
+                                      Max Investment: ₹{(kycProfileData.kycTierMetadata.maxAnnualInvestment / 100000).toFixed(0)} Lakh/year
                                     </span>
                                   </div>
                                 )}
+                                <div className="flex items-center gap-2">
+                                  <Award className="h-5 w-5 text-purple-500" />
+                                  <span className="text-sm dark:text-white" data-testid="text-kyc-level">
+                                    KYC Level: {kycProfileData?.kycLevel || '1'}
+                                  </span>
+                                </div>
                               </div>
                             </CardContent>
                           </Card>

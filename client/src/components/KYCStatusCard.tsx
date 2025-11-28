@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 
 interface KYCStatus {
   userId: string;
-  currentLevel: "none" | "basic" | "full" | "enhanced";
+  currentLevel: "none" | "basic" | "enhanced";
   isActive: boolean;
   dueDate: string | null;
   daysUntilExpiry: number | null;
@@ -132,20 +132,17 @@ export function KYCStatusCard() {
   const getLevelBadgeColor = () => {
     switch (status.currentLevel) {
       case "enhanced":
-        return "bg-purple-600 hover:bg-purple-700";
-      case "full":
-        return "bg-blue-600 hover:bg-blue-700";
+        return "bg-green-600 hover:bg-green-700";
       case "basic":
-        return "bg-gray-600 hover:bg-gray-700";
+        return "bg-blue-600 hover:bg-blue-700";
       default:
         return "bg-gray-400";
     }
   };
 
-  // Calculate completion percentage
+  // Calculate completion percentage based on KYC level
   const completionPercentage = 
     status.currentLevel === "enhanced" ? 100 :
-    status.currentLevel === "full" ? 75 :
     status.currentLevel === "basic" ? 50 : 25;
 
   return (
