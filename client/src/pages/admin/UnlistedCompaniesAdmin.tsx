@@ -39,6 +39,7 @@ export default function UnlistedCompaniesAdmin() {
   const [probe42SearchQuery, setProbe42SearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('companies');
   const [isMoneyControlDialogOpen, setIsMoneyControlDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   // Check admin access
   if (authLoading) {
@@ -81,6 +82,17 @@ export default function UnlistedCompaniesAdmin() {
             </DialogTrigger>
             <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto bg-gray-900 border-gray-800">
               <MoneyControlImportDialog onClose={() => setIsMoneyControlDialogOpen(false)} />
+            </DialogContent>
+          </Dialog>
+          <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="border-red-600 text-red-400 hover:bg-red-600/20" data-testid="button-delete-company">
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete Company
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl bg-gray-900 border-gray-800">
+              <DeleteCompanyDialog onClose={() => setIsDeleteDialogOpen(false)} />
             </DialogContent>
           </Dialog>
           <Dialog open={isProbe42DialogOpen} onOpenChange={setIsProbe42DialogOpen}>
@@ -1674,6 +1686,131 @@ function MoneyControlImportDialog({ onClose }: { onClose: () => void }) {
             </div>
           </>
         )}
+      </div>
+    </>
+  );
+}
+
+function DeleteCompanyDialog({ onClose }: { onClose: () => void }) {
+  const { toast } = useToast();
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
+  const [confirmText, setConfirmText] = useState('');
+
+  const { data: companies, isLoading } = useQuery<UnlistedCompany[]>({
+    queryKey: ['/api/unlisted/admin/companies'],
+    queryFn: async () => {
+      const response = await fetch('/api/unlisted/admin/companies');
+      if (!response.ok) throw new Error('Failed to fetch companies');
+      const result = await response.json();
+      return result.data || [];
+    },
+  });
+
+  const selectedCompany = companies?.find(c => c.id === selectedCompanyId);
+
+  const deleteMutation = useMutation({
+    mutationFn: async (companyId: string) => {
+      return apiRequest(`/api/unlisted/companies/${companyId}`, { method: 'DELETE' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/companies'] });
+      toast({ title: 'Company deleted successfully' });
+      onClose();
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Delete failed',
+        description: error.message || 'Failed to delete company',
+        variant: 'destructive'
+      });
+    }
+  });
+
+  const canDelete = selectedCompanyId && confirmText === 'DELETE';
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle className="text-white flex items-center gap-2">
+          <Trash2 className="w-5 h-5 text-red-400" />
+          Delete Company
+        </DialogTitle>
+        <DialogDescription className="text-gray-400">
+          Select a company to delete. This action will permanently remove the company and all associated data including financials, price history, listings, and buy requests.
+        </DialogDescription>
+      </DialogHeader>
+
+      <div className="space-y-4 py-4">
+        <div className="space-y-2">
+          <Label className="text-gray-300">Select Company</Label>
+          {isLoading ? (
+            <div className="flex items-center gap-2 text-gray-400">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Loading companies...
+            </div>
+          ) : (
+            <Select value={selectedCompanyId} onValueChange={setSelectedCompanyId}>
+              <SelectTrigger className="bg-gray-800 border-gray-700 text-white" data-testid="select-delete-company">
+                <SelectValue placeholder="Choose a company to delete..." />
+              </SelectTrigger>
+              <SelectContent>
+                {companies?.map((company) => (
+                  <SelectItem key={company.id} value={company.id}>
+                    {company.name} ({company.cin || 'No CIN'})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+
+        {selectedCompany && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-red-400 mt-0.5" />
+              <div>
+                <p className="text-red-400 font-medium">Warning: This action cannot be undone</p>
+                <p className="text-gray-400 text-sm mt-1">
+                  You are about to delete <span className="text-white font-semibold">{selectedCompany.name}</span> and all its associated data.
+                </p>
+                <div className="mt-3">
+                  <Label className="text-gray-300 text-sm">Type "DELETE" to confirm</Label>
+                  <Input
+                    value={confirmText}
+                    onChange={(e) => setConfirmText(e.target.value.toUpperCase())}
+                    placeholder="Type DELETE"
+                    className="mt-1 bg-gray-800 border-gray-700 text-white"
+                    data-testid="input-confirm-delete"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="flex justify-end gap-2 pt-4 border-t border-gray-700">
+        <Button variant="outline" onClick={onClose} className="border-gray-600 text-gray-300">
+          Cancel
+        </Button>
+        <Button
+          onClick={() => deleteMutation.mutate(selectedCompanyId)}
+          disabled={!canDelete || deleteMutation.isPending}
+          className="bg-red-600 hover:bg-red-700 disabled:bg-gray-600"
+          data-testid="button-confirm-delete-company"
+        >
+          {deleteMutation.isPending ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Deleting...
+            </>
+          ) : (
+            <>
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete Company
+            </>
+          )}
+        </Button>
       </div>
     </>
   );
