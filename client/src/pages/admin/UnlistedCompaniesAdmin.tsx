@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Building2, Search, RefreshCw, ArrowLeft, Plus, Loader2, TrendingUp, BarChart3, History, Activity, Download, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Building2, Search, RefreshCw, ArrowLeft, Plus, Loader2, TrendingUp, BarChart3, History, Activity, Download, CheckCircle, XCircle, AlertCircle, Trash2 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { LoadingState } from '@/components/LoadingState';
@@ -192,6 +193,24 @@ function CompanyListView({
     }
   });
 
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (companyId: string) => {
+      return apiRequest(`/api/unlisted/companies/${companyId}`, { method: 'DELETE' });
+    },
+    onSuccess: (_, companyId) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/companies'] });
+      toast({ title: 'Company deleted successfully' });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Delete failed',
+        description: error.message || 'Failed to delete company',
+        variant: 'destructive'
+      });
+    }
+  });
+
   // Filter companies by search query
   const filteredCompanies = companies?.filter(company => {
     if (!searchQuery) return true;
@@ -319,32 +338,74 @@ function CompanyListView({
                         {company.lastSyncedAt ? format(new Date(company.lastSyncedAt), 'MMM dd, yyyy') : 'Never'}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (!company.probe42CompanyId) {
-                              toast({
-                                title: 'Cannot sync',
-                                description: 'This company has no Probe42 ID. It may have been added manually.',
-                                variant: 'destructive'
-                              });
-                              return;
-                            }
-                            syncMutation.mutate(company.id);
-                          }}
-                          disabled={syncingCompanyId === company.id}
-                          className={company.probe42CompanyId ? 'text-blue-400 hover:text-blue-300' : 'text-gray-500'}
-                          title={company.probe42CompanyId ? 'Sync from Probe42' : 'No Probe42 ID available'}
-                          data-testid={`button-sync-${company.id}`}
-                        >
-                          {syncingCompanyId === company.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <RefreshCw className="w-4 h-4" />
-                          )}
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!company.probe42CompanyId) {
+                                toast({
+                                  title: 'Cannot sync',
+                                  description: 'This company has no Probe42 ID. It may have been added manually.',
+                                  variant: 'destructive'
+                                });
+                                return;
+                              }
+                              syncMutation.mutate(company.id);
+                            }}
+                            disabled={syncingCompanyId === company.id}
+                            className={company.probe42CompanyId ? 'text-blue-400 hover:text-blue-300' : 'text-gray-500'}
+                            title={company.probe42CompanyId ? 'Sync from Probe42' : 'No Probe42 ID available'}
+                            data-testid={`button-sync-${company.id}`}
+                          >
+                            {syncingCompanyId === company.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <RefreshCw className="w-4 h-4" />
+                            )}
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                                title="Delete company"
+                                data-testid={`button-delete-${company.id}`}
+                              >
+                                {deleteMutation.isPending ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="w-4 h-4" />
+                                )}
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent className="bg-gray-900 border-gray-800" onClick={(e) => e.stopPropagation()}>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle className="text-white">Delete Company</AlertDialogTitle>
+                                <AlertDialogDescription className="text-gray-400">
+                                  Are you sure you want to delete <span className="font-semibold text-white">{company.name}</span>? 
+                                  This will also delete all related financials, price history, listings, and buy requests. 
+                                  This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel className="bg-gray-800 text-white border-gray-700 hover:bg-gray-700">
+                                  Cancel
+                                </AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => deleteMutation.mutate(company.id)}
+                                  className="bg-red-600 text-white hover:bg-red-700"
+                                  data-testid={`button-confirm-delete-${company.id}`}
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))

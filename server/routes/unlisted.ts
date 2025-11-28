@@ -149,6 +149,32 @@ router.patch('/companies/:id', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * DELETE /api/unlisted/companies/:id
+ * Delete a company and all related data (admin only)
+ */
+router.delete('/companies/:id', async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { id } = req.params;
+    
+    const existing = await storage.getUnlistedCompanyById(id);
+    if (!existing) {
+      return apiResponse.notFound(res, 'Company not found');
+    }
+    
+    await storage.deleteUnlistedCompany(id);
+    
+    return apiResponse.success(res, { deleted: true }, `Company "${existing.name}" deleted successfully`);
+  } catch (error: any) {
+    console.error('Error deleting company:', error);
+    return apiResponse.serverError(res, 'Failed to delete company');
+  }
+});
+
 // ===================================================================
 // PROBE42 INTEGRATION ROUTES
 // ===================================================================

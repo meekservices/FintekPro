@@ -1076,6 +1076,7 @@ export interface IStorage {
   getUnlistedCompanyByCIN(cin: string): Promise<UnlistedCompany | null>;
   getAllUnlistedCompanies(filters?: { status?: string; sector?: string }): Promise<UnlistedCompany[]>;
   updateUnlistedCompany(id: string, data: Partial<InsertUnlistedCompany>): Promise<UnlistedCompany>;
+  deleteUnlistedCompany(id: string): Promise<boolean>;
   
   // Company Financials
   createCompanyFinancials(data: InsertCompanyFinancials): Promise<CompanyFinancials>;
@@ -7640,6 +7641,17 @@ export class DatabaseStorage implements IStorage {
       .where(eq(schema.unlistedCompanies.id, id))
       .returning();
     return updated;
+  }
+
+  async deleteUnlistedCompany(id: string): Promise<boolean> {
+    await db.delete(schema.companyFinancials).where(eq(schema.companyFinancials.companyId, id));
+    await db.delete(schema.companyRatios).where(eq(schema.companyRatios.companyId, id));
+    await db.delete(schema.unlistedPriceHistory).where(eq(schema.unlistedPriceHistory.companyId, id));
+    await db.delete(schema.sellListings).where(eq(schema.sellListings.companyId, id));
+    await db.delete(schema.buyRequests).where(eq(schema.buyRequests.companyId, id));
+    await db.delete(schema.probe42SyncLog).where(eq(schema.probe42SyncLog.companyId, id));
+    const result = await db.delete(schema.unlistedCompanies).where(eq(schema.unlistedCompanies.id, id));
+    return true;
   }
 
   // Company Financials
