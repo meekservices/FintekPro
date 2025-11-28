@@ -154,6 +154,7 @@ function CompanyListView({
   onSelectCompany: (id: string) => void;
 }) {
   const { toast } = useToast();
+  const [syncingCompanyId, setSyncingCompanyId] = useState<string | null>(null);
 
   // Fetch companies with filters (admin endpoint - no KYC requirement)
   const { data: companies, isLoading } = useQuery<UnlistedCompany[]>({
@@ -170,14 +171,16 @@ function CompanyListView({
     },
   });
 
-  // Sync mutation
+  // Sync mutation with per-company loading state
   const syncMutation = useMutation({
     mutationFn: async (companyId: string) => {
+      setSyncingCompanyId(companyId);
       return apiRequest(`/api/unlisted/probe42/sync/${companyId}`, { method: 'POST' });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/unlisted/companies'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/companies'] });
       toast({ title: 'Company synced successfully with Probe42' });
+      setSyncingCompanyId(null);
     },
     onError: (error: any) => {
       toast({
@@ -185,6 +188,7 @@ function CompanyListView({
         description: error.message || 'Failed to sync company data',
         variant: 'destructive'
       });
+      setSyncingCompanyId(null);
     }
   });
 
@@ -315,24 +319,32 @@ function CompanyListView({
                         {company.lastSyncedAt ? format(new Date(company.lastSyncedAt), 'MMM dd, yyyy') : 'Never'}
                       </TableCell>
                       <TableCell className="text-right">
-                        {company.probe42CompanyId && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              syncMutation.mutate(company.id);
-                            }}
-                            disabled={syncMutation.isPending}
-                            data-testid={`button-sync-${company.id}`}
-                          >
-                            {syncMutation.isPending ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <RefreshCw className="w-4 h-4" />
-                            )}
-                          </Button>
-                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!company.probe42CompanyId) {
+                              toast({
+                                title: 'Cannot sync',
+                                description: 'This company has no Probe42 ID. It may have been added manually.',
+                                variant: 'destructive'
+                              });
+                              return;
+                            }
+                            syncMutation.mutate(company.id);
+                          }}
+                          disabled={syncingCompanyId === company.id}
+                          className={company.probe42CompanyId ? 'text-blue-400 hover:text-blue-300' : 'text-gray-500'}
+                          title={company.probe42CompanyId ? 'Sync from Probe42' : 'No Probe42 ID available'}
+                          data-testid={`button-sync-${company.id}`}
+                        >
+                          {syncingCompanyId === company.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <RefreshCw className="w-4 h-4" />
+                          )}
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))
