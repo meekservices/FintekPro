@@ -665,6 +665,85 @@ class Probe42Service {
 
     return ratios;
   }
+
+  /**
+   * Full sync method for a company - syncs details, financials, and ratios from Probe42
+   * Used by cron jobs for automated data freshness
+   */
+  async syncCompanyFromProbe42(companyId: string): Promise<{
+    success: boolean;
+    detailsUpdated: boolean;
+    financialsSynced: number;
+    ratiosSynced: number;
+    error?: string;
+  }> {
+    const { storage } = await import('../storage');
+    
+    const result = {
+      success: false,
+      detailsUpdated: false,
+      financialsSynced: 0,
+      ratiosSynced: 0,
+    };
+
+    try {
+      const company = await storage.getUnlistedCompanyById(companyId);
+      if (!company) {
+        return { ...result, error: 'Company not found' };
+      }
+
+      if (!company.probe42CompanyId) {
+        return { ...result, error: 'Company not linked to Probe42' };
+      }
+
+      const details = await this.getCompanyDetails(company.probe42CompanyId);
+      if (details) {
+        await storage.updateUnlistedCompany(companyId, {
+          cin: details.cin || company.cin,
+          sector: details.sector,
+          industry: details.industry,
+          incorporationDate: details.incorporation_date ? new Date(details.incorporation_date) : undefined,
+          paidUpCapital: details.paid_up_capital?.toString(),
+          authorizedCapital: details.authorized_capital?.toString(),
+          faceValue: details.face_value?.toString(),
+          totalShares: details.total_shares?.toString(),
+          website: details.website,
+          description: details.description,
+          lastSynced: new Date(),
+        });
+        result.detailsUpdated = true;
+      }
+
+      const financials = await this.getCompanyFinancials(company.probe42CompanyId, 5);
+      for (const fin of financials) {
+        const dbFormat = this.convertFinancialsToDbFormat(companyId, fin);
+        const existing = await storage.getCompanyFinancialsByYear(companyId, fin.financial_year);
+        if (existing) {
+          await storage.updateCompanyFinancials(existing.id, dbFormat);
+        } else {
+          await storage.createCompanyFinancials(dbFormat);
+        }
+        result.financialsSynced++;
+      }
+
+      const ratios = await this.getCompanyRatios(company.probe42CompanyId, 5);
+      for (const ratio of ratios) {
+        const dbFormat = this.convertRatiosToDbFormat(companyId, ratio);
+        const existing = await storage.getCompanyRatiosByYear(companyId, ratio.financial_year);
+        if (existing) {
+          await storage.updateCompanyRatios(existing.id, dbFormat);
+        } else {
+          await storage.createCompanyRatios(dbFormat);
+        }
+        result.ratiosSynced++;
+      }
+
+      result.success = true;
+      return result;
+    } catch (error: any) {
+      return { ...result, error: error.message };
+    }
+  }
 }
 
 // Export singleton instance
