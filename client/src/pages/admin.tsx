@@ -756,45 +756,55 @@ export default function AdminPanel() {
     queryKey: ['/api/admin/stats'],
   });
 
-  const { data: users = [], isLoading: usersLoading } = useQuery<any[]>({
+  const { data: usersData, isLoading: usersLoading } = useQuery<any>({
     queryKey: ['/api/admin/users'],
   });
+  const users = Array.isArray(usersData) ? usersData : (usersData?.users || []);
 
-  const { data: relationshipsData = [], isLoading: relationshipsLoading } = useQuery<any[]>({
+  const { data: relationshipsRaw, isLoading: relationshipsLoading } = useQuery<any>({
     queryKey: ['/api/admin/client-agent-relationships'],
   });
+  const relationshipsData = Array.isArray(relationshipsRaw) ? relationshipsRaw : (relationshipsRaw?.relationships || []);
 
   const { data: relationshipsStats = {}, isLoading: statsLoadingRel } = useQuery<any>({
     queryKey: ['/api/admin/client-agent-relationships/stats'],
   });
 
-  const { data: activities = [], isLoading: activitiesLoading } = useQuery<any[]>({
+  const { data: activitiesData, isLoading: activitiesLoading } = useQuery<any>({
     queryKey: ['/api/admin/activities'],
   });
+  const activities = Array.isArray(activitiesData) ? activitiesData : (activitiesData?.activities || []);
 
   const { data: insights = {}, isLoading: insightsLoading } = useQuery<any>({
     queryKey: ['/api/admin/insights'],
   });
 
-  const { data: agents = [], isLoading: agentsLoading } = useQuery<any[]>({
+  const { data: agentsData, isLoading: agentsLoading } = useQuery<any>({
     queryKey: ['/api/admin/agents'],
   });
+  
+  // Ensure agents is always an array, handling cases where API returns an object
+  const agents = Array.isArray(agentsData) ? agentsData : (agentsData?.agents || []);
 
-  const { data: proposals = [], isLoading: proposalsLoading } = useQuery<any[]>({
+  const { data: proposalsData, isLoading: proposalsLoading } = useQuery<any>({
     queryKey: ['/api/admin/proposals'],
   });
+  const proposals = Array.isArray(proposalsData) ? proposalsData : (proposalsData?.proposals || []);
 
-  const { data: complianceEvents = [], isLoading: complianceEventsLoading } = useQuery<any[]>({
+  const { data: complianceEventsData, isLoading: complianceEventsLoading } = useQuery<any>({
     queryKey: ['/api/admin/compliance/events'],
   });
+  const complianceEvents = Array.isArray(complianceEventsData) ? complianceEventsData : (complianceEventsData?.events || []);
 
-  const { data: complianceAlerts = [], isLoading: complianceAlertsLoading } = useQuery<any[]>({
+  const { data: complianceAlertsData, isLoading: complianceAlertsLoading } = useQuery<any>({
     queryKey: ['/api/admin/compliance/alerts'],
   });
+  const complianceAlerts = Array.isArray(complianceAlertsData) ? complianceAlertsData : (complianceAlertsData?.alerts || []);
 
-  const { data: systemErrors = [], isLoading: systemErrorsLoading } = useQuery<any[]>({
+  const { data: systemErrorsData, isLoading: systemErrorsLoading } = useQuery<any>({
     queryKey: ['/api/admin/system-errors'],
   });
+  const systemErrors = Array.isArray(systemErrorsData) ? systemErrorsData : (systemErrorsData?.errors || []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950">
