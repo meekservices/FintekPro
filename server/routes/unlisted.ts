@@ -1151,4 +1151,28 @@ router.get('/all-listings', requireLevel2, async (req: Request, res: Response) =
   }
 });
 
+/**
+ * POST /api/unlisted/admin/seed
+ * Seed sample unlisted marketplace data (Admin only)
+ */
+router.post('/admin/seed', async (req: Request, res: Response) => {
+  try {
+    // Check if user is admin
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { seedUnlistedMarketplace } = await import('../seed-unlisted');
+    const result = await seedUnlistedMarketplace(req.user.id);
+    
+    return apiResponse.success(res, {
+      message: 'Unlisted marketplace seeded successfully',
+      ...result
+    });
+  } catch (error: any) {
+    console.error('Error seeding unlisted marketplace:', error);
+    return apiResponse.serverError(res, 'Failed to seed marketplace data');
+  }
+});
+
 export default router;
