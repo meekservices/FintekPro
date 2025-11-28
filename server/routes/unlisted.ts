@@ -267,6 +267,46 @@ router.post('/probe42/sync/:companyId', requireLevel2, async (req: Request, res:
       matchScore: 100 
     };
     
+    // Try MoneyControl first (better for unlisted equity shares)
+    if (!isinResult.isin) {
+      try {
+        const { moneyControlScraper } = await import('../services/moneycontrol-scraper');
+        const mcResult = await moneyControlScraper.searchISINByCompanyName(company.name);
+        
+        if (mcResult.isin && mcResult.matchScore >= 60) {
+          isinResult = {
+            isin: mcResult.isin,
+            source: 'moneycontrol',
+            matchScore: mcResult.matchScore
+          };
+          console.log(`[Unlisted Sync] Auto-populated ISIN ${mcResult.isin} from MoneyControl for ${company.name} (${mcResult.matchScore.toFixed(1)}% match)`);
+          
+          // Also save the price if available
+          if (mcResult.price) {
+            try {
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              await storage.upsertPriceHistory({
+                companyId: company.id,
+                date: today,
+                price: mcResult.price.toString(),
+                sourceType: 'MONEYCONTROL',
+                notes: `Auto-imported during sync. Matched: ${mcResult.matchedName}`,
+              });
+              console.log(`[Unlisted Sync] Also saved price ₹${mcResult.price} from MoneyControl`);
+            } catch (priceErr) {
+              console.warn('[Unlisted Sync] Failed to save MoneyControl price:', priceErr);
+            }
+          }
+        } else {
+          console.log(`[Unlisted Sync] MoneyControl: No good match for "${company.name}" (best: ${mcResult.matchScore.toFixed(1)}%)`);
+        }
+      } catch (mcError) {
+        console.warn('[Unlisted Sync] Failed to fetch ISIN from MoneyControl:', mcError);
+      }
+    }
+    
+    // Fallback to NSDL if MoneyControl didn't find ISIN
     if (!isinResult.isin) {
       try {
         const { nsdlISINService } = await import('../services/nsdl-isin-service');
@@ -292,9 +332,9 @@ router.post('/probe42/sync/:companyId', requireLevel2, async (req: Request, res:
             source: 'nsdl',
             matchScore: bestMatch.matchScore
           };
-          console.log(`[Unlisted Sync] Auto-populated ISIN ${bestMatch.isin} for ${company.name} (${bestMatch.matchScore}% match, type: ${bestMatch.securityType})`);
+          console.log(`[Unlisted Sync] Auto-populated ISIN ${bestMatch.isin} from NSDL for ${company.name} (${bestMatch.matchScore}% match, type: ${bestMatch.securityType})`);
         } else if (nsdlResults.length > 0) {
-          console.log(`[Unlisted Sync] Best match score (${nsdlResults[0].matchScore}%) below 60% threshold, skipping auto-population`);
+          console.log(`[Unlisted Sync] NSDL: Best match score (${nsdlResults[0].matchScore}%) below 60% threshold, skipping`);
         }
       } catch (nsdlError) {
         console.warn('[Unlisted Sync] Failed to fetch ISIN from NSDL:', nsdlError);
@@ -365,6 +405,11 @@ router.post('/probe42/sync/:companyId', requireLevel2, async (req: Request, res:
       recordsFailed: 0,
     });
     
+    // Determine if ISIN was auto-populated from external source
+    const isAutoPopulated = isinResult.source === 'moneycontrol' || isinResult.source === 'nsdl';
+    const sourceLabel = isinResult.source === 'moneycontrol' ? 'MoneyControl' : 
+                        isinResult.source === 'nsdl' ? 'NSDL' : null;
+    
     return apiResponse.success(res, {
       success: true,
       financials: { created: financialsCount, updated: financialsUpdated },
@@ -374,9 +419,9 @@ router.post('/probe42/sync/:companyId', requireLevel2, async (req: Request, res:
         value: isinResult.isin,
         source: isinResult.source,
         matchScore: isinResult.matchScore,
-        autoPopulated: isinResult.source === 'nsdl'
+        autoPopulated: isAutoPopulated
       },
-      message: `Synced ${totalNew} new records, updated ${totalUpdated} existing records${isinResult.source === 'nsdl' ? `. ISIN auto-populated from NSDL (${isinResult.matchScore}% match)` : ''}`,
+      message: `Synced ${totalNew} new records, updated ${totalUpdated} existing records${isAutoPopulated && isinResult.isin ? `. ISIN auto-populated from ${sourceLabel} (${Math.round(isinResult.matchScore)}% match)` : ''}`,
     });
   } catch (error: any) {
     console.error('Error syncing from Probe42:', error);

@@ -265,6 +265,74 @@ class MoneyControlScraperService {
   async executeImport(): Promise<PriceImportResult> {
     return this.matchAndImportPrices(false);
   }
+
+  /**
+   * Search for a company's ISIN from MoneyControl data
+   * Returns the best matching ISIN if found
+   */
+  async searchISINByCompanyName(companyName: string): Promise<{
+    isin: string | null;
+    matchedName: string | null;
+    matchScore: number;
+    price: number | null;
+  }> {
+    try {
+      console.log(`[MoneyControl] Searching ISIN for company: ${companyName}`);
+      
+      const companies = await this.scrapeUnlistedPrices();
+      if (companies.length === 0) {
+        console.log('[MoneyControl] No companies found in scrape');
+        return { isin: null, matchedName: null, matchScore: 0, price: null };
+      }
+
+      const normalizedSearchName = this.normalizeForMatch(companyName);
+      let bestMatch: { company: MoneyControlCompany; score: number } | null = null;
+
+      for (const company of companies) {
+        const normalizedCompanyName = this.normalizeForMatch(company.name);
+        
+        // Calculate similarity score
+        let score = 0;
+        
+        // Exact match after normalization
+        if (normalizedSearchName === normalizedCompanyName) {
+          score = 100;
+        }
+        // One contains the other
+        else if (normalizedSearchName.includes(normalizedCompanyName) || normalizedCompanyName.includes(normalizedSearchName)) {
+          const longerLen = Math.max(normalizedSearchName.length, normalizedCompanyName.length);
+          const shorterLen = Math.min(normalizedSearchName.length, normalizedCompanyName.length);
+          score = (shorterLen / longerLen) * 90; // Up to 90% for containment
+        }
+        // Fuzzy match using Levenshtein
+        else {
+          const distance = this.levenshteinDistance(normalizedSearchName, normalizedCompanyName);
+          const maxLen = Math.max(normalizedSearchName.length, normalizedCompanyName.length);
+          score = Math.max(0, (1 - distance / maxLen) * 100);
+        }
+
+        if (!bestMatch || score > bestMatch.score) {
+          bestMatch = { company, score };
+        }
+      }
+
+      if (bestMatch && bestMatch.score >= 50) {
+        console.log(`[MoneyControl] Found ISIN ${bestMatch.company.isin} for "${companyName}" -> matched "${bestMatch.company.name}" (${bestMatch.score.toFixed(1)}% match)`);
+        return {
+          isin: bestMatch.company.isin,
+          matchedName: bestMatch.company.name,
+          matchScore: bestMatch.score,
+          price: bestMatch.company.price,
+        };
+      }
+
+      console.log(`[MoneyControl] No good match found for "${companyName}" (best: ${bestMatch?.score.toFixed(1) || 0}%)`);
+      return { isin: null, matchedName: null, matchScore: bestMatch?.score || 0, price: null };
+    } catch (error: any) {
+      console.error(`[MoneyControl] Error searching ISIN: ${error.message}`);
+      return { isin: null, matchedName: null, matchScore: 0, price: null };
+    }
+  }
 }
 
 export const moneyControlScraper = new MoneyControlScraperService();

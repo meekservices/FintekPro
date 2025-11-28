@@ -206,7 +206,12 @@ function CompanyListView({
       queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/companies'] });
       
       // Show detailed sync result including ISIN info
-      const message = result?.data?.message || 'Sync completed';
+      let message = result?.data?.message || 'Sync completed';
+      const isinInfo = result?.data?.isin;
+      if (isinInfo?.autoPopulated && isinInfo?.source) {
+        const sourceLabel = isinInfo.source === 'moneycontrol' ? 'MoneyControl' : 'NSDL';
+        message = `${message}. ISIN auto-populated from ${sourceLabel} (${Math.round(isinInfo.matchScore)}% match)`;
+      }
       
       toast({ 
         title: 'Company synced successfully', 
@@ -940,8 +945,9 @@ function Probe42SearchDialog({ onClose }: { onClose: () => void }) {
           // Show sync result including ISIN info
           const isinInfo = (syncResult as any)?.data?.isin;
           let description = 'Company data synced from Probe42';
-          if (isinInfo?.autoPopulated) {
-            description = `${description}. ISIN auto-populated from NSDL (${isinInfo.matchScore}% match)`;
+          if (isinInfo?.autoPopulated && isinInfo?.source) {
+            const sourceLabel = isinInfo.source === 'moneycontrol' ? 'MoneyControl' : 'NSDL';
+            description = `${description}. ISIN auto-populated from ${sourceLabel} (${Math.round(isinInfo.matchScore)}% match)`;
           }
           
           toast({ title: 'Company linked and synced successfully', description });
