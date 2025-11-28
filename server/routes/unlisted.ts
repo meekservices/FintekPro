@@ -270,26 +270,31 @@ router.post('/probe42/sync/:companyId', requireLevel2, async (req: Request, res:
     if (!isinResult.isin) {
       try {
         const { nsdlISINService } = await import('../services/nsdl-isin-service');
+        // Search all security types for unlisted companies (they might be equity, preference, etc.)
         const nsdlResults = await nsdlISINService.searchByCompanyName(company.name, { 
-          securityType: 'equity', 
-          limit: 5 
+          securityType: 'all', 
+          limit: 10 
         });
         
         console.log(`[Unlisted Sync] NSDL search for "${company.name}" returned ${nsdlResults.length} results`);
         if (nsdlResults.length > 0) {
-          console.log(`[Unlisted Sync] Best match: ${nsdlResults[0].issuerName} (${nsdlResults[0].matchScore}% match) - ISIN: ${nsdlResults[0].isin}`);
+          console.log(`[Unlisted Sync] Best match: ${nsdlResults[0].issuerName} (${nsdlResults[0].matchScore}% match) - ISIN: ${nsdlResults[0].isin} - Type: ${nsdlResults[0].securityType}`);
         }
         
-        // Use highest confidence match (must be at least 70% match)
-        if (nsdlResults.length > 0 && nsdlResults[0].matchScore >= 70) {
+        // Use highest confidence match (must be at least 60% match for unlisted shares)
+        // Prioritize equity type if available with good match
+        const equityMatch = nsdlResults.find(r => r.securityType === 'equity' && r.matchScore >= 60);
+        const bestMatch = equityMatch || (nsdlResults.length > 0 && nsdlResults[0].matchScore >= 60 ? nsdlResults[0] : null);
+        
+        if (bestMatch) {
           isinResult = {
-            isin: nsdlResults[0].isin,
+            isin: bestMatch.isin,
             source: 'nsdl',
-            matchScore: nsdlResults[0].matchScore
+            matchScore: bestMatch.matchScore
           };
-          console.log(`[Unlisted Sync] Auto-populated ISIN ${nsdlResults[0].isin} for ${company.name} (${nsdlResults[0].matchScore}% match)`);
+          console.log(`[Unlisted Sync] Auto-populated ISIN ${bestMatch.isin} for ${company.name} (${bestMatch.matchScore}% match, type: ${bestMatch.securityType})`);
         } else if (nsdlResults.length > 0) {
-          console.log(`[Unlisted Sync] Best match score (${nsdlResults[0].matchScore}%) below 70% threshold, skipping auto-population`);
+          console.log(`[Unlisted Sync] Best match score (${nsdlResults[0].matchScore}%) below 60% threshold, skipping auto-population`);
         }
       } catch (nsdlError) {
         console.warn('[Unlisted Sync] Failed to fetch ISIN from NSDL:', nsdlError);
