@@ -563,6 +563,179 @@ router.post('/moneycontrol/import', requireLevel2, async (req: Request, res: Res
   }
 });
 
+/**
+ * POST /api/unlisted/moneycontrol/add-company
+ * Add a missing company from MoneyControl with Probe42 enrichment
+ * Creates company -> Searches Probe42 -> Syncs data -> Imports MC price
+ */
+router.post('/moneycontrol/add-company', requireLevel2, async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const schema = z.object({
+      name: z.string().min(2, 'Company name is required'),
+      isin: z.string().min(10, 'Valid ISIN is required').max(12),
+      price: z.number().optional(),
+    });
+    
+    const { name, isin, price } = schema.parse(req.body);
+    
+    // Check if company with same ISIN already exists
+    const existingByIsin = await storage.getUnlistedCompanyByISIN(isin);
+    if (existingByIsin) {
+      return apiResponse.badRequest(res, `Company with ISIN ${isin} already exists: ${existingByIsin.name}`);
+    }
+    
+    const result: {
+      companyId: string;
+      companyName: string;
+      probe42Found: boolean;
+      probe42Data: {
+        cin?: string;
+        sector?: string;
+        industry?: string;
+        financialsSynced: number;
+        ratiosSynced: number;
+      } | null;
+      priceImported: boolean;
+      importedPrice?: number;
+    } = {
+      companyId: '',
+      companyName: name,
+      probe42Found: false,
+      probe42Data: null,
+      priceImported: false,
+    };
+    
+    // Search Probe42 for company by name
+    let probe42CompanyId: string | null = null;
+    let probe42Details: any = null;
+    
+    try {
+      const probe42Results = await probe42Service.searchCompanyByNameOrCIN(name);
+      
+      if (probe42Results && probe42Results.length > 0) {
+        // Find best match - exact name match or first result
+        const exactMatch = probe42Results.find(r => 
+          r.name.toLowerCase() === name.toLowerCase()
+        );
+        const bestMatch = exactMatch || probe42Results[0];
+        
+        probe42CompanyId = bestMatch.company_id;
+        
+        // Get full company details from Probe42
+        probe42Details = await probe42Service.getCompanyDetails(probe42CompanyId);
+        result.probe42Found = true;
+      }
+    } catch (error: any) {
+      console.warn('Probe42 search failed, creating company with basic data:', error.message);
+    }
+    
+    // Create the company
+    const companyData: any = {
+      name,
+      isin,
+      status: 'active',
+      createdBy: req.user.id,
+    };
+    
+    // Enrich with Probe42 data if available
+    if (probe42Details) {
+      companyData.cin = probe42Details.cin;
+      companyData.sector = probe42Details.sector;
+      companyData.industry = probe42Details.industry;
+      companyData.website = probe42Details.website;
+      companyData.description = probe42Details.description;
+      if (probe42Details.incorporation_date) {
+        companyData.incorporationDate = probe42Details.incorporation_date;
+      }
+      if (probe42Details.paid_up_capital) {
+        companyData.paidUpCapital = probe42Details.paid_up_capital.toString();
+      }
+      if (probe42Details.authorized_capital) {
+        companyData.authorizedCapital = probe42Details.authorized_capital.toString();
+      }
+      if (probe42Details.face_value) {
+        companyData.faceValue = probe42Details.face_value.toString();
+      }
+      if (probe42Details.total_shares) {
+        companyData.totalShares = typeof probe42Details.total_shares === 'number' 
+          ? probe42Details.total_shares 
+          : parseInt(probe42Details.total_shares, 10);
+      }
+      companyData.probe42CompanyId = probe42CompanyId;
+      companyData.lastSyncedAt = new Date();
+      
+      result.probe42Data = {
+        cin: probe42Details.cin,
+        sector: probe42Details.sector,
+        industry: probe42Details.industry,
+        financialsSynced: 0,
+        ratiosSynced: 0,
+      };
+    }
+    
+    const company = await storage.createUnlistedCompany(companyData);
+    result.companyId = company.id;
+    result.companyName = company.name;
+    
+    // Sync financials and ratios from Probe42 if we have a company ID
+    if (probe42CompanyId && result.probe42Data) {
+      try {
+        const financials = await probe42Service.getCompanyFinancials(probe42CompanyId, 5);
+        for (const fin of financials) {
+          const dbFormat = probe42Service.convertFinancialsToDbFormat(company.id, fin);
+          await storage.createCompanyFinancials(dbFormat);
+          result.probe42Data.financialsSynced++;
+        }
+        
+        const ratios = await probe42Service.getCompanyRatios(probe42CompanyId, 5);
+        for (const ratio of ratios) {
+          const dbFormat = probe42Service.convertRatiosToDbFormat(company.id, ratio);
+          await storage.createCompanyRatios(dbFormat);
+          result.probe42Data.ratiosSynced++;
+        }
+      } catch (error: any) {
+        console.warn('Failed to sync financials/ratios from Probe42:', error.message);
+      }
+    }
+    
+    // Import price from MoneyControl if provided
+    if (price && price > 0) {
+      try {
+        await storage.upsertPriceHistory({
+          companyId: company.id,
+          date: new Date(),
+          price: price.toString(),
+          sourceType: 'ADMIN_INPUT',
+          notes: 'Imported from MoneyControl',
+        });
+        
+        result.priceImported = true;
+        result.importedPrice = price;
+      } catch (error: any) {
+        console.warn('Failed to import price from MoneyControl:', error.message);
+      }
+    }
+    
+    return apiResponse.created(res, result, 
+      `Company "${name}" created successfully` + 
+      (result.probe42Found ? ' with Probe42 data' : '') +
+      (result.priceImported ? ` and price ₹${price?.toLocaleString('en-IN')}` : '')
+    );
+  } catch (error: any) {
+    console.error('Error adding company from MoneyControl:', error);
+    
+    if (error instanceof z.ZodError) {
+      return apiResponse.badRequest(res, 'Invalid input data', error.errors);
+    }
+    
+    return apiResponse.serverError(res, `Failed to add company: ${error.message}`);
+  }
+});
+
 // ===================================================================
 // TRADING ROUTES - SELL LISTINGS
 // ===================================================================

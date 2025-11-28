@@ -1461,9 +1461,84 @@ interface MoneyControlMatchResult {
   message?: string;
 }
 
+interface AddCompanyResult {
+  companyId: string;
+  companyName: string;
+  probe42Found: boolean;
+  probe42Data: {
+    cin?: string;
+    sector?: string;
+    industry?: string;
+    financialsSynced: number;
+    ratiosSynced: number;
+  } | null;
+  priceImported: boolean;
+  importedPrice?: number;
+}
+
 function MoneyControlImportDialog({ onClose }: { onClose: () => void }) {
   const { toast } = useToast();
   const [previewData, setPreviewData] = useState<MoneyControlMatchResult | null>(null);
+  const [addingCompanyIsin, setAddingCompanyIsin] = useState<string | null>(null);
+  const [addedCompanies, setAddedCompanies] = useState<Map<string, AddCompanyResult>>(new Map());
+
+  const addCompanyMutation = useMutation({
+    mutationFn: async (company: { name: string; isin: string; price: number }) => {
+      const response = await apiRequest('/api/unlisted/moneycontrol/add-company', {
+        method: 'POST',
+        body: JSON.stringify(company),
+        headers: { 'Content-Type': 'application/json' }
+      });
+      return response as { data: AddCompanyResult };
+    },
+    onSuccess: (response, variables) => {
+      const result = response.data;
+      setAddedCompanies(prev => new Map(prev).set(variables.isin, result));
+      
+      // Remove from unmatched and add to matched
+      if (previewData) {
+        const updatedUnmatched = previewData.unmatchedCompanies.filter(c => c.isin !== variables.isin);
+        const addedCompany = previewData.unmatchedCompanies.find(c => c.isin === variables.isin);
+        if (addedCompany) {
+          const newMatched = {
+            moneyControlName: addedCompany.name,
+            isin: addedCompany.isin,
+            matchedTo: result.companyName,
+            matchedById: result.companyId,
+            price: addedCompany.price,
+            matchType: 'isin' as const
+          };
+          setPreviewData({
+            ...previewData,
+            matched: previewData.matched + 1,
+            matchedCompanies: [...previewData.matchedCompanies, newMatched],
+            unmatchedCompanies: updatedUnmatched
+          });
+        }
+      }
+      
+      toast({
+        title: 'Company Added',
+        description: result.probe42Found 
+          ? `${result.companyName} added with Probe42 data (${result.probe42Data?.financialsSynced || 0} financials synced)`
+          : `${result.companyName} added (Probe42 data not found)`,
+      });
+      setAddingCompanyIsin(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to Add Company',
+        description: error.message || 'Failed to add company',
+        variant: 'destructive'
+      });
+      setAddingCompanyIsin(null);
+    }
+  });
+
+  const handleAddCompany = (company: { name: string; isin: string; price: number }) => {
+    setAddingCompanyIsin(company.isin);
+    addCompanyMutation.mutate(company);
+  };
 
   const previewMutation = useMutation({
     mutationFn: async () => {
@@ -1624,36 +1699,49 @@ function MoneyControlImportDialog({ onClose }: { onClose: () => void }) {
                     Unmatched Companies ({previewData.unmatchedCompanies.length})
                   </CardTitle>
                   <CardDescription className="text-gray-500 text-xs">
-                    These companies from MoneyControl don't match any companies in your database
+                    These companies from MoneyControl don't match any in your database. Click "Add" to create them with Probe42 data.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="max-h-32 overflow-y-auto">
+                  <div className="max-h-48 overflow-y-auto">
                     <Table>
                       <TableHeader>
                         <TableRow className="border-gray-700">
                           <TableHead className="text-gray-400 text-xs">Company Name</TableHead>
                           <TableHead className="text-gray-400 text-xs">ISIN</TableHead>
                           <TableHead className="text-gray-400 text-xs text-right">Price</TableHead>
+                          <TableHead className="text-gray-400 text-xs text-center w-24">Action</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {previewData.unmatchedCompanies.slice(0, 10).map((company, idx) => (
+                        {previewData.unmatchedCompanies.map((company, idx) => (
                           <TableRow key={idx} className="border-gray-700">
                             <TableCell className="text-gray-300 text-sm py-2">{company.name}</TableCell>
                             <TableCell className="text-gray-400 font-mono text-xs py-2">{company.isin}</TableCell>
                             <TableCell className="text-right text-gray-300 text-sm py-2">
                               ₹{company.price.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                             </TableCell>
-                          </TableRow>
-                        ))}
-                        {previewData.unmatchedCompanies.length > 10 && (
-                          <TableRow className="border-gray-700">
-                            <TableCell colSpan={3} className="text-center text-gray-500 text-xs py-2">
-                              ... and {previewData.unmatchedCompanies.length - 10} more
+                            <TableCell className="text-center py-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 px-2 text-xs border-blue-500 text-blue-400 hover:bg-blue-500/20"
+                                onClick={() => handleAddCompany(company)}
+                                disabled={addingCompanyIsin === company.isin}
+                                data-testid={`button-add-company-${company.isin}`}
+                              >
+                                {addingCompanyIsin === company.isin ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <>
+                                    <Plus className="w-3 h-3 mr-1" />
+                                    Add
+                                  </>
+                                )}
+                              </Button>
                             </TableCell>
                           </TableRow>
-                        )}
+                        ))}
                       </TableBody>
                     </Table>
                   </div>
