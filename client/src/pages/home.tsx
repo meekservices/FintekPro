@@ -64,7 +64,6 @@ export default function Home() {
   const { data: fallbackUser } = useQuery({ queryKey: ["/api/user"], retry: false });
   const currentUser = user || (fallbackUser as any);
   const userId = (currentUser as any)?.id;
-  const portfolioId = userId ? `portfolio-${userId}` : null;
   
   // Get greeting based on time of day
   const getGreeting = (): string => {
@@ -96,6 +95,11 @@ export default function Home() {
     queryKey: ["/api/portfolios", userId],
     enabled: !!userId && isAuthenticated,
   });
+  
+  // Get portfolio ID from actual portfolios data
+  const portfolioId = (portfolios && Array.isArray(portfolios) && portfolios.length > 0) 
+    ? portfolios[0]?.id 
+    : null;
   
   const { data: holdings } = useQuery({
     queryKey: ["/api/portfolios", portfolioId, "holdings"],
