@@ -247,6 +247,27 @@ function CompanyListView({
     }
   });
 
+  // Update status mutation
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ companyId, status }: { companyId: string; status: string }) => {
+      return apiRequest(`/api/unlisted/companies/${companyId}`, { 
+        method: 'PATCH',
+        body: JSON.stringify({ status })
+      });
+    },
+    onSuccess: (_, { status }) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/companies'] });
+      toast({ title: 'Status updated', description: `Company status changed to ${status}` });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Update failed',
+        description: error.message || 'Failed to update status',
+        variant: 'destructive'
+      });
+    }
+  });
+
   // Filter companies by search query
   const filteredCompanies = companies?.filter(company => {
     if (!searchQuery) return true;
@@ -361,14 +382,31 @@ function CompanyListView({
                       <TableCell className="text-gray-300" data-testid={`text-stage-${company.id}`}>
                         {company.listingStage || 'N/A'}
                       </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={company.status === 'active' ? 'default' : 'secondary'}
-                          className={company.status === 'active' ? 'bg-green-500' : 'bg-gray-500'}
-                          data-testid={`badge-status-${company.id}`}
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Select
+                          value={company.status || 'active'}
+                          onValueChange={(value) => {
+                            updateStatusMutation.mutate({ companyId: company.id, status: value });
+                          }}
+                          disabled={updateStatusMutation.isPending}
                         >
-                          {company.status}
-                        </Badge>
+                          <SelectTrigger 
+                            className={`w-28 h-8 text-xs border-0 ${
+                              company.status === 'active' ? 'bg-green-600/20 text-green-400' :
+                              company.status === 'inactive' ? 'bg-yellow-600/20 text-yellow-400' :
+                              company.status === 'delisted' ? 'bg-red-600/20 text-red-400' :
+                              'bg-gray-600/20 text-gray-400'
+                            }`}
+                            data-testid={`select-status-${company.id}`}
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-gray-900 border-gray-700">
+                            <SelectItem value="active" className="text-green-400">Active</SelectItem>
+                            <SelectItem value="inactive" className="text-yellow-400">Inactive</SelectItem>
+                            <SelectItem value="delisted" className="text-red-400">Delisted</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </TableCell>
                       <TableCell className="text-sm text-gray-400" data-testid={`text-lastSynced-${company.id}`}>
                         {company.lastSyncedAt ? format(new Date(company.lastSyncedAt), 'MMM dd, yyyy') : 'Never'}
