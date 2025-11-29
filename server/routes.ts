@@ -11953,6 +11953,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Government Scheme Consent Initiation (OTP-based)
+  app.post("/api/government-schemes/consent/initiate", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { schemeType, channel = 'mobile' } = req.body;
+      
+      const validSchemes = ['epf', 'eps', 'ppf', 'nps', 'apy', 'insurance'];
+      if (!validSchemes.includes(schemeType)) {
+        return res.status(400).json({ error: 'Invalid scheme type' });
+      }
+
+      const user = await storage.getUser(userId);
+      
+      const { governmentSchemeConsentOrchestrator } = await import('./services/government-scheme-consent-orchestrator');
+      
+      const result = await governmentSchemeConsentOrchestrator.initiateConsent({
+        userId,
+        schemeType: schemeType as any,
+        channel: channel as any,
+        mobile: user?.mobile,
+        email: user?.email,
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent')
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error initiating consent:", error);
+      res.status(500).json({ error: "Failed to initiate consent" });
+    }
+  });
+
+  // Government Scheme Consent Verification (OTP)
+  app.post("/api/government-schemes/consent/verify", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { challengeId, otp } = req.body;
+      
+      if (!challengeId || !otp) {
+        return res.status(400).json({ error: 'Challenge ID and OTP are required' });
+      }
+
+      const { governmentSchemeConsentOrchestrator } = await import('./services/government-scheme-consent-orchestrator');
+      
+      const result = await governmentSchemeConsentOrchestrator.verifyOTPAndGrantConsent({
+        userId,
+        schemeType: 'epf' as any,
+        challengeId,
+        otp,
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent')
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error verifying consent:", error);
+      res.status(500).json({ error: "Failed to verify consent" });
+    }
+  });
+
   // Government Scheme Refresh with OTP-based Consent
   app.post("/api/government-schemes/:scheme/refresh", requireAuth, async (req: any, res) => {
     try {
